@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+
+	<PropertyGroup>
+		<VersionPrefix>1.0.0</VersionPrefix>
+		<Company>Mythosia</Company>
+		<Authors>JJW</Authors>
+		<Description>## Package Summary
+
+The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4** and **Anthropic Claude** models. This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for models like GPT-3.5, GPT-4, Claude, and more.
+
+This library abstracts the HTTP requests required to communicate with the APIs and provides a unified interface for various AI models, making it easier to integrate into any C# or ASP.NET Core project.
+
+### Supported Models
+
+- OpenAI GPT-4 and GPT-4 Turbo
+- OpenAI GPT-3.5 Turbo
+- Claude 3.x variants (Claude3_5Sonnet, Claude3Opus, Claude3Haiku)
+
+### Key Features
+
+- Synchronous completion and streaming support for AI models
+- Customizable model selection, temperature, and max tokens
+- Abstraction over the complexity of managing HTTP requests and responses
+- Extendable structure for adding support for new AI models
+
+## How to Use
+
+To use this library, create an instance of either `ChatGptService` or `ClaudeService` depending on the AI model you're working with. Here's an example:</Description>
+	</PropertyGroup>
+
+
+	<ItemGroup>
+		<PackageReference Include="Azure.AI.OpenAI" Version="2.0.0-beta.5" />
+		<PackageReference Include="Azure.AI.OpenAI.Assistants" Version="1.0.0-beta.4" />
+		<PackageReference Include="Azure.Search.Documents" Version="11.6.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="OpenAI" Version="2.0.0-beta.12" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Mythosia.Azure\Mythosia.Azure.csproj" />
+	</ItemGroup>
+
+</Project>
