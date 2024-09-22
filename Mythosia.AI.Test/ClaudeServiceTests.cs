@@ -1,9 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Mythosia.AI;
-using Mythosia.Azure;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Mythosia.Azure;
 
 namespace Mythosia.AI.Tests
 {
@@ -17,6 +12,8 @@ namespace Mythosia.AI.Tests
             {
                 SecretFetcher secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
                 ClaudeService claudeService = new ClaudeService(await secretFetcher.GetKeyValueAsync(), new HttpClient());
+
+                claudeService.SystemMessage = "반말로 말해주세요";
 
                 // 질문 준비
                 string prompt = "안녕하세요, Claude. 인공지능의 발전이 인류에게 미칠 수 있는 긍정적인 영향에 대해 설명해 주시겠습니까?";

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -7,22 +9,114 @@ namespace Mythosia.AI
 {
     public enum AIModel
     {
+        [Description("claude-3-5-sonnet-20240620")]
         Claude3_5Sonnet,
+
+        [Description("claude-3-opus-20240229")]
         Claude3Opus,
+
+        [Description("claude-3-haiku-20240307")]
         Claude3Haiku,
+
+        [Description("gpt-3.5-turbo-1106")]
         Gpt3_5Turbo,
+
+        [Description("gpt-4-0613")]
         Gpt4,
+
+        [Description("gpt-4-1106-preview")]
+        Gpt4Turbo,
+
+        [Description("gpt-4o-2024-08-06")]
         Gpt4o,
-        Gpt4oMini,
-        Gpt4Turbo
+
+        [Description("gpt-4o-mini-2024-07-18")]
+        Gpt4oMini
     }
+
+
+    public class ChatRequest
+    {
+        public AIModel Model { get; set; }
+        public string SystemMessage { get; set; } = string.Empty;
+        public IList<Message> Messages { get; set; } = new List<Message>();
+        public double Temperature { get; set; }
+        public int MaxTokens { get; set; }
+        public bool Stream { get; set; }
+
+
+        public object ToChatGptRequestBody()
+        {
+            var messagesList = new List<object>();
+
+            // Add the system message if it's not empty
+            if (!string.IsNullOrEmpty(SystemMessage))
+            {
+                messagesList.Add(new { role = "system", content = SystemMessage });
+            }
+
+            // Add user messages
+            foreach (var message in Messages)
+            {
+                messagesList.Add(new { role = message.Role, content = message.Content });
+            }
+
+            var requestBody = new
+            {
+                model = Model.ToDescription(),
+                messages = messagesList.ToArray(),
+                temperature = Temperature,
+                max_tokens = MaxTokens,
+                stream = Stream
+            };
+
+            return requestBody;
+        }
+
+
+        public object ToClaudeRequestBody()
+        {
+            var messagesList = new List<object>();
+
+            // Add user messages
+            foreach (var message in Messages)
+            {
+                messagesList.Add(new { role = message.Role, content = message.Content });
+            }
+
+            var requestBody = new
+            {
+                model = Model.ToDescription(),
+                system = SystemMessage,
+                messages = messagesList.ToArray(),
+                temperature = Temperature,
+                stream = Stream,
+                max_tokens = MaxTokens
+            };
+
+            return requestBody;
+        }
+    }
+
+    public class Message
+    {
+        public string Role { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+    }
+
+
 
     public abstract class AIService
     {
         protected readonly string ApiKey;
         protected readonly HttpClient HttpClient;
         public AIModel Model { get; set; }
+
+        public string SystemMessage { get; set; } = string.Empty;
+
+        public float TopP { get; set; } = 1.0f;
         public float Temperature { get; set; } = 0.7f;
+        public float FrequencyPenalty { get; set; } = 0.0f;
         public uint MaxTokens { get; set; } = 1024;
 
         protected AIService(string apiKey, string baseUrl, HttpClient httpClient)
@@ -93,22 +187,5 @@ namespace Mythosia.AI
         protected abstract HttpRequestMessage CreateRequest(string prompt, bool isStream);
 
         protected abstract string ExtractResponseContent(string responseContent);
-
-
-        protected string GetModelString()
-        {
-            return Model switch
-            {
-                AIModel.Claude3_5Sonnet => "claude-3-5-sonnet-20240620",
-                AIModel.Claude3Opus => "claude-3-opus-20240229",
-                AIModel.Claude3Haiku => "claude-3-haiku-20240307",
-                AIModel.Gpt3_5Turbo => "gpt-3.5-turbo-1106",
-                AIModel.Gpt4 => "gpt-4-0613",
-                AIModel.Gpt4Turbo => "gpt-4-1106-preview",
-                AIModel.Gpt4o => "gpt-4o-2024-08-06",
-                AIModel.Gpt4oMini => "gpt-4o-mini-2024-07-18",
-                _ => throw new ArgumentException("not supported model", nameof(Model))
-            };
-        }
     }
 }

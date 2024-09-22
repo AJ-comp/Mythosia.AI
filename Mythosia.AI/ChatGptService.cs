@@ -33,12 +33,16 @@ namespace Mythosia.AI
             // 요청 바디 생성
             var requestBody = new
             {
-                model = GetModelString(),
+                model = Model.ToDescription(),
                 messages = new[]
                 {
-                new { role = "user", content = prompt }
+                    new { role = "system", content = SystemMessage },
+                    new { role = "user", content = prompt }
                 },
+
+                top_p = TopP,
                 temperature = Temperature,
+                frequency_penalty = FrequencyPenalty,
                 max_tokens = MaxTokens,
                 stream = isStream
             };
@@ -57,7 +61,6 @@ namespace Mythosia.AI
 
             return request;
         }
-
 
 
         protected override string ExtractResponseContent(string responseContent)
