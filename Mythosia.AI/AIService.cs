@@ -184,6 +184,43 @@ namespace Mythosia.AI
             }
         }
 
+
+        public virtual async Task StreamCompletionAsync(string prompt, Func<string, Task> MessageReceived)
+        {
+            var request = CreateRequest(prompt, true);
+            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode)
+                throw new Exception($"API request failed: {response.ReasonPhrase}");
+
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new System.IO.StreamReader(stream);
+
+            while (!reader.EndOfStream)
+            {
+                var line = await reader.ReadLineAsync();
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
+                    continue;
+
+                var jsonData = line.Substring("data:".Length).Trim();
+                if (jsonData == "[DONE]")
+                    break;
+
+                try
+                {
+                    var content = StreamParseJson(jsonData);
+                    if (!string.IsNullOrEmpty(content))
+                    {
+                        await MessageReceived(content);
+                    }
+                }
+                catch (JsonException ex)
+                {
+                    Console.WriteLine($"JSON parsing error: {ex.Message}");
+                }
+            }
+        }
+
         protected abstract HttpRequestMessage CreateRequest(string prompt, bool isStream);
 
         protected abstract string ExtractResponseContent(string responseContent);
