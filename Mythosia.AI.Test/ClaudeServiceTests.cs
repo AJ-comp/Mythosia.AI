@@ -13,18 +13,16 @@ namespace Mythosia.AI.Tests
                 SecretFetcher secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
                 ClaudeService claudeService = new ClaudeService(await secretFetcher.GetKeyValueAsync(), new HttpClient());
 
-                claudeService.SystemMessage = "반말로 말해주세요";
+                claudeService.ActivateChat.SystemMessage = "반말로 말해주세요";
 
                 // 질문 준비
                 string prompt = "안녕하세요, Claude. 인공지능의 발전이 인류에게 미칠 수 있는 긍정적인 영향에 대해 설명해 주시겠습니까?";
 
                 // Claude 3.5 Sonnet 모델을 사용하여 질의 및 응답 받기
                 string response = await claudeService.GetCompletionAsync(prompt);
-                await claudeService.StreamCompletionAsync(prompt, (message) => { Console.WriteLine(message); });
+                await claudeService.StreamCompletionAsync("이번엔 부정적인 영향에 대해 설명해줘", (message) => { Console.WriteLine(message); });
 
-                // 응답 출력
-                Console.WriteLine("Claude 3.5 Sonnet의 응답:");
-                Console.WriteLine(response);
+                response = await claudeService.GetCompletionAsync("지금까지 말한 의견을 종합했을 때 넌 어떨거 같아?");
             }
             catch (ArgumentException aex)
             {

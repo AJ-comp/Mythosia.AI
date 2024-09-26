@@ -32,11 +32,13 @@ var httpClient = new HttpClient();
 
 // For GPT-based completion
 var chatGptService = new ChatGptService("your_openai_api_key", httpClient);
+chatGptService.SystemMessage = "cuty"; // Optional system message
 string gptResponse = await chatGptService.GetCompletionAsync("What is the weather today?");
 Console.WriteLine(gptResponse);
 
 // For Claude-based completion
 var claudeService = new ClaudeService("your_anthropic_api_key", httpClient);
+claudeService.SystemMessage = "cuty"; // Optional system message
 string claudeResponse = await claudeService.GetCompletionAsync("What is the weather today?");
 Console.WriteLine(claudeResponse);
 ```

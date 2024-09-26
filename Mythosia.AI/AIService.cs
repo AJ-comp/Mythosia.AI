@@ -1,7 +1,10 @@
-﻿using System;
+﻿using Microsoft.Extensions.Azure;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -35,89 +38,17 @@ namespace Mythosia.AI
     }
 
 
-    public class ChatRequest
-    {
-        public AIModel Model { get; set; }
-        public string SystemMessage { get; set; } = string.Empty;
-        public IList<Message> Messages { get; set; } = new List<Message>();
-        public double Temperature { get; set; }
-        public int MaxTokens { get; set; }
-        public bool Stream { get; set; }
-
-
-        public object ToChatGptRequestBody()
-        {
-            var messagesList = new List<object>();
-
-            // Add the system message if it's not empty
-            if (!string.IsNullOrEmpty(SystemMessage))
-            {
-                messagesList.Add(new { role = "system", content = SystemMessage });
-            }
-
-            // Add user messages
-            foreach (var message in Messages)
-            {
-                messagesList.Add(new { role = message.Role, content = message.Content });
-            }
-
-            var requestBody = new
-            {
-                model = Model.ToDescription(),
-                messages = messagesList.ToArray(),
-                temperature = Temperature,
-                max_tokens = MaxTokens,
-                stream = Stream
-            };
-
-            return requestBody;
-        }
-
-
-        public object ToClaudeRequestBody()
-        {
-            var messagesList = new List<object>();
-
-            // Add user messages
-            foreach (var message in Messages)
-            {
-                messagesList.Add(new { role = message.Role, content = message.Content });
-            }
-
-            var requestBody = new
-            {
-                model = Model.ToDescription(),
-                system = SystemMessage,
-                messages = messagesList.ToArray(),
-                temperature = Temperature,
-                stream = Stream,
-                max_tokens = MaxTokens
-            };
-
-            return requestBody;
-        }
-    }
-
-    public class Message
-    {
-        public string Role { get; set; } = string.Empty;
-        public string Content { get; set; } = string.Empty;
-    }
-
-
-
     public abstract class AIService
     {
         protected readonly string ApiKey;
         protected readonly HttpClient HttpClient;
-        public AIModel Model { get; set; }
 
-        public string SystemMessage { get; set; } = string.Empty;
+        protected HashSet<ChatBlock> _chatRequests = new HashSet<ChatBlock>();
 
-        public float TopP { get; set; } = 1.0f;
-        public float Temperature { get; set; } = 0.7f;
-        public float FrequencyPenalty { get; set; } = 0.0f;
-        public uint MaxTokens { get; set; } = 1024;
+        public IReadOnlyCollection<ChatBlock> ChatRequests => _chatRequests;
+
+        public ChatBlock ActivateChat { get; private set; }
+
 
         protected AIService(string apiKey, string baseUrl, HttpClient httpClient)
         {
@@ -126,10 +57,32 @@ namespace Mythosia.AI
             httpClient.BaseAddress = new Uri(baseUrl); // BaseAddress 설정
         }
 
+        public void AddNewChat(ChatBlock newChat)
+        {
+            _chatRequests.Add(newChat);
+
+            ActivateChat = newChat;
+        }
+
+        public void SetActivateChat(string chatBlockId)
+        {
+            // 선택된 ChatBlock을 _chatRequests에서 찾기
+            var selectedChatBlock = _chatRequests.FirstOrDefault(chat => chat.Id == chatBlockId);
+
+            // 선택된 ChatBlock이 null이 아니면 ActivateRequest로 설정
+            if (selectedChatBlock != null) ActivateChat = selectedChatBlock;
+        }
+
+
+
+
         public virtual async Task<string> GetCompletionAsync(string prompt)
         {
+            ActivateChat.Stream = false;
+            ActivateChat.Messages.Add(new Message(ActorRole.User, prompt));
+
             // CreateRequest로 HttpRequestMessage 생성
-            var request = CreateRequest(prompt, false);
+            var request = CreateRequest();
 
             // HttpClient를 사용해 요청 전송
             var response = await HttpClient.SendAsync(request);
@@ -138,7 +91,10 @@ namespace Mythosia.AI
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
-                return ExtractResponseContent(responseContent); // 응답 내용 처리
+                var result = ExtractResponseContent(responseContent);
+
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, ExtractResponseContent(responseContent)));
+                return result;
             }
             else
             {
@@ -150,7 +106,10 @@ namespace Mythosia.AI
 
         public virtual async Task StreamCompletionAsync(string prompt, Action<string> MessageReceived)
         {
-            var request = CreateRequest(prompt, true);
+            ActivateChat.Stream = true;
+            ActivateChat.Messages.Add(new Message(ActorRole.User, prompt));
+
+            var request = CreateRequest();
             var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             if (!response.IsSuccessStatusCode)
@@ -159,6 +118,7 @@ namespace Mythosia.AI
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new System.IO.StreamReader(stream);
 
+            var allContent = new StringBuilder();
             while (!reader.EndOfStream)
             {
                 var line = await reader.ReadLineAsync();
@@ -166,28 +126,32 @@ namespace Mythosia.AI
                     continue;
 
                 var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]")
-                    break;
+                if (jsonData == "[DONE]") break;
 
                 try
                 {
                     var content = StreamParseJson(jsonData);
+
                     if (!string.IsNullOrEmpty(content))
                     {
+                        allContent.Append(content);
                         MessageReceived(content);
                     }
                 }
                 catch (JsonException ex)
                 {
-                    Console.WriteLine($"JSON parsing error: {ex.Message}");
+                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
+                    throw ex;
                 }
             }
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
         }
 
 
         public virtual async Task StreamCompletionAsync(string prompt, Func<string, Task> MessageReceived)
         {
-            var request = CreateRequest(prompt, true);
+            var request = CreateRequest();
             var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             if (!response.IsSuccessStatusCode)
@@ -221,7 +185,7 @@ namespace Mythosia.AI
             }
         }
 
-        protected abstract HttpRequestMessage CreateRequest(string prompt, bool isStream);
+        protected abstract HttpRequestMessage CreateRequest();
 
         protected abstract string ExtractResponseContent(string responseContent);
     }

@@ -8,8 +8,10 @@ namespace Mythosia.AI
     {
         public ChatGptService(string apiKey, HttpClient httpClient) : base(apiKey, "https://api.openai.com/v1/", httpClient)
         {
-            Model = AIModel.Gpt4oMini;
-            MaxTokens = 16000;
+            var chatBlock = new ChatBlock(AIModel.Gpt4oMini);
+            chatBlock.MaxTokens = 16000;
+
+            AddNewChat(chatBlock);
         }
 
 
@@ -28,24 +30,10 @@ namespace Mythosia.AI
         }
 
 
-        protected override HttpRequestMessage CreateRequest(string prompt, bool isStream)
+        protected override HttpRequestMessage CreateRequest()
         {
             // 요청 바디 생성
-            var requestBody = new
-            {
-                model = Model.ToDescription(),
-                messages = new[]
-                {
-                    new { role = "system", content = SystemMessage },
-                    new { role = "user", content = prompt }
-                },
-
-                top_p = TopP,
-                temperature = Temperature,
-                frequency_penalty = FrequencyPenalty,
-                max_tokens = MaxTokens,
-                stream = isStream
-            };
+            var requestBody = ActivateChat.ToChatGptRequestBody();
 
             // HttpContent 생성 및 Content-Type 헤더 설정
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");

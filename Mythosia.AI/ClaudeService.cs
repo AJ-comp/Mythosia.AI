@@ -8,8 +8,10 @@ namespace Mythosia.AI
     {
         public ClaudeService(string apiKey, HttpClient httpClient) : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {
-            Model = AIModel.Claude3_5Sonnet;
-            MaxTokens = 8192;
+            var chatBlock = new ChatBlock(AIModel.Claude3_5Sonnet);
+            chatBlock.MaxTokens = 8192;
+
+            AddNewChat(chatBlock);
         }
 
 
@@ -25,24 +27,10 @@ namespace Mythosia.AI
             return string.Empty;
         }
 
-        protected override HttpRequestMessage CreateRequest(string prompt, bool isStream)
+        protected override HttpRequestMessage CreateRequest()
         {
             // 요청 바디 생성
-            var requestBody = new
-            {
-                model = Model.ToDescription(),
-                system = SystemMessage,
-                messages = new[]
-                {
-                    new { role = "user", content = prompt }
-                },
-
-                top_p = TopP,
-                temperature = Temperature,
-                //                frequency_penalty = FrequencyPenalty, // Claude는 frequency_penalty를 지원하지 않음
-                stream = isStream,
-                max_tokens = MaxTokens
-            };
+            var requestBody = ActivateChat.ToClaudeRequestBody();
 
             // HttpRequestMessage를 생성하고 메서드와 엔드포인트 설정
             var request = new HttpRequestMessage(HttpMethod.Post, "messages")
