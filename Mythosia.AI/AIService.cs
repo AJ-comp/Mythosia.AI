@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Azure;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -104,7 +103,8 @@ namespace Mythosia.AI
 
         protected abstract string StreamParseJson(string jsonData);
 
-        public virtual async Task StreamCompletionAsync(string prompt, Action<string> MessageReceived)
+
+        private async Task StreamCompletionAsyncInternal(string prompt, Func<string, Task> messageHandler)
         {
             ActivateChat.Stream = true;
             ActivateChat.Messages.Add(new Message(ActorRole.User, prompt));
@@ -135,7 +135,7 @@ namespace Mythosia.AI
                     if (!string.IsNullOrEmpty(content))
                     {
                         allContent.Append(content);
-                        MessageReceived(content);
+                        await messageHandler(content);
                     }
                 }
                 catch (JsonException ex)
@@ -149,41 +149,24 @@ namespace Mythosia.AI
         }
 
 
-        public virtual async Task StreamCompletionAsync(string prompt, Func<string, Task> MessageReceived)
+        public virtual async Task StreamCompletionAsync(string prompt, Action<string> MessageReceived)
         {
-            var request = CreateRequest();
-            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-            if (!response.IsSuccessStatusCode)
-                throw new Exception($"API request failed: {response.ReasonPhrase}");
-
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new System.IO.StreamReader(stream);
-
-            while (!reader.EndOfStream)
+            // Action<string>을 Func<string, Task>로 변환
+            Func<string, Task> messageHandler = content =>
             {
-                var line = await reader.ReadLineAsync();
-                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                    continue;
+                MessageReceived(content);
+                return Task.CompletedTask;
+            };
 
-                var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]")
-                    break;
-
-                try
-                {
-                    var content = StreamParseJson(jsonData);
-                    if (!string.IsNullOrEmpty(content))
-                    {
-                        await MessageReceived(content);
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    Console.WriteLine($"JSON parsing error: {ex.Message}");
-                }
-            }
+            await StreamCompletionAsyncInternal(prompt, messageHandler);
         }
+
+
+        public virtual async Task StreamCompletionAsync(string prompt, Func<string, Task> MessageReceivedAsync)
+        {
+            await StreamCompletionAsyncInternal(prompt, MessageReceivedAsync);
+        }
+
 
         protected abstract HttpRequestMessage CreateRequest();
 

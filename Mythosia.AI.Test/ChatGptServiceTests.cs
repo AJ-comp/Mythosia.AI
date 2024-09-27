@@ -16,7 +16,7 @@ namespace Mythosia.AI.Tests
 
                 var result = await chatGptService.GetCompletionAsync("안녕하세요 당신에 대해 소개해주세요");
                 await chatGptService.StreamCompletionAsync("당신의 정적인 취미와 동적인 취미에 대해 말해줘요", (message) => { Console.WriteLine(message); });
-                result = await chatGptService.GetCompletionAsync("그 둘 중 무엇을 더 좋아하나요?");
+                await chatGptService.StreamCompletionAsync("그 둘 중 무엇을 더 좋아하나요?", async (message) => { Console.WriteLine(message); });
             }
             catch (Exception ex)
             {
