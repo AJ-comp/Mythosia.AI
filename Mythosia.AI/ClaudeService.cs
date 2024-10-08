@@ -1,6 +1,8 @@
-﻿using System.Net.Http;
+﻿using System;
+using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace Mythosia.AI
 {
@@ -44,6 +46,18 @@ namespace Mythosia.AI
 
             return request;
         }
+
+
+        public override async Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
+        {
+            throw new NotSupportedException();
+        }
+
+        public override async Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
+        {
+            throw new NotSupportedException();
+        }
+
 
 
         protected override string ExtractResponseContent(string responseContent)
