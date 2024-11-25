@@ -11,8 +11,11 @@ namespace Mythosia.AI
 {
     public enum AIModel
     {
-        [Description("claude-3-5-sonnet-20240620")]
+        [Description("claude-3-5-sonnet-20241022")]
         Claude3_5Sonnet,
+
+        [Description("claude-3-5-haiku-20241022")]
+        Claude3_5Haiku,
 
         [Description("claude-3-opus-20240229")]
         Claude3Opus,
