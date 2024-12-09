@@ -84,7 +84,7 @@ namespace Mythosia.AI
             ActivateChat.Messages.Add(new Message(ActorRole.User, prompt));
 
             // CreateRequest로 HttpRequestMessage 생성
-            var request = CreateRequest();
+            var request = CreateMessageRequest();
 
             // HttpClient를 사용해 요청 전송
             var response = await HttpClient.SendAsync(request);
@@ -112,7 +112,7 @@ namespace Mythosia.AI
             ActivateChat.Stream = true;
             ActivateChat.Messages.Add(new Message(ActorRole.User, prompt));
 
-            var request = CreateRequest();
+            var request = CreateMessageRequest();
             var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             if (!response.IsSuccessStatusCode)
@@ -171,11 +171,14 @@ namespace Mythosia.AI
         }
 
 
+        public abstract Task<uint> GetInputTokenCountAsync();
+
+
         public abstract Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024");
         public abstract Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024");
 
 
-        protected abstract HttpRequestMessage CreateRequest();
+        protected abstract HttpRequestMessage CreateMessageRequest();
 
         protected abstract string ExtractResponseContent(string responseContent);
     }

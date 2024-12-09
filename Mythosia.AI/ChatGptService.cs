@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Azure.Core;
+using OpenAI.Chat;
+using SharpToken;
+using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -32,7 +35,7 @@ namespace Mythosia.AI
         }
 
 
-        protected override HttpRequestMessage CreateRequest()
+        protected override HttpRequestMessage CreateMessageRequest()
         {
             // 요청 바디 생성
             var requestBody = ActivateChat.ToChatGptRequestBody();
@@ -194,5 +197,19 @@ namespace Mythosia.AI
             }
         }
 
+        public async override Task<uint> GetInputTokenCountAsync()
+        {
+            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+
+            var allMessagesBuilder = new StringBuilder(ActivateChat.SystemMessage).Append('\n');
+            foreach (var message in ActivateChat.GetLatestMessages())
+            {
+                allMessagesBuilder.Append(message.Role).Append('\n')
+                                  .Append(message.Content).Append('\n');
+            }
+
+            var allMessages = allMessagesBuilder.ToString();
+            return (uint)encoding.CountTokens(allMessages);
+        }
     }
 }

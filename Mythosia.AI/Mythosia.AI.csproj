@@ -7,10 +7,11 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>1.3.2</VersionPrefix>
+		<VersionPrefix>1.4.0</VersionPrefix>
 		<Company>Mythosia</Company>
 		<Authors>JJW</Authors>
-		<Description>## Package Summary
+		<Description>
+## Package Summary
 
 The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4** and **Anthropic Claude** models. This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for models like GPT-3.5, GPT-4, Claude, and more.
 
@@ -18,8 +19,8 @@ This library abstracts the HTTP requests required to communicate with the APIs a
 
 ### Supported Models
 
-- OpenAI GPT-4 and GPT-4 Turbo
-- OpenAI GPT-3.5 Turbo
+- OpenAI GPT-4o and GPT-4o-mini
+- OpenAI GPT-4 Turbo
 - Claude 3.x variants (Claude 3.5 Sonnet (2024-10-22), Claude 3.5 Haiku, Claude 3 Opus, Claude 3 Haiku)
 
 ### Key Features
@@ -31,8 +32,28 @@ This library abstracts the HTTP requests required to communicate with the APIs a
 
 ## How to Use
 
-To use this library, create an instance of either `ChatGptService` or `ClaudeService` depending on the AI model you're working with. Here's an example:</Description>
+To use this library, create an instance of either `ChatGptService` or `ClaudeService` depending on the AI model you're working with. Here's an example:
+var httpClient = new HttpClient();
+
+// For GPT-based completion
+var chatGptService = new ChatGptService("your_openai_api_key", httpClient);
+chatGptService.SystemMessage = "cuty"; // Optional system message
+string gptResponse = await chatGptService.GetCompletionAsync("What is the weather today?");
+var httpClient = new HttpClient();
+
+
+Streaming Responses
+The library also supports streaming responses for real-time interaction. Here's an example of how to use the streaming feature:
+
+await chatGptService.StreamCompletionAsync("Tell me a joke", content =&gt;
+{
+	Console.WriteLine(content); // Streamed content in real time
+});
+
+
+		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
 	</PropertyGroup>
 
 
@@ -47,6 +68,21 @@ To use this library, create an instance of either `ChatGptService` or `ClaudeSer
 	<ItemGroup>
 	  <ProjectReference Include="..\Mythosia.Azure\Mythosia.Azure.csproj" />
 	  <ProjectReference Include="..\Mythosia\Mythosia.csproj" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <Reference Include="SharpToken">
+	    <HintPath>SharpToken.dll</HintPath>
+	  </Reference>
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <None Update="README.md">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
 	</ItemGroup>
 
 </Project>

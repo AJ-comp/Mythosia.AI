@@ -53,7 +53,7 @@ namespace Mythosia.AI
         }
 
         // MaxMessageCount 초과 시 최신 메시지만 전송
-        private IEnumerable<Message> GetLatestMessages()
+        internal IEnumerable<Message> GetLatestMessages()
         {
             return Messages.Skip(Math.Max(0, Messages.Count - (int)MaxMessageCount));
         }
@@ -88,7 +88,7 @@ namespace Mythosia.AI
             return requestBody;
         }
 
-        public object ToClaudeRequestBody()
+        public object ToClaudeRequestBody(RequestBodyType requestBodyType = RequestBodyType.Message)
         {
             var messagesList = new List<object>();
 
@@ -98,18 +98,39 @@ namespace Mythosia.AI
                 messagesList.Add(new { role = message.Role.ToDescription(), content = message.Content });
             }
 
-            var requestBody = new
+            if (requestBodyType == RequestBodyType.TokenCount)
             {
-                model = Model.ToDescription(),
-                system = SystemMessage,
-                messages = messagesList,
-                top_p = TopP,
-                temperature = Temperature,
-                stream = Stream,
-                max_tokens = MaxTokens
-            };
+                var requestBody = new
+                {
+                    model = Model.ToDescription(),
+                    system = SystemMessage,
+                    messages = messagesList
+                };
 
-            return requestBody;
+                return requestBody;
+            }
+            else
+            {
+                var requestBody = new
+                {
+                    model = Model.ToDescription(),
+                    system = SystemMessage,
+                    messages = messagesList,
+                    top_p = TopP,
+                    temperature = Temperature,
+                    stream = Stream,
+                    max_tokens = MaxTokens
+                };
+
+                return requestBody;
+            }
         }
+    }
+
+
+    public enum RequestBodyType
+    {
+        Message,
+        TokenCount
     }
 }

@@ -23,6 +23,8 @@ namespace Mythosia.AI.Tests
                 string response = await claudeService.GetCompletionAsync(prompt);
                 await claudeService.StreamCompletionAsync("이번엔 부정적인 영향에 대해 설명해줘", (message) => { Console.WriteLine(message); });
 
+                var tokenCount1 = await claudeService.GetInputTokenCountAsync();
+                var tokenCount2 = await claudeService.GetInputTokenCountAsync();
                 response = await claudeService.GetCompletionAsync("지금까지 말한 의견을 종합했을 때 넌 어떨거 같아?");
             }
             catch (ArgumentException aex)

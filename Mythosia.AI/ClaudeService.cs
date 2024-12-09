@@ -2,6 +2,8 @@
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI
@@ -29,7 +31,7 @@ namespace Mythosia.AI
             return string.Empty;
         }
 
-        protected override HttpRequestMessage CreateRequest()
+        protected override HttpRequestMessage CreateMessageRequest()
         {
             // 요청 바디 생성
             var requestBody = ActivateChat.ToClaudeRequestBody();
@@ -43,6 +45,26 @@ namespace Mythosia.AI
             // 헤더 추가
             request.Headers.Add("x-api-key", ApiKey);
             request.Headers.Add("anthropic-version", "2023-06-01");
+
+            return request;
+        }
+
+
+        private HttpRequestMessage CreateTokenCountRequest()
+        {
+            var requestBody = ActivateChat.ToClaudeRequestBody(RequestBodyType.TokenCount);
+            var jsonBody = JsonSerializer.Serialize(requestBody);
+
+            Console.WriteLine($"Request body: {jsonBody}"); // 로깅 추가
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "messages/count_tokens")
+            {
+                Content = new StringContent(jsonBody, Encoding.UTF8, "application/json")
+            };
+
+            request.Headers.Add("x-api-key", ApiKey);
+            request.Headers.Add("anthropic-version", "2023-06-01");
+            request.Headers.Add("anthropic-beta", "token-counting-2024-11-01");
 
             return request;
         }
@@ -65,6 +87,22 @@ namespace Mythosia.AI
             var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
             return responseObj.GetProperty("content")[0].GetProperty("text").GetString();
         }
-    }
 
+        public async override Task<uint> GetInputTokenCountAsync()
+        {
+            var request = CreateTokenCountRequest();
+            var response = await HttpClient.SendAsync(request);
+
+            var jsonString = await response.Content.ReadAsStringAsync();
+            var tokenCount = JsonSerializer.Deserialize<TokenResponse>(jsonString);
+            return tokenCount.InputTokens;
+        }
+
+
+        private class TokenResponse
+        {
+            [JsonPropertyName("input_tokens")]
+            public uint InputTokens { get; set; }
+        }
+    }
 }
