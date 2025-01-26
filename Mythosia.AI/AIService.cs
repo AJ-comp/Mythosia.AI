@@ -12,16 +12,23 @@ namespace Mythosia.AI
     public enum AIModel
     {
         [Description("claude-3-5-sonnet-20241022")]
-        Claude3_5Sonnet,
+        Claude3_5Sonnet241022,
 
         [Description("claude-3-5-haiku-20241022")]
-        Claude3_5Haiku,
+        Claude3_5Haiku241022,
 
         [Description("claude-3-opus-20240229")]
-        Claude3Opus,
+        Claude3Opus240229,
 
         [Description("claude-3-haiku-20240307")]
-        Claude3Haiku,
+        Claude3Haiku240307,
+
+        // DeepSeek 모델 추가
+        [Description("deepseek-chat")]
+        DeepSeekChat,
+
+        [Description("deepseek-reasoner")]
+        DeepSeekReasoner,
 
         [Description("gpt-3.5-turbo-1106")]
         Gpt3_5Turbo,
@@ -32,8 +39,14 @@ namespace Mythosia.AI
         [Description("gpt-4-1106-preview")]
         Gpt4Turbo,
 
+        [Description("chatgpt-4o-latest")]
+        Gpt4oLatest,
+
+        [Description("gpt-4o-2024-11-20")]
+        Gpt4o241120,
+
         [Description("gpt-4o-2024-08-06")]
-        Gpt4o,
+        Gpt4o240806,
 
         [Description("gpt-4o-mini-2024-07-18")]
         Gpt4oMini

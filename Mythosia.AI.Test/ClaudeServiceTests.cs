@@ -13,7 +13,7 @@ namespace Mythosia.AI.Tests
                 SecretFetcher secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
                 ClaudeService claudeService = new ClaudeService(await secretFetcher.GetKeyValueAsync(), new HttpClient());
 
-                claudeService.ActivateChat.Model = AIModel.Claude3_5Haiku;
+                claudeService.ActivateChat.ChangeModel(AIModel.Claude3_5Haiku241022);
                 claudeService.ActivateChat.SystemMessage = "반말로 말해주세요";
 
                 // 질문 준비

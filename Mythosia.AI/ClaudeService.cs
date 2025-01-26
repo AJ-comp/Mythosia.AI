@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -12,7 +13,7 @@ namespace Mythosia.AI
     {
         public ClaudeService(string apiKey, HttpClient httpClient) : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Claude3_5Sonnet);
+            var chatBlock = new ChatBlock(AIModel.Claude3_5Sonnet241022);
             chatBlock.MaxTokens = 8192;
 
             AddNewChat(chatBlock);

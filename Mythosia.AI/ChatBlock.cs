@@ -34,7 +34,7 @@ namespace Mythosia.AI
     public class ChatBlock
     {
         public string Id { get; } = Guid.NewGuid().ToString();
-        public AIModel Model { get; set; }
+        public string Model { get; private set; }
         public string SystemMessage { get; set; } = string.Empty;
         public IList<Message> Messages { get; } = new List<Message>();
 
@@ -48,6 +48,21 @@ namespace Mythosia.AI
 
 
         public ChatBlock(AIModel model)
+        {
+            Model = model.ToDescription();
+        }
+
+        public ChatBlock(string model)
+        {
+            Model = model;
+        }
+
+        public void ChangeModel(AIModel model)
+        {
+            Model = model.ToDescription();
+        }
+
+        public void ChangeModel(string model)
         {
             Model = model;
         }
@@ -76,7 +91,7 @@ namespace Mythosia.AI
 
             var requestBody = new
             {
-                model = Model.ToDescription(),
+                model = Model,
                 messages = messagesList,
                 top_p = TopP,
                 temperature = Temperature,
@@ -102,7 +117,7 @@ namespace Mythosia.AI
             {
                 var requestBody = new
                 {
-                    model = Model.ToDescription(),
+                    model = Model,
                     system = SystemMessage,
                     messages = messagesList
                 };
@@ -113,7 +128,7 @@ namespace Mythosia.AI
             {
                 var requestBody = new
                 {
-                    model = Model.ToDescription(),
+                    model = Model,
                     system = SystemMessage,
                     messages = messagesList,
                     top_p = TopP,
