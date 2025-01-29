@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Mythosia.AI.Test
+namespace Mythosia.AI.Tests
 {
     [TestClass()]
     public class DeepSeekServiceTests

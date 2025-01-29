@@ -7,21 +7,22 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>1.5.0</VersionPrefix>
+		<VersionPrefix>1.6.0</VersionPrefix>
 		<Company>Mythosia</Company>
+		<PackageTags>AI, ChatGpt, Claude, DeepSeek, Sonar</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
 ## Package Summary
 
-The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4** and **Anthropic Claude** models. This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for models like GPT-3.5, GPT-4, Claude, and more.
-
-This library abstracts the HTTP requests required to communicate with the APIs and provides a unified interface for various AI models, making it easier to integrate into any C# or ASP.NET Core project.
+The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4**, **Anthropic Claude**, and **DeepSeek**, **Sonar** models. 
+This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for models like GPT-3.5, GPT-4, Claude, DeepSeek, and more.
 
 ### Supported Models
 
-- OpenAI GPT-4o and GPT-4o-mini
-- OpenAI GPT-4 Turbo
-- Claude 3.x variants (Claude 3.5 Sonnet (2024-10-22), Claude 3.5 Haiku, Claude 3 Opus, Claude 3 Haiku)
+- OpenAI GPT-4 and GPT-4 Turbo, GPT-3.5 Turbo
+- Claude 3.x variants (Claude3_5Sonnet, Claude3Opus, Claude3Haiku)
+- DeepSeek models (deepseek-chat, deepseek-reasoner)
+- Sonar models (sonar, sonar-pro, sonar-reasoning)
 
 ### Key Features
 
@@ -31,24 +32,37 @@ This library abstracts the HTTP requests required to communicate with the APIs a
 - Extendable structure for adding support for new AI models
 
 ## How to Use
+### allocation
+```csharp
+using Mythosia.AI;
+using System.Net.Http;
 
-To use this library, create an instance of either `ChatGptService` or `ClaudeService` depending on the AI model you're working with. Here's an example:
 var httpClient = new HttpClient();
 
-// For GPT-based completion
-var chatGptService = new ChatGptService("your_openai_api_key", httpClient);
-chatGptService.SystemMessage = "cuty"; // Optional system message
-string gptResponse = await chatGptService.GetCompletionAsync("What is the weather today?");
-var httpClient = new HttpClient();
+var aiService = new ChatGptService("your_openai_api_key", httpClient);
+var aiService = new ClaudeService("your_anthropic_api_key", httpClient);
+var aiService = new DeepSeekService("your_deepseek_api_key", httpClient);
+var aiService = new SonarService("your_sonar_api_key", httpClient);
+```
 
+### completion
+```csharp
+string response = await aiService.GetCompletionAsync("What is AI?");
+```
 
-Streaming Responses
-The library also supports streaming responses for real-time interaction. Here's an example of how to use the streaming feature:
+### Model Switching Example
+```csharp
+// Add to existing ChatBlock usage
+aiService.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+aiService.ActivateChat.ChangeModel("o1-2024-12-17"); // change with string
+```
 
-await chatGptService.StreamCompletionAsync("Tell me a joke", content =&gt;
-{
-	Console.WriteLine(content); // Streamed content in real time
+### Streaming Responses
+```csharp
+await aiService.StreamCompletionAsync("Explain quantum computing", content => {
+Console.WriteLine(content);
 });
+```
 
 
 		</Description>

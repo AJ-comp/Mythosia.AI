@@ -49,7 +49,17 @@ namespace Mythosia.AI
         Gpt4o240806,
 
         [Description("gpt-4o-mini-2024-07-18")]
-        Gpt4oMini
+        Gpt4oMini,
+
+
+        [Description("sonar")]
+        PerplexitySonar,
+
+        [Description("sonar-pro")]
+        PerplexitySonarPro,
+
+        [Description("sonar-reasoning")]
+        PerplexitySonarReasoning
     }
 
 

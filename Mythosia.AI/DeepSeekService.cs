@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace Mythosia.AI
 {
@@ -40,14 +41,31 @@ namespace Mythosia.AI
 
         protected override HttpRequestMessage CreateMessageRequest()
         {
+            // 1. Build a messages list, starting with system message (if it's not empty).
+            var messageList = new List<object>();
+
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                messageList.Add(new
+                {
+                    role = "system",
+                    content = ActivateChat.SystemMessage
+                });
+            }
+
+            // 2. Append the latest user/assistant messages
+            messageList.AddRange(
+                ActivateChat.GetLatestMessages().Select(m => new
+                {
+                    role = m.Role.ToDescription(),
+                    content = m.Content
+                })
+            );
+
             var requestBody = new
             {
                 model = ActivateChat.Model,
-                messages = ActivateChat.Messages.Select(m => new
-                {
-                    role = m.Role.ToString().ToLower(),
-                    content = m.Content
-                }),
+                messages = messageList,
                 temperature = ActivateChat.Temperature,
                 max_tokens = ActivateChat.MaxTokens,
                 stream = ActivateChat.Stream
