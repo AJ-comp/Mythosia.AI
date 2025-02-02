@@ -51,6 +51,12 @@ namespace Mythosia.AI
         [Description("gpt-4o-mini-2024-07-18")]
         Gpt4oMini,
 
+        [Description("gemini-1.5-flash")]
+        Gemini15Flash,
+
+        [Description("gemini-pro")]
+        GeminiPro,
+
 
         [Description("sonar")]
         PerplexitySonar,
@@ -194,7 +200,18 @@ namespace Mythosia.AI
         }
 
 
+        /// <summary>
+        /// 현재 대화에 대한 토큰 수 추정
+        /// </summary>
+        /// <returns></returns>
         public abstract Task<uint> GetInputTokenCountAsync();
+
+        /// <summary>
+        /// 주어진 프롬프트에 대한 토큰 수 추정
+        /// </summary>
+        /// <param name="prompt"></param>
+        /// <returns></returns>
+        public abstract Task<uint> GetInputTokenCountAsync(string prompt);
 
 
         public abstract Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024");

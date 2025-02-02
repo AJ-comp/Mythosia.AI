@@ -211,5 +211,13 @@ namespace Mythosia.AI
             var allMessages = allMessagesBuilder.ToString();
             return (uint)encoding.CountTokens(allMessages);
         }
+
+
+        public async override Task<uint> GetInputTokenCountAsync(string prompt)
+        {
+            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+
+            return (uint)encoding.CountTokens(prompt);
+        }
     }
 }

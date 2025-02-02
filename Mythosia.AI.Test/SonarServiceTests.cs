@@ -1,75 +1,56 @@
-﻿using Mythosia.Azure;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mythosia.Azure;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Tests
 {
-    [TestClass()]
-    public class SonarServiceTests
+    [TestClass]
+    public class SonarServiceTests : AIServiceTestBase
     {
-        [TestMethod()]
-        public async Task BasisTest()
+        // 1) 공통 테스트에서 사용할 SonarService 인스턴스 생성
+        protected override AIService CreateAIService()
         {
-            try
-            {
-                SecretFetcher secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "sonar-secret2");
-                var aiService = new SonarService(await secretFetcher.GetKeyValueAsync(), new HttpClient());
-                aiService.ActivateChat.SystemMessage = "반말로 말해주세요";
+            var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "sonar-secret2");
+            string sonarKey = secretFetcher.GetKeyValueAsync().Result; // 테스트이므로 동기 호출
+            var service = new SonarService(sonarKey, new HttpClient());
 
-                // 질문 준비
-                string prompt = "안녕하세요, Sonar. 인공지능의 발전이 인류에게 미칠 수 있는 긍정적인 영향에 대해 설명해 주시겠습니까?";
-
-                // 질의 및 응답 받기
-                string response = await aiService.GetCompletionAsync(prompt);
-
-                // 스트림 질의 및 응답 받기
-                await aiService.StreamCompletionAsync("이번엔 부정적인 영향에 대해 설명해줘", (message) => { Console.WriteLine(message); });
-
-                var tokenCount1 = await aiService.GetInputTokenCountAsync();
-                var tokenCount2 = await aiService.GetInputTokenCountAsync();
-
-                response = await aiService.GetCompletionAsync("지금까지 말한 의견을 종합했을 때 넌 어떨거 같아?");
-            }
-            catch (ArgumentException aex)
-            {
-                Console.WriteLine("모델 선택 오류: " + aex.Message);
-                Assert.Fail();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("API 요청 오류: " + ex.Message);
-                Assert.Fail();
-            }
+            // 필요 시 초기 설정
+            service.ActivateChat.SystemMessage = "반말로 말해주세요";
+            return service;
         }
 
-
-        [TestMethod()]
+        // 2) SonarService만의 특별 기능 테스트 (ex. WebSearch)
+        [TestMethod]
         public async Task WebSearchTest()
         {
             try
             {
-                SecretFetcher secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "sonar-secret2");
-                var aiService = new SonarService(await secretFetcher.GetKeyValueAsync(), new HttpClient());
-                aiService.ActivateChat.ChangeModel(AIModel.PerplexitySonarPro);
-                aiService.ActivateChat.SystemMessage = "웹페이지에서 반드시 오늘 날짜의 내용만 검색하세요 검색결과가 없으면 없다고만 말하시고 다른 내용은 적지마세요";
+                // SonarService 인스턴스
+                var sonar = (SonarService)AI;
 
-                // 질문 준비
-                string prompt = "오늘 나온 물리학 논문 흥미로운거 하나 링크 (페이지 주소) 보여주고 내용을 요약해줘";
+                // 모델 변경
+                sonar.ActivateChat.ChangeModel(AIModel.PerplexitySonarPro);
+                sonar.ActivateChat.SystemMessage = "웹페이지에서 반드시 오늘 날짜의 내용만 검색하세요...";
 
-                // 질의 및 응답 받기
-                string response = await aiService.GetCompletionAsync(prompt);
+                // 질문
+                string prompt = "오늘 나온 물리학 논문 중 하나 링크 보여주고 요약해줘";
+                string response = await sonar.GetCompletionAsync(prompt);
+                Console.WriteLine($"[WebSearchTest] {response}");
 
-                // 스트림 질의 및 응답 받기
+                // 스트리밍
                 string response2 = string.Empty;
-                await aiService.StreamCompletionAsync("오늘 나온 생물학 논문 흥미로운거 하나 링크 걸어주고 요약해줘", (message) => { response2 += message; });
+                await sonar.StreamCompletionAsync("오늘 나온 생물학 논문 링크도 알려줘", msg =>
+                {
+                    response2 += msg;
+                });
+                Console.WriteLine($"[WebSearch Stream] {response2}");
 
-                var tokenCount1 = await aiService.GetInputTokenCountAsync();
-                var tokenCount2 = await aiService.GetInputTokenCountAsync();
-
-                response = await aiService.GetCompletionAsync("두 논문 중 너는 어떤 논문이 더 흥미로워?");
+                // 토큰 카운트
+                var tokenCount1 = await sonar.GetInputTokenCountAsync();
+                var tokenCount2 = await sonar.GetInputTokenCountAsync();
+                Console.WriteLine($"[Sonar Tokens] {tokenCount1}, {tokenCount2}");
             }
             catch (ArgumentException aex)
             {
@@ -82,6 +63,5 @@ namespace Mythosia.AI.Tests
                 Assert.Fail();
             }
         }
-
     }
 }

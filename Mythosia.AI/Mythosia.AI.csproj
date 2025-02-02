@@ -7,47 +7,51 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>1.6.0</VersionPrefix>
+		<VersionPrefix>1.7.0</VersionPrefix>
 		<Company>Mythosia</Company>
-		<PackageTags>AI, ChatGpt, Claude, DeepSeek, Sonar</PackageTags>
+		<PackageTags>AI, ChatGpt, Claude, DeepSeek, Sonar, Gemini</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## Package Summary
-
-The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4**, **Anthropic Claude**, and **DeepSeek**, **Sonar** models. 
-This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for models like GPT-3.5, GPT-4, Claude, DeepSeek, and more.
+The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4**, **Anthropic Claude**, **DeepSeek**, **Sonar**, **Gemini**, and more.  
+This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for GPT-3.5, GPT-4, Claude, DeepSeek, Sonar, Gemini, etc.
 
 ### Supported Models
 
-- OpenAI GPT-4 and GPT-4 Turbo, GPT-3.5 Turbo
-- Claude 3.x variants (Claude3_5Sonnet, Claude3Opus, Claude3Haiku)
-- DeepSeek models (deepseek-chat, deepseek-reasoner)
-- Sonar models (sonar, sonar-pro, sonar-reasoning)
-
-### Key Features
-
-- Synchronous completion and streaming support for AI models
-- Customizable model selection, temperature, and max tokens
-- Abstraction over the complexity of managing HTTP requests and responses
-- Extendable structure for adding support for new AI models
+- **OpenAI**: GPT-4, GPT-3.5 (Turbo), GPT-4o variants
+- **Anthropic Claude**: Claude 3.x (Claude3_5Sonnet, Claude3Opus, etc.)
+- **DeepSeek**: various chat/reasoner models
+- **Sonar**: sonar, sonar-pro, sonar-reasoning
+- **Gemini**: gemini-1.5-flash (and possible future expansions)
 
 ## How to Use
-### allocation
+
+### Allocation
 ```csharp
 using Mythosia.AI;
 using System.Net.Http;
 
 var httpClient = new HttpClient();
 
+// Example usage for each supported service:
 var aiService = new ChatGptService("your_openai_api_key", httpClient);
 var aiService = new ClaudeService("your_anthropic_api_key", httpClient);
 var aiService = new DeepSeekService("your_deepseek_api_key", httpClient);
 var aiService = new SonarService("your_sonar_api_key", httpClient);
+var aiService = new GeminiService("your_gemini_api_key", httpClient);
 ```
 
 ### completion
 ```csharp
 string response = await aiService.GetCompletionAsync("What is AI?");
+```
+
+### Token Counting
+```csharp
+// Entire conversation token count
+uint totalTokens = await aiService.GetInputTokenCountAsync();
+
+// Single-prompt token count
+uint promptTokens = await aiService.GetInputTokenCountAsync("One-off prompt to analyze");
 ```
 
 ### Model Switching Example

@@ -1,9 +1,10 @@
-﻿using System;
-using System.ComponentModel;
+﻿using SharpToken;
+using System;
+using System.Collections.Generic;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
@@ -51,9 +52,8 @@ namespace Mythosia.AI
         }
 
 
-        private HttpRequestMessage CreateTokenCountRequest()
+        private HttpRequestMessage CreateTokenCountRequestCommon(object requestBody)
         {
-            var requestBody = ActivateChat.ToClaudeRequestBody(RequestBodyType.TokenCount);
             var jsonBody = JsonSerializer.Serialize(requestBody);
 
             Console.WriteLine($"Request body: {jsonBody}"); // 로깅 추가
@@ -68,6 +68,27 @@ namespace Mythosia.AI
             request.Headers.Add("anthropic-beta", "token-counting-2024-11-01");
 
             return request;
+        }
+
+
+        private HttpRequestMessage CreateTokenCountRequest()
+        {
+            var requestBody = ActivateChat.ToClaudeRequestBody(RequestBodyType.TokenCount);
+            return CreateTokenCountRequestCommon(requestBody);
+        }
+
+
+        private HttpRequestMessage CreateTokenCountRequest(string prompt)
+        {
+            var messagesList = new List<object>() { new { role = ActorRole.User.ToDescription(), content = prompt } };
+
+            var requestBody = new
+            {
+                model = ActivateChat.Model,
+                messages = messagesList
+            };
+
+            return CreateTokenCountRequestCommon(requestBody);
         }
 
 
@@ -89,15 +110,28 @@ namespace Mythosia.AI
             return responseObj.GetProperty("content")[0].GetProperty("text").GetString();
         }
 
-        public async override Task<uint> GetInputTokenCountAsync()
+
+        private async Task<uint> GetInputTokenCountAsyncCommon(HttpRequestMessage request)
         {
-            var request = CreateTokenCountRequest();
             var response = await HttpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorJson = await response.Content.ReadAsStringAsync();
+                throw new HttpRequestException($"Error code: {response.StatusCode}, Body: {errorJson}");
+            }
 
             var jsonString = await response.Content.ReadAsStringAsync();
             var tokenCount = JsonSerializer.Deserialize<TokenResponse>(jsonString);
-            return tokenCount.InputTokens;
+            return tokenCount?.InputTokens ?? 0;
         }
+
+
+        public async override Task<uint> GetInputTokenCountAsync()
+            => await GetInputTokenCountAsyncCommon(CreateTokenCountRequest());
+
+        public async override Task<uint> GetInputTokenCountAsync(string prompt)
+            => await GetInputTokenCountAsyncCommon(CreateTokenCountRequest(prompt));
 
 
         private class TokenResponse

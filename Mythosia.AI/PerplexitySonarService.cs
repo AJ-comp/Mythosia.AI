@@ -1,13 +1,11 @@
-﻿using System;
+﻿using SharpToken;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Microsoft.Identity.Client;
-using Mythosia.AI;
-using SharpToken;
 
 namespace Mythosia.AI
 {
@@ -163,11 +161,7 @@ namespace Mythosia.AI
             throw new NotSupportedException("Perplexity Sonar does not support image generation.");
         }
 
-        /// <summary>
-        /// Counts input tokens. This uses SharpToken's GPT-based encoding, which may not perfectly match Perplexity's internal tokenization.
-        /// For large contexts, you may want a custom approach or an official Perplexity token counting if provided in the future.
-        /// </summary>
-        /// <returns>The approximate number of tokens in the active conversation.</returns>
+
         public override async Task<uint> GetInputTokenCountAsync()
         {
             // Note: This is an approximation based on a GPT-4 or GPT-3.5 tokenizer.
@@ -183,6 +177,14 @@ namespace Mythosia.AI
 
             var allMessages = allMessagesBuilder.ToString();
             return (uint)encoding.CountTokens(allMessages);
+        }
+
+
+        public async override Task<uint> GetInputTokenCountAsync(string prompt)
+        {
+            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+
+            return (uint)encoding.CountTokens(prompt);
         }
     }
 }

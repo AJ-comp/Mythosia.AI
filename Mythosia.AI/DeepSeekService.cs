@@ -107,6 +107,14 @@ namespace Mythosia.AI
             return (uint)encoding.CountTokens(allMessages);
         }
 
+        public async override Task<uint> GetInputTokenCountAsync(string prompt)
+        {
+            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+
+            return (uint)encoding.CountTokens(prompt);
+        }
+
+
         // DeepSeek은 이미지 생성 미지원이므로 예외 처리
         public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
             => throw new NotSupportedException("DeepSeek does not support image generation");
