@@ -1,13 +1,11 @@
-﻿using SharpToken;
-using Mythosia;
-using System;
-using System.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using System.Collections.Generic;
+using TiktokenSharp;
 
 namespace Mythosia.AI
 {
@@ -94,7 +92,7 @@ namespace Mythosia.AI
 
         public override async Task<uint> GetInputTokenCountAsync()
         {
-            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+            var encoding = TikToken.EncodingForModel("gpt-4o");
 
             var allMessagesBuilder = new StringBuilder(ActivateChat.SystemMessage).Append('\n');
             foreach (var message in ActivateChat.GetLatestMessages())
@@ -104,14 +102,14 @@ namespace Mythosia.AI
             }
 
             var allMessages = allMessagesBuilder.ToString();
-            return (uint)encoding.CountTokens(allMessages);
+            return (uint)encoding.Encode(allMessages).Count;
         }
 
         public async override Task<uint> GetInputTokenCountAsync(string prompt)
         {
-            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+            var encoding = TikToken.EncodingForModel("gpt-4o");
 
-            return (uint)encoding.CountTokens(prompt);
+            return (uint)encoding.Encode(prompt).Count;
         }
 
 

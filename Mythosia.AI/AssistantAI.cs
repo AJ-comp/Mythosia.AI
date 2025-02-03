@@ -1,7 +1,7 @@
 ﻿using Azure;
 using Azure.AI.OpenAI.Assistants;
 using Azure.Search.Documents.Indexes;
-using Mythosia.Azure;
+//using Mythosia.Azure;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace Mythosia.AI
 {
+    /*
     public class ProcessResult
     {
         public bool IsSuccess { get; private set; }
@@ -132,4 +133,5 @@ namespace Mythosia.AI
             return resultBuilder.ToString();
         }
     }
+    */
 }

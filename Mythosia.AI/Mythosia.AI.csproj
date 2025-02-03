@@ -7,7 +7,7 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>1.7.0</VersionPrefix>
+		<VersionPrefix>1.6.1</VersionPrefix>
 		<Company>Mythosia</Company>
 		<PackageTags>AI, ChatGpt, Claude, DeepSeek, Sonar, Gemini</PackageTags>
 		<Authors>JJW</Authors>
@@ -63,7 +63,7 @@ aiService.ActivateChat.ChangeModel("o1-2024-12-17"); // change with string
 
 ### Streaming Responses
 ```csharp
-await aiService.StreamCompletionAsync("Explain quantum computing", content => {
+await aiService.StreamCompletionAsync("Explain quantum computing", content =&gt; {
 Console.WriteLine(content);
 });
 ```
@@ -76,25 +76,17 @@ Console.WriteLine(content);
 
 
 	<ItemGroup>
-		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0-beta.1" />
+		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
 		<PackageReference Include="Azure.AI.OpenAI.Assistants" Version="1.0.0-beta.4" />
 		<PackageReference Include="Azure.Search.Documents" Version="11.7.0-beta.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="TiktokenSharp" Version="1.1.6" />
 	</ItemGroup>
 
 
 	<ItemGroup>
-	  <ProjectReference Include="..\Mythosia.Azure\Mythosia.Azure.csproj" />
 	  <ProjectReference Include="..\Mythosia\Mythosia.csproj" />
 	</ItemGroup>
-
-
-	<ItemGroup>
-	  <Reference Include="SharpToken">
-	    <HintPath>SharpToken.dll</HintPath>
-	  </Reference>
-	</ItemGroup>
-
 
 	<ItemGroup>
 	  <None Update="README.md">

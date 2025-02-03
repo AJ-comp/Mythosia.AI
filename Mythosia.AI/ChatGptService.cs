@@ -1,11 +1,9 @@
-﻿using Azure.Core;
-using OpenAI.Chat;
-using SharpToken;
-using System;
+﻿using System;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using TiktokenSharp;
 
 namespace Mythosia.AI
 {
@@ -97,7 +95,7 @@ namespace Mythosia.AI
             }
             else
             {
-                throw new Exception($"API 요청 실패: {response.ReasonPhrase}");
+                throw new Exception($"API request failed: {response.ReasonPhrase}");
             }
         }
 
@@ -146,7 +144,7 @@ namespace Mythosia.AI
             }
             else
             {
-                throw new Exception($"API 요청 실패: {response.ReasonPhrase}");
+                throw new Exception($"API request failed: {response.ReasonPhrase}");
             }
         }
 
@@ -193,13 +191,13 @@ namespace Mythosia.AI
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new Exception($"API 요청 실패: {response.ReasonPhrase}, 내용: {errorContent}");
+                throw new Exception($"API request failed: {response.ReasonPhrase}, contents: {errorContent}");
             }
         }
 
         public async override Task<uint> GetInputTokenCountAsync()
         {
-            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+            var encoding = TikToken.EncodingForModel("gpt-4o");
 
             var allMessagesBuilder = new StringBuilder(ActivateChat.SystemMessage).Append('\n');
             foreach (var message in ActivateChat.GetLatestMessages())
@@ -209,15 +207,14 @@ namespace Mythosia.AI
             }
 
             var allMessages = allMessagesBuilder.ToString();
-            return (uint)encoding.CountTokens(allMessages);
+            return (uint)encoding.Encode(allMessages).Count;
         }
 
 
         public async override Task<uint> GetInputTokenCountAsync(string prompt)
         {
-            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
-
-            return (uint)encoding.CountTokens(prompt);
+            TikToken tikToken = TikToken.EncodingForModel("gpt-4o");
+            return (uint)tikToken.Encode("hello world").Count;
         }
     }
 }

@@ -1,11 +1,11 @@
-﻿using SharpToken;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using TiktokenSharp;
 
 namespace Mythosia.AI
 {
@@ -166,7 +166,7 @@ namespace Mythosia.AI
         {
             // Note: This is an approximation based on a GPT-4 or GPT-3.5 tokenizer.
             // Perplexity may have a different tokenization logic internally.
-            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+            var encoding = TikToken.EncodingForModel("gpt-4o");
 
             var allMessagesBuilder = new StringBuilder(ActivateChat.SystemMessage).Append('\n');
             foreach (var message in ActivateChat.GetLatestMessages())
@@ -176,15 +176,15 @@ namespace Mythosia.AI
             }
 
             var allMessages = allMessagesBuilder.ToString();
-            return (uint)encoding.CountTokens(allMessages);
+            return (uint)encoding.Encode(allMessages).Count;
         }
 
 
         public async override Task<uint> GetInputTokenCountAsync(string prompt)
         {
-            var encoding = GptEncoding.GetEncodingForModel("gpt-4o");
+            var encoding = TikToken.EncodingForModel("gpt-4o");
 
-            return (uint)encoding.CountTokens(prompt);
+            return (uint)encoding.Encode(prompt).Count;
         }
     }
 }

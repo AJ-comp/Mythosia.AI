@@ -55,7 +55,6 @@ namespace Mythosia.AI.Tests
                 // 4) 토큰 카운트 (단일 프롬프트)
                 uint tokenCountPrompt = await AI.GetInputTokenCountAsync("테스트 프롬프트 하나");
                 Console.WriteLine($"[Token Count - Prompt] {tokenCountPrompt}");
-
             }
             catch (Exception ex)
             {
