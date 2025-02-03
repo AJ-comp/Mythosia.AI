@@ -1,6 +1,6 @@
 ﻿using Azure;
-using Azure.AI.OpenAI.Assistants;
-using Azure.Search.Documents.Indexes;
+//using Azure.AI.OpenAI.Assistants;
+//using Azure.Search.Documents.Indexes;
 //using Mythosia.Azure;
 using System;
 using System.Collections.Generic;

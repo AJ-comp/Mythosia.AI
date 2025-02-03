@@ -7,7 +7,7 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>1.6.1</VersionPrefix>
+		<VersionPrefix>1.7.1</VersionPrefix>
 		<Company>Mythosia</Company>
 		<PackageTags>AI, ChatGpt, Claude, DeepSeek, Sonar, Gemini</PackageTags>
 		<Authors>JJW</Authors>
@@ -77,8 +77,6 @@ Console.WriteLine(content);
 
 	<ItemGroup>
 		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
-		<PackageReference Include="Azure.AI.OpenAI.Assistants" Version="1.0.0-beta.4" />
-		<PackageReference Include="Azure.Search.Documents" Version="11.7.0-beta.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
 		<PackageReference Include="TiktokenSharp" Version="1.1.6" />
 	</ItemGroup>

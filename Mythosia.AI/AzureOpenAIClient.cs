@@ -1,5 +1,5 @@
 ﻿using Azure;
-using Azure.AI.OpenAI.Assistants;
+//using Azure.AI.OpenAI.Assistants;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -20,6 +20,7 @@ namespace Mythosia.AI
         }
         */
 
+        /*
         public static async Task<string> RunAsync(this AssistantsClient client, Assistant assistant, AssistantThread thread, string data)
         {
             // Add a user question to the thread
@@ -104,8 +105,9 @@ namespace Mythosia.AI
             // 결과 문자열을 반환
             return resultBuilder.ToString();
         }
-    }
+        */
 
+    }
 
 
 
