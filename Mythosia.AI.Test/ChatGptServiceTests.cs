@@ -31,6 +31,8 @@ namespace Mythosia.AI.Tests
         {
             try
             {
+                var data = await AI.GenerateImageAsync("해변의 아름다운 풍경을 그려주세요");
+
                 // base class의 AI 필드 이용
                 var url = await AI.GenerateImageUrlAsync("해변의 아름다운 풍경을 그려주세요");
                 Console.WriteLine("[Image URL] " + url);
