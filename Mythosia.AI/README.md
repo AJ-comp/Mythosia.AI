@@ -2,144 +2,345 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4**, **Anthropic Claude**, **DeepSeek**, **Sonar**, **Gemini**, and more.  
-This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for GPT-3.5, GPT-4, Claude, DeepSeek, Sonar, Gemini, etc.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4 Vision**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
-### Supported Models
+### 🚀 What's New in v2.0
 
-- **OpenAI**: GPT-4, GPT-3.5 (Turbo), GPT-4o variants
-- **Anthropic Claude**: Claude 3.x (Claude3_5Sonnet, Claude3Opus, etc.)
-- **DeepSeek**: various chat/reasoner models
-- **Sonar**: sonar, sonar-pro, sonar-reasoning
-- **Gemini**: gemini-1.5-flash (and possible future expansions)
+- **Multimodal Support**: Send images along with text to compatible AI models
+- **Stateless Mode**: Process requests independently without maintaining conversation history
+- **Fluent Message Builder**: Easily construct complex multimodal messages
+- **Enhanced Extensions**: Convenient helper methods for common scenarios
 
-### Key Features
+## Installation
 
-- **Synchronous completion** and **streaming** support for multiple AI providers
-- **Customizable model selection**, temperature, and max tokens
-- **Single-prompt token counting** and **entire-conversation token counting** built-in
-- **Unified abstraction** over HTTP requests/responses for each service
-- **Extendable structure** for easily adding new AI model integrations
+```bash
+dotnet add package Mythosia.AI
+```
 
-## How to Use
+## Quick Start
 
-### Allocation
+### Basic Setup
+
 ```csharp
 using Mythosia.AI;
+using Mythosia.AI.Builders;
 using System.Net.Http;
 
 var httpClient = new HttpClient();
-
-// Example usage for each supported service:
-var aiService = new ChatGptService("your_openai_api_key", httpClient);
-var aiService = new ClaudeService("your_anthropic_api_key", httpClient);
-var aiService = new DeepSeekService("your_deepseek_api_key", httpClient);
-var aiService = new SonarService("your_sonar_api_key", httpClient);
-var aiService = new GeminiService("your_gemini_api_key", httpClient);
+var aiService = new ChatGptService("your-api-key", httpClient);
 ```
 
-### completion
+### Text-Only Queries (Backward Compatible)
+
 ```csharp
+// Simple completion
 string response = await aiService.GetCompletionAsync("What is AI?");
+
+// Streaming
+await aiService.StreamCompletionAsync("Explain quantum computing", 
+    content => Console.Write(content));
 ```
 
-### Token Counting
-```csharp
-// Entire conversation token count
-uint totalTokens = await aiService.GetInputTokenCountAsync();
+### Image Analysis (New!)
 
-// Single-prompt token count
-uint promptTokens = await aiService.GetInputTokenCountAsync("One-off prompt to analyze");
+```csharp
+// Analyze a single image
+var description = await aiService.GetCompletionWithImageAsync(
+    "What's in this image?", 
+    "photo.jpg"
+);
+
+// Compare multiple images using fluent API
+var comparison = await aiService
+    .BeginMessage()
+    .AddText("What are the differences between these images?")
+    .AddImage("before.jpg")
+    .AddImage("after.jpg")
+    .SendAsync();
+
+// One-off image query (doesn't affect conversation history)
+var quickAnalysis = await aiService
+    .BeginMessage()
+    .AddText("What color is this?")
+    .AddImage("sample.jpg")
+    .SendOnceAsync();
+
+// Stream response for detailed analysis
+await aiService
+    .BeginMessage()
+    .AddText("Describe this artwork in detail")
+    .AddImage("painting.jpg")
+    .WithHighDetail()
+    .StreamAsync(chunk => Console.Write(chunk));
 ```
 
-### Model Switching Example
+### Multimodal Messages
+
 ```csharp
-// Add to existing ChatBlock usage
-aiService.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
-aiService.ActivateChat.ChangeModel("o1-2024-12-17"); // change with string
+// Using MessageBuilder
+var message = MessageBuilder.Create()
+    .AddText("Analyze this chart and explain the trend")
+    .AddImage("sales-chart.png")
+    .WithHighDetail()  // For detailed analysis
+    .Build();
+
+var analysis = await aiService.GetCompletionAsync(message);
+
+// Using image URLs
+var urlMessage = MessageBuilder.Create()
+    .AddText("What's in this image?")
+    .AddImageUrl("https://example.com/image.jpg")
+    .Build();
 ```
 
-### Streaming Responses
+### Stateless Mode (New!)
+
 ```csharp
-await aiService.StreamCompletionAsync("Explain quantum computing", content => {
-Console.WriteLine(content);
-});
+// Enable stateless mode for independent requests
+aiService.StatelessMode = true;
+
+// Each request is now independent
+await aiService.GetCompletionAsync("Translate: Hello");  // No history
+await aiService.GetCompletionAsync("Translate: World");  // No history
+
+// Or use one-off queries while maintaining conversation
+aiService.StatelessMode = false;  // Back to normal
+var oneOffResult = await aiService.AskOnceAsync("What time is it?");
 ```
 
-### ASP.NET Core Integration
-Below is an example of how to register and consume these AI services in an ASP.NET Core application.
+### Usage Scenarios
+
 ```csharp
-public void ConfigureServices(IServiceCollection services)
+// Scenario 1: Conversational Chatbot
+var service = new ChatGptService(apiKey, httpClient);
+await service.GetCompletionAsync("안녕하세요");
+await service.GetCompletionAsync("날씨가 어때요?"); // Conversation continues
+
+// Scenario 2: Stateless API-like calls
+var service = new ChatGptService(apiKey, httpClient);
+service.StatelessMode = true; // All calls are independent
+await service.GetCompletionAsync("번역: Hello");
+await service.GetCompletionAsync("번역: World");
+
+// Scenario 3: Mixed mode - mostly conversational with occasional one-off
+var service = new ChatGptService(apiKey, httpClient);
+await service.GetCompletionAsync("대화 시작");
+await service.GetCompletionAsync("계속 대화");
+// Quick one-off question
+var quickAnswer = await service.AskOnceAsync("오늘 날짜는?");
+// Continue conversation
+await service.GetCompletionAsync("아까 얘기 계속해요");
+
+// Scenario 4: One-time script usage
+var answer = await AIService.QuickAskAsync(apiKey, "Quick question");
+```
+
+## Service-Specific Features
+
+### OpenAI GPT-4 Vision
+
+```csharp
+var gptService = new ChatGptService(apiKey, httpClient);
+
+// Auto-switches to vision model when images are included
+var result = await gptService.GetCompletionWithImageAsync(
+    "Describe this image in detail", 
+    "complex-diagram.png"
+);
+
+// Generate images
+byte[] imageData = await gptService.GenerateImageAsync(
+    "A futuristic city at sunset",
+    "1024x1024"
+);
+```
+
+### Anthropic Claude 3
+
+```csharp
+var claudeService = new ClaudeService(apiKey, httpClient);
+
+// Claude 3 models support vision natively
+var analysis = await claudeService
+    .BeginMessage()
+    .AddText("Analyze this medical image")
+    .AddImage("xray.jpg")
+    .SendAsync();
+```
+
+### Google Gemini
+
+```csharp
+var geminiService = new GeminiService(apiKey, httpClient);
+
+// Gemini Pro Vision for multimodal tasks
+geminiService.ActivateChat.ChangeModel(AIModel.GeminiProVision);
+
+var result = await geminiService.GetCompletionWithImageAsync(
+    "What objects are in this image?",
+    "objects.jpg"
+);
+```
+
+## Advanced Usage
+
+### Fluent Message Building
+
+The library provides a fluent API for building complex messages:
+
+```csharp
+// SendAsync() - Adds to conversation history
+await aiService
+    .BeginMessage()
+    .AddText("Analyze this data")
+    .AddImage("chart.png")
+    .SendAsync();
+
+// SendOnceAsync() - One-off query without affecting history
+var result = await aiService
+    .BeginMessage()
+    .AddText("Quick question about this image")
+    .AddImage("photo.jpg")
+    .SendOnceAsync();
+
+// StreamAsync() - Stream response with history
+await aiService
+    .BeginMessage()
+    .AddText("Explain in detail")
+    .AddImage("diagram.png")
+    .StreamAsync(chunk => Console.Write(chunk));
+
+// StreamOnceAsync() - Stream without history
+await aiService
+    .BeginMessage()
+    .AddText("Translate this")
+    .AddImage("text.jpg")
+    .StreamOnceAsync(chunk => Console.Write(chunk));
+```
+
+### Conversation Management
+
+```csharp
+// Start fresh conversation
+aiService.StartNewConversation();
+
+// Switch models mid-conversation
+aiService.SwitchModel(AIModel.Claude3_5Sonnet241022);
+
+// Get conversation summary
+var summary = aiService.GetConversationSummary();
+
+// Retry last message
+var betterResponse = await aiService.RetryLastMessageAsync();
+```
+
+### Token Management
+
+```csharp
+// Check tokens before sending
+uint tokens = await aiService.GetInputTokenCountAsync();
+if (tokens > 3000)
 {
-    services.AddHttpClient();
-    
-    // Register your AI services with the needed keys
-    services.AddScoped<ChatGptService>(sp => 
-        new ChatGptService("openai_key", sp.GetRequiredService<HttpClient>()));
+    aiService.ActivateChat.MaxMessageCount = 10; // Reduce history
+}
 
-    services.AddScoped<ClaudeService>(sp => 
-        new ClaudeService("claude_key", sp.GetRequiredService<HttpClient>()));
+// Check tokens for specific prompt
+uint promptTokens = await aiService.GetInputTokenCountAsync("Long prompt...");
+```
 
-    services.AddScoped<DeepSeekService>(sp => 
-        new DeepSeekService("deepseek_key", sp.GetRequiredService<HttpClient>()));
+### Error Handling
 
-    services.AddScoped<SonarService>(sp =>
-        new SonarService("sonar_key", sp.GetRequiredService<HttpClient>()));
-
-    services.AddScoped<GeminiService>(sp =>
-        new GeminiService("gemini_key", sp.GetRequiredService<HttpClient>()));
+```csharp
+try
+{
+    var response = await aiService.GetCompletionAsync(message);
+}
+catch (MultimodalNotSupportedException ex)
+{
+    // Handle services that don't support images
+    Console.WriteLine($"Service {ex.ServiceName} doesn't support {ex.RequestedFeature}");
+}
+catch (TokenLimitExceededException ex)
+{
+    Console.WriteLine($"Too many tokens: {ex.RequestedTokens} > {ex.MaxTokens}");
+}
+catch (AIServiceException ex)
+{
+    Console.WriteLine($"API Error: {ex.Message}");
+    Console.WriteLine($"Details: {ex.ErrorDetails}");
 }
 ```
 
-### Service Usage in Controllers
+## Static Quick Methods
+
+For one-off queries without managing service instances:
+
 ```csharp
-[ApiController]
-[Route("api/[controller]")]
-public class AIController : ControllerBase
-{
-    private readonly ChatGptService _chatGptService;
-    private readonly ClaudeService _claudeService;
-    private readonly DeepSeekService _deepseekService;
-    private readonly SonarService _sonarService;
-    private readonly GeminiService _geminiService;
+// Quick text query
+var answer = await AIService.QuickAskAsync(
+    apiKey, 
+    "What's the capital of France?",
+    AIModel.Gpt4oMini
+);
 
-    public AIController(
-        ChatGptService chatGptService, 
-        ClaudeService claudeService,
-        DeepSeekService deepseekService,
-        SonarService sonarService,
-        GeminiService geminiService)
-    {
-        _chatGptService = chatGptService;
-        _claudeService = claudeService;
-        _deepseekService = deepseekService;
-        _sonarService = sonarService;
-        _geminiService = geminiService;
-    }
-
-    [HttpPost("deepseek-completion")]
-    public async Task<IActionResult> GetDeepSeekCompletion([FromBody] string prompt)
-    {
-        var result = await _deepseekService.GetCompletionAsync(prompt);
-        return Ok(result);
-    }
-    
-    [HttpPost("sonar-completion")]
-    public async Task<IActionResult> GetSonarCompletion([FromBody] string prompt)
-    {
-        var result = await _sonarService.GetCompletionAsync(prompt);
-        return Ok(result);
-    }
-}
+// Quick image analysis
+var description = await AIService.QuickAskWithImageAsync(
+    apiKey,
+    "Describe this image",
+    "image.jpg",
+    AIModel.Gpt4Vision
+);
 ```
 
-## Conclusion
+## Configuration
 
-The **Mythosia.AI** library simplifies integration with multiple AI providers (OpenAI GPT, Anthropic Claude, DeepSeek, Sonar, Gemini) by offering:
+### System Messages
 
-- **Synchronous and streaming** completion methods  
-- **Single-prompt** and **full-conversation** token counting  
-- **Unified** HTTP request/response handling  
-- **Extendable** model and service structure  
+```csharp
+aiService
+    .WithSystemMessage("You are a helpful assistant specialized in image analysis")
+    .WithTemperature(0.7f)
+    .WithMaxTokens(2000);
+```
 
-It provides a convenient way to switch models, manage prompts, and retrieve results without worrying about each AI provider’s low-level API differences.
+### Custom Models
+
+```csharp
+// Use string for custom model names
+aiService.ActivateChat.ChangeModel("gpt-4-1106-vision-preview");
+```
+
+## Best Practices
+
+1. **Reuse HttpClient**: Always reuse HttpClient instances
+2. **Handle Rate Limits**: Implement retry logic for rate limits
+3. **Validate Images**: Check image size and format before sending
+4. **Monitor Token Usage**: Track token consumption to manage costs
+5. **Error Handling**: Always wrap API calls in try-catch blocks
+
+## Supported Image Formats
+
+- **JPEG/JPG**
+- **PNG**
+- **GIF** (static)
+- **WebP**
+- **BMP**
+
+## Migration from v1.x
+
+Version 2.0 is fully backward compatible. Existing code will continue to work:
+
+```csharp
+// This still works exactly as before
+var response = await aiService.GetCompletionAsync("Hello");
+```
+
+New features are additive and optional.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License.

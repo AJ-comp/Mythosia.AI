@@ -1,4 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.Base;
 using Mythosia.Azure; // SecretFetcher 등
 using System.Net.Http;
 

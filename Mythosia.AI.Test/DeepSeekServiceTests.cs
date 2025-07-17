@@ -1,4 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.Base;
 using Mythosia.Azure;
 using System.Net.Http;
 
