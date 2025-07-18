@@ -6,7 +6,10 @@ using Mythosia.AI.Builders;
 using Mythosia.AI.Extensions;
 using Mythosia.Azure;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Tests
@@ -79,9 +82,6 @@ namespace Mythosia.AI.Tests
             }
         }
 
-        /// <summary>
-        /// Vision 모델을 사용한 이미지 분석 테스트
-        /// </summary>
         /// <summary>
         /// Vision 모델을 사용한 이미지 분석 테스트
         /// </summary>
@@ -331,6 +331,435 @@ namespace Mythosia.AI.Tests
             {
                 Console.WriteLine($"[Advanced Config Error] {ex.Message}");
                 Assert.Fail(ex.Message);
+            }
+        }
+
+        // ===== 새로운 IAsyncEnumerable 테스트들 =====
+
+        /// <summary>
+        /// IAsyncEnumerable 스트리밍과 이미지 분석 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableStreamingWithImageTest()
+        {
+            try
+            {
+                // Vision 지원 모델로 변경
+                AI.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+
+                string fullResponse = "";
+                int chunkCount = 0;
+                var chunks = new List<string>();
+
+                // IAsyncEnumerable로 이미지 분석 스트리밍
+                await foreach (var chunk in AI
+                    .BeginMessage()
+                    .AddText("Describe this image in detail, mentioning colors, objects, and composition:")
+                    .AddImage(TestImagePath)
+                    .WithHighDetail()
+                    .StreamAsync())
+                {
+                    fullResponse += chunk;
+                    chunks.Add(chunk);
+                    chunkCount++;
+                    Console.Write(chunk);
+                }
+
+                Console.WriteLine($"\n[IAsyncEnumerable Image Stream] Chunks: {chunkCount}, Total: {fullResponse.Length}");
+                Assert.IsTrue(chunkCount > 1, "Should receive multiple chunks");
+                Assert.IsTrue(fullResponse.Length > 50, "Response should be detailed");
+
+                // 청크 분석
+                var avgChunkSize = chunks.Average(c => c.Length);
+                Console.WriteLine($"[Chunk Analysis] Average chunk size: {avgChunkSize:F1} chars");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[IAsyncEnumerable Image Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable with cancellation 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableWithCancellationTest()
+        {
+            try
+            {
+                var cts = new CancellationTokenSource();
+                string partialResponse = "";
+                int receivedChunks = 0;
+                const int maxChunks = 10;
+
+                await foreach (var chunk in AI.StreamAsync(
+                    "Write a very long story about artificial intelligence, including its history, current state, and future prospects.",
+                    cts.Token))
+                {
+                    partialResponse += chunk;
+                    receivedChunks++;
+                    Console.Write(chunk);
+
+                    // 일정 청크 수가 되면 취소
+                    if (receivedChunks >= maxChunks)
+                    {
+                        cts.Cancel();
+                        break;
+                    }
+                }
+
+                Console.WriteLine($"\n[Cancelled After] {receivedChunks} chunks, {partialResponse.Length} chars");
+                Assert.AreEqual(maxChunks, receivedChunks);
+                Assert.IsTrue(partialResponse.Length > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Cancellation Test Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable 병렬 스트리밍 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableParallelStreamingTest()
+        {
+            try
+            {
+                // 두 개의 다른 프롬프트를 동시에 스트리밍
+                var task1 = StreamAndCollectAsync("Explain quantum computing in simple terms");
+                var task2 = StreamAndCollectAsync("Explain machine learning in simple terms");
+
+                var results = await Task.WhenAll(task1, task2);
+
+                Console.WriteLine($"[Parallel Stream 1] Length: {results[0].Content.Length}, Chunks: {results[0].ChunkCount}");
+                Console.WriteLine($"[Parallel Stream 2] Length: {results[1].Content.Length}, Chunks: {results[1].ChunkCount}");
+
+                Assert.IsTrue(results[0].Content.Length > 0);
+                Assert.IsTrue(results[1].Content.Length > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Parallel Streaming Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable StreamOnceAsync 대화 기록 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableStreamOnceHistoryTest()
+        {
+            try
+            {
+                // 먼저 대화 시작
+                await AI.GetCompletionAsync("Remember the number 12345");
+                int messagesAfterFirst = AI.ActivateChat.Messages.Count;
+
+                // StreamOnceAsync로 질문 (대화 기록에 추가되지 않음)
+                string onceResponse = "";
+                await foreach (var chunk in AI.StreamOnceAsync("What number did I mention?"))
+                {
+                    onceResponse += chunk;
+                }
+
+                int messagesAfterOnce = AI.ActivateChat.Messages.Count;
+                Assert.AreEqual(messagesAfterFirst, messagesAfterOnce, "StreamOnceAsync should not add to history");
+
+                // 일반 스트리밍으로 확인 (이전 대화 기억)
+                string normalResponse = "";
+                await foreach (var chunk in AI.StreamAsync("Do you still remember the number?"))
+                {
+                    normalResponse += chunk;
+                }
+
+                Console.WriteLine($"[Once Response] {onceResponse}");
+                Console.WriteLine($"[Normal Response] {normalResponse}");
+
+                // 정상 스트리밍은 대화 기록에 추가됨
+                Assert.IsTrue(AI.ActivateChat.Messages.Count > messagesAfterOnce);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[StreamOnce History Test Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable with System.Linq.Async 시뮬레이션 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableLinqSimulationTest()
+        {
+            try
+            {
+                // Take 시뮬레이션
+                var firstFiveChunks = new List<string>();
+                await foreach (var chunk in AI.StreamAsync("Count from 1 to 20 slowly"))
+                {
+                    firstFiveChunks.Add(chunk);
+                    if (firstFiveChunks.Count >= 5)
+                        break;
+                }
+
+                Console.WriteLine($"[Take(5)] Got {firstFiveChunks.Count} chunks");
+                Assert.AreEqual(5, firstFiveChunks.Count);
+
+                // Where 시뮬레이션 (긴 청크만 선택)
+                var longChunks = new List<string>();
+                await foreach (var chunk in AI.StreamAsync("Explain AI ethics with examples"))
+                {
+                    if (chunk.Length > 10)
+                    {
+                        longChunks.Add(chunk);
+                    }
+                }
+
+                Console.WriteLine($"[Where(length > 10)] {longChunks.Count} long chunks out of total");
+                if (longChunks.Count > 0)
+                {
+                    var avgLength = longChunks.Average(c => c.Length);
+                    Console.WriteLine($"[Average Length] {avgLength:F1} chars");
+                    Assert.IsTrue(avgLength > 10);
+                }
+
+                // Aggregate 시뮬레이션 (단어 수 계산)
+                int totalWords = 0;
+                await foreach (var chunk in AI.StreamAsync("Write a short paragraph about technology"))
+                {
+                    totalWords += chunk.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
+                }
+
+                Console.WriteLine($"[Word Count] Total: {totalWords} words");
+                Assert.IsTrue(totalWords > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[LINQ Simulation Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// System.Linq.Async를 사용한 고급 스트리밍 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task AdvancedLinqAsyncTest()
+        {
+            try
+            {
+                // 1. Take와 ToListAsync
+                var firstThreeChunks = await AI
+                    .StreamAsync("List 10 benefits of AI")
+                    .Take(3)
+                    .ToListAsync();
+
+                Console.WriteLine($"[Take(3)] Got {firstThreeChunks.Count} chunks");
+                Assert.AreEqual(3, firstThreeChunks.Count);
+
+                // 2. Select와 Where 조합
+                var processedChunks = await AI
+                    .StreamAsync("Explain cloud computing")
+                    .Where(chunk => !string.IsNullOrWhiteSpace(chunk))
+                    .Select(chunk => new
+                    {
+                        Content = chunk,
+                        Length = chunk.Length,
+                        WordCount = chunk.Split(' ').Length
+                    })
+                    .ToListAsync();
+
+                Console.WriteLine($"[Processed] {processedChunks.Count} chunks");
+                var totalWords = processedChunks.Sum(c => c.WordCount);
+                Console.WriteLine($"[Total Words] {totalWords}");
+
+                // 3. Aggregate를 사용한 통계
+                var stats = await AI
+                    .StreamAsync("Describe machine learning algorithms")
+                    .AggregateAsync(
+                        new { Count = 0, TotalLength = 0 },
+                        (acc, chunk) => new
+                        {
+                            Count = acc.Count + 1,
+                            TotalLength = acc.TotalLength + chunk.Length
+                        });
+
+                Console.WriteLine($"[Stats] Chunks: {stats.Count}, Total Length: {stats.TotalLength}");
+                Console.WriteLine($"[Stats] Average Chunk Size: {(double)stats.TotalLength / stats.Count:F1}");
+
+                // 4. FirstOrDefaultAsync로 첫 번째 의미 있는 청크 찾기
+                var firstMeaningfulChunk = await AI
+                    .StreamAsync("Say hello and then explain quantum physics")
+                    .Where(chunk => chunk.Length > 20)
+                    .FirstOrDefaultAsync();
+
+                if (firstMeaningfulChunk != null)
+                {
+                    Console.WriteLine($"[First Meaningful] {firstMeaningfulChunk.Substring(0, Math.Min(50, firstMeaningfulChunk.Length))}...");
+                }
+                else
+                {
+                    Console.WriteLine("[First Meaningful] No chunk found with length > 20");
+                }
+
+                // 5. CountAsync로 청크 수 계산
+                var chunkCount = await AI
+                    .StreamAsync("Count to 5")
+                    .CountAsync();
+
+                Console.WriteLine($"[Count] Total chunks: {chunkCount}");
+
+                // 6. 복잡한 파이프라인
+                var complexResult = await AI
+                    .StreamAsync("List and explain 5 programming paradigms")
+                    .Where(chunk => chunk.Length > 5)
+                    .Select((chunk, index) => new { Index = index, Chunk = chunk })
+                    .Take(20)
+                    .GroupBy(x => x.Index / 5) // 5개씩 그룹
+                    .Select(async group =>
+                    {
+                        var chunks = await group.ToListAsync();
+                        return new
+                        {
+                            GroupId = group.Key,
+                            ChunkCount = chunks.Count,
+                            TotalLength = chunks.Sum(x => x.Chunk.Length)
+                        };
+                    })
+                    .SelectAwait(async x => await x)
+                    .ToListAsync();
+
+                Console.WriteLine($"[Complex Pipeline] {complexResult.Count} groups");
+                foreach (var group in complexResult)
+                {
+                    Console.WriteLine($"  Group {group.GroupId}: {group.ChunkCount} chunks, {group.TotalLength} chars");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Advanced LINQ Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable 메모리 효율성 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task StreamingMemoryEfficiencyTest()
+        {
+            try
+            {
+                // 메모리 사용량 추적을 위한 시작 메모리
+                long startMemory = GC.GetTotalMemory(true);
+
+                // 대량의 텍스트를 스트리밍으로 처리
+                int processedChunks = 0;
+                long totalCharsProcessed = 0;
+
+                await foreach (var chunk in AI.StreamAsync(
+                    "Generate a very detailed technical documentation about distributed systems, " +
+                    "including architecture patterns, consistency models, fault tolerance, " +
+                    "scalability considerations, and real-world examples."))
+                {
+                    // 청크 단위로 처리 (메모리에 전체를 보관하지 않음)
+                    processedChunks++;
+                    totalCharsProcessed += chunk.Length;
+
+                    // 실시간 처리 시뮬레이션
+                    if (processedChunks % 10 == 0)
+                    {
+                        long currentMemory = GC.GetTotalMemory(false);
+                        Console.WriteLine($"[Memory] After {processedChunks} chunks: {(currentMemory - startMemory) / 1024}KB");
+                    }
+                }
+
+                long endMemory = GC.GetTotalMemory(true);
+                long memoryUsed = (endMemory - startMemory) / 1024;
+
+                Console.WriteLine($"[Memory Efficiency Test]");
+                Console.WriteLine($"  Processed Chunks: {processedChunks}");
+                Console.WriteLine($"  Total Characters: {totalCharsProcessed:N0}");
+                Console.WriteLine($"  Memory Used: {memoryUsed}KB");
+                Console.WriteLine($"  Bytes per Character: {(double)(endMemory - startMemory) / totalCharsProcessed:F2}");
+
+                // 메모리 효율성 검증
+                Assert.IsTrue(processedChunks > 0);
+                Assert.IsTrue(totalCharsProcessed > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Memory Efficiency Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 다중 스트림 병합 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task MultiStreamMergeTest()
+        {
+            try
+            {
+                // 서로 다른 프롬프트의 스트림을 병합
+                var stream1 = AI.StreamOnceAsync("First topic: AI").Select(chunk => $"[1] {chunk}");
+                var stream2 = AI.StreamOnceAsync("Second topic: ML").Select(chunk => $"[2] {chunk}");
+
+                var mergedChunks = new List<string>();
+
+                // 수동 병합 (System.Linq.Async에 Merge가 없으므로)
+                var task1 = ProcessStreamAsync(stream1, mergedChunks);
+                var task2 = ProcessStreamAsync(stream2, mergedChunks);
+
+                await Task.WhenAll(task1, task2);
+
+                Console.WriteLine($"[Merged Streams] Total chunks: {mergedChunks.Count}");
+
+                var stream1Chunks = mergedChunks.Count(c => c.StartsWith("[1]"));
+                var stream2Chunks = mergedChunks.Count(c => c.StartsWith("[2]"));
+
+                Console.WriteLine($"  Stream 1: {stream1Chunks} chunks");
+                Console.WriteLine($"  Stream 2: {stream2Chunks} chunks");
+
+                Assert.IsTrue(stream1Chunks > 0);
+                Assert.IsTrue(stream2Chunks > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Multi Stream Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        // Helper methods
+
+        private async Task<(string Content, int ChunkCount)> StreamAndCollectAsync(string prompt)
+        {
+            var content = "";
+            var chunkCount = 0;
+
+            await foreach (var chunk in AI.StreamAsync(prompt))
+            {
+                content += chunk;
+                chunkCount++;
+            }
+
+            return (content, chunkCount);
+        }
+
+        private async Task ProcessStreamAsync(IAsyncEnumerable<string> stream, List<string> collector)
+        {
+            await foreach (var chunk in stream)
+            {
+                lock (collector)
+                {
+                    collector.Add(chunk);
+                }
             }
         }
     }

@@ -2,19 +2,24 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4o**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
-### 🚀 What's New in v2.0
+### 🚀 What's New in v2.1.0
 
-- **Multimodal Support**: Send images along with text to compatible AI models
-- **Stateless Mode**: Process requests independently without maintaining conversation history
-- **Fluent Message Builder**: Easily construct complex multimodal messages
-- **Enhanced Extensions**: Convenient helper methods for common scenarios
+- **IAsyncEnumerable Streaming**: Modern C# async streaming with `await foreach`
+- **Simplified API**: `StreamAsync()` and `StreamOnceAsync()` methods directly on AIService
+- **Better Performance**: Channel-based implementation for efficient streaming
+- **Backward Compatible**: All existing callback-based methods still work
 
 ## Installation
 
 ```bash
 dotnet add package Mythosia.AI
+```
+
+For advanced LINQ operations with streams:
+```bash
+dotnet add package System.Linq.Async
 ```
 
 ## Important Usage Notes
@@ -44,6 +49,9 @@ using Mythosia.AI.Extensions;  // Required for:
 
 // For models and enums
 using Mythosia.AI.Models.Enums;
+
+// For advanced LINQ operations (optional)
+using System.Linq;
 ```
 
 **Common Issue**: If `BeginMessage()` or other extension methods don't appear in IntelliSense, make sure you have added `using Mythosia.AI.Extensions;` at the top of your file.
@@ -55,27 +63,56 @@ using Mythosia.AI.Models.Enums;
 ```csharp
 using Mythosia.AI;
 using Mythosia.AI.Builders;
-using Mythosia.AI.Extensions;  // Required for extension methods like BeginMessage()
+using Mythosia.AI.Extensions;
 using System.Net.Http;
 
 var httpClient = new HttpClient();
 var aiService = new ChatGptService("your-api-key", httpClient);
 ```
 
-### Text-Only Queries (Backward Compatible)
+### Text-Only Queries
 
 ```csharp
 // Simple completion
 string response = await aiService.GetCompletionAsync("What is AI?");
 
-// Streaming
-await aiService.StreamCompletionAsync("Explain quantum computing", 
-    content => Console.Write(content));
+// With conversation history
+await aiService.GetCompletionAsync("Tell me about machine learning");
+await aiService.GetCompletionAsync("How does it differ from AI?"); // Remembers context
+
+// One-off query (no history)
+string quickAnswer = await aiService.AskOnceAsync("What time is it in Seoul?");
 ```
 
-### Image Analysis (New!)
+### Streaming Responses (New in v2.1.0!)
 
-**Note**: The `BeginMessage()` method requires `using Mythosia.AI.Extensions;`
+```csharp
+// Modern IAsyncEnumerable streaming
+await foreach (var chunk in aiService.StreamAsync("Explain quantum computing"))
+{
+    Console.Write(chunk);
+}
+
+// One-off streaming without affecting conversation history
+await foreach (var chunk in aiService.StreamOnceAsync("Quick question"))
+{
+    Console.Write(chunk);
+}
+
+// Traditional callback streaming (still supported)
+await aiService.StreamCompletionAsync("Explain AI", 
+    chunk => Console.Write(chunk));
+
+// With cancellation support
+var cts = new CancellationTokenSource();
+await foreach (var chunk in aiService.StreamAsync("Long explanation", cts.Token))
+{
+    Console.Write(chunk);
+    if (chunk.Contains("enough")) cts.Cancel();
+}
+```
+
+### Image Analysis (Multimodal)
 
 ```csharp
 // Analyze a single image
@@ -85,7 +122,6 @@ var description = await aiService.GetCompletionWithImageAsync(
 );
 
 // Compare multiple images using fluent API
-// Requires: using Mythosia.AI.Extensions;
 var comparison = await aiService
     .BeginMessage()
     .AddText("What are the differences between these images?")
@@ -93,81 +129,111 @@ var comparison = await aiService
     .AddImage("after.jpg")
     .SendAsync();
 
+// Stream image analysis
+await foreach (var chunk in aiService
+    .BeginMessage()
+    .AddText("Describe this artwork in detail")
+    .AddImage("painting.jpg")
+    .WithHighDetail()
+    .StreamAsync())
+{
+    Console.Write(chunk);
+}
+
 // One-off image query (doesn't affect conversation history)
 var quickAnalysis = await aiService
     .BeginMessage()
     .AddText("What color is this?")
     .AddImage("sample.jpg")
     .SendOnceAsync();
-
-// Stream response for detailed analysis
-await aiService
-    .BeginMessage()
-    .AddText("Describe this artwork in detail")
-    .AddImage("painting.jpg")
-    .WithHighDetail()
-    .StreamAsync(chunk => Console.Write(chunk));
 ```
 
-### Multimodal Messages
+### Advanced Streaming with LINQ
 
 ```csharp
-// Using MessageBuilder
-var message = MessageBuilder.Create()
-    .AddText("Analyze this chart and explain the trend")
-    .AddImage("sales-chart.png")
-    .WithHighDetail()  // For detailed analysis
-    .Build();
+// Requires: dotnet add package System.Linq.Async
 
-var analysis = await aiService.GetCompletionAsync(message);
+// Take only first 1000 characters
+var limitedResponse = await aiService
+    .StreamAsync("Tell me a long story")
+    .Take(100)  // Take first 100 chunks
+    .ToListAsync();
 
-// Using image URLs
-var urlMessage = MessageBuilder.Create()
-    .AddText("What's in this image?")
-    .AddImageUrl("https://example.com/image.jpg")
-    .Build();
+// Filter empty chunks
+await foreach (var chunk in aiService
+    .StreamAsync("Explain something")
+    .Where(c => !string.IsNullOrWhiteSpace(c)))
+{
+    ProcessChunk(chunk);
+}
+
+// Collect full response
+var fullText = await aiService
+    .StreamAsync("Explain AI")
+    .ToListAsync()
+    .ContinueWith(t => string.Concat(t.Result));
+
+// Transform chunks
+await foreach (var upper in aiService
+    .StreamAsync("Hello")
+    .Select(chunk => chunk.ToUpper()))
+{
+    Console.Write(upper);
+}
 ```
 
-### Stateless Mode (New!)
+### Stateless Mode
 
 ```csharp
-// Enable stateless mode for independent requests
+// Enable stateless mode for all requests
 aiService.StatelessMode = true;
 
-// Each request is now independent
+// Each request is independent
 await aiService.GetCompletionAsync("Translate: Hello");  // No history
 await aiService.GetCompletionAsync("Translate: World");  // No history
 
-// Or use one-off queries while maintaining conversation
+// Or use one-off methods while maintaining conversation
 aiService.StatelessMode = false;  // Back to normal
+
+// These don't affect the conversation history
 var oneOffResult = await aiService.AskOnceAsync("What time is it?");
+
+await foreach (var chunk in aiService.StreamOnceAsync("Quick question"))
+{
+    Console.Write(chunk);
+}
 ```
 
-### Usage Scenarios
+### Fluent Message Building
 
 ```csharp
-// Scenario 1: Conversational Chatbot
-var service = new ChatGptService(apiKey, httpClient);
-await service.GetCompletionAsync("안녕하세요");
-await service.GetCompletionAsync("날씨가 어때요?"); // Conversation continues
+// Build complex multimodal messages
+var result = await aiService
+    .BeginMessage()
+    .WithRole(ActorRole.User)
+    .AddText("Analyze this chart and explain the trend")
+    .AddImage("sales-chart.png")
+    .WithHighDetail()
+    .SendAsync();
 
-// Scenario 2: Stateless API-like calls
-var service = new ChatGptService(apiKey, httpClient);
-service.StatelessMode = true; // All calls are independent
-await service.GetCompletionAsync("번역: Hello");
-await service.GetCompletionAsync("번역: World");
+// Stream with fluent API
+await foreach (var chunk in aiService
+    .BeginMessage()
+    .AddText("Compare these approaches:")
+    .AddText("1. Traditional ML")
+    .AddText("2. Deep Learning") 
+    .AddImage("comparison.jpg")
+    .StreamAsync())
+{
+    ProcessChunk(chunk);
+}
 
-// Scenario 3: Mixed mode - mostly conversational with occasional one-off
-var service = new ChatGptService(apiKey, httpClient);
-await service.GetCompletionAsync("대화 시작");
-await service.GetCompletionAsync("계속 대화");
-// Quick one-off question
-var quickAnswer = await service.AskOnceAsync("오늘 날짜는?");
-// Continue conversation
-await service.GetCompletionAsync("아까 얘기 계속해요");
-
-// Scenario 4: One-time script usage
-var answer = await AIService.QuickAskAsync(apiKey, "Quick question");
+// Using image URLs
+var urlAnalysis = await aiService
+    .BeginMessage()
+    .AddText("What's in this image?")
+    .AddImageUrl("https://example.com/image.jpg")
+    .SendAsync();
 ```
 
 ## Service-Specific Features
@@ -180,11 +246,15 @@ var gptService = new ChatGptService(apiKey, httpClient);
 // Use GPT-4o model (supports vision natively)
 gptService.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
 
-// Analyze images
-var result = await gptService.GetCompletionWithImageAsync(
-    "Describe this image in detail", 
-    "complex-diagram.png"
-);
+// Stream with GPT-4o
+await foreach (var chunk in gptService
+    .BeginMessage()
+    .AddText("Analyze this complex diagram")
+    .AddImage("diagram.png")
+    .StreamAsync())
+{
+    Console.Write(chunk);
+}
 
 // Generate images
 byte[] imageData = await gptService.GenerateImageAsync(
@@ -209,9 +279,9 @@ string transcription = await gptService.TranscribeAudioAsync(
 ```
 
 **Important Notes:**
-- `gpt-4-vision-preview` model is deprecated. Use `gpt-4o` models instead.
 - GPT-4o models (`gpt-4o-latest`, `gpt-4o`, `gpt-4o-2024-08-06`) support vision natively
 - `gpt-4o-mini` does NOT support vision
+- `gpt-4-vision-preview` is deprecated, use `gpt-4o` instead
 
 ### Anthropic Claude 3
 
@@ -219,11 +289,14 @@ string transcription = await gptService.TranscribeAudioAsync(
 var claudeService = new ClaudeService(apiKey, httpClient);
 
 // Claude 3 models support vision natively
-var analysis = await claudeService
+await foreach (var chunk in claudeService
     .BeginMessage()
     .AddText("Analyze this medical image")
     .AddImage("xray.jpg")
-    .SendAsync();
+    .StreamAsync())
+{
+    Console.Write(chunk);
+}
 
 // Token counting
 uint tokens = await claudeService.GetInputTokenCountAsync();
@@ -237,10 +310,15 @@ var geminiService = new GeminiService(apiKey, httpClient);
 // Gemini Pro Vision for multimodal tasks
 geminiService.ActivateChat.ChangeModel(AIModel.GeminiProVision);
 
-var result = await geminiService.GetCompletionWithImageAsync(
-    "What objects are in this image?",
-    "objects.jpg"
-);
+// Stream multimodal analysis
+await foreach (var chunk in geminiService
+    .BeginMessage()
+    .AddText("What objects are in this image?")
+    .AddImage("objects.jpg")
+    .StreamAsync())
+{
+    ProcessChunk(chunk);
+}
 ```
 
 ### DeepSeek
@@ -251,11 +329,13 @@ var deepSeekService = new DeepSeekService(apiKey, httpClient);
 // Use Reasoner model for complex reasoning
 deepSeekService.UseReasonerModel();
 
-// Code generation mode
+// Stream code generation
 deepSeekService.WithCodeGenerationMode("python");
-var code = await deepSeekService.GetCompletionAsync(
-    "Write a fibonacci function"
-);
+await foreach (var chunk in deepSeekService.StreamAsync(
+    "Write a fibonacci function"))
+{
+    Console.Write(chunk);
+}
 
 // Math mode with Chain of Thought
 deepSeekService.WithMathMode();
@@ -269,9 +349,16 @@ var solution = await deepSeekService.GetCompletionWithCoTAsync(
 ```csharp
 var sonarService = new SonarService(apiKey, httpClient);
 
-// Web search with citations
+// Web search with streaming
+await foreach (var chunk in sonarService.StreamAsync(
+    "Latest AI breakthroughs in 2024"))
+{
+    Console.Write(chunk);
+}
+
+// Get search with citations
 var searchResult = await sonarService.GetCompletionWithSearchAsync(
-    "Latest AI breakthroughs in 2024",
+    "Recent developments in quantum computing",
     domainFilter: new[] { "arxiv.org", "nature.com" },
     recencyFilter: "month"
 );
@@ -281,86 +368,69 @@ foreach (var citation in searchResult.Citations)
 {
     Console.WriteLine($"{citation.Title}: {citation.Url}");
 }
-
-// Use different Sonar models
-sonarService.UseSonarPro();       // Enhanced capabilities
-sonarService.UseSonarReasoning(); // Complex reasoning
 ```
 
 ## Advanced Usage
 
-### Fluent Message Building
-
-The fluent API requires `using Mythosia.AI.Extensions;` for methods like `BeginMessage()`, `WithSystemMessage()`, `WithTemperature()`, etc.
-
-```csharp
-using Mythosia.AI.Extensions;  // Required!
-
-// SendAsync() - Adds to conversation history
-await aiService
-    .BeginMessage()
-    .AddText("Analyze this data")
-    .AddImage("chart.png")
-    .SendAsync();
-
-// SendOnceAsync() - One-off query without affecting history
-var result = await aiService
-    .BeginMessage()
-    .AddText("Quick question about this image")
-    .AddImage("photo.jpg")
-    .SendOnceAsync();
-
-// StreamAsync() - Stream response with history
-await aiService
-    .BeginMessage()
-    .AddText("Explain in detail")
-    .AddImage("diagram.png")
-    .StreamAsync(chunk => Console.Write(chunk));
-
-// StreamOnceAsync() - Stream without history
-await aiService
-    .BeginMessage()
-    .AddText("Translate this")
-    .AddImage("text.jpg")
-    .StreamOnceAsync(chunk => Console.Write(chunk));
-```
-
 ### Conversation Management
-
-**Note**: All these methods require `using Mythosia.AI.Extensions;`
 
 ```csharp
 // Start fresh conversation
 aiService.StartNewConversation();
 
+// Start with different model
+aiService.StartNewConversation(AIModel.Claude3_5Sonnet241022);
+
 // Switch models mid-conversation
-aiService.SwitchModel(AIModel.Claude3_5Sonnet241022);
+aiService.SwitchModel(AIModel.Gpt4o241120);
 
-// Get conversation summary
+// Get conversation info
 var summary = aiService.GetConversationSummary();
-
-// Get last assistant response
 var lastResponse = aiService.GetLastAssistantResponse();
 
 // Retry last message
 var betterResponse = await aiService.RetryLastMessageAsync();
 
-// One-off query without affecting history
-var quickAnswer = await aiService.AskOnceAsync("Quick question");
+// Clear specific messages
+aiService.ActivateChat.RemoveLastMessage();
+aiService.ActivateChat.ClearMessages();
 ```
 
 ### Token Management
 
 ```csharp
 // Check tokens before sending
-uint tokens = await aiService.GetInputTokenCountAsync();
-if (tokens > 3000)
+uint currentTokens = await aiService.GetInputTokenCountAsync();
+if (currentTokens > 3000)
 {
     aiService.ActivateChat.MaxMessageCount = 10; // Reduce history
 }
 
 // Check tokens for specific prompt
 uint promptTokens = await aiService.GetInputTokenCountAsync("Long prompt...");
+
+// Configure max tokens
+aiService.WithMaxTokens(2000);
+```
+
+### Configuration
+
+```csharp
+// Method chaining for configuration
+aiService
+    .WithSystemMessage("You are a helpful coding assistant")
+    .WithTemperature(0.7f)
+    .WithMaxTokens(2000)
+    .WithStatelessMode(false);
+
+// Configure chat parameters
+aiService.ActivateChat.Temperature = 0.5f;
+aiService.ActivateChat.TopP = 0.9f;
+aiService.ActivateChat.MaxTokens = 4096;
+aiService.ActivateChat.MaxMessageCount = 20;
+
+// Custom models
+aiService.ActivateChat.ChangeModel("gpt-4-turbo-preview");
 ```
 
 ### Error Handling
@@ -368,11 +438,13 @@ uint promptTokens = await aiService.GetInputTokenCountAsync("Long prompt...");
 ```csharp
 try
 {
-    var response = await aiService.GetCompletionAsync(message);
+    await foreach (var chunk in aiService.StreamAsync(message))
+    {
+        Console.Write(chunk);
+    }
 }
 catch (MultimodalNotSupportedException ex)
 {
-    // Handle services that don't support images
     Console.WriteLine($"Service {ex.ServiceName} doesn't support {ex.RequestedFeature}");
 }
 catch (TokenLimitExceededException ex)
@@ -390,7 +462,7 @@ catch (AIServiceException ex)
 }
 ```
 
-## Static Quick Methods
+### Static Quick Methods
 
 For one-off queries without managing service instances:
 
@@ -407,83 +479,85 @@ var description = await AIService.QuickAskWithImageAsync(
     apiKey,
     "Describe this image",
     "image.jpg",
-    AIModel.Gpt4o240806  // Use vision-capable model
+    AIModel.Gpt4o240806
 );
-```
-
-## Configuration
-
-### System Messages
-
-```csharp
-aiService
-    .WithSystemMessage("You are a helpful assistant specialized in image analysis")
-    .WithTemperature(0.7f)
-    .WithMaxTokens(2000);
-```
-
-### Custom Models
-
-```csharp
-// Use string for custom model names
-aiService.ActivateChat.ChangeModel("gpt-4o-2024-11-20");
-```
-
-### Service-Specific Parameters
-
-```csharp
-// OpenAI specific
-var gptService = (ChatGptService)aiService;
-gptService.WithOpenAIParameters(
-    presencePenalty: 0.5f,
-    frequencyPenalty: 0.3f
-);
-
-// Claude specific
-var claudeService = (ClaudeService)aiService;
-claudeService.WithClaudeParameters(topK: 10);
-
-// Gemini specific
-var geminiService = (GeminiService)aiService;
-geminiService.WithSafetyThreshold("BLOCK_MEDIUM_AND_ABOVE");
 ```
 
 ## Model Support Matrix
 
-| Service | Text | Vision | Audio | Image Gen | Web Search |
-|---------|------|--------|-------|-----------|------------|
-| **OpenAI GPT-4o** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **OpenAI GPT-4o-mini** | ✅ | ❌ | ✅ | ✅ | ❌ |
-| **Claude 3** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Gemini** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **DeepSeek** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Sonar** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| Service | Text | Vision | Audio | Image Gen | Web Search | Streaming |
+|---------|------|--------|-------|-----------|------------|-----------|
+| **OpenAI GPT-4o** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| **OpenAI GPT-4o-mini** | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
+| **Claude 3** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Gemini** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **DeepSeek** | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Sonar** | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
 
 ## Best Practices
 
-1. **Model Selection**: 
-   - Use `gpt-4o` models for vision tasks (not `gpt-4-vision-preview` which is deprecated)
-   - Use `gpt-4o-mini` for cost-effective text-only tasks
-   - Use Claude 3.5 Haiku for fast, affordable multimodal tasks
+1. **Streaming Best Practices**:
+   - Use `StreamAsync()` for better performance with long responses
+   - Always handle cancellation tokens for user-initiated stops
+   - Consider using `StreamOnceAsync()` for queries that don't need history
+   - Use `System.Linq.Async` for advanced stream manipulation
 
-2. **Image Handling**:
+2. **Model Selection**: 
+   - Use `gpt-4o` models for vision tasks
+   - Use `gpt-4o-mini` for cost-effective text-only tasks
+   - Use Claude 3.5 Sonnet for complex reasoning
+   - Use Gemini 1.5 Flash for fast multimodal tasks
+
+3. **Image Handling**:
    - Keep images under 4MB
    - Supported formats: JPEG, PNG, GIF, WebP
    - Use `WithHighDetail()` for detailed analysis (costs more tokens)
+   - For URLs, ensure they are publicly accessible
 
-3. **Performance**:
+4. **Performance**:
    - Reuse HttpClient instances
    - Monitor token usage to manage costs
    - Use streaming for long responses
+   - Enable stateless mode for independent queries
 
-4. **Error Handling**:
+5. **Error Handling**:
    - Always wrap API calls in try-catch blocks
    - Check model capabilities before sending multimodal content
-   - Handle rate limits gracefully
+   - Handle rate limits gracefully with exponential backoff
+   - Log errors for debugging
 
-## Migration from v1.x
+## Migration Guide
 
-Version 2.0 is fully backward compatible. Existing code will continue to work:
+### From v2.0.x to v2.1.0
+
+Version 2.1.0 adds IAsyncEnumerable support while maintaining full backward compatibility:
+
+```csharp
+// Old way (still works)
+await service.StreamCompletionAsync("Hello", chunk => Console.Write(chunk));
+
+// New way (recommended)
+await foreach (var chunk in service.StreamAsync("Hello"))
+{
+    Console.Write(chunk);
+}
+
+// Fluent API now supports both
+await service.BeginMessage()
+    .AddText("Hello")
+    .StreamAsync(chunk => Console.Write(chunk));  // Callback version
+
+await foreach (var chunk in service.BeginMessage()
+    .AddText("Hello")
+    .StreamAsync())  // IAsyncEnumerable version
+{
+    Console.Write(chunk);
+}
+```
+
+### From v1.x to v2.x
+
+Version 2.x adds multimodal support and many new features. All v1.x code continues to work:
 
 ```csharp
 // This still works exactly as before
@@ -492,6 +566,21 @@ var response = await aiService.GetCompletionAsync("Hello");
 
 New features are additive and optional.
 
+## Troubleshooting
+
+**Q: Extension methods like `BeginMessage()` not showing up?**
+- Add `using Mythosia.AI.Extensions;` to your file
+
+**Q: Want to use LINQ with streams?**
+- Install `System.Linq.Async` package: `dotnet add package System.Linq.Async`
+
+**Q: Getting "Channel not found" error?**
+- The project targets .NET Standard 2.1. Make sure your project targets .NET Core 3.0+ or .NET 5.0+
+
+**Q: Images not working with GPT-4?**
+- Use `gpt-4o` models, not the deprecated `gpt-4-vision-preview`
+- Make sure images are in supported formats (JPEG, PNG, GIF, WebP)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -499,3 +588,10 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License.
+
+## Links
+
+- [GitHub Repository](https://github.com/AJ-comp/Mythosia)
+- [NuGet Package](https://www.nuget.org/packages/Mythosia.AI)
+- [Documentation](https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI)
+- [Samples](https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI.Samples)

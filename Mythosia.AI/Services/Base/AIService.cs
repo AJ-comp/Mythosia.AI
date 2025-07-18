@@ -3,8 +3,11 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
@@ -162,7 +165,7 @@ namespace Mythosia.AI.Services.Base
 
         #endregion
 
-        #region Streaming Methods
+        #region Streaming Methods (Callback-based)
 
         public virtual async Task StreamCompletionAsync(string prompt, Action<string> messageReceived)
         {
@@ -286,6 +289,116 @@ namespace Mythosia.AI.Services.Base
             finally
             {
                 ActivateChat = backup;
+            }
+        }
+
+        #endregion
+
+        #region IAsyncEnumerable Streaming Methods
+
+        /// <summary>
+        /// Streams completion as IAsyncEnumerable
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamAsync(
+            string prompt,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var message = new Message(ActorRole.User, prompt);
+            await foreach (var chunk in StreamAsync(message, cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Streams completion as IAsyncEnumerable
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamAsync(
+            Message message,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Create a channel for communication
+            var channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
+            {
+                SingleReader = true,
+                SingleWriter = true
+            });
+
+            // Start the streaming task
+            var streamingTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await StreamCompletionAsync(message, async content =>
+                    {
+                        await channel.Writer.WriteAsync(content, cancellationToken);
+                    });
+                }
+                catch (Exception ex)
+                {
+                    channel.Writer.TryComplete(ex);
+                    return;
+                }
+
+                channel.Writer.TryComplete();
+            }, cancellationToken);
+
+            // Read from the channel
+            try
+            {
+                await foreach (var chunk in channel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    yield return chunk;
+                }
+            }
+            finally
+            {
+                // Ensure the streaming task completes
+                try
+                {
+                    await streamingTask;
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected when cancelled
+                }
+            }
+        }
+
+        /// <summary>
+        /// Streams as one-off query without affecting conversation history
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamOnceAsync(
+            string prompt,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var message = new Message(ActorRole.User, prompt);
+            await foreach (var chunk in StreamOnceAsync(message, cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Streams as one-off query without affecting conversation history
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamOnceAsync(
+            Message message,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var originalMode = StatelessMode;
+            StatelessMode = true;
+
+            try
+            {
+                await foreach (var chunk in StreamAsync(message, cancellationToken))
+                {
+                    yield return chunk;
+                }
+            }
+            finally
+            {
+                StatelessMode = originalMode;
             }
         }
 

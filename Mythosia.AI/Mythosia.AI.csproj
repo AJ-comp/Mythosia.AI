@@ -12,16 +12,11 @@
 		<Company>Mythosia</Company>
 		<PackageTags>AI; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4o**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+		<Description>## 🚀 What's New in v2.1.0
 
-## 🚀 What's New in v2.0
-
-- **Multimodal Support**: Send images along with text to compatible AI models
-- **Stateless Mode**: Process requests independently without maintaining conversation history
-- **Fluent Message Builder**: Easily construct complex multimodal messages
-- **Enhanced Extensions**: Convenient helper methods for common scenarios
-- **Web Search Integration**: Real-time web search with citations (Perplexity Sonar)
-- **Audio Support**: Text-to-Speech and Speech-to-Text (OpenAI)
+- **IAsyncEnumerable Streaming**: Native support for modern C# async streaming
+- **Simplified API**: StreamAsync() method directly on AIService
+- **Better Performance**: Channel-based implementation for efficient streaming
 
 ## Supported Models
 
@@ -33,49 +28,42 @@
 
 ## Key Features
 
-- ✅ Synchronous and streaming completions
-- ✅ Image analysis (OpenAI GPT-4o, Claude 3, Gemini)
-- ✅ Image generation (OpenAI DALL-E)
-- ✅ Audio transcription and generation (OpenAI)
+- ✅ IAsyncEnumerable streaming support
+- ✅ Multimodal support (text + images)
+- ✅ Stateless mode for independent requests
+- ✅ Fluent message builder API
 - ✅ Web search with citations (Perplexity)
+- ✅ Audio support (OpenAI)
 - ✅ Token counting and management
-- ✅ Conversation history management
-- ✅ Model switching on the fly
-- ✅ Comprehensive error handling
 
 ## Quick Examples
 
 ```csharp
-// Basic setup (don't forget the using statements!)
-using Mythosia.AI;
-using Mythosia.AI.Extensions; // Required for BeginMessage() and other extensions
+// Simple streaming with IAsyncEnumerable
+await foreach (var chunk in service.StreamAsync("Hello"))
+{
+    Console.Write(chunk);
+}
 
-var service = new ChatGptService(apiKey, httpClient);
+// Fluent API with streaming
+await foreach (var chunk in service
+    .BeginMessage()
+    .AddText("Analyze this")
+    .AddImage("photo.jpg")
+    .StreamAsync())
+{
+    ProcessChunk(chunk);
+}
 
-// Text completion
-var response = await service.GetCompletionAsync("What is AI?");
+// One-off streaming (no history)
+await foreach (var chunk in service.StreamOnceAsync("Quick question"))
+{
+    Console.Write(chunk);
+}
 
-// Image analysis (with GPT-4o)
-service.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
-var analysis = await service.GetCompletionWithImageAsync(
-    "Describe this image", "photo.jpg");
-
-// Fluent API for complex messages
-await service.BeginMessage()
-    .AddText("Compare these images")
-    .AddImage("before.jpg")
-    .AddImage("after.jpg")
-    .SendAsync();
-
-// Stateless mode for independent requests
-service.StatelessMode = true;
-await service.GetCompletionAsync("Translate: Hello"); // No history
-
-// One-off queries without affecting conversation
-var quickAnswer = await service.AskOnceAsync("What time is it?");
-```
-
-Full documentation and examples: https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</Description>
+// Traditional callback streaming still supported
+await service.StreamCompletionAsync("Hello", chunk =&gt; Console.Write(chunk));
+```</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Version>2.0.1</Version>
@@ -85,6 +73,7 @@ Full documentation and examples: https://github.com/AJ-comp/Mythosia/tree/master
 	<ItemGroup>
 		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="System.Threading.Channels" Version="9.0.7" />
 		<PackageReference Include="TiktokenSharp" Version="1.1.6" />
 	</ItemGroup>
 

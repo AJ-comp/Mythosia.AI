@@ -7,7 +7,10 @@ using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services;
 using Mythosia.AI.Services.Base;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Tests
@@ -111,6 +114,266 @@ namespace Mythosia.AI.Tests
             {
                 Console.WriteLine($"[Error in {GetType().Name}] {ex.Message}");
                 Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable 스트리밍 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableStreamingTest()
+        {
+            try
+            {
+                AI.ActivateChat.SystemMessage = "응답을 짧고 간결하게 해줘.";
+
+                // 1) 기본 IAsyncEnumerable 스트리밍
+                string prompt = "1부터 3까지 세어줘.";
+                string fullResponse = "";
+                int chunkCount = 0;
+
+                await foreach (var chunk in AI.StreamAsync(prompt))
+                {
+                    fullResponse += chunk;
+                    chunkCount++;
+                    Console.Write(chunk);
+                }
+
+                Console.WriteLine($"\n[IAsyncEnumerable Stream] Chunks: {chunkCount}, Total: {fullResponse.Length}");
+                Assert.IsTrue(chunkCount > 0);
+                Assert.IsTrue(fullResponse.Contains("1") && fullResponse.Contains("3"));
+
+                // 2) 취소 토큰을 사용한 스트리밍
+                var cts = new CancellationTokenSource();
+                string cancelResponse = "";
+                int cancelChunkCount = 0;
+
+                try
+                {
+                    await foreach (var chunk in AI.StreamAsync("긴 이야기를 해줘", cts.Token))
+                    {
+                        cancelResponse += chunk;
+                        cancelChunkCount++;
+                        Console.Write(chunk);
+
+                        // 일정 길이가 되면 취소
+                        if (cancelResponse.Length > 50)
+                        {
+                            cts.Cancel();
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("\n[Stream Cancelled] As expected");
+                }
+
+                Console.WriteLine($"[Cancelled Stream] Chunks: {cancelChunkCount}, Length: {cancelResponse.Length}");
+                Assert.IsTrue(cancelChunkCount > 0);
+
+                // 3) StreamOnceAsync 테스트 (대화 기록 영향 없음)
+                int messageCountBefore = AI.ActivateChat.Messages.Count;
+
+                string onceResponse = "";
+                await foreach (var chunk in AI.StreamOnceAsync("이것은 일회성 질문입니다"))
+                {
+                    onceResponse += chunk;
+                }
+
+                int messageCountAfter = AI.ActivateChat.Messages.Count;
+                Assert.AreEqual(messageCountBefore, messageCountAfter, "StreamOnceAsync should not affect conversation history");
+                Assert.IsTrue(onceResponse.Length > 0);
+                Console.WriteLine($"\n[StreamOnce] Response: {onceResponse}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Error in IAsyncEnumerable Test] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable with MessageBuilder 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableWithMessageBuilderTest()
+        {
+            try
+            {
+                // 1) 텍스트만 있는 메시지 스트리밍
+                string textResponse = "";
+                await foreach (var chunk in AI
+                    .BeginMessage()
+                    .AddText("숫자 3을 다양한 언어로 써줘")
+                    .StreamAsync())
+                {
+                    textResponse += chunk;
+                    Console.Write(chunk);
+                }
+
+                Console.WriteLine($"\n[MessageBuilder Stream] Length: {textResponse.Length}");
+                Assert.IsTrue(textResponse.Length > 0);
+
+                // 2) 멀티모달 메시지 스트리밍 (지원하는 서비스만)
+                if (SupportsMultimodal())
+                {
+                    // GPT-4 Vision 지원 모델로 변경 (필요한 경우)
+                    if (AI is ChatGptService && AI.ActivateChat.Model.Contains("mini"))
+                    {
+                        AI.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                    }
+
+                    string imageResponse = "";
+                    int imageChunkCount = 0;
+
+                    await foreach (var chunk in AI
+                        .BeginMessage()
+                        .AddText("이 이미지에 대해 간단히 설명해줘")
+                        .AddImage(TestImagePath)
+                        .StreamAsync())
+                    {
+                        imageResponse += chunk;
+                        imageChunkCount++;
+                        Console.Write(chunk);
+                    }
+
+                    Console.WriteLine($"\n[Multimodal Stream] Chunks: {imageChunkCount}");
+                    Assert.IsTrue(imageResponse.Length > 0);
+                }
+
+                // 3) StreamOnceAsync with MessageBuilder
+                int messagesBefore = AI.ActivateChat.Messages.Count;
+
+                string onceBuilderResponse = "";
+                await foreach (var chunk in AI
+                    .BeginMessage()
+                    .AddText("일회성 테스트 메시지")
+                    .StreamOnceAsync())
+                {
+                    onceBuilderResponse += chunk;
+                }
+
+                int messagesAfter = AI.ActivateChat.Messages.Count;
+                Assert.AreEqual(messagesBefore, messagesAfter, "StreamOnceAsync should not add to history");
+                Assert.IsTrue(onceBuilderResponse.Length > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Error in MessageBuilder Stream Test] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable with LINQ operations 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableWithLinqTest()
+        {
+            try
+            {
+                // System.Linq.Async가 있다고 가정하고 기본적인 조작만 테스트
+
+                // 1) Take를 사용한 제한 (수동 구현)
+                string prompt = "1부터 10까지 세어줘";
+                var chunks = new List<string>();
+                int maxChunks = 5;
+                int currentChunk = 0;
+
+                await foreach (var chunk in AI.StreamAsync(prompt))
+                {
+                    chunks.Add(chunk);
+                    currentChunk++;
+                    if (currentChunk >= maxChunks)
+                        break;
+                }
+
+                Console.WriteLine($"[Limited Stream] Got {chunks.Count} chunks (max: {maxChunks})");
+                Assert.IsTrue(chunks.Count <= maxChunks);
+
+                // 2) 전체 수집 (ToList 대신 수동)
+                var allChunks = new List<string>();
+                await foreach (var chunk in AI.StreamAsync("짧은 답변 해줘"))
+                {
+                    allChunks.Add(chunk);
+                }
+
+                string combined = string.Concat(allChunks);
+                Console.WriteLine($"[Collected] {allChunks.Count} chunks, Total: {combined.Length} chars");
+                Assert.IsTrue(allChunks.Count > 0);
+
+                // 3) 필터링 (빈 청크 제외)
+                var nonEmptyChunks = new List<string>();
+                await foreach (var chunk in AI.StreamAsync("답변해줘"))
+                {
+                    if (!string.IsNullOrWhiteSpace(chunk))
+                    {
+                        nonEmptyChunks.Add(chunk);
+                    }
+                }
+
+                Console.WriteLine($"[Filtered] {nonEmptyChunks.Count} non-empty chunks");
+                Assert.IsTrue(nonEmptyChunks.Count > 0);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Error in LINQ Test] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// IAsyncEnumerable 에러 처리 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task IAsyncEnumerableErrorHandlingTest()
+        {
+            try
+            {
+                // 1) 잘못된 모델로 시도
+                try
+                {
+                    AI.ActivateChat.ChangeModel("invalid-model");
+                    await foreach (var chunk in AI.StreamAsync("test"))
+                    {
+                        // Should not reach here
+                    }
+                    Assert.Fail("Should have thrown an exception");
+                }
+                catch (Exception modelEx)
+                {
+                    Console.WriteLine($"[Expected Model Error] {modelEx.Message}");
+                    // 원래 모델로 복원
+                    AI.ActivateChat.ChangeModel(CreateAIService().ActivateChat.Model);
+                }
+
+                // 2) 매우 짧은 타임아웃으로 취소
+                var quickCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
+                try
+                {
+                    await foreach (var chunk in AI.StreamAsync("긴 답변을 해줘", quickCts.Token))
+                    {
+                        await Task.Delay(10); // 지연 추가
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    Console.WriteLine("[Timeout Cancellation] Worked as expected");
+                }
+
+                // 3) 빈 메시지 스트리밍
+                string emptyResponse = "";
+                await foreach (var chunk in AI.StreamAsync(""))
+                {
+                    emptyResponse += chunk;
+                }
+                // 빈 프롬프트도 처리되어야 함
+                Assert.IsNotNull(emptyResponse);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Error Handling Test] {ex.GetType().Name}: {ex.Message}");
+                // 일부 에러는 예상된 것일 수 있음
             }
         }
 

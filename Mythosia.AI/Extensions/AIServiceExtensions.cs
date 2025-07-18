@@ -5,6 +5,8 @@ using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Extensions
@@ -107,7 +109,7 @@ namespace Mythosia.AI.Extensions
             var messages = service.ActivateChat.Messages;
             for (int i = messages.Count - 1; i >= 0; i--)
             {
-                if (messages[i].Role == Models.Enums.ActorRole.Assistant)
+                if (messages[i].Role == ActorRole.Assistant)
                 {
                     return messages[i].GetDisplayText();
                 }
@@ -187,7 +189,7 @@ namespace Mythosia.AI.Extensions
                 throw new InvalidOperationException("No messages to retry");
 
             // Remove the last assistant response
-            if (messages[messages.Count - 1].Role == Models.Enums.ActorRole.Assistant)
+            if (messages[messages.Count - 1].Role == ActorRole.Assistant)
             {
                 messages.RemoveAt(messages.Count - 1);
             }
@@ -196,7 +198,7 @@ namespace Mythosia.AI.Extensions
             Message? lastUserMessage = null;
             for (int i = messages.Count - 1; i >= 0; i--)
             {
-                if (messages[i].Role == Models.Enums.ActorRole.User)
+                if (messages[i].Role == ActorRole.User)
                 {
                     lastUserMessage = messages[i];
                     messages.RemoveAt(i);
@@ -261,13 +263,19 @@ namespace Mythosia.AI.Extensions
             return this;
         }
 
+        public MessageChain AddImage(byte[] imageData, string mimeType)
+        {
+            _builder.AddImage(imageData, mimeType);
+            return this;
+        }
+
         public MessageChain AddImageUrl(string url)
         {
             _builder.AddImageUrl(url);
             return this;
         }
 
-        public MessageChain WithRole(Models.Enums.ActorRole role)
+        public MessageChain WithRole(ActorRole role)
         {
             _builder.WithRole(role);
             return this;
@@ -281,9 +289,7 @@ namespace Mythosia.AI.Extensions
 
         /// <summary>
         /// Sends the message and maintains conversation history.
-        /// The message and response will be added to the current chat context.
         /// </summary>
-        /// <returns>The AI's response</returns>
         public async Task<string> SendAsync()
         {
             var message = _builder.Build();
@@ -292,9 +298,7 @@ namespace Mythosia.AI.Extensions
 
         /// <summary>
         /// Sends the message as a one-off query without affecting conversation history.
-        /// Useful for side questions or independent queries within an ongoing conversation.
         /// </summary>
-        /// <returns>The AI's response</returns>
         public async Task<string> SendOnceAsync()
         {
             var message = _builder.Build();
@@ -302,10 +306,8 @@ namespace Mythosia.AI.Extensions
         }
 
         /// <summary>
-        /// Sends the message and streams the response while maintaining conversation history.
-        /// The complete message and response will be added to the current chat context.
+        /// Sends the message and streams the response (callback version)
         /// </summary>
-        /// <param name="onContent">Callback invoked for each chunk of the response</param>
         public async Task StreamAsync(Action<string> onContent)
         {
             var message = _builder.Build();
@@ -317,15 +319,12 @@ namespace Mythosia.AI.Extensions
         }
 
         /// <summary>
-        /// Streams the message as a one-off query without affecting conversation history.
-        /// Useful for streaming independent queries within an ongoing conversation.
+        /// Streams the message as a one-off query (callback version)
         /// </summary>
-        /// <param name="onContent">Callback invoked for each chunk of the response</param>
         public async Task StreamOnceAsync(Action<string> onContent)
         {
             var message = _builder.Build();
 
-            // Temporarily enable stateless mode
             var originalMode = _service.StatelessMode;
             _service.StatelessMode = true;
 
@@ -340,6 +339,32 @@ namespace Mythosia.AI.Extensions
             finally
             {
                 _service.StatelessMode = originalMode;
+            }
+        }
+
+        /// <summary>
+        /// Streams the response as IAsyncEnumerable
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var message = _builder.Build();
+            await foreach (var chunk in _service.StreamAsync(message, cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Streams as one-off query as IAsyncEnumerable
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamOnceAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var message = _builder.Build();
+            await foreach (var chunk in _service.StreamOnceAsync(message, cancellationToken))
+            {
+                yield return chunk;
             }
         }
     }
