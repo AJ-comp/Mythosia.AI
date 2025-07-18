@@ -7,73 +7,78 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>1.7.1</VersionPrefix>
+		<VersionPrefix>2.0.1</VersionPrefix>
+
 		<Company>Mythosia</Company>
 		<PackageTags>AI; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>
-			
-The `Mythosia.AI` library provides an abstraction for various AI models, including support for **OpenAI GPT-4**, **Anthropic Claude**, **DeepSeek**, **Sonar**, **Gemini**, and more.  
-This library allows easy interaction with AI services, enabling both synchronous completion and streaming capabilities for GPT-3.5, GPT-4, Claude, DeepSeek, Sonar, Gemini, etc.
+		<Description>The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4o**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
-### Supported Models
+## 🚀 What's New in v2.0
 
-- **OpenAI**: GPT-4, GPT-3.5 (Turbo), GPT-4o variants
-- **Anthropic Claude**: Claude 3.x (Claude3_5Sonnet, Claude3Opus, etc.)
-- **DeepSeek**: various chat/reasoner models
-- **Sonar**: sonar, sonar-pro, sonar-reasoning
-- **Gemini**: gemini-1.5-flash (and possible future expansions)
+- **Multimodal Support**: Send images along with text to compatible AI models
+- **Stateless Mode**: Process requests independently without maintaining conversation history
+- **Fluent Message Builder**: Easily construct complex multimodal messages
+- **Enhanced Extensions**: Convenient helper methods for common scenarios
+- **Web Search Integration**: Real-time web search with citations (Perplexity Sonar)
+- **Audio Support**: Text-to-Speech and Speech-to-Text (OpenAI)
 
-## How to Use
+## Supported Models
 
-### Allocation
+- **OpenAI**: GPT-4o (latest, 2024-08-06), GPT-4o-mini, GPT-3.5 Turbo
+- **Anthropic**: Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
+- **Google**: Gemini 1.5 Flash, Gemini 1.5 Pro, Gemini Pro Vision  
+- **DeepSeek**: DeepSeek Chat, DeepSeek Reasoner
+- **Perplexity**: Sonar, Sonar Pro, Sonar Reasoning
+
+## Key Features
+
+- ✅ Synchronous and streaming completions
+- ✅ Image analysis (OpenAI GPT-4o, Claude 3, Gemini)
+- ✅ Image generation (OpenAI DALL-E)
+- ✅ Audio transcription and generation (OpenAI)
+- ✅ Web search with citations (Perplexity)
+- ✅ Token counting and management
+- ✅ Conversation history management
+- ✅ Model switching on the fly
+- ✅ Comprehensive error handling
+
+## Quick Examples
+
 ```csharp
+// Basic setup (don't forget the using statements!)
 using Mythosia.AI;
-using System.Net.Http;
+using Mythosia.AI.Extensions; // Required for BeginMessage() and other extensions
 
-var httpClient = new HttpClient();
+var service = new ChatGptService(apiKey, httpClient);
 
-// Example usage for each supported service:
-var aiService = new ChatGptService("your_openai_api_key", httpClient);
-var aiService = new ClaudeService("your_anthropic_api_key", httpClient);
-var aiService = new DeepSeekService("your_deepseek_api_key", httpClient);
-var aiService = new SonarService("your_sonar_api_key", httpClient);
-var aiService = new GeminiService("your_gemini_api_key", httpClient);
+// Text completion
+var response = await service.GetCompletionAsync("What is AI?");
+
+// Image analysis (with GPT-4o)
+service.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+var analysis = await service.GetCompletionWithImageAsync(
+    "Describe this image", "photo.jpg");
+
+// Fluent API for complex messages
+await service.BeginMessage()
+    .AddText("Compare these images")
+    .AddImage("before.jpg")
+    .AddImage("after.jpg")
+    .SendAsync();
+
+// Stateless mode for independent requests
+service.StatelessMode = true;
+await service.GetCompletionAsync("Translate: Hello"); // No history
+
+// One-off queries without affecting conversation
+var quickAnswer = await service.AskOnceAsync("What time is it?");
 ```
 
-### completion
-```csharp
-string response = await aiService.GetCompletionAsync("What is AI?");
-```
-
-### Token Counting
-```csharp
-// Entire conversation token count
-uint totalTokens = await aiService.GetInputTokenCountAsync();
-
-// Single-prompt token count
-uint promptTokens = await aiService.GetInputTokenCountAsync("One-off prompt to analyze");
-```
-
-### Model Switching Example
-```csharp
-// Add to existing ChatBlock usage
-aiService.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
-aiService.ActivateChat.ChangeModel("o1-2024-12-17"); // change with string
-```
-
-### Streaming Responses
-```csharp
-await aiService.StreamCompletionAsync("Explain quantum computing", content =&gt; {
-Console.WriteLine(content);
-});
-```
-
-
-		</Description>
+Full documentation and examples: https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>2.0.0</Version>
+		<Version>2.0.1</Version>
 	</PropertyGroup>
 
 

@@ -2,7 +2,7 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4 Vision**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
 ### 🚀 What's New in v2.0
 
@@ -17,6 +17,37 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 dotnet add package Mythosia.AI
 ```
 
+## Important Usage Notes
+
+### Required Using Statements
+
+Many convenient features are implemented as extension methods and require specific using statements:
+
+```csharp
+// Core functionality
+using Mythosia.AI;
+using Mythosia.AI.Services;
+
+// For MessageBuilder
+using Mythosia.AI.Builders;
+
+// For extension methods (IMPORTANT!)
+using Mythosia.AI.Extensions;  // Required for:
+                               // - BeginMessage()
+                               // - WithSystemMessage()
+                               // - WithTemperature()
+                               // - WithMaxTokens()
+                               // - AskOnceAsync()
+                               // - StartNewConversation()
+                               // - GetLastAssistantResponse()
+                               // - And more...
+
+// For models and enums
+using Mythosia.AI.Models.Enums;
+```
+
+**Common Issue**: If `BeginMessage()` or other extension methods don't appear in IntelliSense, make sure you have added `using Mythosia.AI.Extensions;` at the top of your file.
+
 ## Quick Start
 
 ### Basic Setup
@@ -24,6 +55,7 @@ dotnet add package Mythosia.AI
 ```csharp
 using Mythosia.AI;
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;  // Required for extension methods like BeginMessage()
 using System.Net.Http;
 
 var httpClient = new HttpClient();
@@ -43,6 +75,8 @@ await aiService.StreamCompletionAsync("Explain quantum computing",
 
 ### Image Analysis (New!)
 
+**Note**: The `BeginMessage()` method requires `using Mythosia.AI.Extensions;`
+
 ```csharp
 // Analyze a single image
 var description = await aiService.GetCompletionWithImageAsync(
@@ -51,6 +85,7 @@ var description = await aiService.GetCompletionWithImageAsync(
 );
 
 // Compare multiple images using fluent API
+// Requires: using Mythosia.AI.Extensions;
 var comparison = await aiService
     .BeginMessage()
     .AddText("What are the differences between these images?")
@@ -137,12 +172,15 @@ var answer = await AIService.QuickAskAsync(apiKey, "Quick question");
 
 ## Service-Specific Features
 
-### OpenAI GPT-4 Vision
+### OpenAI GPT-4
 
 ```csharp
 var gptService = new ChatGptService(apiKey, httpClient);
 
-// Auto-switches to vision model when images are included
+// Use GPT-4o model (supports vision natively)
+gptService.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+
+// Analyze images
 var result = await gptService.GetCompletionWithImageAsync(
     "Describe this image in detail", 
     "complex-diagram.png"
@@ -153,7 +191,27 @@ byte[] imageData = await gptService.GenerateImageAsync(
     "A futuristic city at sunset",
     "1024x1024"
 );
+
+// Audio features
+// Text-to-Speech
+byte[] audioData = await gptService.GetSpeechAsync(
+    "Hello, world!", 
+    voice: "alloy", 
+    model: "tts-1"
+);
+
+// Speech-to-Text
+string transcription = await gptService.TranscribeAudioAsync(
+    audioData, 
+    "audio.mp3", 
+    language: "en"
+);
 ```
+
+**Important Notes:**
+- `gpt-4-vision-preview` model is deprecated. Use `gpt-4o` models instead.
+- GPT-4o models (`gpt-4o-latest`, `gpt-4o`, `gpt-4o-2024-08-06`) support vision natively
+- `gpt-4o-mini` does NOT support vision
 
 ### Anthropic Claude 3
 
@@ -166,6 +224,9 @@ var analysis = await claudeService
     .AddText("Analyze this medical image")
     .AddImage("xray.jpg")
     .SendAsync();
+
+// Token counting
+uint tokens = await claudeService.GetInputTokenCountAsync();
 ```
 
 ### Google Gemini
@@ -182,13 +243,59 @@ var result = await geminiService.GetCompletionWithImageAsync(
 );
 ```
 
+### DeepSeek
+
+```csharp
+var deepSeekService = new DeepSeekService(apiKey, httpClient);
+
+// Use Reasoner model for complex reasoning
+deepSeekService.UseReasonerModel();
+
+// Code generation mode
+deepSeekService.WithCodeGenerationMode("python");
+var code = await deepSeekService.GetCompletionAsync(
+    "Write a fibonacci function"
+);
+
+// Math mode with Chain of Thought
+deepSeekService.WithMathMode();
+var solution = await deepSeekService.GetCompletionWithCoTAsync(
+    "Solve: 2x^2 + 5x - 3 = 0"
+);
+```
+
+### Perplexity Sonar
+
+```csharp
+var sonarService = new SonarService(apiKey, httpClient);
+
+// Web search with citations
+var searchResult = await sonarService.GetCompletionWithSearchAsync(
+    "Latest AI breakthroughs in 2024",
+    domainFilter: new[] { "arxiv.org", "nature.com" },
+    recencyFilter: "month"
+);
+
+// Access citations
+foreach (var citation in searchResult.Citations)
+{
+    Console.WriteLine($"{citation.Title}: {citation.Url}");
+}
+
+// Use different Sonar models
+sonarService.UseSonarPro();       // Enhanced capabilities
+sonarService.UseSonarReasoning(); // Complex reasoning
+```
+
 ## Advanced Usage
 
 ### Fluent Message Building
 
-The library provides a fluent API for building complex messages:
+The fluent API requires `using Mythosia.AI.Extensions;` for methods like `BeginMessage()`, `WithSystemMessage()`, `WithTemperature()`, etc.
 
 ```csharp
+using Mythosia.AI.Extensions;  // Required!
+
 // SendAsync() - Adds to conversation history
 await aiService
     .BeginMessage()
@@ -220,6 +327,8 @@ await aiService
 
 ### Conversation Management
 
+**Note**: All these methods require `using Mythosia.AI.Extensions;`
+
 ```csharp
 // Start fresh conversation
 aiService.StartNewConversation();
@@ -230,8 +339,14 @@ aiService.SwitchModel(AIModel.Claude3_5Sonnet241022);
 // Get conversation summary
 var summary = aiService.GetConversationSummary();
 
+// Get last assistant response
+var lastResponse = aiService.GetLastAssistantResponse();
+
 // Retry last message
 var betterResponse = await aiService.RetryLastMessageAsync();
+
+// One-off query without affecting history
+var quickAnswer = await aiService.AskOnceAsync("Quick question");
 ```
 
 ### Token Management
@@ -264,6 +379,10 @@ catch (TokenLimitExceededException ex)
 {
     Console.WriteLine($"Too many tokens: {ex.RequestedTokens} > {ex.MaxTokens}");
 }
+catch (RateLimitExceededException ex)
+{
+    Console.WriteLine($"Rate limit hit. Retry after: {ex.RetryAfter}");
+}
 catch (AIServiceException ex)
 {
     Console.WriteLine($"API Error: {ex.Message}");
@@ -288,7 +407,7 @@ var description = await AIService.QuickAskWithImageAsync(
     apiKey,
     "Describe this image",
     "image.jpg",
-    AIModel.Gpt4Vision
+    AIModel.Gpt4o240806  // Use vision-capable model
 );
 ```
 
@@ -307,24 +426,60 @@ aiService
 
 ```csharp
 // Use string for custom model names
-aiService.ActivateChat.ChangeModel("gpt-4-1106-vision-preview");
+aiService.ActivateChat.ChangeModel("gpt-4o-2024-11-20");
 ```
+
+### Service-Specific Parameters
+
+```csharp
+// OpenAI specific
+var gptService = (ChatGptService)aiService;
+gptService.WithOpenAIParameters(
+    presencePenalty: 0.5f,
+    frequencyPenalty: 0.3f
+);
+
+// Claude specific
+var claudeService = (ClaudeService)aiService;
+claudeService.WithClaudeParameters(topK: 10);
+
+// Gemini specific
+var geminiService = (GeminiService)aiService;
+geminiService.WithSafetyThreshold("BLOCK_MEDIUM_AND_ABOVE");
+```
+
+## Model Support Matrix
+
+| Service | Text | Vision | Audio | Image Gen | Web Search |
+|---------|------|--------|-------|-----------|------------|
+| **OpenAI GPT-4o** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **OpenAI GPT-4o-mini** | ✅ | ❌ | ✅ | ✅ | ❌ |
+| **Claude 3** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Gemini** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **DeepSeek** | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Sonar** | ✅ | ❌ | ❌ | ❌ | ✅ |
 
 ## Best Practices
 
-1. **Reuse HttpClient**: Always reuse HttpClient instances
-2. **Handle Rate Limits**: Implement retry logic for rate limits
-3. **Validate Images**: Check image size and format before sending
-4. **Monitor Token Usage**: Track token consumption to manage costs
-5. **Error Handling**: Always wrap API calls in try-catch blocks
+1. **Model Selection**: 
+   - Use `gpt-4o` models for vision tasks (not `gpt-4-vision-preview` which is deprecated)
+   - Use `gpt-4o-mini` for cost-effective text-only tasks
+   - Use Claude 3.5 Haiku for fast, affordable multimodal tasks
 
-## Supported Image Formats
+2. **Image Handling**:
+   - Keep images under 4MB
+   - Supported formats: JPEG, PNG, GIF, WebP
+   - Use `WithHighDetail()` for detailed analysis (costs more tokens)
 
-- **JPEG/JPG**
-- **PNG**
-- **GIF** (static)
-- **WebP**
-- **BMP**
+3. **Performance**:
+   - Reuse HttpClient instances
+   - Monitor token usage to manage costs
+   - Use streaming for long responses
+
+4. **Error Handling**:
+   - Always wrap API calls in try-catch blocks
+   - Check model capabilities before sending multimodal content
+   - Handle rate limits gracefully
 
 ## Migration from v1.x
 

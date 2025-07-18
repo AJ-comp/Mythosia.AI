@@ -130,19 +130,29 @@ namespace Mythosia.AI.Services
 
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
-            // Auto-switch to vision model if needed
-            if (ActivateChat.Model.Contains("gpt-4") && !ActivateChat.Model.Contains("vision"))
+            var currentModel = ActivateChat.Model;
+
+            // Check if current model supports vision
+            bool supportsVision = currentModel.Contains("gpt-4o") ||
+                                 currentModel.Contains("gpt-4-turbo") ||
+                                 currentModel.Contains("vision");
+
+            if (!supportsVision)
             {
-                ActivateChat.ChangeModel(AIModel.Gpt4Vision);
-            }
-            else if (ActivateChat.Model.Contains("gpt-4o"))
-            {
-                // GPT-4o models support vision natively
-            }
-            else
-            {
-                // For other models, switch to a vision-capable model
-                ActivateChat.ChangeModel(AIModel.Gpt4Vision);
+                // Switch to a vision-capable model
+                // Use gpt-4o instead of deprecated gpt-4-vision-preview
+                if (currentModel.Contains("mini"))
+                {
+                    // If using mini model, switch to full gpt-4o
+                    ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                }
+                else
+                {
+                    // For other models, switch to gpt-4o
+                    ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                }
+
+                Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {ActivateChat.Model} for vision support");
             }
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);

@@ -28,4 +28,14 @@
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="TestAssets\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="TestAssets\test_image.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
