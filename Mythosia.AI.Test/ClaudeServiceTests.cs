@@ -20,7 +20,6 @@ namespace Mythosia.AI.Tests
             string apiKey = secretFetcher.GetKeyValueAsync().Result;
 
             var service = new ClaudeService(apiKey, new HttpClient());
-            // Claude 3.5 Haiku는 비용 효율적
             service.ActivateChat.ChangeModel(AIModel.Claude3_5Haiku241022);
             return service;
         }

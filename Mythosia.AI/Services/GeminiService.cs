@@ -21,7 +21,7 @@ namespace Mythosia.AI.Services
         public GeminiService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://generativelanguage.googleapis.com/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Gemini15Flash)
+            var chatBlock = new ChatBlock(AIModel.Gemini2_5Pro)
             {
                 Temperature = 1.0f,
                 TopP = 0.8f,

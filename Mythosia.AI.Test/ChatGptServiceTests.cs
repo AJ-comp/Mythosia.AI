@@ -27,7 +27,7 @@ namespace Mythosia.AI.Tests
             // ChatGptService 인스턴스 생성
             var service = new ChatGptService(openAiKey, new HttpClient());
             // GPT-4o는 기본적으로 Vision을 지원합니다
-            service.ActivateChat.ChangeModel(AIModel.Gpt4oLatest); // Vision 지원 모델
+            service.ActivateChat.ChangeModel(AIModel.Gpt5); // Vision 지원 모델
             service.ActivateChat.SystemMessage = "You are a helpful assistant for testing purposes.";
 
             return service;
@@ -40,7 +40,7 @@ namespace Mythosia.AI.Tests
 
         protected override AIModel? GetAlternativeModel()
         {
-            return AIModel.Gpt4oLatest;
+            return AIModel.Gpt5;
         }
 
         // 2) ChatGPT 전용 테스트들
@@ -91,8 +91,7 @@ namespace Mythosia.AI.Tests
             try
             {
                 // Vision을 지원하는 모델로 전환
-                // gpt-4-vision-preview는 deprecated되었을 수 있으므로 gpt-4o 사용
-                AI.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                AI.ActivateChat.ChangeModel(AIModel.Gpt5);
                 Console.WriteLine($"[Vision Test] Using model: {AI.ActivateChat.Model}");
 
                 // MessageBuilder를 사용한 이미지 분석

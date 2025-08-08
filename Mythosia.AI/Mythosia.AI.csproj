@@ -7,66 +7,91 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>2.0.1</VersionPrefix>
+		<VersionPrefix>2.2.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
+		<PackageTags>AI; Gpt5; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>## 🚀 What's New in v2.1.0
+		<Description>## 🚀 What's New in v2.2.0
 
-- **IAsyncEnumerable Streaming**: Native support for modern C# async streaming
-- **Simplified API**: StreamAsync() method directly on AIService
-- **Better Performance**: Channel-based implementation for efficient streaming
+- **Latest AI Models**: Full support for newest generation AI models
+- **OpenAI**: GPT-5 series (Gpt5, Mini, Nano, ChatLatest), GPT-4.1 series
+- **Anthropic**: Claude 4 series (Opus 4.1, Opus 4, Sonnet 4) - now production ready
+- **Google**: Gemini 2.5 series (Pro, Flash, FlashLite) - enhanced performance
+- **Model Migration**: Smooth transition from deprecated enum values
+- **Production Ready**: All latest models available for production use
 
-## Supported Models
+## Comprehensive AI Model Support
 
-- **OpenAI**: GPT-4o (latest, 2024-08-06), GPT-4o-mini, GPT-3.5 Turbo
-- **Anthropic**: Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3 Opus
-- **Google**: Gemini 1.5 Flash, Gemini 1.5 Pro, Gemini Pro Vision  
-- **DeepSeek**: DeepSeek Chat, DeepSeek Reasoner
-- **Perplexity**: Sonar, Sonar Pro, Sonar Reasoning
+- **OpenAI**: GPT-5, GPT-4.1, GPT-4o (latest, 2024-11-20), GPT-4o-mini
+- **Anthropic**: Claude 4, Claude 3.7 Sonnet, Claude 3.5 Sonnet/Haiku
+- **Google**: Gemini 2.5 Pro/Flash/FlashLite, Gemini 2.0 Flash, Gemini 1.5 Pro/Flash
+- **DeepSeek**: DeepSeek Chat, DeepSeek Reasoner (enhanced reasoning capabilities)
+- **Perplexity**: Sonar, Sonar Pro, Sonar Reasoning (with web search &amp; citations)
 
-## Key Features
+## Key Features (from v2.1.0+)
 
-- ✅ IAsyncEnumerable streaming support
-- ✅ Multimodal support (text + images)
-- ✅ Stateless mode for independent requests
-- ✅ Fluent message builder API
-- ✅ Web search with citations (Perplexity)
-- ✅ Audio support (OpenAI)
-- ✅ Token counting and management
+- ✅ **Modern Streaming**: IAsyncEnumerable support with `await foreach` (v2.1.0)
+- ✅ **Latest Models**: GPT-5, Claude 4, Gemini 2.5 support (v2.2.0)
+- ✅ **Multimodal**: Text + images for vision-capable models
+- ✅ **Stateless Mode**: Independent requests without conversation history
+- ✅ **Fluent API**: Intuitive message builder with method chaining
+- ✅ **Web Search**: Real-time search with citations (Perplexity)
+- ✅ **Audio Support**: Text-to-Speech and Speech-to-Text (OpenAI)
+- ✅ **Token Management**: Precise counting and limits
+- ✅ **Error Handling**: Comprehensive exception types
+- ✅ **Backward Compatible**: All existing v1.x and v2.0.x code works
 
 ## Quick Examples
+// Use latest models (v2.2.0)
+var gptService = new ChatGptService(apiKey, httpClient);
+gptService.ActivateChat.ChangeModel(AIModel.Gpt5); // New in v2.2.0
 
-```csharp
-// Simple streaming with IAsyncEnumerable
-await foreach (var chunk in service.StreamAsync("Hello"))
+var claudeService = new ClaudeService(apiKey, httpClient);
+claudeService.ActivateChat.ChangeModel(AIModel.ClaudeOpus4_1_250805); // New in v2.2.0
+
+var geminiService = new GeminiService(apiKey, httpClient);
+geminiService.ActivateChat.ChangeModel(AIModel.Gemini2_5Pro); // New in v2.2.0
+
+// Modern streaming (from v2.1.0)
+await foreach (var chunk in service.StreamAsync("Explain AI"))
 {
     Console.Write(chunk);
 }
 
-// Fluent API with streaming
-await foreach (var chunk in service
+// Multimodal with latest models
+await foreach (var chunk in gptService
     .BeginMessage()
-    .AddText("Analyze this")
+    .AddText("Analyze this image")
     .AddImage("photo.jpg")
     .StreamAsync())
 {
     ProcessChunk(chunk);
 }
 
-// One-off streaming (no history)
+// One-off queries (no conversation history)
 await foreach (var chunk in service.StreamOnceAsync("Quick question"))
 {
     Console.Write(chunk);
 }
 
-// Traditional callback streaming still supported
-await service.StreamCompletionAsync("Hello", chunk =&gt; Console.Write(chunk));
-```</Description>
+// Web search with citations (Perplexity)
+var result = await sonarService.GetCompletionWithSearchAsync(
+    "Latest AI developments",
+    recencyFilter: "month"
+);
+foreach (var citation in result.Citations)
+{
+    Console.WriteLine($"{citation.Title}: {citation.Url}");
+}
+## Important Notes
+- **GPT-5**: Text completion only (streaming not yet implemented)
+- **Model Migration**: Update `Gemini15Pro` → `Gemini1_5Pro`
+- **Extension Methods**: Add `using Mythosia.AI.Extensions;`
+- **.NET Standard 2.1**: Compatible with .NET Core 3.0+ and .NET 5+</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>2.0.1</Version>
+		<Version>2.2.0</Version>
 	</PropertyGroup>
 
 

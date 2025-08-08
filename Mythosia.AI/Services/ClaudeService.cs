@@ -22,9 +22,10 @@ namespace Mythosia.AI.Services
         public ClaudeService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Claude3_5Sonnet241022)
+            var chatBlock = new ChatBlock(AIModel.ClaudeOpus4_1_250805)
             {
-                MaxTokens = 8192
+                MaxTokens = 8192,
+                Temperature = 0.7f  // 기본 temperature 값 명시
             };
             AddNewChat(chatBlock);
         }
@@ -56,16 +57,22 @@ namespace Mythosia.AI.Services
                 messagesList.Add(ConvertMessageForClaude(message));
             }
 
-            var requestBody = new
+            // ✅ top_p 제거, temperature만 사용
+            // Dictionary 사용으로 null/empty 체크 가능
+            var requestBody = new Dictionary<string, object>
             {
-                model = ActivateChat.Model,
-                system = ActivateChat.SystemMessage,
-                messages = messagesList,
-                top_p = ActivateChat.TopP,
-                temperature = ActivateChat.Temperature,
-                stream = ActivateChat.Stream,
-                max_tokens = ActivateChat.MaxTokens
+                ["model"] = ActivateChat.Model,
+                ["messages"] = messagesList,
+                ["temperature"] = ActivateChat.Temperature,  // temperature만 사용
+                ["stream"] = ActivateChat.Stream,
+                ["max_tokens"] = ActivateChat.MaxTokens
             };
+
+            // System message가 있는 경우에만 추가
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                requestBody["system"] = ActivateChat.SystemMessage;
+            }
 
             return requestBody;
         }
@@ -201,12 +208,19 @@ namespace Mythosia.AI.Services
                 messagesList.Add(ConvertMessageForClaude(message));
             }
 
-            return new
+            // ✅ 토큰 카운트 요청에서도 top_p 제거
+            var requestBody = new Dictionary<string, object>
             {
-                model = ActivateChat.Model,
-                system = ActivateChat.SystemMessage,
-                messages = messagesList
+                ["model"] = ActivateChat.Model,
+                ["messages"] = messagesList
             };
+
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                requestBody["system"] = ActivateChat.SystemMessage;
+            }
+
+            return requestBody;
         }
 
         private async Task<uint> GetTokenCountFromAPI(object requestBody)
@@ -242,8 +256,9 @@ namespace Mythosia.AI.Services
 
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
-            // Ensure we're using a vision-capable Claude 3 model
-            if (!ActivateChat.Model.Contains("claude-3"))
+            // Ensure we're using a vision-capable Claude model
+            // Claude 4 models also support vision
+            if (!ActivateChat.Model.Contains("claude-3") && !ActivateChat.Model.Contains("claude-4") && !ActivateChat.Model.Contains("opus-4"))
             {
                 ActivateChat.ChangeModel(AIModel.Claude3_5Sonnet241022);
             }
@@ -278,6 +293,24 @@ namespace Mythosia.AI.Services
         {
             // Claude supports top_k parameter
             // This would require extending ChatBlock to support Claude-specific parameters
+            return this;
+        }
+
+        /// <summary>
+        /// Sets temperature for different use cases
+        /// </summary>
+        public ClaudeService WithTemperaturePreset(TemperaturePreset preset)
+        {
+            ActivateChat.Temperature = preset switch
+            {
+                TemperaturePreset.Deterministic => 0.0f,
+                TemperaturePreset.Analytical => 0.1f,
+                TemperaturePreset.Factual => 0.3f,
+                TemperaturePreset.Balanced => 0.7f,
+                TemperaturePreset.Creative => 1.0f,
+                TemperaturePreset.VeryCreative => 1.5f,
+                _ => 0.7f
+            };
             return this;
         }
 
@@ -328,5 +361,29 @@ namespace Mythosia.AI.Services
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Temperature presets (Can be used for Claude or commonly across services)
+    /// </summary>
+    public enum TemperaturePreset
+    {
+        /// <summary>Deterministic output (0.0) - Most consistent responses</summary>
+        Deterministic,
+
+        /// <summary>Analytical/Math problems (0.1) - Highly accurate responses</summary>
+        Analytical,
+
+        /// <summary>Fact-based answers (0.3) - Informative responses</summary>
+        Factual,
+
+        /// <summary>Balanced conversation (0.7) - Default value</summary>
+        Balanced,
+
+        /// <summary>Creative writing (1.0) - Diverse responses</summary>
+        Creative,
+
+        /// <summary>Highly creative (1.5) - Storytelling, brainstorming</summary>
+        VeryCreative
     }
 }

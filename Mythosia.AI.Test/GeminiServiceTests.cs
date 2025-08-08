@@ -30,7 +30,7 @@ namespace Mythosia.AI.Tests
 
         protected override AIModel? GetAlternativeModel()
         {
-            return AIModel.Gemini15Pro;
+            return AIModel.Gemini1_5Pro; // Updated to use new enum value
         }
 
         /// <summary>
@@ -51,9 +51,6 @@ namespace Mythosia.AI.Tests
 
                 Assert.IsNotNull(response);
                 Console.WriteLine($"[Gemini Vision] {response}");
-
-                // 1.5 모델은 기본적으로 멀티모달 지원
-                AI.ActivateChat.ChangeModel(AIModel.Gemini15Flash);
 
                 var flashResponse = await AI
                     .BeginMessage()
@@ -141,8 +138,9 @@ namespace Mythosia.AI.Tests
             {
                 var models = new[]
                 {
-                    AIModel.Gemini15Flash,
-                    AIModel.Gemini15Pro,
+                    AIModel.Gemini1_5Flash,  // Updated to use new enum value
+                    AIModel.Gemini1_5Pro,    // Updated to use new enum value
+                    AIModel.Gemini2_5Pro,    // New Gemini 2.5 model
                     AIModel.GeminiPro
                 };
 
@@ -169,6 +167,48 @@ namespace Mythosia.AI.Tests
             catch (Exception ex)
             {
                 Console.WriteLine($"[Model Switching Error] {ex.Message}");
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Gemini 2.5 모델 테스트
+        /// </summary>
+        [TestMethod]
+        public async Task Gemini25ModelsTest()
+        {
+            try
+            {
+                var gemini25Models = new[]
+                {
+                    AIModel.Gemini2_5Pro,
+                    AIModel.Gemini2_5Flash,
+                    AIModel.Gemini2_5FlashLite
+                };
+
+                foreach (var model in gemini25Models)
+                {
+                    try
+                    {
+                        AI.ActivateChat.ChangeModel(model);
+                        Console.WriteLine($"\n[Testing Gemini 2.5 Model] {model.ToDescription()}");
+
+                        var response = await AI.GetCompletionAsync(
+                            "What are your capabilities as an AI assistant?"
+                        );
+
+                        Assert.IsNotNull(response);
+                        Console.WriteLine($"[Gemini 2.5 Response] {response.Truncate(150)}...");
+                    }
+                    catch (Exception modelEx)
+                    {
+                        Console.WriteLine($"[Gemini 2.5 Model {model} Error] {modelEx.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Gemini 2.5 Test Error] {ex.Message}");
                 Assert.Fail(ex.Message);
             }
         }
