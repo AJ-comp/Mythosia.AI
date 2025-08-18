@@ -7,7 +7,7 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>2.2.0</VersionPrefix>
+		<VersionPrefix>2.2.1</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Gpt5; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
@@ -91,7 +91,7 @@ foreach (var citation in result.Citations)
 - **.NET Standard 2.1**: Compatible with .NET Core 3.0+ and .NET 5+</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>2.2.0</Version>
+		<Version>2.2.1</Version>
 	</PropertyGroup>
 
 

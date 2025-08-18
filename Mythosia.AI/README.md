@@ -16,13 +16,24 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 - **Improved Stability**: Enhanced error handling and model compatibility
 
 ## Installation
+
+```bash
 dotnet add package Mythosia.AI
-For advanced LINQ operations with streams:dotnet add package System.Linq.Async
+```
+
+For advanced LINQ operations with streams:
+
+```bash
+dotnet add package System.Linq.Async
+```
+
 ## Important Usage Notes
 
 ### Required Using Statements
 
 Many convenient features are implemented as extension methods and require specific using statements:
+
+```csharp
 // Core functionality
 using Mythosia.AI;
 using Mythosia.AI.Services;
@@ -46,11 +57,15 @@ using Mythosia.AI.Models.Enums;
 
 // For advanced LINQ operations (optional)
 using System.Linq;
+```
+
 **Common Issue**: If `BeginMessage()` or other extension methods don't appear in IntelliSense, make sure you have added `using Mythosia.AI.Extensions;` at the top of your file.
 
 ## Quick Start
 
 ### Basic Setup
+
+```csharp
 using Mythosia.AI;
 using Mythosia.AI.Builders;
 using Mythosia.AI.Extensions;
@@ -58,7 +73,11 @@ using System.Net.Http;
 
 var httpClient = new HttpClient();
 var aiService = new ChatGptService("your-api-key", httpClient);
+```
+
 ### Text-Only Queries
+
+```csharp
 // Simple completion
 string response = await aiService.GetCompletionAsync("What is AI?");
 
@@ -68,7 +87,11 @@ await aiService.GetCompletionAsync("How does it differ from AI?"); // Remembers 
 
 // One-off query (no history)
 string quickAnswer = await aiService.AskOnceAsync("What time is it in Seoul?");
+```
+
 ### Streaming Responses
+
+```csharp
 // Modern IAsyncEnumerable streaming
 await foreach (var chunk in aiService.StreamAsync("Explain quantum computing"))
 {
@@ -92,11 +115,15 @@ await foreach (var chunk in aiService.StreamAsync("Long explanation", cts.Token)
     Console.Write(chunk);
     if (chunk.Contains("enough")) cts.Cancel();
 }
+```
+
 **Streaming Limitations:**
 - **GPT-5 models**: Streaming is not yet supported in this library. Use regular `GetCompletionAsync()` for GPT-5 models.
 - All other models support both streaming and regular completion methods.
 
 ### Image Analysis (Multimodal)
+
+```csharp
 // Analyze a single image
 var description = await aiService.GetCompletionWithImageAsync(
     "What's in this image?", 
@@ -128,7 +155,11 @@ var quickAnalysis = await aiService
     .AddText("What color is this?")
     .AddImage("sample.jpg")
     .SendOnceAsync();
+```
+
 ### Advanced Streaming with LINQ
+
+```csharp
 // Requires: dotnet add package System.Linq.Async
 
 // Take only first 1000 characters
@@ -158,7 +189,11 @@ await foreach (var upper in aiService
 {
     Console.Write(upper);
 }
+```
+
 ### Stateless Mode
+
+```csharp
 // Enable stateless mode for all requests
 aiService.StatelessMode = true;
 
@@ -176,7 +211,11 @@ await foreach (var chunk in aiService.StreamOnceAsync("Quick question"))
 {
     Console.Write(chunk);
 }
+```
+
 ### Fluent Message Building
+
+```csharp
 // Build complex multimodal messages
 var result = await aiService
     .BeginMessage()
@@ -204,9 +243,13 @@ var urlAnalysis = await aiService
     .AddText("What's in this image?")
     .AddImageUrl("https://example.com/image.jpg")
     .SendAsync();
+```
+
 ## Service-Specific Features
 
 ### OpenAI GPT Models
+
+```csharp
 var gptService = new ChatGptService(apiKey, httpClient);
 
 // Use latest GPT-4o model (supports vision natively)
@@ -245,6 +288,7 @@ string transcription = await gptService.TranscribeAudioAsync(
     "audio.mp3", 
     language: "en"
 );
+```
 
 **Important Notes:**
 - GPT-4o models (`gpt-4o-latest`, `gpt-4o`, `gpt-4o-2024-08-06`, `gpt-4o-2024-11-20`) support vision natively
@@ -254,6 +298,8 @@ string transcription = await gptService.TranscribeAudioAsync(
 - **⚠️ GPT-5 streaming is not yet supported in this library (text completion only)**
 
 ### Anthropic Claude Models
+
+```csharp
 var claudeService = new ClaudeService(apiKey, httpClient);
 
 // Use latest Claude models
@@ -274,7 +320,11 @@ await foreach (var chunk in claudeService
 
 // Token counting
 uint tokens = await claudeService.GetInputTokenCountAsync();
+```
+
 ### Google Gemini Models
+
+```csharp
 var geminiService = new GeminiService(apiKey, httpClient);
 
 // Use latest Gemini 2.5 models (recommended)
@@ -296,12 +346,16 @@ await foreach (var chunk in geminiService
 
 // Gemini Pro Vision for legacy support
 geminiService.ActivateChat.ChangeModel(AIModel.GeminiProVision);
+```
+
 **Model Migration Note:**
 - `Gemini15Pro` → `Gemini1_5Pro` (deprecated, please update)
 - `Gemini15Flash` → `Gemini1_5Flash` (deprecated, please update)
 - New Gemini 2.5 models offer improved performance and capabilities
 
 ### DeepSeek Models
+
+```csharp
 var deepSeekService = new DeepSeekService(apiKey, httpClient);
 
 // Use Reasoner model for complex reasoning
@@ -320,7 +374,11 @@ deepSeekService.WithMathMode();
 var solution = await deepSeekService.GetCompletionWithCoTAsync(
     "Solve: 2x^2 + 5x - 3 = 0"
 );
+```
+
 ### Perplexity Sonar Models
+
+```csharp
 var sonarService = new SonarService(apiKey, httpClient);
 
 // Use enhanced reasoning model
@@ -345,9 +403,13 @@ foreach (var citation in searchResult.Citations)
 {
     Console.WriteLine($"{citation.Title}: {citation.Url}");
 }
+```
+
 ## Advanced Usage
 
 ### Conversation Management
+
+```csharp
 // Start fresh conversation
 aiService.StartNewConversation();
 
@@ -367,7 +429,11 @@ var betterResponse = await aiService.RetryLastMessageAsync();
 // Clear specific messages
 aiService.ActivateChat.RemoveLastMessage();
 aiService.ActivateChat.ClearMessages();
+```
+
 ### Token Management
+
+```csharp
 // Check tokens before sending
 uint currentTokens = await aiService.GetInputTokenCountAsync();
 if (currentTokens > 3000)
@@ -380,7 +446,11 @@ uint promptTokens = await aiService.GetInputTokenCountAsync("Long prompt...");
 
 // Configure max tokens
 aiService.WithMaxTokens(2000);
+```
+
 ### Configuration
+
+```csharp
 // Method chaining for configuration
 aiService
     .WithSystemMessage("You are a helpful coding assistant")
@@ -396,7 +466,11 @@ aiService.ActivateChat.MaxMessageCount = 20;
 
 // Custom models
 aiService.ActivateChat.ChangeModel("gpt-4-turbo-preview");
+```
+
 ### Error Handling
+
+```csharp
 try
 {
     await foreach (var chunk in aiService.StreamAsync(message))
@@ -421,9 +495,13 @@ catch (AIServiceException ex)
     Console.WriteLine($"API Error: {ex.Message}");
     Console.WriteLine($"Details: {ex.ErrorDetails}");
 }
+```
+
 ### Static Quick Methods
 
 For one-off queries without managing service instances:
+
+```csharp
 // Quick text query
 var answer = await AIService.QuickAskAsync(
     apiKey, 
@@ -438,6 +516,8 @@ var description = await AIService.QuickAskWithImageAsync(
     "image.jpg",
     AIModel.Gpt4o240806
 );
+```
+
 ## Model Support Matrix
 
 | Service | Text | Vision | Audio | Image Gen | Web Search | Streaming |
@@ -519,6 +599,8 @@ var description = await AIService.QuickAskWithImageAsync(
 ### Model Enum Updates
 
 Update deprecated model references:
+
+```csharp
 // ❌ Deprecated (will be removed in future versions)
 service.ActivateChat.ChangeModel(AIModel.Gemini15Pro);
 service.ActivateChat.ChangeModel(AIModel.Gemini15Flash);
@@ -530,9 +612,13 @@ service.ActivateChat.ChangeModel(AIModel.Gemini1_5Flash);
 // ✅ Or upgrade to latest Gemini 2.5 models
 service.ActivateChat.ChangeModel(AIModel.Gemini2_5Pro);
 service.ActivateChat.ChangeModel(AIModel.Gemini2_5Flash);
+```
+
 ### From v2.0.x to v2.1.0
 
 Version 2.1.0 adds IAsyncEnumerable support while maintaining full backward compatibility:
+
+```csharp
 // Old way (still works)
 await service.StreamCompletionAsync("Hello", chunk => Console.Write(chunk));
 
@@ -553,11 +639,17 @@ await foreach (var chunk in service.BeginMessage()
 {
     Console.Write(chunk);
 }
+```
+
 ### From v1.x to v2.x
 
 Version 2.x adds multimodal support and many new features. All v1.x code continues to work:
+
+```csharp
 // This still works exactly as before
 var response = await aiService.GetCompletionAsync("Hello");
+```
+
 New features are additive and optional.
 
 ## Troubleshooting
