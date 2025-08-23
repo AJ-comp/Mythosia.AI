@@ -1,4 +1,10 @@
-﻿using System;
+﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Utilities;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,11 +15,6 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models;
-using Mythosia.AI.Models.Enums;
-using Mythosia.AI.Models.Messages;
-using Mythosia.AI.Utilities;
 
 namespace Mythosia.AI.Services.Base
 {
@@ -30,6 +31,11 @@ namespace Mythosia.AI.Services.Base
         /// When true, each request is processed independently without maintaining conversation history
         /// </summary>
         public bool StatelessMode { get; set; } = false;
+
+        /// <summary>
+        /// Quick toggle for function calling (like StatelessMode)
+        /// </summary>
+        public bool FunctionsDisabled { get; set; } = false;
 
         /// <summary>
         /// The AI provider for this service
@@ -70,56 +76,111 @@ namespace Mythosia.AI.Services.Base
 
         public virtual async Task<string> GetCompletionAsync(Message message)
         {
+            // Check if we should use functions
+            bool useFunctions = ActivateChat.Functions?.Count > 0
+                               && ActivateChat.EnableFunctions
+                               && !FunctionsDisabled;
+
             if (StatelessMode)
             {
-                return await ProcessStatelessRequestAsync(message);
+                return await ProcessStatelessRequestAsync(message, useFunctions);
             }
 
             ActivateChat.Stream = false;
             ActivateChat.Messages.Add(message);
 
-            var request = CreateMessageRequest();
+            // Create appropriate request based on function availability
+            var request = useFunctions
+                ? CreateFunctionMessageRequest()
+                : CreateMessageRequest();
+
             var response = await HttpClient.SendAsync(request);
 
-            if (response.IsSuccessStatusCode)
-            {
-                var responseContent = await response.Content.ReadAsStringAsync();
-                var result = ExtractResponseContent(responseContent);
-
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
-                return result;
-            }
-            else
+            if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
             }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            // Handle function calls if present
+            if (useFunctions)
+            {
+                var (content, functionCall) = ExtractFunctionCall(responseContent);
+
+                if (functionCall != null)
+                {
+                    // Execute function
+                    var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+
+                    // Add to conversation
+                    ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+                    {
+                        // Store function call info in message
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["function_name"] = functionCall.Name,
+                            ["arguments"] = functionCall.Arguments
+                        }
+                    });
+
+                    // Get AI's final response based on function result
+                    return await GetCompletionAsync("Based on the function result, please provide a helpful response.");
+                }
+
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+                return content;
+            }
+            else
+            {
+                // Regular response without functions
+                var result = ExtractResponseContent(responseContent);
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+                return result;
+            }
         }
 
-        private async Task<string> ProcessStatelessRequestAsync(Message message)
+        private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
         {
-            // Create temporary chat block
             var tempChat = new ChatBlock(ActivateChat.Model)
             {
                 SystemMessage = ActivateChat.SystemMessage,
                 Temperature = ActivateChat.Temperature,
                 TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens
+                MaxTokens = ActivateChat.MaxTokens,
+                Functions = useFunctions ? ActivateChat.Functions : new List<FunctionDefinition>(),
+                EnableFunctions = useFunctions
             };
             tempChat.Messages.Add(message);
 
-            // Backup and swap
             var backup = ActivateChat;
             ActivateChat = tempChat;
 
             try
             {
-                var request = CreateMessageRequest();
+                var request = useFunctions
+                    ? CreateFunctionMessageRequest()
+                    : CreateMessageRequest();
+
                 var response = await HttpClient.SendAsync(request);
 
                 if (response.IsSuccessStatusCode)
                 {
                     var responseContent = await response.Content.ReadAsStringAsync();
+
+                    if (useFunctions)
+                    {
+                        var (content, functionCall) = ExtractFunctionCall(responseContent);
+                        if (functionCall != null)
+                        {
+                            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+                            // In stateless mode, return function result directly or process it
+                            return $"Function result: {result}";
+                        }
+                        return content;
+                    }
+
                     return ExtractResponseContent(responseContent);
                 }
                 else
@@ -131,6 +192,31 @@ namespace Mythosia.AI.Services.Base
             finally
             {
                 ActivateChat = backup;
+            }
+        }
+
+        /// <summary>
+        /// Process function call
+        /// </summary>
+        protected virtual async Task<string> ProcessFunctionCallAsync(
+            string functionName,
+            Dictionary<string, object> arguments)
+        {
+            var function = ActivateChat.Functions
+                .FirstOrDefault(f => f.Name == functionName);
+
+            if (function?.Handler == null)
+            {
+                return $"Error: Function '{functionName}' not found";
+            }
+
+            try
+            {
+                return await function.Handler(arguments);
+            }
+            catch (Exception ex)
+            {
+                return $"Error executing function: {ex.Message}";
             }
         }
 
@@ -453,6 +539,24 @@ namespace Mythosia.AI.Services.Base
         }
 
         #endregion
+
+
+
+        #region Function Calling Support
+
+        /// <summary>
+        /// Creates HTTP request with function definitions
+        /// </summary>
+        protected abstract HttpRequestMessage CreateFunctionMessageRequest();
+
+        /// <summary>
+        /// Extracts function call from API response
+        /// </summary>
+        protected abstract (string content, FunctionCall functionCall) ExtractFunctionCall(string response);
+
+        #endregion
+
+
 
         #region Abstract Methods
 

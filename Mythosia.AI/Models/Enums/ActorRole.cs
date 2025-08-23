@@ -14,6 +14,9 @@ namespace Mythosia.AI.Models.Enums
         System,
 
         [Description("assistant")]
-        Assistant
+        Assistant,
+
+        [Description("function")]
+        Function
     }
 }

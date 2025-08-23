@@ -14,6 +14,12 @@ namespace Mythosia.AI.Models.Messages
         public ActorRole Role { get; set; }
         public string Content { get; set; } = string.Empty; // For backward compatibility
         public List<MessageContent> Contents { get; set; } = new List<MessageContent>();
+
+        /// <summary>
+        /// Optional metadata for the message (e.g., function call info)
+        /// </summary>
+        public Dictionary<string, object> Metadata { get; set; }
+
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
         /// <summary>

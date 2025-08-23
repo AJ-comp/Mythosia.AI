@@ -1,4 +1,10 @@
-﻿using System;
+﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Services.Base;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -6,11 +12,6 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using TiktokenSharp;
-using Mythosia.AI.Models;
-using Mythosia.AI.Models.Enums;
-using Mythosia.AI.Models.Messages;
-using Mythosia.AI.Services.Base;
-using Mythosia.AI.Exceptions;
 
 namespace Mythosia.AI.Services
 {
@@ -262,6 +263,25 @@ namespace Mythosia.AI.Services
         {
             var cotPrompt = $"{prompt}\n\nPlease think step by step and show your reasoning process.";
             return await GetCompletionAsync(cotPrompt);
+        }
+
+        #endregion
+
+        #region Function Calling
+
+        protected override HttpRequestMessage CreateFunctionMessageRequest()
+        {
+            // DeepSeek doesn't support function calling yet
+            // Return regular message request
+            return CreateMessageRequest();
+        }
+
+        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+        {
+            // DeepSeek doesn't support function calling
+            // Extract regular response
+            var content = ExtractResponseContent(response);
+            return (content, null);
         }
 
         #endregion

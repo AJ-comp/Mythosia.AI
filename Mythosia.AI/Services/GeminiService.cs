@@ -1,15 +1,16 @@
-﻿using System;
+﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Services.Base;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using Mythosia.AI.Models;
-using Mythosia.AI.Models.Enums;
-using Mythosia.AI.Models.Messages;
-using Mythosia.AI.Services.Base;
-using Mythosia.AI.Exceptions;
 using TiktokenSharp;
 
 namespace Mythosia.AI.Services
@@ -306,6 +307,162 @@ namespace Mythosia.AI.Services
         }
 
         #endregion
+
+        #region Function Calling
+
+        protected override HttpRequestMessage CreateFunctionMessageRequest()
+        {
+            var modelName = ActivateChat.Model;
+            var endpoint = $"v1beta/models/{modelName}:generateContent?key={ApiKey}";
+
+            var requestBody = BuildRequestBodyWithFunctions();
+            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+
+            return new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = content
+            };
+        }
+
+        private object BuildRequestBodyWithFunctions()
+        {
+            var contentsList = new List<object>();
+
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                contentsList.Add(new
+                {
+                    role = "user",
+                    parts = new[] { new { text = ActivateChat.SystemMessage } }
+                });
+                contentsList.Add(new
+                {
+                    role = "model",
+                    parts = new[] { new { text = "Understood. I'll follow these instructions." } }
+                });
+            }
+
+            foreach (var message in ActivateChat.GetLatestMessages())
+            {
+                if (message.Role == ActorRole.Function)
+                {
+                    contentsList.Add(new
+                    {
+                        role = "function",
+                        parts = new[] { new
+                        {
+                            functionResponse = new
+                            {
+                                name = message.Metadata?["function_name"]?.ToString() ?? "function",
+                                response = new { content = message.Content }
+                            }
+                        }}
+                    });
+                }
+                else
+                {
+                    contentsList.Add(ConvertMessageForGemini(message));
+                }
+            }
+
+            var requestBody = new Dictionary<string, object>
+            {
+                ["contents"] = contentsList,
+                ["generationConfig"] = new
+                {
+                    temperature = ActivateChat.Temperature,
+                    topP = ActivateChat.TopP,
+                    topK = 40,
+                    maxOutputTokens = (int)ActivateChat.MaxTokens
+                }
+            };
+
+            // Add function declarations
+            if (ActivateChat.ShouldUseFunctions)
+            {
+                requestBody["tools"] = new[]
+                {
+                    new
+                    {
+                        function_declarations = ActivateChat.Functions.Select(f => new
+                        {
+                            name = f.Name,
+                            description = f.Description,
+                            parameters = new
+                            {
+                                type = "object",
+                                properties = f.Parameters.Properties,
+                                required = f.Parameters.Required
+                            }
+                        }).ToList()
+                    }
+                };
+
+                if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
+                {
+                    requestBody["tool_config"] = new { function_calling_config = new { mode = "NONE" } };
+                }
+                else if (ActivateChat.FunctionCallMode == FunctionCallMode.Force && !string.IsNullOrEmpty(ActivateChat.ForceFunctionName))
+                {
+                    requestBody["tool_config"] = new
+                    {
+                        function_calling_config = new
+                        {
+                            mode = "ANY",
+                            allowed_function_names = new[] { ActivateChat.ForceFunctionName }
+                        }
+                    };
+                }
+            }
+
+            return requestBody;
+        }
+
+        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(response);
+                var root = doc.RootElement;
+
+                string content = string.Empty;
+                FunctionCall functionCall = null;
+
+                if (root.TryGetProperty("candidates", out var candidates) && candidates.GetArrayLength() > 0)
+                {
+                    var candidate = candidates[0];
+                    if (candidate.TryGetProperty("content", out var contentObj) &&
+                        contentObj.TryGetProperty("parts", out var parts))
+                    {
+                        foreach (var part in parts.EnumerateArray())
+                        {
+                            if (part.TryGetProperty("text", out var textElement))
+                            {
+                                content += textElement.GetString();
+                            }
+                            else if (part.TryGetProperty("functionCall", out var functionCallElement))
+                            {
+                                functionCall = new FunctionCall
+                                {
+                                    Name = functionCallElement.GetProperty("name").GetString(),
+                                    Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                                        functionCallElement.GetProperty("args").GetRawText())
+                                };
+                            }
+                        }
+                    }
+                }
+
+                return (content, functionCall);
+            }
+            catch
+            {
+                return (string.Empty, null);
+            }
+        }
+
+        #endregion
+
 
         #region Gemini-Specific Features
 

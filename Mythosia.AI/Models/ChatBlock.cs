@@ -1,9 +1,10 @@
-﻿using System;
+﻿using Mythosia.AI.Extensions;
+using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Messages;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using Mythosia.AI.Models.Enums;
-using Mythosia.AI.Models.Messages;
-using Mythosia.AI.Extensions;
 
 namespace Mythosia.AI.Models
 {
@@ -21,6 +22,32 @@ namespace Mythosia.AI.Models
         public uint MaxTokens { get; set; } = 1024;
         public bool Stream { get; set; }
         public uint MaxMessageCount { get; set; } = 20;
+
+        /// <summary>
+        /// Functions available for AI to call
+        /// </summary>
+        public List<FunctionDefinition> Functions { get; set; } = new List<FunctionDefinition>();
+
+        /// <summary>
+        /// Whether to enable function calling (default: true)
+        /// </summary>
+        public bool EnableFunctions { get; set; } = true;
+
+        /// <summary>
+        /// Function call mode when functions are enabled
+        /// </summary>
+        public FunctionCallMode FunctionCallMode { get; set; } = FunctionCallMode.Auto;
+
+        /// <summary>
+        /// Force specific function to be called
+        /// </summary>
+        public string ForceFunctionName { get; set; }
+
+        /// <summary>
+        /// Checks if functions are available and enabled
+        /// </summary>
+        public bool ShouldUseFunctions => Functions.Count > 0 && EnableFunctions;
+
 
         public ChatBlock(AIModel model)
         {
@@ -293,6 +320,25 @@ namespace Mythosia.AI.Models
         }
 
         #endregion
+
+
+        /// <summary>
+        /// Adds a function to this chat
+        /// </summary>
+        public ChatBlock AddFunction(FunctionDefinition function)
+        {
+            Functions.Add(function);
+            return this;
+        }
+
+        /// <summary>
+        /// Removes all functions
+        /// </summary>
+        public ChatBlock ClearFunctions()
+        {
+            Functions.Clear();
+            return this;
+        }
     }
 
     public enum RequestBodyType
