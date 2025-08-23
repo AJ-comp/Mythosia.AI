@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Mythosia.AI.Services.OpenAI;
 
 namespace Mythosia.AI.Tests
 {

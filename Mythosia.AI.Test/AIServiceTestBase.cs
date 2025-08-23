@@ -6,6 +6,7 @@ using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services.OpenAI;
 using System;
 using System.Collections.Generic;
 using System.IO;

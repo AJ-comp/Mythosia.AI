@@ -1,6 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Mythosia.AI.Models.Enums;
-using Mythosia.AI.Services;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Extensions;
@@ -8,6 +7,7 @@ using Mythosia.Azure;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Mythosia.AI.Services.DeepSeek;
 
 namespace Mythosia.AI.Tests
 {

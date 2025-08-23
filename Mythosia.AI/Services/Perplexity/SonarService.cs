@@ -13,9 +13,9 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using TiktokenSharp;
 
-namespace Mythosia.AI.Services
+namespace Mythosia.AI.Services.Perplexity
 {
-    public class SonarService : AIService
+    public partial class SonarService : AIService
     {
         public override AIProvider Provider => AIProvider.Perplexity;
 
@@ -29,6 +29,74 @@ namespace Mythosia.AI.Services
             };
             AddNewChat(chatBlock);
         }
+
+        #region Core Completion Methods
+
+        public override async Task<string> GetCompletionAsync(Message message)
+        {
+            if (StatelessMode)
+            {
+                return await ProcessStatelessRequestAsync(message);
+            }
+
+            ActivateChat.Stream = false;
+            ActivateChat.Messages.Add(message);
+
+            var request = CreateMessageRequest();
+            var response = await HttpClient.SendAsync(request);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+            }
+
+            var responseContent = await response.Content.ReadAsStringAsync();
+            var result = ExtractResponseContent(responseContent);
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+            return result;
+        }
+
+        private async Task<string> ProcessStatelessRequestAsync(Message message)
+        {
+            var tempChat = new ChatBlock(ActivateChat.Model)
+            {
+                SystemMessage = ActivateChat.SystemMessage,
+                Temperature = ActivateChat.Temperature,
+                TopP = ActivateChat.TopP,
+                MaxTokens = ActivateChat.MaxTokens
+            };
+            tempChat.Messages.Add(message);
+
+            var backup = ActivateChat;
+            ActivateChat = tempChat;
+
+            try
+            {
+                var request = CreateMessageRequest();
+                var response = await HttpClient.SendAsync(request);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    return ExtractResponseContent(responseContent);
+                }
+                else
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                }
+            }
+            finally
+            {
+                ActivateChat = backup;
+            }
+        }
+
+        #endregion
+
+        #region Request Creation
 
         protected override HttpRequestMessage CreateMessageRequest()
         {
@@ -131,59 +199,7 @@ namespace Mythosia.AI.Services
             return new { role = message.Role.ToDescription(), content = textContent.ToString().Trim() };
         }
 
-        protected override string ExtractResponseContent(string responseContent)
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(responseContent);
-                var root = doc.RootElement;
-
-                if (root.TryGetProperty("choices", out var choices) &&
-                    choices.ValueKind == JsonValueKind.Array &&
-                    choices.GetArrayLength() > 0)
-                {
-                    var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("message", out var message) &&
-                        message.TryGetProperty("content", out var content))
-                    {
-                        return content.GetString() ?? string.Empty;
-                    }
-                }
-
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                throw new AIServiceException("Failed to parse Perplexity response", ex);
-            }
-        }
-
-        protected override string StreamParseJson(string jsonData)
-        {
-            try
-            {
-                using var doc = JsonDocument.Parse(jsonData);
-                var root = doc.RootElement;
-
-                if (root.TryGetProperty("choices", out var choices) &&
-                    choices.ValueKind == JsonValueKind.Array &&
-                    choices.GetArrayLength() > 0)
-                {
-                    var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("delta", out var delta) &&
-                        delta.TryGetProperty("content", out var content))
-                    {
-                        return content.GetString() ?? string.Empty;
-                    }
-                }
-
-                return string.Empty;
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
+        #endregion
 
         #region Token Counting
 
@@ -214,25 +230,6 @@ namespace Mythosia.AI.Services
             var encoding = TikToken.EncodingForModel("gpt-4");
             var tokens = encoding.Encode(prompt);
             return await Task.FromResult((uint)tokens.Count);
-        }
-
-        #endregion
-
-        #region Function Calling
-
-        protected override HttpRequestMessage CreateFunctionMessageRequest()
-        {
-            // Perplexity Sonar doesn't support function calling yet
-            // Return regular message request
-            return CreateMessageRequest();
-        }
-
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-        {
-            // Perplexity doesn't support function calling
-            // Extract regular response
-            var content = ExtractResponseContent(response);
-            return (content, null);
         }
 
         #endregion
@@ -283,116 +280,6 @@ namespace Mythosia.AI.Services
         }
 
         /// <summary>
-        /// Gets a completion with web search and citations
-        /// </summary>
-        public async Task<SonarSearchResponse> GetCompletionWithSearchAsync(
-            string prompt,
-            string[]? domainFilter = null,
-            string recencyFilter = "month")
-        {
-            // Create a temporary chat block with search parameters
-            var originalModel = ActivateChat.Model;
-            var messagesList = new List<object>();
-
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
-            {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
-            }
-
-            messagesList.Add(new { role = "user", content = prompt });
-
-            var requestBody = new Dictionary<string, object>
-            {
-                ["model"] = originalModel,
-                ["messages"] = messagesList,
-                ["temperature"] = ActivateChat.Temperature,
-                ["max_tokens"] = ActivateChat.MaxTokens,
-                ["return_citations"] = true,
-                ["search_recency_filter"] = recencyFilter
-            };
-
-            if (domainFilter != null && domainFilter.Length > 0)
-            {
-                requestBody["search_domain_filter"] = domainFilter;
-            }
-
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
-            {
-                Content = content
-            };
-            request.Headers.Add("Authorization", $"Bearer {ApiKey}");
-
-            var response = await HttpClient.SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var responseContent = await response.Content.ReadAsStringAsync();
-                return ParseSearchResponse(responseContent);
-            }
-            else
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Search request failed: {response.ReasonPhrase}", error);
-            }
-        }
-
-        private SonarSearchResponse ParseSearchResponse(string responseContent)
-        {
-            using var doc = JsonDocument.Parse(responseContent);
-            var root = doc.RootElement;
-
-            var result = new SonarSearchResponse();
-
-            if (root.TryGetProperty("choices", out var choices) &&
-                choices.ValueKind == JsonValueKind.Array &&
-                choices.GetArrayLength() > 0)
-            {
-                var firstChoice = choices[0];
-                if (firstChoice.TryGetProperty("message", out var message))
-                {
-                    if (message.TryGetProperty("content", out var content))
-                    {
-                        result.Content = content.GetString() ?? string.Empty;
-                    }
-
-                    if (message.TryGetProperty("citations", out var citations))
-                    {
-                        result.Citations = ParseCitations(citations);
-                    }
-                }
-            }
-
-            return result;
-        }
-
-        private List<Citation> ParseCitations(JsonElement citationsElement)
-        {
-            var citations = new List<Citation>();
-
-            if (citationsElement.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var citation in citationsElement.EnumerateArray())
-                {
-                    var cit = new Citation();
-
-                    if (citation.TryGetProperty("url", out var url))
-                        cit.Url = url.GetString() ?? string.Empty;
-
-                    if (citation.TryGetProperty("title", out var title))
-                        cit.Title = title.GetString() ?? string.Empty;
-
-                    if (citation.TryGetProperty("snippet", out var snippet))
-                        cit.Snippet = snippet.GetString() ?? string.Empty;
-
-                    citations.Add(cit);
-                }
-            }
-
-            return citations;
-        }
-
-        /// <summary>
         /// Configures search parameters for the service
         /// </summary>
         public SonarService WithSearchParameters(
@@ -403,23 +290,6 @@ namespace Mythosia.AI.Services
             // This would require extending ChatBlock to support Perplexity-specific parameters
             // For now, these parameters need to be passed to GetCompletionWithSearchAsync
             return this;
-        }
-
-        #endregion
-
-        #region Helper Classes
-
-        public class SonarSearchResponse
-        {
-            public string Content { get; set; } = string.Empty;
-            public List<Citation> Citations { get; set; } = new List<Citation>();
-        }
-
-        public class Citation
-        {
-            public string Url { get; set; } = string.Empty;
-            public string Title { get; set; } = string.Empty;
-            public string Snippet { get; set; } = string.Empty;
         }
 
         #endregion
