@@ -105,11 +105,20 @@ namespace Mythosia.AI.Builders
         /// </summary>
         public FunctionDefinition Build()
         {
+            // Always create a valid FunctionParameters object with proper schema
             _function.Parameters = new FunctionParameters
             {
-                Properties = _parameters,
+                Type = "object",  // Always set type to "object" for OpenAI compatibility
+                Properties = _parameters.Count > 0 ? _parameters : new Dictionary<string, ParameterProperty>(),
                 Required = _required
             };
+
+            // If no handler was provided, add a default one
+            if (_function.Handler == null)
+            {
+                _function.Handler = args => Task.FromResult("Function executed successfully");
+            }
+
             return _function;
         }
     }

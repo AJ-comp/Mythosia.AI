@@ -73,6 +73,7 @@ namespace Mythosia.AI.Extensions
             string description,
             Func<Dictionary<string, object>, Task<string>> handler)
         {
+            // FunctionBuilder automatically handles the schema correctly
             var function = FunctionBuilder.Create(name)
                 .WithDescription(description)
                 .WithHandler(handler)
@@ -83,18 +84,43 @@ namespace Mythosia.AI.Extensions
         }
 
         /// <summary>
-        /// Simple synchronous function registration
+        /// Parameterless Function
         /// </summary>
         public static AIService WithFunction(
             this AIService service,
             string name,
             string description,
-            Func<Dictionary<string, object>, string> handler)
+            Func<string> handler)
         {
             var function = FunctionBuilder.Create(name)
                 .WithDescription(description)
-                .WithHandler(args => Task.FromResult(handler(args)))
+                .WithHandler(args => handler())  // args 무시
                 .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+
+        /// <summary>
+        /// Register a pre-built function definition
+        /// </summary>
+        public static AIService WithFunction(this AIService service, FunctionDefinition function)
+        {
+            // Ensure the function has proper parameter structure
+            if (function.Parameters == null)
+            {
+                function.Parameters = new FunctionParameters
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, ParameterProperty>(),
+                    Required = new List<string>()
+                };
+            }
+            else if (string.IsNullOrEmpty(function.Parameters.Type))
+            {
+                function.Parameters.Type = "object";
+            }
 
             service.ActivateChat.AddFunction(function);
             return service;
