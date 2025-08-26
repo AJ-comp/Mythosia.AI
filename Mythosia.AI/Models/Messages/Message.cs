@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Mythosia.AI.Models.Enums;
 
@@ -8,6 +9,7 @@ namespace Mythosia.AI.Models.Messages
     /// <summary>
     /// Represents a message in a conversation, supporting both text-only and multimodal content
     /// </summary>
+    [DebuggerDisplay("{GetDebuggerDisplay(),nq}")]
     public class Message
     {
         public string Id { get; } = Guid.NewGuid().ToString();
@@ -153,6 +155,37 @@ namespace Mythosia.AI.Models.Messages
             {
                 Timestamp = Timestamp
             };
+        }
+
+
+        /// <summary>
+        /// Gets a debug-friendly display string
+        /// </summary>
+        private string GetDebuggerDisplay()
+        {
+            // 텍스트 내용 가져오기
+            string text = !string.IsNullOrEmpty(Content)
+                ? Content
+                : string.Join(" ", Contents.OfType<TextContent>().Select(c => c.Text));
+
+            // 50자로 제한
+            if (text.Length > 50)
+                text = text.Substring(0, 47) + "...";
+
+            // 멀티모달 정보
+            string extras = "";
+            if (HasMultimodalContent)
+            {
+                var imageCount = Contents.OfType<ImageContent>().Count();
+                if (imageCount > 0)
+                    extras += $" [🖼️×{imageCount}]";
+            }
+
+            // 메타데이터 정보 (function 등)
+            if (Metadata?.ContainsKey("function_name") == true)
+                extras += $" [fn:{Metadata["function_name"]}]";
+
+            return $"{Role}: {text}{extras}";
         }
     }
 }

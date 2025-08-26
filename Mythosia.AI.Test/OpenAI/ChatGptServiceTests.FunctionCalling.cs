@@ -90,16 +90,86 @@ public partial class ChatGptServiceTests
                 () => $"Current time: {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}"
             );
 
-            // Function을 호출하도록 유도하는 프롬프트
-            var response = await AI.GetCompletionAsync("What time is it now?");
+            await TestFunctionCall(
+                "What time is it now?",
+                "get_current_time",
+                "Parameterless function"
+            );
 
+            // 방법 2: 1개 파라미터 function
+            AI.WithFunction<string>(
+                "get_weather",
+                "Gets weather for a city",
+                ("city", "The city name", true),
+                city => $"Weather in {city}: Sunny, 25°C"
+            );
 
-            Assert.IsNotNull(response);
-            Console.WriteLine($"[Function Response] {response}");
+            await TestFunctionCall(
+                "What's the weather in Seoul?",
+                "get_weather",
+                "Single parameter function"
+            );
 
-            // Function이 호출되었는지 확인
-            var functionMessages = AI.ActivateChat.Messages.Where(m => m.Role == ActorRole.Function).ToList();
-            Assert.IsTrue(functionMessages.Count > 0, "Function should have been called");
+            // 방법 3: 2개 파라미터 function
+            AI.WithFunction<int, int>(
+                "calculate_sum",
+                "Adds two numbers",
+                ("num1", "First number", true),
+                ("num2", "Second number", true),
+                (a, b) => $"The sum of {a} and {b} is {a + b}"
+            );
+
+            await TestFunctionCall(
+                "What is 15 plus 27?",
+                "calculate_sum",
+                "Two parameter function"
+            );
+
+            // 방법 4: 3개 파라미터 function
+            AI.WithFunction<string, string, string>(
+                "send_message",
+                "Send a message to someone",
+                ("recipient", "Person to send to", true),
+                ("subject", "Message subject", true),
+                ("body", "Message content", true),
+                (to, subject, body) => $"Message sent to {to} with subject '{subject}': {body}"
+            );
+
+            await TestFunctionCall(
+                "Send a message to John with subject 'Meeting' saying 'Let's meet at 3pm'",
+                "send_message",
+                "Three parameter function"
+            );
+
+            // 선택적 파라미터 테스트
+            AI.WithFunction<string>(
+                "greet_user",
+                "Greets a user",
+                ("name", "User's name", false),  // optional parameter
+                name => string.IsNullOrEmpty(name) ? "Hello, stranger!" : $"Hello, {name}!"
+            );
+
+            await TestFunctionCall(
+                "Greet me",
+                "greet_user",
+                "Optional parameter function"
+            );
+
+            // 타입 변환 테스트
+            AI.WithFunction<double, double>(
+                "calculate_percentage",
+                "Calculate percentage",
+                ("value", "The value", true),
+                ("total", "The total", true),
+                (value, total) => $"{value} is {(value / total * 100):F2}% of {total}"
+            );
+
+            await TestFunctionCall(
+                "What percentage is 75 of 300?",
+                "calculate_percentage",
+                "Type conversion function"
+            );
+
         }
         catch (Exception ex)
         {
@@ -109,57 +179,224 @@ public partial class ChatGptServiceTests
     }
 
     /// <summary>
-    /// 여러 Function 등록 및 선택 테스트
+    /// 비동기 Function Calling 테스트
     /// </summary>
     [TestMethod]
-    public async Task MultipleFunctionsTest()
+    public async Task AsyncFunctionCallingTest()
     {
         try
         {
-            // FunctionBuilder를 사용하여 Function 생성 후 AddFunction 사용
-            var weatherFunction = FunctionBuilder.Create("weather")
-                .WithDescription("Get weather information")
-                .AddParameter("location", "string", "City name", required: true)
-                .AddParameter("unit", "string", "Temperature unit", required: false, defaultValue: "celsius")
-                .WithHandler(async args =>
+            // 비동기 파라미터 없는 함수
+            AI.WithFunctionAsync(
+                "async_time",
+                "Gets time asynchronously",
+                async () =>
                 {
-                    var location = args["location"].ToString();
-                    var unit = args.ContainsKey("unit") ? args["unit"].ToString() : "celsius";
-                    await Task.Delay(10);
-                    return $"Weather in {location}: 25°{unit[0]}, sunny";
-                })
-                .Build();
+                    await Task.Delay(100);
+                    return $"Async time: {DateTime.UtcNow:HH:mm:ss.fff}";
+                }
+            );
 
-            var calculatorFunction = FunctionBuilder.Create("calculator")
-                .WithDescription("Perform mathematical calculations")
-                .AddParameter("expression", "string", "Math expression to evaluate", required: true)
-                .WithHandler(args =>
+            await TestFunctionCall(
+                "Get async time",
+                "async_time",
+                "Async parameterless"
+            );
+
+            // 비동기 1개 파라미터
+            AI.WithFunctionAsync<string>(
+                "fetch_data",
+                "Fetch data from API",
+                ("endpoint", "API endpoint", true),
+                async endpoint =>
                 {
-                    var expr = args["expression"].ToString();
-                    // Simple evaluation
-                    if (expr == "2+2") return "4";
-                    if (expr == "10*5") return "50";
-                    return "Unknown";
-                })
-                .Build();
+                    await Task.Delay(50);
+                    return $"Data fetched from {endpoint}";
+                }
+            );
 
-            // ChatBlock에 직접 Function 추가
-            AI.ActivateChat.AddFunction(weatherFunction);
-            AI.ActivateChat.AddFunction(calculatorFunction);
+            await TestFunctionCall(
+                "Fetch data from /users endpoint",
+                "fetch_data",
+                "Async single parameter"
+            );
 
-            // Weather function 호출 테스트
-            var weatherResponse = await AI.GetCompletionAsync("What's the weather in Seoul?");
-            Assert.IsNotNull(weatherResponse);
-            Console.WriteLine($"[Weather] {weatherResponse}");
+            // 비동기 2개 파라미터
+            AI.WithFunctionAsync<string, int>(
+                "delay_message",
+                "Send delayed message",
+                ("message", "Message to send", true),
+                ("delay", "Delay in ms", true),
+                async (msg, delay) =>
+                {
+                    await Task.Delay(delay);
+                    return $"Message '{msg}' sent after {delay}ms";
+                }
+            );
 
-            // Calculator function 호출 테스트
-            var calcResponse = await AI.GetCompletionAsync("Calculate 2+2 for me");
-            Assert.IsNotNull(calcResponse);
-            Console.WriteLine($"[Calculator] {calcResponse}");
+            await TestFunctionCall(
+                "Send 'Hello' after 100ms delay",
+                "delay_message",
+                "Async two parameters"
+            );
+
+            // 비동기 3개 파라미터
+            AI.WithFunctionAsync<string, string, int>(
+                "process_order",
+                "Process an order",
+                ("product", "Product name", true),
+                ("customer", "Customer name", true),
+                ("quantity", "Quantity", true),
+                async (product, customer, qty) =>
+                {
+                    await Task.Delay(200);
+                    return $"Order processed: {qty}x {product} for {customer}";
+                }
+            );
+
+            await TestFunctionCall(
+                "Process an order for 5 laptops for Alice",
+                "process_order",
+                "Async three parameters"
+            );
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Multiple Functions Error] {ex.Message}");
+            Console.WriteLine($"[Async Function Test Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 공통 테스트 헬퍼 메서드
+    /// </summary>
+    private async Task TestFunctionCall(string prompt, string expectedFunctionName, string testDescription)
+    {
+        Console.WriteLine($"\n[Testing] {testDescription}");
+        Console.WriteLine($"[Prompt] {prompt}");
+
+        // 이전 Function 메시지 개수 저장
+        var previousFunctionCount = AI.ActivateChat.Messages
+            .Count(m => m.Role == ActorRole.Function);
+
+        // Function 호출
+        var response = await AI.GetCompletionAsync(prompt);
+
+        // 응답 검증
+        Assert.IsNotNull(response, $"{testDescription}: Response should not be null");
+        Console.WriteLine($"[Response] {response}");
+
+        // Function이 호출되었는지 확인
+        var currentFunctionCount = AI.ActivateChat.Messages
+            .Count(m => m.Role == ActorRole.Function);
+
+        Assert.IsTrue(
+            currentFunctionCount > previousFunctionCount,
+            $"{testDescription}: Function should have been called"
+        );
+
+        // 올바른 Function이 호출되었는지 확인 (메타데이터 체크)
+        var lastFunctionMessage = AI.ActivateChat.Messages
+            .Where(m => m.Role == ActorRole.Function)
+            .LastOrDefault();
+
+        if (lastFunctionMessage?.Metadata != null &&
+            lastFunctionMessage.Metadata.TryGetValue("function_name", out var calledFunction))
+        {
+            Console.WriteLine($"[Called Function] {calledFunction}");
+            Assert.AreEqual(
+                expectedFunctionName,
+                calledFunction.ToString(),
+                $"{testDescription}: Expected {expectedFunctionName} but {calledFunction} was called"
+            );
+        }
+
+        Console.WriteLine($"[Test Passed] {testDescription}");
+    }
+
+    /// <summary>
+    /// 복합 시나리오 테스트
+    /// </summary>
+    [TestMethod]
+    public async Task ComplexFunctionScenarioTest()
+    {
+        try
+        {
+            // 여러 함수를 등록하고 AI가 적절한 것을 선택하도록
+            AI.WithFunction(
+                "get_date",
+                "Gets current date",
+                () => DateTime.UtcNow.ToString("yyyy-MM-dd")
+            )
+            .WithFunction<string>(
+                "get_user_info",
+                "Gets user information",
+                ("username", "Username", true),
+                username => $"User {username}: Active, Premium member"
+            )
+            .WithFunctionAsync<string, string>(
+                "search_products",
+                "Search for products",
+                ("category", "Product category", true),
+                ("keyword", "Search keyword", false),
+                async (category, keyword) =>
+                {
+                    await Task.Delay(100);
+                    var searchTerm = string.IsNullOrEmpty(keyword) ? category : $"{category} - {keyword}";
+                    return $"Found 10 products in {searchTerm}";
+                }
+            );
+
+            // 다양한 프롬프트로 테스트
+            await TestFunctionCall("What's today's date?", "get_date", "Date function selection");
+            await TestFunctionCall("Get info about user John", "get_user_info", "User info selection");
+            await TestFunctionCall("Search for laptops", "search_products", "Product search selection");
+
+            // 연속 Function 호출 테스트 - 각각 다른 컨텍스트로
+            Console.WriteLine("\n[Sequential Function Calls - Testing Context Behavior]");
+
+            // 이미 날짜를 알고 있으므로 function을 호출하지 않을 것
+            var beforeCount = AI.ActivateChat.Messages.Count(m => m.Role == ActorRole.Function);
+            var response1 = await AI.GetCompletionAsync("First, tell me the date");
+            var afterCount1 = AI.ActivateChat.Messages.Count(m => m.Role == ActorRole.Function);
+            Console.WriteLine($"[Date Request] Function called: {afterCount1 > beforeCount} - Response: {response1}");
+
+            // 새로운 사용자 정보는 function 호출 필요
+            beforeCount = afterCount1;
+            var response2 = await AI.GetCompletionAsync("Now get info about Alice");  // John이 아닌 Alice
+            var afterCount2 = AI.ActivateChat.Messages.Count(m => m.Role == ActorRole.Function);
+            Console.WriteLine($"[Alice Info] Function called: {afterCount2 > beforeCount} - Response: {response2}");
+            Assert.IsTrue(afterCount2 > beforeCount, "Should call function for new user Alice");
+
+            // 새로운 검색은 function 호출 필요
+            beforeCount = afterCount2;
+            var response3 = await AI.GetCompletionAsync("Search for phones with keyword 'samsung'");
+            var afterCount3 = AI.ActivateChat.Messages.Count(m => m.Role == ActorRole.Function);
+            Console.WriteLine($"[Phone Search] Function called: {afterCount3 > beforeCount} - Response: {response3}");
+            Assert.IsTrue(afterCount3 > beforeCount, "Should call function for new search");
+
+            // 같은 정보 다시 요청 시 function 호출 안함
+            Console.WriteLine("\n[Testing Cached Information]");
+            beforeCount = afterCount3;
+            var response4 = await AI.GetCompletionAsync("What was the date again?");
+            var afterCount4 = AI.ActivateChat.Messages.Count(m => m.Role == ActorRole.Function);
+            Console.WriteLine($"[Date Again] Function called: {afterCount4 > beforeCount} - Response: {response4}");
+            Assert.IsFalse(afterCount4 > beforeCount, "Should NOT call function for already known date");
+
+            // 전체 Function 호출 횟수 확인
+            var totalFunctionCalls = AI.ActivateChat.Messages
+                .Count(m => m.Role == ActorRole.Function);
+
+            Console.WriteLine($"\n[Total Function Calls] {totalFunctionCalls}");
+            Console.WriteLine("[Message History]");
+            foreach (var msg in AI.ActivateChat.Messages.TakeLast(10))
+            {
+                Console.WriteLine($"  {msg.Role}: {msg.GetDisplayText().Truncate(100)}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Complex Scenario Error] {ex.Message}");
             Assert.Fail(ex.Message);
         }
     }
@@ -433,46 +670,6 @@ public partial class ChatGptServiceTests
     [TestMethod]
     public async Task FunctionErrorHandlingTest()
     {
-    }
-
-    /// <summary>
-    /// Delegate를 사용한 Function 등록 테스트
-    /// </summary>
-    [TestMethod]
-    public async Task DelegateFunctionTest()
-    {
-        try
-        {
-            // Delegate로 Function 등록
-            Func<Dictionary<string, object>, string> simpleFunc = args =>
-            {
-                var name = args.ContainsKey("name") ? args["name"].ToString() : "World";
-                return $"Hello, {name}!";
-            };
-
-            // Delegate를 WithFunction에 전달
-            AI.WithFunction((Delegate)simpleFunc);
-
-            // 또는 async delegate
-            Func<Dictionary<string, object>, Task<string>> asyncFunc = async args =>
-            {
-                await Task.Delay(10);
-                var value = args.ContainsKey("value") ? args["value"].ToString() : "0";
-                return $"Processed value: {value}";
-            };
-
-            AI.WithFunction((Delegate)asyncFunc);
-
-            // 함수 호출 테스트
-            var response = await AI.GetCompletionAsync("Say hello to Alice");
-            Assert.IsNotNull(response);
-            Console.WriteLine($"[Delegate Function] {response}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Delegate Function Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
     }
 
     /// <summary>

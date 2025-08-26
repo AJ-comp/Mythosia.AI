@@ -22,6 +22,12 @@ namespace Mythosia.AI.Services.Base
         protected readonly HttpClient HttpClient;
         protected HashSet<ChatBlock> _chatRequests = new HashSet<ChatBlock>();
 
+        // 기본 정책 (설정 가능)
+        public FunctionCallingPolicy DefaultPolicy { get; set; } = FunctionCallingPolicy.Default;
+
+        // 내부에서 사용할 정책 결정
+        internal FunctionCallingPolicy CurrentPolicy { get; set; }
+
         public IReadOnlyCollection<ChatBlock> ChatRequests => _chatRequests;
         public ChatBlock ActivateChat { get; protected set; }
 

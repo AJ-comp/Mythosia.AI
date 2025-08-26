@@ -11,6 +11,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using TiktokenSharp;
 
@@ -32,27 +33,96 @@ namespace Mythosia.AI.Services.OpenAI
 
         #region Core Completion Methods
 
+        // ChatGptService.cs
+        // ChatGptService.cs
         public override async Task<string> GetCompletionAsync(Message message)
         {
-            // Check if we should use functions
+            var policy = CurrentPolicy ?? DefaultPolicy;
+            CurrentPolicy = null;
+
+            using var cts = policy.TimeoutSeconds.HasValue
+                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
+                : new CancellationTokenSource();
+
+            try
+            {
+                if (StatelessMode)
+                {
+                    return await ProcessStatelessRequestAsync(message, true);
+                }
+
+                ActivateChat.Stream = false;
+                ActivateChat.Messages.Add(message);
+
+                // 깔끔해진 메인 루프
+                for (int round = 0; round < policy.MaxRounds; round++)
+                {
+                    var result = await ProcessSingleRoundAsync(round, policy, cts.Token);
+
+                    if (result.IsComplete)
+                    {
+                        return result.Content;
+                    }
+                    // Continue to next round if not complete
+                }
+
+                throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
+            }
+            catch (OperationCanceledException)
+            {
+                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
+            }
+        }
+
+        /// <summary>
+        /// 단일 라운드 처리
+        /// </summary>
+        private async Task<RoundResult> ProcessSingleRoundAsync(
+            int round,
+            FunctionCallingPolicy policy,
+            CancellationToken cancellationToken)
+        {
+            if (policy.EnableLogging)
+            {
+                Console.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
+            }
+
+            // 1. API 요청 생성 및 전송
+            var response = await SendApiRequestAsync(cancellationToken);
+
+            // 2. 응답 처리
+            var responseContent = await response.Content.ReadAsStringAsync();
+
+            // 3. Function 지원 여부에 따라 처리
             bool useFunctions = ActivateChat.Functions?.Count > 0
                                && ActivateChat.EnableFunctions
                                && !FunctionsDisabled;
 
-            if (StatelessMode)
+            if (useFunctions)
             {
-                return await ProcessStatelessRequestAsync(message, useFunctions);
+                return await ProcessFunctionResponseAsync(responseContent, policy);
             }
+            else
+            {
+                return ProcessRegularResponseAsync(responseContent);
+            }
+        }
 
-            ActivateChat.Stream = false;
-            ActivateChat.Messages.Add(message);
 
-            // Create appropriate request based on function availability
+        /// <summary>
+        /// API 요청 전송
+        /// </summary>
+        private async Task<HttpResponseMessage> SendApiRequestAsync(CancellationToken cancellationToken)
+        {
+            bool useFunctions = ActivateChat.Functions?.Count > 0
+                               && ActivateChat.EnableFunctions
+                               && !FunctionsDisabled;
+
             var request = useFunctions
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
-            var response = await HttpClient.SendAsync(request);
+            var response = await HttpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -60,43 +130,76 @@ namespace Mythosia.AI.Services.OpenAI
                 throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
             }
 
-            var responseContent = await response.Content.ReadAsStringAsync();
+            return response;
+        }
 
-            // Handle function calls if present
-            if (useFunctions)
+        /// <summary>
+        /// Function 응답 처리
+        /// </summary>
+        private async Task<RoundResult> ProcessFunctionResponseAsync(
+            string responseContent,
+            FunctionCallingPolicy policy)
+        {
+            var (content, functionCall) = ExtractFunctionCall(responseContent);
+
+            // Function 호출이 있는 경우
+            if (functionCall != null)
             {
-                var (content, functionCall) = ExtractFunctionCall(responseContent);
-
-                if (functionCall != null)
+                if (policy.EnableLogging)
                 {
-                    // Execute function
-                    var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-                    // Add to conversation
-                    ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-                    {
-                        Metadata = new Dictionary<string, object>
-                        {
-                            ["function_name"] = functionCall.Name,
-                            ["arguments"] = functionCall.Arguments
-                        }
-                    });
-
-                    // Get AI's final response based on function result
-                    return await GetCompletionAsync("Based on the function result, please provide a helpful response.");
+                    Console.WriteLine($"  Executing function: {functionCall.Name}");
                 }
 
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
-                return content;
+                await ExecuteFunctionAsync(functionCall);
+
+                // 다음 라운드 필요
+                return RoundResult.Continue();
             }
-            else
+
+            // Function 호출 없이 최종 응답이 온 경우
+            if (!string.IsNullOrEmpty(content))
             {
-                // Regular response without functions
-                var result = ExtractResponseContent(responseContent);
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
-                return result;
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+                return RoundResult.Complete(content);
             }
+
+            // 응답이 비어있는 경우 (다음 라운드 시도)
+            return RoundResult.Continue();
         }
+
+        /// <summary>
+        /// 일반 응답 처리 (Function 없음)
+        /// </summary>
+        private RoundResult ProcessRegularResponseAsync(string responseContent)
+        {
+            var result = ExtractResponseContent(responseContent);
+
+            if (!string.IsNullOrEmpty(result))
+            {
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+                return RoundResult.Complete(result);
+            }
+
+            return RoundResult.Continue();
+        }
+
+        /// <summary>
+        /// Function 실행 및 결과 저장
+        /// </summary>
+        private async Task ExecuteFunctionAsync(FunctionCall functionCall)
+        {
+            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    ["function_name"] = functionCall.Name,
+                    ["arguments"] = functionCall.Arguments
+                }
+            });
+        }
+
 
         private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
         {

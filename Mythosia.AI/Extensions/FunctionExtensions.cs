@@ -20,17 +20,6 @@ namespace Mythosia.AI.Extensions
         #region Function Registration Methods
 
         /// <summary>
-        /// Registers a single method as an AI function
-        /// </summary>
-        public static AIService WithFunction(this AIService service, Delegate function)
-        {
-            var methodInfo = function.Method;
-            var functionDef = BuildFunctionDefinition(methodInfo, function.Target, function);
-            service.ActivateChat.AddFunction(functionDef);
-            return service;
-        }
-
-        /// <summary>
         /// Registers all AI functions from an object
         /// </summary>
         public static AIService WithFunctions<T>(this AIService service, T instance) where T : class
@@ -65,25 +54,6 @@ namespace Mythosia.AI.Extensions
         }
 
         /// <summary>
-        /// Simple function registration with inline handler
-        /// </summary>
-        public static AIService WithFunction(
-            this AIService service,
-            string name,
-            string description,
-            Func<Dictionary<string, object>, Task<string>> handler)
-        {
-            // FunctionBuilder automatically handles the schema correctly
-            var function = FunctionBuilder.Create(name)
-                .WithDescription(description)
-                .WithHandler(handler)
-                .Build();
-
-            service.ActivateChat.AddFunction(function);
-            return service;
-        }
-
-        /// <summary>
         /// Parameterless Function
         /// </summary>
         public static AIService WithFunction(
@@ -100,6 +70,275 @@ namespace Mythosia.AI.Extensions
             service.ActivateChat.AddFunction(function);
             return service;
         }
+
+
+        /// <summary>
+        /// Single parameter function registration
+        /// </summary>
+        public static AIService WithFunction<T>(
+            this AIService service,
+            string name,
+            string description,
+            (string name, string description, bool required) param,
+            Func<T, string> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .AddParameter(
+                    param.name,
+                    GetJsonType(typeof(T)),
+                    param.description,
+                    param.required)
+                .WithHandler(args =>
+                {
+                    if (args.TryGetValue(param.name, out var value))
+                    {
+                        var typedValue = (T)ConvertValue(value, typeof(T));
+                        return handler(typedValue);
+                    }
+                    else if (param.required)
+                    {
+                        throw new ArgumentException($"Required parameter '{param.name}' not provided");
+                    }
+                    else
+                    {
+                        return handler(default(T));
+                    }
+                })
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+        /// <summary>
+        /// Two parameters function registration
+        /// </summary>
+        public static AIService WithFunction<T1, T2>(
+            this AIService service,
+            string name,
+            string description,
+            (string name, string description, bool required) param1,
+            (string name, string description, bool required) param2,
+            Func<T1, T2, string> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .AddParameter(param1.name, GetJsonType(typeof(T1)), param1.description, param1.required)
+                .AddParameter(param2.name, GetJsonType(typeof(T2)), param2.description, param2.required)
+                .WithHandler(args =>
+                {
+                    T1 value1 = default(T1);
+                    T2 value2 = default(T2);
+
+                    if (args.TryGetValue(param1.name, out var v1))
+                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                    else if (param1.required)
+                        throw new ArgumentException($"Required parameter '{param1.name}' not provided");
+
+                    if (args.TryGetValue(param2.name, out var v2))
+                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                    else if (param2.required)
+                        throw new ArgumentException($"Required parameter '{param2.name}' not provided");
+
+                    return handler(value1, value2);
+                })
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+        /// <summary>
+        /// Three parameters function registration
+        /// </summary>
+        public static AIService WithFunction<T1, T2, T3>(
+            this AIService service,
+            string name,
+            string description,
+            (string name, string description, bool required) param1,
+            (string name, string description, bool required) param2,
+            (string name, string description, bool required) param3,
+            Func<T1, T2, T3, string> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .AddParameter(param1.name, GetJsonType(typeof(T1)), param1.description, param1.required)
+                .AddParameter(param2.name, GetJsonType(typeof(T2)), param2.description, param2.required)
+                .AddParameter(param3.name, GetJsonType(typeof(T3)), param3.description, param3.required)
+                .WithHandler(args =>
+                {
+                    T1 value1 = default(T1);
+                    T2 value2 = default(T2);
+                    T3 value3 = default(T3);
+
+                    if (args.TryGetValue(param1.name, out var v1))
+                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                    else if (param1.required)
+                        throw new ArgumentException($"Required parameter '{param1.name}' not provided");
+
+                    if (args.TryGetValue(param2.name, out var v2))
+                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                    else if (param2.required)
+                        throw new ArgumentException($"Required parameter '{param2.name}' not provided");
+
+                    if (args.TryGetValue(param3.name, out var v3))
+                        value3 = (T3)ConvertValue(v3, typeof(T3));
+                    else if (param3.required)
+                        throw new ArgumentException($"Required parameter '{param3.name}' not provided");
+
+                    return handler(value1, value2, value3);
+                })
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+
+        #region WithFunction Overloads for Async Handlers
+        /// <summary>
+        /// Parameterless async function
+        /// </summary>
+        public static AIService WithFunctionAsync(
+            this AIService service,
+            string name,
+            string description,
+            Func<Task<string>> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .WithHandler(async args => await handler())  // args 무시
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+        /// <summary>
+        /// Single parameter async function registration
+        /// </summary>
+        public static AIService WithFunctionAsync<T>(
+            this AIService service,
+            string name,
+            string description,
+            (string name, string description, bool required) param,
+            Func<T, Task<string>> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .AddParameter(
+                    param.name,
+                    GetJsonType(typeof(T)),
+                    param.description,
+                    param.required)
+                .WithHandler(async args =>
+                {
+                    if (args.TryGetValue(param.name, out var value))
+                    {
+                        var typedValue = (T)ConvertValue(value, typeof(T));
+                        return await handler(typedValue);
+                    }
+                    else if (param.required)
+                    {
+                        throw new ArgumentException($"Required parameter '{param.name}' not provided");
+                    }
+                    else
+                    {
+                        return await handler(default(T));
+                    }
+                })
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+        /// <summary>
+        /// Two parameters async function registration
+        /// </summary>
+        public static AIService WithFunctionAsync<T1, T2>(
+            this AIService service,
+            string name,
+            string description,
+            (string name, string description, bool required) param1,
+            (string name, string description, bool required) param2,
+            Func<T1, T2, Task<string>> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .AddParameter(param1.name, GetJsonType(typeof(T1)), param1.description, param1.required)
+                .AddParameter(param2.name, GetJsonType(typeof(T2)), param2.description, param2.required)
+                .WithHandler(async args =>
+                {
+                    T1 value1 = default(T1);
+                    T2 value2 = default(T2);
+
+                    if (args.TryGetValue(param1.name, out var v1))
+                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                    else if (param1.required)
+                        throw new ArgumentException($"Required parameter '{param1.name}' not provided");
+
+                    if (args.TryGetValue(param2.name, out var v2))
+                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                    else if (param2.required)
+                        throw new ArgumentException($"Required parameter '{param2.name}' not provided");
+
+                    return await handler(value1, value2);
+                })
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+
+        /// <summary>
+        /// Three parameters async function registration
+        /// </summary>
+        public static AIService WithFunctionAsync<T1, T2, T3>(
+            this AIService service,
+            string name,
+            string description,
+            (string name, string description, bool required) param1,
+            (string name, string description, bool required) param2,
+            (string name, string description, bool required) param3,
+            Func<T1, T2, T3, Task<string>> handler)
+        {
+            var function = FunctionBuilder.Create(name)
+                .WithDescription(description)
+                .AddParameter(param1.name, GetJsonType(typeof(T1)), param1.description, param1.required)
+                .AddParameter(param2.name, GetJsonType(typeof(T2)), param2.description, param2.required)
+                .AddParameter(param3.name, GetJsonType(typeof(T3)), param3.description, param3.required)
+                .WithHandler(async args =>
+                {
+                    T1 value1 = default(T1);
+                    T2 value2 = default(T2);
+                    T3 value3 = default(T3);
+
+                    if (args.TryGetValue(param1.name, out var v1))
+                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                    else if (param1.required)
+                        throw new ArgumentException($"Required parameter '{param1.name}' not provided");
+
+                    if (args.TryGetValue(param2.name, out var v2))
+                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                    else if (param2.required)
+                        throw new ArgumentException($"Required parameter '{param2.name}' not provided");
+
+                    if (args.TryGetValue(param3.name, out var v3))
+                        value3 = (T3)ConvertValue(v3, typeof(T3));
+                    else if (param3.required)
+                        throw new ArgumentException($"Required parameter '{param3.name}' not provided");
+
+                    return await handler(value1, value2, value3);
+                })
+                .Build();
+
+            service.ActivateChat.AddFunction(function);
+            return service;
+        }
+        #endregion
+
 
 
         /// <summary>

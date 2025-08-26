@@ -1,6 +1,7 @@
 ﻿using Mythosia.AI.Builders;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
 using System;
@@ -235,6 +236,59 @@ namespace Mythosia.AI.Extensions
 
             return await service.GetCompletionAsync(contextBuilder.ToString());
         }
+
+
+        #region Policy
+
+        /// <summary>
+        /// 일회성 정책 오버라이드 (Fluent 스타일)
+        /// </summary>
+        public static AIService WithPolicy(this AIService service, FunctionCallingPolicy policy)
+        {
+            service.CurrentPolicy = policy;
+            return service;
+        }
+
+        /// <summary>
+        /// 빠른 실행 정책
+        /// </summary>
+        public static AIService WithFastPolicy(this AIService service)
+            => service.WithPolicy(FunctionCallingPolicy.Fast);
+
+        /// <summary>
+        /// 복잡한 작업 정책
+        /// </summary>
+        public static AIService WithComplexPolicy(this AIService service)
+            => service.WithPolicy(FunctionCallingPolicy.Complex);
+
+        /// <summary>
+        /// 커스텀 타임아웃
+        /// </summary>
+        public static AIService WithTimeout(this AIService service, int seconds)
+        {
+            var policy = new FunctionCallingPolicy
+            {
+                MaxRounds = service.DefaultPolicy.MaxRounds,
+                TimeoutSeconds = seconds
+            };
+            return service.WithPolicy(policy);
+        }
+
+        /// <summary>
+        /// 커스텀 라운드 제한
+        /// </summary>
+        public static AIService WithMaxRounds(this AIService service, int rounds)
+        {
+            var policy = new FunctionCallingPolicy
+            {
+                MaxRounds = rounds,
+                TimeoutSeconds = service.DefaultPolicy.TimeoutSeconds
+            };
+            return service.WithPolicy(policy);
+        }
+
+        #endregion
+
     }
 
     /// <summary>
@@ -367,8 +421,5 @@ namespace Mythosia.AI.Extensions
                 yield return chunk;
             }
         }
-
-
-
     }
 }
