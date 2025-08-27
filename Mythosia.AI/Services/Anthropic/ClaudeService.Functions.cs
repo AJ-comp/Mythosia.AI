@@ -79,17 +79,14 @@ namespace Mythosia.AI.Services.Anthropic
                     }
                 }).ToList();
 
-                if (ActivateChat.FunctionCallMode == FunctionCallMode.Force && !string.IsNullOrEmpty(ActivateChat.ForceFunctionName))
-                {
-                    requestBody["tool_choice"] = new { type = "tool", name = ActivateChat.ForceFunctionName };
-                }
-                else if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
+                // ✅ 단순화된 tool_choice 설정 (Force 제거)
+                if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
                 {
                     requestBody["tool_choice"] = new { type = "none" };
                 }
                 else
                 {
-                    requestBody["tool_choice"] = new { type = "auto" };
+                    requestBody["tool_choice"] = new { type = "auto" };  // 기본값
                 }
             }
 

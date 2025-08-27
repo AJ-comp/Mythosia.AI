@@ -404,31 +404,6 @@ namespace Mythosia.AI.Extensions
             }
         }
 
-        /// <summary>
-        /// Force a specific function to be called
-        /// </summary>
-        public static async Task<string> CallFunctionAsync(
-            this AIService service,
-            string functionName,
-            string prompt)
-        {
-            var backupMode = service.ActivateChat.FunctionCallMode;
-            var backupForce = service.ActivateChat.ForceFunctionName;
-
-            service.ActivateChat.FunctionCallMode = FunctionCallMode.Force;
-            service.ActivateChat.ForceFunctionName = functionName;
-
-            try
-            {
-                return await service.GetCompletionAsync(prompt);
-            }
-            finally
-            {
-                service.ActivateChat.FunctionCallMode = backupMode;
-                service.ActivateChat.ForceFunctionName = backupForce;
-            }
-        }
-
         #endregion
 
         #region Private Helper Methods

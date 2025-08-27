@@ -53,13 +53,13 @@ namespace Mythosia.AI.Services.Google
                     {
                         role = "function",
                         parts = new[] { new
-                        {
-                            functionResponse = new
-                            {
-                                name = message.Metadata?["function_name"]?.ToString() ?? "function",
-                                response = new { content = message.Content }
-                            }
-                        }}
+                {
+                    functionResponse = new
+                    {
+                        name = message.Metadata?["function_name"]?.ToString() ?? "function",
+                        response = new { content = message.Content }
+                    }
+                }}
                     });
                 }
                 else
@@ -101,21 +101,16 @@ namespace Mythosia.AI.Services.Google
                     }
                 };
 
+                // ✅ 단순화된 tool_config 설정 (Force 제거)
                 if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
-                {
-                    requestBody["tool_config"] = new { function_calling_config = new { mode = "NONE" } };
-                }
-                else if (ActivateChat.FunctionCallMode == FunctionCallMode.Force && !string.IsNullOrEmpty(ActivateChat.ForceFunctionName))
                 {
                     requestBody["tool_config"] = new
                     {
-                        function_calling_config = new
-                        {
-                            mode = "ANY",
-                            allowed_function_names = new[] { ActivateChat.ForceFunctionName }
-                        }
+                        function_calling_config = new { mode = "NONE" }
                     };
                 }
+                // Auto mode가 기본값이므로 별도 설정 불필요
+                // Gemini는 tool_config를 명시하지 않으면 자동으로 AUTO mode
             }
 
             return requestBody;

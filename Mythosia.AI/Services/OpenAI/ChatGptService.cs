@@ -33,8 +33,6 @@ namespace Mythosia.AI.Services.OpenAI
 
         #region Core Completion Methods
 
-        // ChatGptService.cs
-        // ChatGptService.cs
         public override async Task<string> GetCompletionAsync(Message message)
         {
             var policy = CurrentPolicy ?? DefaultPolicy;
@@ -44,26 +42,25 @@ namespace Mythosia.AI.Services.OpenAI
                 ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
                 : new CancellationTokenSource();
 
+            // Stateless 모드 처리
+            ChatBlock originalChat = null;
+            if (StatelessMode)
+            {
+                originalChat = ActivateChat;
+                ActivateChat = ActivateChat.CloneWithoutMessages();
+            }
+
             try
             {
-                if (StatelessMode)
-                {
-                    return await ProcessStatelessRequestAsync(message, true);
-                }
-
                 ActivateChat.Stream = false;
                 ActivateChat.Messages.Add(message);
 
-                // 깔끔해진 메인 루프
+                // 기존 메인 루프
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     var result = await ProcessSingleRoundAsync(round, policy, cts.Token);
-
                     if (result.IsComplete)
-                    {
                         return result.Content;
-                    }
-                    // Continue to next round if not complete
                 }
 
                 throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
@@ -72,7 +69,15 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
             }
+            finally
+            {
+                if (originalChat != null)
+                {
+                    ActivateChat = originalChat;
+                }
+            }
         }
+
 
         /// <summary>
         /// 단일 라운드 처리
@@ -120,7 +125,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             var request = useFunctions
                 ? CreateFunctionMessageRequest()
-                : CreateMessageRequest();
+                : CreateMessageRequest();  // 통합된 메서드 사용
 
             var response = await HttpClient.SendAsync(request, cancellationToken);
 
@@ -200,96 +205,20 @@ namespace Mythosia.AI.Services.OpenAI
             });
         }
 
-
-        private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
-        {
-            var tempChat = new ChatBlock(ActivateChat.Model)
-            {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Functions = useFunctions ? ActivateChat.Functions : new List<FunctionDefinition>(),
-                EnableFunctions = useFunctions
-            };
-            tempChat.Messages.Add(message);
-
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
-
-            try
-            {
-                var request = useFunctions
-                    ? CreateFunctionMessageRequest()
-                    : CreateMessageRequest();
-
-                var response = await HttpClient.SendAsync(request);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-
-                    if (useFunctions)
-                    {
-                        var (content, functionCall) = ExtractFunctionCall(responseContent);
-                        if (functionCall != null)
-                        {
-                            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-                            return $"Function result: {result}";
-                        }
-                        return content;
-                    }
-
-                    return ExtractResponseContent(responseContent);
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
-                }
-            }
-            finally
-            {
-                ActivateChat = backup;
-            }
-        }
-
         #endregion
 
         #region Request Creation
 
         protected override HttpRequestMessage CreateMessageRequest()
         {
-            // GPT-5 모델 체크
-            bool isGpt5Model = ActivateChat.Model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
-
-            if (isGpt5Model)
-            {
-                return CreateGpt5Request();
-            }
-
-            // 기존 Chat Completions API (GPT-4, GPT-3.5 등)
             var requestBody = BuildRequestBody();
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
-            {
-                Content = content
-            };
+            // Determine endpoint based on model
+            string endpoint = IsNewApiModel(ActivateChat.Model)
+                ? (ActivateChat.Stream ? "responses?stream=true" : "responses")
+                : "chat/completions";
 
-            request.Headers.Add("Authorization", $"Bearer {ApiKey}");
-            return request;
-        }
-
-        private HttpRequestMessage CreateGpt5Request()
-        {
-            var requestBody = BuildGpt5ResponsesBody();
-            var jsonString = JsonSerializer.Serialize(requestBody);
-
-            var content = new StringContent(jsonString, Encoding.UTF8, "application/json");
-
-            // GPT-5는 /v1/responses 엔드포인트 사용
-            var endpoint = ActivateChat.Stream ? "responses?stream=true" : "responses";
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
                 Content = content

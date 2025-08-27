@@ -435,51 +435,6 @@ public partial class ChatGptServiceTests
     }
 
     /// <summary>
-    /// Function Call Mode 테스트
-    /// </summary>
-    [TestMethod]
-    public async Task FunctionCallModeTest()
-    {
-        try
-        {
-            // Function 등록
-            AI.WithFunction(
-                "test_function",
-                "A test function",
-                () => "Function was called!");
-
-            // Auto mode (기본값)
-            AI.ActivateChat.FunctionCallMode = FunctionCallMode.Auto;
-            var autoResponse = await AI.GetCompletionAsync("Hello, how are you?");
-            Console.WriteLine($"[Auto Mode] {autoResponse}");
-
-            // Force mode - 특정 함수 강제 호출
-            AI.ActivateChat.FunctionCallMode = FunctionCallMode.Force;
-            AI.ActivateChat.ForceFunctionName = "test_function";
-            var forceResponse = await AI.GetCompletionAsync("Any message");
-            Console.WriteLine($"[Force Mode] {forceResponse}");
-
-            // Function이 호출되었는지 확인
-            var functionMessage = AI.ActivateChat.Messages.LastOrDefault(m => m.Role == ActorRole.Function);
-            Assert.IsNotNull(functionMessage, "Function should be called in Force mode");
-
-            // None mode - Function 호출 비활성화
-            AI.ActivateChat.FunctionCallMode = FunctionCallMode.None;
-            var noneResponse = await AI.GetCompletionAsync("Call test function");
-            Console.WriteLine($"[None Mode] {noneResponse}");
-
-            // Reset to Auto
-            AI.ActivateChat.FunctionCallMode = FunctionCallMode.Auto;
-            AI.ActivateChat.ForceFunctionName = null;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Function Mode Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-
-    /// <summary>
     /// Function Calling with Streaming 테스트
     /// </summary>
     [TestMethod]
@@ -670,46 +625,5 @@ public partial class ChatGptServiceTests
     [TestMethod]
     public async Task FunctionErrorHandlingTest()
     {
-    }
-
-    /// <summary>
-    /// Extension Method를 사용한 Function Calling 테스트
-    /// </summary>
-    [TestMethod]
-    public async Task FunctionExtensionMethodsTest()
-    {
-        try
-        {
-            // Function 등록
-            AI.WithFunction(
-                "test_func",
-                "Test function",
-                () => "Function executed!");
-
-            // WithoutFunctions extension 테스트
-            var withoutResponse = await AI.AskWithoutFunctionsAsync(
-                "Call test_func function");
-            Console.WriteLine($"[Without Functions] {withoutResponse}");
-
-            // Function이 호출되지 않았는지 확인
-            Assert.IsFalse(withoutResponse.Contains("Function executed"));
-
-            // CallFunctionAsync extension 테스트 - 특정 함수 강제 호출
-            var forcedResponse = await AI.CallFunctionAsync(
-                "test_func",
-                "This message doesn't matter");
-            Console.WriteLine($"[Forced Function] {forcedResponse}");
-
-            // Function이 호출되었는지 확인
-            var lastFunction = AI.ActivateChat.Messages
-                .LastOrDefault(m => m.Role == ActorRole.Function);
-            Assert.IsNotNull(lastFunction);
-            Assert.IsTrue(lastFunction.Content.Contains("Function executed"));
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Extension Methods Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
     }
 }

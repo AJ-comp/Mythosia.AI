@@ -16,52 +16,37 @@ namespace Mythosia.AI.Services.OpenAI
 
         private object BuildRequestBody()
         {
-            var messagesList = new List<object>();
+            var requestBody = new Dictionary<string, object>();
 
-            // Add system message if present
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (IsNewApiModel(ActivateChat.Model))
             {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+                // Build for new API (GPT-5, o3, etc.)
+                BuildNewApiBody(requestBody);
+            }
+            else
+            {
+                // Build for legacy API
+                BuildLegacyApiBody(requestBody);
             }
 
-            // Add conversation messages
-            foreach (var message in ActivateChat.GetLatestMessages())
-            {
-                messagesList.Add(ConvertMessageForOpenAI(message));
-            }
+            // Apply model-specific parameter configurations
+            ApplyModelSpecificParameters(requestBody);
 
-            return new
-            {
-                model = ActivateChat.Model,
-                messages = messagesList,
-                top_p = ActivateChat.TopP,
-                temperature = ActivateChat.Temperature,
-                frequency_penalty = ActivateChat.FrequencyPenalty,
-                presence_penalty = ActivateChat.PresencePenalty,
-                max_tokens = ActivateChat.MaxTokens,
-                stream = ActivateChat.Stream
-            };
+            return requestBody;
         }
 
-        private object BuildGpt5ResponsesBody()
+        private void BuildNewApiBody(Dictionary<string, object> requestBody)
         {
             var inputList = new List<object>();
 
-            // System message를 instructions로 처리
-            string? instructions = !string.IsNullOrEmpty(ActivateChat.SystemMessage)
-                ? ActivateChat.SystemMessage
-                : null;
-
-            // 대화 메시지들을 input 배열로 변환
+            // Convert messages to new API format
             foreach (var message in ActivateChat.GetLatestMessages())
             {
                 var messageParts = new List<object>();
 
                 if (!message.HasMultimodalContent)
                 {
-                    // Role에 따라 다른 type 사용
                     string textType = message.Role == ActorRole.Assistant ? "output_text" : "input_text";
-
                     messageParts.Add(new
                     {
                         type = textType,
@@ -70,13 +55,11 @@ namespace Mythosia.AI.Services.OpenAI
                 }
                 else
                 {
-                    // 멀티모달 메시지
                     foreach (var content in message.Contents)
                     {
                         if (content is TextContent textContent)
                         {
                             string textType = message.Role == ActorRole.Assistant ? "output_text" : "input_text";
-
                             messageParts.Add(new
                             {
                                 type = textType,
@@ -101,27 +84,44 @@ namespace Mythosia.AI.Services.OpenAI
                 });
             }
 
-            // GPT-5 전용 파라미터
-            var requestBody = new Dictionary<string, object>
-            {
-                ["model"] = ActivateChat.Model,
-                ["input"] = inputList,
-                ["text"] = new { verbosity = "medium" },
-                ["reasoning"] = new { effort = "medium" },
-                ["max_output_tokens"] = (int)ActivateChat.MaxTokens
-            };
+            requestBody["model"] = ActivateChat.Model;
+            requestBody["input"] = inputList;
 
-            if (!string.IsNullOrEmpty(instructions))
+            // Add instructions if present
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
             {
-                requestBody["instructions"] = instructions;
+                requestBody["instructions"] = ActivateChat.SystemMessage;
             }
 
             if (ActivateChat.Stream)
             {
                 requestBody["stream"] = true;
             }
+        }
 
-            return requestBody;
+        private void BuildLegacyApiBody(Dictionary<string, object> requestBody)
+        {
+            var messagesList = new List<object>();
+
+            // Add system message if present
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+            }
+
+            // Add conversation messages
+            foreach (var message in ActivateChat.GetLatestMessages())
+            {
+                messagesList.Add(ConvertMessageForOpenAI(message));
+            }
+
+            requestBody["model"] = ActivateChat.Model;
+            requestBody["messages"] = messagesList;
+            requestBody["temperature"] = ActivateChat.Temperature;
+            requestBody["top_p"] = ActivateChat.TopP;
+            requestBody["frequency_penalty"] = ActivateChat.FrequencyPenalty;
+            requestBody["presence_penalty"] = ActivateChat.PresencePenalty;
+            requestBody["stream"] = ActivateChat.Stream;
         }
 
         private object ConvertMessageForOpenAI(Message message)
@@ -153,16 +153,22 @@ namespace Mythosia.AI.Services.OpenAI
         {
             try
             {
-                bool isGpt5Model = ActivateChat.Model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+                using var doc = JsonDocument.Parse(responseContent);
+                var root = doc.RootElement;
 
-                if (isGpt5Model)
+                // Check response format to determine API version
+                if (root.TryGetProperty("output", out var output))
                 {
-                    return ExtractGpt5Response(responseContent);
+                    // New API format (GPT-5, o3, etc.)
+                    return ExtractNewApiResponse(output);
                 }
-                else
+                else if (root.TryGetProperty("choices", out var choices))
                 {
-                    return ExtractChatCompletionsResponse(responseContent);
+                    // Legacy API format
+                    return ExtractLegacyApiResponse(choices);
                 }
+
+                throw new AIServiceException("Unrecognized response format");
             }
             catch (Exception ex)
             {
@@ -170,86 +176,72 @@ namespace Mythosia.AI.Services.OpenAI
             }
         }
 
-        private string ExtractGpt5Response(string responseContent)
+        private string ExtractNewApiResponse(JsonElement output)
         {
-            try
+            foreach (var outputItem in output.EnumerateArray())
             {
-                using var doc = JsonDocument.Parse(responseContent);
-                var root = doc.RootElement;
+                if (!outputItem.TryGetProperty("type", out var typeProp))
+                    continue;
 
-                if (!root.TryGetProperty("output", out var outputArray))
+                if (typeProp.GetString() != "message")
+                    continue;
+
+                if (!outputItem.TryGetProperty("content", out var contentArray))
+                    continue;
+
+                foreach (var contentItem in contentArray.EnumerateArray())
                 {
-                    throw new AIServiceException("GPT-5 response missing 'output' field");
-                }
-
-                foreach (var outputItem in outputArray.EnumerateArray())
-                {
-                    if (!outputItem.TryGetProperty("type", out var typeProp))
+                    if (!contentItem.TryGetProperty("type", out var contentTypeProp))
                         continue;
 
-                    if (typeProp.GetString() != "message")
+                    if (contentTypeProp.GetString() != "output_text")
                         continue;
 
-                    if (!outputItem.TryGetProperty("content", out var contentArray))
-                        continue;
-
-                    foreach (var contentItem in contentArray.EnumerateArray())
+                    if (contentItem.TryGetProperty("text", out var textProp))
                     {
-                        if (!contentItem.TryGetProperty("type", out var contentTypeProp))
-                            continue;
-
-                        if (contentTypeProp.GetString() != "output_text")
-                            continue;
-
-                        if (contentItem.TryGetProperty("text", out var textProp))
-                        {
-                            return textProp.GetString() ?? string.Empty;
-                        }
+                        return textProp.GetString() ?? string.Empty;
                     }
                 }
+            }
 
-                throw new AIServiceException("No message text found in GPT-5 response");
-            }
-            catch (JsonException ex)
-            {
-                throw new AIServiceException($"GPT-5 JSON parsing error: {ex.Message}", responseContent);
-            }
+            throw new AIServiceException("No message text found in response");
         }
 
-        private string ExtractChatCompletionsResponse(string responseContent)
+        private string ExtractLegacyApiResponse(JsonElement choices)
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(responseContent);
-                var root = doc.RootElement;
+            if (choices.GetArrayLength() == 0)
+                throw new AIServiceException("No choices in response");
 
-                var choices = root.GetProperty("choices");
-                var firstChoice = choices[0];
-                var message = firstChoice.GetProperty("message");
-                var content = message.GetProperty("content");
+            var firstChoice = choices[0];
+            if (!firstChoice.TryGetProperty("message", out var message))
+                throw new AIServiceException("No message in choice");
 
-                return content.GetString() ?? string.Empty;
-            }
-            catch (Exception ex)
-            {
-                throw new AIServiceException($"Chat Completions parsing error: {ex.Message}", responseContent);
-            }
+            if (!message.TryGetProperty("content", out var content))
+                throw new AIServiceException("No content in message");
+
+            return content.GetString() ?? string.Empty;
         }
 
         protected override string StreamParseJson(string jsonData)
         {
             try
             {
-                bool isGpt5Model = ActivateChat.Model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+                using var doc = JsonDocument.Parse(jsonData);
+                var root = doc.RootElement;
 
-                if (isGpt5Model)
+                // Determine format and parse accordingly
+                if (root.TryGetProperty("type", out var typeProp))
                 {
-                    return StreamParseGpt5(jsonData);
+                    // New API streaming format
+                    return StreamParseNewApi(root, typeProp.GetString());
                 }
-                else
+                else if (root.TryGetProperty("choices", out var choices))
                 {
-                    return StreamParseChatCompletions(jsonData);
+                    // Legacy API streaming format
+                    return StreamParseLegacyApi(choices);
                 }
+
+                return string.Empty;
             }
             catch
             {
@@ -257,84 +249,59 @@ namespace Mythosia.AI.Services.OpenAI
             }
         }
 
-        private string StreamParseGpt5(string jsonData)
+        private string StreamParseNewApi(JsonElement root, string? type)
         {
-            try
+            if (type == "content_delta" &&
+                root.TryGetProperty("delta", out var delta) &&
+                delta.TryGetProperty("text", out var deltaText))
             {
-                using var doc = JsonDocument.Parse(jsonData);
-                var root = doc.RootElement;
+                return deltaText.GetString() ?? string.Empty;
+            }
 
-                if (root.TryGetProperty("type", out var typeProp))
+            if (type == "output_text" &&
+                root.TryGetProperty("text", out var directText))
+            {
+                return directText.GetString() ?? string.Empty;
+            }
+
+            // Check for nested output structure
+            if (root.TryGetProperty("output", out var outputArray))
+            {
+                foreach (var item in outputArray.EnumerateArray())
                 {
-                    var typeStr = typeProp.GetString();
-
-                    if (typeStr == "content_delta" &&
-                        root.TryGetProperty("delta", out var delta) &&
-                        delta.TryGetProperty("text", out var deltaText))
+                    if (item.TryGetProperty("type", out var itemType) &&
+                        itemType.GetString() == "message" &&
+                        item.TryGetProperty("content", out var contentArray))
                     {
-                        return deltaText.GetString() ?? string.Empty;
-                    }
-
-                    if (typeStr == "output_text" &&
-                        root.TryGetProperty("text", out var directText))
-                    {
-                        return directText.GetString() ?? string.Empty;
-                    }
-                }
-
-                if (root.TryGetProperty("output", out var outputArray))
-                {
-                    foreach (var item in outputArray.EnumerateArray())
-                    {
-                        if (item.TryGetProperty("type", out var itemType) &&
-                            itemType.GetString() == "message" &&
-                            item.TryGetProperty("content", out var contentArray))
+                        foreach (var contentItem in contentArray.EnumerateArray())
                         {
-                            foreach (var contentItem in contentArray.EnumerateArray())
+                            if (contentItem.TryGetProperty("type", out var contentType) &&
+                                contentType.GetString() == "output_text" &&
+                                contentItem.TryGetProperty("text", out var textProp))
                             {
-                                if (contentItem.TryGetProperty("type", out var contentType) &&
-                                    contentType.GetString() == "output_text" &&
-                                    contentItem.TryGetProperty("text", out var textProp))
-                                {
-                                    return textProp.GetString() ?? string.Empty;
-                                }
+                                return textProp.GetString() ?? string.Empty;
                             }
                         }
                     }
                 }
+            }
 
-                return string.Empty;
-            }
-            catch
-            {
-                return string.Empty;
-            }
+            return string.Empty;
         }
 
-        private string StreamParseChatCompletions(string jsonData)
+        private string StreamParseLegacyApi(JsonElement choices)
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(jsonData);
-                var root = doc.RootElement;
-
-                if (root.TryGetProperty("choices", out var choices) &&
-                    choices.GetArrayLength() > 0)
-                {
-                    var firstChoice = choices[0];
-                    if (firstChoice.TryGetProperty("delta", out var delta) &&
-                        delta.TryGetProperty("content", out var content))
-                    {
-                        return content.GetString() ?? string.Empty;
-                    }
-                }
-
+            if (choices.GetArrayLength() == 0)
                 return string.Empty;
-            }
-            catch
+
+            var firstChoice = choices[0];
+            if (firstChoice.TryGetProperty("delta", out var delta) &&
+                delta.TryGetProperty("content", out var content))
             {
-                return string.Empty;
+                return content.GetString() ?? string.Empty;
             }
+
+            return string.Empty;
         }
 
         private StreamingContent? ParseOpenAIStreamChunk(

@@ -68,6 +68,6 @@ namespace Mythosia.AI.Models.Functions
     {
         None,   // Don't call functions
         Auto,   // AI decides when to call
-        Force   // Force specific function call
+//        Force   // Force specific function call
     }
 }

@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.OpenAI
 {
@@ -16,32 +15,14 @@ namespace Mythosia.AI.Services.OpenAI
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
-            // Check if using new API (GPT-5, GPT-4.1) or legacy API
-            bool useNewApi = IsNewApiModel(ActivateChat.Model);
-
-            if (useNewApi)
-            {
-                return CreateNewApiFunctionRequest();
-            }
-            else
-            {
-                return CreateLegacyFunctionRequest();
-            }
-        }
-
-        private bool IsNewApiModel(string model)
-        {
-            return model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
-                   model.StartsWith("gpt-4.1", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private HttpRequestMessage CreateNewApiFunctionRequest()
-        {
-            var requestBody = BuildNewApiRequestWithFunctions();
+            var requestBody = BuildRequestWithFunctions();
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-            // New API uses /responses endpoint
-            var endpoint = ActivateChat.Stream ? "responses?stream=true" : "responses";
+            // Determine endpoint based on model
+            string endpoint = IsNewApiModel(ActivateChat.Model)
+                ? (ActivateChat.Stream ? "responses?stream=true" : "responses")
+                : "chat/completions";
+
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
             {
                 Content = content
@@ -50,34 +31,36 @@ namespace Mythosia.AI.Services.OpenAI
             return request;
         }
 
-        private HttpRequestMessage CreateLegacyFunctionRequest()
+        private object BuildRequestWithFunctions()
         {
-            var requestBody = BuildLegacyRequestWithFunctions();
-            var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
+            var requestBody = new Dictionary<string, object>();
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions")
+            if (IsNewApiModel(ActivateChat.Model))
             {
-                Content = content
-            };
-            request.Headers.Add("Authorization", $"Bearer {ApiKey}");
-            return request;
+                // Build new API format (GPT-5, o3, GPT-4.1)
+                BuildNewApiRequest(requestBody);
+            }
+            else
+            {
+                // Build legacy API format
+                BuildLegacyRequest(requestBody);
+            }
+
+            // Apply model-specific parameter configurations
+            ApplyModelSpecificParameters(requestBody);
+
+            return requestBody;
         }
 
-        private object BuildNewApiRequestWithFunctions()
+        private void BuildNewApiRequest(Dictionary<string, object> requestBody)
         {
             var inputList = new List<object>();
-
-            // Add system message as instructions
-            string instructions = !string.IsNullOrEmpty(ActivateChat.SystemMessage)
-                ? ActivateChat.SystemMessage
-                : null;
 
             // Convert messages to new format
             foreach (var message in ActivateChat.GetLatestMessages())
             {
                 if (message.Role == ActorRole.Function)
                 {
-                    // Function results in new format
                     inputList.Add(new
                     {
                         type = "function_call_output",
@@ -108,52 +91,41 @@ namespace Mythosia.AI.Services.OpenAI
                     required = f.Parameters?.Required ?? new List<string>(),
                     additionalProperties = false
                 },
-                strict = true  // Enable strict mode for reliability
+                strict = true
             }).ToList();
 
-            var requestBody = new Dictionary<string, object>
-            {
-                ["model"] = ActivateChat.Model,
-                ["input"] = inputList,
-                ["tools"] = tools
-            };
+            requestBody["model"] = ActivateChat.Model;
+            requestBody["input"] = inputList;
+            requestBody["tools"] = tools;
 
-            if (!string.IsNullOrEmpty(instructions))
+            // Add instructions if present
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
             {
-                requestBody["instructions"] = instructions;
+                requestBody["instructions"] = ActivateChat.SystemMessage;
             }
 
             // Tool choice configuration
-            if (ActivateChat.FunctionCallMode == FunctionCallMode.Force && !string.IsNullOrEmpty(ActivateChat.ForceFunctionName))
-            {
-                requestBody["tool_choice"] = new { type = "function", name = ActivateChat.ForceFunctionName };
-            }
-            else if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
-            {
-                requestBody["tool_choice"] = "none";
-            }
-            else
-            {
-                requestBody["tool_choice"] = "auto";
-            }
+            requestBody["tool_choice"] = ActivateChat.FunctionCallMode == FunctionCallMode.None
+                ? "none"
+                : "auto";
 
             if (ActivateChat.Stream)
             {
                 requestBody["stream"] = true;
             }
-
-            return requestBody;
         }
 
-        private object BuildLegacyRequestWithFunctions()
+        private void BuildLegacyRequest(Dictionary<string, object> requestBody)
         {
             var messagesList = new List<object>();
 
+            // Add system message if present
             if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
             {
                 messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
             }
 
+            // Convert messages
             foreach (var message in ActivateChat.GetLatestMessages())
             {
                 if (message.Role == ActorRole.Function)
@@ -171,7 +143,7 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }
 
-            // For models that support the legacy functions parameter
+            // Build functions array
             var functionsArray = ActivateChat.Functions.Select(f => new
             {
                 name = f.Name,
@@ -184,47 +156,32 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }).ToList();
 
-            var requestBody = new Dictionary<string, object>
-            {
-                ["model"] = ActivateChat.Model,
-                ["messages"] = messagesList,
-                ["temperature"] = ActivateChat.Temperature,
-                ["max_tokens"] = ActivateChat.MaxTokens,
-                ["stream"] = ActivateChat.Stream,
-                ["functions"] = functionsArray
-            };
+            requestBody["model"] = ActivateChat.Model;
+            requestBody["messages"] = messagesList;
+            requestBody["functions"] = functionsArray;
+            requestBody["temperature"] = ActivateChat.Temperature;
+            requestBody["stream"] = ActivateChat.Stream;
 
-            // Set function call mode for legacy API
-            if (ActivateChat.FunctionCallMode == FunctionCallMode.Force && !string.IsNullOrEmpty(ActivateChat.ForceFunctionName))
-            {
-                requestBody["function_call"] = new { name = ActivateChat.ForceFunctionName };
-            }
-            else if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
-            {
-                requestBody["function_call"] = "none";
-            }
-            else
-            {
-                requestBody["function_call"] = "auto";
-            }
-
-            return requestBody;
+            // Function call mode
+            requestBody["function_call"] = ActivateChat.FunctionCallMode == FunctionCallMode.None
+                ? "none"
+                : "auto";
         }
 
         protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
         {
-            // Check response format to determine API version
             using var doc = JsonDocument.Parse(response);
             var root = doc.RootElement;
 
-            // New API format (GPT-5, GPT-4.1)
+            // Check API format and extract accordingly
             if (root.TryGetProperty("output", out var output))
             {
+                // New API format (GPT-5, o3, GPT-4.1)
                 return ExtractNewApiFunctionCall(output);
             }
-            // Legacy API format
             else if (root.TryGetProperty("choices", out var choices))
             {
+                // Legacy API format
                 return ExtractLegacyFunctionCall(choices);
             }
 
@@ -251,13 +208,13 @@ namespace Mythosia.AI.Services.OpenAI
                 {
                     functionCall = new FunctionCall
                     {
-                        Name = item.GetProperty("name").GetString()
+                        Name = item.GetProperty("name").GetString(),
+                        Arguments = new Dictionary<string, object>()
                     };
 
                     // Store call_id for response
                     if (item.TryGetProperty("call_id", out var callId))
                     {
-                        functionCall.Arguments = functionCall.Arguments ?? new Dictionary<string, object>();
                         functionCall.Arguments["__call_id"] = callId.GetString();
                     }
 
@@ -293,34 +250,31 @@ namespace Mythosia.AI.Services.OpenAI
         private (string content, FunctionCall functionCall) ExtractLegacyFunctionCall(JsonElement choices)
         {
             if (choices.GetArrayLength() == 0)
-            {
                 return (string.Empty, null);
-            }
 
             var choice = choices[0];
             if (!choice.TryGetProperty("message", out var message))
-            {
                 return (string.Empty, null);
-            }
 
             string content = null;
             FunctionCall functionCall = null;
 
-            // Check for content
+            // Extract content
             if (message.TryGetProperty("content", out var contentElement))
             {
                 content = contentElement.GetString();
             }
 
-            // Check for function call
+            // Extract function call
             if (message.TryGetProperty("function_call", out var functionCallElement))
             {
                 functionCall = new FunctionCall
                 {
-                    Name = functionCallElement.GetProperty("name").GetString()
+                    Name = functionCallElement.GetProperty("name").GetString(),
+                    Arguments = new Dictionary<string, object>()
                 };
 
-                // Parse arguments - they come as a JSON string
+                // Parse arguments JSON string
                 if (functionCallElement.TryGetProperty("arguments", out var argsElement))
                 {
                     var argsString = argsElement.GetString();
@@ -328,18 +282,14 @@ namespace Mythosia.AI.Services.OpenAI
                     {
                         try
                         {
-                            functionCall.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(argsString);
+                            functionCall.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(argsString)
+                                ?? new Dictionary<string, object>();
                         }
                         catch
                         {
-                            functionCall.Arguments = new Dictionary<string, object>();
+                            // Keep empty arguments on parse failure
                         }
                     }
-                }
-
-                if (functionCall.Arguments == null)
-                {
-                    functionCall.Arguments = new Dictionary<string, object>();
                 }
             }
 

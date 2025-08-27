@@ -118,10 +118,8 @@ namespace Mythosia.AI.Models
             return tokens;
         }
 
-        /// <summary>
-        /// Creates a deep copy of the ChatBlock
-        /// </summary>
-        public ChatBlock Clone()
+        // ChatBlock.cs에 추가
+        public ChatBlock CloneWithoutMessages()
         {
             var clone = new ChatBlock(Model)
             {
@@ -129,9 +127,25 @@ namespace Mythosia.AI.Models
                 TopP = TopP,
                 Temperature = Temperature,
                 FrequencyPenalty = FrequencyPenalty,
+                PresencePenalty = PresencePenalty,
                 MaxTokens = MaxTokens,
-                MaxMessageCount = MaxMessageCount
+                MaxMessageCount = MaxMessageCount,
+                Functions = new List<FunctionDefinition>(Functions),
+                EnableFunctions = EnableFunctions,
+                FunctionCallMode = FunctionCallMode,
+                ForceFunctionName = ForceFunctionName
             };
+
+            // Messages는 비워둠
+            return clone;
+        }
+
+        /// <summary>
+        /// Creates a deep copy of the ChatBlock
+        /// </summary>
+        public ChatBlock Clone()
+        {
+            var clone = CloneWithoutMessages();
 
             foreach (var message in Messages)
             {

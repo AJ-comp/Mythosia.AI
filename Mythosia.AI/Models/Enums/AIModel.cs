@@ -40,42 +40,67 @@ namespace Mythosia.AI.Models.Enums
 
 
         // OpenAI Models
+        /// <summary>OpenAI GPT-5 - Most advanced general-purpose model</summary>
         [Description("gpt-5")]
         Gpt5,
 
+        /// <summary>OpenAI GPT-5 Mini - Smaller, faster GPT-5 variant</summary>
         [Description("gpt-5-mini")]
         Gpt5Mini,
 
+        /// <summary>OpenAI GPT-5 Nano - Smallest, most efficient GPT-5</summary>
         [Description("gpt-5-nano")]
         Gpt5Nano,
 
+        /// <summary>OpenAI GPT-5 Chat Latest - Latest chat-optimized GPT-5</summary>
         [Description("gpt-5-chat-latest")]
         Gpt5ChatLatest,
 
+        /// <summary>OpenAI o3-pro - Top-tier reasoning model for hardest problems</summary>
+        [Description("o3-pro")]
+        o3_pro,
+
+        /// <summary>OpenAI o3 - Advanced reasoning for complex tasks</summary>
+        [Description("o3")]
+        o3,
+
+        /// <summary>OpenAI o3-mini - Fast, cost-effective reasoning model</summary>
+        [Description("o3-mini")]
+        o3_mini,
+
+        /// <summary>OpenAI GPT-4.1 - Enhanced GPT-4 with improvements</summary>
         [Description("gpt-4.1")]
         Gpt4_1,
 
+        /// <summary>OpenAI GPT-4.1 Mini - Smaller GPT-4.1 variant</summary>
         [Description("gpt-4.1-mini")]
         Gpt4_1Mini,
 
+        /// <summary>OpenAI GPT-4.1 Nano - Smallest GPT-4.1 variant</summary>
         [Description("gpt-4.1-nano")]
         Gpt4_1Nano,
 
+        /// <summary>OpenAI GPT-4o - Multimodal with vision capabilities</summary>
         [Description("gpt-4o")]
         Gpt4o,
 
+        /// <summary>OpenAI ChatGPT-4o Latest - Latest ChatGPT variant</summary>
         [Description("chatgpt-4o-latest")]
         Gpt4oLatest,
 
+        /// <summary>OpenAI GPT-4o (Nov 2024) - November 2024 release</summary>
         [Description("gpt-4o-2024-11-20")]
         Gpt4o241120,
 
+        /// <summary>OpenAI GPT-4o (Aug 2024) - August 2024 release</summary>
         [Description("gpt-4o-2024-08-06")]
         Gpt4o240806,
 
+        /// <summary>OpenAI GPT-4o Mini - Cost-effective, no vision support</summary>
         [Description("gpt-4o-mini")]
         Gpt4oMini,
 
+        /// <summary>OpenAI GPT-4 Vision Preview - Deprecated, use GPT-4o</summary>
         [Description("gpt-4-vision-preview")]
         Gpt4Vision,
 
@@ -98,14 +123,6 @@ namespace Mythosia.AI.Models.Enums
 
         [Description("gemini-1.5-flash")]
         Gemini1_5Flash,
-
-        [Description("gemini-1.5-pro")]
-        [Obsolete("This value will be deprecated soon. Please use Gemini1_5Pro instead.")]
-        Gemini15Pro,
-
-        [Description("gemini-1.5-flash")]
-        [Obsolete("This value will be deprecated soon. Please use Gemini1_5Flash instead.")]
-        Gemini15Flash,
 
         [Description("gemini-pro")]
         GeminiPro,
