@@ -61,12 +61,48 @@ namespace Mythosia.AI.Models
 
         public void ChangeModel(AIModel model)
         {
-            Model = model.ToDescription();
+            var newModelString = model.ToDescription();
+            ChangeModelInternal(newModelString);
         }
 
         public void ChangeModel(string model)
         {
-            Model = model;
+            ChangeModelInternal(model);
+        }
+
+        private void ChangeModelInternal(string newModel)
+        {
+            var oldModel = Model;
+            Model = newModel;
+
+            // Remove Function messages when changing models
+            // This prevents compatibility issues between different model APIs
+            if (oldModel != newModel)
+            {
+                RemoveFunctionMessages();
+            }
+        }
+
+        /// <summary>
+        /// Removes all Function-related messages from the conversation
+        /// </summary>
+        public void RemoveFunctionMessages()
+        {
+            var functionMessages = Messages.Where(m =>
+                m.Role == ActorRole.Function ||
+                (m.Role == ActorRole.Assistant &&
+                 m.Metadata?.GetValueOrDefault("type")?.ToString() == "function_call")
+            ).ToList();
+
+            foreach (var msg in functionMessages)
+            {
+                Messages.Remove(msg);
+            }
+
+            if (functionMessages.Count > 0)
+            {
+                Console.WriteLine($"[Model Change] Removed {functionMessages.Count} function-related messages for compatibility");
+            }
         }
 
         /// <summary>
@@ -118,7 +154,6 @@ namespace Mythosia.AI.Models
             return tokens;
         }
 
-        // ChatBlock.cs에 추가
         public ChatBlock CloneWithoutMessages()
         {
             var clone = new ChatBlock(Model)
@@ -334,7 +369,6 @@ namespace Mythosia.AI.Models
         }
 
         #endregion
-
 
         /// <summary>
         /// Adds a function to this chat

@@ -54,6 +54,7 @@ namespace Mythosia.AI.Models.Functions
     {
         public string Name { get; set; }
         public Dictionary<string, object> Arguments { get; set; }
+        public string CallId { get; set; }  // Optional, for new API compatibility
 
         public FunctionCall()
         {
@@ -68,6 +69,5 @@ namespace Mythosia.AI.Models.Functions
     {
         None,   // Don't call functions
         Auto,   // AI decides when to call
-//        Force   // Force specific function call
     }
 }

@@ -59,16 +59,48 @@ namespace Mythosia.AI.Services.OpenAI
             // Convert messages to new format
             foreach (var message in ActivateChat.GetLatestMessages())
             {
-                if (message.Role == ActorRole.Function)
+                // Handle Assistant messages with function_call metadata
+                if (message.Role == ActorRole.Assistant &&
+                    message.Metadata?.GetValueOrDefault("type")?.ToString() == "function_call")
                 {
-                    inputList.Add(new
+                    var callId = message.Metadata.GetValueOrDefault("call_id")?.ToString();
+                    var functionName = message.Metadata.GetValueOrDefault("function_name")?.ToString();
+                    var arguments = message.Metadata.GetValueOrDefault("arguments")?.ToString();
+
+                    if (!string.IsNullOrEmpty(callId) && !string.IsNullOrEmpty(functionName))
                     {
-                        type = "function_call_output",
-                        call_id = message.Metadata?["call_id"]?.ToString() ?? "",
-                        output = message.Content
-                    });
+                        inputList.Add(new
+                        {
+                            type = "function_call",
+                            call_id = callId,
+                            name = functionName,
+                            arguments = arguments ?? "{}"
+                        });
+                    }
                 }
-                else
+                // Handle Function results
+                else if (message.Role == ActorRole.Function)
+                {
+                    var callId = message.Metadata?.GetValueOrDefault("call_id")?.ToString();
+
+                    if (!string.IsNullOrEmpty(callId))
+                    {
+                        inputList.Add(new
+                        {
+                            type = "function_call_output",
+                            call_id = callId,
+                            output = message.Content
+                        });
+                    }
+                    else
+                    {
+                        var functionName = message.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "unknown";
+                        Console.WriteLine($"[Warning] Skipping function result without call_id: {functionName}");
+                    }
+                }
+                // Handle regular messages
+                else if (message.Role != ActorRole.Assistant ||
+                         message.Metadata?.GetValueOrDefault("type")?.ToString() != "function_call")
                 {
                     inputList.Add(new
                     {
@@ -78,20 +110,52 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }
 
-            // Convert functions to tools format
-            var tools = ActivateChat.Functions.Select(f => new
+            // Convert functions to tools format with explicit property conversion
+            var tools = ActivateChat.Functions.Select(f =>
             {
-                type = "function",
-                name = f.Name,
-                description = f.Description,
-                parameters = new
+                // Properties를 명시적으로 변환
+                var properties = new Dictionary<string, object>();
+                if (f.Parameters?.Properties != null)
                 {
-                    type = "object",
-                    properties = f.Parameters?.Properties ?? new Dictionary<string, ParameterProperty>(),
-                    required = f.Parameters?.Required ?? new List<string>(),
-                    additionalProperties = false
-                },
-                strict = true
+                    foreach (var prop in f.Parameters.Properties)
+                    {
+                        var propObj = new Dictionary<string, object>();
+
+                        // Type은 필수 (소문자)
+                        propObj["type"] = !string.IsNullOrEmpty(prop.Value.Type)
+                            ? prop.Value.Type
+                            : "string";
+
+                        // Description (소문자)
+                        if (!string.IsNullOrEmpty(prop.Value.Description))
+                            propObj["description"] = prop.Value.Description;
+
+                        // Enum (소문자)
+                        if (prop.Value.Enum != null && prop.Value.Enum.Count > 0)
+                            propObj["enum"] = prop.Value.Enum;
+
+                        // Default (소문자)
+                        if (prop.Value.Default != null)
+                            propObj["default"] = prop.Value.Default;
+
+                        properties[prop.Key] = propObj;
+                    }
+                }
+
+                return new
+                {
+                    type = "function",
+                    name = f.Name,
+                    description = f.Description,
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = properties,
+                        required = f.Parameters?.Required ?? new List<string>(),
+                        additionalProperties = false
+                    },
+                    strict = true
+                };
             }).ToList();
 
             requestBody["model"] = ActivateChat.Model;
@@ -143,17 +207,49 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }
 
-            // Build functions array
-            var functionsArray = ActivateChat.Functions.Select(f => new
+            // Build functions array with explicit property conversion
+            var functionsArray = ActivateChat.Functions.Select(f =>
             {
-                name = f.Name,
-                description = f.Description,
-                parameters = new
+                // Properties를 명시적으로 변환
+                var properties = new Dictionary<string, object>();
+                if (f.Parameters?.Properties != null)
                 {
-                    type = "object",
-                    properties = f.Parameters?.Properties ?? new Dictionary<string, ParameterProperty>(),
-                    required = f.Parameters?.Required ?? new List<string>()
+                    foreach (var prop in f.Parameters.Properties)
+                    {
+                        var propObj = new Dictionary<string, object>();
+
+                        // Type은 필수 (소문자)
+                        propObj["type"] = !string.IsNullOrEmpty(prop.Value.Type)
+                            ? prop.Value.Type
+                            : "string";
+
+                        // Description (소문자)
+                        if (!string.IsNullOrEmpty(prop.Value.Description))
+                            propObj["description"] = prop.Value.Description;
+
+                        // Enum (소문자)
+                        if (prop.Value.Enum != null && prop.Value.Enum.Count > 0)
+                            propObj["enum"] = prop.Value.Enum;
+
+                        // Default (소문자)
+                        if (prop.Value.Default != null)
+                            propObj["default"] = prop.Value.Default;
+
+                        properties[prop.Key] = propObj;
+                    }
                 }
+
+                return new
+                {
+                    name = f.Name,
+                    description = f.Description,
+                    parameters = new
+                    {
+                        type = "object",
+                        properties = properties,
+                        required = f.Parameters?.Required ?? new List<string>()
+                    }
+                };
             }).ToList();
 
             requestBody["model"] = ActivateChat.Model;
@@ -200,9 +296,30 @@ namespace Mythosia.AI.Services.OpenAI
 
                 var type = typeElem.GetString();
 
-                if (type == "message" && item.TryGetProperty("content", out var messageContent))
+                if (type == "message")
                 {
-                    content += messageContent.GetString();
+                    // content가 배열인 경우 처리
+                    if (item.TryGetProperty("content", out var messageContent))
+                    {
+                        if (messageContent.ValueKind == JsonValueKind.Array)
+                        {
+                            // content가 배열인 경우
+                            foreach (var contentItem in messageContent.EnumerateArray())
+                            {
+                                if (contentItem.TryGetProperty("type", out var contentType) &&
+                                    contentType.GetString() == "output_text" &&
+                                    contentItem.TryGetProperty("text", out var textElem))
+                                {
+                                    content += textElem.GetString();
+                                }
+                            }
+                        }
+                        else if (messageContent.ValueKind == JsonValueKind.String)
+                        {
+                            // content가 문자열인 경우 (이전 형식 호환)
+                            content += messageContent.GetString();
+                        }
+                    }
                 }
                 else if (type == "function_call")
                 {
@@ -212,10 +329,10 @@ namespace Mythosia.AI.Services.OpenAI
                         Arguments = new Dictionary<string, object>()
                     };
 
-                    // Store call_id for response
+                    // Store call_id
                     if (item.TryGetProperty("call_id", out var callId))
                     {
-                        functionCall.Arguments["__call_id"] = callId.GetString();
+                        functionCall.CallId = callId.GetString();
                     }
 
                     // Parse arguments
@@ -227,12 +344,9 @@ namespace Mythosia.AI.Services.OpenAI
                             try
                             {
                                 var args = JsonSerializer.Deserialize<Dictionary<string, object>>(argsString);
-                                foreach (var kvp in args)
+                                foreach (var kvp in args ?? new Dictionary<string, object>())
                                 {
-                                    if (kvp.Key != "__call_id")
-                                    {
-                                        functionCall.Arguments[kvp.Key] = kvp.Value;
-                                    }
+                                    functionCall.Arguments[kvp.Key] = kvp.Value;
                                 }
                             }
                             catch

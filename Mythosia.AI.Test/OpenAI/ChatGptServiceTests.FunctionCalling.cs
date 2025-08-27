@@ -519,11 +519,17 @@ public partial class ChatGptServiceTests
     {
         try
         {
-            // Function 등록
+            // Function 등록 - 더 명확한 응답 제공
             AI.WithFunction(
                 "always_called",
                 "This function should always be called for any query",
-                () => "This shouldn't be called when disabled!");
+                () => JsonSerializer.Serialize(new
+                {
+                    status = "success",
+                    message = "Function executed successfully",
+                    timestamp = DateTime.UtcNow
+                })
+            );
 
             // Functions 일시적으로 비활성화
             AI.FunctionsDisabled = true;
@@ -531,17 +537,24 @@ public partial class ChatGptServiceTests
             Console.WriteLine($"[Disabled] {response}");
 
             // Function이 호출되지 않았는지 확인
-            var functionCalls = AI.ActivateChat.Messages.Where(m => m.Role == ActorRole.Function).Count();
-            var initialCount = functionCalls;
+            var functionCallsBeforeEnable = AI.ActivateChat.Messages
+                .Where(m => m.Role == ActorRole.Function).Count();
 
             // Functions 다시 활성화
             AI.FunctionsDisabled = false;
-            var enabledResponse = await AI.GetCompletionAsync("Call the always_called function");
+
+            // 대화 초기화하여 새로운 컨텍스트에서 시작
+            AI.ActivateChat.Messages.Clear();
+
+            var enabledResponse = await AI.GetCompletionAsync("Call the always_called function and tell me the result");
             Console.WriteLine($"[Enabled] {enabledResponse}");
 
             // Function이 호출되었는지 확인
-            functionCalls = AI.ActivateChat.Messages.Where(m => m.Role == ActorRole.Function).Count();
-            Assert.IsTrue(functionCalls >= initialCount, "Function should be called when enabled");
+            var functionCallsAfterEnable = AI.ActivateChat.Messages
+                .Where(m => m.Role == ActorRole.Function).Count();
+
+            Assert.AreEqual(0, functionCallsBeforeEnable, "Function should not be called when disabled");
+            Assert.IsTrue(functionCallsAfterEnable > 0, "Function should be called when enabled");
         }
         catch (Exception ex)
         {

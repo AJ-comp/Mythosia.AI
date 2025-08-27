@@ -178,6 +178,8 @@ namespace Mythosia.AI.Services.OpenAI
 
         private string ExtractNewApiResponse(JsonElement output)
         {
+            var content = new StringBuilder();
+
             foreach (var outputItem in output.EnumerateArray())
             {
                 if (!outputItem.TryGetProperty("type", out var typeProp))
@@ -186,25 +188,30 @@ namespace Mythosia.AI.Services.OpenAI
                 if (typeProp.GetString() != "message")
                     continue;
 
-                if (!outputItem.TryGetProperty("content", out var contentArray))
+                if (!outputItem.TryGetProperty("content", out var contentElem))
                     continue;
 
-                foreach (var contentItem in contentArray.EnumerateArray())
+                // content가 배열인 경우
+                if (contentElem.ValueKind == JsonValueKind.Array)
                 {
-                    if (!contentItem.TryGetProperty("type", out var contentTypeProp))
-                        continue;
-
-                    if (contentTypeProp.GetString() != "output_text")
-                        continue;
-
-                    if (contentItem.TryGetProperty("text", out var textProp))
+                    foreach (var contentItem in contentElem.EnumerateArray())
                     {
-                        return textProp.GetString() ?? string.Empty;
+                        if (contentItem.TryGetProperty("type", out var contentTypeProp) &&
+                            contentTypeProp.GetString() == "output_text" &&
+                            contentItem.TryGetProperty("text", out var textProp))
+                        {
+                            content.Append(textProp.GetString());
+                        }
                     }
+                }
+                // content가 문자열인 경우 (이전 형식 호환)
+                else if (contentElem.ValueKind == JsonValueKind.String)
+                {
+                    content.Append(contentElem.GetString());
                 }
             }
 
-            throw new AIServiceException("No message text found in response");
+            return content.ToString();
         }
 
         private string ExtractLegacyApiResponse(JsonElement choices)
