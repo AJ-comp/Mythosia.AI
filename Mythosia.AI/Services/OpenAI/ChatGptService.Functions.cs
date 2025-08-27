@@ -11,8 +11,6 @@ namespace Mythosia.AI.Services.OpenAI
 {
     public partial class ChatGptService
     {
-        #region Function Calling Support
-
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
             var requestBody = BuildRequestWithFunctions();
@@ -50,6 +48,58 @@ namespace Mythosia.AI.Services.OpenAI
             ApplyModelSpecificParameters(requestBody);
 
             return requestBody;
+        }
+
+        /// <summary>
+        /// Creates function schema that works for both old and new API
+        /// </summary>
+        private Dictionary<string, object> CreateFunctionParameterSchema(FunctionDefinition f, bool isNewApi = false)
+        {
+            var properties = new Dictionary<string, object>();
+            var allPropertyNames = new List<string>();
+
+            if (f.Parameters?.Properties != null && f.Parameters.Properties.Count > 0)
+            {
+                foreach (var prop in f.Parameters.Properties)
+                {
+                    var propObj = new Dictionary<string, object>();
+
+                    // Type is required
+                    propObj["type"] = !string.IsNullOrEmpty(prop.Value.Type)
+                        ? prop.Value.Type
+                        : "string";
+
+                    // Description
+                    if (!string.IsNullOrEmpty(prop.Value.Description))
+                        propObj["description"] = prop.Value.Description;
+
+                    // Enum values
+                    if (prop.Value.Enum != null && prop.Value.Enum.Count > 0)
+                        propObj["enum"] = prop.Value.Enum;
+
+                    // Default value (indicates optional parameter)
+                    if (prop.Value.Default != null)
+                        propObj["default"] = prop.Value.Default;
+
+                    properties[prop.Key] = propObj;
+                    allPropertyNames.Add(prop.Key);  // Add all properties to required
+                }
+            }
+
+            var schema = new Dictionary<string, object>
+            {
+                ["type"] = "object",
+                ["properties"] = properties,
+                ["required"] = allPropertyNames  // All properties in required for compatibility
+            };
+
+            // New API requires additionalProperties: false
+            if (isNewApi)
+            {
+                schema["additionalProperties"] = false;
+            }
+
+            return schema;
         }
 
         private void BuildNewApiRequest(Dictionary<string, object> requestBody)
@@ -110,52 +160,14 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }
 
-            // Convert functions to tools format with explicit property conversion
-            var tools = ActivateChat.Functions.Select(f =>
+            // Convert functions to tools format using unified schema
+            var tools = ActivateChat.Functions.Select(f => new
             {
-                // Properties를 명시적으로 변환
-                var properties = new Dictionary<string, object>();
-                if (f.Parameters?.Properties != null)
-                {
-                    foreach (var prop in f.Parameters.Properties)
-                    {
-                        var propObj = new Dictionary<string, object>();
-
-                        // Type은 필수 (소문자)
-                        propObj["type"] = !string.IsNullOrEmpty(prop.Value.Type)
-                            ? prop.Value.Type
-                            : "string";
-
-                        // Description (소문자)
-                        if (!string.IsNullOrEmpty(prop.Value.Description))
-                            propObj["description"] = prop.Value.Description;
-
-                        // Enum (소문자)
-                        if (prop.Value.Enum != null && prop.Value.Enum.Count > 0)
-                            propObj["enum"] = prop.Value.Enum;
-
-                        // Default (소문자)
-                        if (prop.Value.Default != null)
-                            propObj["default"] = prop.Value.Default;
-
-                        properties[prop.Key] = propObj;
-                    }
-                }
-
-                return new
-                {
-                    type = "function",
-                    name = f.Name,
-                    description = f.Description,
-                    parameters = new
-                    {
-                        type = "object",
-                        properties = properties,
-                        required = f.Parameters?.Required ?? new List<string>(),
-                        additionalProperties = false
-                    },
-                    strict = true
-                };
+                type = "function",
+                name = f.Name,
+                description = f.Description,
+                parameters = CreateFunctionParameterSchema(f, isNewApi: true),  // Pass true for new API
+                strict = true
             }).ToList();
 
             requestBody["model"] = ActivateChat.Model;
@@ -207,49 +219,12 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }
 
-            // Build functions array with explicit property conversion
-            var functionsArray = ActivateChat.Functions.Select(f =>
+            // Build functions array using unified schema
+            var functionsArray = ActivateChat.Functions.Select(f => new
             {
-                // Properties를 명시적으로 변환
-                var properties = new Dictionary<string, object>();
-                if (f.Parameters?.Properties != null)
-                {
-                    foreach (var prop in f.Parameters.Properties)
-                    {
-                        var propObj = new Dictionary<string, object>();
-
-                        // Type은 필수 (소문자)
-                        propObj["type"] = !string.IsNullOrEmpty(prop.Value.Type)
-                            ? prop.Value.Type
-                            : "string";
-
-                        // Description (소문자)
-                        if (!string.IsNullOrEmpty(prop.Value.Description))
-                            propObj["description"] = prop.Value.Description;
-
-                        // Enum (소문자)
-                        if (prop.Value.Enum != null && prop.Value.Enum.Count > 0)
-                            propObj["enum"] = prop.Value.Enum;
-
-                        // Default (소문자)
-                        if (prop.Value.Default != null)
-                            propObj["default"] = prop.Value.Default;
-
-                        properties[prop.Key] = propObj;
-                    }
-                }
-
-                return new
-                {
-                    name = f.Name,
-                    description = f.Description,
-                    parameters = new
-                    {
-                        type = "object",
-                        properties = properties,
-                        required = f.Parameters?.Required ?? new List<string>()
-                    }
-                };
+                name = f.Name,
+                description = f.Description,
+                parameters = CreateFunctionParameterSchema(f, isNewApi: false)  // Pass false for legacy API
             }).ToList();
 
             requestBody["model"] = ActivateChat.Model;
@@ -409,7 +384,5 @@ namespace Mythosia.AI.Services.OpenAI
 
             return (content ?? string.Empty, functionCall);
         }
-
-        #endregion
     }
 }

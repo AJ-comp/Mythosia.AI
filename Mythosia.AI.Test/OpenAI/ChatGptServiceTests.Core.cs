@@ -25,7 +25,7 @@ namespace Mythosia.AI.Tests
             // ChatGptService 인스턴스 생성
             var service = new ChatGptService(openAiKey, new HttpClient());
             // GPT-4o는 기본적으로 Vision을 지원합니다
-            service.ActivateChat.ChangeModel(AIModel.o3); // Vision 지원 모델
+            service.ActivateChat.ChangeModel(AIModel.o3_mini); // Vision 지원 모델
             service.ActivateChat.SystemMessage = "You are a helpful assistant for testing purposes.";
 
             return service;

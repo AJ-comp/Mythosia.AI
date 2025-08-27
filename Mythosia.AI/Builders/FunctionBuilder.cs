@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Mythosia.AI.Models.Functions;
 
@@ -49,11 +50,11 @@ namespace Mythosia.AI.Builders
             {
                 Type = type,
                 Description = description,
-                Default = defaultValue
+                Default = required ? null : (defaultValue ?? GetDefaultValueForType(type))
             };
 
-            if (required)
-                _required.Add(name);
+            // Always add to required for OpenAI API compatibility (both old and new)
+            _required.Add(name);
 
             return this;
         }
@@ -73,11 +74,11 @@ namespace Mythosia.AI.Builders
                 Type = "string",
                 Description = description,
                 Enum = values,
-                Default = defaultValue
+                Default = required ? null : (defaultValue ?? values.FirstOrDefault())
             };
 
-            if (required)
-                _required.Add(name);
+            // Always add to required for OpenAI API compatibility
+            _required.Add(name);
 
             return this;
         }
@@ -105,12 +106,15 @@ namespace Mythosia.AI.Builders
         /// </summary>
         public FunctionDefinition Build()
         {
-            // Always create a valid FunctionParameters object with proper schema
+            // OpenAI API requires all properties to be in required array
+            // Optional parameters are indicated by having a default value
+            var allPropertyNames = _parameters.Keys.ToList();
+
             _function.Parameters = new FunctionParameters
             {
-                Type = "object",  // Always set type to "object" for OpenAI compatibility
+                Type = "object",
                 Properties = _parameters.Count > 0 ? _parameters : new Dictionary<string, ParameterProperty>(),
-                Required = _required
+                Required = allPropertyNames  // All properties must be in required array
             };
 
             // If no handler was provided, add a default one
@@ -120,6 +124,23 @@ namespace Mythosia.AI.Builders
             }
 
             return _function;
+        }
+
+        /// <summary>
+        /// Gets a default value for a given type
+        /// </summary>
+        private object GetDefaultValueForType(string type)
+        {
+            return type?.ToLower() switch
+            {
+                "string" => "",
+                "integer" => 0,
+                "number" => 0.0,
+                "boolean" => false,
+                "array" => new List<object>(),
+                "object" => new Dictionary<string, object>(),
+                _ => ""
+            };
         }
     }
 }

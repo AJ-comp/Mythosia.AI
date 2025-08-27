@@ -160,6 +160,13 @@ namespace Mythosia.AI.Services.OpenAI
                     continue;
 
                 var jsonData = line.Substring("data:".Length).Trim();
+
+                // 🔴 모든 JSON 로깅!
+                if (ActivateChat.Model.Contains("o3-mini"))
+                {
+                    Console.WriteLine($"[o3-mini JSON] {jsonData.Substring(0, Math.Min(200, jsonData.Length))}...");
+                }
+
                 if (jsonData == "[DONE]")
                 {
                     // Stream completed

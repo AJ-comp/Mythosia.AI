@@ -20,18 +20,14 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (IsNewApiModel(ActivateChat.Model))
             {
-                // Build for new API (GPT-5, o3, etc.)
                 BuildNewApiBody(requestBody);
             }
             else
             {
-                // Build for legacy API
                 BuildLegacyApiBody(requestBody);
             }
 
-            // Apply model-specific parameter configurations
             ApplyModelSpecificParameters(requestBody);
-
             return requestBody;
         }
 
@@ -39,7 +35,6 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var inputList = new List<object>();
 
-            // Convert messages to new API format
             foreach (var message in ActivateChat.GetLatestMessages())
             {
                 var messageParts = new List<object>();
@@ -87,7 +82,6 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["model"] = ActivateChat.Model;
             requestBody["input"] = inputList;
 
-            // Add instructions if present
             if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
             {
                 requestBody["instructions"] = ActivateChat.SystemMessage;
@@ -103,13 +97,11 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var messagesList = new List<object>();
 
-            // Add system message if present
             if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
             {
                 messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
             }
 
-            // Add conversation messages
             foreach (var message in ActivateChat.GetLatestMessages())
             {
                 messagesList.Add(ConvertMessageForOpenAI(message));
@@ -131,7 +123,6 @@ namespace Mythosia.AI.Services.OpenAI
                 return new { role = message.Role.ToDescription(), content = message.Content };
             }
 
-            // Handle multimodal content
             var contentList = new List<object>();
             foreach (var content in message.Contents)
             {
@@ -156,15 +147,12 @@ namespace Mythosia.AI.Services.OpenAI
                 using var doc = JsonDocument.Parse(responseContent);
                 var root = doc.RootElement;
 
-                // Check response format to determine API version
                 if (root.TryGetProperty("output", out var output))
                 {
-                    // New API format (GPT-5, o3, etc.)
                     return ExtractNewApiResponse(output);
                 }
                 else if (root.TryGetProperty("choices", out var choices))
                 {
-                    // Legacy API format
                     return ExtractLegacyApiResponse(choices);
                 }
 
@@ -191,24 +179,7 @@ namespace Mythosia.AI.Services.OpenAI
                 if (!outputItem.TryGetProperty("content", out var contentElem))
                     continue;
 
-                // content가 배열인 경우
-                if (contentElem.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var contentItem in contentElem.EnumerateArray())
-                    {
-                        if (contentItem.TryGetProperty("type", out var contentTypeProp) &&
-                            contentTypeProp.GetString() == "output_text" &&
-                            contentItem.TryGetProperty("text", out var textProp))
-                        {
-                            content.Append(textProp.GetString());
-                        }
-                    }
-                }
-                // content가 문자열인 경우 (이전 형식 호환)
-                else if (contentElem.ValueKind == JsonValueKind.String)
-                {
-                    content.Append(contentElem.GetString());
-                }
+                content.Append(ExtractTextFromContent(contentElem));
             }
 
             return content.ToString();
@@ -229,86 +200,14 @@ namespace Mythosia.AI.Services.OpenAI
             return content.GetString() ?? string.Empty;
         }
 
+        #endregion
+
+        #region Stream Parsing
+
         protected override string StreamParseJson(string jsonData)
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(jsonData);
-                var root = doc.RootElement;
-
-                // Determine format and parse accordingly
-                if (root.TryGetProperty("type", out var typeProp))
-                {
-                    // New API streaming format
-                    return StreamParseNewApi(root, typeProp.GetString());
-                }
-                else if (root.TryGetProperty("choices", out var choices))
-                {
-                    // Legacy API streaming format
-                    return StreamParseLegacyApi(choices);
-                }
-
-                return string.Empty;
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private string StreamParseNewApi(JsonElement root, string? type)
-        {
-            if (type == "content_delta" &&
-                root.TryGetProperty("delta", out var delta) &&
-                delta.TryGetProperty("text", out var deltaText))
-            {
-                return deltaText.GetString() ?? string.Empty;
-            }
-
-            if (type == "output_text" &&
-                root.TryGetProperty("text", out var directText))
-            {
-                return directText.GetString() ?? string.Empty;
-            }
-
-            // Check for nested output structure
-            if (root.TryGetProperty("output", out var outputArray))
-            {
-                foreach (var item in outputArray.EnumerateArray())
-                {
-                    if (item.TryGetProperty("type", out var itemType) &&
-                        itemType.GetString() == "message" &&
-                        item.TryGetProperty("content", out var contentArray))
-                    {
-                        foreach (var contentItem in contentArray.EnumerateArray())
-                        {
-                            if (contentItem.TryGetProperty("type", out var contentType) &&
-                                contentType.GetString() == "output_text" &&
-                                contentItem.TryGetProperty("text", out var textProp))
-                            {
-                                return textProp.GetString() ?? string.Empty;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return string.Empty;
-        }
-
-        private string StreamParseLegacyApi(JsonElement choices)
-        {
-            if (choices.GetArrayLength() == 0)
-                return string.Empty;
-
-            var firstChoice = choices[0];
-            if (firstChoice.TryGetProperty("delta", out var delta) &&
-                delta.TryGetProperty("content", out var content))
-            {
-                return content.GetString() ?? string.Empty;
-            }
-
-            return string.Empty;
+            var (text, _, _) = ParseStreamChunk(jsonData, includeMetadata: false);
+            return text ?? string.Empty;
         }
 
         private StreamingContent? ParseOpenAIStreamChunk(
@@ -318,129 +217,279 @@ namespace Mythosia.AI.Services.OpenAI
             ref string? currentModel,
             ref string? responseId)
         {
-            using var doc = JsonDocument.Parse(jsonData);
-            var root = doc.RootElement;
+            var (text, type, metadata) = ParseStreamChunk(jsonData, includeMetadata: options.IncludeMetadata);
 
-            // Extract metadata on first chunk
-            if (currentModel == null && root.TryGetProperty("model", out var modelElem))
-            {
-                currentModel = modelElem.GetString();
-            }
-            if (responseId == null && root.TryGetProperty("id", out var idElem))
-            {
-                responseId = idElem.GetString();
-            }
-
-            if (!root.TryGetProperty("choices", out var choices) ||
-                choices.GetArrayLength() == 0)
+            if (text == null && type == StreamingContentType.Text && metadata == null)
                 return null;
 
-            var choice = choices[0];
-            var content = new StreamingContent();
+            var content = new StreamingContent
+            {
+                Type = type,
+                Content = text,
+                Metadata = metadata
+            };
 
-            // Check for finish reason
+            if (metadata != null)
+            {
+                if (currentModel == null && metadata.TryGetValue("model", out var model))
+                    currentModel = model.ToString();
+                if (responseId == null && metadata.TryGetValue("response_id", out var id))
+                    responseId = id.ToString();
+
+                if (type == StreamingContentType.FunctionCall)
+                {
+                    if (metadata.TryGetValue("function_name", out var fname))
+                        functionCallData.Name = fname.ToString();
+                    if (metadata.TryGetValue("function_arguments", out var fargs))
+                        functionCallData.Arguments.Append(fargs.ToString());
+
+                    content.FunctionCallData = functionCallData;
+                }
+            }
+
+            return content;
+        }
+
+        private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseStreamChunk(
+            string jsonData,
+            bool includeMetadata = false)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(jsonData);
+                var root = doc.RootElement;
+
+                return IsNewApiModel(ActivateChat.Model)
+                    ? ParseNewApiStream(root, includeMetadata)
+                    : ParseLegacyApiStream(root, includeMetadata);
+            }
+            catch
+            {
+                return (null, StreamingContentType.Text, null);
+            }
+        }
+
+        private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseNewApiStream(
+            JsonElement root,
+            bool includeMetadata)
+        {
+            var metadata = includeMetadata ? new Dictionary<string, object>() : null;
+
+            // Check type property first
+            if (root.TryGetProperty("type", out var typeProp))
+            {
+                var type = typeProp.GetString();
+
+                switch (type)
+                {
+                    // 🔴 o3-mini의 새로운 스트리밍 형식 추가!
+                    case "response.created":
+                    case "response.in_progress":
+                        // 초기 응답, 텍스트 없음
+                        return (null, StreamingContentType.Text, metadata);
+
+                    case "response.content.delta":
+                        // 실제 텍스트 콘텐츠
+                        if (root.TryGetProperty("delta", out var contentDelta))
+                        {
+                            if (contentDelta.TryGetProperty("text", out var deltaText))
+                            {
+                                return (deltaText.GetString(), StreamingContentType.Text, metadata);
+                            }
+                            if (contentDelta.TryGetProperty("content", out var deltaContent))
+                            {
+                                return (deltaContent.GetString(), StreamingContentType.Text, metadata);
+                            }
+                        }
+                        break;
+
+                    case "response.content.done":
+                    case "response.done":
+                        // 완료 신호
+                        if (metadata != null)
+                            metadata["finish_reason"] = "stop";
+                        return (null, StreamingContentType.Completion, metadata);
+
+                    case "response.output.item.added":
+                        // 출력 아이템 추가
+                        if (root.TryGetProperty("item", out var item))
+                        {
+                            if (item.TryGetProperty("content", out var itemContent))
+                            {
+                                var extractedText = ExtractTextFromContent(itemContent);
+                                if (!string.IsNullOrEmpty(extractedText))
+                                {
+                                    return (extractedText, StreamingContentType.Text, metadata);
+                                }
+                            }
+                        }
+                        break;
+
+                    case "response.output.item.done":
+                        // 아이템 완료 (텍스트 포함 가능)
+                        if (root.TryGetProperty("item", out var doneItem))
+                        {
+                            if (doneItem.TryGetProperty("content", out var doneContent))
+                            {
+                                if (doneContent.ValueKind == JsonValueKind.Array && doneContent.GetArrayLength() > 0)
+                                {
+                                    var firstContent = doneContent[0];
+                                    if (firstContent.TryGetProperty("text", out var text))
+                                    {
+                                        return (text.GetString(), StreamingContentType.Text, metadata);
+                                    }
+                                }
+                            }
+                        }
+                        break;
+
+                    // 기존 형식들
+                    case "content_delta":
+                        if (root.TryGetProperty("delta", out var delta) &&
+                            delta.TryGetProperty("text", out var deltaText2))
+                        {
+                            return (deltaText2.GetString(), StreamingContentType.Text, metadata);
+                        }
+                        break;
+
+                    case "output_text":
+                        if (root.TryGetProperty("text", out var text2))
+                        {
+                            return (text2.GetString(), StreamingContentType.Text, metadata);
+                        }
+                        break;
+
+                    case "message":
+                        if (root.TryGetProperty("content", out var content))
+                        {
+                            var extractedText = ExtractTextFromContent(content);
+                            if (!string.IsNullOrEmpty(extractedText))
+                            {
+                                return (extractedText, StreamingContentType.Text, metadata);
+                            }
+                        }
+                        break;
+
+                    case "done":
+                        if (metadata != null)
+                            metadata["finish_reason"] = "stop";
+                        return (null, StreamingContentType.Completion, metadata);
+                }
+            }
+
+            // Check direct delta (기존 코드)
+            if (root.TryGetProperty("delta", out var directDelta))
+            {
+                if (directDelta.TryGetProperty("content", out var deltaContent))
+                    return (deltaContent.GetString(), StreamingContentType.Text, metadata);
+                if (directDelta.TryGetProperty("text", out var deltaText))
+                    return (deltaText.GetString(), StreamingContentType.Text, metadata);
+            }
+
+            // Check output array (기존 코드)
+            if (root.TryGetProperty("output", out var outputArray))
+            {
+                foreach (var item in outputArray.EnumerateArray())
+                {
+                    if (item.TryGetProperty("type", out var itemType) &&
+                        itemType.GetString() == "message" &&
+                        item.TryGetProperty("content", out var content))
+                    {
+                        var extractedText = ExtractTextFromContent(content);
+                        if (!string.IsNullOrEmpty(extractedText))
+                        {
+                            return (extractedText, StreamingContentType.Text, metadata);
+                        }
+                    }
+                }
+            }
+
+            return (null, StreamingContentType.Text, metadata);
+        }
+
+        private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseLegacyApiStream(
+            JsonElement root,
+            bool includeMetadata)
+        {
+            var metadata = includeMetadata ? new Dictionary<string, object>() : null;
+
+            if (!root.TryGetProperty("choices", out var choices) || choices.GetArrayLength() == 0)
+                return (null, StreamingContentType.Text, metadata);
+
+            var choice = choices[0];
+
+            if (metadata != null)
+            {
+                if (root.TryGetProperty("model", out var model))
+                    metadata["model"] = model.GetString();
+                if (root.TryGetProperty("id", out var id))
+                    metadata["response_id"] = id.GetString();
+            }
+
             if (choice.TryGetProperty("finish_reason", out var finishReason))
             {
                 var reason = finishReason.GetString();
                 if (reason == "function_call")
                 {
-                    functionCallData.IsComplete = true;
-                    content.Type = StreamingContentType.FunctionCall;
-                    content.FunctionCallData = functionCallData;
-
-                    if (options.IncludeMetadata)
-                    {
-                        content.Metadata = new Dictionary<string, object>
-                        {
-                            ["function_calling"] = true,
-                            ["function_name"] = functionCallData.Name ?? "",
-                            ["status"] = "complete",
-                            ["finish_reason"] = reason
-                        };
-                    }
-                    return content;
+                    return (null, StreamingContentType.FunctionCall, metadata);
                 }
-                else if (reason != null && options.IncludeMetadata)
+                else if (reason != null)
                 {
-                    content.Type = StreamingContentType.Status;
-                    content.Metadata = new Dictionary<string, object>
-                    {
-                        ["finish_reason"] = reason
-                    };
-                    return content;
+                    if (metadata != null)
+                        metadata["finish_reason"] = reason;
+                    return (null, StreamingContentType.Status, metadata);
                 }
             }
 
-            // Check for delta content
             if (choice.TryGetProperty("delta", out var delta))
             {
-                // Check for function call
                 if (delta.TryGetProperty("function_call", out var functionCall))
                 {
-                    content.Type = StreamingContentType.FunctionCall;
-
-                    if (functionCall.TryGetProperty("name", out var nameElem))
+                    if (metadata != null)
                     {
-                        functionCallData.Name = nameElem.GetString();
-
-                        if (options.IncludeMetadata)
-                        {
-                            content.Metadata = new Dictionary<string, object>
-                            {
-                                ["function_calling"] = true,
-                                ["function_name"] = functionCallData.Name ?? "",
-                                ["status"] = "started"
-                            };
-                        }
+                        if (functionCall.TryGetProperty("name", out var name))
+                            metadata["function_name"] = name.GetString();
+                        if (functionCall.TryGetProperty("arguments", out var args))
+                            metadata["function_arguments"] = args.GetString();
                     }
-
-                    if (functionCall.TryGetProperty("arguments", out var argsElem))
-                    {
-                        var argChunk = argsElem.GetString();
-                        if (!string.IsNullOrEmpty(argChunk))
-                        {
-                            functionCallData.Arguments.Append(argChunk);
-
-                            if (options.IncludeMetadata)
-                            {
-                                content.Metadata = new Dictionary<string, object>
-                                {
-                                    ["function_calling"] = true,
-                                    ["function_name"] = functionCallData.Name ?? "",
-                                    ["status"] = "accumulating"
-                                };
-                            }
-                        }
-                    }
-
-                    content.FunctionCallData = functionCallData;
-                    return content;
+                    return (null, StreamingContentType.FunctionCall, metadata);
                 }
 
-                // Check for text content
-                if (delta.TryGetProperty("content", out var textContent))
+                if (delta.TryGetProperty("content", out var content))
                 {
-                    var text = textContent.GetString();
-                    if (!string.IsNullOrEmpty(text))
-                    {
-                        content.Type = StreamingContentType.Text;
-                        content.Content = text;
-
-                        if (options.IncludeMetadata)
-                        {
-                            content.Metadata = new Dictionary<string, object>();
-                            if (currentModel != null)
-                                content.Metadata["model"] = currentModel;
-                            if (responseId != null)
-                                content.Metadata["response_id"] = responseId;
-                        }
-
-                        return content;
-                    }
+                    return (content.GetString(), StreamingContentType.Text, metadata);
                 }
             }
 
-            return null;
+            return (null, StreamingContentType.Text, metadata);
+        }
+
+        private string ExtractTextFromContent(JsonElement content)
+        {
+            if (content.ValueKind == JsonValueKind.String)
+            {
+                return content.GetString() ?? string.Empty;
+            }
+
+            if (content.ValueKind == JsonValueKind.Array)
+            {
+                var result = new StringBuilder();
+                foreach (var item in content.EnumerateArray())
+                {
+                    if (item.TryGetProperty("type", out var contentType))
+                    {
+                        var type = contentType.GetString();
+                        if ((type == "text" || type == "output_text") &&
+                            item.TryGetProperty("text", out var text))
+                        {
+                            result.Append(text.GetString());
+                        }
+                    }
+                }
+                return result.ToString();
+            }
+
+            return string.Empty;
         }
 
         #endregion
