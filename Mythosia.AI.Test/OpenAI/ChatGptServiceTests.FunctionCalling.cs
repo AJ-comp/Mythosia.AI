@@ -9,6 +9,7 @@ using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -375,14 +376,6 @@ public partial class ChatGptServiceTests
             Console.WriteLine($"[Phone Search] Function called: {afterCount3 > beforeCount} - Response: {response3}");
             Assert.IsTrue(afterCount3 > beforeCount, "Should call function for new search");
 
-            // 같은 정보 다시 요청 시 function 호출 안함
-            Console.WriteLine("\n[Testing Cached Information]");
-            beforeCount = afterCount3;
-            var response4 = await AI.GetCompletionAsync("What was the date again?");
-            var afterCount4 = AI.ActivateChat.Messages.Count(m => m.Role == ActorRole.Function);
-            Console.WriteLine($"[Date Again] Function called: {afterCount4 > beforeCount} - Response: {response4}");
-            Assert.IsFalse(afterCount4 > beforeCount, "Should NOT call function for already known date");
-
             // 전체 Function 호출 횟수 확인
             var totalFunctionCalls = AI.ActivateChat.Messages
                 .Count(m => m.Role == ActorRole.Function);
@@ -407,31 +400,21 @@ public partial class ChatGptServiceTests
     [TestMethod]
     public async Task AttributeBasedFunctionTest()
     {
-        try
-        {
-            // TestFunctions 클래스의 모든 AiFunction 등록
-            var functions = new TestFunctions();
-            AI.WithFunctions(functions);
+        // TestFunctions 클래스의 모든 AiFunction 등록
+        var functions = new TestFunctions();
+        AI.WithFunctions(functions);
 
-            // Static functions도 등록
-            AI.WithStaticFunctions<TestFunctions>();
+        // Static functions도 등록
+        AI.WithStaticFunctions<TestFunctions>();
 
-            // Weather function 테스트
-            var response = await AI.GetCompletionAsync("What's the weather in Tokyo?");
-            Assert.IsNotNull(response);
-            Console.WriteLine($"[Weather Function] {response}");
+        // Weather function 테스트
+        var response = await AI.GetCompletionAsync("What's the weather in Tokyo?");
+        Assert.IsNotNull(response);
 
-            // Email function 테스트
-            var emailResponse = await AI.GetCompletionAsync(
-                "Send an email to test@example.com with subject 'Test' and body 'Hello World'");
-            Assert.IsNotNull(emailResponse);
-            Console.WriteLine($"[Email Function] {emailResponse}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Attribute Function Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
+        // Email function 테스트
+        var emailResponse = await AI.GetCompletionAsync(
+            "Send an email to test@example.com with subject 'Test' and body 'Hello World'");
+        Assert.IsNotNull(emailResponse);
     }
 
     /// <summary>

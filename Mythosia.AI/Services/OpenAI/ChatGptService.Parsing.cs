@@ -1,9 +1,12 @@
-﻿using Mythosia.AI.Exceptions;
+﻿// ChatGptService.Parsing.cs 전체 코드
+
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
@@ -211,16 +214,34 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         private StreamingContent? ParseOpenAIStreamChunk(
-            string jsonData,
-            StreamOptions options,
-            FunctionCallData functionCallData,
-            ref string? currentModel,
-            ref string? responseId)
+           string jsonData,
+           StreamOptions options,
+           FunctionCallData functionCallData,
+           ref string? currentModel,
+           ref string? responseId)
         {
             var (text, type, metadata) = ParseStreamChunk(jsonData, includeMetadata: options.IncludeMetadata);
 
+            // 디버깅용 코드
+            Console.WriteLine($"[DEBUG ParseOpenAIStreamChunk] text={text != null}, type={type}, metadata={metadata != null}");
+
+            // Completion 타입은 항상 처리
+            if (type == StreamingContentType.Completion)
+            {
+                return new StreamingContent
+                {
+                    Type = type,
+                    Content = null,
+                    Metadata = metadata
+                };
+            }
+
+            // response.created 같은 초기 이벤트는 스킵
             if (text == null && type == StreamingContentType.Text && metadata == null)
+            {
+                Console.WriteLine($"[DEBUG ParseOpenAIStreamChunk] Returning null - skipping empty event");
                 return null;
+            }
 
             var content = new StreamingContent
             {
@@ -263,17 +284,20 @@ namespace Mythosia.AI.Services.OpenAI
                     ? ParseNewApiStream(root, includeMetadata)
                     : ParseLegacyApiStream(root, includeMetadata);
             }
-            catch
+            catch (Exception ex)
             {
+                // 디버깅용 코드
+                Debug.WriteLine($"[DEBUG ParseStreamChunk Exception] {ex.GetType().Name}: {ex.Message}");
+                Debug.WriteLine($"[DEBUG ParseStreamChunk JSON] {jsonData.Substring(0, Math.Min(200, jsonData.Length))}");
                 return (null, StreamingContentType.Text, null);
             }
         }
 
         private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseNewApiStream(
-            JsonElement root,
-            bool includeMetadata)
+           JsonElement root,
+           bool includeMetadata)
         {
-            var metadata = includeMetadata ? new Dictionary<string, object>() : null;
+            Dictionary<string, object>? metadata = null;
 
             // Check type property first
             if (root.TryGetProperty("type", out var typeProp))
@@ -282,97 +306,184 @@ namespace Mythosia.AI.Services.OpenAI
 
                 switch (type)
                 {
-                    // 🔴 o3-mini의 새로운 스트리밍 형식 추가!
-                    case "response.created":
-                    case "response.in_progress":
-                        // 초기 응답, 텍스트 없음
-                        return (null, StreamingContentType.Text, metadata);
-
-                    case "response.content.delta":
-                        // 실제 텍스트 콘텐츠
-                        if (root.TryGetProperty("delta", out var contentDelta))
+                    // o3-mini의 새로운 스트리밍 형식
+                    case "response.output_text.delta":
+                        // delta가 문자열로 직접 오는 경우
+                        if (root.TryGetProperty("delta", out var deltaElem))
                         {
-                            if (contentDelta.TryGetProperty("text", out var deltaText))
+                            // delta가 문자열인 경우
+                            if (deltaElem.ValueKind == JsonValueKind.String)
                             {
-                                return (deltaText.GetString(), StreamingContentType.Text, metadata);
-                            }
-                            if (contentDelta.TryGetProperty("content", out var deltaContent))
-                            {
-                                return (deltaContent.GetString(), StreamingContentType.Text, metadata);
-                            }
-                        }
-                        break;
-
-                    case "response.content.done":
-                    case "response.done":
-                        // 완료 신호
-                        if (metadata != null)
-                            metadata["finish_reason"] = "stop";
-                        return (null, StreamingContentType.Completion, metadata);
-
-                    case "response.output.item.added":
-                        // 출력 아이템 추가
-                        if (root.TryGetProperty("item", out var item))
-                        {
-                            if (item.TryGetProperty("content", out var itemContent))
-                            {
-                                var extractedText = ExtractTextFromContent(itemContent);
-                                if (!string.IsNullOrEmpty(extractedText))
+                                var text = deltaElem.GetString();
+                                if (!string.IsNullOrEmpty(text))
                                 {
-                                    return (extractedText, StreamingContentType.Text, metadata);
+                                    return (text, StreamingContentType.Text, null);
                                 }
                             }
-                        }
-                        break;
-
-                    case "response.output.item.done":
-                        // 아이템 완료 (텍스트 포함 가능)
-                        if (root.TryGetProperty("item", out var doneItem))
-                        {
-                            if (doneItem.TryGetProperty("content", out var doneContent))
+                            // delta가 객체인 경우 (text 속성 포함)
+                            else if (deltaElem.ValueKind == JsonValueKind.Object)
                             {
-                                if (doneContent.ValueKind == JsonValueKind.Array && doneContent.GetArrayLength() > 0)
+                                if (deltaElem.TryGetProperty("text", out var textElem))
                                 {
-                                    var firstContent = doneContent[0];
-                                    if (firstContent.TryGetProperty("text", out var text))
+                                    var text = textElem.GetString();
+                                    if (!string.IsNullOrEmpty(text))
                                     {
-                                        return (text.GetString(), StreamingContentType.Text, metadata);
+                                        return (text, StreamingContentType.Text, null);
                                     }
                                 }
                             }
                         }
-                        break;
+                        return (null, StreamingContentType.Text, null);
 
-                    // 기존 형식들
+                    case "response.created":
+                        // 초기 응답 - 메타데이터 추출 가능
+                        if (includeMetadata && root.TryGetProperty("response", out var responseObj))
+                        {
+                            metadata = new Dictionary<string, object>();
+                            if (responseObj.TryGetProperty("model", out var modelElem))
+                                metadata["model"] = modelElem.GetString();
+                            if (responseObj.TryGetProperty("id", out var idElem))
+                                metadata["response_id"] = idElem.GetString();
+                            return (null, StreamingContentType.Text, metadata);
+                        }
+                        return (null, StreamingContentType.Text, null);
+
+                    case "response.in_progress":
+                        // 진행 중 상태 - 일반적으로 무시
+                        return (null, StreamingContentType.Text, null);
+
+                    case "response.output_item.added":
+                        // 새 출력 아이템 추가됨
+                        if (root.TryGetProperty("item", out var item))
+                        {
+                            if (item.TryGetProperty("type", out var itemType) &&
+                                itemType.GetString() == "message")
+                            {
+                                if (item.TryGetProperty("message", out var messageObj))
+                                {
+                                    if (messageObj.TryGetProperty("content", out var content))
+                                    {
+                                        var extractedText = ExtractTextFromContent(content);
+                                        if (!string.IsNullOrEmpty(extractedText))
+                                        {
+                                            return (extractedText, StreamingContentType.Text, null);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        return (null, StreamingContentType.Text, null);
+
+                    case "response.output.item.delta":
+                        // 증분 텍스트 스트리밍
+                        if (root.TryGetProperty("item", out var deltaItem))
+                        {
+                            if (deltaItem.TryGetProperty("message", out var deltaMessage))
+                            {
+                                if (deltaMessage.TryGetProperty("content", out var deltaContent))
+                                {
+                                    var extractedText = ExtractTextFromContent(deltaContent);
+                                    if (!string.IsNullOrEmpty(extractedText))
+                                    {
+                                        return (extractedText, StreamingContentType.Text, null);
+                                    }
+                                }
+                            }
+                        }
+                        return (null, StreamingContentType.Text, null);
+
+                    case "response.output_item.done":
+                        // 아이템 완료 - 최종 텍스트 포함 가능
+                        if (root.TryGetProperty("item", out var doneItem))
+                        {
+                            if (doneItem.TryGetProperty("message", out var doneMessage))
+                            {
+                                if (doneMessage.TryGetProperty("content", out var doneContent))
+                                {
+                                    var extractedText = ExtractTextFromContent(doneContent);
+                                    if (!string.IsNullOrEmpty(extractedText))
+                                    {
+                                        return (extractedText, StreamingContentType.Text, null);
+                                    }
+                                }
+                            }
+                        }
+                        return (null, StreamingContentType.Text, null);
+
+                    case "response.content_part.added":
+                        // 컨텐츠 파트 추가됨 - 일반적으로 무시
+                        return (null, StreamingContentType.Text, null);
+
+                    case "response.done":
+                        // 스트리밍 완료
+                        if (includeMetadata)
+                        {
+                            metadata = new Dictionary<string, object>();
+                            metadata["finish_reason"] = "stop";
+                            if (root.TryGetProperty("response", out var finalResponse))
+                            {
+                                if (finalResponse.TryGetProperty("usage", out var usage))
+                                {
+                                    metadata["usage"] = usage.GetRawText();
+                                }
+                            }
+                            return (null, StreamingContentType.Completion, metadata);
+                        }
+                        return (null, StreamingContentType.Completion, null);
+
+                    case "response.completed":
+                        // 스트리밍 완료
+                        if (includeMetadata)
+                        {
+                            metadata = new Dictionary<string, object>();
+                            metadata["finish_reason"] = "stop";
+                            if (root.TryGetProperty("response", out var finalResponse))
+                            {
+                                if (finalResponse.TryGetProperty("usage", out var usage))
+                                {
+                                    metadata["usage"] = usage.GetRawText();
+                                }
+                                if (finalResponse.TryGetProperty("id", out var idElem))
+                                {
+                                    metadata["response_id"] = idElem.GetString();
+                                }
+                            }
+                        }
+                        return (null, StreamingContentType.Completion, metadata);
+
+                    // 기존 형식들 (GPT-4, GPT-5 등)
                     case "content_delta":
                         if (root.TryGetProperty("delta", out var delta) &&
                             delta.TryGetProperty("text", out var deltaText2))
                         {
-                            return (deltaText2.GetString(), StreamingContentType.Text, metadata);
+                            return (deltaText2.GetString(), StreamingContentType.Text, null);
                         }
                         break;
 
                     case "output_text":
                         if (root.TryGetProperty("text", out var text2))
                         {
-                            return (text2.GetString(), StreamingContentType.Text, metadata);
+                            return (text2.GetString(), StreamingContentType.Text, null);
                         }
                         break;
 
                     case "message":
-                        if (root.TryGetProperty("content", out var content))
+                        if (root.TryGetProperty("content", out var content2))
                         {
-                            var extractedText = ExtractTextFromContent(content);
-                            if (!string.IsNullOrEmpty(extractedText))
+                            var extractedText2 = ExtractTextFromContent(content2);
+                            if (!string.IsNullOrEmpty(extractedText2))
                             {
-                                return (extractedText, StreamingContentType.Text, metadata);
+                                return (extractedText2, StreamingContentType.Text, null);
                             }
                         }
                         break;
 
                     case "done":
-                        if (metadata != null)
+                        if (includeMetadata)
+                        {
+                            metadata = new Dictionary<string, object>();
                             metadata["finish_reason"] = "stop";
+                        }
                         return (null, StreamingContentType.Completion, metadata);
                 }
             }
@@ -381,9 +492,9 @@ namespace Mythosia.AI.Services.OpenAI
             if (root.TryGetProperty("delta", out var directDelta))
             {
                 if (directDelta.TryGetProperty("content", out var deltaContent))
-                    return (deltaContent.GetString(), StreamingContentType.Text, metadata);
+                    return (deltaContent.GetString(), StreamingContentType.Text, null);
                 if (directDelta.TryGetProperty("text", out var deltaText))
-                    return (deltaText.GetString(), StreamingContentType.Text, metadata);
+                    return (deltaText.GetString(), StreamingContentType.Text, null);
             }
 
             // Check output array (기존 코드)
@@ -398,13 +509,13 @@ namespace Mythosia.AI.Services.OpenAI
                         var extractedText = ExtractTextFromContent(content);
                         if (!string.IsNullOrEmpty(extractedText))
                         {
-                            return (extractedText, StreamingContentType.Text, metadata);
+                            return (extractedText, StreamingContentType.Text, null);
                         }
                     }
                 }
             }
 
-            return (null, StreamingContentType.Text, metadata);
+            return (null, StreamingContentType.Text, null);
         }
 
         private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseLegacyApiStream(
@@ -479,7 +590,7 @@ namespace Mythosia.AI.Services.OpenAI
                     if (item.TryGetProperty("type", out var contentType))
                     {
                         var type = contentType.GetString();
-                        if ((type == "text" || type == "output_text") &&
+                        if ((type == "text" || type == "output_text" || type == "input_text") &&
                             item.TryGetProperty("text", out var text))
                         {
                             result.Append(text.GetString());

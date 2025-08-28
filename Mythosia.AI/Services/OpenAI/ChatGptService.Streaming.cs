@@ -6,6 +6,7 @@ using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -140,10 +141,10 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         private async IAsyncEnumerable<StreamingContent> ProcessOpenAIStream(
-            HttpResponseMessage response,
-            StreamOptions options,
-            bool functionsEnabled,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
+           HttpResponseMessage response,
+           StreamOptions options,
+           bool functionsEnabled,
+           [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
@@ -160,13 +161,6 @@ namespace Mythosia.AI.Services.OpenAI
                     continue;
 
                 var jsonData = line.Substring("data:".Length).Trim();
-
-                // 🔴 모든 JSON 로깅!
-                if (ActivateChat.Model.Contains("o3-mini"))
-                {
-                    Console.WriteLine($"[o3-mini JSON] {jsonData.Substring(0, Math.Min(200, jsonData.Length))}...");
-                }
-
                 if (jsonData == "[DONE]")
                 {
                     // Stream completed
@@ -204,9 +198,41 @@ namespace Mythosia.AI.Services.OpenAI
                 if (parsedContent == null)
                     continue;
 
-                // Handle function calls
-                if (parsedContent.Type == StreamingContentType.FunctionCall)
+                // Handle different content types
+                if (parsedContent.Type == StreamingContentType.Text)
                 {
+                    // Regular text content
+                    textBuffer.Append(parsedContent.Content);
+
+                    if (!options.TextOnly || parsedContent.Content != null)
+                    {
+                        yield return parsedContent;
+                    }
+                }
+                else if (parsedContent.Type == StreamingContentType.Completion)
+                {
+                    // Completion event (from response.done)
+                    if (options.IncludeMetadata)
+                    {
+                        // Ensure metadata exists
+                        if (parsedContent.Metadata == null)
+                            parsedContent.Metadata = new Dictionary<string, object>();
+
+                        // Add total_length if not present
+                        if (!parsedContent.Metadata.ContainsKey("total_length"))
+                            parsedContent.Metadata["total_length"] = textBuffer.Length;
+
+                        // Add model if available
+                        if (currentModel != null && !parsedContent.Metadata.ContainsKey("model"))
+                            parsedContent.Metadata["model"] = currentModel;
+
+                        yield return parsedContent;
+                    }
+                    break; // End the stream
+                }
+                else if (parsedContent.Type == StreamingContentType.FunctionCall)
+                {
+                    // Handle function calls
                     if (functionsEnabled)
                     {
                         // Check if function call is complete
@@ -253,15 +279,19 @@ namespace Mythosia.AI.Services.OpenAI
                     }
                     // If functions not enabled, skip function call chunks
                 }
-                else if (parsedContent.Type == StreamingContentType.Text)
+                else if (parsedContent.Type == StreamingContentType.Status)
                 {
-                    // Regular text content
-                    textBuffer.Append(parsedContent.Content);
-
-                    if (!options.TextOnly || parsedContent.Content != null)
+                    // Status updates
+                    if (options.IncludeMetadata)
                     {
                         yield return parsedContent;
                     }
+                }
+                else if (parsedContent.Type == StreamingContentType.Error)
+                {
+                    // Error occurred
+                    yield return parsedContent;
+                    break; // Stop processing on error
                 }
                 else if (options.IncludeMetadata)
                 {

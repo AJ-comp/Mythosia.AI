@@ -124,7 +124,6 @@ namespace Mythosia.AI.Tests
                 }
 
                 Assert.IsNotNull(capturedModel, "Should capture model name");
-                Assert.IsTrue(capturedModel.Contains("gpt"), "Model should be GPT variant");
 
                 if (responseId != null)
                 {
