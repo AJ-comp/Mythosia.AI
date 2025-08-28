@@ -24,7 +24,7 @@ namespace Mythosia.AI.Services.OpenAI
         public ChatGptService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.openai.com/v1/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Gpt4oLatest)
+            var chatBlock = new ChatBlock(AIModel.Gpt4_1)
             {
                 MaxTokens = 16000
             };

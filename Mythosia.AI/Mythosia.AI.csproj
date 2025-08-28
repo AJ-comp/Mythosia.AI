@@ -7,91 +7,86 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>2.2.1</VersionPrefix>
+		<VersionPrefix>3.0.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Gpt5; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>## 🚀 What's New in v2.2.0
+		<Description>
+			## 🚀 What's New in v3.0.0
 
-- **Latest AI Models**: Full support for newest generation AI models
-- **OpenAI**: GPT-5 series (Gpt5, Mini, Nano, ChatLatest), GPT-4.1 series
-- **Anthropic**: Claude 4 series (Opus 4.1, Opus 4, Sonnet 4) - now production ready
-- **Google**: Gemini 2.5 series (Pro, Flash, FlashLite) - enhanced performance
-- **Model Migration**: Smooth transition from deprecated enum values
-- **Production Ready**: All latest models available for production use
+			### Major Features
+			- **Function Calling**: AI models can now execute your custom functions during conversations
+			- **Enhanced Streaming**: New StreamingContent with metadata support and real-time function execution
+			- **Policy System**: Control function execution with timeouts, retry logic, and concurrency limits
+			- **Attribute-Based Functions**: Register methods with [AiFunction] and [AiParameter] attributes
+			- **Fluent Function Builder**: Chain function definitions with builder pattern
 
-## Comprehensive AI Model Support
+			### Function Calling Support
+			- ✅ **OpenAI**: GPT-4o, GPT-4.1, o3 series (full support)
+			- ✅ **Anthropic**: Claude 3/4 series (native tool use)
+			- 🔜 **Coming Soon**: GPT-5, Gemini (planned for next update)
+			- Build AI assistants that can send emails, query databases, call APIs, and more!
 
-- **OpenAI**: GPT-5, GPT-4.1, GPT-4o (latest, 2024-11-20), GPT-4o-mini
-- **Anthropic**: Claude 4, Claude 3.7 Sonnet, Claude 3.5 Sonnet/Haiku
-- **Google**: Gemini 2.5 Pro/Flash/FlashLite, Gemini 2.0 Flash, Gemini 1.5 Pro/Flash
-- **DeepSeek**: DeepSeek Chat, DeepSeek Reasoner (enhanced reasoning capabilities)
-- **Perplexity**: Sonar, Sonar Pro, Sonar Reasoning (with web search &amp; citations)
+			## Comprehensive AI Model Support
 
-## Key Features (from v2.1.0+)
+			- **OpenAI**: GPT-5*, GPT-4.1, GPT-4o, o3 series (*function calling coming soon)
+			- **Anthropic**: Claude 4 (Opus 4.1, Sonnet 4), Claude 3.7, Claude 3.5
+			- **Google**: Gemini 2.5 Pro/Flash, Gemini 2.0, Gemini 1.5
+			- **DeepSeek**: Chat and Reasoner models
+			- **Perplexity**: Sonar with web search and citations
 
-- ✅ **Modern Streaming**: IAsyncEnumerable support with `await foreach` (v2.1.0)
-- ✅ **Latest Models**: GPT-5, Claude 4, Gemini 2.5 support (v2.2.0)
-- ✅ **Multimodal**: Text + images for vision-capable models
-- ✅ **Stateless Mode**: Independent requests without conversation history
-- ✅ **Fluent API**: Intuitive message builder with method chaining
-- ✅ **Web Search**: Real-time search with citations (Perplexity)
-- ✅ **Audio Support**: Text-to-Speech and Speech-to-Text (OpenAI)
-- ✅ **Token Management**: Precise counting and limits
-- ✅ **Error Handling**: Comprehensive exception types
-- ✅ **Backward Compatible**: All existing v1.x and v2.0.x code works
+			## Key Features
 
-## Quick Examples
-// Use latest models (v2.2.0)
-var gptService = new ChatGptService(apiKey, httpClient);
-gptService.ActivateChat.ChangeModel(AIModel.Gpt5); // New in v2.2.0
+			- ✅ **Function Calling**: Let AI execute your code (v3.0.0)
+			- ✅ **Streaming 2.0**: IAsyncEnumerable with metadata (v3.0.0)
+			- ✅ **Policy Control**: Timeout and retry management (v3.0.0)
+			- ✅ **Multimodal**: Text + images for vision models
+			- ✅ **Web Search**: Real-time search with citations (Perplexity)
+			- ✅ **Audio**: TTS and STT support (OpenAI)
+			- ✅ **Stateless Mode**: Independent requests without history
+			- ✅ **Fluent API**: Intuitive message builder
+			- ✅ **Token Management**: Precise counting and limits
 
-var claudeService = new ClaudeService(apiKey, httpClient);
-claudeService.ActivateChat.ChangeModel(AIModel.ClaudeOpus4_1_250805); // New in v2.2.0
+			## Quick Example
+			```csharp
+			// Define functions that AI can call
+			var service = new ChatGptService(apiKey)
+			.WithFunction("get_weather", "Gets weather for a city",
+			("city", "City name", required: true),
+			city => $"Weather in {city}: Sunny, 22°C")
+			.WithFunction("send_email", "Sends an email",
+			("to", "Recipient", true),
+			("subject", "Subject", true),
+			async (to, subject) => await EmailService.SendAsync(to, subject));
 
-var geminiService = new GeminiService(apiKey, httpClient);
-geminiService.ActivateChat.ChangeModel(AIModel.Gemini2_5Pro); // New in v2.2.0
+			// AI automatically calls functions as needed
+			var response = await service.GetCompletionAsync(
+			"What's the weather in Seoul? If sunny, email john@example.com"
+			);
+			// AI will: 1) Call get_weather("Seoul")
+			//         2) Check if sunny
+			//         3) Call send_email() if condition met
+			//         4) Provide natural language response
 
-// Modern streaming (from v2.1.0)
-await foreach (var chunk in service.StreamAsync("Explain AI"))
-{
-    Console.Write(chunk);
-}
+			// Stream with real-time function execution
+			await foreach (var content in service.StreamAsync(query, StreamOptions.WithFunctions))
+			{
+			if (content.Type == StreamingContentType.FunctionCall)
+			Console.WriteLine($"Calling: {content.Metadata["function_name"]}");
+			else if (content.Type == StreamingContentType.Text)
+			Console.Write(content.Content);
+			}
+			```
 
-// Multimodal with latest models
-await foreach (var chunk in gptService
-    .BeginMessage()
-    .AddText("Analyze this image")
-    .AddImage("photo.jpg")
-    .StreamAsync())
-{
-    ProcessChunk(chunk);
-}
-
-// One-off queries (no conversation history)
-await foreach (var chunk in service.StreamOnceAsync("Quick question"))
-{
-    Console.Write(chunk);
-}
-
-// Web search with citations (Perplexity)
-var result = await sonarService.GetCompletionWithSearchAsync(
-    "Latest AI developments",
-    recencyFilter: "month"
-);
-foreach (var citation in result.Citations)
-{
-    Console.WriteLine($"{citation.Title}: {citation.Url}");
-}
-## Important Notes
-- **GPT-5**: Text completion only (streaming not yet implemented)
-- **Model Migration**: Update `Gemini15Pro` → `Gemini1_5Pro`
-- **Extension Methods**: Add `using Mythosia.AI.Extensions;`
-- **.NET Standard 2.1**: Compatible with .NET Core 3.0+ and .NET 5+</Description>
+			## Documentation
+			- Basic Usage: https://github.com/AJ-comp/Mythosia/wiki
+			- Advanced Features: https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features
+			- GitHub: https://github.com/AJ-comp/Mythosia
+		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>2.2.1</Version>
+		<Version>3.0.0</Version>
 	</PropertyGroup>
 
 

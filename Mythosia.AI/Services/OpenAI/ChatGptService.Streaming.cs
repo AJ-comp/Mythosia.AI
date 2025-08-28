@@ -6,9 +6,7 @@ using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -22,350 +20,244 @@ namespace Mythosia.AI.Services.OpenAI
     {
         #region Streaming Implementation
 
-        // override 키워드 제거 - virtual 메서드를 재정의
         public override async IAsyncEnumerable<StreamingContent> StreamAsync(
             Message message,
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            // Check if functions are available and should be used
+            var policy = CurrentPolicy ?? DefaultPolicy;
+            CurrentPolicy = null;
+
             bool useFunctions = options.IncludeFunctionCalls &&
                                ActivateChat.ShouldUseFunctions &&
                                !FunctionsDisabled;
 
+            ChatBlock originalChat = null;
             if (StatelessMode)
             {
-                await foreach (var content in ProcessStatelessStreamAsync(
-                    message, options, useFunctions, cancellationToken))
-                {
-                    yield return content;
-                }
-                yield break;
+                originalChat = ActivateChat;
+                ActivateChat = ActivateChat.CloneWithoutMessages();
             }
-
-            // Add message to history and create request
-            ActivateChat.Stream = true;
-            ActivateChat.Messages.Add(message);
-
-            var request = useFunctions ?
-                CreateFunctionMessageRequest() :
-                CreateMessageRequest();
-
-            var response = await HttpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                yield return new StreamingContent
-                {
-                    Type = StreamingContentType.Error,
-                    Content = null,
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["error"] = error,
-                        ["status_code"] = (int)response.StatusCode
-                    }
-                };
-                yield break;
-            }
-
-            // Process streaming response
-            await foreach (var content in ProcessOpenAIStream(
-                response, options, useFunctions, cancellationToken))
-            {
-                yield return content;
-            }
-        }
-
-        private async IAsyncEnumerable<StreamingContent> ProcessStatelessStreamAsync(
-            Message message,
-            StreamOptions options,
-            bool useFunctions,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            var tempChat = new ChatBlock(ActivateChat.Model)
-            {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Stream = true,
-                Functions = useFunctions ? ActivateChat.Functions : new List<FunctionDefinition>(),
-                EnableFunctions = useFunctions
-            };
-            tempChat.Messages.Add(message);
-
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
 
             try
             {
-                var request = useFunctions ?
-                    CreateFunctionMessageRequest() :
-                    CreateMessageRequest();
+                ActivateChat.Stream = true;
+                ActivateChat.Messages.Add(message);
 
-                var response = await HttpClient.SendAsync(
-                    request,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
-
-                if (!response.IsSuccessStatusCode)
+                // Function calling loop
+                for (int round = 0; round < policy.MaxRounds; round++)
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    yield return new StreamingContent
+                    if (policy.EnableLogging)
+                        Console.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
+
+                    var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+                    var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+                    if (!response.IsSuccessStatusCode)
                     {
-                        Type = StreamingContentType.Error,
-                        Content = null,
-                        Metadata = new Dictionary<string, object>
+                        var error = await response.Content.ReadAsStringAsync();
+                        yield return new StreamingContent
                         {
-                            ["error"] = error,
-                            ["status_code"] = (int)response.StatusCode
-                        }
-                    };
-                    yield break;
-                }
+                            Type = StreamingContentType.Error,
+                            Metadata = new Dictionary<string, object> { ["error"] = error }
+                        };
+                        yield break;
+                    }
 
-                await foreach (var content in ProcessOpenAIStream(
-                    response, options, useFunctions, cancellationToken))
-                {
-                    yield return content;
+                    using var stream = await response.Content.ReadAsStreamAsync();
+                    using var reader = new StreamReader(stream);
+
+                    var textBuffer = new StringBuilder();
+                    FunctionCall functionCall = null;
+                    string currentModel = null;
+                    string line;
+
+                    while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
+                    {
+                        if (!line.StartsWith("data:")) continue;
+
+                        var jsonData = line.Substring(5).Trim();
+                        if (jsonData == "[DONE]")
+                        {
+                            // Send completion metadata if enabled
+                            if (options.IncludeMetadata && textBuffer.Length > 0)
+                            {
+                                yield return new StreamingContent
+                                {
+                                    Type = StreamingContentType.Completion,
+                                    Metadata = new Dictionary<string, object>
+                                    {
+                                        ["total_length"] = textBuffer.Length,
+                                        ["model"] = currentModel ?? ActivateChat.Model
+                                    }
+                                };
+                            }
+                            break;
+                        }
+
+                        var (text, fc, metadata) = ParseStreamChunkWithMetadata(jsonData, options.IncludeMetadata);
+
+                        // Extract model from metadata if available
+                        if (metadata != null && currentModel == null && metadata.TryGetValue("model", out var model))
+                            currentModel = model.ToString();
+
+                        if (!string.IsNullOrEmpty(text))
+                        {
+                            textBuffer.Append(text);
+                            var content = new StreamingContent
+                            {
+                                Type = StreamingContentType.Text,
+                                Content = text
+                            };
+
+                            if (options.IncludeMetadata && metadata != null)
+                                content.Metadata = metadata;
+
+                            yield return content;
+                        }
+
+                        if (fc != null)
+                            functionCall = fc;
+                    }
+
+                    // Save message
+                    if (textBuffer.Length > 0 || functionCall != null)
+                    {
+                        var assistantMsg = new Message(ActorRole.Assistant, textBuffer.ToString());
+                        if (functionCall != null)
+                        {
+                            assistantMsg.Metadata = new Dictionary<string, object>
+                            {
+                                ["type"] = "function_call",
+                                ["call_id"] = functionCall.CallId ?? Guid.NewGuid().ToString(),
+                                ["function_name"] = functionCall.Name,
+                                ["arguments"] = JsonSerializer.Serialize(functionCall.Arguments)
+                            };
+                        }
+                        ActivateChat.Messages.Add(assistantMsg);
+                    }
+
+                    // Handle function call
+                    if (functionCall != null && useFunctions)
+                    {
+                        var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+                        ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+                        {
+                            Metadata = new Dictionary<string, object>
+                            {
+                                ["function_name"] = functionCall.Name,
+                                ["call_id"] = functionCall.CallId ?? Guid.NewGuid().ToString()
+                            }
+                        });
+                        continue; // Next round
+                    }
+
+                    yield break; // No function call, done
                 }
             }
             finally
             {
-                ActivateChat = backup;
+                if (originalChat != null)
+                    ActivateChat = originalChat;
             }
         }
 
-        private async IAsyncEnumerable<StreamingContent> ProcessOpenAIStream(
-           HttpResponseMessage response,
-           StreamOptions options,
-           bool functionsEnabled,
-           [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-
-            var textBuffer = new StringBuilder();
-            var functionCallData = new FunctionCallData();
-            string? currentModel = null;
-            string? responseId = null;
-
-            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
-            {
-                var line = await reader.ReadLineAsync();
-                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                    continue;
-
-                var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]")
-                {
-                    // Stream completed
-                    if (options.IncludeMetadata)
-                    {
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.Completion,
-                            Content = null,
-                            Metadata = new Dictionary<string, object>
-                            {
-                                ["total_length"] = textBuffer.Length,
-                                ["model"] = currentModel ?? ActivateChat.Model
-                            }
-                        };
-                    }
-                    break;
-                }
-
-                StreamingContent? parsedContent = null;
-                try
-                {
-                    parsedContent = ParseOpenAIStreamChunk(
-                        jsonData,
-                        options,
-                        functionCallData,
-                        ref currentModel,
-                        ref responseId);
-                }
-                catch (JsonException)
-                {
-                    continue; // Skip malformed chunks
-                }
-
-                if (parsedContent == null)
-                    continue;
-
-                // Handle different content types
-                if (parsedContent.Type == StreamingContentType.Text)
-                {
-                    // Regular text content
-                    textBuffer.Append(parsedContent.Content);
-
-                    if (!options.TextOnly || parsedContent.Content != null)
-                    {
-                        yield return parsedContent;
-                    }
-                }
-                else if (parsedContent.Type == StreamingContentType.Completion)
-                {
-                    // Completion event (from response.done)
-                    if (options.IncludeMetadata)
-                    {
-                        // Ensure metadata exists
-                        if (parsedContent.Metadata == null)
-                            parsedContent.Metadata = new Dictionary<string, object>();
-
-                        // Add total_length if not present
-                        if (!parsedContent.Metadata.ContainsKey("total_length"))
-                            parsedContent.Metadata["total_length"] = textBuffer.Length;
-
-                        // Add model if available
-                        if (currentModel != null && !parsedContent.Metadata.ContainsKey("model"))
-                            parsedContent.Metadata["model"] = currentModel;
-
-                        yield return parsedContent;
-                    }
-                    break; // End the stream
-                }
-                else if (parsedContent.Type == StreamingContentType.FunctionCall)
-                {
-                    // Handle function calls
-                    if (functionsEnabled)
-                    {
-                        // Check if function call is complete
-                        if (functionCallData.IsComplete && functionCallData.Name != null)
-                        {
-                            // Execute function
-                            var functionResult = await ExecuteFunctionCallAsync(
-                                functionCallData,
-                                options,
-                                cancellationToken);
-
-                            // Yield function result status
-                            yield return functionResult;
-
-                            // Add function result to messages
-                            ActivateChat.Messages.Add(new Message(ActorRole.Function,
-                                functionResult.Metadata?["result"]?.ToString() ?? "")
-                            {
-                                Metadata = new Dictionary<string, object>
-                                {
-                                    ["function_name"] = functionCallData.Name
-                                }
-                            });
-
-                            // Reset for potential next function or response
-                            functionCallData = new FunctionCallData();
-
-                            // Request completion based on function result
-                            await foreach (var responseContent in StreamAsync(
-                                new Message(ActorRole.User, "Please provide a response based on the function result."),
-                                options,
-                                cancellationToken))
-                            {
-                                yield return responseContent;
-                            }
-
-                            yield break; // End this stream
-                        }
-                        else if (options.IncludeMetadata)
-                        {
-                            // Yield function call status
-                            yield return parsedContent;
-                        }
-                    }
-                    // If functions not enabled, skip function call chunks
-                }
-                else if (parsedContent.Type == StreamingContentType.Status)
-                {
-                    // Status updates
-                    if (options.IncludeMetadata)
-                    {
-                        yield return parsedContent;
-                    }
-                }
-                else if (parsedContent.Type == StreamingContentType.Error)
-                {
-                    // Error occurred
-                    yield return parsedContent;
-                    break; // Stop processing on error
-                }
-                else if (options.IncludeMetadata)
-                {
-                    // Other metadata-only content
-                    yield return parsedContent;
-                }
-            }
-
-            // Save completed message to history
-            if (textBuffer.Length > 0)
-            {
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
-            }
-        }
-
-        // Old callback-based streaming for backward compatibility
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
-            var options = StreamOptions.TextOnlyOptions;
-
-            await foreach (var content in StreamAsync(message, options))
+            await foreach (var content in StreamAsync(message, StreamOptions.TextOnlyOptions))
             {
                 if (content.Type == StreamingContentType.Text && content.Content != null)
-                {
                     await messageReceivedAsync(content.Content);
-                }
             }
         }
 
-        private async Task<StreamingContent> ExecuteFunctionCallAsync(
-            FunctionCallData functionCallData,
-            StreamOptions options,
-            CancellationToken cancellationToken)
+        private (string text, FunctionCall functionCall, Dictionary<string, object> metadata) ParseStreamChunkWithMetadata(
+            string jsonData, bool includeMetadata)
         {
-            var content = new StreamingContent
-            {
-                Type = StreamingContentType.FunctionResult
-            };
-
             try
             {
-                // Parse arguments
-                var arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    functionCallData.Arguments.ToString()) ?? new Dictionary<string, object>();
+                using var doc = JsonDocument.Parse(jsonData);
+                var root = doc.RootElement;
+                Dictionary<string, object> metadata = null;
 
-                // Execute function
-                var result = await ProcessFunctionCallAsync(
-                    functionCallData.Name ?? "",
-                    arguments);
-
-                if (options.IncludeMetadata)
+                // Extract metadata if requested
+                if (includeMetadata)
                 {
-                    content.Metadata = new Dictionary<string, object>
-                    {
-                        ["function_calling"] = false,
-                        ["function_name"] = functionCallData.Name ?? "",
-                        ["status"] = "completed",
-                        ["result"] = result
-                    };
+                    metadata = new Dictionary<string, object>();
+
+                    // Get model info
+                    if (root.TryGetProperty("model", out var modelElem))
+                        metadata["model"] = modelElem.GetString();
+
+                    // Get id
+                    if (root.TryGetProperty("id", out var idElem))
+                        metadata["response_id"] = idElem.GetString();
+
+                    // Get timestamp if available
+                    if (root.TryGetProperty("created", out var createdElem))
+                        metadata["created"] = createdElem.GetInt64();
                 }
-            }
-            catch (Exception ex)
-            {
-                content.Type = StreamingContentType.Error;
-                content.Metadata = new Dictionary<string, object>
-                {
-                    ["function_calling"] = false,
-                    ["function_name"] = functionCallData.Name ?? "",
-                    ["status"] = "error",
-                    ["error"] = ex.Message
-                };
-            }
 
-            return content;
+                // Try new API format first
+                if (root.TryGetProperty("type", out var typeProp))
+                {
+                    var type = typeProp.GetString();
+                    if (type == "response.output_text.delta" && root.TryGetProperty("delta", out var delta))
+                    {
+                        if (delta.ValueKind == JsonValueKind.String)
+                            return (delta.GetString(), null, metadata);
+                        if (delta.TryGetProperty("text", out var text))
+                            return (text.GetString(), null, metadata);
+                    }
+                }
+
+                // Legacy format
+                if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
+                {
+                    var choice = choices[0];
+
+                    // Add choice metadata if requested
+                    if (includeMetadata)
+                    {
+                        if (choice.TryGetProperty("index", out var indexElem))
+                            metadata["choice_index"] = indexElem.GetInt32();
+
+                        if (choice.TryGetProperty("finish_reason", out var finishElem))
+                        {
+                            var finishReason = finishElem.GetString();
+                            if (!string.IsNullOrEmpty(finishReason))
+                                metadata["finish_reason"] = finishReason;
+                        }
+                    }
+
+                    if (choice.TryGetProperty("delta", out var delta))
+                    {
+                        string content = null;
+                        FunctionCall fc = null;
+
+                        if (delta.TryGetProperty("content", out var contentElem))
+                            content = contentElem.GetString();
+
+                        if (delta.TryGetProperty("function_call", out var funcCall))
+                        {
+                            fc = new FunctionCall { Name = funcCall.GetProperty("name").GetString() };
+                            if (funcCall.TryGetProperty("arguments", out var args))
+                            {
+                                fc.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(args.GetString())
+                                    ?? new Dictionary<string, object>();
+                            }
+                        }
+
+                        return (content, fc, metadata);
+                    }
+                }
+
+                return (null, null, metadata);
+            }
+            catch
+            {
+                return (null, null, null);
+            }
         }
 
         #endregion

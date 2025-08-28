@@ -2,18 +2,38 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, including **OpenAI GPT-4o**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, and **advanced streaming capabilities**, including **OpenAI GPT-4o**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
-### 🚀 What's New in v2.2.0
+## 📚 Documentation
 
-- **Latest AI Models**: 
-  - **OpenAI GPT-5**: Full support for GPT-5 series models (Gpt5, Gpt5Mini, Gpt5Nano, Gpt5ChatLatest)
-  - **OpenAI GPT-4.1**: Support for GPT-4.1 series models (Gpt4_1, Gpt4_1Mini, Gpt4_1Nano)
-  - **Anthropic Claude 4**: Support for latest Claude 4 Opus and Sonnet models
-  - **Google Gemini 2.5**: Added Gemini 2.5 Pro, Flash, and Flash Lite models
-  - **Enhanced DeepSeek**: DeepSeek Reasoner model support
-- **Model Migration**: Deprecated `Gemini15Pro` and `Gemini15Flash` in favor of `Gemini1_5Pro` and `Gemini1_5Flash`
-- **Improved Stability**: Enhanced error handling and model compatibility
+- **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia/wiki)** - Getting started with text queries, streaming, image analysis, and more
+- **[Advanced Features](https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features)** - Function calling, policies, and enhanced streaming (v3.0.0)
+
+### 🚀 What's New in v3.0.0
+
+#### **Function Calling Support** 🎯
+- **Universal Function Calling**: Add custom functions that AI can call during conversations
+- **Automatic Type Conversion**: Seamless parameter marshalling between AI and your code
+- **Policy-Based Execution**: Control timeout, max rounds, and concurrency
+- **Attribute-Based Registration**: Decorate methods with `[AiFunction]` for automatic discovery
+- **Fluent API**: Chain function definitions with builder pattern
+
+#### **Enhanced Streaming** 🌊
+- **Structured Streaming**: New `StreamingContent` with metadata support
+- **Stream Options**: Control what data you receive (text-only, metadata, function calls)
+- **Function Streaming**: Real-time function execution during streaming
+- **Improved Performance**: Optimized streaming with proper backpressure handling
+
+#### **Policy System** ⚙️
+- **Execution Policies**: Control function calling behavior with pre-defined or custom policies
+- **Timeout Management**: Per-request timeout configuration
+- **Round Limiting**: Prevent infinite loops in function calling
+- **Debug Support**: Built-in logging for function execution flow
+
+#### **Breaking Changes** ⚠️
+- Function calling requires explicit enablement via `WithFunctions()` or `WithFunction()`
+- Streaming now returns `StreamingContent` when using advanced options
+- Some internal APIs have changed for better consistency
 
 ## Installation
 
@@ -27,652 +47,414 @@ For advanced LINQ operations with streams:
 dotnet add package System.Linq.Async
 ```
 
-## Important Usage Notes
+## Function Calling (New in v3.0.0)
 
-### Required Using Statements
-
-Many convenient features are implemented as extension methods and require specific using statements:
+### Quick Start with Functions
 
 ```csharp
-// Core functionality
-using Mythosia.AI;
-using Mythosia.AI.Services;
+// Define a simple function
+var service = new ChatGptService(apiKey, httpClient)
+    .WithFunction(
+        "get_weather",
+        "Gets the current weather for a location",
+        ("location", "The city and country", required: true),
+        (string location) => $"The weather in {location} is sunny, 22°C"
+    );
 
-// For MessageBuilder
-using Mythosia.AI.Builders;
-
-// For extension methods (IMPORTANT!)
-using Mythosia.AI.Extensions;  // Required for:
-                               // - BeginMessage()
-                               // - WithSystemMessage()
-                               // - WithTemperature()
-                               // - WithMaxTokens()
-                               // - AskOnceAsync()
-                               // - StartNewConversation()
-                               // - GetLastAssistantResponse()
-                               // - And more...
-
-// For models and enums
-using Mythosia.AI.Models.Enums;
-
-// For advanced LINQ operations (optional)
-using System.Linq;
+// AI will automatically call the function when needed
+var response = await service.GetCompletionAsync("What's the weather in Seoul?");
+// Output: "The weather in Seoul is currently sunny with a temperature of 22°C."
 ```
 
-**Common Issue**: If `BeginMessage()` or other extension methods don't appear in IntelliSense, make sure you have added `using Mythosia.AI.Extensions;` at the top of your file.
-
-## Quick Start
-
-### Basic Setup
+### Attribute-Based Function Registration
 
 ```csharp
-using Mythosia.AI;
-using Mythosia.AI.Builders;
-using Mythosia.AI.Extensions;
-using System.Net.Http;
-
-var httpClient = new HttpClient();
-var aiService = new ChatGptService("your-api-key", httpClient);
-```
-
-### Text-Only Queries
-
-```csharp
-// Simple completion
-string response = await aiService.GetCompletionAsync("What is AI?");
-
-// With conversation history
-await aiService.GetCompletionAsync("Tell me about machine learning");
-await aiService.GetCompletionAsync("How does it differ from AI?"); // Remembers context
-
-// One-off query (no history)
-string quickAnswer = await aiService.AskOnceAsync("What time is it in Seoul?");
-```
-
-### Streaming Responses
-
-```csharp
-// Modern IAsyncEnumerable streaming
-await foreach (var chunk in aiService.StreamAsync("Explain quantum computing"))
+public class WeatherService
 {
-    Console.Write(chunk);
-}
-
-// One-off streaming without affecting conversation history
-await foreach (var chunk in aiService.StreamOnceAsync("Quick question"))
-{
-    Console.Write(chunk);
-}
-
-// Traditional callback streaming (still supported)
-await aiService.StreamCompletionAsync("Explain AI", 
-    chunk => Console.Write(chunk));
-
-// With cancellation support
-var cts = new CancellationTokenSource();
-await foreach (var chunk in aiService.StreamAsync("Long explanation", cts.Token))
-{
-    Console.Write(chunk);
-    if (chunk.Contains("enough")) cts.Cancel();
-}
-```
-
-**Streaming Limitations:**
-- **GPT-5 models**: Streaming is not yet supported in this library. Use regular `GetCompletionAsync()` for GPT-5 models.
-- All other models support both streaming and regular completion methods.
-
-### Image Analysis (Multimodal)
-
-```csharp
-// Analyze a single image
-var description = await aiService.GetCompletionWithImageAsync(
-    "What's in this image?", 
-    "photo.jpg"
-);
-
-// Compare multiple images using fluent API
-var comparison = await aiService
-    .BeginMessage()
-    .AddText("What are the differences between these images?")
-    .AddImage("before.jpg")
-    .AddImage("after.jpg")
-    .SendAsync();
-
-// Stream image analysis
-await foreach (var chunk in aiService
-    .BeginMessage()
-    .AddText("Describe this artwork in detail")
-    .AddImage("painting.jpg")
-    .WithHighDetail()
-    .StreamAsync())
-{
-    Console.Write(chunk);
-}
-
-// One-off image query (doesn't affect conversation history)
-var quickAnalysis = await aiService
-    .BeginMessage()
-    .AddText("What color is this?")
-    .AddImage("sample.jpg")
-    .SendOnceAsync();
-```
-
-### Advanced Streaming with LINQ
-
-```csharp
-// Requires: dotnet add package System.Linq.Async
-
-// Take only first 1000 characters
-var limitedResponse = await aiService
-    .StreamAsync("Tell me a long story")
-    .Take(100)  // Take first 100 chunks
-    .ToListAsync();
-
-// Filter empty chunks
-await foreach (var chunk in aiService
-    .StreamAsync("Explain something")
-    .Where(c => !string.IsNullOrWhiteSpace(c)))
-{
-    ProcessChunk(chunk);
-}
-
-// Collect full response
-var fullText = await aiService
-    .StreamAsync("Explain AI")
-    .ToListAsync()
-    .ContinueWith(t => string.Concat(t.Result));
-
-// Transform chunks
-await foreach (var upper in aiService
-    .StreamAsync("Hello")
-    .Select(chunk => chunk.ToUpper()))
-{
-    Console.Write(upper);
-}
-```
-
-### Stateless Mode
-
-```csharp
-// Enable stateless mode for all requests
-aiService.StatelessMode = true;
-
-// Each request is independent
-await aiService.GetCompletionAsync("Translate: Hello");  // No history
-await aiService.GetCompletionAsync("Translate: World");  // No history
-
-// Or use one-off methods while maintaining conversation
-aiService.StatelessMode = false;  // Back to normal
-
-// These don't affect the conversation history
-var oneOffResult = await aiService.AskOnceAsync("What time is it?");
-
-await foreach (var chunk in aiService.StreamOnceAsync("Quick question"))
-{
-    Console.Write(chunk);
-}
-```
-
-### Fluent Message Building
-
-```csharp
-// Build complex multimodal messages
-var result = await aiService
-    .BeginMessage()
-    .WithRole(ActorRole.User)
-    .AddText("Analyze this chart and explain the trend")
-    .AddImage("sales-chart.png")
-    .WithHighDetail()
-    .SendAsync();
-
-// Stream with fluent API
-await foreach (var chunk in aiService
-    .BeginMessage()
-    .AddText("Compare these approaches:")
-    .AddText("1. Traditional ML")
-    .AddText("2. Deep Learning") 
-    .AddImage("comparison.jpg")
-    .StreamAsync())
-{
-    ProcessChunk(chunk);
-}
-
-// Using image URLs
-var urlAnalysis = await aiService
-    .BeginMessage()
-    .AddText("What's in this image?")
-    .AddImageUrl("https://example.com/image.jpg")
-    .SendAsync();
-```
-
-## Service-Specific Features
-
-### OpenAI GPT Models
-
-```csharp
-var gptService = new ChatGptService(apiKey, httpClient);
-
-// Use latest GPT-4o model (supports vision natively)
-gptService.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
-
-// GPT-5 models (available)
-gptService.ActivateChat.ChangeModel(AIModel.Gpt5);
-
-// Stream with GPT-4o
-await foreach (var chunk in gptService
-    .BeginMessage()
-    .AddText("Analyze this complex diagram")
-    .AddImage("diagram.png")
-    .StreamAsync())
-{
-    Console.Write(chunk);
-}
-
-// Generate images
-byte[] imageData = await gptService.GenerateImageAsync(
-    "A futuristic city at sunset",
-    "1024x1024"
-);
-
-// Audio features
-// Text-to-Speech
-byte[] audioData = await gptService.GetSpeechAsync(
-    "Hello, world!", 
-    voice: "alloy", 
-    model: "tts-1"
-);
-
-// Speech-to-Text
-string transcription = await gptService.TranscribeAudioAsync(
-    audioData, 
-    "audio.mp3", 
-    language: "en"
-);
-```
-
-**Important Notes:**
-- GPT-4o models (`gpt-4o-latest`, `gpt-4o`, `gpt-4o-2024-08-06`, `gpt-4o-2024-11-20`) support vision natively
-- `gpt-4o-mini` does NOT support vision
-- `gpt-4-vision-preview` is deprecated, use `gpt-4o` instead
-- **GPT-5 models are available and support all core features**
-- **⚠️ GPT-5 streaming is not yet supported in this library (text completion only)**
-
-### Anthropic Claude Models
-
-```csharp
-var claudeService = new ClaudeService(apiKey, httpClient);
-
-// Use latest Claude models
-claudeService.ActivateChat.ChangeModel(AIModel.Claude3_5Sonnet241022);
-
-// Claude 4 models (available)
-claudeService.ActivateChat.ChangeModel(AIModel.ClaudeOpus4_250514);
-
-// Claude models support vision natively
-await foreach (var chunk in claudeService
-    .BeginMessage()
-    .AddText("Analyze this medical image")
-    .AddImage("xray.jpg")
-    .StreamAsync())
-{
-    Console.Write(chunk);
-}
-
-// Token counting
-uint tokens = await claudeService.GetInputTokenCountAsync();
-```
-
-### Google Gemini Models
-
-```csharp
-var geminiService = new GeminiService(apiKey, httpClient);
-
-// Use latest Gemini 2.5 models (recommended)
-geminiService.ActivateChat.ChangeModel(AIModel.Gemini2_5Pro);
-
-// Gemini 1.5 models (use new enum values)
-geminiService.ActivateChat.ChangeModel(AIModel.Gemini1_5Pro);  // ✅ Recommended
-// geminiService.ActivateChat.ChangeModel(AIModel.Gemini15Pro);  // ⚠️ Deprecated
-
-// Stream multimodal analysis with Gemini 2.5
-await foreach (var chunk in geminiService
-    .BeginMessage()
-    .AddText("What objects are in this image?")
-    .AddImage("objects.jpg")
-    .StreamAsync())
-{
-    ProcessChunk(chunk);
-}
-
-// Gemini Pro Vision for legacy support
-geminiService.ActivateChat.ChangeModel(AIModel.GeminiProVision);
-```
-
-**Model Migration Note:**
-- `Gemini15Pro` → `Gemini1_5Pro` (deprecated, please update)
-- `Gemini15Flash` → `Gemini1_5Flash` (deprecated, please update)
-- New Gemini 2.5 models offer improved performance and capabilities
-
-### DeepSeek Models
-
-```csharp
-var deepSeekService = new DeepSeekService(apiKey, httpClient);
-
-// Use Reasoner model for complex reasoning
-deepSeekService.ActivateChat.ChangeModel(AIModel.DeepSeekReasoner);
-
-// Stream code generation
-deepSeekService.WithCodeGenerationMode("python");
-await foreach (var chunk in deepSeekService.StreamAsync(
-    "Write a fibonacci function"))
-{
-    Console.Write(chunk);
-}
-
-// Math mode with Chain of Thought
-deepSeekService.WithMathMode();
-var solution = await deepSeekService.GetCompletionWithCoTAsync(
-    "Solve: 2x^2 + 5x - 3 = 0"
-);
-```
-
-### Perplexity Sonar Models
-
-```csharp
-var sonarService = new SonarService(apiKey, httpClient);
-
-// Use enhanced reasoning model
-sonarService.ActivateChat.ChangeModel(AIModel.PerplexitySonarReasoning);
-
-// Web search with streaming
-await foreach (var chunk in sonarService.StreamAsync(
-    "Latest AI breakthroughs in 2024"))
-{
-    Console.Write(chunk);
-}
-
-// Get search with citations
-var searchResult = await sonarService.GetCompletionWithSearchAsync(
-    "Recent developments in quantum computing",
-    domainFilter: new[] { "arxiv.org", "nature.com" },
-    recencyFilter: "month"
-);
-
-// Access citations
-foreach (var citation in searchResult.Citations)
-{
-    Console.WriteLine($"{citation.Title}: {citation.Url}");
-}
-```
-
-## Advanced Usage
-
-### Conversation Management
-
-```csharp
-// Start fresh conversation
-aiService.StartNewConversation();
-
-// Start with different model
-aiService.StartNewConversation(AIModel.Claude3_5Sonnet241022);
-
-// Switch models mid-conversation
-aiService.SwitchModel(AIModel.Gpt4o241120);
-
-// Get conversation info
-var summary = aiService.GetConversationSummary();
-var lastResponse = aiService.GetLastAssistantResponse();
-
-// Retry last message
-var betterResponse = await aiService.RetryLastMessageAsync();
-
-// Clear specific messages
-aiService.ActivateChat.RemoveLastMessage();
-aiService.ActivateChat.ClearMessages();
-```
-
-### Token Management
-
-```csharp
-// Check tokens before sending
-uint currentTokens = await aiService.GetInputTokenCountAsync();
-if (currentTokens > 3000)
-{
-    aiService.ActivateChat.MaxMessageCount = 10; // Reduce history
-}
-
-// Check tokens for specific prompt
-uint promptTokens = await aiService.GetInputTokenCountAsync("Long prompt...");
-
-// Configure max tokens
-aiService.WithMaxTokens(2000);
-```
-
-### Configuration
-
-```csharp
-// Method chaining for configuration
-aiService
-    .WithSystemMessage("You are a helpful coding assistant")
-    .WithTemperature(0.7f)
-    .WithMaxTokens(2000)
-    .WithStatelessMode(false);
-
-// Configure chat parameters
-aiService.ActivateChat.Temperature = 0.5f;
-aiService.ActivateChat.TopP = 0.9f;
-aiService.ActivateChat.MaxTokens = 4096;
-aiService.ActivateChat.MaxMessageCount = 20;
-
-// Custom models
-aiService.ActivateChat.ChangeModel("gpt-4-turbo-preview");
-```
-
-### Error Handling
-
-```csharp
-try
-{
-    await foreach (var chunk in aiService.StreamAsync(message))
+    [AiFunction("get_current_weather", "Gets the current weather for a location")]
+    public string GetWeather(
+        [AiParameter("The city name", required: true)] string city,
+        [AiParameter("Temperature unit", required: false)] string unit = "celsius")
     {
-        Console.Write(chunk);
+        // Your implementation
+        return $"Weather in {city}: 22°{unit[0]}";
     }
 }
-catch (MultimodalNotSupportedException ex)
-{
-    Console.WriteLine($"Service {ex.ServiceName} doesn't support {ex.RequestedFeature}");
-}
-catch (TokenLimitExceededException ex)
-{
-    Console.WriteLine($"Too many tokens: {ex.RequestedTokens} > {ex.MaxTokens}");
-}
-catch (RateLimitExceededException ex)
-{
-    Console.WriteLine($"Rate limit hit. Retry after: {ex.RetryAfter}");
-}
-catch (AIServiceException ex)
-{
-    Console.WriteLine($"API Error: {ex.Message}");
-    Console.WriteLine($"Details: {ex.ErrorDetails}");
-}
+
+// Register all functions from a class
+var weatherService = new WeatherService();
+var service = new ChatGptService(apiKey, httpClient)
+    .WithFunctions(weatherService);
 ```
 
-### Static Quick Methods
-
-For one-off queries without managing service instances:
+### Advanced Function Builder
 
 ```csharp
-// Quick text query
-var answer = await AIService.QuickAskAsync(
-    apiKey, 
-    "What's the capital of France?",
-    AIModel.Gpt4oMini
-);
+var service = new ChatGptService(apiKey, httpClient)
+    .WithFunction(FunctionBuilder.Create("calculate")
+        .WithDescription("Performs mathematical calculations")
+        .AddParameter("expression", "string", "The math expression", required: true)
+        .AddParameter("precision", "integer", "Decimal places", required: false, defaultValue: 2)
+        .WithHandler(async (args) => 
+        {
+            var expr = args["expression"].ToString();
+            var precision = Convert.ToInt32(args.GetValueOrDefault("precision", 2));
+            // Calculate and return result
+            return await CalculateAsync(expr, precision);
+        })
+        .Build());
+```
 
-// Quick image analysis
-var description = await AIService.QuickAskWithImageAsync(
-    apiKey,
-    "Describe this image",
-    "image.jpg",
-    AIModel.Gpt4o240806
+### Multiple Functions with Different Types
+
+```csharp
+var service = new ChatGptService(apiKey, httpClient)
+    // Parameterless function
+    .WithFunction(
+        "get_time",
+        "Gets the current time",
+        () => DateTime.Now.ToString("HH:mm:ss")
+    )
+    // Two-parameter function
+    .WithFunction(
+        "add_numbers",
+        "Adds two numbers",
+        ("a", "First number", true),
+        ("b", "Second number", true),
+        (double a, double b) => $"The sum is {a + b}"
+    )
+    // Async function
+    .WithFunctionAsync(
+        "fetch_data",
+        "Fetches data from API",
+        ("endpoint", "API endpoint", true),
+        async (string endpoint) => await httpClient.GetStringAsync(endpoint)
+    );
+
+// The AI will automatically use the appropriate functions
+var response = await service.GetCompletionAsync(
+    "What time is it? Also, what's 15 plus 27?"
 );
 ```
 
-## Model Support Matrix
+### Function Calling Policies
 
-| Service | Text | Vision | Audio | Image Gen | Web Search | Streaming |
-|---------|------|--------|-------|-----------|------------|-----------|
-| **OpenAI GPT-4o** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **OpenAI GPT-4o-mini** | ✅ | ❌ | ✅ | ✅ | ❌ | ✅ |
-| **OpenAI GPT-5** | ✅ | ✅ | ✅ | ✅ | ❌ | ⚠️ Limited* |
-| **Claude 3/4** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **Gemini 2.5** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **Gemini 1.5** | ✅ | ✅ | ❌ | ❌ | ❌ | ✅ |
-| **DeepSeek** | ✅ | ❌ | ❌ | ❌ | ❌ | ✅ |
-| **Sonar** | ✅ | ❌ | ❌ | ❌ | ✅ | ✅ |
+```csharp
+// Pre-defined policies
+service.DefaultPolicy = FunctionCallingPolicy.Fast;     // 30s timeout, 10 rounds
+service.DefaultPolicy = FunctionCallingPolicy.Complex;   // 300s timeout, 50 rounds
+service.DefaultPolicy = FunctionCallingPolicy.Vision;    // 200s timeout, for image analysis
 
-*GPT-5 streaming support is not yet implemented in this library (text completion only)
+// Custom policy
+service.DefaultPolicy = new FunctionCallingPolicy
+{
+    MaxRounds = 25,
+    TimeoutSeconds = 120,
+    MaxConcurrency = 5,
+    EnableLogging = true  // Enable debug output
+};
 
-## Available Models
+// Per-request policy override
+var response = await service
+    .WithPolicy(FunctionCallingPolicy.Fast)
+    .GetCompletionAsync("Complex task requiring functions");
 
-### OpenAI Models
-- **GPT-5 Series**: `Gpt5`, `Gpt5Mini`, `Gpt5Nano`, `Gpt5ChatLatest`
-  - ⚠️ **Note**: GPT-5 models support text completion but streaming is not yet implemented in this library
-  - Use `GetCompletionAsync()` instead of `StreamAsync()` for GPT-5 models
-- **GPT-4.1 Series**: `Gpt4_1`, `Gpt4_1Mini`, `Gpt4_1Nano`
-- **GPT-4o Series**: `Gpt4oLatest`, `Gpt4o`, `Gpt4o241120`, `Gpt4o240806`, `Gpt4oMini`
-- **Legacy**: `Gpt4Vision` (deprecated)
+// Inline policy configuration
+var response = await service
+    .BeginMessage()
+    .AddText("Analyze this data")
+    .WithMaxRounds(5)
+    .WithTimeout(60)
+    .SendAsync();
+```
 
-### Anthropic Claude Models
-- **Claude 4 Series**: `ClaudeOpus4_1_250805`, `ClaudeOpus4_250514`, `ClaudeSonnet4_250514`
-- **Claude 3.7**: `Claude3_7SonnetLatest`
-- **Claude 3.5**: `Claude3_5Sonnet241022`, `Claude3_5Haiku241022`
-- **Claude 3**: `Claude3Opus240229`, `Claude3Haiku240307`
+### Function Calling with Streaming
 
-### Google Gemini Models
-- **Gemini 2.5 Series** (Latest): `Gemini2_5Pro`, `Gemini2_5Flash`, `Gemini2_5FlashLite`
-- **Gemini 2.0**: `Gemini2_0Flash`
-- **Gemini 1.5**: `Gemini1_5Pro`, `Gemini1_5Flash` (use these instead of deprecated `Gemini15Pro`, `Gemini15Flash`)
-- **Legacy**: `GeminiPro`, `GeminiProVision`
+```csharp
+// Stream with function calling support
+await foreach (var content in service.StreamAsync(
+    "What's the weather in Seoul and calculate 15% tip on $85",
+    StreamOptions.WithFunctions))
+{
+    if (content.Type == StreamingContentType.FunctionCall)
+    {
+        Console.WriteLine($"Calling function: {content.Metadata["function_name"]}");
+    }
+    else if (content.Type == StreamingContentType.FunctionResult)
+    {
+        Console.WriteLine($"Function completed: {content.Metadata["status"]}");
+    }
+    else if (content.Type == StreamingContentType.Text)
+    {
+        Console.Write(content.Content);
+    }
+}
+```
 
-### DeepSeek Models
-- `DeepSeekChat`, `DeepSeekReasoner`
+### Disabling Functions Temporarily
 
-### Perplexity Models
-- `PerplexitySonar`, `PerplexitySonarPro`, `PerplexitySonarReasoning`
+```csharp
+// Disable functions for a single request
+var response = await service
+    .WithoutFunctions()
+    .GetCompletionAsync("Don't use any functions for this");
+
+// Or use the async helper
+var response = await service.AskWithoutFunctionsAsync(
+    "Process this without calling functions"
+);
+```
+
+## Enhanced Streaming (v3.0.0)
+
+### Stream Options
+
+```csharp
+// Text only - fastest, no overhead
+await foreach (var chunk in service.StreamAsync("Hello", StreamOptions.TextOnlyOptions))
+{
+    Console.Write(chunk.Content);
+}
+
+// With metadata - includes model info, timestamps, etc.
+await foreach (var content in service.StreamAsync("Hello", StreamOptions.FullOptions))
+{
+    if (content.Metadata != null)
+    {
+        Console.WriteLine($"Model: {content.Metadata["model"]}");
+    }
+    Console.Write(content.Content);
+}
+
+// Custom options
+var options = new StreamOptions()
+    .WithMetadata(true)
+    .WithFunctionCalls(true)
+    .WithTokenInfo(false)
+    .AsTextOnly(false);
+
+await foreach (var content in service.StreamAsync("Query", options))
+{
+    // Process based on content.Type
+    switch (content.Type)
+    {
+        case StreamingContentType.Text:
+            Console.Write(content.Content);
+            break;
+        case StreamingContentType.FunctionCall:
+            Console.WriteLine($"Calling: {content.Metadata["function_name"]}");
+            break;
+        case StreamingContentType.Completion:
+            Console.WriteLine($"Total length: {content.Metadata["total_length"]}");
+            break;
+    }
+}
+```
+
+## Service-Specific Function Support
+
+| Service | Function Calling | Streaming Functions | Notes |
+|---------|-----------------|-------------------|--------|
+| **OpenAI GPT-4o** | ✅ Full | ✅ Full | Best support, all features |
+| **OpenAI GPT-4.1** | ✅ Full | ✅ Full | Full function support |
+| **OpenAI o3** | ✅ Full | ✅ Full | Advanced reasoning with functions |
+| **OpenAI GPT-5** | 🔜 Coming Soon | 🔜 Coming Soon | Support planned for future update |
+| **Claude 3/4** | ✅ Full | ✅ Full | Tool use via native API |
+| **Gemini** | 🔜 Coming Soon | 🔜 Coming Soon | Support planned for future update |
+| **DeepSeek** | ❌ | ❌ | Not yet available |
+| **Perplexity** | ❌ | ❌ | Web search focused |
+
+## Complete Examples
+
+### Building a Weather Assistant
+
+```csharp
+public class WeatherAssistant
+{
+    private readonly ChatGptService _service;
+    private readonly HttpClient _httpClient;
+
+    public WeatherAssistant(string apiKey)
+    {
+        _httpClient = new HttpClient();
+        _service = new ChatGptService(apiKey, _httpClient)
+            .WithSystemMessage("You are a helpful weather assistant.")
+            .WithFunction(
+                "get_weather",
+                "Gets current weather for a city",
+                ("city", "City name", true),
+                GetWeatherData
+            )
+            .WithFunction(
+                "get_forecast",
+                "Gets weather forecast",
+                ("city", "City name", true),
+                ("days", "Number of days", false),
+                GetForecast
+            );
+        
+        // Configure function calling behavior
+        _service.DefaultPolicy = new FunctionCallingPolicy
+        {
+            MaxRounds = 10,
+            TimeoutSeconds = 30,
+            EnableLogging = true
+        };
+    }
+
+    private string GetWeatherData(string city)
+    {
+        // In real implementation, call weather API
+        return $"{{\"city\":\"{city}\",\"temp\":22,\"condition\":\"sunny\"}}";
+    }
+
+    private string GetForecast(string city, int days = 3)
+    {
+        // In real implementation, call forecast API
+        return $"{{\"city\":\"{city}\",\"forecast\":\"{days} days of sun\"}}";
+    }
+
+    public async Task<string> AskAsync(string question)
+    {
+        return await _service.GetCompletionAsync(question);
+    }
+
+    public async IAsyncEnumerable<string> StreamAsync(string question)
+    {
+        await foreach (var content in _service.StreamAsync(question))
+        {
+            if (content.Type == StreamingContentType.Text && content.Content != null)
+            {
+                yield return content.Content;
+            }
+        }
+    }
+}
+
+// Usage
+var assistant = new WeatherAssistant(apiKey);
+
+// Functions are called automatically
+var response = await assistant.AskAsync("What's the weather in Tokyo?");
+// AI calls get_weather("Tokyo") and responds naturally
+
+// Streaming also supports functions
+await foreach (var chunk in assistant.StreamAsync(
+    "Compare weather in Seoul and Tokyo for the next 5 days"))
+{
+    Console.Write(chunk);
+}
+```
+
+### Math Tutor with Step-by-Step Solutions
+
+```csharp
+var mathTutor = new ChatGptService(apiKey, httpClient)
+    .WithSystemMessage("You are a math tutor. Always explain your reasoning.")
+    .WithFunction(
+        "calculate",
+        "Performs calculations",
+        ("expression", "Math expression", true),
+        (string expr) => {
+            // Using a math expression evaluator
+            var result = EvaluateExpression(expr);
+            return $"Result: {result}";
+        }
+    )
+    .WithFunction(
+        "solve_equation",
+        "Solves equations step by step",
+        ("equation", "Equation to solve", true),
+        (string equation) => {
+            var steps = SolveWithSteps(equation);
+            return JsonSerializer.Serialize(steps);
+        }
+    );
+
+// The AI will use functions and explain the process
+var response = await mathTutor.GetCompletionAsync(
+    "Solve the equation 2x + 5 = 13 and verify the answer"
+);
+// Output includes step-by-step solution with verification
+```
+
+## Migration Guide from v2.x to v3.0.0
+
+### Function Calling (New Feature)
+```csharp
+// v3.0.0 - Functions are now supported!
+var service = new ChatGptService(apiKey, httpClient)
+    .WithFunction("my_function", "Description", 
+        ("param", "Param description", true),
+        (string param) => $"Result: {param}");
+
+// AI will automatically use functions when appropriate
+var response = await service.GetCompletionAsync("Use my function");
+```
+
+### Streaming Changes
+```csharp
+// v2.x - Returns string chunks
+await foreach (var chunk in service.StreamAsync("Hello"))
+{
+    Console.Write(chunk); // chunk is string
+}
+
+// v3.0.0 - Can return StreamingContent with metadata
+await foreach (var content in service.StreamAsync("Hello", StreamOptions.FullOptions))
+{
+    Console.Write(content.Content); // Access text via .Content
+    var metadata = content.Metadata; // Access metadata
+}
+
+// For backward compatibility, default behavior unchanged
+await foreach (var chunk in service.StreamAsync("Hello"))
+{
+    Console.Write(chunk); // Still works, chunk is string
+}
+```
+
+### Policy System (New)
+```csharp
+// v3.0.0 - Control function execution behavior
+service.DefaultPolicy = FunctionCallingPolicy.Fast;
+
+// Per-request override
+await service
+    .WithTimeout(60)
+    .WithMaxRounds(5)
+    .GetCompletionAsync("Complex task");
+```
 
 ## Best Practices
 
-1. **Model Selection**: 
-   - Use latest model versions for best performance and features
-   - Migrate from deprecated model enum values (e.g., `Gemini15Pro` → `Gemini1_5Pro`)
-   - Use `Gemini2_5Pro` for newest Google capabilities
-   - Use `gpt-4o` models for vision tasks
-   - Use `gpt-4o-mini` for cost-effective text-only tasks
+1. **Function Design**: Keep functions focused and simple. Complex logic should be broken into multiple functions.
 
-2. **Streaming Best Practices**:
-   - Use `StreamAsync()` for better performance with long responses
-   - Always handle cancellation tokens for user-initiated stops
-   - Consider using `StreamOnceAsync()` for queries that don't need history
-   - Use `System.Linq.Async` for advanced stream manipulation
+2. **Error Handling**: Functions should return meaningful error messages that the AI can understand.
 
-3. **Image Handling**:
-   - Keep images under 4MB
-   - Supported formats: JPEG, PNG, GIF, WebP
-   - Use `WithHighDetail()` for detailed analysis (costs more tokens)
-   - For URLs, ensure they are publicly accessible
+3. **Performance**: Use appropriate policies for your use case (Fast for simple tasks, Complex for detailed analysis).
 
-4. **Performance**:
-   - Reuse HttpClient instances
-   - Monitor token usage to manage costs
-   - Use streaming for long responses
-   - Enable stateless mode for independent queries
+4. **Streaming**: Use `TextOnlyOptions` for best performance when metadata isn't needed.
 
-5. **Error Handling**:
-   - Always wrap API calls in try-catch blocks
-   - Check model capabilities before sending multimodal content
-   - Handle rate limits gracefully with exponential backoff
-   - Log errors for debugging
-
-## Migration Guide
-
-### Model Enum Updates
-
-Update deprecated model references:
-
-```csharp
-// ❌ Deprecated (will be removed in future versions)
-service.ActivateChat.ChangeModel(AIModel.Gemini15Pro);
-service.ActivateChat.ChangeModel(AIModel.Gemini15Flash);
-
-// ✅ Use these instead
-service.ActivateChat.ChangeModel(AIModel.Gemini1_5Pro);
-service.ActivateChat.ChangeModel(AIModel.Gemini1_5Flash);
-
-// ✅ Or upgrade to latest Gemini 2.5 models
-service.ActivateChat.ChangeModel(AIModel.Gemini2_5Pro);
-service.ActivateChat.ChangeModel(AIModel.Gemini2_5Flash);
-```
-
-### From v2.0.x to v2.1.0
-
-Version 2.1.0 adds IAsyncEnumerable support while maintaining full backward compatibility:
-
-```csharp
-// Old way (still works)
-await service.StreamCompletionAsync("Hello", chunk => Console.Write(chunk));
-
-// New way (recommended)
-await foreach (var chunk in service.StreamAsync("Hello"))
-{
-    Console.Write(chunk);
-}
-
-// Fluent API now supports both
-await service.BeginMessage()
-    .AddText("Hello")
-    .StreamAsync(chunk => Console.Write(chunk));  // Callback version
-
-await foreach (var chunk in service.BeginMessage()
-    .AddText("Hello")
-    .StreamAsync())  // IAsyncEnumerable version
-{
-    Console.Write(chunk);
-}
-```
-
-### From v1.x to v2.x
-
-Version 2.x adds multimodal support and many new features. All v1.x code continues to work:
-
-```csharp
-// This still works exactly as before
-var response = await aiService.GetCompletionAsync("Hello");
-```
-
-New features are additive and optional.
+5. **Testing**: Test function calling with various prompts to ensure robust behavior.
 
 ## Troubleshooting
 
-**Q: Extension methods like `BeginMessage()` not showing up?**
-- Add `using Mythosia.AI.Extensions;` to your file
+**Q: Functions aren't being called when expected?**
+- Ensure functions are registered with clear, descriptive names and descriptions
+- Check that `EnableFunctions` is true on the ChatBlock
+- Verify the model supports function calling (GPT-4, Claude 3+, Gemini)
 
-**Q: Want to use LINQ with streams?**
-- Install `System.Linq.Async` package: `dotnet add package System.Linq.Async`
+**Q: Function calling is too slow?**
+- Adjust the policy timeout: `service.DefaultPolicy.TimeoutSeconds = 30`
+- Use `FunctionCallingPolicy.Fast` for simple operations
+- Consider using streaming for better perceived performance
 
-**Q: Getting "Channel not found" error?**
-- The project targets .NET Standard 2.1. Make sure your project targets .NET Core 3.0+ or .NET 5.0+
+**Q: How to debug function execution?**
+- Enable logging: `service.DefaultPolicy.EnableLogging = true`
+- Check the console output for round-by-round execution details
+- Use `StreamOptions.FullOptions` to see function call metadata
 
-**Q: Images not working with GPT-4?**
-- Use `gpt-4o` models, not the deprecated `gpt-4-vision-preview`
-- Make sure images are in supported formats (JPEG, PNG, GIF, WebP)
-
-**Q: Getting obsolete warnings for Gemini models?**
-- Update `Gemini15Pro` to `Gemini1_5Pro`
-- Update `Gemini15Flash` to `Gemini1_5Flash`
-- Consider upgrading to newer `Gemini2_5Pro` or `Gemini2_5Flash` models
-
-**Q: GPT-5 streaming not working?**
-- GPT-5 streaming is not yet supported in this library
-- Use `GetCompletionAsync()` instead of `StreamAsync()` for GPT-5 models
-- All other models support both streaming and regular completion
+**Q: Can I use functions with streaming?**
+- Yes! Functions work seamlessly with streaming in v3.0.0
+- Use `StreamOptions.WithFunctions` to see function execution in real-time

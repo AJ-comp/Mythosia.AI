@@ -14,7 +14,7 @@ public class ClaudeServiceTests : AIServiceTestBase
         string apiKey = secretFetcher.GetKeyValueAsync().Result;
 
         var service = new ClaudeService(apiKey, new HttpClient());
-        service.ActivateChat.ChangeModel(AIModel.ClaudeOpus4_1_250805);
+        service.ActivateChat.ChangeModel(AIModel.Claude3_7SonnetLatest);
         return service;
     }
 
@@ -23,7 +23,7 @@ public class ClaudeServiceTests : AIServiceTestBase
     protected override bool SupportsAudio() => false;
     protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsWebSearch() => false;
-    protected override AIModel? GetAlternativeModel() => AIModel.Claude3_5Sonnet241022;
+    protected override AIModel? GetAlternativeModel() => AIModel.ClaudeSonnet4_250514;
 
     #region Claude-Specific Tests
 

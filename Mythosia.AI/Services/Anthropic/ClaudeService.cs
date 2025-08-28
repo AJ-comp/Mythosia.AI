@@ -23,7 +23,7 @@ namespace Mythosia.AI.Services.Anthropic
         public ClaudeService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Claude3_5Haiku241022)
+            var chatBlock = new ChatBlock(AIModel.ClaudeSonnet4_250514)
             {
                 MaxTokens = 8192,
                 Temperature = 0.7f
