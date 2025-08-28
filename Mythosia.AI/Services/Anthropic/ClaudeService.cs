@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using TiktokenSharp;
 
@@ -34,121 +35,153 @@ namespace Mythosia.AI.Services.Anthropic
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
-            // Check if we should use functions
-            bool useFunctions = ActivateChat.Functions?.Count > 0
-                               && ActivateChat.EnableFunctions
-                               && !FunctionsDisabled;
+            // Get policy (current or default)
+            var policy = CurrentPolicy ?? DefaultPolicy;
+            CurrentPolicy = null;
 
+            using var cts = policy.TimeoutSeconds.HasValue
+                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
+                : new CancellationTokenSource();
+
+            // Stateless 모드 처리 (ChatGpt 방식)
+            ChatBlock originalChat = null;
             if (StatelessMode)
             {
-                return await ProcessStatelessRequestAsync(message, useFunctions);
+                originalChat = ActivateChat;
+                ActivateChat = ActivateChat.CloneWithoutMessages();
             }
-
-            ActivateChat.Stream = false;
-            ActivateChat.Messages.Add(message);
-
-            // Create appropriate request based on function availability
-            var request = useFunctions
-                ? CreateFunctionMessageRequest()
-                : CreateMessageRequest();
-
-            var response = await HttpClient.SendAsync(request);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
-            }
-
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            // Handle function calls if present
-            if (useFunctions)
-            {
-                var (content, functionCall) = ExtractFunctionCall(responseContent);
-
-                if (functionCall != null)
-                {
-                    // Execute function
-                    var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-                    // Add to conversation
-                    ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-                    {
-                        Metadata = new Dictionary<string, object>
-                        {
-                            ["function_name"] = functionCall.Name,
-                            ["arguments"] = functionCall.Arguments
-                        }
-                    });
-
-                    // Get AI's final response based on function result
-                    return await GetCompletionAsync("Based on the function result, please provide a helpful response.");
-                }
-
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
-                return content;
-            }
-            else
-            {
-                // Regular response without functions
-                var result = ExtractResponseContent(responseContent);
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
-                return result;
-            }
-        }
-
-        private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
-        {
-            var tempChat = new ChatBlock(ActivateChat.Model)
-            {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Functions = useFunctions ? ActivateChat.Functions : new List<FunctionDefinition>(),
-                EnableFunctions = useFunctions
-            };
-            tempChat.Messages.Add(message);
-
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
 
             try
             {
-                var request = useFunctions
-                    ? CreateFunctionMessageRequest()
-                    : CreateMessageRequest();
+                bool useFunctions = ActivateChat.Functions?.Count > 0
+                                   && ActivateChat.EnableFunctions
+                                   && !FunctionsDisabled;
 
-                var response = await HttpClient.SendAsync(request);
+                ActivateChat.Stream = false;
+                ActivateChat.Messages.Add(message);
 
-                if (response.IsSuccessStatusCode)
+                // Function calling loop - use policy.MaxRounds
+                for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    if (policy.EnableLogging)
+                    {
+                        Console.WriteLine($"[Claude Round {round + 1}/{policy.MaxRounds}]");
+                    }
+
+                    var request = useFunctions
+                        ? CreateFunctionMessageRequest()
+                        : CreateMessageRequest();
+
+                    var response = await HttpClient.SendAsync(request, cts.Token);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                    }
+
                     var responseContent = await response.Content.ReadAsStringAsync();
 
                     if (useFunctions)
                     {
-                        var (content, functionCall) = ExtractFunctionCall(responseContent);
-                        if (functionCall != null)
-                        {
-                            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-                            return $"Function result: {result}";
-                        }
-                        return content;
-                    }
+                        var extractResult = ExtractFunctionCallWithSave(responseContent);
 
-                    return ExtractResponseContent(responseContent);
+                        if (extractResult.functionCall != null)
+                        {
+                            if (policy.EnableLogging)
+                            {
+                                Console.WriteLine($"  Executing function: {extractResult.functionCall.Name}");
+                            }
+
+                            // Execute function and add result message
+                            await ExecuteFunctionAndAddResultAsync(extractResult.functionCall);
+
+                            // Continue the loop to get AI's response based on function result
+                            continue;
+                        }
+
+                        // No more function calls, we have the final response
+                        if (!string.IsNullOrEmpty(extractResult.content))
+                        {
+                            // Only add if not already added by ExtractFunctionCall
+                            if (!extractResult.wasToolUseSaved)
+                            {
+                                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, extractResult.content));
+                            }
+                            return extractResult.content;
+                        }
+                    }
+                    else
+                    {
+                        var result = ExtractResponseContent(responseContent);
+                        ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+                        return result;
+                    }
                 }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
-                }
+
+                throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
+            }
+            catch (OperationCanceledException)
+            {
+                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
             }
             finally
             {
-                ActivateChat = backup;
+                if (originalChat != null)
+                {
+                    ActivateChat = originalChat;
+                }
             }
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        /// <summary>
+        /// Helper method to extract function call with save state
+        /// </summary>
+        private (string content, FunctionCall functionCall, bool wasToolUseSaved) ExtractFunctionCallWithSave(string response)
+        {
+            // Use the enhanced extraction method from Functions.cs
+            return ExtractFunctionCallWithMetadata(response);
+        }
+
+        /// <summary>
+        /// Executes a function call and adds the result message to the conversation
+        /// </summary>
+        private async Task<string> ExecuteFunctionAndAddResultAsync(FunctionCall functionCall)
+        {
+            // Execute the function
+            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+
+            // Add the result message
+            AddFunctionResultMessage(result, functionCall);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Adds a function result message to the conversation
+        /// </summary>
+        private void AddFunctionResultMessage(string result, FunctionCall functionCall)
+        {
+            var metadata = new Dictionary<string, object>
+            {
+                ["function_name"] = functionCall.Name,
+                ["tool_use_id"] = functionCall.CallId ?? Guid.NewGuid().ToString()
+            };
+
+            // Include arguments only if they exist
+            if (functionCall.Arguments != null && functionCall.Arguments.Count > 0)
+            {
+                metadata["arguments"] = functionCall.Arguments;
+            }
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+            {
+                Metadata = metadata
+            });
         }
 
         #endregion

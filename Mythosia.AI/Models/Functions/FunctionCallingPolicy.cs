@@ -9,12 +9,12 @@ namespace Mythosia.AI.Models.Functions
         /// <summary>
         /// 최대 라운드 수 (무한루프 방지)
         /// </summary>
-        public int MaxRounds { get; set; } = 10;
+        public int MaxRounds { get; set; } = 20;
 
         /// <summary>
         /// 전체 실행 타임아웃 (초)
         /// </summary>
-        public int? TimeoutSeconds { get; set; } = 30;
+        public int? TimeoutSeconds { get; set; } = 100;
 
         /// <summary>
         /// 병렬 실행 시 최대 동시 실행 수
@@ -36,18 +36,30 @@ namespace Mythosia.AI.Models.Functions
         /// </summary>
         public static FunctionCallingPolicy Fast => new FunctionCallingPolicy()
         {
-            MaxRounds = 5,
-            TimeoutSeconds = 10,
+            MaxRounds = 10,
+            TimeoutSeconds = 30,
             MaxConcurrency = 10
         };
+
+
+        /// <summary>
+        /// 이미지 작업용 정책
+        /// </summary>
+        public static FunctionCallingPolicy Vision => new FunctionCallingPolicy()
+        {
+            MaxRounds = 20,
+            TimeoutSeconds = 200,
+            MaxConcurrency = 3
+        };
+
 
         /// <summary>
         /// 복잡한 작업용 정책
         /// </summary>
         public static FunctionCallingPolicy Complex => new FunctionCallingPolicy()
         {
-            MaxRounds = 20,
-            TimeoutSeconds = 60,
+            MaxRounds = 50,
+            TimeoutSeconds = 300,
             MaxConcurrency = 3
         };
 
