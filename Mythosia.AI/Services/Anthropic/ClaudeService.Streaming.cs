@@ -12,7 +12,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.Anthropic
@@ -21,17 +20,16 @@ namespace Mythosia.AI.Services.Anthropic
     {
         #region Streaming Implementation
 
-        public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+        public override async IAsyncEnumerable<StreamingContent> StreamAsync(
+            Message message,
+            StreamOptions options,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            // Get policy (current or default)
             var policy = CurrentPolicy ?? DefaultPolicy;
-            CurrentPolicy = null;
+            bool useFunctions = options.IncludeFunctionCalls &&
+                               ActivateChat.ShouldUseFunctions &&
+                               !FunctionsDisabled;
 
-            using var cts = policy.TimeoutSeconds.HasValue
-                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
-                : new CancellationTokenSource();
-
-            // Stateless 모드 처리
             ChatBlock originalChat = null;
             if (StatelessMode)
             {
@@ -44,351 +42,396 @@ namespace Mythosia.AI.Services.Anthropic
                 ActivateChat.Stream = true;
                 ActivateChat.Messages.Add(message);
 
-                // Function calling loop for streaming - use policy.MaxRounds
+                var streamQueue = new Queue<StreamingContent>();
+
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     if (policy.EnableLogging)
-                    {
                         Console.WriteLine($"[Claude Stream Round {round + 1}/{policy.MaxRounds}]");
-                    }
 
-                    // Check if functions are enabled
-                    bool useFunctions = ActivateChat.Functions?.Count > 0
-                                       && ActivateChat.EnableFunctions
-                                       && !FunctionsDisabled;
-
-                    var request = useFunctions
-                        ? CreateFunctionMessageRequest()
-                        : CreateMessageRequest();
-
-                    var response = await HttpClient.SendAsync(request,
-                        HttpCompletionOption.ResponseHeadersRead,
-                        cts.Token);
+                    var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+                    var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        var errorContent = await response.Content.ReadAsStringAsync();
-                        throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
-                    }
-
-                    using var stream = await response.Content.ReadAsStreamAsync();
-                    using var reader = new StreamReader(stream);
-
-                    var allContent = new StringBuilder();
-                    FunctionCall currentFunctionCall = null;
-                    string currentToolUseId = null;
-                    var partialJsonBuilder = new StringBuilder(); // For accumulating partial JSON
-                    bool inToolUse = false;
-
-                    while (!reader.EndOfStream && !cts.Token.IsCancellationRequested)
-                    {
-                        var line = await reader.ReadLineAsync();
-                        if (string.IsNullOrWhiteSpace(line))
-                            continue;
-
-                        // Claude uses event-stream format
-                        if (line.StartsWith("event:"))
+                        var error = await response.Content.ReadAsStringAsync();
+                        streamQueue.Enqueue(new StreamingContent
                         {
-                            var eventType = line.Substring("event:".Length).Trim();
-                            // Handle specific events if needed
-                            continue;
-                        }
-
-                        if (!line.StartsWith("data:"))
-                            continue;
-
-                        var jsonData = line.Substring("data:".Length).Trim();
-                        if (string.IsNullOrEmpty(jsonData))
-                            continue;
-
-                        try
-                        {
-                            if (useFunctions)
-                            {
-                                // Parse for function calls in streaming
-                                var (content, functionCall, toolUseId, partialJson) = StreamParseFunctionJson(jsonData);
-
-                                if (!string.IsNullOrEmpty(toolUseId))
-                                {
-                                    currentToolUseId = toolUseId;
-                                    currentFunctionCall = functionCall;
-                                    inToolUse = true;
-                                    partialJsonBuilder.Clear(); // Start fresh for new function
-                                }
-
-                                // Accumulate partial JSON
-                                if (inToolUse && !string.IsNullOrEmpty(partialJson))
-                                {
-                                    partialJsonBuilder.Append(partialJson);
-
-                                    // Try to parse if we might have complete JSON
-                                    var accumulated = partialJsonBuilder.ToString();
-                                    if (accumulated.StartsWith("{") && accumulated.EndsWith("}"))
-                                    {
-                                        try
-                                        {
-                                            var args = JsonSerializer.Deserialize<Dictionary<string, object>>(accumulated);
-                                            if (args != null && currentFunctionCall != null)
-                                            {
-                                                currentFunctionCall.Arguments = args;
-                                                // Successfully parsed complete arguments
-                                                inToolUse = false; // Done with this tool use
-                                            }
-                                        }
-                                        catch
-                                        {
-                                            // Not yet complete, continue accumulating
-                                        }
-                                    }
-                                }
-
-                                if (!string.IsNullOrEmpty(content))
-                                {
-                                    allContent.Append(content);
-                                    await messageReceivedAsync(content);
-                                }
-                            }
-                            else
-                            {
-                                var content = StreamParseJson(jsonData);
-                                if (!string.IsNullOrEmpty(content))
-                                {
-                                    allContent.Append(content);
-                                    await messageReceivedAsync(content);
-                                }
-                            }
-                        }
-                        catch (JsonException ex)
-                        {
-                            if (policy.EnableLogging)
-                            {
-                                Console.WriteLine($"[Claude Stream] Parse error: {ex.Message}");
-                            }
-                            // Continue processing instead of throwing
-                            continue;
-                        }
-                    }
-
-                    // Check for cancellation
-                    cts.Token.ThrowIfCancellationRequested();
-
-                    // Handle function call if present
-                    if (currentFunctionCall != null && useFunctions && currentFunctionCall.Arguments?.Count > 0)
-                    {
-                        if (policy.EnableLogging)
-                        {
-                            Console.WriteLine($"  Executing function: {currentFunctionCall.Name}");
-                        }
-
-                        // Save assistant message with tool use
-                        var assistantMessage = new Message(ActorRole.Assistant, allContent.ToString())
-                        {
+                            Type = StreamingContentType.Error,
                             Metadata = new Dictionary<string, object>
                             {
-                                ["tool_use_id"] = currentToolUseId ?? Guid.NewGuid().ToString(),
-                                ["function_name"] = currentFunctionCall.Name,
-                                ["arguments"] = JsonSerializer.Serialize(currentFunctionCall.Arguments)
+                                ["error"] = error,
+                                ["status_code"] = (int)response.StatusCode
                             }
-                        };
-                        ActivateChat.Messages.Add(assistantMessage);
+                        });
 
-                        // Set CallId for consistency
-                        currentFunctionCall.CallId = currentToolUseId;
-
-                        // Execute function and add result message
-                        await ExecuteFunctionAndAddResultAsync(currentFunctionCall);
-
-                        // Continue to next round for getting final response
-                        continue;
+                        while (streamQueue.Count > 0)
+                            yield return streamQueue.Dequeue();
+                        yield break;
                     }
-                    else
+
+                    // 스트림 처리
+                    var (continueLoop, functionExecuted) = await ProcessClaudeStreamResponse(
+                        response, options, policy, streamQueue, cancellationToken);
+
+                    // 큐에 있는 항목들을 yield
+                    while (streamQueue.Count > 0)
                     {
-                        // No function call, save final message and return
-                        if (allContent.Length > 0)
-                        {
-                            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
-                        }
-                        return;
+                        yield return streamQueue.Dequeue();
                     }
-                }
 
-                throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded in streaming");
-            }
-            catch (OperationCanceledException)
-            {
-                throw new AIServiceException($"Stream timeout after {policy.TimeoutSeconds} seconds");
+                    if (!continueLoop)
+                        break;
+
+                    if (!functionExecuted)
+                        break;
+                }
             }
             finally
             {
                 if (originalChat != null)
-                {
                     ActivateChat = originalChat;
-                }
             }
         }
 
-        private async Task ProcessStatelessStreamAsync(Message message, Func<string, Task> messageReceivedAsync)
+        private async Task<(bool continueLoop, bool functionExecuted)> ProcessClaudeStreamResponse(
+            HttpResponseMessage response,
+            StreamOptions options,
+            FunctionCallingPolicy policy,
+            Queue<StreamingContent> streamQueue,
+            CancellationToken cancellationToken)
         {
-            // Stateless 모드는 단순히 원래 ChatBlock을 백업하고 복원하는 방식으로 처리
-            // (메인 StreamCompletionAsync에서 처리됨)
-            throw new NotImplementedException("This method is no longer used. Stateless mode is handled in main StreamCompletionAsync.");
+            using var stream = await response.Content.ReadAsStreamAsync();
+            using var reader = new StreamReader(stream);
+
+            var textBuffer = new StringBuilder();
+            var currentToolUse = new ToolUseData();
+            bool functionEventSent = false;
+            string currentModel = null;
+
+            string line;
+            while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
+            {
+                if (!line.StartsWith("data:") && !line.StartsWith("event:"))
+                    continue;
+
+                // Event type 처리
+                if (line.StartsWith("event:"))
+                {
+                    var eventType = line.Substring("event:".Length).Trim();
+                    currentToolUse.CurrentEventType = eventType;
+                    continue;
+                }
+
+                var jsonData = line.Substring("data:".Length).Trim();
+                if (string.IsNullOrEmpty(jsonData))
+                    continue;
+
+                var parseResult = TryParseClaudeStreamChunk(jsonData, currentToolUse, options, policy);
+                if (parseResult == null) continue;
+
+                // Model 정보 추출
+                if (currentModel == null && parseResult.Model != null)
+                {
+                    currentModel = parseResult.Model;
+                }
+
+                // Tool use (function call) 시작
+                if (parseResult.ToolUseStarted && !functionEventSent && options.IncludeFunctionCalls)
+                {
+                    functionEventSent = true;
+                    streamQueue.Enqueue(new StreamingContent
+                    {
+                        Type = StreamingContentType.FunctionCall,
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["function_name"] = currentToolUse.Name ?? "unknown",
+                            ["tool_use_id"] = currentToolUse.Id ?? "",
+                            ["status"] = "started"
+                        }
+                    });
+
+                    if (policy.EnableLogging)
+                        Console.WriteLine($"  → Tool use detected: {currentToolUse.Name}");
+                }
+
+                // 텍스트 콘텐츠
+                if (!string.IsNullOrEmpty(parseResult.TextContent))
+                {
+                    textBuffer.Append(parseResult.TextContent);
+                    streamQueue.Enqueue(new StreamingContent
+                    {
+                        Type = StreamingContentType.Text,
+                        Content = parseResult.TextContent,
+                        Metadata = options.IncludeMetadata ? new Dictionary<string, object>
+                        {
+                            ["model"] = currentModel ?? ActivateChat.Model
+                        } : null
+                    });
+                }
+
+                // Message 완료
+                if (parseResult.MessageComplete)
+                {
+                    if (options.IncludeMetadata)
+                    {
+                        streamQueue.Enqueue(new StreamingContent
+                        {
+                            Type = StreamingContentType.Completion,
+                            Metadata = new Dictionary<string, object>
+                            {
+                                ["total_length"] = textBuffer.Length,
+                                ["model"] = currentModel ?? ActivateChat.Model
+                            }
+                        });
+                    }
+                    break;
+                }
+            }
+
+            // Tool use (function) 처리
+            if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
+            {
+                // Arguments 파싱
+                Dictionary<string, object> arguments = new Dictionary<string, object>();
+                if (currentToolUse.Arguments.Length > 0)
+                {
+                    arguments = TryParseArguments(currentToolUse.Arguments.ToString())
+                        ?? new Dictionary<string, object>();
+                }
+
+                // Assistant 메시지 저장 (tool_use 포함)
+                var assistantMsg = new Message(ActorRole.Assistant, textBuffer.ToString())
+                {
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["tool_use_id"] = currentToolUse.Id ?? Guid.NewGuid().ToString(),
+                        ["function_name"] = currentToolUse.Name,
+                        ["arguments"] = JsonSerializer.Serialize(arguments)
+                    }
+                };
+                ActivateChat.Messages.Add(assistantMsg);
+
+                // Function 실행
+                if (policy.EnableLogging)
+                    Console.WriteLine($"  → Executing function: {currentToolUse.Name}");
+
+                var result = await ProcessFunctionCallAsync(currentToolUse.Name, arguments);
+
+                // Function result 이벤트
+                streamQueue.Enqueue(new StreamingContent
+                {
+                    Type = StreamingContentType.FunctionResult,
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["function_name"] = currentToolUse.Name,
+                        ["tool_use_id"] = currentToolUse.Id ?? "",
+                        ["status"] = "completed",
+                        ["result"] = result
+                    }
+                });
+
+                if (policy.EnableLogging)
+                    Console.WriteLine($"  → Function result: {result}");
+
+                // Function 결과 메시지 저장
+                ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+                {
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["tool_use_id"] = currentToolUse.Id ?? Guid.NewGuid().ToString(),
+                        ["function_name"] = currentToolUse.Name
+                    }
+                });
+
+                return (true, true); // continue loop, function executed
+            }
+            else if (textBuffer.Length > 0)
+            {
+                // Function call 없이 일반 응답만 있는 경우
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
+            }
+
+            return (false, false); // don't continue loop
         }
 
-        /// <summary>
-        /// Parse streaming JSON for function calls
-        /// </summary>
-        private (string content, FunctionCall functionCall, string toolUseId, string partialJson) StreamParseFunctionJson(string jsonData)
+        // 기존 callback 기반 메서드 (호환성 유지)
+        public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+        {
+            await foreach (var content in StreamAsync(message, StreamOptions.TextOnlyOptions))
+            {
+                if (content.Type == StreamingContentType.Text && content.Content != null)
+                    await messageReceivedAsync(content.Content);
+            }
+        }
+
+        #endregion
+
+        #region Helper Classes and Methods
+
+        private class ToolUseData
+        {
+            public string Id { get; set; }
+            public string Name { get; set; }
+            public StringBuilder Arguments { get; } = new StringBuilder();
+            public bool IsComplete { get; set; }
+            public string CurrentEventType { get; set; }
+        }
+
+        private class ClaudeStreamParseResult
+        {
+            public string TextContent { get; set; }
+            public bool ToolUseStarted { get; set; }
+            public bool MessageComplete { get; set; }
+            public string Model { get; set; }
+        }
+
+        private ClaudeStreamParseResult TryParseClaudeStreamChunk(
+            string jsonData,
+            ToolUseData toolUseData,
+            StreamOptions options,
+            FunctionCallingPolicy policy)
         {
             try
             {
-                var jsonElement = JsonSerializer.Deserialize<JsonElement>(jsonData);
-                string content = string.Empty;
-                FunctionCall functionCall = null;
-                string toolUseId = null;
-                string partialJson = null;
+                using var doc = JsonDocument.Parse(jsonData);
+                var root = doc.RootElement;
+                var result = new ClaudeStreamParseResult();
 
-                if (jsonElement.TryGetProperty("type", out var typeElement))
+                // Model 정보 추출
+                if (root.TryGetProperty("model", out var modelElem))
+                {
+                    result.Model = modelElem.GetString();
+                }
+
+                // Type 기반 처리
+                if (root.TryGetProperty("type", out var typeElement))
                 {
                     var type = typeElement.GetString();
 
-                    // Handle different event types
                     switch (type)
                     {
-                        case "content_block_start":
-                            if (jsonElement.TryGetProperty("content_block", out var blockElement))
+                        case "message_start":
+                            // 메시지 시작 - 메타데이터 추출 가능
+                            if (root.TryGetProperty("message", out var msgStart))
                             {
-                                if (blockElement.TryGetProperty("type", out var blockType) &&
-                                    blockType.GetString() == "tool_use")
+                                if (msgStart.TryGetProperty("model", out var msgModel))
                                 {
-                                    toolUseId = blockElement.GetProperty("id").GetString();
-                                    var name = blockElement.GetProperty("name").GetString();
+                                    result.Model = msgModel.GetString();
+                                }
+                            }
+                            break;
 
-                                    functionCall = new FunctionCall
+                        case "content_block_start":
+                            // 콘텐츠 블록 시작
+                            if (root.TryGetProperty("content_block", out var blockElement))
+                            {
+                                if (blockElement.TryGetProperty("type", out var blockType))
+                                {
+                                    var blockTypeStr = blockType.GetString();
+
+                                    if (blockTypeStr == "tool_use")
                                     {
-                                        Name = name,
-                                        CallId = toolUseId,
-                                        Arguments = new Dictionary<string, object>()
-                                    };
+                                        // Tool use 시작
+                                        if (blockElement.TryGetProperty("id", out var idElem))
+                                        {
+                                            toolUseData.Id = idElem.GetString();
+                                        }
+                                        if (blockElement.TryGetProperty("name", out var nameElem))
+                                        {
+                                            toolUseData.Name = nameElem.GetString();
+                                        }
+                                        toolUseData.Arguments.Clear();
+                                        result.ToolUseStarted = true;
+                                    }
                                 }
                             }
                             break;
 
                         case "content_block_delta":
-                            if (jsonElement.TryGetProperty("delta", out var deltaElement))
+                            // 콘텐츠 델타
+                            if (root.TryGetProperty("delta", out var deltaElement))
                             {
                                 if (deltaElement.TryGetProperty("type", out var deltaType))
                                 {
-                                    if (deltaType.GetString() == "text_delta" &&
-                                        deltaElement.TryGetProperty("text", out var textElement))
+                                    var deltaTypeStr = deltaType.GetString();
+
+                                    if (deltaTypeStr == "text_delta")
                                     {
-                                        content = textElement.GetString() ?? string.Empty;
+                                        if (deltaElement.TryGetProperty("text", out var textElem))
+                                        {
+                                            result.TextContent = textElem.GetString();
+                                        }
                                     }
-                                    else if (deltaType.GetString() == "input_json_delta" &&
-                                            deltaElement.TryGetProperty("partial_json", out var jsonElement2))
+                                    else if (deltaTypeStr == "input_json_delta")
                                     {
-                                        // Return partial JSON to be accumulated
-                                        partialJson = jsonElement2.GetString();
+                                        if (deltaElement.TryGetProperty("partial_json", out var jsonElem))
+                                        {
+                                            toolUseData.Arguments.Append(jsonElem.GetString());
+                                        }
                                     }
                                 }
                             }
                             break;
 
                         case "content_block_stop":
-                            // Block completed
+                            // 콘텐츠 블록 완료
+                            if (root.TryGetProperty("index", out var indexElem))
+                            {
+                                // Tool use가 완료되었는지 확인
+                                if (!string.IsNullOrEmpty(toolUseData.Name))
+                                {
+                                    toolUseData.IsComplete = true;
+                                }
+                            }
+                            break;
+
+                        case "message_delta":
+                            // 메시지 델타 (usage 정보 등)
+                            if (root.TryGetProperty("usage", out var usageElem) && options.IncludeTokenInfo)
+                            {
+                                // Token 정보 처리 (필요시)
+                            }
+                            break;
+
+                        case "message_stop":
+                            // 메시지 완료
+                            result.MessageComplete = true;
+                            break;
+
+                        case "error":
+                            // 에러 처리
+                            if (root.TryGetProperty("error", out var errorElem))
+                            {
+                                if (policy.EnableLogging)
+                                {
+                                    Console.WriteLine($"[Claude Stream Error] {errorElem.GetRawText()}");
+                                }
+                            }
                             break;
                     }
                 }
 
-                return (content, functionCall, toolUseId, partialJson);
+                return result;
             }
-            catch
+            catch (JsonException ex)
             {
-                return (string.Empty, null, null, null);
+                if (policy.EnableLogging)
+                    Console.WriteLine($"[Claude Parse Error] {ex.Message}");
+                return null;
             }
         }
 
-        // Override the new streaming method with options
-        public override async IAsyncEnumerable<StreamingContent> StreamAsync(
-            Message message,
-            StreamOptions options,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        private Dictionary<string, object> TryParseArguments(string argsJson)
         {
-            // Check if functions are available and should be used
-            bool useFunctions = options.IncludeFunctionCalls &&
-                               ActivateChat.ShouldUseFunctions &&
-                               !FunctionsDisabled;
-
-            // For now, use the callback-based streaming and convert
-            // This can be optimized later to directly handle streaming with metadata
-            var channel = Channel.CreateUnbounded<StreamingContent>();
-
-            var streamingTask = Task.Run(async () =>
+            try
             {
-                try
-                {
-                    var allContent = new StringBuilder();
-                    FunctionCall currentFunctionCall = null;
-                    string currentToolUseId = null;
-
-                    await StreamCompletionAsync(message, async content =>
-                    {
-                        allContent.Append(content);
-                        var streamingContent = new StreamingContent
-                        {
-                            Type = StreamingContentType.Text,
-                            Content = content
-                        };
-
-                        if (options.IncludeMetadata)
-                        {
-                            streamingContent.Metadata = new Dictionary<string, object>
-                            {
-                                ["provider"] = "Claude",
-                                ["timestamp"] = DateTime.UtcNow
-                            };
-                        }
-
-                        await channel.Writer.WriteAsync(streamingContent, cancellationToken);
-                    });
-
-                    // Check if we accumulated a function call
-                    if (currentFunctionCall != null && useFunctions)
-                    {
-                        var functionContent = new StreamingContent
-                        {
-                            Type = StreamingContentType.FunctionCall,
-                            FunctionCallData = new FunctionCallData
-                            {
-                                Name = currentFunctionCall.Name,
-                                IsComplete = true
-                            }
-                        };
-                        functionContent.FunctionCallData.Arguments.Append(
-                            JsonSerializer.Serialize(currentFunctionCall.Arguments));
-
-                        await channel.Writer.WriteAsync(functionContent, cancellationToken);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    await channel.Writer.WriteAsync(new StreamingContent
-                    {
-                        Type = StreamingContentType.Error,
-                        Metadata = new Dictionary<string, object> { ["error"] = ex.Message }
-                    }, cancellationToken);
-                }
-                finally
-                {
-                    channel.Writer.TryComplete();
-                }
-            }, cancellationToken);
-
-            await foreach (var content in channel.Reader.ReadAllAsync(cancellationToken))
-            {
-                yield return content;
+                return JsonSerializer.Deserialize<Dictionary<string, object>>(argsJson);
             }
-
-            await streamingTask;
+            catch
+            {
+                return null;
+            }
         }
 
         #endregion

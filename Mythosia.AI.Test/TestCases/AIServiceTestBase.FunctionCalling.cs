@@ -271,68 +271,61 @@ public abstract partial class AIServiceTestBase
     [TestCategory("Common")]
     [TestCategory("FunctionCalling")]
     [TestMethod]
-    public async Task FunctionCallingWithStreamingTest()
+    public async Task FunctionCallingStreamEventsTest()
     {
         await RunIfSupported(
             () => SupportsFunctionCalling(),
             async () =>
             {
-                var infoFunction = FunctionBuilder.Create("get_info")
-                    .WithDescription("Get information about a topic")
-                    .AddParameter("topic", "string", "The topic to get info about", required: true)
-                    .WithHandler(args =>
-                    {
-                        var topic = args["topic"].ToString();
-                        return $"Here's information about {topic}: It's a fascinating subject with many aspects to explore.";
-                    })
-                    .Build();
+                // Function 등록
+                AI.WithFunction(
+                    "test_function",
+                    "Test function for streaming",
+                    () => "Function executed successfully"
+                );
 
-                AI.ActivateChat.AddFunction(infoFunction);
+                var eventLog = new List<(StreamingContentType type, string metadata)>();
 
-                // Callback-based streaming test
-                var textContent = new System.Text.StringBuilder();
-                await AI.StreamCompletionAsync("Tell me about quantum computing", chunk =>
+                var options = StreamOptions.WithFunctions;
+                var message = new Message(ActorRole.User, "Call the test_function");
+
+                await foreach (var content in AI.StreamAsync(message, options))
                 {
-                    textContent.Append(chunk);
-                    Console.Write(chunk);
-                });
+                    eventLog.Add((content.Type, JsonSerializer.Serialize(content.Metadata)));
 
-                Console.WriteLine($"\n[Stream Complete] Length: {textContent.Length}");
-                Assert.IsTrue(textContent.Length > 0);
-
-                // Advanced streaming with metadata (if supported)
-                if (AI is Mythosia.AI.Services.Base.AIService aiService)
-                {
-                    var options = new StreamOptions
+                    if(content.Type == StreamingContentType.Text)
                     {
-                        IncludeMetadata = true,
-                        IncludeFunctionCalls = true
-                    };
-
-                    var functionCallDetected = false;
-                    var functionResultReceived = false;
-
-                    var message = new Message(ActorRole.User, "Tell me about artificial intelligence");
-                    await foreach (var content in aiService.StreamAsync(message, options))
-                    {
-                        Console.WriteLine($"[Stream] Type: {content.Type}");
-
-                        switch (content.Type)
-                        {
-                            case StreamingContentType.FunctionCall:
-                                functionCallDetected = true;
-                                break;
-                            case StreamingContentType.FunctionResult:
-                                functionResultReceived = true;
-                                break;
-                        }
+                        Console.Write(content.Content);
                     }
-
-                    Console.WriteLine($"[Function Call Detected] {functionCallDetected}");
-                    Console.WriteLine($"[Function Result Received] {functionResultReceived}");
+                    else if (content.Type == StreamingContentType.FunctionCall)
+                    {
+                        Assert.IsNotNull(content.Metadata);
+                        Assert.IsTrue(content.Metadata.ContainsKey("function_name"));
+                        Console.WriteLine($"✅ Function Call Event: {content.Metadata["function_name"]}");
+                    }
+                    else if (content.Type == StreamingContentType.FunctionResult)
+                    {
+                        Assert.IsNotNull(content.Metadata);
+                        Assert.IsTrue(content.Metadata.ContainsKey("status"));
+                        Console.WriteLine($"✅ Function Result Event: {content.Metadata["status"]}");
+                    }
                 }
+
+                // 검증
+                var functionCallEvents = eventLog.Where(e => e.type == StreamingContentType.FunctionCall).ToList();
+                var functionResultEvents = eventLog.Where(e => e.type == StreamingContentType.FunctionResult).ToList();
+
+                Assert.IsTrue(functionCallEvents.Count > 0, "No FunctionCall events detected");
+                Assert.IsTrue(functionResultEvents.Count > 0, "No FunctionResult events detected");
+
+                var lastMessage = AI.ActivateChat.Messages.LastOrDefault();
+                Assert.AreEqual(ActorRole.Assistant, lastMessage?.Role);
+
+                Console.WriteLine($"Event Summary:");
+                Console.WriteLine($"  FunctionCall events: {functionCallEvents.Count}");
+                Console.WriteLine($"  FunctionResult events: {functionResultEvents.Count}");
             },
-            "Function Calling with Streaming"
+            "Function Calling Stream Events"
         );
     }
 

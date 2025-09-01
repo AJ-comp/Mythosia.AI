@@ -14,7 +14,7 @@ public class ClaudeServiceTests : AIServiceTestBase
         string apiKey = secretFetcher.GetKeyValueAsync().Result;
 
         var service = new ClaudeService(apiKey, new HttpClient());
-        service.ActivateChat.ChangeModel(AIModel.Claude3_7SonnetLatest);
+        service.ActivateChat.ChangeModel(AIModel.ClaudeSonnet4_250514);
         return service;
     }
 
