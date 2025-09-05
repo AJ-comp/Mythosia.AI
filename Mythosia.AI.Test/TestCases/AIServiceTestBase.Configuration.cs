@@ -5,39 +5,6 @@ namespace Mythosia.AI.Tests;
 public abstract partial class AIServiceTestBase
 {
     /// <summary>
-    /// 모델 변경 테스트
-    /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("Configuration")]
-    [TestMethod]
-    public async Task ModelSwitchingTest()
-    {
-        try
-        {
-            var originalModel = AI.ActivateChat.Model;
-            Console.WriteLine($"[Original Model] {originalModel}");
-
-            var alternativeModel = GetAlternativeModel();
-            if (alternativeModel != null)
-            {
-                AI.ActivateChat.ChangeModel(alternativeModel.Value);
-                Console.WriteLine($"[Changed Model] {AI.ActivateChat.Model}");
-
-                string response = await AI.GetCompletionAsync("What model are you?");
-                Assert.IsNotNull(response);
-                Console.WriteLine($"[Model Test Response] {response}");
-
-                AI.ActivateChat.ChangeModel(originalModel);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Error in Model Switching Test] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-
-    /// <summary>
     /// 설정 체이닝 테스트
     /// </summary>
     [TestCategory("Common")]

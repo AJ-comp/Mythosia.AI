@@ -109,6 +109,18 @@ namespace Mythosia.AI.Services.Base
             return await GetCompletionAsync(message);
         }
 
+
+        public AIService CopyFrom(AIService sourceService)
+        {
+            if (sourceService == null)
+                throw new ArgumentNullException(nameof(sourceService));
+
+            // ChatBlock 복제
+            this.ActivateChat = sourceService.ActivateChat.Clone();
+
+            return this;
+        }
+
         #endregion
 
         #region Abstract Methods

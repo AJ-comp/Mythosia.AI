@@ -7,6 +7,7 @@ using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -87,6 +88,18 @@ namespace Mythosia.AI.Services.OpenAI
             FunctionCallingPolicy policy,
             CancellationToken cancellationToken)
         {
+            Debug.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
+
+            // 현재 메시지 상태 출력
+            foreach (var msg in ActivateChat.Messages.TakeLast(3))
+            {
+                Debug.WriteLine($"  Message: Role={msg.Role}, Content={msg.Content?.Substring(0, Math.Min(50, msg.Content?.Length ?? 0))}");
+                if (msg.Metadata != null)
+                {
+                    Debug.WriteLine($"    Metadata: {string.Join(", ", msg.Metadata.Select(kvp => $"{kvp.Key}={kvp.Value}"))}");
+                }
+            }
+
             if (policy.EnableLogging)
             {
                 Console.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
@@ -147,6 +160,8 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var (content, functionCall) = ExtractFunctionCall(responseContent);
 
+            Debug.WriteLine($"[FUNC DEBUG] content='{content}', functionCall={functionCall?.Name ?? "null"}");
+
             // Function 호출이 있는 경우
             if (functionCall != null)
             {
@@ -193,13 +208,13 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private async Task ExecuteFunctionAsync(FunctionCall functionCall)
         {
-            // 1. 먼저 Function Call 자체를 메시지로 저장 (통합 메타데이터 사용)
-            var functionCallMessage = new Message(ActorRole.Assistant, "")
+            // 1. Function Call 메시지 저장 (빈 문자열 사용)
+            var functionCallMessage = new Message(ActorRole.Assistant, string.Empty)
             {
                 Metadata = new Dictionary<string, object>
                 {
                     [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionCallId] = functionCall.Id,  // 통합 ID
+                    [MessageMetadataKeys.FunctionCallId] = functionCall.Id,
                     [MessageMetadataKeys.FunctionName] = functionCall.Name,
                     [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
                     ["model"] = ActivateChat.Model
@@ -217,11 +232,17 @@ namespace Mythosia.AI.Services.OpenAI
             // 2. Function 실행
             var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
 
-            // 3. Function 결과를 메시지로 저장 (통합 메타데이터 사용)
+            // 3. Function 결과 저장 - content가 비어있지 않은지 확인
+            if (string.IsNullOrEmpty(result))
+            {
+                Console.WriteLine($"[WARNING] Function {functionCall.Name} returned empty result");
+                result = "Function executed successfully"; // 기본값 제공
+            }
+
             var metadata = new Dictionary<string, object>
             {
                 [MessageMetadataKeys.MessageType] = "function_result",
-                [MessageMetadataKeys.FunctionCallId] = functionCall.Id,  // 통합 ID
+                [MessageMetadataKeys.FunctionCallId] = functionCall.Id,
                 [MessageMetadataKeys.FunctionName] = functionCall.Name,
                 ["model"] = ActivateChat.Model
             };

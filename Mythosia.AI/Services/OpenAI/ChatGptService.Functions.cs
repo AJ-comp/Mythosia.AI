@@ -2,6 +2,7 @@
 using Mythosia.AI.Models.Functions;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
@@ -215,11 +216,29 @@ namespace Mythosia.AI.Services.OpenAI
                 {
                     var functionName = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "function";
 
+                    // 중요: Function 결과 메시지를 제대로 포맷
                     messagesList.Add(new
                     {
                         role = "function",
                         name = functionName,
-                        content = message.Content
+                        content = message.Content ?? ""  // 빈 문자열 대신 실제 content 확인
+                    });
+                }
+                else if (message.Role == ActorRole.Assistant &&
+                         message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
+                {
+                    // Assistant의 function_call 메시지 처리
+                    var functionName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString();
+                    var argumentsStr = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
+
+                    messagesList.Add(new
+                    {
+                        role = "assistant",
+                        function_call = new
+                        {
+                            name = functionName,
+                            arguments = argumentsStr
+                        }
                     });
                 }
                 else
