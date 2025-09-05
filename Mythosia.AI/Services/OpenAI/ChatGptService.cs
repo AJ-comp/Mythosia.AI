@@ -193,36 +193,42 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private async Task ExecuteFunctionAsync(FunctionCall functionCall)
         {
-            // 1. 먼저 Function Call 자체를 메시지로 저장 (새 API용)
-            if (!string.IsNullOrEmpty(functionCall.CallId))
+            // 1. 먼저 Function Call 자체를 메시지로 저장 (통합 메타데이터 사용)
+            var functionCallMessage = new Message(ActorRole.Assistant, "")
             {
-                var functionCallMessage = new Message(ActorRole.Assistant, "")
+                Metadata = new Dictionary<string, object>
                 {
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["type"] = "function_call",
-                        ["call_id"] = functionCall.CallId,
-                        ["function_name"] = functionCall.Name,
-                        ["arguments"] = JsonSerializer.Serialize(functionCall.Arguments),
-                        ["model"] = ActivateChat.Model
-                    }
-                };
-                ActivateChat.Messages.Add(functionCallMessage);
+                    [MessageMetadataKeys.MessageType] = "function_call",
+                    [MessageMetadataKeys.FunctionCallId] = functionCall.Id,  // 통합 ID
+                    [MessageMetadataKeys.FunctionName] = functionCall.Name,
+                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
+                    ["model"] = ActivateChat.Model
+                }
+            };
+
+            // Provider-specific ID 저장
+            if (!string.IsNullOrEmpty(functionCall.ProviderSpecificId))
+            {
+                functionCallMessage.Metadata[MessageMetadataKeys.OpenAICallId] = functionCall.ProviderSpecificId;
             }
+
+            ActivateChat.Messages.Add(functionCallMessage);
 
             // 2. Function 실행
             var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
 
-            // 3. Function 결과를 메시지로 저장
+            // 3. Function 결과를 메시지로 저장 (통합 메타데이터 사용)
             var metadata = new Dictionary<string, object>
             {
-                ["function_name"] = functionCall.Name,
+                [MessageMetadataKeys.MessageType] = "function_result",
+                [MessageMetadataKeys.FunctionCallId] = functionCall.Id,  // 통합 ID
+                [MessageMetadataKeys.FunctionName] = functionCall.Name,
                 ["model"] = ActivateChat.Model
             };
 
-            if (!string.IsNullOrEmpty(functionCall.CallId))
+            if (!string.IsNullOrEmpty(functionCall.ProviderSpecificId))
             {
-                metadata["call_id"] = functionCall.CallId;
+                metadata[MessageMetadataKeys.OpenAICallId] = functionCall.ProviderSpecificId;
             }
 
             ActivateChat.Messages.Add(new Message(ActorRole.Function, result)

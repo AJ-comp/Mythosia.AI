@@ -37,10 +37,21 @@ namespace Mythosia.AI.Services.Anthropic
 
             foreach (var message in ActivateChat.GetLatestMessages())
             {
-                // Handle Function results with proper tool_result format
+                // Handle Function results
                 if (message.Role == ActorRole.Function)
                 {
-                    var toolUseId = message.Metadata?.GetValueOrDefault("tool_use_id")?.ToString();
+                    // Use unified ID
+                    var callId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionCallId)?.ToString();
+
+                    // Find Claude's tool_use_id for this call
+                    var toolUseId = FindToolUseIdForCallId(callId);
+
+                    if (string.IsNullOrEmpty(toolUseId))
+                    {
+                        // Skip this message if no matching tool_use_id found
+                        Console.WriteLine($"[Warning] No tool_use_id found for function result with call_id: {callId}");
+                        continue;
+                    }
 
                     messagesList.Add(new
                     {
@@ -50,19 +61,26 @@ namespace Mythosia.AI.Services.Anthropic
                             new
                             {
                                 type = "tool_result",
-                                tool_use_id = toolUseId ?? "unknown",
+                                tool_use_id = toolUseId,
                                 content = message.Content
                             }
                         }
                     });
                 }
-                // Handle Assistant messages with tool_use
+                // Handle Assistant messages with function calls
                 else if (message.Role == ActorRole.Assistant &&
-                         message.Metadata?.ContainsKey("tool_use_id") == true)
+                         message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
                 {
-                    var toolUseId = message.Metadata.GetValueOrDefault("tool_use_id")?.ToString();
-                    var functionName = message.Metadata.GetValueOrDefault("function_name")?.ToString();
-                    var arguments = message.Metadata.GetValueOrDefault("arguments");
+                    var callId = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionCallId)?.ToString();
+                    var functionName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString();
+                    var argumentsStr = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
+
+                    // Get or generate Claude's tool_use_id
+                    var toolUseId = message.Metadata.GetValueOrDefault(MessageMetadataKeys.ClaudeToolUseId)?.ToString();
+                    if (string.IsNullOrEmpty(toolUseId))
+                    {
+                        toolUseId = $"toolu_{callId}";
+                    }
 
                     var contentList = new List<object>();
 
@@ -72,15 +90,13 @@ namespace Mythosia.AI.Services.Anthropic
                         contentList.Add(new { type = "text", text = message.Content });
                     }
 
-                    // Add tool_use
+                    // Add tool_use - always parse from string
                     contentList.Add(new
                     {
                         type = "tool_use",
-                        id = toolUseId ?? Guid.NewGuid().ToString(),
+                        id = toolUseId,
                         name = functionName,
-                        input = arguments is string argStr
-                            ? JsonSerializer.Deserialize<Dictionary<string, object>>(argStr)
-                            : arguments
+                        input = JsonSerializer.Deserialize<Dictionary<string, object>>(argumentsStr) ?? new Dictionary<string, object>()
                     });
 
                     messagesList.Add(new
@@ -139,6 +155,30 @@ namespace Mythosia.AI.Services.Anthropic
             return requestBody;
         }
 
+        private string FindToolUseIdForCallId(string callId)
+        {
+            if (string.IsNullOrEmpty(callId)) return null;
+
+            // Search messages in reverse order (most recent first)
+            for (int i = ActivateChat.Messages.Count - 1; i >= 0; i--)
+            {
+                var msg = ActivateChat.Messages[i];
+                if (msg.Role == ActorRole.Assistant &&
+                    msg.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionCallId)?.ToString() == callId)
+                {
+                    // Return Claude's tool_use_id
+                    var toolUseId = msg.Metadata.GetValueOrDefault(MessageMetadataKeys.ClaudeToolUseId)?.ToString();
+                    if (!string.IsNullOrEmpty(toolUseId))
+                        return toolUseId;
+
+                    // Fallback: generate from callId
+                    return $"toolu_{callId}";
+                }
+            }
+
+            return null;
+        }
+
         protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
         {
             var result = ExtractFunctionCallWithMetadata(response);
@@ -182,7 +222,8 @@ namespace Mythosia.AI.Services.Anthropic
                                 functionCall = new FunctionCall
                                 {
                                     Name = item.GetProperty("name").GetString(),
-                                    CallId = toolUseId, // Store the ID
+                                    ProviderSpecificId = toolUseId,
+                                    Provider = AIProvider.Anthropic,
                                     Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
                                         item.GetProperty("input").GetRawText()) ?? new Dictionary<string, object>()
                                 };
@@ -194,14 +235,16 @@ namespace Mythosia.AI.Services.Anthropic
                 // If we have a tool_use, save the complete assistant response
                 if (functionCall != null && toolUseId != null)
                 {
-                    // Create assistant message with tool_use metadata
+                    // Create assistant message with standardized metadata
                     var assistantMessage = new Message(ActorRole.Assistant, content ?? "")
                     {
                         Metadata = new Dictionary<string, object>
                         {
-                            ["tool_use_id"] = toolUseId,
-                            ["function_name"] = functionCall.Name,
-                            ["arguments"] = JsonSerializer.Serialize(functionCall.Arguments)
+                            [MessageMetadataKeys.MessageType] = "function_call",
+                            [MessageMetadataKeys.FunctionCallId] = functionCall.Id,
+                            [MessageMetadataKeys.FunctionName] = functionCall.Name,
+                            [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
+                            [MessageMetadataKeys.ClaudeToolUseId] = toolUseId
                         }
                     };
 

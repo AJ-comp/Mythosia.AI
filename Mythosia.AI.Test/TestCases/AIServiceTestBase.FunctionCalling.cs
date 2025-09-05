@@ -4,6 +4,7 @@ using Mythosia.AI.Extensions;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
+using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -470,12 +471,20 @@ public abstract partial class AIServiceTestBase
                     })
                 );
 
-                var response = await AI.GetCompletionAsync(
-                    "Get the details for username 'john_doe'"
-                );
-
-                Assert.IsNotNull(response);
-                Console.WriteLine($"[Chain Response] {response}");
+                try
+                {
+                    var response = await AI.GetCompletionAsync(
+    "Get the details for username 'john_doe'"
+);
+                    Assert.IsNotNull(response);
+                    Console.WriteLine($"[Chain Response] {response}");
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"[Function Chaining Error] {ex.GetType().Name}: {ex.Message}");
+                    Assert.Fail("Function chaining failed");
+                    return;
+                }
 
                 var functionMessages = AI.ActivateChat.Messages
                     .Where(m => m.Role == ActorRole.Function)

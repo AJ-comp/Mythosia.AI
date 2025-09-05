@@ -200,14 +200,19 @@ namespace Mythosia.AI.Services.Anthropic
                         ?? new Dictionary<string, object>();
                 }
 
-                // Assistant 메시지 저장 (tool_use 포함)
+                // 통합 ID 생성
+                var unifiedId = Guid.NewGuid().ToString();
+
+                // Assistant 메시지 저장 (tool_use 포함) - 통합 메타데이터 사용
                 var assistantMsg = new Message(ActorRole.Assistant, textBuffer.ToString())
                 {
                     Metadata = new Dictionary<string, object>
                     {
-                        ["tool_use_id"] = currentToolUse.Id ?? Guid.NewGuid().ToString(),
-                        ["function_name"] = currentToolUse.Name,
-                        ["arguments"] = JsonSerializer.Serialize(arguments)
+                        [MessageMetadataKeys.MessageType] = "function_call",
+                        [MessageMetadataKeys.FunctionCallId] = unifiedId,  // 통합 ID
+                        [MessageMetadataKeys.FunctionName] = currentToolUse.Name,
+                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(arguments),
+                        [MessageMetadataKeys.ClaudeToolUseId] = currentToolUse.Id ?? Guid.NewGuid().ToString()  // Claude 전용 ID
                     }
                 };
                 ActivateChat.Messages.Add(assistantMsg);
@@ -234,13 +239,15 @@ namespace Mythosia.AI.Services.Anthropic
                 if (policy.EnableLogging)
                     Console.WriteLine($"  → Function result: {result}");
 
-                // Function 결과 메시지 저장
+                // Function 결과 메시지 저장 - 통합 메타데이터 사용
                 ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
                 {
                     Metadata = new Dictionary<string, object>
                     {
-                        ["tool_use_id"] = currentToolUse.Id ?? Guid.NewGuid().ToString(),
-                        ["function_name"] = currentToolUse.Name
+                        [MessageMetadataKeys.MessageType] = "function_result",
+                        [MessageMetadataKeys.FunctionCallId] = unifiedId,  // 동일한 통합 ID
+                        [MessageMetadataKeys.FunctionName] = currentToolUse.Name,
+                        [MessageMetadataKeys.ClaudeToolUseId] = currentToolUse.Id ?? Guid.NewGuid().ToString()
                     }
                 });
 

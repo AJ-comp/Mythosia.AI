@@ -15,7 +15,7 @@ public class ChatGptServiceTests : AIServiceTestBase
         string openAiKey = secretFetcher.GetKeyValueAsync().Result;
 
         var service = new ChatGptService(openAiKey, new HttpClient());
-        service.ActivateChat.ChangeModel(AIModel.Gpt4o240806);
+        service.ActivateChat.ChangeModel(AIModel.Gpt4o);
         service.ActivateChat.SystemMessage = "You are a helpful assistant for testing purposes.";
 
         return service;

@@ -116,16 +116,25 @@ namespace Mythosia.AI.Services.OpenAI
             if (streamData.HasContent || streamData.FunctionCall != null)
             {
                 var assistantMsg = new Message(ActorRole.Assistant, streamData.TextContent);
+
                 if (streamData.FunctionCall != null)
                 {
+                    // 통합 메타데이터 사용
                     assistantMsg.Metadata = new Dictionary<string, object>
                     {
-                        ["type"] = "function_call",
-                        ["call_id"] = streamData.FunctionCall.CallId ?? Guid.NewGuid().ToString(),
-                        ["function_name"] = streamData.FunctionCall.Name,
-                        ["arguments"] = JsonSerializer.Serialize(streamData.FunctionCall.Arguments)
+                        [MessageMetadataKeys.MessageType] = "function_call",
+                        [MessageMetadataKeys.FunctionCallId] = streamData.FunctionCall.Id,  // 통합 ID
+                        [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name,
+                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(streamData.FunctionCall.Arguments)
                     };
+
+                    // OpenAI call_id 저장 (있는 경우)
+                    if (!string.IsNullOrEmpty(streamData.FunctionCall.ProviderSpecificId))
+                    {
+                        assistantMsg.Metadata[MessageMetadataKeys.OpenAICallId] = streamData.FunctionCall.ProviderSpecificId;
+                    }
                 }
+
                 ActivateChat.Messages.Add(assistantMsg);
             }
 
@@ -139,14 +148,22 @@ namespace Mythosia.AI.Services.OpenAI
                     streamData.FunctionCall.Name,
                     streamData.FunctionCall.Arguments);
 
-                // Save function result message
+                // Function 결과 메시지 저장 - 통합 메타데이터 사용
+                var resultMetadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.MessageType] = "function_result",
+                    [MessageMetadataKeys.FunctionCallId] = streamData.FunctionCall.Id,  // 통합 ID
+                    [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name
+                };
+
+                if (!string.IsNullOrEmpty(streamData.FunctionCall.ProviderSpecificId))
+                {
+                    resultMetadata[MessageMetadataKeys.OpenAICallId] = streamData.FunctionCall.ProviderSpecificId;
+                }
+
                 ActivateChat.Messages.Add(new Message(ActorRole.Function, functionResult)
                 {
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["function_name"] = streamData.FunctionCall.Name,
-                        ["call_id"] = streamData.FunctionCall.CallId ?? ""
-                    }
+                    Metadata = resultMetadata
                 });
 
                 // Add function result event
@@ -295,13 +312,18 @@ namespace Mythosia.AI.Services.OpenAI
                     break;
 
                 case "response.function_call":
-                    chunk.FunctionCall = new FunctionCall();
+                    chunk.FunctionCall = new FunctionCall
+                    {
+                        Provider = AIProvider.OpenAI
+                    };
                     if (root.TryGetProperty("function_call", out var fc))
                     {
                         if (fc.TryGetProperty("name", out var n))
                             chunk.FunctionCall.Name = n.GetString();
                         if (fc.TryGetProperty("id", out var id))
-                            chunk.FunctionCall.CallId = id.GetString();
+                        {
+                            chunk.FunctionCall.ProviderSpecificId = id.GetString();
+                        }
                     }
                     break;
 
@@ -313,25 +335,28 @@ namespace Mythosia.AI.Services.OpenAI
                             Arguments = new Dictionary<string, object>
                             {
                                 ["_partial"] = argDelta.GetString()
-                            }
+                            },
+                            Provider = AIProvider.OpenAI
                         };
                     }
                     break;
 
-                // Handle output items that might contain function calls
                 case "response.output_item.added":
                     if (root.TryGetProperty("item", out var item))
                     {
                         if (item.TryGetProperty("type", out var itemType) &&
                             itemType.GetString() == "function_call")
                         {
-                            chunk.FunctionCall = new FunctionCall();
+                            chunk.FunctionCall = new FunctionCall
+                            {
+                                Provider = AIProvider.OpenAI
+                            };
 
                             if (item.TryGetProperty("name", out var fname))
                                 chunk.FunctionCall.Name = fname.GetString();
 
                             if (item.TryGetProperty("call_id", out var cid))
-                                chunk.FunctionCall.CallId = cid.GetString();
+                                chunk.FunctionCall.ProviderSpecificId = cid.GetString();
                         }
                     }
                     break;
@@ -339,7 +364,6 @@ namespace Mythosia.AI.Services.OpenAI
                 case "response.output_item.delta":
                     if (root.TryGetProperty("item", out var deltaItem))
                     {
-                        // Check if this is a function call delta
                         if (deltaItem.TryGetProperty("type", out var dtype) &&
                             dtype.GetString() == "function_call")
                         {
@@ -350,7 +374,8 @@ namespace Mythosia.AI.Services.OpenAI
                                     Arguments = new Dictionary<string, object>
                                     {
                                         ["_partial"] = args.GetString()
-                                    }
+                                    },
+                                    Provider = AIProvider.OpenAI
                                 };
                             }
                         }
@@ -371,10 +396,15 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (delta.TryGetProperty("function_call", out var fc))
             {
-                chunk.FunctionCall = new FunctionCall();
+                chunk.FunctionCall = new FunctionCall
+                {
+                    Provider = AIProvider.OpenAI
+                };
 
                 if (fc.TryGetProperty("name", out var name))
                     chunk.FunctionCall.Name = name.GetString();
+
+                // Legacy API에는 call_id가 없으므로 통합 ID만 사용
 
                 if (fc.TryGetProperty("arguments", out var args))
                 {

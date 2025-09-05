@@ -111,46 +111,53 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 // Handle Assistant messages with function_call metadata
                 if (message.Role == ActorRole.Assistant &&
-                    message.Metadata?.GetValueOrDefault("type")?.ToString() == "function_call")
+                    message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
                 {
-                    var callId = message.Metadata.GetValueOrDefault("call_id")?.ToString();
-                    var functionName = message.Metadata.GetValueOrDefault("function_name")?.ToString();
-                    var arguments = message.Metadata.GetValueOrDefault("arguments")?.ToString();
+                    var callId = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionCallId)?.ToString();
+                    var functionName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString();
+                    var argumentsStr = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
 
-                    if (!string.IsNullOrEmpty(callId) && !string.IsNullOrEmpty(functionName))
+                    // Use OpenAI's call_id or generate from unified ID
+                    var openAiCallId = message.Metadata.GetValueOrDefault(MessageMetadataKeys.OpenAICallId)?.ToString();
+                    if (string.IsNullOrEmpty(openAiCallId))
                     {
-                        inputList.Add(new
-                        {
-                            type = "function_call",
-                            call_id = callId,
-                            name = functionName,
-                            arguments = arguments ?? "{}"
-                        });
+                        openAiCallId = $"call_{callId}";
                     }
+
+                    inputList.Add(new
+                    {
+                        type = "function_call",
+                        call_id = openAiCallId,
+                        name = functionName,
+                        arguments = argumentsStr
+                    });
                 }
                 // Handle Function results
                 else if (message.Role == ActorRole.Function)
                 {
-                    var callId = message.Metadata?.GetValueOrDefault("call_id")?.ToString();
+                    var callId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionCallId)?.ToString();
 
-                    if (!string.IsNullOrEmpty(callId))
+                    // Find OpenAI's call_id for this unified ID
+                    var openAiCallId = FindOpenAICallIdForUnifiedId(callId);
+
+                    if (!string.IsNullOrEmpty(openAiCallId))
                     {
                         inputList.Add(new
                         {
                             type = "function_call_output",
-                            call_id = callId,
+                            call_id = openAiCallId,
                             output = message.Content
                         });
                     }
                     else
                     {
-                        var functionName = message.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "unknown";
-                        Console.WriteLine($"[Warning] Skipping function result without call_id: {functionName}");
+                        var functionName = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "unknown";
+                        Console.WriteLine($"[Warning] Skipping function result without matching call_id: {functionName}");
                     }
                 }
                 // Handle regular messages
                 else if (message.Role != ActorRole.Assistant ||
-                         message.Metadata?.GetValueOrDefault("type")?.ToString() != "function_call")
+                         message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() != "function_call")
                 {
                     inputList.Add(new
                     {
@@ -166,7 +173,7 @@ namespace Mythosia.AI.Services.OpenAI
                 type = "function",
                 name = f.Name,
                 description = f.Description,
-                parameters = CreateFunctionParameterSchema(f, isNewApi: true),  // Pass true for new API
+                parameters = CreateFunctionParameterSchema(f, isNewApi: true),
                 strict = true
             }).ToList();
 
@@ -206,10 +213,12 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 if (message.Role == ActorRole.Function)
                 {
+                    var functionName = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "function";
+
                     messagesList.Add(new
                     {
                         role = "function",
-                        name = message.Metadata?["function_name"]?.ToString() ?? "function",
+                        name = functionName,
                         content = message.Content
                     });
                 }
@@ -224,7 +233,7 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 name = f.Name,
                 description = f.Description,
-                parameters = CreateFunctionParameterSchema(f, isNewApi: false)  // Pass false for legacy API
+                parameters = CreateFunctionParameterSchema(f, isNewApi: false)
             }).ToList();
 
             requestBody["model"] = ActivateChat.Model;
@@ -237,6 +246,30 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["function_call"] = ActivateChat.FunctionCallMode == FunctionCallMode.None
                 ? "none"
                 : "auto";
+        }
+
+        private string FindOpenAICallIdForUnifiedId(string unifiedId)
+        {
+            if (string.IsNullOrEmpty(unifiedId)) return null;
+
+            // Search messages in reverse order (most recent first)
+            for (int i = ActivateChat.Messages.Count - 1; i >= 0; i--)
+            {
+                var msg = ActivateChat.Messages[i];
+                if (msg.Role == ActorRole.Assistant &&
+                    msg.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionCallId)?.ToString() == unifiedId)
+                {
+                    // Return OpenAI's call_id
+                    var openAiCallId = msg.Metadata.GetValueOrDefault(MessageMetadataKeys.OpenAICallId)?.ToString();
+                    if (!string.IsNullOrEmpty(openAiCallId))
+                        return openAiCallId;
+
+                    // Fallback: generate from unifiedId
+                    return $"call_{unifiedId}";
+                }
+            }
+
+            return null;
         }
 
         protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
@@ -278,7 +311,6 @@ namespace Mythosia.AI.Services.OpenAI
                     {
                         if (messageContent.ValueKind == JsonValueKind.Array)
                         {
-                            // content가 배열인 경우
                             foreach (var contentItem in messageContent.EnumerateArray())
                             {
                                 if (contentItem.TryGetProperty("type", out var contentType) &&
@@ -291,7 +323,6 @@ namespace Mythosia.AI.Services.OpenAI
                         }
                         else if (messageContent.ValueKind == JsonValueKind.String)
                         {
-                            // content가 문자열인 경우 (이전 형식 호환)
                             content += messageContent.GetString();
                         }
                     }
@@ -304,10 +335,11 @@ namespace Mythosia.AI.Services.OpenAI
                         Arguments = new Dictionary<string, object>()
                     };
 
-                    // Store call_id
+                    // Store OpenAI's call_id
                     if (item.TryGetProperty("call_id", out var callId))
                     {
-                        functionCall.CallId = callId.GetString();
+                        functionCall.ProviderSpecificId = callId.GetString();
+                        functionCall.Provider = AIProvider.OpenAI;
                     }
 
                     // Parse arguments
@@ -360,8 +392,11 @@ namespace Mythosia.AI.Services.OpenAI
                 functionCall = new FunctionCall
                 {
                     Name = functionCallElement.GetProperty("name").GetString(),
-                    Arguments = new Dictionary<string, object>()
+                    Arguments = new Dictionary<string, object>(),
+                    Provider = AIProvider.OpenAI
                 };
+
+                // Note: Legacy API doesn't have call_id, so we'll use the generated unified ID
 
                 // Parse arguments JSON string
                 if (functionCallElement.TryGetProperty("arguments", out var argsElement))

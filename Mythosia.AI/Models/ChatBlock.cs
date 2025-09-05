@@ -77,10 +77,12 @@ namespace Mythosia.AI.Models
 
             // Remove Function messages when changing models
             // This prevents compatibility issues between different model APIs
+            /*
             if (oldModel != newModel)
             {
                 RemoveFunctionMessages();
             }
+            */
         }
 
         /// <summary>

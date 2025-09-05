@@ -155,7 +155,7 @@ namespace Mythosia.AI.Services.Anthropic
             // Execute the function
             var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
 
-            // Add the result message
+            // Add the result message with standardized metadata
             AddFunctionResultMessage(result, functionCall);
 
             return result;
@@ -168,14 +168,21 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var metadata = new Dictionary<string, object>
             {
-                ["function_name"] = functionCall.Name,
-                ["tool_use_id"] = functionCall.CallId ?? Guid.NewGuid().ToString()
+                [MessageMetadataKeys.MessageType] = "function_result",
+                [MessageMetadataKeys.FunctionCallId] = functionCall.Id,
+                [MessageMetadataKeys.FunctionName] = functionCall.Name
             };
+
+            // Include provider-specific ID if available
+            if (!string.IsNullOrEmpty(functionCall.ProviderSpecificId))
+            {
+                metadata[MessageMetadataKeys.ClaudeToolUseId] = functionCall.ProviderSpecificId;
+            }
 
             // Include arguments only if they exist
             if (functionCall.Arguments != null && functionCall.Arguments.Count > 0)
             {
-                metadata["arguments"] = functionCall.Arguments;
+                metadata[MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments);
             }
 
             ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
@@ -185,6 +192,8 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         #endregion
+
+        // ... (나머지 코드는 변경 없음)
 
         #region Request Creation
 
