@@ -72,17 +72,7 @@ namespace Mythosia.AI.Models
 
         private void ChangeModelInternal(string newModel)
         {
-            var oldModel = Model;
             Model = newModel;
-
-            // Remove Function messages when changing models
-            // This prevents compatibility issues between different model APIs
-            /*
-            if (oldModel != newModel)
-            {
-                RemoveFunctionMessages();
-            }
-            */
         }
 
         /// <summary>

@@ -1,6 +1,10 @@
 ﻿using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+[assembly: Parallelize(Workers = 0, Scope = ExecutionScope.MethodLevel)]
+
 namespace Mythosia.AI.Tests;
 
 /// <summary>
@@ -25,6 +29,7 @@ public abstract partial class AIServiceTestBase
 
     protected virtual bool SupportsMultimodal() => false;
     protected virtual bool SupportsFunctionCalling() => false;
+    protected virtual bool SupportsArrayParameter() => false;
     protected virtual bool SupportsAudio() => false;
     protected virtual bool SupportsImageGeneration() => false;
     protected virtual bool SupportsWebSearch() => false;

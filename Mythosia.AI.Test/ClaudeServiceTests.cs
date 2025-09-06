@@ -5,21 +5,38 @@ using Mythosia.Azure;
 
 namespace Mythosia.AI.Tests;
 
+// 1. 기존 클래스를 추상 클래스로 변경 (이름에 Base 추가)
 [TestClass]
-public class ClaudeServiceTests : AIServiceTestBase
+public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 {
+    private static string apiKey;
+    protected abstract AIModel ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
+
+    [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]  // 상속 동작 추가
+    public static async Task ClassInit(TestContext context)
+    {
+        if (apiKey == null)  // 중복 호출 방지
+        {
+            var secretFetcher = new SecretFetcher(
+                "https://mythosia-key-vault.vault.azure.net/",
+                "momedit-antropic-secret"
+            );
+            apiKey = await secretFetcher.GetKeyValueAsync();
+            Console.WriteLine("[ClassInitialize] Claude API key loaded");
+        }
+    }
+
     protected override AIService CreateAIService()
     {
-        var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
-        string apiKey = secretFetcher.GetKeyValueAsync().Result;
-
         var service = new ClaudeService(apiKey, new HttpClient());
-        service.ActivateChat.ChangeModel(AIModel.ClaudeOpus4_250514);
+        service.ActivateChat.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
+        Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
         return service;
     }
 
     protected override bool SupportsMultimodal() => true;
     protected override bool SupportsFunctionCalling() => true;
+    protected override bool SupportsArrayParameter() => true;
     protected override bool SupportsAudio() => false;
     protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsWebSearch() => false;
@@ -69,10 +86,10 @@ public class ClaudeServiceTests : AIServiceTestBase
         {
             var models = new[]
             {
-                AIModel.Claude3_5Haiku241022,
-                AIModel.Claude3_5Sonnet241022,
-                AIModel.Claude3Opus240229
-            };
+               AIModel.Claude3_5Haiku241022,
+               AIModel.Claude3_5Sonnet241022,
+               AIModel.Claude3Opus240229
+           };
 
             foreach (var model in models)
             {
@@ -134,4 +151,41 @@ public class ClaudeServiceTests : AIServiceTestBase
     }
 
     #endregion
+}
+
+
+[TestClass]
+public class Claude_Opus4_1_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_1_250805;
+}
+
+[TestClass]
+public class Claude_Opus4_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_250514;
+}
+
+[TestClass]
+public class Claude_Sonnet4_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_250514;
+}
+
+[TestClass]
+public class Claude_3_7SonnetLatest_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Claude3_7SonnetLatest;
+}
+
+[TestClass]
+public class Claude_3_5Sonnet_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Claude3_5Sonnet241022;
+}
+
+[TestClass]
+public class Claude_3_5Haiku_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Claude3_5Haiku241022;
 }

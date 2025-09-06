@@ -235,8 +235,11 @@ namespace Mythosia.AI.Services.Anthropic
                 // If we have a tool_use, save the complete assistant response
                 if (functionCall != null && toolUseId != null)
                 {
+                    // Claude API 버그 우회: 빈 content 방지
+                    var messageContent = string.IsNullOrWhiteSpace(content) ? "." : content;
+
                     // Create assistant message with standardized metadata
-                    var assistantMessage = new Message(ActorRole.Assistant, content ?? "")
+                    var assistantMessage = new Message(ActorRole.Assistant, messageContent)
                     {
                         Metadata = new Dictionary<string, object>
                         {

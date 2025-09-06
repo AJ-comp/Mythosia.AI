@@ -7,12 +7,15 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>3.0.2</VersionPrefix>
+		<VersionPrefix>3.0.3</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Gpt5; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
+## 🚀 What's New in v3.0.3
+See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
+			
 ## 🚀 What's New in v3.0.0
 
 ### Major Features
@@ -86,7 +89,7 @@ Console.Write(content.Content);
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>3.0.2</Version>
+		<Version>3.0.3</Version>
 	</PropertyGroup>
 
 

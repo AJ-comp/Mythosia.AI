@@ -1,4 +1,5 @@
 ﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
@@ -116,7 +117,9 @@ namespace Mythosia.AI.Services.Base
                 throw new ArgumentNullException(nameof(sourceService));
 
             // ChatBlock 복제
-            this.ActivateChat = sourceService.ActivateChat.Clone();
+            var model = ActivateChat.Model;
+            ActivateChat = sourceService.ActivateChat.Clone();
+            ActivateChat.ChangeModel(model);
 
             return this;
         }

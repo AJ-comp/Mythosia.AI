@@ -629,10 +629,18 @@ public abstract partial class AIServiceTestBase
         var previousFunctionCount = AI.ActivateChat.Messages
             .Count(m => m.Role == ActorRole.Function);
 
-        var response = await AI.GetCompletionAsync(prompt);
+        try
+        {
+            var response = await AI.GetCompletionAsync(prompt);
 
-        Assert.IsNotNull(response, $"{testDescription}: Response should not be null");
-        Console.WriteLine($"[Response] {response}");
+            Assert.IsNotNull(response, $"{testDescription}: Response should not be null");
+            Console.WriteLine($"[Response] {response}");
+        }
+        catch(Exception ex)
+        {
+            Assert.Fail($"{testDescription}: Exception occurred - {ex.Message}");
+            return;
+        }
 
         var currentFunctionCount = AI.ActivateChat.Messages
             .Count(m => m.Role == ActorRole.Function);

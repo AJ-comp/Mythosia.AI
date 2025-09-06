@@ -144,17 +144,29 @@ namespace Mythosia.AI.Models.Messages
         /// </summary>
         public Message Clone()
         {
+            Message cloned;
+
             if (HasMultimodalContent)
             {
-                return new Message(Role, new List<MessageContent>(Contents))
+                cloned = new Message(Role, new List<MessageContent>(Contents))
                 {
                     Timestamp = Timestamp
                 };
             }
-            return new Message(Role, Content)
+            else
             {
-                Timestamp = Timestamp
-            };
+                cloned = new Message(Role, Content)
+                {
+                    Timestamp = Timestamp
+                };
+            }
+
+            if (Metadata != null)
+            {
+                cloned.Metadata = new Dictionary<string, object>(Metadata);
+            }
+
+            return cloned;
         }
 
 
