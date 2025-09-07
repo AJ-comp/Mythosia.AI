@@ -43,7 +43,7 @@ namespace Mythosia.AI.Services.OpenAI
                 ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
                 : new CancellationTokenSource();
 
-            // Stateless 모드 처리
+            // Stateless mode handling
             ChatBlock originalChat = null;
             if (StatelessMode)
             {
@@ -56,7 +56,7 @@ namespace Mythosia.AI.Services.OpenAI
                 ActivateChat.Stream = false;
                 ActivateChat.Messages.Add(message);
 
-                // 기존 메인 루프
+                // Main loop for function calling
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     var result = await ProcessSingleRoundAsync(round, policy, cts.Token);
@@ -79,39 +79,26 @@ namespace Mythosia.AI.Services.OpenAI
             }
         }
 
-
         /// <summary>
-        /// 단일 라운드 처리
+        /// Process a single round of API interaction
         /// </summary>
         private async Task<RoundResult> ProcessSingleRoundAsync(
             int round,
             FunctionCallingPolicy policy,
             CancellationToken cancellationToken)
         {
-            Debug.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
-
-            // 현재 메시지 상태 출력
-            foreach (var msg in ActivateChat.Messages.TakeLast(3))
-            {
-                Debug.WriteLine($"  Message: Role={msg.Role}, Content={msg.Content?.Substring(0, Math.Min(50, msg.Content?.Length ?? 0))}");
-                if (msg.Metadata != null)
-                {
-                    Debug.WriteLine($"    Metadata: {string.Join(", ", msg.Metadata.Select(kvp => $"{kvp.Key}={kvp.Value}"))}");
-                }
-            }
-
             if (policy.EnableLogging)
             {
                 Console.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
             }
 
-            // 1. API 요청 생성 및 전송
+            // 1. Send API request
             var response = await SendApiRequestAsync(cancellationToken);
 
-            // 2. 응답 처리
+            // 2. Process response
             var responseContent = await response.Content.ReadAsStringAsync();
 
-            // 3. Function 지원 여부에 따라 처리
+            // 3. Handle based on function support
             bool useFunctions = ActivateChat.Functions?.Count > 0
                                && ActivateChat.EnableFunctions
                                && !FunctionsDisabled;
@@ -126,9 +113,8 @@ namespace Mythosia.AI.Services.OpenAI
             }
         }
 
-
         /// <summary>
-        /// API 요청 전송
+        /// Send API request
         /// </summary>
         private async Task<HttpResponseMessage> SendApiRequestAsync(CancellationToken cancellationToken)
         {
@@ -138,7 +124,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             var request = useFunctions
                 ? CreateFunctionMessageRequest()
-                : CreateMessageRequest();  // 통합된 메서드 사용
+                : CreateMessageRequest();
 
             var response = await HttpClient.SendAsync(request, cancellationToken);
 
@@ -152,7 +138,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Function 응답 처리
+        /// Process response with function calling
         /// </summary>
         private async Task<RoundResult> ProcessFunctionResponseAsync(
             string responseContent,
@@ -160,9 +146,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var (content, functionCall) = ExtractFunctionCall(responseContent);
 
-            Debug.WriteLine($"[FUNC DEBUG] content='{content}', functionCall={functionCall?.Name ?? "null"}");
-
-            // Function 호출이 있는 경우
+            // Function call detected
             if (functionCall != null)
             {
                 if (policy.EnableLogging)
@@ -172,23 +156,23 @@ namespace Mythosia.AI.Services.OpenAI
 
                 await ExecuteFunctionAsync(functionCall);
 
-                // 다음 라운드 필요
+                // Continue to next round
                 return RoundResult.Continue();
             }
 
-            // Function 호출 없이 최종 응답이 온 경우
+            // Final response received
             if (!string.IsNullOrEmpty(content))
             {
                 ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
                 return RoundResult.Complete(content);
             }
 
-            // 응답이 비어있는 경우 (다음 라운드 시도)
+            // Empty response, try next round
             return RoundResult.Continue();
         }
 
         /// <summary>
-        /// 일반 응답 처리 (Function 없음)
+        /// Process regular response (no functions)
         /// </summary>
         private RoundResult ProcessRegularResponseAsync(string responseContent)
         {
@@ -204,53 +188,44 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Function 실행 및 결과 저장
+        /// Execute function and save results
         /// </summary>
         private async Task ExecuteFunctionAsync(FunctionCall functionCall)
         {
-            // 1. Function Call 메시지 저장 (빈 문자열 사용)
+            // 1. Save function call message
             var functionCallMessage = new Message(ActorRole.Assistant, string.Empty)
             {
                 Metadata = new Dictionary<string, object>
                 {
                     [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionCallId] = functionCall.Id,
+                    [MessageMetadataKeys.FunctionId] = functionCall.Id,
+                    [MessageMetadataKeys.FunctionSource] = functionCall.Source,
                     [MessageMetadataKeys.FunctionName] = functionCall.Name,
                     [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
                     ["model"] = ActivateChat.Model
                 }
             };
 
-            // Provider-specific ID 저장
-            if (!string.IsNullOrEmpty(functionCall.ProviderSpecificId))
-            {
-                functionCallMessage.Metadata[MessageMetadataKeys.OpenAICallId] = functionCall.ProviderSpecificId;
-            }
-
             ActivateChat.Messages.Add(functionCallMessage);
 
-            // 2. Function 실행
+            // 2. Execute function
             var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
 
-            // 3. Function 결과 저장 - content가 비어있지 않은지 확인
             if (string.IsNullOrEmpty(result))
             {
                 Console.WriteLine($"[WARNING] Function {functionCall.Name} returned empty result");
-                result = "Function executed successfully"; // 기본값 제공
+                result = "Function executed successfully";
             }
 
+            // 3. Save function result
             var metadata = new Dictionary<string, object>
             {
                 [MessageMetadataKeys.MessageType] = "function_result",
-                [MessageMetadataKeys.FunctionCallId] = functionCall.Id,
+                [MessageMetadataKeys.FunctionId] = functionCall.Id,
+                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
                 [MessageMetadataKeys.FunctionName] = functionCall.Name,
                 ["model"] = ActivateChat.Model
             };
-
-            if (!string.IsNullOrEmpty(functionCall.ProviderSpecificId))
-            {
-                metadata[MessageMetadataKeys.OpenAICallId] = functionCall.ProviderSpecificId;
-            }
 
             ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
             {
@@ -394,15 +369,12 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// GPT-5 전용 파라미터 설정
+        /// Sets GPT-5 specific parameters
         /// </summary>
         public ChatGptService WithGpt5Parameters(string reasoningEffort = "medium", string verbosity = "medium")
         {
-            // ChatBlock을 확장하거나 별도 속성으로 관리 필요
-            // 현재는 메타데이터로 저장
             if (ActivateChat.Model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase))
             {
-                // TODO: ChatBlock에 GPT-5 전용 속성 추가 시 구현
                 Console.WriteLine($"[GPT-5 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}");
             }
             return this;

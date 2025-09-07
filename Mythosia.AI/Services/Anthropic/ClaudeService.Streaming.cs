@@ -4,6 +4,7 @@ using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Utilities;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -70,11 +71,11 @@ namespace Mythosia.AI.Services.Anthropic
                         yield break;
                     }
 
-                    // 스트림 처리
+                    // Process stream
                     var (continueLoop, functionExecuted) = await ProcessClaudeStreamResponse(
                         response, options, policy, streamQueue, cancellationToken);
 
-                    // 큐에 있는 항목들을 yield
+                    // Yield queued items
                     while (streamQueue.Count > 0)
                     {
                         yield return streamQueue.Dequeue();
@@ -115,7 +116,7 @@ namespace Mythosia.AI.Services.Anthropic
                 if (!line.StartsWith("data:") && !line.StartsWith("event:"))
                     continue;
 
-                // Event type 처리
+                // Handle event type
                 if (line.StartsWith("event:"))
                 {
                     var eventType = line.Substring("event:".Length).Trim();
@@ -130,13 +131,13 @@ namespace Mythosia.AI.Services.Anthropic
                 var parseResult = TryParseClaudeStreamChunk(jsonData, currentToolUse, options, policy);
                 if (parseResult == null) continue;
 
-                // Model 정보 추출
+                // Extract model info
                 if (currentModel == null && parseResult.Model != null)
                 {
                     currentModel = parseResult.Model;
                 }
 
-                // Tool use (function call) 시작
+                // Tool use (function call) started
                 if (parseResult.ToolUseStarted && !functionEventSent && options.IncludeFunctionCalls)
                 {
                     functionEventSent = true;
@@ -155,7 +156,7 @@ namespace Mythosia.AI.Services.Anthropic
                         Console.WriteLine($"  → Tool use detected: {currentToolUse.Name}");
                 }
 
-                // 텍스트 콘텐츠
+                // Text content
                 if (!string.IsNullOrEmpty(parseResult.TextContent))
                 {
                     textBuffer.Append(parseResult.TextContent);
@@ -170,7 +171,7 @@ namespace Mythosia.AI.Services.Anthropic
                     });
                 }
 
-                // Message 완료
+                // Message complete
                 if (parseResult.MessageComplete)
                 {
                     if (options.IncludeMetadata)
@@ -189,10 +190,16 @@ namespace Mythosia.AI.Services.Anthropic
                 }
             }
 
-            // Tool use (function) 처리
+            // Process tool use (function)
             if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
             {
-                // Arguments 파싱
+                // Tool use ID is required
+                if (string.IsNullOrEmpty(currentToolUse.Id))
+                {
+                    throw new InvalidOperationException($"Tool use without ID: {currentToolUse.Name}");
+                }
+
+                // Parse arguments
                 Dictionary<string, object> arguments = new Dictionary<string, object>();
                 if (currentToolUse.Arguments.Length > 0)
                 {
@@ -200,37 +207,33 @@ namespace Mythosia.AI.Services.Anthropic
                         ?? new Dictionary<string, object>();
                 }
 
-                // 통합 ID 생성
-                var unifiedId = Guid.NewGuid().ToString();
-
-                // Assistant 메시지 저장 (tool_use 포함) - 통합 메타데이터 사용
+                // Save assistant message (with tool_use)
                 var assistantMsg = new Message(ActorRole.Assistant, textBuffer.ToString())
                 {
                     Metadata = new Dictionary<string, object>
                     {
                         [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionCallId] = unifiedId,  // 통합 ID
+                        [MessageMetadataKeys.FunctionId] = currentToolUse.Id,
+                        [MessageMetadataKeys.FunctionSource] = IdSource.Claude,
                         [MessageMetadataKeys.FunctionName] = currentToolUse.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(arguments),
-                        [MessageMetadataKeys.ClaudeToolUseId] = currentToolUse.Id ?? Guid.NewGuid().ToString()  // Claude 전용 ID
+                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(arguments)
                     }
                 };
                 ActivateChat.Messages.Add(assistantMsg);
 
-                // Function 실행
+                // Execute function
                 if (policy.EnableLogging)
                     Console.WriteLine($"  → Executing function: {currentToolUse.Name}");
 
                 var result = await ProcessFunctionCallAsync(currentToolUse.Name, arguments);
 
-                // Function result 이벤트
+                // Function result event
                 streamQueue.Enqueue(new StreamingContent
                 {
                     Type = StreamingContentType.FunctionResult,
                     Metadata = new Dictionary<string, object>
                     {
                         ["function_name"] = currentToolUse.Name,
-                        ["tool_use_id"] = currentToolUse.Id ?? "",
                         ["status"] = "completed",
                         ["result"] = result
                     }
@@ -239,15 +242,15 @@ namespace Mythosia.AI.Services.Anthropic
                 if (policy.EnableLogging)
                     Console.WriteLine($"  → Function result: {result}");
 
-                // Function 결과 메시지 저장 - 통합 메타데이터 사용
+                // Save function result message
                 ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
                 {
                     Metadata = new Dictionary<string, object>
                     {
                         [MessageMetadataKeys.MessageType] = "function_result",
-                        [MessageMetadataKeys.FunctionCallId] = unifiedId,  // 동일한 통합 ID
-                        [MessageMetadataKeys.FunctionName] = currentToolUse.Name,
-                        [MessageMetadataKeys.ClaudeToolUseId] = currentToolUse.Id ?? Guid.NewGuid().ToString()
+                        [MessageMetadataKeys.FunctionId] = currentToolUse.Id,
+                        [MessageMetadataKeys.FunctionSource] = IdSource.Claude,
+                        [MessageMetadataKeys.FunctionName] = currentToolUse.Name
                     }
                 });
 
@@ -255,14 +258,14 @@ namespace Mythosia.AI.Services.Anthropic
             }
             else if (textBuffer.Length > 0)
             {
-                // Function call 없이 일반 응답만 있는 경우
+                // No function call, just regular response
                 ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
             }
 
             return (false, false); // don't continue loop
         }
 
-        // 기존 callback 기반 메서드 (호환성 유지)
+        // Legacy callback-based method (for compatibility)
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
             await foreach (var content in StreamAsync(message, StreamOptions.TextOnlyOptions))
@@ -305,13 +308,13 @@ namespace Mythosia.AI.Services.Anthropic
                 var root = doc.RootElement;
                 var result = new ClaudeStreamParseResult();
 
-                // Model 정보 추출
+                // Extract model info
                 if (root.TryGetProperty("model", out var modelElem))
                 {
                     result.Model = modelElem.GetString();
                 }
 
-                // Type 기반 처리
+                // Type-based processing
                 if (root.TryGetProperty("type", out var typeElement))
                 {
                     var type = typeElement.GetString();
@@ -319,7 +322,7 @@ namespace Mythosia.AI.Services.Anthropic
                     switch (type)
                     {
                         case "message_start":
-                            // 메시지 시작 - 메타데이터 추출 가능
+                            // Message start - can extract metadata
                             if (root.TryGetProperty("message", out var msgStart))
                             {
                                 if (msgStart.TryGetProperty("model", out var msgModel))
@@ -330,7 +333,7 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
 
                         case "content_block_start":
-                            // 콘텐츠 블록 시작
+                            // Content block start
                             if (root.TryGetProperty("content_block", out var blockElement))
                             {
                                 if (blockElement.TryGetProperty("type", out var blockType))
@@ -339,15 +342,24 @@ namespace Mythosia.AI.Services.Anthropic
 
                                     if (blockTypeStr == "tool_use")
                                     {
-                                        // Tool use 시작
-                                        if (blockElement.TryGetProperty("id", out var idElem))
+                                        // Tool use start - ID is required
+                                        if (!blockElement.TryGetProperty("id", out var idElem))
                                         {
-                                            toolUseData.Id = idElem.GetString();
+                                            throw new InvalidOperationException($"tool_use without id! JSON: {blockElement.GetRawText()}");
                                         }
+
+                                        toolUseData.Id = idElem.GetString();
+
+                                        if (string.IsNullOrEmpty(toolUseData.Id))
+                                        {
+                                            throw new InvalidOperationException("tool_use id is empty!");
+                                        }
+
                                         if (blockElement.TryGetProperty("name", out var nameElem))
                                         {
                                             toolUseData.Name = nameElem.GetString();
                                         }
+
                                         toolUseData.Arguments.Clear();
                                         result.ToolUseStarted = true;
                                     }
@@ -356,7 +368,7 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
 
                         case "content_block_delta":
-                            // 콘텐츠 델타
+                            // Content delta
                             if (root.TryGetProperty("delta", out var deltaElement))
                             {
                                 if (deltaElement.TryGetProperty("type", out var deltaType))
@@ -382,10 +394,10 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
 
                         case "content_block_stop":
-                            // 콘텐츠 블록 완료
+                            // Content block complete
                             if (root.TryGetProperty("index", out var indexElem))
                             {
-                                // Tool use가 완료되었는지 확인
+                                // Check if tool use is complete
                                 if (!string.IsNullOrEmpty(toolUseData.Name))
                                 {
                                     toolUseData.IsComplete = true;
@@ -394,20 +406,20 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
 
                         case "message_delta":
-                            // 메시지 델타 (usage 정보 등)
+                            // Message delta (usage info etc)
                             if (root.TryGetProperty("usage", out var usageElem) && options.IncludeTokenInfo)
                             {
-                                // Token 정보 처리 (필요시)
+                                // Token info processing (if needed)
                             }
                             break;
 
                         case "message_stop":
-                            // 메시지 완료
+                            // Message complete
                             result.MessageComplete = true;
                             break;
 
                         case "error":
-                            // 에러 처리
+                            // Error handling
                             if (root.TryGetProperty("error", out var errorElem))
                             {
                                 if (policy.EnableLogging)
