@@ -106,6 +106,7 @@ namespace Mythosia.AI.Services.Anthropic
             using var reader = new StreamReader(stream);
 
             var textBuffer = new StringBuilder();
+            var collectedToolUses = new List<FunctionCall>();  // ★ 모든 tool_use 수집
             var currentToolUse = new ToolUseData();
             bool functionEventSent = false;
             string currentModel = null;
@@ -171,6 +172,35 @@ namespace Mythosia.AI.Services.Anthropic
                     });
                 }
 
+                // ★ Tool use completed - collect it
+                if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
+                {
+                    if (string.IsNullOrEmpty(currentToolUse.Id))
+                    {
+                        throw new InvalidOperationException($"Tool use without ID: {currentToolUse.Name}");
+                    }
+
+                    // Parse arguments
+                    Dictionary<string, object> arguments = new Dictionary<string, object>();
+                    if (currentToolUse.Arguments.Length > 0)
+                    {
+                        arguments = TryParseArguments(currentToolUse.Arguments.ToString())
+                            ?? new Dictionary<string, object>();
+                    }
+
+                    // Add to collected tool uses
+                    collectedToolUses.Add(new FunctionCall
+                    {
+                        Id = currentToolUse.Id,
+                        Source = IdSource.Claude,
+                        Name = currentToolUse.Name,
+                        Arguments = arguments
+                    });
+
+                    // Reset for next tool use
+                    currentToolUse = new ToolUseData();
+                }
+
                 // Message complete
                 if (parseResult.MessageComplete)
                 {
@@ -190,69 +220,30 @@ namespace Mythosia.AI.Services.Anthropic
                 }
             }
 
-            // Process tool use (function)
-            if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
+            // ★★★ Process all collected tool uses with unified method ★★★
+            if (collectedToolUses.Count > 0)
             {
-                // Tool use ID is required
-                if (string.IsNullOrEmpty(currentToolUse.Id))
+                if (policy.EnableLogging)
                 {
-                    throw new InvalidOperationException($"Tool use without ID: {currentToolUse.Name}");
+                    Console.WriteLine($"  → Processing {collectedToolUses.Count} tool use(s)");
                 }
 
-                // Parse arguments
-                Dictionary<string, object> arguments = new Dictionary<string, object>();
-                if (currentToolUse.Arguments.Length > 0)
+                // Use the unified method to process all tool uses
+                await ProcessMultipleToolUses(collectedToolUses, textBuffer.ToString(), policy);
+
+                // Send function result events
+                foreach (var toolUse in collectedToolUses)
                 {
-                    arguments = TryParseArguments(currentToolUse.Arguments.ToString())
-                        ?? new Dictionary<string, object>();
+                    streamQueue.Enqueue(new StreamingContent
+                    {
+                        Type = StreamingContentType.FunctionResult,
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["function_name"] = toolUse.Name,
+                            ["status"] = "completed"
+                        }
+                    });
                 }
-
-                // Save assistant message (with tool_use)
-                var assistantMsg = new Message(ActorRole.Assistant, textBuffer.ToString())
-                {
-                    Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionId] = currentToolUse.Id,
-                        [MessageMetadataKeys.FunctionSource] = IdSource.Claude,
-                        [MessageMetadataKeys.FunctionName] = currentToolUse.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(arguments)
-                    }
-                };
-                ActivateChat.Messages.Add(assistantMsg);
-
-                // Execute function
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  → Executing function: {currentToolUse.Name}");
-
-                var result = await ProcessFunctionCallAsync(currentToolUse.Name, arguments);
-
-                // Function result event
-                streamQueue.Enqueue(new StreamingContent
-                {
-                    Type = StreamingContentType.FunctionResult,
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["function_name"] = currentToolUse.Name,
-                        ["status"] = "completed",
-                        ["result"] = result
-                    }
-                });
-
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  → Function result: {result}");
-
-                // Save function result message
-                ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-                {
-                    Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_result",
-                        [MessageMetadataKeys.FunctionId] = currentToolUse.Id,
-                        [MessageMetadataKeys.FunctionSource] = IdSource.Claude,
-                        [MessageMetadataKeys.FunctionName] = currentToolUse.Name
-                    }
-                });
 
                 return (true, true); // continue loop, function executed
             }

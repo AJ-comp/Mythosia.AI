@@ -52,6 +52,26 @@ namespace Mythosia.AI.Models.Enums
         [Description("gpt-5-nano")]
         Gpt5Nano,
 
+        /// <summary>OpenAI GPT-5 Pro - Smarter, more precise GPT-5 (Responses API only)</summary>
+        [Description("gpt-5-pro")]
+        Gpt5Pro,
+
+        /// <summary>OpenAI GPT-5 (Aug 2025 snapshot)</summary>
+        [Description("gpt-5-2025-08-07")]
+        Gpt5_250807,
+
+        /// <summary>OpenAI GPT-5 Mini (Aug 2025 snapshot)</summary>
+        [Description("gpt-5-mini-2025-08-07")]
+        Gpt5Mini_250807,
+
+        /// <summary>OpenAI GPT-5 Nano (Aug 2025 snapshot)</summary>
+        [Description("gpt-5-nano-2025-08-07")]
+        Gpt5Nano_250807,
+
+        /// <summary>OpenAI GPT-5 Pro (Oct 2025 snapshot)</summary>
+        [Description("gpt-5-pro-2025-10-06")]
+        Gpt5Pro_251006,
+
         /// <summary>OpenAI GPT-5 Chat Latest - Latest chat-optimized GPT-5</summary>
         [Description("gpt-5-chat-latest")]
         Gpt5ChatLatest,

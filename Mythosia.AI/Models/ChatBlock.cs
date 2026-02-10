@@ -78,6 +78,7 @@ namespace Mythosia.AI.Models
         /// <summary>
         /// Removes all Function-related messages from the conversation
         /// </summary>
+        [Obsolete("This method is deprecated and will be removed in future versions.")]
         public void RemoveFunctionMessages()
         {
             var functionMessages = Messages.Where(m =>

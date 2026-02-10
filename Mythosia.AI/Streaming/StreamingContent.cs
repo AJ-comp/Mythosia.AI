@@ -30,6 +30,7 @@ namespace Mythosia.AI.Models.Streaming
     public enum StreamingContentType
     {
         Text,           // Regular text content
+        Reasoning,      // Reasoning/thinking content (GPT-5, o3, etc.)
         FunctionCall,   // Function is being called
         FunctionResult, // Function execution result
         Status,         // Status message

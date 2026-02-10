@@ -359,9 +359,6 @@ public async Task CrossProviderToGpt4o()
                     }
                 }
 
-                // Step 3: OpenAI GPT-4로 모델 전환
-                Console.WriteLine($"\n========== Switching to OpenAI GPT-4 ==========");
-
                 var messageCountBefore = AI.ActivateChat.Messages.Count;
 
                 // OpenAI 모델로 변경 (Legacy API)

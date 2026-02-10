@@ -224,6 +224,17 @@ namespace Mythosia.AI.Services.OpenAI
                     });
                 }
 
+                if (chunk.Reasoning != null && options.IncludeReasoning)
+                {
+                    streamData.ReasoningBuffer.Append(chunk.Reasoning);
+                    streamData.Contents.Add(new StreamingContent
+                    {
+                        Type = StreamingContentType.Reasoning,
+                        Content = chunk.Reasoning,
+                        Metadata = chunk.Metadata
+                    });
+                }
+
                 if (chunk.FunctionCall != null)
                 {
                     streamData.UpdateFunctionCall(chunk.FunctionCall);
@@ -246,6 +257,19 @@ namespace Mythosia.AI.Services.OpenAI
 
                 if (chunk.Model != null)
                     streamData.Model = chunk.Model;
+
+                // New API completion event (response.done / response.completed)
+                if (chunk.IsCompletion && options.IncludeMetadata)
+                {
+                    var completionMeta = chunk.Metadata ?? new Dictionary<string, object>();
+                    completionMeta["total_length"] = streamData.TextBuffer.Length;
+                    completionMeta["model"] = streamData.Model ?? ActivateChat.Model;
+                    streamData.Contents.Add(new StreamingContent
+                    {
+                        Type = StreamingContentType.Completion,
+                        Metadata = completionMeta
+                    });
+                }
             }
 
             return streamData;
@@ -293,104 +317,172 @@ namespace Mythosia.AI.Services.OpenAI
         {
             switch (type)
             {
+                // 텍스트 델타
                 case "response.output_text.delta":
-                    if (root.TryGetProperty("delta", out var delta))
-                    {
-                        chunk.Text = delta.ValueKind == JsonValueKind.String
-                            ? delta.GetString()
-                            : delta.TryGetProperty("text", out var t) ? t.GetString() : null;
-                    }
+                    ParseStreamTextDelta(root, chunk);
                     break;
 
+                // 함수 호출 이벤트
                 case "response.function_call":
-                    chunk.FunctionCall = new FunctionCall
-                    {
-                        Source = IdSource.OpenAI
-                    };
-                    if (root.TryGetProperty("function_call", out var fc))
-                    {
-                        if (fc.TryGetProperty("name", out var n))
-                            chunk.FunctionCall.Name = n.GetString();
-                        if (fc.TryGetProperty("id", out var id))
-                        {
-                            chunk.FunctionCall.Id = id.GetString();
-                        }
-                    }
-                    break;
-
                 case "response.function_call.arguments.delta":
-                    if (root.TryGetProperty("delta", out var argDelta))
-                    {
-                        chunk.FunctionCall = new FunctionCall
-                        {
-                            Arguments = new Dictionary<string, object>
-                            {
-                                ["_partial"] = argDelta.GetString()
-                            },
-                            Source = IdSource.OpenAI
-                        };
-                    }
+                    ParseStreamFunctionCallEvent(root, type, chunk);
                     break;
 
+                // 출력 아이템 이벤트 (텍스트 또는 함수 호출 포함)
                 case "response.output_item.added":
-                    if (root.TryGetProperty("item", out var item))
-                    {
-                        if (item.TryGetProperty("type", out var itemType) &&
-                            itemType.GetString() == "function_call")
-                        {
-                            chunk.FunctionCall = new FunctionCall
-                            {
-                                Source = IdSource.OpenAI
-                            };
-
-                            if (item.TryGetProperty("name", out var fname))
-                                chunk.FunctionCall.Name = fname.GetString();
-
-                            if (item.TryGetProperty("call_id", out var cid))
-                                chunk.FunctionCall.Id = cid.GetString();
-                        }
-                        else if (item.TryGetProperty("message", out var messageObj))
-                        {
-                            if (messageObj.TryGetProperty("content", out var content))
-                            {
-                                chunk.Text = ExtractTextFromContent(content);  // Use method from Parsing.cs
-                            }
-                        }
-                    }
-                    break;
-
                 case "response.output_item.delta":
-                    if (root.TryGetProperty("item", out var deltaItem))
-                    {
-                        if (deltaItem.TryGetProperty("type", out var dtype) &&
-                            dtype.GetString() == "function_call")
-                        {
-                            if (deltaItem.TryGetProperty("arguments", out var args))
-                            {
-                                chunk.FunctionCall = new FunctionCall
-                                {
-                                    Arguments = new Dictionary<string, object>
-                                    {
-                                        ["_partial"] = args.GetString()
-                                    },
-                                    Source = IdSource.OpenAI
-                                };
-                            }
-                        }
-                        else if (deltaItem.TryGetProperty("message", out var deltaMessage))
-                        {
-                            if (deltaMessage.TryGetProperty("content", out var deltaContent))
-                            {
-                                chunk.Text = ExtractTextFromContent(deltaContent);  // Use method from Parsing.cs
-                            }
-                        }
-                    }
+                    ParseStreamOutputItemEvent(root, chunk);
                     break;
 
+                // 추론 요약 이벤트
+                case "response.reasoning_summary_text.delta":
+                case "response.reasoning_summary_part.added":
+                case "response.reasoning_summary_part.done":
+                    ParseStreamReasoningEvent(root, type, chunk);
+                    break;
+
+                // 응답 생명주기 이벤트
+                case "response.created":
+                    ParseStreamCreatedEvent(root, chunk);
+                    break;
+
+                // 스트리밍 완료 이벤트
                 case "response.done":
                 case "response.completed":
-                    // Stream completed
+                    ParseStreamCompletionEvent(root, chunk);
                     break;
+            }
+        }
+
+        /// <summary>
+        /// response.output_text.delta 파싱
+        /// </summary>
+        private void ParseStreamTextDelta(JsonElement root, StreamChunk chunk)
+        {
+            if (root.TryGetProperty("delta", out var delta))
+            {
+                chunk.Text = delta.ValueKind == JsonValueKind.String
+                    ? delta.GetString()
+                    : delta.TryGetProperty("text", out var t) ? t.GetString() : null;
+            }
+        }
+
+        /// <summary>
+        /// 함수 호출 관련 이벤트 파싱 (response.function_call, response.function_call.arguments.delta)
+        /// </summary>
+        private void ParseStreamFunctionCallEvent(JsonElement root, string type, StreamChunk chunk)
+        {
+            if (type == "response.function_call")
+            {
+                chunk.FunctionCall = new FunctionCall { Source = IdSource.OpenAI };
+                if (root.TryGetProperty("function_call", out var fc))
+                {
+                    if (fc.TryGetProperty("name", out var n))
+                        chunk.FunctionCall.Name = n.GetString();
+                    if (fc.TryGetProperty("id", out var id))
+                        chunk.FunctionCall.Id = id.GetString();
+                }
+            }
+            else // response.function_call.arguments.delta
+            {
+                if (root.TryGetProperty("delta", out var argDelta))
+                {
+                    chunk.FunctionCall = new FunctionCall
+                    {
+                        Arguments = new Dictionary<string, object>
+                        {
+                            ["_partial"] = argDelta.GetString()
+                        },
+                        Source = IdSource.OpenAI
+                    };
+                }
+            }
+        }
+
+        /// <summary>
+        /// 출력 아이템 이벤트 파싱 (response.output_item.added, response.output_item.delta)
+        /// </summary>
+        private void ParseStreamOutputItemEvent(JsonElement root, StreamChunk chunk)
+        {
+            if (!root.TryGetProperty("item", out var item))
+                return;
+
+            // function_call 타입 아이템
+            if (item.TryGetProperty("type", out var itemType) &&
+                itemType.GetString() == "function_call")
+            {
+                chunk.FunctionCall = new FunctionCall { Source = IdSource.OpenAI };
+
+                if (item.TryGetProperty("name", out var fname))
+                    chunk.FunctionCall.Name = fname.GetString();
+                if (item.TryGetProperty("call_id", out var cid))
+                    chunk.FunctionCall.Id = cid.GetString();
+                if (item.TryGetProperty("arguments", out var args))
+                {
+                    chunk.FunctionCall.Arguments = new Dictionary<string, object>
+                    {
+                        ["_partial"] = args.GetString()
+                    };
+                }
+                return;
+            }
+
+            // message 타입 아이템에서 텍스트 추출
+            if (item.TryGetProperty("message", out var messageObj) &&
+                messageObj.TryGetProperty("content", out var content))
+            {
+                chunk.Text = ExtractTextFromContent(content);
+            }
+        }
+
+        /// <summary>
+        /// 추론 요약 이벤트 파싱 (response.reasoning_summary_text.delta, response.reasoning_summary_part.*)
+        /// </summary>
+        private void ParseStreamReasoningEvent(JsonElement root, string type, StreamChunk chunk)
+        {
+            if (type == "response.reasoning_summary_text.delta" &&
+                root.TryGetProperty("delta", out var reasoningDelta))
+            {
+                chunk.Reasoning = reasoningDelta.ValueKind == JsonValueKind.String
+                    ? reasoningDelta.GetString()
+                    : null;
+            }
+            // response.reasoning_summary_part.added / done - 무시
+        }
+
+        /// <summary>
+        /// response.created 이벤트 파싱
+        /// </summary>
+        private void ParseStreamCreatedEvent(JsonElement root, StreamChunk chunk)
+        {
+            if (root.TryGetProperty("response", out var createdResp))
+            {
+                if (createdResp.TryGetProperty("model", out var createdModel))
+                    chunk.Model = createdModel.GetString();
+                if (createdResp.TryGetProperty("id", out var createdId))
+                {
+                    chunk.Metadata ??= new Dictionary<string, object>();
+                    chunk.Metadata["response_id"] = createdId.GetString();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 스트리밍 완료 이벤트 파싱 (response.done, response.completed)
+        /// </summary>
+        private void ParseStreamCompletionEvent(JsonElement root, StreamChunk chunk)
+        {
+            chunk.IsCompletion = true;
+            if (root.TryGetProperty("response", out var doneResp))
+            {
+                chunk.Metadata ??= new Dictionary<string, object>();
+                chunk.Metadata["finish_reason"] = "stop";
+                if (doneResp.TryGetProperty("usage", out var usage))
+                    chunk.Metadata["usage"] = usage.GetRawText();
+                if (doneResp.TryGetProperty("model", out var doneModel))
+                    chunk.Model = doneModel.GetString();
+                if (doneResp.TryGetProperty("id", out var doneId))
+                    chunk.Metadata["response_id"] = doneId.GetString();
             }
         }
 
@@ -399,26 +491,26 @@ namespace Mythosia.AI.Services.OpenAI
             if (choices.GetArrayLength() == 0) return;
 
             var choice = choices[0];
-            if (!choice.TryGetProperty("delta", out var delta)) return;
+            if (!choice.TryGetProperty("delta", out var legacyDelta)) return;
 
-            if (delta.TryGetProperty("content", out var content))
-                chunk.Text = content.GetString();
+            if (legacyDelta.TryGetProperty("content", out var legacyContent))
+                chunk.Text = legacyContent.GetString();
 
-            if (delta.TryGetProperty("function_call", out var fc))
+            if (legacyDelta.TryGetProperty("function_call", out var legacyFc))
             {
                 chunk.FunctionCall = new FunctionCall
                 {
                     Source = IdSource.OpenAI
                 };
 
-                if (fc.TryGetProperty("name", out var name))
+                if (legacyFc.TryGetProperty("name", out var name))
                 {
                     chunk.FunctionCall.Name = name.GetString();
                     // Legacy API doesn't have call_id, generate one
                     chunk.FunctionCall.Id = $"call_{Guid.NewGuid().ToString().Substring(0, 20)}";
                 }
 
-                if (fc.TryGetProperty("arguments", out var args))
+                if (legacyFc.TryGetProperty("arguments", out var args))
                 {
                     var argsStr = args.GetString();
                     if (!string.IsNullOrEmpty(argsStr))
@@ -455,6 +547,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             public List<StreamingContent> Contents { get; } = new List<StreamingContent>();
             public StringBuilder TextBuffer { get; } = new StringBuilder();
+            public StringBuilder ReasoningBuffer { get; } = new StringBuilder();
             public StringBuilder FunctionArgsBuffer { get; } = new StringBuilder();
             public FunctionCall FunctionCall { get; set; }
             public string Model { get; set; }
@@ -503,6 +596,8 @@ namespace Mythosia.AI.Services.OpenAI
         private class StreamChunk
         {
             public string Text { get; set; }
+            public string? Reasoning { get; set; }
+            public bool IsCompletion { get; set; }
             public FunctionCall FunctionCall { get; set; }
             public string Model { get; set; }
             public Dictionary<string, object> Metadata { get; set; }

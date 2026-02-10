@@ -84,31 +84,29 @@ namespace Mythosia.AI.Services.Anthropic
 
                     if (useFunctions)
                     {
-                        var extractResult = ExtractFunctionCallWithSave(responseContent);
+                        // Extract all tool uses at once
+                        var allToolUses = ExtractAllToolUses(responseContent);
+                        var textContent = ExtractTextContent(responseContent);
 
-                        if (extractResult.functionCall != null)
+                        if (allToolUses.Count > 0)
                         {
                             if (policy.EnableLogging)
                             {
-                                Console.WriteLine($"  Executing function: {extractResult.functionCall.Name}");
+                                Console.WriteLine($"  Executing {allToolUses.Count} function(s)");
                             }
 
-                            // Execute function and add result message
-                            await ExecuteFunctionAndAddResultAsync(extractResult.functionCall);
+                            // Process all tool uses with unified method
+                            await ProcessMultipleToolUses(allToolUses, textContent, policy);
 
-                            // Continue the loop to get AI's response based on function result
+                            // Continue the loop to get AI's response based on function results
                             continue;
                         }
 
                         // No more function calls, we have the final response
-                        if (!string.IsNullOrEmpty(extractResult.content))
+                        if (!string.IsNullOrEmpty(textContent))
                         {
-                            // Only add if not already added by ExtractFunctionCall
-                            if (!extractResult.wasToolUseSaved)
-                            {
-                                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, extractResult.content));
-                            }
-                            return extractResult.content;
+                            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textContent));
+                            return textContent;
                         }
                     }
                     else
@@ -139,7 +137,137 @@ namespace Mythosia.AI.Services.Anthropic
         #region Helper Methods
 
         /// <summary>
-        /// Helper method to extract function call with save state
+        /// Unified method to process multiple tool uses
+        /// </summary>
+        private async Task ProcessMultipleToolUses(
+            List<FunctionCall> toolUses,
+            string textContent,
+            FunctionCallingPolicy policy)
+        {
+            if (toolUses.Count == 0) return;
+
+            // Process first tool use with text content
+            var firstCall = toolUses[0];
+
+            if (policy.EnableLogging)
+            {
+                Console.WriteLine($"  Executing function: {firstCall.Name}");
+            }
+
+            var assistantMsg = new Message(ActorRole.Assistant, textContent ?? ".")
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.MessageType] = "function_call",
+                    [MessageMetadataKeys.FunctionId] = firstCall.Id,
+                    [MessageMetadataKeys.FunctionSource] = firstCall.Source,
+                    [MessageMetadataKeys.FunctionName] = firstCall.Name,
+                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(firstCall.Arguments)
+                }
+            };
+            ActivateChat.Messages.Add(assistantMsg);
+            await ExecuteFunctionAndAddResultAsync(firstCall);
+
+            // Process additional tool uses
+            for (int i = 1; i < toolUses.Count; i++)
+            {
+                var call = toolUses[i];
+
+                if (policy.EnableLogging)
+                {
+                    Console.WriteLine($"  Executing additional function: {call.Name}");
+                }
+
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, ".")
+                {
+                    Metadata = new Dictionary<string, object>
+                    {
+                        [MessageMetadataKeys.MessageType] = "function_call",
+                        [MessageMetadataKeys.FunctionId] = call.Id,
+                        [MessageMetadataKeys.FunctionSource] = call.Source,
+                        [MessageMetadataKeys.FunctionName] = call.Name,
+                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(call.Arguments)
+                    }
+                });
+
+                await ExecuteFunctionAndAddResultAsync(call);
+            }
+        }
+
+        /// <summary>
+        /// Extract all tool uses from response
+        /// </summary>
+        private List<FunctionCall> ExtractAllToolUses(string response)
+        {
+            var toolUses = new List<FunctionCall>();
+
+            try
+            {
+                using var doc = JsonDocument.Parse(response);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("content", out var contentArray) &&
+                    contentArray.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in contentArray.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("type", out var typeElement) &&
+                            typeElement.GetString() == "tool_use")
+                        {
+                            var functionCall = new FunctionCall
+                            {
+                                Id = item.GetProperty("id").GetString(),
+                                Source = IdSource.Claude,
+                                Name = item.GetProperty("name").GetString(),
+                                Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
+                                    item.GetProperty("input").GetRawText()) ?? new Dictionary<string, object>()
+                            };
+                            toolUses.Add(functionCall);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error extracting tool uses: {ex.Message}");
+            }
+
+            return toolUses;
+        }
+
+        /// <summary>
+        /// Extract text content from response
+        /// </summary>
+        private string ExtractTextContent(string response)
+        {
+            var content = string.Empty;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(response);
+                var root = doc.RootElement;
+
+                if (root.TryGetProperty("content", out var contentArray) &&
+                    contentArray.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in contentArray.EnumerateArray())
+                    {
+                        if (item.TryGetProperty("type", out var typeElement) &&
+                            typeElement.GetString() == "text" &&
+                            item.TryGetProperty("text", out var textElement))
+                        {
+                            content += textElement.GetString();
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            return content;
+        }
+
+        /// <summary>
+        /// Helper method to extract function call with save state (for backward compatibility)
         /// </summary>
         private (string content, FunctionCall functionCall, bool wasToolUseSaved) ExtractFunctionCallWithSave(string response)
         {
@@ -173,7 +301,6 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         #endregion
-
 
         #region Request Creation
 

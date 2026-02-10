@@ -369,13 +369,27 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Sets GPT-5 specific parameters
+        /// GPT-5 reasoning effort level. Valid values: minimal, low, medium, high.
+        /// GPT-5 Pro also supports these values but defaults to high.
         /// </summary>
-        public ChatGptService WithGpt5Parameters(string reasoningEffort = "medium", string verbosity = "medium")
+        public string? Gpt5ReasoningEffort { get; set; }
+
+        /// <summary>
+        /// Contains the reasoning summary from the last non-streaming API call.
+        /// Only populated when using reasoning models (GPT-5, o3) with reasoning.summary enabled.
+        /// </summary>
+        public string? LastReasoningSummary { get; private set; }
+
+        /// <summary>
+        /// Sets GPT-5 specific parameters.
+        /// Reasoning effort: minimal, low, medium, high (default: medium, Pro defaults to high).
+        /// </summary>
+        public ChatGptService WithGpt5Parameters(string reasoningEffort = "medium")
         {
             if (ActivateChat.Model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase))
             {
-                Console.WriteLine($"[GPT-5 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}");
+                Gpt5ReasoningEffort = reasoningEffort;
+                Console.WriteLine($"[GPT-5 Config] Reasoning: {reasoningEffort}");
             }
             return this;
         }

@@ -7,15 +7,27 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>3.0.3</VersionPrefix>
+		<VersionPrefix>3.1.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Gpt5; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## 🚀 What's New in v3.0.3
+## 🚀 What's New in v3.1.0
 See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
-			
+
+### GPT-5 Reasoning Support
+- **Reasoning Streaming**: Stream reasoning data in real-time via StreamingContentType.Reasoning
+- **StreamOptions.WithReasoning()**: Enable reasoning summary streaming for GPT-5 models
+- **LastReasoningSummary**: Access reasoning summary from non-streaming GPT-5 responses
+- **Streaming Metadata Fix**: Fixed metadata not populating for New API (Responses API) format
+- **Incomplete Response Handling**: Clear warnings when reasoning exhausts output token budget
+- **max_output_tokens minimum 4096**: GPT-5 reasoning tokens consume the output budget; minimum floor of 4096 is automatically enforced
+
+### GPT-5 Model Support
+- ✅ gpt-5, gpt-5-mini, gpt-5-nano (full support)
+- ⚠️ gpt-5-pro (experimental)
+
 ## 🚀 What's New in v3.0.0
 
 ### Major Features
@@ -26,14 +38,13 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 - **Fluent Function Builder**: Chain function definitions with builder pattern
 
 ### Function Calling Support
-- ✅ **OpenAI**: GPT-4o, GPT-4.1, o3 series (full support)
+- ✅ **OpenAI**: GPT-5, GPT-4o, GPT-4.1, o3 series (full support)
 - ✅ **Anthropic**: Claude 3/4 series (native tool use)
-- 🔜 **Coming Soon**: GPT-5, Gemini (planned for next update)
-- Build AI assistants that can send emails, query databases, call APIs, and more!
+- 🔜 **Coming Soon**: Gemini (planned for next update)
 
 ## Comprehensive AI Model Support
 
-- **OpenAI**: GPT-5*, GPT-4.1, GPT-4o, o3 series (*function calling coming soon)
+- **OpenAI**: GPT-5 (with reasoning), GPT-4.1, GPT-4o, o3 series
 - **Anthropic**: Claude 4 (Opus 4.1, Sonnet 4), Claude 3.7, Claude 3.5
 - **Google**: Gemini 2.5 Pro/Flash, Gemini 2.0, Gemini 1.5
 - **DeepSeek**: Chat and Reasoner models
@@ -41,6 +52,7 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 
 ## Key Features
 
+- ✅ **GPT-5 Reasoning**: Streaming and non-streaming reasoning support (v3.1.0)
 - ✅ **Function Calling**: Let AI execute your code (v3.0.0)
 - ✅ **Streaming 2.0**: IAsyncEnumerable with metadata (v3.0.0)
 - ✅ **Policy Control**: Timeout and retry management (v3.0.0)
@@ -53,43 +65,40 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 
 ## Quick Example
 ```csharp
-// Define functions that AI can call
+// GPT-5 reasoning streaming
+var options = new StreamOptions().WithReasoning().WithMetadata();
+await foreach (var content in service.StreamAsync("Solve: 15 * 17", options))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Thinking] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+
+// Function calling with streaming
 var service = new ChatGptService(apiKey)
-.WithFunction("get_weather", "Gets weather for a city",
-("city", "City name", required: true),
-city => $"Weather in {city}: Sunny, 22°C")
-.WithFunction("send_email", "Sends an email",
-("to", "Recipient", true),
-("subject", "Subject", true),
-async (to, subject) => await EmailService.SendAsync(to, subject));
+    .WithFunction("get_weather", "Gets weather",
+        ("city", "City name", required: true),
+        city =&gt; $"Weather in {city}: Sunny, 22°C");
 
-// AI automatically calls functions as needed
-var response = await service.GetCompletionAsync(
-"What's the weather in Seoul? If sunny, email john@example.com"
-);
-// AI will: 1) Call get_weather("Seoul")
-//         2) Check if sunny
-//         3) Call send_email() if condition met
-//         4) Provide natural language response
-
-// Stream with real-time function execution
 await foreach (var content in service.StreamAsync(query, StreamOptions.WithFunctions))
 {
-if (content.Type == StreamingContentType.FunctionCall)
-Console.WriteLine($"Calling: {content.Metadata["function_name"]}");
-else if (content.Type == StreamingContentType.Text)
-Console.Write(content.Content);
+    if (content.Type == StreamingContentType.FunctionCall)
+        Console.WriteLine($"Calling: {content.Metadata["function_name"]}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
 }
 ```
 
 ## Documentation
 - Basic Usage: https://github.com/AJ-comp/Mythosia/wiki
 - Advanced Features: https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features
+- Release Notes: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
 			- GitHub: https://github.com/AJ-comp/Mythosia
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>3.0.3</Version>
+		<Version>3.1.0</Version>
 	</PropertyGroup>
 
 
@@ -110,6 +119,10 @@ Console.Write(content.Content);
 	    <Pack>True</Pack>
 	    <PackagePath>\</PackagePath>
 	  </None>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="docs\" />
 	</ItemGroup>
 
 </Project>

@@ -23,6 +23,11 @@ namespace Mythosia.AI.Models.Streaming
         public bool IncludeTokenInfo { get; set; } = false;
 
         /// <summary>
+        /// Include reasoning/thinking content from reasoning models like GPT-5, o3 (default: false)
+        /// </summary>
+        public bool IncludeReasoning { get; set; } = false;
+
+        /// <summary>
         /// Filter out everything except text content (default: false)
         /// </summary>
         public bool TextOnly { get; set; } = false;
@@ -44,7 +49,8 @@ namespace Mythosia.AI.Models.Streaming
         {
             IncludeMetadata = true,
             IncludeFunctionCalls = true,
-            IncludeTokenInfo = true
+            IncludeTokenInfo = true,
+            IncludeReasoning = true
         };
 
         /// <summary>
@@ -83,6 +89,7 @@ namespace Mythosia.AI.Models.Streaming
                 IncludeMetadata = this.IncludeMetadata,
                 IncludeFunctionCalls = this.IncludeFunctionCalls,
                 IncludeTokenInfo = this.IncludeTokenInfo,
+                IncludeReasoning = this.IncludeReasoning,
                 TextOnly = this.TextOnly
             };
         }
@@ -117,6 +124,15 @@ namespace Mythosia.AI.Models.Streaming
         /// <summary>
         /// Builder pattern for fluent configuration
         /// </summary>
+        public StreamOptions WithReasoning(bool include = true)
+        {
+            IncludeReasoning = include;
+            return this;
+        }
+
+        /// <summary>
+        /// Builder pattern for fluent configuration
+        /// </summary>
         public StreamOptions AsTextOnly(bool textOnly = true)
         {
             TextOnly = textOnly;
@@ -126,6 +142,7 @@ namespace Mythosia.AI.Models.Streaming
                 IncludeMetadata = false;
                 IncludeFunctionCalls = false;
                 IncludeTokenInfo = false;
+                IncludeReasoning = false;
             }
             return this;
         }

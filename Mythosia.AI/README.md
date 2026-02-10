@@ -2,12 +2,49 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, and **advanced streaming capabilities**, including **OpenAI GPT-4o**, **Anthropic Claude 3**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**, including **OpenAI GPT-5/GPT-4o**, **Anthropic Claude 3/4**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
 ## 📚 Documentation
 
 - **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia/wiki)** - Getting started with text queries, streaming, image analysis, and more
 - **[Advanced Features](https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features)** - Function calling, policies, and enhanced streaming (v3.0.0)
+- **[Release Notes](https://github.com/AJ-comp/Mythosia/wiki/Release-Notes)** - Full version history
+
+### 🚀 What's New in v3.1.0
+
+#### **GPT-5 Reasoning Support** 🧠
+
+- **Reasoning Streaming**: Stream GPT-5 reasoning data in real-time via `StreamingContentType.Reasoning`
+- **`StreamOptions.WithReasoning()`**: Enable reasoning summary streaming for GPT-5 models
+- **`LastReasoningSummary`**: Access reasoning summary from non-streaming GPT-5 responses
+- **GPT-5 Model Support**: gpt-5, gpt-5-mini, gpt-5-nano (full), gpt-5-pro (experimental)
+
+#### **Streaming Improvements** 🌊
+
+- **New API Metadata Fix**: Fixed metadata not populating for Responses API (GPT-5, o3) streaming format
+- **Completion Events**: `response.done` / `response.completed` now correctly emit `StreamingContentType.Completion` with usage info
+- **Incomplete Response Handling**: Clear warnings when reasoning exhausts the output token budget
+- **`max_output_tokens` minimum 4096**: GPT-5 reasoning tokens consume the output budget, so a minimum floor of 4096 is automatically enforced to prevent reasoning from exhausting all tokens
+
+#### **Quick Example**
+
+```csharp
+// GPT-5 reasoning streaming
+var options = new StreamOptions().WithReasoning().WithMetadata();
+await foreach (var content in service.StreamAsync("Solve: 15 * 17", options))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Thinking] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+
+// Non-streaming reasoning
+var gptService = (ChatGptService)service;
+var response = await gptService.GetCompletionAsync("What is 15 * 17?");
+Console.WriteLine($"Answer: {response}");
+Console.WriteLine($"Reasoning: {gptService.LastReasoningSummary}");
+```
 
 ### 🚀 What's New in v3.0.0
 
@@ -258,7 +295,9 @@ await foreach (var content in service.StreamAsync("Query", options))
 | **OpenAI GPT-4o** | ✅ Full | ✅ Full | Best support, all features |
 | **OpenAI GPT-4.1** | ✅ Full | ✅ Full | Full function support |
 | **OpenAI o3** | ✅ Full | ✅ Full | Advanced reasoning with functions |
-| **OpenAI GPT-5** | 🔜 Coming Soon | 🔜 Coming Soon | Support planned for future update |
+| **OpenAI GPT-5** | ✅ Full | ✅ Full | Reasoning streaming + summary support |
+| **OpenAI GPT-5 Mini/Nano** | ✅ Full | ✅ Full | Lightweight reasoning models |
+| **OpenAI GPT-5 Pro** | ⚠️ Experimental | ⚠️ Experimental | Known issues with some responses |
 | **Claude 3/4** | ✅ Full | ✅ Full | Tool use via native API |
 | **Gemini** | 🔜 Coming Soon | 🔜 Coming Soon | Support planned for future update |
 | **DeepSeek** | ❌ | ❌ | Not yet available |

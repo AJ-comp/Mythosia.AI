@@ -88,26 +88,47 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Configures GPT-5 specific parameters
+        /// Configures GPT-5 specific parameters.
+        /// GPT-5 family supports reasoning effort: minimal, low, medium, high.
+        /// GPT-5 Pro defaults to high reasoning effort and is Responses API only.
         /// </summary>
         private void ConfigureGpt5Parameters(Dictionary<string, object> requestBody, string model)
         {
-            // GPT-5 uses different parameter structure
+            // Use explicitly set reasoning effort, or default based on model variant
+            var effort = Gpt5ReasoningEffort
+                ?? (IsGpt5ProModel(model) ? "high" : "medium");
+
             if (!requestBody.ContainsKey("reasoning"))
             {
-                requestBody["reasoning"] = new { effort = "medium" };
+                requestBody["reasoning"] = new { effort = effort, summary = "auto" };
             }
 
             if (!requestBody.ContainsKey("text"))
             {
-                requestBody["text"] = new { verbosity = "medium" };
+                requestBody["text"] = new { format = new { type = "text" } };
             }
 
             // GPT-5 uses max_output_tokens instead of max_tokens
+            // IMPORTANT: reasoning tokens consume from the max_output_tokens budget.
+            // If the limit is too low, GPT-5 may exhaust all tokens on reasoning
+            // and produce no text output (status: "incomplete").
+            const int Gpt5MinOutputTokens = 4096;
+
             if (requestBody.ContainsKey("max_tokens"))
             {
-                requestBody["max_output_tokens"] = requestBody["max_tokens"];
                 requestBody.Remove("max_tokens");
+            }
+
+            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
+                currentMax is int currentMaxInt && currentMaxInt < Gpt5MinOutputTokens)
+            {
+                Console.WriteLine($"[GPT-5] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
+                    $"Adjusting to {Gpt5MinOutputTokens} to ensure room for both reasoning and text output.");
+                requestBody["max_output_tokens"] = Gpt5MinOutputTokens;
+            }
+            else if (!requestBody.ContainsKey("max_output_tokens"))
+            {
+                requestBody["max_output_tokens"] = Gpt5MinOutputTokens;
             }
         }
 
@@ -174,6 +195,11 @@ namespace Mythosia.AI.Services.OpenAI
         private bool IsGpt5Model(string model)
         {
             return model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsGpt5ProModel(string model)
+        {
+            return model.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsGpt4Model(string model)

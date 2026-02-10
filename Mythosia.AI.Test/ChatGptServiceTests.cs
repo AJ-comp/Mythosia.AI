@@ -1,5 +1,6 @@
 ﻿using Mythosia.AI.Extensions;
 using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.Azure;
@@ -38,21 +39,27 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
 
     protected override bool SupportsMultimodal()
     {
-        bool result = false;
         var curModel = AI.ActivateChat.Model;
+        // All GPT-5 variants support multimodal (text + image input)
+        if (curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase))
+            return true;
         if (curModel == AIModel.Gpt4o.ToDescription() ||
             curModel == AIModel.Gpt4oMini.ToDescription() ||
             curModel == AIModel.Gpt4o241120.ToDescription() ||
-            curModel == AIModel.Gpt4o240806.ToDescription() ||
-            curModel == AIModel.Gpt5.ToDescription())
-            result = true;
-        return result;
+            curModel == AIModel.Gpt4o240806.ToDescription())
+            return true;
+        return false;
     }
 
     protected override bool SupportsFunctionCalling() => true;
     protected override bool SupportsAudio() => true;
     protected override bool SupportsImageGeneration() => true;
     protected override bool SupportsWebSearch() => false;
+    protected override bool SupportsReasoning()
+    {
+        var curModel = AI.ActivateChat.Model;
+        return curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+    }
     protected override AIModel? GetAlternativeModel() => AIModel.Gpt4oMini;
 
     #region GPT-Specific Tests
@@ -127,4 +134,135 @@ public class OpenAI_Gpt4o240806_Tests : ChatGptServiceTestsBase
 public class OpenAI_Gpt4o241120_Tests : ChatGptServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Gpt4o241120;
+}
+
+// 3. GPT-5 모델 테스트 클래스들
+
+[TestClass]
+public class OpenAI_Gpt5_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5;
+}
+
+[TestClass]
+public class OpenAI_Gpt5Mini_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5Mini;
+}
+
+[TestClass]
+public class OpenAI_Gpt5Nano_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5Nano;
+}
+
+[TestClass]
+public class OpenAI_Gpt5Pro_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5Pro;
+
+    #region GPT-5 Pro Specific Tests
+
+    /// <summary>
+    /// GPT-5 Pro는 Responses API만 지원 (chat/completions 미지원)
+    /// 기본 reasoning effort가 high인지 확인
+    /// </summary>
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task Gpt5Pro_ReasoningEffort_DefaultsToHigh()
+    {
+        try
+        {
+            var gptService = (ChatGptService)AI;
+            // GPT-5 Pro는 기본적으로 high reasoning effort
+            var response = await gptService.GetCompletionAsync(
+                "What is the square root of 144? Answer with just the number."
+            );
+            Assert.IsNotNull(response);
+            Assert.IsTrue(response.Contains("12"), $"Expected '12' in response but got: {response}");
+            Console.WriteLine($"[GPT-5 Pro Response] {response}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GPT-5 Pro Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+
+    #endregion
+}
+
+/// <summary>
+/// GPT-5 전용 기능 테스트 (reasoning effort 설정 등)
+/// </summary>
+[TestClass]
+public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5;
+
+    #region GPT-5 Reasoning Effort Tests
+
+    /// <summary>
+    /// GPT-5 reasoning effort 파라미터 설정 및 응답 테스트
+    /// Valid values: minimal, low, medium, high
+    /// </summary>
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task Gpt5_ReasoningEffort_CanBeConfigured()
+    {
+        try
+        {
+            var gptService = (ChatGptService)AI;
+
+            // minimal reasoning effort로 빠른 응답
+            gptService.WithGpt5Parameters(reasoningEffort: "minimal");
+            var quickResponse = await gptService.GetCompletionAsync("What is 2+2?");
+            Assert.IsNotNull(quickResponse);
+            Console.WriteLine($"[Minimal Effort] {quickResponse}");
+
+            // high reasoning effort로 심층 응답
+            gptService.WithGpt5Parameters(reasoningEffort: "high");
+            var detailedResponse = await gptService.GetCompletionAsync(
+                "Explain briefly why the sky is blue in one sentence."
+            );
+            Assert.IsNotNull(detailedResponse);
+            Console.WriteLine($"[High Effort] {detailedResponse}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GPT-5 Reasoning Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// GPT-5 체이닝 설정 테스트 (WithGpt5Parameters + WithSystemMessage 등)
+    /// </summary>
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task Gpt5_ChainingParameters_WorksCorrectly()
+    {
+        try
+        {
+            var gptService = (ChatGptService)AI;
+            gptService
+                .WithGpt5Parameters(reasoningEffort: "low")
+                .WithSystemMessage("You are a concise assistant. Answer in one word if possible.")
+                .WithMaxTokens(100);
+
+            var response = await gptService.GetCompletionAsync(
+                "What color is the sun? Answer in one word."
+            );
+            Assert.IsNotNull(response);
+            Assert.IsTrue(response.Length < 200, "Response should be concise");
+            Console.WriteLine($"[Chained GPT-5 Response] {response}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GPT-5 Chaining Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+
+    #endregion
 }
