@@ -119,12 +119,6 @@ public class OpenAI_ChatGpt4oTests : ChatGptServiceTestsBase
 }
 
 [TestClass]
-public class OpenAI_o3MiniTests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.o3_mini;
-}
-
-[TestClass]
 public class OpenAI_Gpt4o240806_Tests : ChatGptServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Gpt4o240806;
@@ -136,7 +130,15 @@ public class OpenAI_Gpt4o241120_Tests : ChatGptServiceTestsBase
     protected override AIModel ModelToTest => AIModel.Gpt4o241120;
 }
 
-// 3. GPT-5 모델 테스트 클래스들
+// 3. o3 모델 테스트 클래스들
+
+[TestClass]
+public class OpenAI_o3_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.o3;
+}
+
+// 4. GPT-5 모델 테스트 클래스들
 
 [TestClass]
 public class OpenAI_Gpt5_Tests : ChatGptServiceTestsBase
@@ -156,40 +158,24 @@ public class OpenAI_Gpt5Nano_Tests : ChatGptServiceTestsBase
     protected override AIModel ModelToTest => AIModel.Gpt5Nano;
 }
 
+// 4. GPT-5.1 모델 테스트 클래스들
 [TestClass]
-public class OpenAI_Gpt5Pro_Tests : ChatGptServiceTestsBase
+public class OpenAI_Gpt5_1_Tests : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5Pro;
+    protected override AIModel ModelToTest => AIModel.Gpt5_1;
+}
 
-    #region GPT-5 Pro Specific Tests
+// 5. GPT-5.2 모델 테스트 클래스들
+[TestClass]
+public class OpenAI_Gpt5_2_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_2;
+}
 
-    /// <summary>
-    /// GPT-5 Pro는 Responses API만 지원 (chat/completions 미지원)
-    /// 기본 reasoning effort가 high인지 확인
-    /// </summary>
-    [TestCategory("ServiceSpecific")]
-    [TestMethod]
-    public async Task Gpt5Pro_ReasoningEffort_DefaultsToHigh()
-    {
-        try
-        {
-            var gptService = (ChatGptService)AI;
-            // GPT-5 Pro는 기본적으로 high reasoning effort
-            var response = await gptService.GetCompletionAsync(
-                "What is the square root of 144? Answer with just the number."
-            );
-            Assert.IsNotNull(response);
-            Assert.IsTrue(response.Contains("12"), $"Expected '12' in response but got: {response}");
-            Console.WriteLine($"[GPT-5 Pro Response] {response}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[GPT-5 Pro Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-
-    #endregion
+[TestClass]
+public class OpenAI_Gpt5_2Pro_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_2Pro;
 }
 
 /// <summary>

@@ -297,7 +297,7 @@ namespace Mythosia.AI.Services.OpenAI
                         chunk.Metadata["response_id"] = id.GetString();
                 }
 
-                // New API format (o3-mini, GPT-5, etc.)
+                // New API format (o3, GPT-5, etc.)
                 if (root.TryGetProperty("type", out var typeProp))
                 {
                     ParseNewApiStreamChunk(root, typeProp.GetString(), chunk);

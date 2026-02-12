@@ -18,9 +18,6 @@ namespace Mythosia.AI.Models.Enums
         [Description("claude-3-7-sonnet-latest")]
         Claude3_7SonnetLatest,
 
-        [Description("claude-3-5-sonnet-20241022")]
-        Claude3_5Sonnet241022,
-
         [Description("claude-3-5-haiku-20241022")]
         Claude3_5Haiku241022,
 
@@ -52,10 +49,6 @@ namespace Mythosia.AI.Models.Enums
         [Description("gpt-5-nano")]
         Gpt5Nano,
 
-        /// <summary>OpenAI GPT-5 Pro - Smarter, more precise GPT-5 (Responses API only)</summary>
-        [Description("gpt-5-pro")]
-        Gpt5Pro,
-
         /// <summary>OpenAI GPT-5 (Aug 2025 snapshot)</summary>
         [Description("gpt-5-2025-08-07")]
         Gpt5_250807,
@@ -68,13 +61,23 @@ namespace Mythosia.AI.Models.Enums
         [Description("gpt-5-nano-2025-08-07")]
         Gpt5Nano_250807,
 
-        /// <summary>OpenAI GPT-5 Pro (Oct 2025 snapshot)</summary>
-        [Description("gpt-5-pro-2025-10-06")]
-        Gpt5Pro_251006,
-
         /// <summary>OpenAI GPT-5 Chat Latest - Latest chat-optimized GPT-5</summary>
         [Description("gpt-5-chat-latest")]
         Gpt5ChatLatest,
+
+        // OpenAI GPT-5.1 Models
+        /// <summary>OpenAI GPT-5.1 - Reasoning model (default effort: none, supports: none/low/medium/high)</summary>
+        [Description("gpt-5.1")]
+        Gpt5_1,
+
+        // OpenAI GPT-5.2 Models
+        /// <summary>OpenAI GPT-5.2 - Best model for complex, coding, and agentic tasks (default effort: none, supports: none/low/medium/high/xhigh)</summary>
+        [Description("gpt-5.2")]
+        Gpt5_2,
+
+        /// <summary>OpenAI GPT-5.2 Pro - High-compute model for tough problems (supports: medium/high/xhigh)</summary>
+        [Description("gpt-5.2-pro")]
+        Gpt5_2Pro,
 
         /// <summary>OpenAI o3-pro - Top-tier reasoning model for hardest problems</summary>
         [Description("o3-pro")]
@@ -83,10 +86,6 @@ namespace Mythosia.AI.Models.Enums
         /// <summary>OpenAI o3 - Advanced reasoning for complex tasks</summary>
         [Description("o3")]
         o3,
-
-        /// <summary>OpenAI o3-mini - Fast, cost-effective reasoning model</summary>
-        [Description("o3-mini")]
-        o3_mini,
 
         /// <summary>OpenAI GPT-4.1 - Enhanced GPT-4 with improvements</summary>
         [Description("gpt-4.1")]

@@ -397,7 +397,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// response.output_text.delta 이벤트 파싱 (o3-mini 등 새로운 스트리밍 형식)
+        /// response.output_text.delta 이벤트 파싱 (o3, GPT-5 등 새로운 스트리밍 형식)
         /// </summary>
         private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseNewApiTextDelta(
             JsonElement root)

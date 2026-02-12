@@ -366,7 +366,7 @@ public async Task CrossProviderToGpt4o()
                 string openAiKey = secretFetcher.GetKeyValueAsync().Result;
 
                 var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-                chatGptService.ActivateChat.ChangeModel(AIModel.o3_mini);
+                chatGptService.ActivateChat.ChangeModel(AIModel.o3);
 
                 var messageCountAfter = chatGptService.ActivateChat.Messages.Count;
                 Assert.AreEqual(messageCountBefore, messageCountAfter,

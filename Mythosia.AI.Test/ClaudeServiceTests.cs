@@ -87,7 +87,6 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
             var models = new[]
             {
                AIModel.Claude3_5Haiku241022,
-               AIModel.Claude3_5Sonnet241022,
                AIModel.Claude3Opus240229
            };
 
@@ -176,12 +175,6 @@ public class Claude_Sonnet4_Tests : ClaudeServiceTestsBase
 public class Claude_3_7SonnetLatest_Tests : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Claude3_7SonnetLatest;
-}
-
-[TestClass]
-public class Claude_3_5Sonnet_Tests : ClaudeServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Claude3_5Sonnet241022;
 }
 
 [TestClass]

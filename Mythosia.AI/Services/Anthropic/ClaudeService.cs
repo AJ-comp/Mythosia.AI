@@ -332,7 +332,7 @@ namespace Mythosia.AI.Services.Anthropic
                 !ActivateChat.Model.Contains("claude-4") &&
                 !ActivateChat.Model.Contains("opus-4"))
             {
-                ActivateChat.ChangeModel(AIModel.Claude3_5Sonnet241022);
+                ActivateChat.ChangeModel(AIModel.ClaudeSonnet4_250514);
             }
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);

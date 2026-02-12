@@ -15,10 +15,18 @@ namespace Mythosia.AI.Services.OpenAI
             // Token parameter configuration
             ConfigureTokenParameter(requestBody, model);
 
-            // Model-specific configurations
+            // Model-specific configurations (more specific models first)
             if (IsO3Model(model))
             {
                 ConfigureO3Parameters(requestBody, model);
+            }
+            else if (IsGpt5_2Model(model))
+            {
+                ConfigureGpt5_2Parameters(requestBody, model);
+            }
+            else if (IsGpt5_1Model(model))
+            {
+                ConfigureGpt5_1Parameters(requestBody, model);
             }
             else if (IsGpt5Model(model))
             {
@@ -68,10 +76,6 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 requestBody["reasoning"] = new { effort = "high" };
             }
-            else if (model == "o3-mini")
-            {
-                requestBody["reasoning"] = new { effort = "low" };
-            }
             else if (model == "o3")
             {
                 requestBody["reasoning"] = new { effort = "medium" };
@@ -90,17 +94,18 @@ namespace Mythosia.AI.Services.OpenAI
         /// <summary>
         /// Configures GPT-5 specific parameters.
         /// GPT-5 family supports reasoning effort: minimal, low, medium, high.
-        /// GPT-5 Pro defaults to high reasoning effort and is Responses API only.
         /// </summary>
         private void ConfigureGpt5Parameters(Dictionary<string, object> requestBody, string model)
         {
             // Use explicitly set reasoning effort, or default based on model variant
-            var effort = Gpt5ReasoningEffort
-                ?? (IsGpt5ProModel(model) ? "high" : "medium");
+            var effort = Gpt5ReasoningEffort ?? "medium";
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                requestBody["reasoning"] = new { effort = effort, summary = "auto" };
+                var summary = Gpt5ReasoningSummary;
+                requestBody["reasoning"] = summary != null
+                    ? (object)new { effort = effort, summary = summary }
+                    : new { effort = effort };
             }
 
             if (!requestBody.ContainsKey("text"))
@@ -129,6 +134,98 @@ namespace Mythosia.AI.Services.OpenAI
             else if (!requestBody.ContainsKey("max_output_tokens"))
             {
                 requestBody["max_output_tokens"] = Gpt5MinOutputTokens;
+            }
+        }
+
+        /// <summary>
+        /// Configures GPT-5.1 specific parameters.
+        /// GPT-5.1 supports reasoning effort: none (default), low, medium, high.
+        /// GPT-5.1 supports text verbosity: low, medium (default), high.
+        /// </summary>
+        private void ConfigureGpt5_1Parameters(Dictionary<string, object> requestBody, string model)
+        {
+            var effort = Gpt5_1ReasoningEffort ?? "none";
+
+            if (!requestBody.ContainsKey("reasoning"))
+            {
+                var summary = Gpt5_1ReasoningSummary;
+                requestBody["reasoning"] = summary != null
+                    ? (object)new { effort = effort, summary = summary }
+                    : new { effort = effort };
+            }
+
+            if (!requestBody.ContainsKey("text"))
+            {
+                var verbosity = Gpt5_1Verbosity ?? "medium";
+                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
+            }
+
+            // GPT-5.1 uses max_output_tokens instead of max_tokens
+            const int Gpt5_1MinOutputTokens = 4096;
+
+            if (requestBody.ContainsKey("max_tokens"))
+            {
+                requestBody.Remove("max_tokens");
+            }
+
+            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
+                currentMax is int currentMaxInt && currentMaxInt < Gpt5_1MinOutputTokens)
+            {
+                Console.WriteLine($"[GPT-5.1] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
+                    $"Adjusting to {Gpt5_1MinOutputTokens} to ensure room for both reasoning and text output.");
+                requestBody["max_output_tokens"] = Gpt5_1MinOutputTokens;
+            }
+            else if (!requestBody.ContainsKey("max_output_tokens"))
+            {
+                requestBody["max_output_tokens"] = Gpt5_1MinOutputTokens;
+            }
+        }
+
+        /// <summary>
+        /// Configures GPT-5.2 specific parameters.
+        /// GPT-5.2 supports reasoning effort: none (default), low, medium, high, xhigh.
+        /// GPT-5.2 Pro supports reasoning effort: medium, high, xhigh.
+        /// GPT-5.2 supports text verbosity: low, medium (default), high.
+        /// </summary>
+        private void ConfigureGpt5_2Parameters(Dictionary<string, object> requestBody, string model)
+        {
+            string defaultEffort = model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase)
+                ? "medium"
+                : "none";
+            var effort = Gpt5_2ReasoningEffort ?? defaultEffort;
+
+            if (!requestBody.ContainsKey("reasoning"))
+            {
+                var summary = Gpt5_2ReasoningSummary;
+                requestBody["reasoning"] = summary != null
+                    ? (object)new { effort = effort, summary = summary }
+                    : new { effort = effort };
+            }
+
+            if (!requestBody.ContainsKey("text"))
+            {
+                var verbosity = Gpt5_2Verbosity ?? "medium";
+                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
+            }
+
+            // GPT-5.2 uses max_output_tokens instead of max_tokens
+            const int Gpt5_2MinOutputTokens = 4096;
+
+            if (requestBody.ContainsKey("max_tokens"))
+            {
+                requestBody.Remove("max_tokens");
+            }
+
+            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
+                currentMax is int currentMaxInt && currentMaxInt < Gpt5_2MinOutputTokens)
+            {
+                Console.WriteLine($"[GPT-5.2] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
+                    $"Adjusting to {Gpt5_2MinOutputTokens} to ensure room for both reasoning and text output.");
+                requestBody["max_output_tokens"] = Gpt5_2MinOutputTokens;
+            }
+            else if (!requestBody.ContainsKey("max_output_tokens"))
+            {
+                requestBody["max_output_tokens"] = Gpt5_2MinOutputTokens;
             }
         }
 
@@ -175,9 +272,9 @@ namespace Mythosia.AI.Services.OpenAI
                 unsupported.Add("top_p"); // Some o3 models might not support this
             }
 
-            if (IsGpt5Model(model))
+            if (IsGpt5Family(model))
             {
-                // GPT-5 might have different unsupported params
+                // GPT-5 family doesn't support these params
                 unsupported.Add("frequency_penalty");
                 unsupported.Add("presence_penalty");
             }
@@ -187,19 +284,44 @@ namespace Mythosia.AI.Services.OpenAI
 
         #region Model Detection Helpers
 
-        private bool IsO3Model(string model)
-        {
-            return model.StartsWith("o3", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private bool IsGpt5Model(string model)
+        /// <summary>
+        /// Matches the entire GPT-5 family: gpt-5, gpt-5.1, gpt-5.2 and all variants.
+        /// Used for shared behaviors like New API endpoint, unsupported parameters.
+        /// </summary>
+        private bool IsGpt5Family(string model)
         {
             return model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
         }
 
-        private bool IsGpt5ProModel(string model)
+        /// <summary>
+        /// Matches only GPT-5 base models: gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-chat-latest, etc.
+        /// Excludes gpt-5.1 and gpt-5.2 variants.
+        /// </summary>
+        private bool IsGpt5Model(string model)
         {
-            return model.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase);
+            return model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase)
+                && !model.StartsWith("gpt-5.", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Matches GPT-5.1 models: gpt-5.1, gpt-5.1-chat-latest, etc.
+        /// </summary>
+        private bool IsGpt5_1Model(string model)
+        {
+            return model.StartsWith("gpt-5.1", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Matches GPT-5.2 models: gpt-5.2, gpt-5.2-pro, gpt-5.2-chat-latest, etc.
+        /// </summary>
+        private bool IsGpt5_2Model(string model)
+        {
+            return model.StartsWith("gpt-5.2", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool IsO3Model(string model)
+        {
+            return model.StartsWith("o3", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsGpt4Model(string model)
@@ -208,9 +330,13 @@ namespace Mythosia.AI.Services.OpenAI
                    model.Contains("4o");
         }
 
+        /// <summary>
+        /// Determines if the model uses the Responses API (/v1/responses).
+        /// All GPT-5 family, o3, and GPT-4.1 models use the new API.
+        /// </summary>
         private bool IsNewApiModel(string model)
         {
-            return IsGpt5Model(model) ||
+            return IsGpt5Family(model) ||
                    IsO3Model(model) ||
                    model.StartsWith("gpt-4.1", StringComparison.OrdinalIgnoreCase);
         }
