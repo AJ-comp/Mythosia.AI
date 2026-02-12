@@ -22,12 +22,12 @@ namespace Mythosia.AI.Services.Perplexity
             string recencyFilter = "month")
         {
             // Create a temporary chat block with search parameters
-            var originalModel = ActivateChat.Model;
+            var originalModel = Model;
             var messagesList = new List<object>();
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+                messagesList.Add(new { role = "system", content = SystemMessage });
             }
 
             messagesList.Add(new { role = "user", content = prompt });
@@ -36,8 +36,8 @@ namespace Mythosia.AI.Services.Perplexity
             {
                 ["model"] = originalModel,
                 ["messages"] = messagesList,
-                ["temperature"] = ActivateChat.Temperature,
-                ["max_tokens"] = ActivateChat.MaxTokens,
+                ["temperature"] = Temperature,
+                ["max_tokens"] = MaxTokens,
                 ["return_citations"] = true,
                 ["search_recency_filter"] = recencyFilter
             };

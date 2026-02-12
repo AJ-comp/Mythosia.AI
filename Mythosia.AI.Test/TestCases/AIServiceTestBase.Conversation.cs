@@ -97,7 +97,7 @@ public abstract partial class AIServiceTestBase
         try
         {
             // 긴 컨텍스트 설정
-            AI.ActivateChat.MaxMessageCount = 10;
+            AI.MaxMessageCount = 10;
 
             // 여러 대화 추가
             for (int i = 1; i <= 5; i++)
@@ -115,7 +115,7 @@ public abstract partial class AIServiceTestBase
             Console.WriteLine($"[Context Response] {contextResponse}");
 
             // 대화 요약
-            var summary = AI.ActivateChat.GetConversationSummary();
+            var summary = AI.GetConversationSummary();
             Console.WriteLine($"[Conversation Summary]\n{summary}");
         }
         catch (Exception ex)

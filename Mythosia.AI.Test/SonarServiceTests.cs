@@ -360,7 +360,7 @@ public class SonarServiceTests : AIServiceTestBase
             // 잘못된 모델명으로 변경 시도
             try
             {
-                AI.ActivateChat.ChangeModel("invalid-model-name");
+                AI.ChangeModel("invalid-model-name");
                 await AI.GetCompletionAsync("test");
                 Assert.Fail("Should have thrown an exception");
             }
@@ -371,7 +371,7 @@ public class SonarServiceTests : AIServiceTestBase
 
             // 매우 긴 입력으로 제한 테스트
             var veryLongPrompt = string.Concat(Enumerable.Repeat("This is a very long text. ", 1000));
-            AI.ActivateChat.MaxTokens = 50;
+            AI.MaxTokens = 50;
 
             var response = await AI.GetCompletionAsync(veryLongPrompt);
             Assert.IsNotNull(response);

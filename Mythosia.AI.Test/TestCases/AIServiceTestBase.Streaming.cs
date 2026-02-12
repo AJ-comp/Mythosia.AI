@@ -226,10 +226,10 @@ public abstract partial class AIServiceTestBase
         try
         {
             // 1) 잘못된 모델로 시도
-            var originalModel = AI.ActivateChat.Model;
+            var originalModel = AI.Model;
             try
             {
-                AI.ActivateChat.ChangeModel("invalid-model");
+                AI.ChangeModel("invalid-model");
                 await foreach (var chunk in AI.StreamAsync("test"))
                 {
                     // Should not reach here
@@ -240,7 +240,7 @@ public abstract partial class AIServiceTestBase
             {
                 Console.WriteLine($"[Expected Model Error] {modelEx.Message}");
                 // 원래 모델로 복원
-                AI.ActivateChat.ChangeModel(originalModel);
+                AI.ChangeModel(originalModel);
             }
 
             // 2) 매우 짧은 타임아웃으로 취소

@@ -28,7 +28,7 @@ namespace Mythosia.AI.Services.Anthropic
 
             var requestBody = new
             {
-                model = ActivateChat.Model,
+                model = Model,
                 messages = messagesList
             };
 
@@ -39,20 +39,20 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var messagesList = new List<object>();
 
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 messagesList.Add(ConvertMessageForClaude(message));
             }
 
             var requestBody = new Dictionary<string, object>
             {
-                ["model"] = ActivateChat.Model,
+                ["model"] = Model,
                 ["messages"] = messagesList
             };
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                requestBody["system"] = ActivateChat.SystemMessage;
+                requestBody["system"] = SystemMessage;
             }
 
             return requestBody;

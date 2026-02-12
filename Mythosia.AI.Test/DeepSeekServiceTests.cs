@@ -196,7 +196,7 @@ public class DeepSeekServiceTests : AIServiceTestBase
         {
             // 매우 긴 입력으로 토큰 제한 테스트
             var longPrompt = new string('a', 10000);
-            AI.ActivateChat.MaxTokens = 10; // 매우 작은 출력 제한
+            AI.MaxTokens = 10; // 매우 작은 출력 제한
 
             var response = await AI.GetCompletionAsync(longPrompt);
             Assert.IsNotNull(response);

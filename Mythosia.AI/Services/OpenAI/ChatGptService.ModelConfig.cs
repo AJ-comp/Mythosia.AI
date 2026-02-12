@@ -10,7 +10,7 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ApplyModelSpecificParameters(Dictionary<string, object> requestBody)
         {
-            var model = ActivateChat.Model.ToLower();
+            var model = Model.ToLower();
 
             // Token parameter configuration
             ConfigureTokenParameter(requestBody, model);
@@ -49,7 +49,7 @@ namespace Mythosia.AI.Services.OpenAI
             if (IsO3Model(model) || IsNewApiModel(model))
             {
                 // o3 and new API models use max_output_tokens
-                requestBody["max_output_tokens"] = (int)ActivateChat.MaxTokens;
+                requestBody["max_output_tokens"] = (int)MaxTokens;
 
                 // Remove other token parameters
                 requestBody.Remove("max_tokens");
@@ -58,7 +58,7 @@ namespace Mythosia.AI.Services.OpenAI
             else
             {
                 // Standard models use max_tokens
-                requestBody["max_tokens"] = ActivateChat.MaxTokens;
+                requestBody["max_tokens"] = MaxTokens;
 
                 // Remove new API parameters
                 requestBody.Remove("max_output_tokens");

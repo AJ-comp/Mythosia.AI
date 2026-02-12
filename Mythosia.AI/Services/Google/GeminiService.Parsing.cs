@@ -17,44 +17,38 @@ namespace Mythosia.AI.Services.Google
         {
             var contentsList = new List<object>();
 
-            // Add system message as first user message if present
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
-            {
-                contentsList.Add(new
-                {
-                    role = "user",
-                    parts = new[] { new { text = ActivateChat.SystemMessage } }
-                });
-
-                // Add a model response to balance the conversation
-                contentsList.Add(new
-                {
-                    role = "model",
-                    parts = new[] { new { text = "Understood. I'll follow these instructions." } }
-                });
-            }
-
             // Add conversation messages
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 contentsList.Add(ConvertMessageForGemini(message));
             }
 
-            var generationConfig = new
+            var generationConfig = new Dictionary<string, object>
             {
-                temperature = ActivateChat.Temperature,
-                topP = ActivateChat.TopP,
-                topK = 40,
-                maxOutputTokens = (int)ActivateChat.MaxTokens,
-                candidateCount = 1
+                ["temperature"] = Temperature,
+                ["topP"] = TopP,
+                ["topK"] = 40,
+                ["maxOutputTokens"] = (int)MaxTokens,
+                ["candidateCount"] = 1,
+                ["thinkingConfig"] = new { thinkingBudget = ThinkingBudget }
             };
 
-            return new
+            var requestBody = new Dictionary<string, object>
             {
-                contents = contentsList,
-                generationConfig = generationConfig,
-                safetySettings = GetSafetySettings()
+                ["contents"] = contentsList,
+                ["generationConfig"] = generationConfig,
+                ["safetySettings"] = GetSafetySettings()
             };
+
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                requestBody["systemInstruction"] = new
+                {
+                    parts = new[] { new { text = ActivateChat.SystemMessage } }
+                };
+            }
+
+            return requestBody;
         }
 
         private object ConvertMessageForGemini(Message message)

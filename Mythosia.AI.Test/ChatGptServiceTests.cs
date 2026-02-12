@@ -31,7 +31,7 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
     protected override AIService CreateAIService()
     {
         var service = new ChatGptService(openAiKey, new HttpClient());
-        service.ActivateChat.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
+        service.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
         service.ActivateChat.SystemMessage = "You are a helpful assistant for testing purposes.";
         Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
         return service;
@@ -39,7 +39,7 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
 
     protected override bool SupportsMultimodal()
     {
-        var curModel = AI.ActivateChat.Model;
+        var curModel = AI.Model;
         // All GPT-5 variants support multimodal (text + image input)
         if (curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase))
             return true;
@@ -57,7 +57,7 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning()
     {
-        var curModel = AI.ActivateChat.Model;
+        var curModel = AI.Model;
         return curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
     }
     protected override AIModel? GetAlternativeModel() => AIModel.Gpt4oMini;

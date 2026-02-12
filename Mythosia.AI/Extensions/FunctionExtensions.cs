@@ -30,7 +30,7 @@ namespace Mythosia.AI.Extensions
             foreach (var method in methods)
             {
                 var functionDef = BuildFunctionDefinition(method, instance, null);
-                service.ActivateChat.AddFunction(functionDef);
+                service.Functions.Add(functionDef);
             }
 
             return service;
@@ -47,7 +47,7 @@ namespace Mythosia.AI.Extensions
             foreach (var method in methods)
             {
                 var functionDef = BuildFunctionDefinition(method, null, null);
-                service.ActivateChat.AddFunction(functionDef);
+                service.Functions.Add(functionDef);
             }
 
             return service;
@@ -67,7 +67,7 @@ namespace Mythosia.AI.Extensions
                 .WithHandler(args => handler())  // args 무시
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -107,7 +107,7 @@ namespace Mythosia.AI.Extensions
                 })
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -145,7 +145,7 @@ namespace Mythosia.AI.Extensions
                 })
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -191,7 +191,7 @@ namespace Mythosia.AI.Extensions
                 })
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -211,7 +211,7 @@ namespace Mythosia.AI.Extensions
                 .WithHandler(async args => await handler())  // args 무시
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -250,7 +250,7 @@ namespace Mythosia.AI.Extensions
                 })
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -288,7 +288,7 @@ namespace Mythosia.AI.Extensions
                 })
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -334,7 +334,7 @@ namespace Mythosia.AI.Extensions
                 })
                 .Build();
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
         #endregion
@@ -361,7 +361,7 @@ namespace Mythosia.AI.Extensions
                 function.Parameters.Type = "object";
             }
 
-            service.ActivateChat.AddFunction(function);
+            service.Functions.Add(function);
             return service;
         }
 
@@ -383,7 +383,7 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static AIService WithFunctionsEnabled(this AIService service, bool enabled = true)
         {
-            service.ActivateChat.EnableFunctions = enabled;
+            service.EnableFunctions = enabled;
             return service;
         }
 

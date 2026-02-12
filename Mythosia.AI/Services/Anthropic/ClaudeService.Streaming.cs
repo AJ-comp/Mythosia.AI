@@ -28,19 +28,19 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var policy = CurrentPolicy ?? DefaultPolicy;
             bool useFunctions = options.IncludeFunctionCalls &&
-                               ActivateChat.ShouldUseFunctions &&
+                               ShouldUseFunctions &&
                                !FunctionsDisabled;
 
             ChatBlock originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = ActivateChat.CloneWithoutMessages();
+                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
             }
 
             try
             {
-                ActivateChat.Stream = true;
+                Stream = true;
                 ActivateChat.Messages.Add(message);
 
                 var streamQueue = new Queue<StreamingContent>();
@@ -167,7 +167,7 @@ namespace Mythosia.AI.Services.Anthropic
                         Content = parseResult.TextContent,
                         Metadata = options.IncludeMetadata ? new Dictionary<string, object>
                         {
-                            ["model"] = currentModel ?? ActivateChat.Model
+                            ["model"] = currentModel ?? Model
                         } : null
                     });
                 }
@@ -212,7 +212,7 @@ namespace Mythosia.AI.Services.Anthropic
                             Metadata = new Dictionary<string, object>
                             {
                                 ["total_length"] = textBuffer.Length,
-                                ["model"] = currentModel ?? ActivateChat.Model
+                                ["model"] = currentModel ?? Model
                             }
                         });
                     }

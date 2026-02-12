@@ -41,26 +41,30 @@ namespace Mythosia.AI.Services.Google
         {
             var contentsList = new List<object>();
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
-            {
-                contentsList.Add(new
-                {
-                    role = "user",
-                    parts = new[] { new { text = ActivateChat.SystemMessage } }
-                });
-            }
-
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 contentsList.Add(ConvertMessageForGemini(message));
             }
 
-            return new { contents = contentsList };
+            var requestBody = new Dictionary<string, object>
+            {
+                ["contents"] = contentsList
+            };
+
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                requestBody["systemInstruction"] = new
+                {
+                    parts = new[] { new { text = ActivateChat.SystemMessage } }
+                };
+            }
+
+            return requestBody;
         }
 
         private async Task<uint> GetTokenCountFromAPI(object requestBody)
         {
-            var modelName = ActivateChat.Model;
+            var modelName = Model;
             var endpoint = $"v1beta/models/{modelName}:countTokens?key={ApiKey}";
 
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");

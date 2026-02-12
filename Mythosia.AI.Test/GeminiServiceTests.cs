@@ -26,7 +26,7 @@ public class GeminiServiceTests : AIServiceTestBase
 
     protected override AIModel? GetAlternativeModel()
     {
-        return AIModel.Gemini1_5Pro; // Updated to use new enum value
+        return AIModel.Gemini2_5Flash;
     }
 
     /// <summary>
@@ -37,8 +37,8 @@ public class GeminiServiceTests : AIServiceTestBase
     {
         try
         {
-            // Vision 모델로 전환
-            AI.ActivateChat.ChangeModel(AIModel.GeminiProVision);
+            // Gemini 2.0+ models support vision natively
+            AI.ChangeModel(AIModel.Gemini2_5Pro);
 
             var response = await AI.GetCompletionWithImageAsync(
                 "Describe what you see in this image",
@@ -55,7 +55,7 @@ public class GeminiServiceTests : AIServiceTestBase
                 .SendAsync();
 
             Assert.IsNotNull(flashResponse);
-            Console.WriteLine($"[Gemini 1.5 Flash] {flashResponse}");
+            Console.WriteLine($"[Gemini 2.5 Pro] {flashResponse}");
         }
         catch (Exception ex)
         {
@@ -74,10 +74,8 @@ public class GeminiServiceTests : AIServiceTestBase
         {
             var geminiService = (GeminiService)AI;
 
-            // Gemini 파라미터 설정
-            geminiService
-                .WithGeminiParameters(topK: 20, candidateCount: 1)
-                .WithSafetyThreshold("BLOCK_ONLY_HIGH");
+            // Gemini ThinkingBudget 설정
+            geminiService.ThinkingBudget = 1024;
 
             var response = await geminiService.GetCompletionAsync(
                 "Tell me about the latest developments in AI"
@@ -134,17 +132,16 @@ public class GeminiServiceTests : AIServiceTestBase
         {
             var models = new[]
             {
-                AIModel.Gemini1_5Flash,  // Updated to use new enum value
-                AIModel.Gemini1_5Pro,    // Updated to use new enum value
-                AIModel.Gemini2_5Pro,    // New Gemini 2.5 model
-                AIModel.GeminiPro
+                AIModel.Gemini2_5Pro,
+                AIModel.Gemini2_5Flash,
+                AIModel.Gemini2_5FlashLite
             };
 
             foreach (var model in models)
             {
                 try
                 {
-                    AI.ActivateChat.ChangeModel(model);
+                    AI.ChangeModel(model);
                     Console.WriteLine($"\n[Testing Model] {model.ToDescription()}");
 
                     var response = await AI.GetCompletionAsync(
@@ -186,7 +183,7 @@ public class GeminiServiceTests : AIServiceTestBase
             {
                 try
                 {
-                    AI.ActivateChat.ChangeModel(model);
+                    AI.ChangeModel(model);
                     Console.WriteLine($"\n[Testing Gemini 2.5 Model] {model.ToDescription()}");
 
                     var response = await AI.GetCompletionAsync(
@@ -293,9 +290,6 @@ public class GeminiServiceTests : AIServiceTestBase
         try
         {
             var geminiService = (GeminiService)AI;
-
-            // 엄격한 안전 설정
-            geminiService.WithSafetyThreshold("BLOCK_LOW_AND_ABOVE");
 
             var response = await geminiService.GetCompletionAsync(
                 "Write a children's story about a friendly robot"

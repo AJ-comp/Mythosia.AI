@@ -230,12 +230,12 @@ public abstract partial class AIServiceTestBase
             }
 
             var options = StreamOptions.FullOptions;
-            var originalModel = AI.ActivateChat.Model;
+            var originalModel = AI.Model;
             StreamingContent errorContent = null;
 
             try
             {
-                AI.ActivateChat.ChangeModel("invalid-model-xyz");
+                AI.ChangeModel("invalid-model-xyz");
 
                 await foreach (var content in aiService.StreamAsync("Test", options))
                 {
@@ -261,7 +261,7 @@ public abstract partial class AIServiceTestBase
             }
             finally
             {
-                AI.ActivateChat.ChangeModel(originalModel);
+                AI.ChangeModel(originalModel);
             }
 
             if (errorContent != null)
@@ -411,9 +411,9 @@ public abstract partial class AIServiceTestBase
                 }
 
                 // Vision 지원 모델로 변경
-                if (AI is Mythosia.AI.Services.OpenAI.ChatGptService && AI.ActivateChat.Model.Contains("mini"))
+                if (AI is Mythosia.AI.Services.OpenAI.ChatGptService && AI.Model.Contains("mini"))
                 {
-                    AI.ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                    AI.ChangeModel(AIModel.Gpt4oLatest);
                 }
 
                 var options = new StreamOptions

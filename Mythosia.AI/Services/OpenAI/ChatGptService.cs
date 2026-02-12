@@ -25,11 +25,9 @@ namespace Mythosia.AI.Services.OpenAI
         public ChatGptService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.openai.com/v1/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Gpt4_1)
-            {
-                MaxTokens = 16000
-            };
-            AddNewChat(chatBlock);
+            Model = AIModel.Gpt4_1.ToDescription();
+            MaxTokens = 16000;
+            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -48,12 +46,12 @@ namespace Mythosia.AI.Services.OpenAI
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = ActivateChat.CloneWithoutMessages();
+                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
             }
 
             try
             {
-                ActivateChat.Stream = false;
+                Stream = false;
                 ActivateChat.Messages.Add(message);
 
                 // Main loop for function calling
@@ -99,9 +97,7 @@ namespace Mythosia.AI.Services.OpenAI
             var responseContent = await response.Content.ReadAsStringAsync();
 
             // 3. Handle based on function support
-            bool useFunctions = ActivateChat.Functions?.Count > 0
-                               && ActivateChat.EnableFunctions
-                               && !FunctionsDisabled;
+            bool useFunctions = ShouldUseFunctions;
 
             if (useFunctions)
             {
@@ -118,9 +114,7 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private async Task<HttpResponseMessage> SendApiRequestAsync(CancellationToken cancellationToken)
         {
-            bool useFunctions = ActivateChat.Functions?.Count > 0
-                               && ActivateChat.EnableFunctions
-                               && !FunctionsDisabled;
+            bool useFunctions = ShouldUseFunctions;
 
             var request = useFunctions
                 ? CreateFunctionMessageRequest()
@@ -202,7 +196,7 @@ namespace Mythosia.AI.Services.OpenAI
                     [MessageMetadataKeys.FunctionSource] = functionCall.Source,
                     [MessageMetadataKeys.FunctionName] = functionCall.Name,
                     [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
-                    ["model"] = ActivateChat.Model
+                    ["model"] = Model
                 }
             };
 
@@ -224,7 +218,7 @@ namespace Mythosia.AI.Services.OpenAI
                 [MessageMetadataKeys.FunctionId] = functionCall.Id,
                 [MessageMetadataKeys.FunctionSource] = functionCall.Source,
                 [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                ["model"] = ActivateChat.Model
+                ["model"] = Model
             };
 
             ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
@@ -243,8 +237,8 @@ namespace Mythosia.AI.Services.OpenAI
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             // Determine endpoint based on model
-            string endpoint = IsNewApiModel(ActivateChat.Model)
-                ? (ActivateChat.Stream ? "responses?stream=true" : "responses")
+            string endpoint = IsNewApiModel(Model)
+                ? (Stream ? "responses?stream=true" : "responses")
                 : "chat/completions";
 
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -272,7 +266,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Add all messages
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 if (message.HasMultimodalContent)
                 {
@@ -319,7 +313,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
-            var currentModel = ActivateChat.Model;
+            var currentModel = Model;
 
             // Check if current model supports vision
             bool supportsVision = currentModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
@@ -333,15 +327,15 @@ namespace Mythosia.AI.Services.OpenAI
                 if (currentModel.Contains("mini"))
                 {
                     // If using mini model, switch to full gpt-4o
-                    ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                    ChangeModel(AIModel.Gpt4oLatest);
                 }
                 else
                 {
                     // For other models, switch to gpt-4o
-                    ActivateChat.ChangeModel(AIModel.Gpt4oLatest);
+                    ChangeModel(AIModel.Gpt4oLatest);
                 }
 
-                Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {ActivateChat.Model} for vision support");
+                Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {Model} for vision support");
             }
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
@@ -358,11 +352,11 @@ namespace Mythosia.AI.Services.OpenAI
         {
             if (presencePenalty.HasValue)
             {
-                ActivateChat.PresencePenalty = presencePenalty.Value;
+                PresencePenalty = presencePenalty.Value;
             }
             if (frequencyPenalty.HasValue)
             {
-                ActivateChat.FrequencyPenalty = frequencyPenalty.Value;
+                FrequencyPenalty = frequencyPenalty.Value;
             }
             return this;
         }

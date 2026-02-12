@@ -36,7 +36,7 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var messagesList = new List<object>();
 
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 // Handle Function results
                 if (message.Role == ActorRole.Function)
@@ -129,22 +129,22 @@ namespace Mythosia.AI.Services.Anthropic
 
             var requestBody = new Dictionary<string, object>
             {
-                ["model"] = ActivateChat.Model,
+                ["model"] = Model,
                 ["messages"] = messagesList,
-                ["temperature"] = ActivateChat.Temperature,
-                ["max_tokens"] = ActivateChat.MaxTokens,
-                ["stream"] = ActivateChat.Stream
+                ["temperature"] = Temperature,
+                ["max_tokens"] = MaxTokens,
+                ["stream"] = Stream
             };
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                requestBody["system"] = ActivateChat.SystemMessage;
+                requestBody["system"] = SystemMessage;
             }
 
             // Add tools (Claude's function calling)
-            if (ActivateChat.ShouldUseFunctions)
+            if (ShouldUseFunctions)
             {
-                requestBody["tools"] = ActivateChat.Functions.Select(f => new
+                requestBody["tools"] = Functions.Select(f => new
                 {
                     name = f.Name,
                     description = f.Description,
@@ -157,7 +157,7 @@ namespace Mythosia.AI.Services.Anthropic
                 }).ToList();
 
                 // Tool choice configuration
-                if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
+                if (FunctionCallMode == FunctionCallMode.None)
                 {
                     requestBody["tool_choice"] = new { type = "none" };
                 }

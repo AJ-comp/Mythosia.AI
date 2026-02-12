@@ -18,7 +18,7 @@ namespace Mythosia.AI.Services.Base
             string functionName,
             Dictionary<string, object> arguments)
         {
-            var function = ActivateChat.Functions
+            var function = Functions
                 .FirstOrDefault(f => f.Name == functionName);
 
             if (function?.Handler == null)

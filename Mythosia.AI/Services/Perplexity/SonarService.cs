@@ -22,12 +22,10 @@ namespace Mythosia.AI.Services.Perplexity
         public SonarService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.perplexity.ai/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.PerplexitySonar)
-            {
-                MaxTokens = 4096,
-                Temperature = 0.7f
-            };
-            AddNewChat(chatBlock);
+            Model = AIModel.PerplexitySonar.ToDescription();
+            MaxTokens = 4096;
+            Temperature = 0.7f;
+            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -39,7 +37,7 @@ namespace Mythosia.AI.Services.Perplexity
                 return await ProcessStatelessRequestAsync(message);
             }
 
-            ActivateChat.Stream = false;
+            Stream = false;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();
@@ -60,12 +58,9 @@ namespace Mythosia.AI.Services.Perplexity
 
         private async Task<string> ProcessStatelessRequestAsync(Message message)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens
+                SystemMessage = ActivateChat.SystemMessage
             };
             tempChat.Messages.Add(message);
 
@@ -119,13 +114,13 @@ namespace Mythosia.AI.Services.Perplexity
             var messagesList = new List<object>();
 
             // Add system message if present
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+                messagesList.Add(new { role = "system", content = SystemMessage });
             }
 
             // Add conversation messages
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 messagesList.Add(ConvertMessageForSonar(message));
             }
@@ -133,14 +128,14 @@ namespace Mythosia.AI.Services.Perplexity
             // Build the request with Perplexity-specific parameters
             var requestBody = new Dictionary<string, object>
             {
-                ["model"] = ActivateChat.Model,
+                ["model"] = Model,
                 ["messages"] = messagesList,
-                ["temperature"] = ActivateChat.Temperature,
-                ["top_p"] = ActivateChat.TopP,
-                ["max_tokens"] = ActivateChat.MaxTokens,
-                ["stream"] = ActivateChat.Stream,
-                ["frequency_penalty"] = Math.Max(1.0f, ActivateChat.FrequencyPenalty),  // Perplexity recommends > 1.0
-                ["presence_penalty"] = ActivateChat.PresencePenalty
+                ["temperature"] = Temperature,
+                ["top_p"] = TopP,
+                ["max_tokens"] = MaxTokens,
+                ["stream"] = Stream,
+                ["frequency_penalty"] = Math.Max(1.0f, FrequencyPenalty),  // Perplexity recommends > 1.0
+                ["presence_penalty"] = PresencePenalty
             };
 
             // Add search-specific parameters if using search-enabled models
@@ -157,8 +152,8 @@ namespace Mythosia.AI.Services.Perplexity
         private bool IsSearchEnabledModel()
         {
             // Perplexity's online models have search capabilities
-            return ActivateChat.Model.Contains("sonar") ||
-                   ActivateChat.Model.Contains("online");
+            return Model.Contains("sonar") ||
+                   Model.Contains("online");
         }
 
         private object ConvertMessageForSonar(Message message)
@@ -215,7 +210,7 @@ namespace Mythosia.AI.Services.Perplexity
                 allMessagesBuilder.Append(ActivateChat.SystemMessage).Append('\n');
             }
 
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 allMessagesBuilder.Append(message.Role).Append('\n');
                 allMessagesBuilder.Append(message.GetDisplayText()).Append('\n');
@@ -266,7 +261,7 @@ namespace Mythosia.AI.Services.Perplexity
         /// </summary>
         public SonarService UseSonarPro()
         {
-            ActivateChat.ChangeModel(AIModel.PerplexitySonarPro);
+            ChangeModel(AIModel.PerplexitySonarPro);
             return this;
         }
 
@@ -275,7 +270,7 @@ namespace Mythosia.AI.Services.Perplexity
         /// </summary>
         public SonarService UseSonarReasoning()
         {
-            ActivateChat.ChangeModel(AIModel.PerplexitySonarReasoning);
+            ChangeModel(AIModel.PerplexitySonarReasoning);
             return this;
         }
 

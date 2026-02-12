@@ -19,16 +19,22 @@ namespace Mythosia.AI.Services.Google
     {
         public override AIProvider Provider => AIProvider.Google;
 
+        /// <summary>
+        /// Controls the thinking token budget for Gemini 2.5 models.
+        /// -1: Dynamic (model decides automatically, default)
+        /// 0: Disable thinking (Flash/Lite only, Pro minimum is 128)
+        /// 128~32768: Specific token budget (Pro max: 32768, Flash/Lite max: 24576)
+        /// </summary>
+        public int ThinkingBudget { get; set; } = -1;
+
         public GeminiService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://generativelanguage.googleapis.com/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.Gemini2_5Pro)
-            {
-                Temperature = 1.0f,
-                TopP = 0.8f,
-                MaxTokens = 2048
-            };
-            AddNewChat(chatBlock);
+            Model = AIModel.Gemini2_5Pro.ToDescription();
+            Temperature = 1.0f;
+            TopP = 0.8f;
+            MaxTokens = 2048;
+            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -36,16 +42,14 @@ namespace Mythosia.AI.Services.Google
         public override async Task<string> GetCompletionAsync(Message message)
         {
             // Check if we should use functions
-            bool useFunctions = ActivateChat.Functions?.Count > 0
-                               && ActivateChat.EnableFunctions
-                               && !FunctionsDisabled;
+            bool useFunctions = ShouldUseFunctions;
 
             if (StatelessMode)
             {
                 return await ProcessStatelessRequestAsync(message, useFunctions);
             }
 
-            ActivateChat.Stream = false;
+            Stream = false;
             ActivateChat.Messages.Add(message);
 
             var request = useFunctions
@@ -99,14 +103,9 @@ namespace Mythosia.AI.Services.Google
 
         private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Functions = useFunctions ? ActivateChat.Functions : new List<FunctionDefinition>(),
-                EnableFunctions = useFunctions
+                SystemMessage = ActivateChat.SystemMessage
             };
             tempChat.Messages.Add(message);
 
@@ -156,8 +155,8 @@ namespace Mythosia.AI.Services.Google
 
         protected override HttpRequestMessage CreateMessageRequest()
         {
-            var modelName = ActivateChat.Model;
-            var endpoint = ActivateChat.Stream
+            var modelName = Model;
+            var endpoint = Stream
                 ? $"v1beta/models/{modelName}:streamGenerateContent?alt=sse&key={ApiKey}"
                 : $"v1beta/models/{modelName}:generateContent?key={ApiKey}";
 
@@ -176,12 +175,7 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
-            // Ensure we're using a vision-capable model
-            if (!ActivateChat.Model.Contains("vision") && !ActivateChat.Model.Contains("1.5"))
-            {
-                ActivateChat.ChangeModel(AIModel.GeminiProVision);
-            }
-
+            // Gemini 2.0+ models all support vision natively
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
         }
 
@@ -208,24 +202,6 @@ namespace Mythosia.AI.Services.Google
                 new TextContent(prompt),
                 new ImageContent(imageData, contentType)
             });
-        }
-
-        /// <summary>
-        /// Sets Gemini-specific generation parameters
-        /// </summary>
-        public GeminiService WithGeminiParameters(int? topK = null, int? candidateCount = null)
-        {
-            // These would require extending ChatBlock for Gemini-specific parameters
-            return this;
-        }
-
-        /// <summary>
-        /// Configures safety settings for Gemini
-        /// </summary>
-        public GeminiService WithSafetyThreshold(string threshold = "BLOCK_MEDIUM_AND_ABOVE")
-        {
-            // This would allow customizing safety settings
-            return this;
         }
 
         #endregion

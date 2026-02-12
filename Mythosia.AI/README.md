@@ -2,75 +2,17 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**, including **OpenAI GPT-5/GPT-4o**, **Anthropic Claude 3/4**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**, including **OpenAI GPT-5.2/5.1/5/GPT-4o**, **Anthropic Claude 3/4**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
 
 ## 📚 Documentation
 
 - **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia/wiki)** - Getting started with text queries, streaming, image analysis, and more
 - **[Advanced Features](https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features)** - Function calling, policies, and enhanced streaming (v3.0.0)
-- **[Release Notes](https://github.com/AJ-comp/Mythosia/wiki/Release-Notes)** - Full version history
+- **[Release Notes](RELEASE_NOTES.md)** - Full version history and migration guides
 
-### 🚀 What's New in v3.1.0
+### 🚀 Latest: v4.0.0 — Architecture overhaul (config moved to AIService) + v3.2.0 — GPT-5.1/5.2 support
 
-#### **GPT-5 Reasoning Support** 🧠
-
-- **Reasoning Streaming**: Stream GPT-5 reasoning data in real-time via `StreamingContentType.Reasoning`
-- **`StreamOptions.WithReasoning()`**: Enable reasoning summary streaming for GPT-5 models
-- **`LastReasoningSummary`**: Access reasoning summary from non-streaming GPT-5 responses
-- **GPT-5 Model Support**: gpt-5, gpt-5-mini, gpt-5-nano (full), gpt-5-pro (experimental)
-
-#### **Streaming Improvements** 🌊
-
-- **New API Metadata Fix**: Fixed metadata not populating for Responses API (GPT-5, o3) streaming format
-- **Completion Events**: `response.done` / `response.completed` now correctly emit `StreamingContentType.Completion` with usage info
-- **Incomplete Response Handling**: Clear warnings when reasoning exhausts the output token budget
-- **`max_output_tokens` minimum 4096**: GPT-5 reasoning tokens consume the output budget, so a minimum floor of 4096 is automatically enforced to prevent reasoning from exhausting all tokens
-
-#### **Quick Example**
-
-```csharp
-// GPT-5 reasoning streaming
-var options = new StreamOptions().WithReasoning().WithMetadata();
-await foreach (var content in service.StreamAsync("Solve: 15 * 17", options))
-{
-    if (content.Type == StreamingContentType.Reasoning)
-        Console.Write($"[Thinking] {content.Content}");
-    else if (content.Type == StreamingContentType.Text)
-        Console.Write(content.Content);
-}
-
-// Non-streaming reasoning
-var gptService = (ChatGptService)service;
-var response = await gptService.GetCompletionAsync("What is 15 * 17?");
-Console.WriteLine($"Answer: {response}");
-Console.WriteLine($"Reasoning: {gptService.LastReasoningSummary}");
-```
-
-### 🚀 What's New in v3.0.0
-
-#### **Function Calling Support** 🎯
-- **Universal Function Calling**: Add custom functions that AI can call during conversations
-- **Automatic Type Conversion**: Seamless parameter marshalling between AI and your code
-- **Policy-Based Execution**: Control timeout, max rounds, and concurrency
-- **Attribute-Based Registration**: Decorate methods with `[AiFunction]` for automatic discovery
-- **Fluent API**: Chain function definitions with builder pattern
-
-#### **Enhanced Streaming** 🌊
-- **Structured Streaming**: New `StreamingContent` with metadata support
-- **Stream Options**: Control what data you receive (text-only, metadata, function calls)
-- **Function Streaming**: Real-time function execution during streaming
-- **Improved Performance**: Optimized streaming with proper backpressure handling
-
-#### **Policy System** ⚙️
-- **Execution Policies**: Control function calling behavior with pre-defined or custom policies
-- **Timeout Management**: Per-request timeout configuration
-- **Round Limiting**: Prevent infinite loops in function calling
-- **Debug Support**: Built-in logging for function execution flow
-
-#### **Breaking Changes** ⚠️
-- Function calling requires explicit enablement via `WithFunctions()` or `WithFunction()`
-- Streaming now returns `StreamingContent` when using advanced options
-- Some internal APIs have changed for better consistency
+👉 **[Full Release Notes & Migration Guides](RELEASE_NOTES.md)**
 
 ## Installation
 
@@ -292,12 +234,12 @@ await foreach (var content in service.StreamAsync("Query", options))
 
 | Service | Function Calling | Streaming Functions | Notes |
 |---------|-----------------|-------------------|--------|
+| **OpenAI GPT-5.2 / 5.2 Pro** | ✅ Full | ✅ Full | Best for complex, coding, agentic tasks |
+| **OpenAI GPT-5.1** | ✅ Full | ✅ Full | Reasoning with verbosity control |
+| **OpenAI GPT-5 / Mini / Nano** | ✅ Full | ✅ Full | Reasoning streaming + summary support |
 | **OpenAI GPT-4o** | ✅ Full | ✅ Full | Best support, all features |
 | **OpenAI GPT-4.1** | ✅ Full | ✅ Full | Full function support |
 | **OpenAI o3** | ✅ Full | ✅ Full | Advanced reasoning with functions |
-| **OpenAI GPT-5** | ✅ Full | ✅ Full | Reasoning streaming + summary support |
-| **OpenAI GPT-5 Mini/Nano** | ✅ Full | ✅ Full | Lightweight reasoning models |
-| **OpenAI GPT-5 Pro** | ⚠️ Experimental | ⚠️ Experimental | Known issues with some responses |
 | **Claude 3/4** | ✅ Full | ✅ Full | Tool use via native API |
 | **Gemini** | 🔜 Coming Soon | 🔜 Coming Soon | Support planned for future update |
 | **DeepSeek** | ❌ | ❌ | Not yet available |
@@ -417,53 +359,12 @@ var response = await mathTutor.GetCompletionAsync(
 // Output includes step-by-step solution with verification
 ```
 
-## Migration Guide from v2.x to v3.0.0
+## Migration Guides
 
-### Function Calling (New Feature)
-```csharp
-// v3.0.0 - Functions are now supported!
-var service = new ChatGptService(apiKey, httpClient)
-    .WithFunction("my_function", "Description", 
-        ("param", "Param description", true),
-        (string param) => $"Result: {param}");
+For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)**:
 
-// AI will automatically use functions when appropriate
-var response = await service.GetCompletionAsync("Use my function");
-```
-
-### Streaming Changes
-```csharp
-// v2.x - Returns string chunks
-await foreach (var chunk in service.StreamAsync("Hello"))
-{
-    Console.Write(chunk); // chunk is string
-}
-
-// v3.0.0 - Can return StreamingContent with metadata
-await foreach (var content in service.StreamAsync("Hello", StreamOptions.FullOptions))
-{
-    Console.Write(content.Content); // Access text via .Content
-    var metadata = content.Metadata; // Access metadata
-}
-
-// For backward compatibility, default behavior unchanged
-await foreach (var chunk in service.StreamAsync("Hello"))
-{
-    Console.Write(chunk); // Still works, chunk is string
-}
-```
-
-### Policy System (New)
-```csharp
-// v3.0.0 - Control function execution behavior
-service.DefaultPolicy = FunctionCallingPolicy.Fast;
-
-// Per-request override
-await service
-    .WithTimeout(60)
-    .WithMaxRounds(5)
-    .GetCompletionAsync("Complex task");
-```
+- [v3.2.x → v4.0.0](RELEASE_NOTES.md#migration-guide-from-v32x-to-v400) — Configuration moved from ChatBlock to AIService
+- [v2.x → v3.0.0](RELEASE_NOTES.md#migration-guide-from-v2x-to-v300) — Function calling & enhanced streaming
 
 ## Best Practices
 
@@ -481,7 +382,7 @@ await service
 
 **Q: Functions aren't being called when expected?**
 - Ensure functions are registered with clear, descriptive names and descriptions
-- Check that `EnableFunctions` is true on the ChatBlock
+- Check that `EnableFunctions` is true on the service
 - Verify the model supports function calling (GPT-4, Claude 3+, Gemini)
 
 **Q: Function calling is too slow?**

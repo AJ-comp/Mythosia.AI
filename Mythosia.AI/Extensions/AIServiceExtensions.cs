@@ -80,14 +80,11 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static void StartNewConversation(this AIService service, AIModel model)
         {
-            var newChat = new ChatBlock(model)
+            service.ChangeModel(model);
+            service.AddNewChat(new ChatBlock
             {
-                SystemMessage = service.ActivateChat.SystemMessage,
-                Temperature = service.ActivateChat.Temperature,
-                TopP = service.ActivateChat.TopP,
-                MaxTokens = service.ActivateChat.MaxTokens
-            };
-            service.AddNewChat(newChat);
+                SystemMessage = service.ActivateChat.SystemMessage
+            });
         }
 
         /// <summary>
@@ -95,7 +92,7 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static void SwitchModel(this AIService service, AIModel model)
         {
-            service.ActivateChat.ChangeModel(model);
+            service.ChangeModel(model);
         }
 
         /// <summary>
@@ -120,7 +117,7 @@ namespace Mythosia.AI.Extensions
         public static string GetConversationSummary(this AIService service)
         {
             var summary = new System.Text.StringBuilder();
-            summary.AppendLine($"Model: {service.ActivateChat.Model}");
+            summary.AppendLine($"Model: {service.Model}");
             summary.AppendLine($"Messages: {service.ActivateChat.Messages.Count}");
             summary.AppendLine($"Stateless Mode: {service.StatelessMode}");
 
@@ -146,7 +143,7 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static AIService WithTemperature(this AIService service, float temperature)
         {
-            service.ActivateChat.Temperature = Math.Max(0, Math.Min(2, temperature));
+            service.Temperature = Math.Max(0, Math.Min(2, temperature));
             return service;
         }
 
@@ -155,7 +152,7 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static AIService WithMaxTokens(this AIService service, uint maxTokens)
         {
-            service.ActivateChat.MaxTokens = maxTokens;
+            service.MaxTokens = maxTokens;
             return service;
         }
 

@@ -22,11 +22,9 @@ namespace Mythosia.AI.Services.DeepSeek
         public DeepSeekService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.deepseek.com/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.DeepSeekChat)
-            {
-                MaxTokens = 8000
-            };
-            AddNewChat(chatBlock);
+            Model = AIModel.DeepSeekChat.ToDescription();
+            MaxTokens = 8000;
+            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -39,7 +37,7 @@ namespace Mythosia.AI.Services.DeepSeek
                 return await ProcessStatelessRequestAsync(message);
             }
 
-            ActivateChat.Stream = false;
+            Stream = false;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();
@@ -84,12 +82,9 @@ namespace Mythosia.AI.Services.DeepSeek
 
         private async Task<string> ProcessStatelessRequestAsync(Message message)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens
+                SystemMessage = SystemMessage
             };
             tempChat.Messages.Add(message);
 
@@ -129,12 +124,12 @@ namespace Mythosia.AI.Services.DeepSeek
 
             var allMessagesBuilder = new StringBuilder();
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                allMessagesBuilder.Append(ActivateChat.SystemMessage).Append('\n');
+                allMessagesBuilder.Append(SystemMessage).Append('\n');
             }
 
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 allMessagesBuilder.Append(message.Role).Append('\n');
                 allMessagesBuilder.Append(message.GetDisplayText()).Append('\n');
@@ -185,7 +180,7 @@ namespace Mythosia.AI.Services.DeepSeek
         /// </summary>
         public DeepSeekService UseReasonerModel()
         {
-            ActivateChat.ChangeModel(AIModel.DeepSeekReasoner);
+            ChangeModel(AIModel.DeepSeekReasoner);
             return this;
         }
 
@@ -195,8 +190,8 @@ namespace Mythosia.AI.Services.DeepSeek
         public DeepSeekService WithCodeGenerationMode(string language = "python")
         {
             var systemPrompt = $"You are an expert {language} programmer. Generate clean, efficient, and well-documented code.";
-            ActivateChat.SystemMessage = systemPrompt;
-            ActivateChat.Temperature = 0.1f; // Lower temperature for code generation
+            SystemMessage = systemPrompt;
+            Temperature = 0.1f; // Lower temperature for code generation
             return this;
         }
 
@@ -205,8 +200,8 @@ namespace Mythosia.AI.Services.DeepSeek
         /// </summary>
         public DeepSeekService WithMathMode()
         {
-            ActivateChat.SystemMessage = "You are a mathematics expert. Solve problems step by step, showing all work clearly.";
-            ActivateChat.Temperature = 0.2f;
+            SystemMessage = "You are a mathematics expert. Solve problems step by step, showing all work clearly.";
+            Temperature = 0.2f;
             return this;
         }
 

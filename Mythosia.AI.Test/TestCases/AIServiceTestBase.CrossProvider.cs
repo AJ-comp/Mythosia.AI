@@ -83,7 +83,7 @@ public async Task CrossProviderToClaude()
             string apiKey = secretFetcher.GetKeyValueAsync().Result;
 
             var newService = new ClaudeService(apiKey, new HttpClient()).CopyFrom(AI);
-            newService.ActivateChat.ChangeModel(AIModel.Claude3_7SonnetLatest);
+            newService.ChangeModel(AIModel.Claude3_7SonnetLatest);
             
             // 메시지가 유지되는지 확인
             var messageCountAfter = newService.ActivateChat.Messages.Count;
@@ -219,7 +219,7 @@ public async Task CrossProviderToGpt4o()
             string openAiKey = secretFetcher.GetKeyValueAsync().Result;
 
             var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-            chatGptService.ActivateChat.ChangeModel(AIModel.Gpt4oMini);
+            chatGptService.ChangeModel(AIModel.Gpt4oMini);
             
             var messageCountAfter = chatGptService.ActivateChat.Messages.Count;
             Assert.AreEqual(messageCountBefore, messageCountAfter, 
@@ -366,7 +366,7 @@ public async Task CrossProviderToGpt4o()
                 string openAiKey = secretFetcher.GetKeyValueAsync().Result;
 
                 var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-                chatGptService.ActivateChat.ChangeModel(AIModel.o3);
+                chatGptService.ChangeModel(AIModel.o3);
 
                 var messageCountAfter = chatGptService.ActivateChat.Messages.Count;
                 Assert.AreEqual(messageCountBefore, messageCountAfter,

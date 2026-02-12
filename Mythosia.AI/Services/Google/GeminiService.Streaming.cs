@@ -28,7 +28,7 @@ namespace Mythosia.AI.Services.Google
                 return;
             }
 
-            ActivateChat.Stream = true;
+            Stream = true;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();
@@ -74,13 +74,10 @@ namespace Mythosia.AI.Services.Google
 
         private async Task ProcessStatelessStreamAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            Stream = true;
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Stream = true
+                SystemMessage = ActivateChat.SystemMessage
             };
             tempChat.Messages.Add(message);
 
@@ -137,7 +134,7 @@ namespace Mythosia.AI.Services.Google
         {
             // Check if functions are available and should be used
             bool useFunctions = options.IncludeFunctionCalls &&
-                               ActivateChat.ShouldUseFunctions &&
+                               ShouldUseFunctions &&
                                !FunctionsDisabled;
 
             if (StatelessMode)
@@ -151,7 +148,7 @@ namespace Mythosia.AI.Services.Google
             }
 
             // Add message to history and create request
-            ActivateChat.Stream = true;
+            Stream = true;
             ActivateChat.Messages.Add(message);
 
             var request = useFunctions ?
@@ -193,15 +190,10 @@ namespace Mythosia.AI.Services.Google
             bool useFunctions,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            Stream = true;
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Stream = true,
-                Functions = useFunctions ? ActivateChat.Functions : new List<FunctionDefinition>(),
-                EnableFunctions = useFunctions
+                SystemMessage = ActivateChat.SystemMessage
             };
             tempChat.Messages.Add(message);
 

@@ -23,12 +23,10 @@ namespace Mythosia.AI.Services.Anthropic
         public ClaudeService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {
-            var chatBlock = new ChatBlock(AIModel.ClaudeSonnet4_250514)
-            {
-                MaxTokens = 8192,
-                Temperature = 0.7f
-            };
-            AddNewChat(chatBlock);
+            Model = AIModel.ClaudeSonnet4_250514.ToDescription();
+            MaxTokens = 8192;
+            Temperature = 0.7f;
+            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -48,16 +46,14 @@ namespace Mythosia.AI.Services.Anthropic
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = ActivateChat.CloneWithoutMessages();
+                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
             }
 
             try
             {
-                bool useFunctions = ActivateChat.Functions?.Count > 0
-                                   && ActivateChat.EnableFunctions
-                                   && !FunctionsDisabled;
+                bool useFunctions = ShouldUseFunctions;
 
-                ActivateChat.Stream = false;
+                Stream = false;
                 ActivateChat.Messages.Add(message);
 
                 // Function calling loop - use policy.MaxRounds
@@ -328,11 +324,11 @@ namespace Mythosia.AI.Services.Anthropic
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
             // Ensure we're using a vision-capable Claude model
-            if (!ActivateChat.Model.Contains("claude-3") &&
-                !ActivateChat.Model.Contains("claude-4") &&
-                !ActivateChat.Model.Contains("opus-4"))
+            if (!Model.Contains("claude-3") &&
+                !Model.Contains("claude-4") &&
+                !Model.Contains("opus-4"))
             {
-                ActivateChat.ChangeModel(AIModel.ClaudeSonnet4_250514);
+                ChangeModel(AIModel.ClaudeSonnet4_250514);
             }
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
@@ -373,7 +369,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         public ClaudeService WithTemperaturePreset(TemperaturePreset preset)
         {
-            ActivateChat.Temperature = preset switch
+            Temperature = preset switch
             {
                 TemperaturePreset.Deterministic => 0.0f,
                 TemperaturePreset.Analytical => 0.1f,

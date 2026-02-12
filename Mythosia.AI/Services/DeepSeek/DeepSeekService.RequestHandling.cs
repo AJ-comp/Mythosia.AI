@@ -32,27 +32,27 @@ namespace Mythosia.AI.Services.DeepSeek
             var messagesList = new List<object>();
 
             // Add system message if present
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+                messagesList.Add(new { role = "system", content = SystemMessage });
             }
 
             // Add conversation messages
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 messagesList.Add(ConvertMessageForDeepSeek(message));
             }
 
             var requestBody = new
             {
-                model = ActivateChat.Model,
+                model = Model,
                 messages = messagesList,
-                temperature = ActivateChat.Temperature,
-                top_p = ActivateChat.TopP,
-                max_tokens = (int)ActivateChat.MaxTokens,
-                stream = ActivateChat.Stream,
-                frequency_penalty = ActivateChat.FrequencyPenalty,
-                presence_penalty = ActivateChat.PresencePenalty,
+                temperature = Temperature,
+                top_p = TopP,
+                max_tokens = (int)MaxTokens,
+                stream = Stream,
+                frequency_penalty = FrequencyPenalty,
+                presence_penalty = PresencePenalty,
                 stop = (string?)null
             };
 

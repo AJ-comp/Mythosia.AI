@@ -416,7 +416,7 @@ public abstract partial class AIServiceTestBase
                     })
                     .Build();
 
-                AI.ActivateChat.AddFunction(bookingFunction);
+                AI.Functions.Add(bookingFunction);
 
                 var response = await AI.GetCompletionAsync(
                     "Book a flight from Seoul to Tokyo on 2024-12-25, business class with vegetarian meal");

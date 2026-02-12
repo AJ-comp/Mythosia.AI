@@ -27,7 +27,7 @@ namespace Mythosia.AI.Services.Perplexity
                 return;
             }
 
-            ActivateChat.Stream = true;
+            Stream = true;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();
@@ -73,18 +73,15 @@ namespace Mythosia.AI.Services.Perplexity
 
         private async Task ProcessStatelessStreamAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Stream = true
+                SystemMessage = ActivateChat.SystemMessage
             };
             tempChat.Messages.Add(message);
 
             var backup = ActivateChat;
             ActivateChat = tempChat;
+            Stream = true;
 
             try
             {
@@ -144,7 +141,7 @@ namespace Mythosia.AI.Services.Perplexity
                 yield break;
             }
 
-            ActivateChat.Stream = true;
+            Stream = true;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();
@@ -180,18 +177,15 @@ namespace Mythosia.AI.Services.Perplexity
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            var tempChat = new ChatBlock(ActivateChat.Model)
+            var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage,
-                Temperature = ActivateChat.Temperature,
-                TopP = ActivateChat.TopP,
-                MaxTokens = ActivateChat.MaxTokens,
-                Stream = true
+                SystemMessage = ActivateChat.SystemMessage
             };
             tempChat.Messages.Add(message);
 
             var backup = ActivateChat;
             ActivateChat = tempChat;
+            Stream = true;
 
             try
             {
@@ -257,7 +251,7 @@ namespace Mythosia.AI.Services.Perplexity
                             Metadata = new Dictionary<string, object>
                             {
                                 ["total_length"] = textBuffer.Length,
-                                ["model"] = currentModel ?? ActivateChat.Model
+                                ["model"] = currentModel ?? Model
                             }
                         };
                     }

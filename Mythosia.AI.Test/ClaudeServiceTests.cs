@@ -29,7 +29,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
     protected override AIService CreateAIService()
     {
         var service = new ClaudeService(apiKey, new HttpClient());
-        service.ActivateChat.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
+        service.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
         Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
         return service;
     }
@@ -94,7 +94,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
             {
                 try
                 {
-                    AI.ActivateChat.ChangeModel(model);
+                    AI.ChangeModel(model);
                     Console.WriteLine($"\n[Testing Model] {model.ToDescription()}");
 
                     var response = await AI.GetCompletionAsync($"Hello from {model}!");

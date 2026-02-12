@@ -21,7 +21,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var requestBody = new Dictionary<string, object>();
 
-            if (IsNewApiModel(ActivateChat.Model))
+            if (IsNewApiModel(Model))
             {
                 BuildNewApiBody(requestBody);
             }
@@ -38,7 +38,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var inputList = new List<object>();
 
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 var messageParts = new List<object>();
 
@@ -82,7 +82,7 @@ namespace Mythosia.AI.Services.OpenAI
                 });
             }
 
-            requestBody["model"] = ActivateChat.Model;
+            requestBody["model"] = Model;
             requestBody["input"] = inputList;
 
             if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
@@ -90,7 +90,7 @@ namespace Mythosia.AI.Services.OpenAI
                 requestBody["instructions"] = ActivateChat.SystemMessage;
             }
 
-            if (ActivateChat.Stream)
+            if (Stream)
             {
                 requestBody["stream"] = true;
             }
@@ -105,18 +105,18 @@ namespace Mythosia.AI.Services.OpenAI
                 messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
             }
 
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 messagesList.Add(ConvertMessageForOpenAI(message));
             }
 
-            requestBody["model"] = ActivateChat.Model;
+            requestBody["model"] = Model;
             requestBody["messages"] = messagesList;
-            requestBody["temperature"] = ActivateChat.Temperature;
-            requestBody["top_p"] = ActivateChat.TopP;
-            requestBody["frequency_penalty"] = ActivateChat.FrequencyPenalty;
-            requestBody["presence_penalty"] = ActivateChat.PresencePenalty;
-            requestBody["stream"] = ActivateChat.Stream;
+            requestBody["temperature"] = Temperature;
+            requestBody["top_p"] = TopP;
+            requestBody["frequency_penalty"] = FrequencyPenalty;
+            requestBody["presence_penalty"] = PresencePenalty;
+            requestBody["stream"] = Stream;
         }
 
         private object ConvertMessageForOpenAI(Message message)
@@ -350,7 +350,7 @@ namespace Mythosia.AI.Services.OpenAI
                 using var doc = JsonDocument.Parse(jsonData);
                 var root = doc.RootElement;
 
-                return IsNewApiModel(ActivateChat.Model)
+                return IsNewApiModel(Model)
                     ? ParseNewApiStream(root, includeMetadata)
                     : ParseLegacyApiStream(root, includeMetadata);
             }

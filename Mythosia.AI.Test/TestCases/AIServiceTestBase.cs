@@ -45,7 +45,7 @@ public abstract partial class AIServiceTestBase
     {
         AI = CreateAIService();
         SetupTestImage();
-        Console.WriteLine($"[Test Initialize] Service: {AI.GetType().Name}, Model: {AI.ActivateChat.Model}");
+        Console.WriteLine($"[Test Initialize] Service: {AI.GetType().Name}, Model: {AI.Model}");
     }
 
     [TestCleanup]

@@ -15,7 +15,7 @@ namespace Mythosia.AI.Services.Google
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
-            var modelName = ActivateChat.Model;
+            var modelName = Model;
             var endpoint = $"v1beta/models/{modelName}:generateContent?key={ApiKey}";
 
             var requestBody = BuildRequestBodyWithFunctions();
@@ -31,21 +31,7 @@ namespace Mythosia.AI.Services.Google
         {
             var contentsList = new List<object>();
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
-            {
-                contentsList.Add(new
-                {
-                    role = "user",
-                    parts = new[] { new { text = ActivateChat.SystemMessage } }
-                });
-                contentsList.Add(new
-                {
-                    role = "model",
-                    parts = new[] { new { text = "Understood. I'll follow these instructions." } }
-                });
-            }
-
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 if (message.Role == ActorRole.Function)
                 {
@@ -71,23 +57,24 @@ namespace Mythosia.AI.Services.Google
             var requestBody = new Dictionary<string, object>
             {
                 ["contents"] = contentsList,
-                ["generationConfig"] = new
+                ["generationConfig"] = new Dictionary<string, object>
                 {
-                    temperature = ActivateChat.Temperature,
-                    topP = ActivateChat.TopP,
-                    topK = 40,
-                    maxOutputTokens = (int)ActivateChat.MaxTokens
+                    ["temperature"] = Temperature,
+                    ["topP"] = TopP,
+                    ["topK"] = 40,
+                    ["maxOutputTokens"] = (int)MaxTokens,
+                    ["thinkingConfig"] = new { thinkingBudget = ThinkingBudget }
                 }
             };
 
             // Add function declarations
-            if (ActivateChat.ShouldUseFunctions)
+            if (ShouldUseFunctions)
             {
                 requestBody["tools"] = new[]
                 {
                     new
                     {
-                        function_declarations = ActivateChat.Functions.Select(f => new
+                        function_declarations = Functions.Select(f => new
                         {
                             name = f.Name,
                             description = f.Description,
@@ -102,7 +89,7 @@ namespace Mythosia.AI.Services.Google
                 };
 
                 // ✅ 단순화된 tool_config 설정 (Force 제거)
-                if (ActivateChat.FunctionCallMode == FunctionCallMode.None)
+                if (FunctionCallMode == FunctionCallMode.None)
                 {
                     requestBody["tool_config"] = new
                     {
@@ -111,6 +98,14 @@ namespace Mythosia.AI.Services.Google
                 }
                 // Auto mode가 기본값이므로 별도 설정 불필요
                 // Gemini는 tool_config를 명시하지 않으면 자동으로 AUTO mode
+            }
+
+            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            {
+                requestBody["systemInstruction"] = new
+                {
+                    parts = new[] { new { text = ActivateChat.SystemMessage } }
+                };
             }
 
             return requestBody;

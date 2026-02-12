@@ -47,6 +47,39 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         public abstract AIProvider Provider { get; }
 
+        #region Model & Generation Settings
+
+        public string Model { get; protected set; }
+
+        /// <summary>
+        /// Convenience property for ActivateChat.SystemMessage
+        /// </summary>
+        public string SystemMessage
+        {
+            get => ActivateChat?.SystemMessage ?? string.Empty;
+            set { if (ActivateChat != null) ActivateChat.SystemMessage = value; }
+        }
+
+        public float TopP { get; set; } = 1.0f;
+        public float Temperature { get; set; } = 0.7f;
+        public float FrequencyPenalty { get; set; } = 0.0f;
+        public float PresencePenalty { get; set; } = 0.0f;
+        public uint MaxTokens { get; set; } = 1024;
+        public bool Stream { get; set; }
+        public uint MaxMessageCount { get; set; } = 20;
+
+        #endregion
+
+        #region Function Settings
+
+        public List<FunctionDefinition> Functions { get; set; } = new List<FunctionDefinition>();
+        public bool EnableFunctions { get; set; } = true;
+        public FunctionCallMode FunctionCallMode { get; set; } = FunctionCallMode.Auto;
+        public string ForceFunctionName { get; set; }
+        public bool ShouldUseFunctions => Functions.Count > 0 && EnableFunctions && !FunctionsDisabled;
+
+        #endregion
+
         protected AIService(string apiKey, string baseUrl, HttpClient httpClient)
         {
             ApiKey = apiKey;
@@ -62,11 +95,34 @@ namespace Mythosia.AI.Services.Base
             ActivateChat = newChat;
         }
 
+        public void AddNewChat()
+        {
+            AddNewChat(new ChatBlock());
+        }
+
         public void SetActivateChat(string chatBlockId)
         {
             var selectedChatBlock = _chatRequests.FirstOrDefault(chat => chat.Id == chatBlockId);
             if (selectedChatBlock != null)
                 ActivateChat = selectedChatBlock;
+        }
+
+        public void ChangeModel(AIModel model)
+        {
+            Model = model.ToDescription();
+        }
+
+        public void ChangeModel(string model)
+        {
+            Model = model;
+        }
+
+        /// <summary>
+        /// Gets the latest messages from the active chat up to MaxMessageCount
+        /// </summary>
+        internal IEnumerable<Message> GetLatestMessages()
+        {
+            return ActivateChat.Messages.Skip(Math.Max(0, ActivateChat.Messages.Count - (int)MaxMessageCount));
         }
 
         #endregion
@@ -110,16 +166,31 @@ namespace Mythosia.AI.Services.Base
             return await GetCompletionAsync(message);
         }
 
-
         public AIService CopyFrom(AIService sourceService)
         {
             if (sourceService == null)
                 throw new ArgumentNullException(nameof(sourceService));
 
-            // ChatBlock 복제
-            var model = ActivateChat.Model;
+            // Copy conversation data (Messages + SystemMessage)
             ActivateChat = sourceService.ActivateChat.Clone();
-            ActivateChat.ChangeModel(model);
+
+            // Copy service-level settings (previously carried by ChatBlock.Clone)
+            Functions = new List<FunctionDefinition>(sourceService.Functions);
+            EnableFunctions = sourceService.EnableFunctions;
+            FunctionCallMode = sourceService.FunctionCallMode;
+            ForceFunctionName = sourceService.ForceFunctionName;
+            DefaultPolicy = sourceService.DefaultPolicy;
+
+            Temperature = sourceService.Temperature;
+            TopP = sourceService.TopP;
+            MaxTokens = sourceService.MaxTokens;
+            FrequencyPenalty = sourceService.FrequencyPenalty;
+            PresencePenalty = sourceService.PresencePenalty;
+            MaxMessageCount = sourceService.MaxMessageCount;
+            Stream = sourceService.Stream;
+
+            StatelessMode = sourceService.StatelessMode;
+            FunctionsDisabled = sourceService.FunctionsDisabled;
 
             return this;
         }

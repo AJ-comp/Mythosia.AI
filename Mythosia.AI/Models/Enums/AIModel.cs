@@ -134,21 +134,6 @@ namespace Mythosia.AI.Models.Enums
         [Description("gemini-2.5-flash-lite")]
         Gemini2_5FlashLite,
 
-        [Description("gemini-2.0-flash")]
-        Gemini2_0Flash,
-
-        [Description("gemini-1.5-pro")]
-        Gemini1_5Pro,
-
-        [Description("gemini-1.5-flash")]
-        Gemini1_5Flash,
-
-        [Description("gemini-pro")]
-        GeminiPro,
-
-        [Description("gemini-pro-vision")]
-        GeminiProVision,
-
         // Perplexity Models
         [Description("sonar")]
         PerplexitySonar,

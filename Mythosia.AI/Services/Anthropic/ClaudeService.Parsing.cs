@@ -18,7 +18,7 @@ namespace Mythosia.AI.Services.Anthropic
             var messagesList = new List<object>();
 
             // Convert messages to Claude format
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 messagesList.Add(ConvertMessageForClaude(message));
             }
@@ -26,17 +26,17 @@ namespace Mythosia.AI.Services.Anthropic
             // Dictionary 사용으로 null/empty 체크 가능
             var requestBody = new Dictionary<string, object>
             {
-                ["model"] = ActivateChat.Model,
+                ["model"] = Model,
                 ["messages"] = messagesList,
-                ["temperature"] = ActivateChat.Temperature,
-                ["stream"] = ActivateChat.Stream,
-                ["max_tokens"] = ActivateChat.MaxTokens
+                ["temperature"] = Temperature,
+                ["stream"] = Stream,
+                ["max_tokens"] = MaxTokens
             };
 
             // System message가 있는 경우에만 추가
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(SystemMessage))
             {
-                requestBody["system"] = ActivateChat.SystemMessage;
+                requestBody["system"] = SystemMessage;
             }
 
             return requestBody;

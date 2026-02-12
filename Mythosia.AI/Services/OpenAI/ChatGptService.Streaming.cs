@@ -30,19 +30,19 @@ namespace Mythosia.AI.Services.OpenAI
             CurrentPolicy = null;
 
             bool useFunctions = options.IncludeFunctionCalls &&
-                               ActivateChat.ShouldUseFunctions &&
+                               ShouldUseFunctions &&
                                !FunctionsDisabled;
 
             ChatBlock originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = ActivateChat.CloneWithoutMessages();
+                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
             }
 
             try
             {
-                ActivateChat.Stream = true;
+                Stream = true;
                 ActivateChat.Messages.Add(message);
 
                 // Main loop - same as GetCompletionAsync
@@ -203,7 +203,7 @@ namespace Mythosia.AI.Services.OpenAI
                             Metadata = new Dictionary<string, object>
                             {
                                 ["total_length"] = streamData.TextBuffer.Length,
-                                ["model"] = streamData.Model ?? ActivateChat.Model
+                                ["model"] = streamData.Model ?? Model
                             }
                         });
                     }
@@ -263,7 +263,7 @@ namespace Mythosia.AI.Services.OpenAI
                 {
                     var completionMeta = chunk.Metadata ?? new Dictionary<string, object>();
                     completionMeta["total_length"] = streamData.TextBuffer.Length;
-                    completionMeta["model"] = streamData.Model ?? ActivateChat.Model;
+                    completionMeta["model"] = streamData.Model ?? Model;
                     streamData.Contents.Add(new StreamingContent
                     {
                         Type = StreamingContentType.Completion,

@@ -7,44 +7,32 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>3.1.0</VersionPrefix>
+		<VersionPrefix>4.0.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Gpt5; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
+		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## 🚀 What's New in v3.1.0
+## 🚀 What's New in v4.0.0
 See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
 
-### GPT-5 Reasoning Support
-- **Reasoning Streaming**: Stream reasoning data in real-time via StreamingContentType.Reasoning
-- **StreamOptions.WithReasoning()**: Enable reasoning summary streaming for GPT-5 models
-- **LastReasoningSummary**: Access reasoning summary from non-streaming GPT-5 responses
-- **Streaming Metadata Fix**: Fixed metadata not populating for New API (Responses API) format
-- **Incomplete Response Handling**: Clear warnings when reasoning exhausts output token budget
-- **max_output_tokens minimum 4096**: GPT-5 reasoning tokens consume the output budget; minimum floor of 4096 is automatically enforced
+### Architecture: Configuration moved from ChatBlock to AIService
+- **AIService** now holds: Model, Temperature, TopP, MaxTokens, Functions, EnableFunctions, MaxMessageCount, Stream
+- **ChatBlock** now only holds: Messages, SystemMessage, Id
+- **CopyFrom** copies conversation data + service-level settings (Model excluded for cross-provider safety)
+- Configure once on the service, all conversations share the same settings
 
-### GPT-5 Model Support
-- ✅ gpt-5, gpt-5-mini, gpt-5-nano (full support)
-- ⚠️ gpt-5-pro (experimental)
-
-## 🚀 What's New in v3.0.0
-
-### Major Features
-- **Function Calling**: AI models can now execute your custom functions during conversations
-- **Enhanced Streaming**: New StreamingContent with metadata support and real-time function execution
-- **Policy System**: Control function execution with timeouts, retry logic, and concurrency limits
-- **Attribute-Based Functions**: Register methods with [AiFunction] and [AiParameter] attributes
-- **Fluent Function Builder**: Chain function definitions with builder pattern
-
-### Function Calling Support
-- ✅ **OpenAI**: GPT-5, GPT-4o, GPT-4.1, o3 series (full support)
-- ✅ **Anthropic**: Claude 3/4 series (native tool use)
-- 🔜 **Coming Soon**: Gemini (planned for next update)
+### v3.2.0: GPT-5.1 / GPT-5.2 Model Support
+- **GPT-5.1**: Reasoning model with effort levels (none/low/medium/high) and text verbosity (low/medium/high)
+- **GPT-5.2**: Best model for complex, coding, and agentic tasks with effort levels (none/low/medium/high/xhigh)
+- **GPT-5.2 Pro**: High-compute model for tough problems (medium/high/xhigh)
+- **WithGpt5_1Parameters()**: Configure reasoning effort, verbosity, and reasoning summary for GPT-5.1
+- **WithGpt5_2Parameters()**: Configure reasoning effort, verbosity, and reasoning summary for GPT-5.2
+- **Reasoning Summary**: All GPT-5 family models now support configurable reasoning summary (auto/concise/detailed/disabled)
 
 ## Comprehensive AI Model Support
 
-- **OpenAI**: GPT-5 (with reasoning), GPT-4.1, GPT-4o, o3 series
+- **OpenAI**: GPT-5.2/5.1/5 (with reasoning), GPT-4.1, GPT-4o, o3
 - **Anthropic**: Claude 4 (Opus 4.1, Sonnet 4), Claude 3.7, Claude 3.5
 - **Google**: Gemini 2.5 Pro/Flash, Gemini 2.0, Gemini 1.5
 - **DeepSeek**: Chat and Reasoner models
@@ -52,6 +40,8 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 
 ## Key Features
 
+- ✅ **Architecture Overhaul**: Config on AIService, ChatBlock is conversation-only (v4.0.0)
+- ✅ **GPT-5.1/5.2 Support**: Verbosity and reasoning effort per model (v3.2.0)
 - ✅ **GPT-5 Reasoning**: Streaming and non-streaming reasoning support (v3.1.0)
 - ✅ **Function Calling**: Let AI execute your code (v3.0.0)
 - ✅ **Streaming 2.0**: IAsyncEnumerable with metadata (v3.0.0)
@@ -65,15 +55,14 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 
 ## Quick Example
 ```csharp
-// GPT-5 reasoning streaming
-var options = new StreamOptions().WithReasoning().WithMetadata();
-await foreach (var content in service.StreamAsync("Solve: 15 * 17", options))
-{
-    if (content.Type == StreamingContentType.Reasoning)
-        Console.Write($"[Thinking] {content.Content}");
-    else if (content.Type == StreamingContentType.Text)
-        Console.Write(content.Content);
-}
+// GPT-5.2 with reasoning effort and verbosity
+var gptService = (ChatGptService)service;
+gptService.WithGpt5_2Parameters(reasoningEffort: "high", verbosity: "high");
+var response = await gptService.GetCompletionAsync("Solve: 15 * 17");
+
+// GPT-5.1 with custom configuration
+gptService.WithGpt5_1Parameters(reasoningEffort: "medium", verbosity: "low", reasoningSummary: "concise");
+var response2 = await gptService.GetCompletionAsync("Explain quantum computing");
 
 // Function calling with streaming
 var service = new ChatGptService(apiKey)
@@ -98,15 +87,15 @@ await foreach (var content in service.StreamAsync(query, StreamOptions.WithFunct
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>3.1.0</Version>
+		<Version>4.0.0</Version>
 	</PropertyGroup>
 
 
 	<ItemGroup>
 		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
-		<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="System.Threading.Channels" Version="9.0.7" />
-		<PackageReference Include="TiktokenSharp" Version="1.1.6" />
+		<PackageReference Include="TiktokenSharp" Version="1.2.0" />
 	</ItemGroup>
 
 

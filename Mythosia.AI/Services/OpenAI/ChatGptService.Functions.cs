@@ -18,8 +18,8 @@ namespace Mythosia.AI.Services.OpenAI
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             // Determine endpoint based on model
-            string endpoint = IsNewApiModel(ActivateChat.Model)
-                ? (ActivateChat.Stream ? "responses?stream=true" : "responses")
+            string endpoint = IsNewApiModel(Model)
+                ? (Stream ? "responses?stream=true" : "responses")
                 : "chat/completions";
 
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -34,7 +34,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var requestBody = new Dictionary<string, object>();
 
-            if (IsNewApiModel(ActivateChat.Model))
+            if (IsNewApiModel(Model))
             {
                 // Build new API format (GPT-5, o3, GPT-4.1)
                 BuildNewApiRequest(requestBody);
@@ -108,7 +108,7 @@ namespace Mythosia.AI.Services.OpenAI
             var inputList = new List<object>();
 
             // Convert messages to new format
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 // Handle Assistant messages with function_call metadata
                 if (message.Role == ActorRole.Assistant &&
@@ -170,7 +170,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Convert functions to tools format using unified schema
-            var tools = ActivateChat.Functions.Select(f => new
+            var tools = Functions.Select(f => new
             {
                 type = "function",
                 name = f.Name,
@@ -179,7 +179,7 @@ namespace Mythosia.AI.Services.OpenAI
                 strict = true
             }).ToList();
 
-            requestBody["model"] = ActivateChat.Model;
+            requestBody["model"] = Model;
             requestBody["input"] = inputList;
             requestBody["tools"] = tools;
 
@@ -190,11 +190,11 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Tool choice configuration
-            requestBody["tool_choice"] = ActivateChat.FunctionCallMode == FunctionCallMode.None
+            requestBody["tool_choice"] = FunctionCallMode == FunctionCallMode.None
                 ? "none"
                 : "auto";
 
-            if (ActivateChat.Stream)
+            if (Stream)
             {
                 requestBody["stream"] = true;
             }
@@ -211,7 +211,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Convert messages
-            foreach (var message in ActivateChat.GetLatestMessages())
+            foreach (var message in GetLatestMessages())
             {
                 if (message.Role == ActorRole.Function)
                 {
@@ -249,21 +249,21 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Build functions array using unified schema
-            var functionsArray = ActivateChat.Functions.Select(f => new
+            var functionsArray = Functions.Select(f => new
             {
                 name = f.Name,
                 description = f.Description,
                 parameters = CreateFunctionParameterSchema(f, isNewApi: false)
             }).ToList();
 
-            requestBody["model"] = ActivateChat.Model;
+            requestBody["model"] = Model;
             requestBody["messages"] = messagesList;
             requestBody["functions"] = functionsArray;
-            requestBody["temperature"] = ActivateChat.Temperature;
-            requestBody["stream"] = ActivateChat.Stream;
+            requestBody["temperature"] = Temperature;
+            requestBody["stream"] = Stream;
 
             // Function call mode
-            requestBody["function_call"] = ActivateChat.FunctionCallMode == FunctionCallMode.None
+            requestBody["function_call"] = FunctionCallMode == FunctionCallMode.None
                 ? "none"
                 : "auto";
         }
