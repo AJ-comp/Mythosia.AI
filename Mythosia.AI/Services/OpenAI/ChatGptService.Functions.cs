@@ -82,6 +82,10 @@ namespace Mythosia.AI.Services.OpenAI
                     if (prop.Value.Default != null)
                         propObj["default"] = prop.Value.Default;
 
+                    // Array items schema
+                    if (prop.Value.Items != null)
+                        propObj["items"] = ConvertParameterPropertyForOpenAI(prop.Value.Items);
+
                     properties[prop.Key] = propObj;
                     allPropertyNames.Add(prop.Key);  // Add all properties to required
                 }
@@ -416,6 +420,25 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             return (content ?? string.Empty, functionCall);
+        }
+
+        private Dictionary<string, object> ConvertParameterPropertyForOpenAI(ParameterProperty prop)
+        {
+            var result = new Dictionary<string, object>
+            {
+                ["type"] = prop.Type ?? "string"
+            };
+
+            if (!string.IsNullOrEmpty(prop.Description))
+                result["description"] = prop.Description;
+
+            if (prop.Enum != null && prop.Enum.Count > 0)
+                result["enum"] = prop.Enum;
+
+            if (prop.Items != null)
+                result["items"] = ConvertParameterPropertyForOpenAI(prop.Items);
+
+            return result;
         }
     }
 }

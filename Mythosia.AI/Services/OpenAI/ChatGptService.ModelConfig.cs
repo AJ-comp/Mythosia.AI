@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Mythosia.AI.Models.Enums;
+using System;
 using System.Collections.Generic;
 
 namespace Mythosia.AI.Services.OpenAI
@@ -98,11 +99,11 @@ namespace Mythosia.AI.Services.OpenAI
         private void ConfigureGpt5Parameters(Dictionary<string, object> requestBody, string model)
         {
             // Use explicitly set reasoning effort, or default based on model variant
-            var effort = Gpt5ReasoningEffort ?? "medium";
+            var effort = (Gpt5ReasoningEffort == Gpt5Reasoning.Auto ? Gpt5Reasoning.Medium : Gpt5ReasoningEffort).ToString().ToLowerInvariant();
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5ReasoningSummary;
+                var summary = Gpt5ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
@@ -144,11 +145,11 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_1Parameters(Dictionary<string, object> requestBody, string model)
         {
-            var effort = Gpt5_1ReasoningEffort ?? "none";
+            var effort = (Gpt5_1ReasoningEffort == Gpt5_1Reasoning.Auto ? Gpt5_1Reasoning.None : Gpt5_1ReasoningEffort).ToString().ToLowerInvariant();
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_1ReasoningSummary;
+                var summary = Gpt5_1ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
@@ -156,7 +157,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("text"))
             {
-                var verbosity = Gpt5_1Verbosity ?? "medium";
+                var verbosity = (Gpt5_1Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
                 requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
             }
 
@@ -189,14 +190,18 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_2Parameters(Dictionary<string, object> requestBody, string model)
         {
-            string defaultEffort = model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase)
-                ? "medium"
-                : "none";
-            var effort = Gpt5_2ReasoningEffort ?? defaultEffort;
+            var resolvedEffort = Gpt5_2ReasoningEffort;
+            if (resolvedEffort == Gpt5_2Reasoning.Auto)
+            {
+                resolvedEffort = model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase)
+                    ? Gpt5_2Reasoning.Medium
+                    : Gpt5_2Reasoning.None;
+            }
+            var effort = resolvedEffort.ToString().ToLowerInvariant();
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_2ReasoningSummary;
+                var summary = Gpt5_2ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
@@ -204,7 +209,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("text"))
             {
-                var verbosity = Gpt5_2Verbosity ?? "medium";
+                var verbosity = (Gpt5_2Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
                 requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
             }
 

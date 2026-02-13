@@ -46,6 +46,7 @@ namespace Mythosia.AI.Models.Functions
         public string Description { get; set; }
         public List<string> Enum { get; set; }
         public object Default { get; set; }
+        public ParameterProperty Items { get; set; }
     }
 
     /// <summary>
@@ -114,5 +115,8 @@ namespace Mythosia.AI.Models.Functions
 
         // For preserving original message structure
         public const string OriginalContent = "original_content";
+
+        // Gemini 3 Thought Signatures
+        public const string ThoughtSignature = "thought_signature";
     }
 }

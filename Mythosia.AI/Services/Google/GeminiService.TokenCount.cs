@@ -46,20 +46,24 @@ namespace Mythosia.AI.Services.Google
                 contentsList.Add(ConvertMessageForGemini(message));
             }
 
-            var requestBody = new Dictionary<string, object>
+            var generateContentRequest = new Dictionary<string, object>
             {
+                ["model"] = $"models/{Model}",
                 ["contents"] = contentsList
             };
 
             if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
             {
-                requestBody["systemInstruction"] = new
+                generateContentRequest["systemInstruction"] = new
                 {
                     parts = new[] { new { text = ActivateChat.SystemMessage } }
                 };
             }
 
-            return requestBody;
+            return new Dictionary<string, object>
+            {
+                ["generateContentRequest"] = generateContentRequest
+            };
         }
 
         private async Task<uint> GetTokenCountFromAPI(object requestBody)

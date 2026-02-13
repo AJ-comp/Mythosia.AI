@@ -63,7 +63,7 @@ public abstract partial class AIServiceTestBase
                             {
                                 Type = "array",
                                 Description = "List of items to process",
-                                // Items = new ParameterProperty { Type = "string" }  // 현재 없는 속성
+                                Items = new ParameterProperty { Type = "string" }
                             }
                         },
                         Required = new List<string> { "items" }

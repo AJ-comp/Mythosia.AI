@@ -10,7 +10,7 @@
 		<VersionPrefix>4.0.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Multi modal;</PackageTags>
+		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
 ## 🚀 What's New in v4.0.0
@@ -21,20 +21,29 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 - **ChatBlock** now only holds: Messages, SystemMessage, Id
 - **CopyFrom** copies conversation data + service-level settings (Model excluded for cross-provider safety)
 - Configure once on the service, all conversations share the same settings
+- 🗑️ Removed deprecated: Gemini 1.0, 1.5, 2.0 models
+- Gemini 2.5 Pro/Flash/Flash-Lite now fully supported (GA)
+
+### Gemini 3 Flash/Pro Preview + Reasoning Support
+- **Gemini 3 Flash Preview** and **Gemini 3 Pro Preview** models added
+- **Thought Signature Circulation**: Gemini 3 function calling requires thought signatures to be sent back
+- **ThinkingLevel** (`GeminiThinkingLevel` enum: `Auto`/`Minimal`/`Low`/`Medium`/`High`, default: `Auto`) for Gemini 3 vs ThinkingBudget (int) for Gemini 2.5
+- **Reasoning Streaming**: thought:true parts classified as StreamingContentType.Reasoning
+- Multi-round function call loop with proper conversation history management
 
 ### v3.2.0: GPT-5.1 / GPT-5.2 Model Support
-- **GPT-5.1**: Reasoning model with effort levels (none/low/medium/high) and text verbosity (low/medium/high)
-- **GPT-5.2**: Best model for complex, coding, and agentic tasks with effort levels (none/low/medium/high/xhigh)
-- **GPT-5.2 Pro**: High-compute model for tough problems (medium/high/xhigh)
-- **WithGpt5_1Parameters()**: Configure reasoning effort, verbosity, and reasoning summary for GPT-5.1
-- **WithGpt5_2Parameters()**: Configure reasoning effort, verbosity, and reasoning summary for GPT-5.2
-- **Reasoning Summary**: All GPT-5 family models now support configurable reasoning summary (auto/concise/detailed/disabled)
+- **GPT-5.1**: Reasoning model with `Gpt5_1Reasoning` enum (None/Low/Medium/High) and `Verbosity` enum
+- **GPT-5.2**: Best model for complex tasks with `Gpt5_2Reasoning` enum (None/Low/Medium/High/XHigh)
+- **GPT-5.2 Pro**: High-compute model (Medium/High/XHigh)
+- **WithGpt5_1Parameters()**: Type-safe configuration with per-model enums
+- **WithGpt5_2Parameters()**: Type-safe configuration with per-model enums
+- **Reasoning Summary**: `ReasoningSummary` enum (Auto/Concise/Detailed) or null to disable
 
 ## Comprehensive AI Model Support
 
 - **OpenAI**: GPT-5.2/5.1/5 (with reasoning), GPT-4.1, GPT-4o, o3
 - **Anthropic**: Claude 4 (Opus 4.1, Sonnet 4), Claude 3.7, Claude 3.5
-- **Google**: Gemini 2.5 Pro/Flash, Gemini 2.0, Gemini 1.5
+- **Google**: Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite
 - **DeepSeek**: Chat and Reasoner models
 - **Perplexity**: Sonar with web search and citations
 
@@ -55,13 +64,13 @@ See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/R
 
 ## Quick Example
 ```csharp
-// GPT-5.2 with reasoning effort and verbosity
+// GPT-5.2 with reasoning effort and verbosity (type-safe enums)
 var gptService = (ChatGptService)service;
-gptService.WithGpt5_2Parameters(reasoningEffort: "high", verbosity: "high");
+gptService.WithGpt5_2Parameters(reasoningEffort: Gpt5_2Reasoning.High, verbosity: Verbosity.High);
 var response = await gptService.GetCompletionAsync("Solve: 15 * 17");
 
 // GPT-5.1 with custom configuration
-gptService.WithGpt5_1Parameters(reasoningEffort: "medium", verbosity: "low", reasoningSummary: "concise");
+gptService.WithGpt5_1Parameters(reasoningEffort: Gpt5_1Reasoning.Medium, verbosity: Verbosity.Low, reasoningSummary: ReasoningSummary.Concise);
 var response2 = await gptService.GetCompletionAsync("Explain quantum computing");
 
 // Function calling with streaming

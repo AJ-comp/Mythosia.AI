@@ -201,13 +201,13 @@ public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
             var gptService = (ChatGptService)AI;
 
             // minimal reasoning effort로 빠른 응답
-            gptService.WithGpt5Parameters(reasoningEffort: "minimal");
+            gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Minimal);
             var quickResponse = await gptService.GetCompletionAsync("What is 2+2?");
             Assert.IsNotNull(quickResponse);
             Console.WriteLine($"[Minimal Effort] {quickResponse}");
 
             // high reasoning effort로 심층 응답
-            gptService.WithGpt5Parameters(reasoningEffort: "high");
+            gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.High);
             var detailedResponse = await gptService.GetCompletionAsync(
                 "Explain briefly why the sky is blue in one sentence."
             );
@@ -232,7 +232,7 @@ public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
         {
             var gptService = (ChatGptService)AI;
             gptService
-                .WithGpt5Parameters(reasoningEffort: "low")
+                .WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Low)
                 .WithSystemMessage("You are a concise assistant. Answer in one word if possible.")
                 .WithMaxTokens(100);
 

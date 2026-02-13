@@ -294,8 +294,34 @@ namespace Mythosia.AI.Services.Google
                 // Handle function calls
                 if (parsedContent.Type == StreamingContentType.FunctionCall)
                 {
+                    // Always yield the FunctionCall event
+                    yield return parsedContent;
+
                     if (functionsEnabled && functionCallData.IsComplete && functionCallData.Name != null)
                     {
+                        // Add model's functionCall to conversation history
+                        var argsJson = functionCallData.Arguments.ToString();
+                        var streamFuncId = Guid.NewGuid().ToString();
+                        var fcMetadata = new Dictionary<string, object>
+                        {
+                            [MessageMetadataKeys.MessageType] = "function_call",
+                            [MessageMetadataKeys.FunctionId] = streamFuncId,
+                            [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
+                            [MessageMetadataKeys.FunctionName] = functionCallData.Name,
+                            [MessageMetadataKeys.FunctionArguments] = argsJson
+                        };
+
+                        // Gemini 3: preserve thought signature for circulation
+                        if (functionCallData.ThoughtSignature != null)
+                        {
+                            fcMetadata[MessageMetadataKeys.ThoughtSignature] = functionCallData.ThoughtSignature;
+                        }
+
+                        ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "")
+                        {
+                            Metadata = fcMetadata
+                        });
+
                         // Execute function
                         var functionResult = await ExecuteFunctionCallAsync(
                             functionCallData,
@@ -310,26 +336,33 @@ namespace Mythosia.AI.Services.Google
                         {
                             Metadata = new Dictionary<string, object>
                             {
-                                ["function_name"] = functionCallData.Name
+                                [MessageMetadataKeys.MessageType] = "function_result",
+                                [MessageMetadataKeys.FunctionId] = streamFuncId,
+                                [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
+                                [MessageMetadataKeys.FunctionName] = functionCallData.Name
                             }
                         });
 
                         functionCallData = new FunctionCallData();
 
-                        // Request completion based on function result
-                        await foreach (var responseContent in StreamAsync(
-                            new Message(ActorRole.User, "Please provide a response based on the function result."),
-                            options,
-                            cancellationToken))
+                        // Send follow-up request with proper conversation history
+                        Stream = true;
+                        var followUpRequest = CreateFunctionMessageRequest();
+                        var followUpResponse = await HttpClient.SendAsync(
+                            followUpRequest,
+                            HttpCompletionOption.ResponseHeadersRead,
+                            cancellationToken);
+
+                        if (followUpResponse.IsSuccessStatusCode)
                         {
-                            yield return responseContent;
+                            await foreach (var responseContent in ProcessGeminiStream(
+                                followUpResponse, options, functionsEnabled, cancellationToken))
+                            {
+                                yield return responseContent;
+                            }
                         }
 
                         yield break;
-                    }
-                    else if (options.IncludeMetadata)
-                    {
-                        yield return parsedContent;
                     }
                 }
                 else if (parsedContent.Type == StreamingContentType.Text)

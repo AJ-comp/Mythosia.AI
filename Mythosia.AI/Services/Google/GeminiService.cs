@@ -21,11 +21,21 @@ namespace Mythosia.AI.Services.Google
 
         /// <summary>
         /// Controls the thinking token budget for Gemini 2.5 models.
+        /// Ignored when ThinkingLevel is set (Gemini 3 uses ThinkingLevel instead).
         /// -1: Dynamic (model decides automatically, default)
         /// 0: Disable thinking (Flash/Lite only, Pro minimum is 128)
         /// 128~32768: Specific token budget (Pro max: 32768, Flash/Lite max: 24576)
         /// </summary>
         public int ThinkingBudget { get; set; } = -1;
+
+        /// <summary>
+        /// Controls the thinking level for Gemini 3 models.
+        /// Auto: Uses model default (High for Gemini 3).
+        /// Gemini 3 Pro/Flash shared levels: Low, High (default)
+        /// Gemini 3 Flash additional levels: Minimal, Medium
+        /// Note: Do not set both ThinkingLevel and ThinkingBudget.
+        /// </summary>
+        public GeminiThinkingLevel ThinkingLevel { get; set; } = GeminiThinkingLevel.Auto;
 
         public GeminiService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://generativelanguage.googleapis.com/", httpClient)
@@ -36,6 +46,18 @@ namespace Mythosia.AI.Services.Google
             MaxTokens = 2048;
             AddNewChat(new ChatBlock());
         }
+
+        #region Model Detection Helpers
+
+        /// <summary>
+        /// Returns true if the current model is a Gemini 3 series model.
+        /// </summary>
+        private bool IsGemini3Model()
+        {
+            return Model != null && Model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase);
+        }
+
+        #endregion
 
         #region Core Completion Methods
 
@@ -66,37 +88,98 @@ namespace Mythosia.AI.Services.Google
 
             var responseContent = await response.Content.ReadAsStringAsync();
 
-            // Handle function calls if present
+            // Handle function calls if present (loop for multi-step chaining)
             if (useFunctions)
             {
-                var (content, functionCall) = ExtractFunctionCall(responseContent);
-
-                if (functionCall != null)
+                var policy = CurrentPolicy ?? DefaultPolicy;
+                CurrentPolicy = null;
+                for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    var (content, functionCall, thoughtSignature) = ExtractFunctionCallWithSignature(responseContent);
+
+                    if (functionCall == null)
+                    {
+                        // No more function calls, return text response
+                        var assistantMsg = new Message(ActorRole.Assistant, content);
+                        if (thoughtSignature != null)
+                        {
+                            assistantMsg.Metadata = new Dictionary<string, object>
+                            {
+                                [MessageMetadataKeys.ThoughtSignature] = thoughtSignature
+                            };
+                        }
+                        ActivateChat.Messages.Add(assistantMsg);
+                        return content;
+                    }
+
+                    // Add model's functionCall response to conversation (with thought signature for Gemini 3)
+                    var metadata = new Dictionary<string, object>
+                    {
+                        [MessageMetadataKeys.MessageType] = "function_call",
+                        [MessageMetadataKeys.FunctionId] = functionCall.Id,
+                        [MessageMetadataKeys.FunctionSource] = functionCall.Source,
+                        [MessageMetadataKeys.FunctionName] = functionCall.Name,
+                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments)
+                    };
+                    if (thoughtSignature != null)
+                    {
+                        metadata[MessageMetadataKeys.ThoughtSignature] = thoughtSignature;
+                    }
+                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content ?? "") { Metadata = metadata });
+
                     // Execute function
                     var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
 
-                    // Add to conversation
+                    // Add function result to conversation
                     ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
                     {
                         Metadata = new Dictionary<string, object>
                         {
-                            ["function_name"] = functionCall.Name,
-                            ["arguments"] = functionCall.Arguments
+                            [MessageMetadataKeys.MessageType] = "function_result",
+                            [MessageMetadataKeys.FunctionId] = functionCall.Id,
+                            [MessageMetadataKeys.FunctionSource] = functionCall.Source,
+                            [MessageMetadataKeys.FunctionName] = functionCall.Name
                         }
                     });
 
-                    // Get AI's final response based on function result
-                    return await GetCompletionAsync("Based on the function result, please provide a helpful response.");
+                    // Get next response (may be another function call or final text)
+                    request = CreateFunctionMessageRequest();
+                    response = await HttpClient.SendAsync(request);
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        throw new AIServiceException($"Gemini API request failed: {response.ReasonPhrase}", errorContent);
+                    }
+
+                    responseContent = await response.Content.ReadAsStringAsync();
                 }
 
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
-                return content;
+                // Fallback: max iterations reached, return whatever text we have
+                var (fallbackContent, _, fallbackSig) = ExtractResponseContentWithSignature(responseContent);
+                var fallbackMsg = new Message(ActorRole.Assistant, fallbackContent);
+                if (fallbackSig != null)
+                {
+                    fallbackMsg.Metadata = new Dictionary<string, object>
+                    {
+                        [MessageMetadataKeys.ThoughtSignature] = fallbackSig
+                    };
+                }
+                ActivateChat.Messages.Add(fallbackMsg);
+                return fallbackContent;
             }
             else
             {
-                var result = ExtractResponseContent(responseContent);
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+                var (result, _, sig) = ExtractResponseContentWithSignature(responseContent);
+                var assistantMsg = new Message(ActorRole.Assistant, result);
+                if (sig != null)
+                {
+                    assistantMsg.Metadata = new Dictionary<string, object>
+                    {
+                        [MessageMetadataKeys.ThoughtSignature] = sig
+                    };
+                }
+                ActivateChat.Messages.Add(assistantMsg);
                 return result;
             }
         }

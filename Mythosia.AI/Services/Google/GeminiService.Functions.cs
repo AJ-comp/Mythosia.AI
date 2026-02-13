@@ -16,7 +16,9 @@ namespace Mythosia.AI.Services.Google
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
             var modelName = Model;
-            var endpoint = $"v1beta/models/{modelName}:generateContent?key={ApiKey}";
+            var endpoint = Stream
+                ? $"v1beta/models/{modelName}:streamGenerateContent?alt=sse&key={ApiKey}"
+                : $"v1beta/models/{modelName}:generateContent?key={ApiKey}";
 
             var requestBody = BuildRequestBodyWithFunctions();
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -31,21 +33,54 @@ namespace Mythosia.AI.Services.Google
         {
             var contentsList = new List<object>();
 
+            var isGemini3 = IsGemini3Model();
+
             foreach (var message in GetLatestMessages())
             {
-                if (message.Role == ActorRole.Function)
+                if (message.Role == ActorRole.Assistant &&
+                    message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
                 {
-                    contentsList.Add(new
+                    // Model's functionCall response
+                    var funcName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "";
+                    var argsJson = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
+                    var args = JsonSerializer.Deserialize<Dictionary<string, object>>(argsJson) ?? new Dictionary<string, object>();
+
+                    var functionCallPart = new Dictionary<string, object>
                     {
-                        role = "function",
-                        parts = new[] { new
-                {
-                    functionResponse = new
+                        ["functionCall"] = new Dictionary<string, object>
+                        {
+                            ["name"] = funcName,
+                            ["args"] = args
+                        }
+                    };
+
+                    // Gemini 3: circulate thought signature back on functionCall parts (strict validation)
+                    if (message.Metadata.TryGetValue(MessageMetadataKeys.ThoughtSignature, out var sigObj) && sigObj != null)
                     {
-                        name = message.Metadata?["function_name"]?.ToString() ?? "function",
-                        response = new { content = message.Content }
+                        functionCallPart["thoughtSignature"] = sigObj.ToString()!;
                     }
-                }}
+
+                    contentsList.Add(new Dictionary<string, object>
+                    {
+                        ["role"] = "model",
+                        ["parts"] = new[] { functionCallPart }
+                    });
+                }
+                else if (message.Role == ActorRole.Function)
+                {
+                    // Function result - Gemini 3 uses "user" role, Gemini 2.x uses "function" role
+                    var functionResponseRole = isGemini3 ? "user" : "function";
+                    contentsList.Add(new Dictionary<string, object>
+                    {
+                        ["role"] = functionResponseRole,
+                        ["parts"] = new[] { new Dictionary<string, object>
+                        {
+                            ["functionResponse"] = new Dictionary<string, object>
+                            {
+                                ["name"] = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "function",
+                                ["response"] = new Dictionary<string, object> { ["content"] = message.Content }
+                            }
+                        }}
                     });
                 }
                 else
@@ -54,17 +89,20 @@ namespace Mythosia.AI.Services.Google
                 }
             }
 
+            var generationConfig = new Dictionary<string, object>
+            {
+                ["temperature"] = Temperature,
+                ["topP"] = TopP,
+                ["topK"] = 40,
+                ["maxOutputTokens"] = (int)MaxTokens
+            };
+
+            ApplyThinkingConfig(generationConfig);
+
             var requestBody = new Dictionary<string, object>
             {
                 ["contents"] = contentsList,
-                ["generationConfig"] = new Dictionary<string, object>
-                {
-                    ["temperature"] = Temperature,
-                    ["topP"] = TopP,
-                    ["topK"] = 40,
-                    ["maxOutputTokens"] = (int)MaxTokens,
-                    ["thinkingConfig"] = new { thinkingBudget = ThinkingBudget }
-                }
+                ["generationConfig"] = generationConfig
             };
 
             // Add function declarations
@@ -72,32 +110,34 @@ namespace Mythosia.AI.Services.Google
             {
                 requestBody["tools"] = new[]
                 {
-                    new
+                    new Dictionary<string, object>
                     {
-                        function_declarations = Functions.Select(f => new
+                        ["functionDeclarations"] = Functions.Select(f => new Dictionary<string, object>
                         {
-                            name = f.Name,
-                            description = f.Description,
-                            parameters = new
+                            ["name"] = f.Name,
+                            ["description"] = f.Description,
+                            ["parameters"] = new Dictionary<string, object>
                             {
-                                type = "object",
-                                properties = f.Parameters.Properties,
-                                required = f.Parameters.Required
+                                ["type"] = "object",
+                                ["properties"] = f.Parameters.Properties.ToDictionary(
+                                    kvp => kvp.Key,
+                                    kvp => (object)ConvertParameterProperty(kvp.Value)),
+                                ["required"] = f.Parameters.Required
                             }
                         }).ToList()
                     }
                 };
 
-                // ✅ 단순화된 tool_config 설정 (Force 제거)
+                // 
                 if (FunctionCallMode == FunctionCallMode.None)
                 {
-                    requestBody["tool_config"] = new
+                    requestBody["toolConfig"] = new Dictionary<string, object>
                     {
-                        function_calling_config = new { mode = "NONE" }
+                        ["functionCallingConfig"] = new Dictionary<string, object> { ["mode"] = "NONE" }
                     };
                 }
-                // Auto mode가 기본값이므로 별도 설정 불필요
-                // Gemini는 tool_config를 명시하지 않으면 자동으로 AUTO mode
+                // Auto mode 
+                // Gemini 
             }
 
             if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
@@ -137,6 +177,8 @@ namespace Mythosia.AI.Services.Google
                             {
                                 functionCall = new FunctionCall
                                 {
+                                    Id = Guid.NewGuid().ToString(),
+                                    Source = IdSource.Gemini,
                                     Name = functionCallElement.GetProperty("name").GetString(),
                                     Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
                                         functionCallElement.GetProperty("args").GetRawText())
@@ -152,6 +194,25 @@ namespace Mythosia.AI.Services.Google
             {
                 return (string.Empty, null);
             }
+        }
+
+        private Dictionary<string, object> ConvertParameterProperty(ParameterProperty prop)
+        {
+            var result = new Dictionary<string, object>
+            {
+                ["type"] = prop.Type ?? "string"
+            };
+
+            if (!string.IsNullOrEmpty(prop.Description))
+                result["description"] = prop.Description;
+
+            if (prop.Enum != null && prop.Enum.Count > 0)
+                result["enum"] = prop.Enum;
+
+            if (prop.Items != null)
+                result["items"] = ConvertParameterProperty(prop.Items);
+
+            return result;
         }
 
         #endregion

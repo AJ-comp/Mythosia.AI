@@ -46,5 +46,10 @@ namespace Mythosia.AI.Models.Streaming
         public string? Name { get; set; }
         public StringBuilder Arguments { get; } = new StringBuilder();
         public bool IsComplete { get; set; }
+        /// <summary>
+        /// Gemini 3 thought signature attached to this function call part.
+        /// Must be circulated back in the next request for strict validation.
+        /// </summary>
+        public string? ThoughtSignature { get; set; }
     }
 }

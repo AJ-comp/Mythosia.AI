@@ -606,7 +606,7 @@ public abstract partial class AIServiceTestBase
                 // 다양한 프롬프트로 테스트
                 await TestFunctionCall("What's today's date?", "get_date", "Date function selection");
                 await TestFunctionCall("Get info about user John", "get_user_info", "User info selection");
-                await TestFunctionCall("Search for laptops", "search_products", "Product search selection");
+                await TestFunctionCall("Search for laptops in the electronics category", "search_products", "Product search selection");
 
                 // 전체 Function 호출 횟수 확인
                 var totalFunctionCalls = AI.ActivateChat.Messages

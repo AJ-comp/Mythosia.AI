@@ -2,17 +2,21 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**, including **OpenAI GPT-5.2/5.1/5/GPT-4o**, **Anthropic Claude 3/4**, **Google Gemini**, **DeepSeek**, and **Perplexity Sonar**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**.
+
+### Supported Providers
+
+- **OpenAI** — GPT-5.2 / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
+- **Anthropic** — Claude 4 (Opus 4.1, Sonnet 4), Claude 3.7, Claude 3.5
+- **Google** — Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite
+- **DeepSeek** — Chat and Reasoner models
+- **Perplexity** — Sonar with web search and citations
 
 ## 📚 Documentation
 
-- **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia/wiki)** - Getting started with text queries, streaming, image analysis, and more
-- **[Advanced Features](https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features)** - Function calling, policies, and enhanced streaming (v3.0.0)
-- **[Release Notes](RELEASE_NOTES.md)** - Full version history and migration guides
-
-### 🚀 Latest: v4.0.0 — Architecture overhaul (config moved to AIService) + v3.2.0 — GPT-5.1/5.2 support
-
-👉 **[Full Release Notes & Migration Guides](RELEASE_NOTES.md)**
+- **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia/wiki)** — Getting started with text queries, streaming, image analysis, and more
+- **[Advanced Features](https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features)** — Function calling, policies, and enhanced streaming
+- **[Release Notes](RELEASE_NOTES.md)** — Full version history and migration guides
 
 ## Installation
 
@@ -26,7 +30,76 @@ For advanced LINQ operations with streams:
 dotnet add package System.Linq.Async
 ```
 
-## Function Calling (New in v3.0.0)
+## Quick Start
+
+```csharp
+// OpenAI GPT
+var gptService = new ChatGptService(apiKey, httpClient);
+var response = await gptService.GetCompletionAsync("Hello!");
+
+// Anthropic Claude
+var claudeService = new ClaudeService(apiKey, httpClient);
+var response = await claudeService.GetCompletionAsync("Hello!");
+
+// Google Gemini
+var geminiService = new GeminiService(apiKey, httpClient);
+var response = await geminiService.GetCompletionAsync("Hello!");
+```
+
+## GPT-5 Family Configuration
+
+GPT-5 family models support **type-safe reasoning configuration** with per-model enums.
+
+### Reasoning Effort (Per-Model Enums)
+
+Each GPT-5 variant has its own enum to ensure only valid options are available at compile time.
+
+```csharp
+var gptService = (ChatGptService)service;
+
+// GPT-5: Gpt5Reasoning (Auto/Minimal/Low/Medium/High)
+gptService.WithGpt5Parameters(
+    reasoningEffort: Gpt5Reasoning.High,
+    reasoningSummary: ReasoningSummary.Concise);
+
+// GPT-5.1: Gpt5_1Reasoning (Auto/None/Low/Medium/High) + Verbosity
+gptService.WithGpt5_1Parameters(
+    reasoningEffort: Gpt5_1Reasoning.Medium,
+    verbosity: Verbosity.Low,
+    reasoningSummary: ReasoningSummary.Concise);
+
+// GPT-5.2: Gpt5_2Reasoning (Auto/None/Low/Medium/High/XHigh) + Verbosity
+gptService.WithGpt5_2Parameters(
+    reasoningEffort: Gpt5_2Reasoning.XHigh,
+    verbosity: Verbosity.High);
+```
+
+`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro).
+
+### Reasoning Summary
+
+All GPT-5 family models support `ReasoningSummary` enum (`Auto` / `Concise` / `Detailed`). Set to `null` to disable.
+
+## Gemini Configuration
+
+### Gemini 3 — ThinkingLevel
+
+```csharp
+var geminiService = new GeminiService(apiKey, httpClient);
+geminiService.ChangeModel(AIModel.Gemini3FlashPreview);
+
+// GeminiThinkingLevel enum: Auto / Minimal / Low / Medium / High
+geminiService.ThinkingLevel = GeminiThinkingLevel.Low;  // Auto = model default (High)
+```
+
+### Gemini 2.5 — ThinkingBudget
+
+```csharp
+geminiService.ChangeModel(AIModel.Gemini2_5Pro);
+geminiService.ThinkingBudget = 8192;  // -1 = dynamic (default), 0 = disable
+```
+
+## Function Calling
 
 ### Quick Start with Functions
 
@@ -184,7 +257,7 @@ var response = await service.AskWithoutFunctionsAsync(
 );
 ```
 
-## Enhanced Streaming (v3.0.0)
+## Enhanced Streaming
 
 ### Stream Options
 
@@ -230,20 +303,34 @@ await foreach (var content in service.StreamAsync("Query", options))
 }
 ```
 
-## Service-Specific Function Support
+## Reasoning Streaming
 
-| Service | Function Calling | Streaming Functions | Notes |
-|---------|-----------------|-------------------|--------|
-| **OpenAI GPT-5.2 / 5.2 Pro** | ✅ Full | ✅ Full | Best for complex, coding, agentic tasks |
-| **OpenAI GPT-5.1** | ✅ Full | ✅ Full | Reasoning with verbosity control |
-| **OpenAI GPT-5 / Mini / Nano** | ✅ Full | ✅ Full | Reasoning streaming + summary support |
-| **OpenAI GPT-4o** | ✅ Full | ✅ Full | Best support, all features |
-| **OpenAI GPT-4.1** | ✅ Full | ✅ Full | Full function support |
-| **OpenAI o3** | ✅ Full | ✅ Full | Advanced reasoning with functions |
-| **Claude 3/4** | ✅ Full | ✅ Full | Tool use via native API |
-| **Gemini** | 🔜 Coming Soon | 🔜 Coming Soon | Support planned for future update |
-| **DeepSeek** | ❌ | ❌ | Not yet available |
-| **Perplexity** | ❌ | ❌ | Web search focused |
+GPT-5 and Gemini 3 models support streaming reasoning (thinking) content.
+
+```csharp
+await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.WriteLine($"[Thinking] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+```
+
+## Service Support
+
+| Service | Function Calling | Streaming | Reasoning | Notes |
+|---------|-----------------|-----------|-----------|--------|
+| **OpenAI GPT-5.2 / 5.2 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
+| **OpenAI GPT-5.1** | ✅ | ✅ | ✅ | Reasoning + verbosity control |
+| **OpenAI GPT-5 / Mini / Nano** | ✅ | ✅ | ✅ | Reasoning streaming + summary |
+| **OpenAI GPT-4.1 / GPT-4o** | ✅ | ✅ | — | Full function support |
+| **OpenAI o3** | ✅ | ✅ | ✅ | Advanced reasoning |
+| **Claude 4 / 3** | ✅ | ✅ | — | Tool use via native API |
+| **Gemini 3 Flash/Pro** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
+| **Gemini 2.5 Pro/Flash** | ✅ | ✅ | ✅ | ThinkingBudget control |
+| **DeepSeek** | ❌ | ✅ | ✅ | Reasoner model streaming |
+| **Perplexity** | ❌ | ✅ | — | Web search + citations |
 
 ## Complete Examples
 
@@ -361,10 +448,7 @@ var response = await mathTutor.GetCompletionAsync(
 
 ## Migration Guides
 
-For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)**:
-
-- [v3.2.x → v4.0.0](RELEASE_NOTES.md#migration-guide-from-v32x-to-v400) — Configuration moved from ChatBlock to AIService
-- [v2.x → v3.0.0](RELEASE_NOTES.md#migration-guide-from-v2x-to-v300) — Function calling & enhanced streaming
+For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)**.
 
 ## Best Practices
 
@@ -383,7 +467,7 @@ For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)
 **Q: Functions aren't being called when expected?**
 - Ensure functions are registered with clear, descriptive names and descriptions
 - Check that `EnableFunctions` is true on the service
-- Verify the model supports function calling (GPT-4, Claude 3+, Gemini)
+- Verify the model supports function calling (see Service Support table above)
 
 **Q: Function calling is too slow?**
 - Adjust the policy timeout: `service.DefaultPolicy.TimeoutSeconds = 30`
@@ -396,5 +480,5 @@ For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)
 - Use `StreamOptions.FullOptions` to see function call metadata
 
 **Q: Can I use functions with streaming?**
-- Yes! Functions work seamlessly with streaming in v3.0.0
+- Yes! Functions work seamlessly with streaming
 - Use `StreamOptions.WithFunctions` to see function execution in real-time

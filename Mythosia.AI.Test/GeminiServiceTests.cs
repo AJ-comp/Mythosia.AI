@@ -8,38 +8,48 @@ using Mythosia.Azure;
 namespace Mythosia.AI.Tests;
 
 [TestClass]
-public class GeminiServiceTests : AIServiceTestBase
+public abstract class GeminiServiceTestsBase : AIServiceTestBase
 {
+    private static string apiKey;
+    protected abstract AIModel ModelToTest { get; }
+
+    [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
+    public static async Task ClassInit(TestContext context)
+    {
+        if (apiKey == null)
+        {
+            var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret");
+            apiKey = await secretFetcher.GetKeyValueAsync();
+            Console.WriteLine("[ClassInitialize] Gemini API key loaded");
+        }
+    }
+
     protected override AIService CreateAIService()
     {
-        var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret");
-        string apiKey = secretFetcher.GetKeyValueAsync().Result;
-
         var service = new GeminiService(apiKey, new HttpClient());
+        service.ChangeModel(ModelToTest);
+        Console.WriteLine($"[Testing Model] {ModelToTest}");
         return service;
     }
 
-    protected override bool SupportsMultimodal()
-    {
-        return true; // Gemini Pro Vision 지원
-    }
-
-    protected override AIModel? GetAlternativeModel()
-    {
-        return AIModel.Gemini2_5Flash;
-    }
+    protected override bool SupportsMultimodal() => true;
+    protected override bool SupportsFunctionCalling() => true;
+    protected override bool SupportsArrayParameter() => true;
+    protected override bool SupportsAudio() => false;
+    protected override bool SupportsImageGeneration() => false;
+    protected override bool SupportsWebSearch() => false;
+    protected override bool SupportsReasoning() => true;
+    protected override AIModel? GetAlternativeModel() => AIModel.Gemini2_5Flash;
 
     /// <summary>
     /// Gemini Vision 기능 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiVisionTest()
     {
         try
         {
-            // Gemini 2.0+ models support vision natively
-            AI.ChangeModel(AIModel.Gemini2_5Pro);
-
             var response = await AI.GetCompletionWithImageAsync(
                 "Describe what you see in this image",
                 TestImagePath
@@ -55,7 +65,7 @@ public class GeminiServiceTests : AIServiceTestBase
                 .SendAsync();
 
             Assert.IsNotNull(flashResponse);
-            Console.WriteLine($"[Gemini 2.5 Pro] {flashResponse}");
+            Console.WriteLine($"[Gemini Vision Fluent] {flashResponse}");
         }
         catch (Exception ex)
         {
@@ -67,6 +77,7 @@ public class GeminiServiceTests : AIServiceTestBase
     /// <summary>
     /// Gemini 특화 기능 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiSpecificFeaturesTest()
     {
@@ -94,6 +105,7 @@ public class GeminiServiceTests : AIServiceTestBase
     /// <summary>
     /// Gemini 토큰 카운팅 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiTokenCountingTest()
     {
@@ -118,90 +130,6 @@ public class GeminiServiceTests : AIServiceTestBase
         catch (Exception ex)
         {
             Console.WriteLine($"[Token Counting Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Gemini 모델 전환 테스트
-    /// </summary>
-    [TestMethod]
-    public async Task GeminiModelSwitchingTest()
-    {
-        try
-        {
-            var models = new[]
-            {
-                AIModel.Gemini2_5Pro,
-                AIModel.Gemini2_5Flash,
-                AIModel.Gemini2_5FlashLite
-            };
-
-            foreach (var model in models)
-            {
-                try
-                {
-                    AI.ChangeModel(model);
-                    Console.WriteLine($"\n[Testing Model] {model.ToDescription()}");
-
-                    var response = await AI.GetCompletionAsync(
-                        $"Say hello and tell me your model name"
-                    );
-
-                    Assert.IsNotNull(response);
-                    Console.WriteLine($"[Response] {response.Truncate(100)}");
-                }
-                catch (Exception modelEx)
-                {
-                    Console.WriteLine($"[Model {model} Error] {modelEx.Message}");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Model Switching Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-
-    /// <summary>
-    /// Gemini 2.5 모델 테스트
-    /// </summary>
-    [TestMethod]
-    public async Task Gemini25ModelsTest()
-    {
-        try
-        {
-            var gemini25Models = new[]
-            {
-                AIModel.Gemini2_5Pro,
-                AIModel.Gemini2_5Flash,
-                AIModel.Gemini2_5FlashLite
-            };
-
-            foreach (var model in gemini25Models)
-            {
-                try
-                {
-                    AI.ChangeModel(model);
-                    Console.WriteLine($"\n[Testing Gemini 2.5 Model] {model.ToDescription()}");
-
-                    var response = await AI.GetCompletionAsync(
-                        "What are your capabilities as an AI assistant?"
-                    );
-
-                    Assert.IsNotNull(response);
-                    Console.WriteLine($"[Gemini 2.5 Response] {response.Truncate(150)}...");
-                }
-                catch (Exception modelEx)
-                {
-                    Console.WriteLine($"[Gemini 2.5 Model {model} Error] {modelEx.Message}");
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Gemini 2.5 Test Error] {ex.Message}");
             Assert.Fail(ex.Message);
         }
     }
@@ -241,6 +169,7 @@ public class GeminiServiceTests : AIServiceTestBase
     /// <summary>
     /// Gemini 시스템 메시지 처리 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiSystemMessageTest()
     {
@@ -265,6 +194,7 @@ public class GeminiServiceTests : AIServiceTestBase
     /// <summary>
     /// Gemini 이미지 생성 미지원 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiImageGenerationNotSupportedTest()
     {
@@ -284,6 +214,7 @@ public class GeminiServiceTests : AIServiceTestBase
     /// <summary>
     /// Gemini 안전 설정 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiSafetySettingsTest()
     {
@@ -307,6 +238,7 @@ public class GeminiServiceTests : AIServiceTestBase
     /// <summary>
     /// Gemini 대화 컨텍스트 테스트
     /// </summary>
+    [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task GeminiConversationContextTest()
     {
@@ -335,4 +267,34 @@ public class GeminiServiceTests : AIServiceTestBase
             Assert.Fail(ex.Message);
         }
     }
+}
+
+[TestClass]
+public class Gemini_2_5Pro_Tests : GeminiServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gemini2_5Pro;
+}
+
+[TestClass]
+public class Gemini_2_5Flash_Tests : GeminiServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gemini2_5Flash;
+}
+
+[TestClass]
+public class Gemini_2_5FlashLite_Tests : GeminiServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gemini2_5FlashLite;
+}
+
+[TestClass]
+public class Gemini_3FlashPreview_Tests : GeminiServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gemini3FlashPreview;
+}
+
+[TestClass]
+public class Gemini_3ProPreview_Tests : GeminiServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gemini3ProPreview;
 }
