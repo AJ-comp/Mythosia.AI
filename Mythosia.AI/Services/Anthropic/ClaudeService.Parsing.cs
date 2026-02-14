@@ -18,7 +18,7 @@ namespace Mythosia.AI.Services.Anthropic
             var messagesList = new List<object>();
 
             // Convert messages to Claude format
-            foreach (var message in GetLatestMessages())
+            foreach (var message in GetLatestMessagesWithFunctionFallback())
             {
                 messagesList.Add(ConvertMessageForClaude(message));
             }
@@ -30,7 +30,7 @@ namespace Mythosia.AI.Services.Anthropic
                 ["messages"] = messagesList,
                 ["temperature"] = Temperature,
                 ["stream"] = Stream,
-                ["max_tokens"] = MaxTokens
+                ["max_tokens"] = GetEffectiveMaxTokens()
             };
 
             // System message가 있는 경우에만 추가

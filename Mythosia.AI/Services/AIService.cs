@@ -68,6 +68,18 @@ namespace Mythosia.AI.Services.Base
         public bool Stream { get; set; }
         public uint MaxMessageCount { get; set; } = 20;
 
+        /// <summary>
+        /// Returns the maximum output tokens allowed for the current model.
+        /// Override in each service to provide model-specific limits.
+        /// </summary>
+        protected virtual uint GetModelMaxOutputTokens() => uint.MaxValue;
+
+        /// <summary>
+        /// Returns the effective max tokens, capped by the current model's limit.
+        /// Use this instead of MaxTokens when building request bodies.
+        /// </summary>
+        protected uint GetEffectiveMaxTokens() => Math.Min(MaxTokens, GetModelMaxOutputTokens());
+
         #endregion
 
         #region Function Settings
@@ -123,6 +135,36 @@ namespace Mythosia.AI.Services.Base
         internal IEnumerable<Message> GetLatestMessages()
         {
             return ActivateChat.Messages.Skip(Math.Max(0, ActivateChat.Messages.Count - (int)MaxMessageCount));
+        }
+
+        /// <summary>
+        /// Gets messages for non-function path, converting function-related messages to plain text.
+        /// Original messages in ChatBlock are never modified.
+        /// </summary>
+        internal IEnumerable<Message> GetLatestMessagesWithFunctionFallback()
+        {
+            foreach (var message in GetLatestMessages())
+            {
+                // Assistant message with function_call metadata → convert to text
+                if (message.Role == ActorRole.Assistant &&
+                    message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
+                {
+                    var funcName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "unknown";
+                    var funcArgs = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
+                    yield return new Message(ActorRole.Assistant, $"[Called {funcName}({funcArgs})]");
+                    continue;
+                }
+
+                // Function result message → convert to User role with text
+                if (message.Role == ActorRole.Function)
+                {
+                    var funcName = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "function";
+                    yield return new Message(ActorRole.User, $"[Function {funcName} returned: {message.Content}]");
+                    continue;
+                }
+
+                yield return message;
+            }
         }
 
         #endregion

@@ -22,6 +22,18 @@ namespace Mythosia.AI.Services.OpenAI
     {
         public override AIProvider Provider => AIProvider.OpenAI;
 
+        protected override uint GetModelMaxOutputTokens()
+        {
+            var model = Model?.ToLower() ?? "";
+            if (model.StartsWith("o3")) return 100000;
+            if (model.StartsWith("gpt-5")) return 128000;
+            if (model.StartsWith("gpt-4.1")) return 32768;
+            if (model.Contains("4o-mini")) return 16384;
+            if (model.Contains("4o")) return 16384;
+            if (model.Contains("vision")) return 4096;
+            return 16384;  // safe default
+        }
+
         public ChatGptService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.openai.com/v1/", httpClient)
         {

@@ -19,6 +19,11 @@ namespace Mythosia.AI.Services.Perplexity
     {
         public override AIProvider Provider => AIProvider.Perplexity;
 
+        protected override uint GetModelMaxOutputTokens()
+        {
+            return 8192;
+        }
+
         public SonarService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.perplexity.ai/", httpClient)
         {
@@ -132,7 +137,7 @@ namespace Mythosia.AI.Services.Perplexity
                 ["messages"] = messagesList,
                 ["temperature"] = Temperature,
                 ["top_p"] = TopP,
-                ["max_tokens"] = MaxTokens,
+                ["max_tokens"] = GetEffectiveMaxTokens(),
                 ["stream"] = Stream,
                 ["frequency_penalty"] = Math.Max(1.0f, FrequencyPenalty),  // Perplexity recommends > 1.0
                 ["presence_penalty"] = PresencePenalty

@@ -132,7 +132,7 @@ namespace Mythosia.AI.Services.Anthropic
                 ["model"] = Model,
                 ["messages"] = messagesList,
                 ["temperature"] = Temperature,
-                ["max_tokens"] = MaxTokens,
+                ["max_tokens"] = GetEffectiveMaxTokens(),
                 ["stream"] = Stream
             };
 

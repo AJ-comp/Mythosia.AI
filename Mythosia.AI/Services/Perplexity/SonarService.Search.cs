@@ -37,7 +37,7 @@ namespace Mythosia.AI.Services.Perplexity
                 ["model"] = originalModel,
                 ["messages"] = messagesList,
                 ["temperature"] = Temperature,
-                ["max_tokens"] = MaxTokens,
+                ["max_tokens"] = GetEffectiveMaxTokens(),
                 ["return_citations"] = true,
                 ["search_recency_filter"] = recencyFilter
             };

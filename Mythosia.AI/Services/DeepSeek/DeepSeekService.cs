@@ -19,6 +19,11 @@ namespace Mythosia.AI.Services.DeepSeek
     {
         public override AIProvider Provider => AIProvider.DeepSeek;
 
+        protected override uint GetModelMaxOutputTokens()
+        {
+            return 8192;
+        }
+
         public DeepSeekService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.deepseek.com/", httpClient)
         {

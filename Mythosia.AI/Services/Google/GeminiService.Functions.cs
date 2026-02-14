@@ -94,7 +94,7 @@ namespace Mythosia.AI.Services.Google
                 ["temperature"] = Temperature,
                 ["topP"] = TopP,
                 ["topK"] = 40,
-                ["maxOutputTokens"] = (int)MaxTokens
+                ["maxOutputTokens"] = (int)GetEffectiveMaxTokens()
             };
 
             ApplyThinkingConfig(generationConfig);

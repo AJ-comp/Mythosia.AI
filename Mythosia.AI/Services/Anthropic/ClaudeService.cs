@@ -20,6 +20,18 @@ namespace Mythosia.AI.Services.Anthropic
     {
         public override AIProvider Provider => AIProvider.Anthropic;
 
+        protected override uint GetModelMaxOutputTokens()
+        {
+            var model = Model?.ToLower() ?? "";
+            if (model.Contains("opus-4")) return 32768;
+            if (model.Contains("sonnet-4")) return 16384;
+            if (model.Contains("3-7-sonnet") || model.Contains("3.7")) return 8192;
+            if (model.Contains("3-5-haiku")) return 8192;
+            if (model.Contains("3-opus")) return 4096;
+            if (model.Contains("3-haiku")) return 4096;
+            return 8192;  // safe default
+        }
+
         public ClaudeService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {

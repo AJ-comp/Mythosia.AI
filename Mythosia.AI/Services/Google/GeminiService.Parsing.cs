@@ -19,7 +19,7 @@ namespace Mythosia.AI.Services.Google
             var contentsList = new List<object>();
 
             // Add conversation messages
-            foreach (var message in GetLatestMessages())
+            foreach (var message in GetLatestMessagesWithFunctionFallback())
             {
                 contentsList.Add(ConvertMessageForGemini(message));
             }
@@ -29,7 +29,7 @@ namespace Mythosia.AI.Services.Google
                 ["temperature"] = Temperature,
                 ["topP"] = TopP,
                 ["topK"] = 40,
-                ["maxOutputTokens"] = (int)MaxTokens,
+                ["maxOutputTokens"] = (int)GetEffectiveMaxTokens(),
                 ["candidateCount"] = 1
             };
 

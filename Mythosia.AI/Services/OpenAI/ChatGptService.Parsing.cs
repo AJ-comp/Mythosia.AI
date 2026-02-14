@@ -38,7 +38,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var inputList = new List<object>();
 
-            foreach (var message in GetLatestMessages())
+            foreach (var message in GetLatestMessagesWithFunctionFallback())
             {
                 var messageParts = new List<object>();
 
@@ -105,7 +105,7 @@ namespace Mythosia.AI.Services.OpenAI
                 messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
             }
 
-            foreach (var message in GetLatestMessages())
+            foreach (var message in GetLatestMessagesWithFunctionFallback())
             {
                 messagesList.Add(ConvertMessageForOpenAI(message));
             }

@@ -19,6 +19,14 @@ namespace Mythosia.AI.Services.Google
     {
         public override AIProvider Provider => AIProvider.Google;
 
+        protected override uint GetModelMaxOutputTokens()
+        {
+            var model = Model?.ToLower() ?? "";
+            if (model.Contains("2.5")) return 65536;
+            if (model.Contains("gemini-3")) return 65536;
+            return 65536;  // safe default (all current Gemini models support 65536)
+        }
+
         /// <summary>
         /// Controls the thinking token budget for Gemini 2.5 models.
         /// Ignored when ThinkingLevel is set (Gemini 3 uses ThinkingLevel instead).

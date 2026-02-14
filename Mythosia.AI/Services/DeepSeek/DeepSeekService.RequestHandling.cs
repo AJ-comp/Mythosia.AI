@@ -49,7 +49,7 @@ namespace Mythosia.AI.Services.DeepSeek
                 messages = messagesList,
                 temperature = Temperature,
                 top_p = TopP,
-                max_tokens = (int)MaxTokens,
+                max_tokens = (int)GetEffectiveMaxTokens(),
                 stream = Stream,
                 frequency_penalty = FrequencyPenalty,
                 presence_penalty = PresencePenalty,

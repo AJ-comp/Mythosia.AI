@@ -1,6 +1,72 @@
 # Mythosia.AI - Release Notes
 
-## 🚀 What's New in v4.0.0
+## �️ v4.0.1 - MaxTokens Auto-Capping & Cross-Provider Function Fallback
+
+### **Automatic MaxTokens Capping** 🔒
+
+`MaxTokens` is now automatically capped at each model's maximum allowed output tokens before sending API requests. This prevents errors when `MaxTokens` is set higher than a model supports (e.g., after `CopyFrom()` transfers settings between providers).
+
+#### How It Works
+
+- **`GetModelMaxOutputTokens()`** — New virtual method in `AIService`, overridden per service with model-specific limits
+- **`GetEffectiveMaxTokens()`** — Returns `Math.Min(MaxTokens, GetModelMaxOutputTokens())`, used in all `BuildRequestBody()` methods
+
+#### Model-Specific Output Token Limits
+
+| Provider | Model | Max Output Tokens |
+|----------|-------|-------------------|
+| **Claude** | opus-4 / opus-4-1 | 32,768 |
+| **Claude** | sonnet-4 | 16,384 |
+| **Claude** | 3.7 sonnet | 8,192 |
+| **Claude** | 3.5 haiku | 8,192 |
+| **Claude** | 3 opus / 3 haiku | 4,096 |
+| **OpenAI** | gpt-5 family | 128,000 |
+| **OpenAI** | o3 / o3-pro | 100,000 |
+| **OpenAI** | gpt-4.1 family | 32,768 |
+| **OpenAI** | gpt-4o / 4o-mini | 16,384 |
+| **OpenAI** | gpt-4-vision | 4,096 |
+| **Gemini** | all current models | 65,536 |
+| **DeepSeek** | all models | 8,192 |
+| **Perplexity** | all models | 8,192 |
+
+#### Usage Example
+
+```csharp
+// Before v4.0.1: CopyFrom could cause API errors
+var gptService = new ChatGptService(apiKey, httpClient);
+gptService.MaxTokens = 16000;  // fine for GPT-4o
+
+var claudeService = new ClaudeService(claudeKey, httpClient);
+claudeService.CopyFrom(gptService);
+claudeService.ChangeModel(AIModel.Claude3_5Haiku241022);
+// MaxTokens=16000 > Haiku limit 8192 → API error!
+
+// After v4.0.1: automatically capped
+// MaxTokens stays 16000 but GetEffectiveMaxTokens() returns 8192
+// No API error, no manual adjustment needed
+```
+
+### **Cross-Provider Function History Fallback** 🔄
+
+When function calling is disabled (`FunctionsDisabled = true`), function-related messages in conversation history are now automatically converted to plain text, preventing API errors from unsupported message formats.
+
+- **`GetLatestMessagesWithFunctionFallback()`** — New helper in `AIService`
+  - `function_call` assistant messages → `"[Called funcName(args)]"`
+  - `Function` role messages → `User` role with `"[Function funcName returned: result]"`
+- Applied in non-function `BuildRequestBody()` for Claude, OpenAI, and Gemini
+
+### 🧪 Test
+
+- **`CrossProvider_FunctionOff_WithFunctionHistory`** — New test verifying that function call history transfers correctly between providers with function calling disabled
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.0.0
+- No breaking changes
+
+---
+
+## �🚀 What's New in v4.0.0
 
 ### **Architecture: Configuration moved from ChatBlock to AIService** 🏗️
 
