@@ -18,13 +18,35 @@ namespace Mythosia.AI.Services.Anthropic
 {
     public partial class ClaudeService : AIService
     {
+        private const string AnthropicApiVersion = "2023-06-01";
+        private const string DefaultImageMimeType = "image/jpeg";
+        private const string SseDataPrefix = "data:";
+        private const string SseEventPrefix = "event:";
+
         public override AIProvider Provider => AIProvider.Anthropic;
+
+        /// <summary>
+        /// Controls the thinking token budget for Claude extended thinking.
+        /// -1: Disabled (default) - no extended thinking
+        /// 1024+: Specific token budget (must be less than MaxTokens)
+        /// Supported models: Claude 3.7 Sonnet, Claude Sonnet 4+, Claude Opus 4+
+        /// Note: When thinking is enabled, temperature is automatically set to 1 (Claude requirement).
+        /// </summary>
+        public int ThinkingBudget { get; set; } = -1;
+
+        /// <summary>
+        /// Contains the thinking/reasoning content from the last non-streaming API call.
+        /// Only populated when ThinkingBudget is enabled (>= 1024).
+        /// </summary>
+        public string? LastThinkingContent { get; private set; }
 
         protected override uint GetModelMaxOutputTokens()
         {
             var model = Model?.ToLower() ?? "";
+            if (model.Contains("opus-4-6")) return 131072;
             if (model.Contains("opus-4")) return 32768;
             if (model.Contains("sonnet-4")) return 16384;
+            if (model.Contains("haiku-4")) return 8192;
             if (model.Contains("3-7-sonnet") || model.Contains("3.7")) return 8192;
             if (model.Contains("3-5-haiku")) return 8192;
             if (model.Contains("3-opus")) return 4096;
@@ -85,7 +107,9 @@ namespace Mythosia.AI.Services.Anthropic
                     if (!response.IsSuccessStatusCode)
                     {
                         var errorContent = await response.Content.ReadAsStringAsync();
-                        throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                        throw new AIServiceException(
+                            $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                            errorContent);
                     }
 
                     var responseContent = await response.Content.ReadAsStringAsync();
@@ -154,50 +178,17 @@ namespace Mythosia.AI.Services.Anthropic
         {
             if (toolUses.Count == 0) return;
 
-            // Process first tool use with text content
-            var firstCall = toolUses[0];
-
-            if (policy.EnableLogging)
-            {
-                Console.WriteLine($"  Executing function: {firstCall.Name}");
-            }
-
-            var assistantMsg = new Message(ActorRole.Assistant, textContent ?? ".")
-            {
-                Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionId] = firstCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = firstCall.Source,
-                    [MessageMetadataKeys.FunctionName] = firstCall.Name,
-                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(firstCall.Arguments)
-                }
-            };
-            ActivateChat.Messages.Add(assistantMsg);
-            await ExecuteFunctionAndAddResultAsync(firstCall);
-
-            // Process additional tool uses
-            for (int i = 1; i < toolUses.Count; i++)
+            for (int i = 0; i < toolUses.Count; i++)
             {
                 var call = toolUses[i];
+                var content = (i == 0) ? (textContent ?? ".") : ".";
 
                 if (policy.EnableLogging)
                 {
-                    Console.WriteLine($"  Executing additional function: {call.Name}");
+                    Console.WriteLine($"  Executing function: {call.Name}");
                 }
 
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, ".")
-                {
-                    Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionId] = call.Id,
-                        [MessageMetadataKeys.FunctionSource] = call.Source,
-                        [MessageMetadataKeys.FunctionName] = call.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(call.Arguments)
-                    }
-                });
-
+                ActivateChat.Messages.Add(CreateFunctionCallMessage(call, content));
                 await ExecuteFunctionAndAddResultAsync(call);
             }
         }
@@ -275,37 +266,44 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Helper method to extract function call with save state (for backward compatibility)
-        /// </summary>
-        private (string content, FunctionCall functionCall, bool wasToolUseSaved) ExtractFunctionCallWithSave(string response)
-        {
-            // Use the enhanced extraction method from Functions.cs
-            return ExtractFunctionCallWithMetadata(response);
-        }
-
-        /// <summary>
         /// Executes a function call and adds the result message to the conversation
         /// </summary>
         private async Task<string> ExecuteFunctionAndAddResultAsync(FunctionCall functionCall)
         {
-            // Execute the function
             var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
 
-            // Add the result message with standardized metadata
-            var metadata = new Dictionary<string, object>
-            {
-                [MessageMetadataKeys.MessageType] = "function_result",
-                [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                [MessageMetadataKeys.FunctionName] = functionCall.Name
-            };
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-            {
-                Metadata = metadata
-            });
+            ActivateChat.Messages.Add(CreateFunctionResultMessage(functionCall, result));
 
             return result;
+        }
+
+        private Message CreateFunctionCallMessage(FunctionCall call, string content)
+        {
+            return new Message(ActorRole.Assistant, content)
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.MessageType] = "function_call",
+                    [MessageMetadataKeys.FunctionId] = call.Id,
+                    [MessageMetadataKeys.FunctionSource] = call.Source,
+                    [MessageMetadataKeys.FunctionName] = call.Name,
+                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(call.Arguments)
+                }
+            };
+        }
+
+        private Message CreateFunctionResultMessage(FunctionCall call, string result)
+        {
+            return new Message(ActorRole.Function, result)
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.MessageType] = "function_result",
+                    [MessageMetadataKeys.FunctionId] = call.Id,
+                    [MessageMetadataKeys.FunctionSource] = call.Source,
+                    [MessageMetadataKeys.FunctionName] = call.Name
+                }
+            };
         }
 
         #endregion
@@ -322,11 +320,82 @@ namespace Mythosia.AI.Services.Anthropic
                 Content = content
             };
 
-            // Claude API headers
-            request.Headers.Add("x-api-key", ApiKey);
-            request.Headers.Add("anthropic-version", "2023-06-01");
+            AddClaudeHeaders(request);
 
             return request;
+        }
+
+        /// <summary>
+        /// Adds standard Claude API headers to the request
+        /// </summary>
+        private void AddClaudeHeaders(HttpRequestMessage request, params string[] betaHeaders)
+        {
+            request.Headers.Add("x-api-key", ApiKey);
+            request.Headers.Add("anthropic-version", AnthropicApiVersion);
+
+            foreach (var beta in betaHeaders)
+            {
+                request.Headers.Add("anthropic-beta", beta);
+            }
+        }
+
+        /// <summary>
+        /// Adds system message to request body if present
+        /// </summary>
+        private void ApplySystemMessage(Dictionary<string, object> requestBody)
+        {
+            if (!string.IsNullOrEmpty(SystemMessage))
+            {
+                requestBody["system"] = SystemMessage;
+            }
+        }
+
+        /// <summary>
+        /// Applies thinking configuration to the request body if enabled.
+        /// When thinking is enabled, temperature must be 1 (Claude requirement).
+        /// </summary>
+        private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
+        {
+            if (!IsThinkingEnabled) return;
+
+            requestBody["thinking"] = new Dictionary<string, object>
+            {
+                ["type"] = "enabled",
+                ["budget_tokens"] = ThinkingBudget
+            };
+
+            // Claude requires temperature = 1 when thinking is enabled
+            requestBody["temperature"] = 1;
+        }
+
+        /// <summary>
+        /// Returns true if the current model supports extended thinking.
+        /// Supported: Claude 3.7 Sonnet, Claude Sonnet 4+, Claude Sonnet 4.5+, Claude Opus 4+
+        /// Not supported: Claude 3 Opus, Claude 3 Haiku, Claude 3.5 Haiku
+        /// </summary>
+        private bool IsExtendedThinkingModel()
+        {
+            var model = Model?.ToLower() ?? "";
+            if (model.Contains("sonnet-4")) return true;
+            if (model.Contains("opus-4")) return true;
+            if (model.Contains("3-7-sonnet") || model.Contains("3.7")) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Returns true if extended thinking is enabled and the model supports it.
+        /// </summary>
+        private bool IsThinkingEnabled => ThinkingBudget >= 1024 && IsExtendedThinkingModel();
+
+        /// <summary>
+        /// Sets Claude extended thinking parameters.
+        /// Budget must be >= 1024 and less than MaxTokens.
+        /// When thinking is enabled, temperature is automatically forced to 1.
+        /// </summary>
+        public ClaudeService WithThinkingParameters(int budgetTokens)
+        {
+            ThinkingBudget = budgetTokens;
+            return this;
         }
 
         #endregion
@@ -345,10 +414,6 @@ namespace Mythosia.AI.Services.Anthropic
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
         }
-
-        #endregion
-
-        #region Claude-Specific Features
 
         /// <summary>
         /// Claude doesn't support image generation
@@ -415,7 +480,7 @@ namespace Mythosia.AI.Services.Anthropic
             }
 
             var imageData = await imageResponse.Content.ReadAsByteArrayAsync();
-            var contentType = imageResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+            var contentType = imageResponse.Content.Headers.ContentType?.MediaType ?? DefaultImageMimeType;
 
             return new Message(ActorRole.User, new List<MessageContent>
             {

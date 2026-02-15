@@ -12,13 +12,14 @@ namespace Mythosia.AI.Services.Google
 {
     public partial class GeminiService
     {
+        private const int DefaultCandidateCount = 1;
+        private const string DefaultImageMimeType = "image/jpeg";
+
         #region Request Body Building
 
         private object BuildRequestBody()
         {
             var contentsList = new List<object>();
-
-            // Add conversation messages
             foreach (var message in GetLatestMessagesWithFunctionFallback())
             {
                 contentsList.Add(ConvertMessageForGemini(message));
@@ -28,9 +29,9 @@ namespace Mythosia.AI.Services.Google
             {
                 ["temperature"] = Temperature,
                 ["topP"] = TopP,
-                ["topK"] = 40,
+                ["topK"] = DefaultTopK,
                 ["maxOutputTokens"] = (int)GetEffectiveMaxTokens(),
-                ["candidateCount"] = 1
+                ["candidateCount"] = DefaultCandidateCount
             };
 
             ApplyThinkingConfig(generationConfig);
@@ -42,48 +43,55 @@ namespace Mythosia.AI.Services.Google
                 ["safetySettings"] = GetSafetySettings()
             };
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
-            {
-                requestBody["systemInstruction"] = new
-                {
-                    parts = new[] { new { text = ActivateChat.SystemMessage } }
-                };
-            }
+            ApplySystemInstruction(requestBody);
 
             return requestBody;
         }
 
         private object ConvertMessageForGemini(Message message)
         {
-            // Gemini uses "model" instead of "assistant"
-            var role = message.Role == ActorRole.Assistant ? "model" : "user";
-
-            // Check for thought signature in metadata (Gemini 3 circulation)
-            string? thoughtSig = null;
-            if (message.Metadata != null &&
-                message.Metadata.TryGetValue(MessageMetadataKeys.ThoughtSignature, out var sigObj))
-            {
-                thoughtSig = sigObj?.ToString();
-            }
+            var role = GetGeminiRole(message);
+            var thoughtSig = ExtractThoughtSignature(message);
 
             if (!message.HasMultimodalContent)
-            {
-                var textPart = new Dictionary<string, object> { ["text"] = message.Content ?? "" };
-                if (thoughtSig != null)
-                {
-                    textPart["thoughtSignature"] = thoughtSig;
-                }
+                return BuildTextOnlyGeminiContent(role, message.Content ?? "", thoughtSig);
 
-                return new Dictionary<string, object>
-                {
-                    ["role"] = role,
-                    ["parts"] = new[] { textPart }
-                };
+            return BuildMultimodalGeminiContent(role, message, thoughtSig);
+        }
+
+        private static string GetGeminiRole(Message message)
+        {
+            return message.Role == ActorRole.Assistant ? "model" : "user";
+        }
+
+        private static string? ExtractThoughtSignature(Message message)
+        {
+            if (message.Metadata == null) return null;
+            if (!message.Metadata.TryGetValue(MessageMetadataKeys.ThoughtSignature, out var sigObj)) return null;
+
+            return sigObj?.ToString();
+        }
+
+        private static Dictionary<string, object> BuildTextOnlyGeminiContent(string role, string text, string? thoughtSig)
+        {
+            var textPart = new Dictionary<string, object> { ["text"] = text };
+            if (thoughtSig != null)
+            {
+                textPart["thoughtSignature"] = thoughtSig;
             }
 
-            // Handle multimodal content
+            return new Dictionary<string, object>
+            {
+                ["role"] = role,
+                ["parts"] = new[] { textPart }
+            };
+        }
+
+        private Dictionary<string, object> BuildMultimodalGeminiContent(string role, Message message, string? thoughtSig)
+        {
             var parts = new List<object>();
             bool sigAttached = false;
+
             foreach (var content in message.Contents)
             {
                 if (content is TextContent textContent)
@@ -102,7 +110,6 @@ namespace Mythosia.AI.Services.Google
                 }
             }
 
-            // If no text part existed but we have a signature, add it to the first part
             if (thoughtSig != null && !sigAttached && parts.Count > 0 && parts[0] is Dictionary<string, object> firstPart)
             {
                 firstPart["thoughtSignature"] = thoughtSig;
@@ -115,7 +122,7 @@ namespace Mythosia.AI.Services.Google
             };
         }
 
-        private object ConvertImageForGemini(ImageContent imageContent)
+        private static object ConvertImageForGemini(ImageContent imageContent)
         {
             if (imageContent.Data != null)
             {
@@ -123,16 +130,14 @@ namespace Mythosia.AI.Services.Google
                 {
                     ["inlineData"] = new Dictionary<string, object>
                     {
-                        ["mimeType"] = imageContent.MimeType ?? "image/jpeg",
+                        ["mimeType"] = imageContent.MimeType ?? DefaultImageMimeType,
                         ["data"] = Convert.ToBase64String(imageContent.Data)
                     }
                 };
             }
-            else if (!string.IsNullOrEmpty(imageContent.Url))
-            {
-                // Gemini doesn't support URLs directly, need to download
+
+            if (!string.IsNullOrEmpty(imageContent.Url))
                 throw new NotSupportedException("Gemini API requires base64 encoded images. Please download the image and provide as byte array.");
-            }
 
             throw new ArgumentException("Image content must have either Data or Url");
         }
@@ -156,7 +161,6 @@ namespace Mythosia.AI.Services.Google
         {
             if (IsGemini3Model())
             {
-                // Gemini 3: use thinkingLevel
                 if (ThinkingLevel != GeminiThinkingLevel.Auto)
                 {
                     generationConfig["thinkingConfig"] = new Dictionary<string, object>
@@ -164,24 +168,39 @@ namespace Mythosia.AI.Services.Google
                         ["thinkingLevel"] = ThinkingLevel.ToString().ToUpperInvariant()
                     };
                 }
-                // If ThinkingLevel is Auto, Gemini 3 defaults to "high" automatically
+                return;
             }
-            else
+
+            if (ThinkingBudget >= 0)
             {
-                // Gemini 2.5: use thinkingBudget
-                if (ThinkingBudget >= 0)
+                generationConfig["thinkingConfig"] = new Dictionary<string, object>
                 {
-                    generationConfig["thinkingConfig"] = new Dictionary<string, object>
-                    {
-                        ["thinkingBudget"] = ThinkingBudget
-                    };
-                }
+                    ["thinkingBudget"] = ThinkingBudget
+                };
             }
         }
 
         #endregion
 
         #region Response Parsing
+
+        private bool TryGetFirstCandidateParts(JsonElement root, out JsonElement parts)
+        {
+            parts = default;
+
+            if (!root.TryGetProperty("candidates", out var candidates) ||
+                candidates.ValueKind != JsonValueKind.Array ||
+                candidates.GetArrayLength() == 0)
+                return false;
+
+            var firstCandidate = candidates[0];
+            if (!firstCandidate.TryGetProperty("content", out var contentObj) ||
+                !contentObj.TryGetProperty("parts", out parts) ||
+                parts.ValueKind != JsonValueKind.Array)
+                return false;
+
+            return true;
+        }
 
         protected override string ExtractResponseContent(string responseContent)
         {
@@ -198,22 +217,9 @@ namespace Mythosia.AI.Services.Google
             try
             {
                 using var doc = JsonDocument.Parse(responseContent);
-                var root = doc.RootElement;
 
-                if (!root.TryGetProperty("candidates", out var candidates) ||
-                    candidates.ValueKind != JsonValueKind.Array ||
-                    candidates.GetArrayLength() == 0)
-                {
+                if (!TryGetFirstCandidateParts(doc.RootElement, out var partsArr))
                     return (string.Empty, null, null);
-                }
-
-                var firstCandidate = candidates[0];
-                if (!firstCandidate.TryGetProperty("content", out var contentObj) ||
-                    !contentObj.TryGetProperty("parts", out var partsArr) ||
-                    partsArr.ValueKind != JsonValueKind.Array)
-                {
-                    return (string.Empty, null, null);
-                }
 
                 var textParts = new StringBuilder();
                 string? lastSignature = null;
@@ -221,15 +227,10 @@ namespace Mythosia.AI.Services.Google
                 foreach (var part in partsArr.EnumerateArray())
                 {
                     if (part.TryGetProperty("text", out var textElem))
-                    {
                         textParts.Append(textElem.GetString());
-                    }
 
-                    // Capture thought signature (Gemini 3)
                     if (part.TryGetProperty("thoughtSignature", out var sigElem))
-                    {
                         lastSignature = sigElem.GetString();
-                    }
                 }
 
                 return (textParts.ToString(), null, lastSignature);
@@ -245,31 +246,15 @@ namespace Mythosia.AI.Services.Google
             try
             {
                 using var doc = JsonDocument.Parse(jsonData);
-                var root = doc.RootElement;
 
-                if (!root.TryGetProperty("candidates", out var candidates) ||
-                    candidates.ValueKind != JsonValueKind.Array ||
-                    candidates.GetArrayLength() == 0)
-                {
+                if (!TryGetFirstCandidateParts(doc.RootElement, out var partsArr))
                     return string.Empty;
-                }
-
-                var firstCandidate = candidates[0];
-                if (!firstCandidate.TryGetProperty("content", out var contentObj) ||
-                    !contentObj.TryGetProperty("parts", out var partsArr) ||
-                    partsArr.ValueKind != JsonValueKind.Array)
-                {
-                    return string.Empty;
-                }
 
                 var textParts = new StringBuilder();
-
                 foreach (var part in partsArr.EnumerateArray())
                 {
                     if (part.TryGetProperty("text", out var textElem))
-                    {
                         textParts.Append(textElem.GetString());
-                    }
                 }
 
                 return textParts.ToString();
@@ -289,23 +274,13 @@ namespace Mythosia.AI.Services.Google
             try
             {
                 using var doc = JsonDocument.Parse(response);
-                var root = doc.RootElement;
+
+                if (!TryGetFirstCandidateParts(doc.RootElement, out var parts))
+                    return (string.Empty, null, null);
 
                 string content = string.Empty;
                 FunctionCall? functionCall = null;
                 string? thoughtSignature = null;
-
-                if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
-                {
-                    return (content, functionCall, thoughtSignature);
-                }
-
-                var candidate = candidates[0];
-                if (!candidate.TryGetProperty("content", out var contentObj) ||
-                    !contentObj.TryGetProperty("parts", out var parts))
-                {
-                    return (content, functionCall, thoughtSignature);
-                }
 
                 foreach (var part in parts.EnumerateArray())
                 {
@@ -325,11 +300,8 @@ namespace Mythosia.AI.Services.Google
                         };
                     }
 
-                    // Capture thought signature (Gemini 3)
                     if (part.TryGetProperty("thoughtSignature", out var sigElem))
-                    {
                         thoughtSignature = sigElem.GetString();
-                    }
                 }
 
                 return (content, functionCall, thoughtSignature);
@@ -351,9 +323,7 @@ namespace Mythosia.AI.Services.Google
             var content = new StreamingContent();
 
             if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
-            {
                 return BuildUsageOnlyStatusContent(root, options, content);
-            }
 
             var candidate = candidates[0];
 
@@ -363,19 +333,14 @@ namespace Mythosia.AI.Services.Google
                 foreach (var part in parts.EnumerateArray())
                 {
                     if (TryParseFunctionCallPart(part, options, functionCallData, content, out var functionContent))
-                    {
                         return functionContent;
-                    }
 
                     var textContent = TryParseTextPart(part, candidate, root, options, content);
                     if (textContent != null)
-                    {
                         return textContent;
-                    }
                 }
             }
 
-            // Check for finish reason AFTER content (functionCall and finishReason can be in the same chunk)
             if (options.IncludeMetadata &&
                 candidate.TryGetProperty("finishReason", out var finishReason))
             {
@@ -383,21 +348,14 @@ namespace Mythosia.AI.Services.Google
                 if (reason != null)
                 {
                     content.Type = StreamingContentType.Status;
-                    content.Metadata = new Dictionary<string, object>
-                    {
-                        ["finish_reason"] = reason
-                    };
-
+                    content.Metadata = new Dictionary<string, object> { ["finish_reason"] = reason };
                     AddUsageMetadata(content.Metadata, root);
                     return content;
                 }
             }
 
-            // Check for usage metadata even without candidates (some chunks only have usage info)
             if (options.IncludeMetadata)
-            {
                 return BuildUsageOnlyStatusContent(root, options, content);
-            }
 
             return null;
         }
@@ -412,30 +370,22 @@ namespace Mythosia.AI.Services.Google
             parsedContent = null;
 
             if (!part.TryGetProperty("functionCall", out var functionCallElement))
-            {
                 return false;
-            }
 
             content.Type = StreamingContentType.FunctionCall;
 
             if (functionCallElement.TryGetProperty("name", out var nameElem))
-            {
                 functionCallData.Name = nameElem.GetString();
-            }
 
             if (functionCallElement.TryGetProperty("args", out var argsElem))
             {
-                // Gemini sends complete args in one chunk
                 functionCallData.Arguments.Clear();
                 functionCallData.Arguments.Append(argsElem.GetRawText());
                 functionCallData.IsComplete = true;
             }
 
-            // Capture thought signature for Gemini 3 function calling
             if (part.TryGetProperty("thoughtSignature", out var fcSigElem))
-            {
                 functionCallData.ThoughtSignature = fcSigElem.GetString();
-            }
 
             content.FunctionCallData = functionCallData;
 
@@ -461,80 +411,67 @@ namespace Mythosia.AI.Services.Google
             StreamingContent content)
         {
             if (!part.TryGetProperty("text", out var textElem))
-            {
                 return null;
-            }
 
             var text = textElem.GetString();
             if (!string.IsNullOrEmpty(text))
+                return BuildTextStreamingContent(part, candidate, root, options, content, text);
+
+            return TryBuildEmptyTextSignatureContent(part, content);
+        }
+
+        private StreamingContent? BuildTextStreamingContent(
+            JsonElement part,
+            JsonElement candidate,
+            JsonElement root,
+            StreamOptions options,
+            StreamingContent content,
+            string text)
+        {
+            bool isThought = part.TryGetProperty("thought", out var thoughtElem) && thoughtElem.GetBoolean();
+
+            if (isThought && !options.IncludeReasoning)
+                return null;
+
+            content.Type = isThought ? StreamingContentType.Reasoning : StreamingContentType.Text;
+            content.Content = text;
+
+            if (options.IncludeMetadata)
             {
-                // Gemini thinking parts have "thought": true
-                bool isThought = part.TryGetProperty("thought", out var thoughtElem) && thoughtElem.GetBoolean();
+                content.Metadata = new Dictionary<string, object>();
 
-                if (isThought && options.IncludeReasoning)
-                {
-                    content.Type = StreamingContentType.Reasoning;
-                }
-                else if (isThought)
-                {
-                    // Reasoning not requested, skip thought parts
-                    return null;
-                }
-                else
-                {
-                    content.Type = StreamingContentType.Text;
-                }
+                if (candidate.TryGetProperty("safetyRatings", out var safetyRatings))
+                    content.Metadata["safety_ratings"] = safetyRatings.GetRawText();
 
-                content.Content = text;
+                if (candidate.TryGetProperty("finishReason", out var textFinishReason))
+                    content.Metadata["finish_reason"] = textFinishReason.GetString();
 
-                if (options.IncludeMetadata)
-                {
-                    content.Metadata = new Dictionary<string, object>();
+                AddUsageMetadata(content.Metadata, root);
 
-                    // Add safety ratings if present
-                    if (candidate.TryGetProperty("safetyRatings", out var safetyRatings))
-                    {
-                        content.Metadata["safety_ratings"] = safetyRatings.GetRawText();
-                    }
-
-                    // Add finish reason if present in same chunk
-                    if (candidate.TryGetProperty("finishReason", out var textFinishReason))
-                    {
-                        content.Metadata["finish_reason"] = textFinishReason.GetString();
-                    }
-
-                    AddUsageMetadata(content.Metadata, root);
-
-                    // Capture thought signature for text chunks (Gemini 3)
-                    if (part.TryGetProperty("thoughtSignature", out var textSigElem))
-                    {
-                        content.Metadata[MessageMetadataKeys.ThoughtSignature] = textSigElem.GetString();
-                    }
-                }
-
-                return content;
+                if (part.TryGetProperty("thoughtSignature", out var textSigElem))
+                    content.Metadata[MessageMetadataKeys.ThoughtSignature] = textSigElem.GetString();
             }
 
-            // Gemini 3: empty text part may still carry a thought signature
-            if (part.TryGetProperty("thoughtSignature", out var emptySigElem))
-            {
-                content.Type = StreamingContentType.Status;
-                content.Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.ThoughtSignature] = emptySigElem.GetString()
-                };
-                return content;
-            }
+            return content;
+        }
 
-            return null;
+        private static StreamingContent? TryBuildEmptyTextSignatureContent(JsonElement part, StreamingContent content)
+        {
+            if (!part.TryGetProperty("thoughtSignature", out var emptySigElem))
+                return null;
+
+            content.Type = StreamingContentType.Status;
+            content.Metadata = new Dictionary<string, object>
+            {
+                [MessageMetadataKeys.ThoughtSignature] = emptySigElem.GetString()
+            };
+            return content;
         }
 
         private void AddUsageMetadata(Dictionary<string, object> metadata, JsonElement root)
         {
             if (!root.TryGetProperty("usageMetadata", out var usageMetadata))
-            {
                 return;
-            }
 
             if (usageMetadata.TryGetProperty("promptTokenCount", out var promptTokens))
                 metadata["input_tokens"] = promptTokens.GetInt32();
@@ -549,27 +486,15 @@ namespace Mythosia.AI.Services.Google
             StreamOptions options,
             StreamingContent content)
         {
-            if (!options.IncludeMetadata || !root.TryGetProperty("usageMetadata", out var rootUsageMetadata))
-            {
+            if (!options.IncludeMetadata)
                 return null;
-            }
 
             content.Type = StreamingContentType.Status;
             content.Metadata = new Dictionary<string, object>();
 
-            if (rootUsageMetadata.TryGetProperty("promptTokenCount", out var promptTokenCount))
-                content.Metadata["input_tokens"] = promptTokenCount.GetInt32();
-            if (rootUsageMetadata.TryGetProperty("candidatesTokenCount", out var outputTokenCount))
-                content.Metadata["output_tokens"] = outputTokenCount.GetInt32();
-            if (rootUsageMetadata.TryGetProperty("totalTokenCount", out var totalTokenCount))
-                content.Metadata["total_tokens"] = totalTokenCount.GetInt32();
+            AddUsageMetadata(content.Metadata, root);
 
-            if (content.Metadata.Count > 0)
-            {
-                return content;
-            }
-
-            return null;
+            return content.Metadata.Count > 0 ? content : null;
         }
 
         #endregion

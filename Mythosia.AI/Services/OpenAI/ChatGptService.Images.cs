@@ -47,7 +47,9 @@ namespace Mythosia.AI.Services.OpenAI
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Image generation failed: {response.ReasonPhrase}", error);
+                throw new AIServiceException(
+                    $"Image generation failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? error : response.ReasonPhrase)}",
+                    error);
             }
         }
 
@@ -82,7 +84,9 @@ namespace Mythosia.AI.Services.OpenAI
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Image generation failed: {response.ReasonPhrase}", error);
+                throw new AIServiceException(
+                    $"Image generation failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? error : response.ReasonPhrase)}",
+                    error);
             }
         }
 

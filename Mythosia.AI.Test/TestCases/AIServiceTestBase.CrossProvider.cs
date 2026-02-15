@@ -1,4 +1,5 @@
-﻿using Mythosia.AI.Extensions;
+﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Google;
@@ -570,6 +571,14 @@ public async Task CrossProviderToGpt4o()
                 claudeService.ChangeModel(AIModel.Claude3_5Haiku241022);
                 claudeService.FunctionsDisabled = true;  // Function OFF
 
+                // Debug: dump messages before API call
+                Console.WriteLine($"[Phase 2 DEBUG] Messages in chat ({claudeService.ActivateChat.Messages.Count}):");
+                foreach (var msg in claudeService.ActivateChat.Messages)
+                {
+                    var meta = msg.Metadata != null ? $" [meta: {string.Join(", ", msg.Metadata.Select(kv => $"{kv.Key}={kv.Value}"))}]" : "";
+                    Console.WriteLine($"  {msg.Role}: {(msg.Content?.Length > 80 ? msg.Content.Substring(0, 77) + "..." : msg.Content)}{meta}");
+                }
+
                 try
                 {
                     var response2 = await claudeService.GetCompletionAsync(
@@ -581,6 +590,8 @@ public async Task CrossProviderToGpt4o()
                 {
                     Console.WriteLine($"❌ Claude FAILED with function history in non-function path:");
                     Console.WriteLine($"   {ex.Message}");
+                    if (ex is AIServiceException aiEx && aiEx.ErrorDetails != null)
+                        Console.WriteLine($"   ErrorDetails: {aiEx.ErrorDetails}");
                     failures.Add($"Claude: {ex.Message}");
                 }
 
@@ -603,6 +614,8 @@ public async Task CrossProviderToGpt4o()
                 {
                     Console.WriteLine($"❌ ChatGPT Legacy FAILED with function history in non-function path:");
                     Console.WriteLine($"   {ex.Message}");
+                    if (ex is AIServiceException aiEx && aiEx.ErrorDetails != null)
+                        Console.WriteLine($"   ErrorDetails: {aiEx.ErrorDetails}");
                     failures.Add($"ChatGPT Legacy (gpt-4o-mini): {ex.Message}");
                 }
 
@@ -623,6 +636,8 @@ public async Task CrossProviderToGpt4o()
                 {
                     Console.WriteLine($"❌ ChatGPT New API FAILED with function history in non-function path:");
                     Console.WriteLine($"   {ex.Message}");
+                    if (ex is AIServiceException aiEx && aiEx.ErrorDetails != null)
+                        Console.WriteLine($"   ErrorDetails: {aiEx.ErrorDetails}");
                     failures.Add($"ChatGPT New API (gpt-5-mini): {ex.Message}");
                 }
 
@@ -645,6 +660,8 @@ public async Task CrossProviderToGpt4o()
                 {
                     Console.WriteLine($"❌ Gemini FAILED with function history in non-function path:");
                     Console.WriteLine($"   {ex.Message}");
+                    if (ex is AIServiceException aiEx && aiEx.ErrorDetails != null)
+                        Console.WriteLine($"   ErrorDetails: {aiEx.ErrorDetails}");
                     failures.Add($"Gemini: {ex.Message}");
                 }
 

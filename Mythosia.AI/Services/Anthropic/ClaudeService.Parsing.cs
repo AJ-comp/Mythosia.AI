@@ -1,5 +1,4 @@
 ﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Messages;
 using System;
 using System.Collections.Generic;
@@ -33,11 +32,8 @@ namespace Mythosia.AI.Services.Anthropic
                 ["max_tokens"] = GetEffectiveMaxTokens()
             };
 
-            // System message가 있는 경우에만 추가
-            if (!string.IsNullOrEmpty(SystemMessage))
-            {
-                requestBody["system"] = SystemMessage;
-            }
+            ApplySystemMessage(requestBody);
+            ApplyThinkingConfig(requestBody);
 
             return requestBody;
         }
@@ -72,26 +68,27 @@ namespace Mythosia.AI.Services.Anthropic
 
         private object ConvertImageForClaude(ImageContent imageContent)
         {
-            if (imageContent.Data != null)
-            {
-                return new
-                {
-                    type = "image",
-                    source = new
-                    {
-                        type = "base64",
-                        media_type = imageContent.MimeType ?? "image/jpeg",
-                        data = Convert.ToBase64String(imageContent.Data)
-                    }
-                };
-            }
-            else if (!string.IsNullOrEmpty(imageContent.Url))
+            if (!string.IsNullOrEmpty(imageContent.Url))
             {
                 // Claude doesn't support direct URLs, need to download and convert
                 throw new NotSupportedException("Claude API requires base64 encoded images. Please download the image and provide as byte array.");
             }
 
-            throw new ArgumentException("Image content must have either Data or Url");
+            if (imageContent.Data == null)
+            {
+                throw new ArgumentException("Image content must have either Data or Url");
+            }
+
+            return new
+            {
+                type = "image",
+                source = new
+                {
+                    type = "base64",
+                    media_type = imageContent.MimeType ?? DefaultImageMimeType,
+                    data = Convert.ToBase64String(imageContent.Data)
+                }
+            };
         }
 
         #endregion
@@ -105,12 +102,30 @@ namespace Mythosia.AI.Services.Anthropic
                 var responseObj = JsonSerializer.Deserialize<JsonElement>(responseContent);
                 var content = responseObj.GetProperty("content");
 
-                if (content.ValueKind == JsonValueKind.Array && content.GetArrayLength() > 0)
+                if (content.ValueKind != JsonValueKind.Array || content.GetArrayLength() == 0)
+                    return string.Empty;
+
+                var textParts = new StringBuilder();
+                var thinkingParts = new StringBuilder();
+
+                foreach (var block in content.EnumerateArray())
                 {
-                    return content[0].GetProperty("text").GetString() ?? string.Empty;
+                    if (!block.TryGetProperty("type", out var typeElem)) continue;
+                    var blockType = typeElem.GetString();
+
+                    if (blockType == "thinking" && block.TryGetProperty("thinking", out var thinkingElem))
+                    {
+                        thinkingParts.Append(thinkingElem.GetString());
+                    }
+                    else if (blockType == "text" && block.TryGetProperty("text", out var textElem))
+                    {
+                        textParts.Append(textElem.GetString());
+                    }
                 }
 
-                return string.Empty;
+                LastThinkingContent = thinkingParts.Length > 0 ? thinkingParts.ToString() : null;
+
+                return textParts.ToString();
             }
             catch (Exception ex)
             {
@@ -124,16 +139,12 @@ namespace Mythosia.AI.Services.Anthropic
             {
                 var jsonElement = JsonSerializer.Deserialize<JsonElement>(jsonData);
 
-                if (jsonElement.TryGetProperty("type", out var typeElement))
+                if (jsonElement.TryGetProperty("type", out var typeElement) &&
+                    typeElement.GetString() == "content_block_delta" &&
+                    jsonElement.TryGetProperty("delta", out var deltaElement) &&
+                    deltaElement.TryGetProperty("text", out var textElement))
                 {
-                    var type = typeElement.GetString();
-
-                    if (type == "content_block_delta" &&
-                        jsonElement.TryGetProperty("delta", out var deltaElement) &&
-                        deltaElement.TryGetProperty("text", out var textElement))
-                    {
-                        return textElement.GetString() ?? string.Empty;
-                    }
+                    return textElement.GetString() ?? string.Empty;
                 }
 
                 return string.Empty;

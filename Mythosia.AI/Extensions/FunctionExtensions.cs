@@ -555,7 +555,9 @@ namespace Mythosia.AI.Extensions
             if (value is JsonElement jsonElement)
             {
                 if (targetType == typeof(string))
-                    return jsonElement.GetString();
+                    return jsonElement.ValueKind == JsonValueKind.String
+                        ? jsonElement.GetString()
+                        : jsonElement.GetRawText();
                 if (targetType == typeof(int))
                     return jsonElement.GetInt32();
                 if (targetType == typeof(long))

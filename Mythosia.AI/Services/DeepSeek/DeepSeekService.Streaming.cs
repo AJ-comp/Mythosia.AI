@@ -36,7 +36,9 @@ namespace Mythosia.AI.Services.DeepSeek
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                throw new AIServiceException(
+                    $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                    errorContent);
             }
 
             using var stream = await response.Content.ReadAsStreamAsync();
@@ -91,7 +93,9 @@ namespace Mythosia.AI.Services.DeepSeek
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                    throw new AIServiceException(
+                        $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                        errorContent);
                 }
 
                 using var stream = await response.Content.ReadAsStreamAsync();

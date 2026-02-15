@@ -21,10 +21,7 @@ namespace Mythosia.AI.Services.Google
 
         protected override uint GetModelMaxOutputTokens()
         {
-            var model = Model?.ToLower() ?? "";
-            if (model.Contains("2.5")) return 65536;
-            if (model.Contains("gemini-3")) return 65536;
-            return 65536;  // safe default (all current Gemini models support 65536)
+            return 65536;
         }
 
         /// <summary>
@@ -71,13 +68,10 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
-            // Check if we should use functions
             bool useFunctions = ShouldUseFunctions;
 
             if (StatelessMode)
-            {
                 return await ProcessStatelessRequestAsync(message, useFunctions);
-            }
 
             Stream = false;
             ActivateChat.Messages.Add(message);
@@ -86,110 +80,105 @@ namespace Mythosia.AI.Services.Google
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
+            var responseContent = await SendAndReadAsync(request);
+
+            if (useFunctions)
+                return await ProcessFunctionCallLoopAsync(responseContent);
+
+            return AddAssistantResponseWithSignature(responseContent);
+        }
+
+        private async Task<string> ProcessFunctionCallLoopAsync(string responseContent)
+        {
+            var policy = CurrentPolicy ?? DefaultPolicy;
+            CurrentPolicy = null;
+
+            for (int round = 0; round < policy.MaxRounds; round++)
+            {
+                var (content, functionCall, thoughtSignature) = ExtractFunctionCallWithSignature(responseContent);
+
+                if (functionCall == null)
+                {
+                    AddAssistantMessage(content, thoughtSignature);
+                    return content;
+                }
+
+                AddFunctionCallMessage(content ?? "", functionCall, thoughtSignature);
+
+                var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+                AddFunctionResultMessage(result, functionCall);
+
+                var request = CreateFunctionMessageRequest();
+                responseContent = await SendAndReadAsync(request);
+            }
+
+            return AddAssistantResponseWithSignature(responseContent);
+        }
+
+        private string AddAssistantResponseWithSignature(string responseContent)
+        {
+            var (text, _, sig) = ExtractResponseContentWithSignature(responseContent);
+            AddAssistantMessage(text, sig);
+            return text;
+        }
+
+        private void AddAssistantMessage(string content, string? thoughtSignature)
+        {
+            var msg = new Message(ActorRole.Assistant, content);
+            if (thoughtSignature != null)
+            {
+                msg.Metadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.ThoughtSignature] = thoughtSignature
+                };
+            }
+            ActivateChat.Messages.Add(msg);
+        }
+
+        private void AddFunctionCallMessage(string content, FunctionCall functionCall, string? thoughtSignature)
+        {
+            var metadata = new Dictionary<string, object>
+            {
+                [MessageMetadataKeys.MessageType] = "function_call",
+                [MessageMetadataKeys.FunctionId] = functionCall.Id,
+                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
+                [MessageMetadataKeys.FunctionName] = functionCall.Name,
+                [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments)
+            };
+
+            if (thoughtSignature != null)
+                metadata[MessageMetadataKeys.ThoughtSignature] = thoughtSignature;
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content) { Metadata = metadata });
+        }
+
+        private void AddFunctionResultMessage(string result, FunctionCall functionCall)
+        {
+            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.MessageType] = "function_result",
+                    [MessageMetadataKeys.FunctionId] = functionCall.Id,
+                    [MessageMetadataKeys.FunctionSource] = functionCall.Source,
+                    [MessageMetadataKeys.FunctionName] = functionCall.Name
+                }
+            });
+        }
+
+        private async Task<string> SendAndReadAsync(HttpRequestMessage request)
+        {
             var response = await HttpClient.SendAsync(request);
 
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Gemini API request failed: {response.ReasonPhrase}", errorContent);
+                throw new AIServiceException(
+                    $"Gemini API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                    errorContent);
             }
 
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            // Handle function calls if present (loop for multi-step chaining)
-            if (useFunctions)
-            {
-                var policy = CurrentPolicy ?? DefaultPolicy;
-                CurrentPolicy = null;
-                for (int round = 0; round < policy.MaxRounds; round++)
-                {
-                    var (content, functionCall, thoughtSignature) = ExtractFunctionCallWithSignature(responseContent);
-
-                    if (functionCall == null)
-                    {
-                        // No more function calls, return text response
-                        var assistantMsg = new Message(ActorRole.Assistant, content);
-                        if (thoughtSignature != null)
-                        {
-                            assistantMsg.Metadata = new Dictionary<string, object>
-                            {
-                                [MessageMetadataKeys.ThoughtSignature] = thoughtSignature
-                            };
-                        }
-                        ActivateChat.Messages.Add(assistantMsg);
-                        return content;
-                    }
-
-                    // Add model's functionCall response to conversation (with thought signature for Gemini 3)
-                    var metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                        [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                        [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments)
-                    };
-                    if (thoughtSignature != null)
-                    {
-                        metadata[MessageMetadataKeys.ThoughtSignature] = thoughtSignature;
-                    }
-                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content ?? "") { Metadata = metadata });
-
-                    // Execute function
-                    var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-                    // Add function result to conversation
-                    ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-                    {
-                        Metadata = new Dictionary<string, object>
-                        {
-                            [MessageMetadataKeys.MessageType] = "function_result",
-                            [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                            [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                            [MessageMetadataKeys.FunctionName] = functionCall.Name
-                        }
-                    });
-
-                    // Get next response (may be another function call or final text)
-                    request = CreateFunctionMessageRequest();
-                    response = await HttpClient.SendAsync(request);
-
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        var errorContent = await response.Content.ReadAsStringAsync();
-                        throw new AIServiceException($"Gemini API request failed: {response.ReasonPhrase}", errorContent);
-                    }
-
-                    responseContent = await response.Content.ReadAsStringAsync();
-                }
-
-                // Fallback: max iterations reached, return whatever text we have
-                var (fallbackContent, _, fallbackSig) = ExtractResponseContentWithSignature(responseContent);
-                var fallbackMsg = new Message(ActorRole.Assistant, fallbackContent);
-                if (fallbackSig != null)
-                {
-                    fallbackMsg.Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.ThoughtSignature] = fallbackSig
-                    };
-                }
-                ActivateChat.Messages.Add(fallbackMsg);
-                return fallbackContent;
-            }
-            else
-            {
-                var (result, _, sig) = ExtractResponseContentWithSignature(responseContent);
-                var assistantMsg = new Message(ActorRole.Assistant, result);
-                if (sig != null)
-                {
-                    assistantMsg.Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.ThoughtSignature] = sig
-                    };
-                }
-                ActivateChat.Messages.Add(assistantMsg);
-                return result;
-            }
+            return await response.Content.ReadAsStringAsync();
         }
 
         private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
@@ -209,30 +198,17 @@ namespace Mythosia.AI.Services.Google
                     ? CreateFunctionMessageRequest()
                     : CreateMessageRequest();
 
-                var response = await HttpClient.SendAsync(request);
+                var responseContent = await SendAndReadAsync(request);
 
-                if (response.IsSuccessStatusCode)
-                {
-                    var responseContent = await response.Content.ReadAsStringAsync();
-
-                    if (useFunctions)
-                    {
-                        var (content, functionCall) = ExtractFunctionCall(responseContent);
-                        if (functionCall != null)
-                        {
-                            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-                            return $"Function result: {result}";
-                        }
-                        return content;
-                    }
-
+                if (!useFunctions)
                     return ExtractResponseContent(responseContent);
-                }
-                else
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
-                }
+
+                var (content, functionCall) = ExtractFunctionCall(responseContent);
+                if (functionCall == null)
+                    return content;
+
+                var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
+                return $"Function result: {result}";
             }
             finally
             {
@@ -246,10 +222,9 @@ namespace Mythosia.AI.Services.Google
 
         protected override HttpRequestMessage CreateMessageRequest()
         {
-            var modelName = Model;
             var endpoint = Stream
-                ? $"v1beta/models/{modelName}:streamGenerateContent?alt=sse&key={ApiKey}"
-                : $"v1beta/models/{modelName}:generateContent?key={ApiKey}";
+                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse&key={ApiKey}"
+                : $"v1beta/models/{Model}:generateContent?key={ApiKey}";
 
             var requestBody = BuildRequestBody();
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -266,7 +241,6 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
-            // Gemini 2.0+ models all support vision natively
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
         }
 
@@ -281,12 +255,10 @@ namespace Mythosia.AI.Services.Google
         {
             using var imageResponse = await HttpClient.GetAsync(imageUrl);
             if (!imageResponse.IsSuccessStatusCode)
-            {
                 throw new AIServiceException($"Failed to download image from {imageUrl}");
-            }
 
             var imageData = await imageResponse.Content.ReadAsByteArrayAsync();
-            var contentType = imageResponse.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+            var contentType = imageResponse.Content.Headers.ContentType?.MediaType ?? DefaultImageMimeType;
 
             return new Message(ActorRole.User, new List<MessageContent>
             {
@@ -299,17 +271,11 @@ namespace Mythosia.AI.Services.Google
 
         #region Not Supported Features
 
-        /// <summary>
-        /// Gemini doesn't support direct image generation
-        /// </summary>
         public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
         {
             throw new MultimodalNotSupportedException("Gemini", "Image Generation");
         }
 
-        /// <summary>
-        /// Gemini doesn't support direct image generation
-        /// </summary>
         public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
         {
             throw new MultimodalNotSupportedException("Gemini", "Image Generation");

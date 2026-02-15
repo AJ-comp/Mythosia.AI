@@ -7,24 +7,71 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.0.1</VersionPrefix>
+		<VersionPrefix>4.1.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Claude Opus 4.1; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Claude Opus 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## 🚀 What's New in v4.0.1
-See release notes for latest updates: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
+## � What's New in v4.1.0
+
+### Enhanced Error Reporting
+All AI services now include HTTP status code and error body in AIServiceException.
+Previously, HTTP/2 connections returned empty ReasonPhrase resulting in unhelpful "API request failed: (none)" errors.
+Now shows: "API request failed (400): {actual error body}" for all services (Claude, ChatGPT, Gemini, DeepSeek, Sonar).
+AIServiceException.ErrorDetails provides the raw API error body for programmatic inspection.
+
+### Function Argument Conversion Fix
+Fixed ConvertValue to handle non-string JsonElement when target type is string.
+Some models (e.g., Claude Opus 4.6) send function arguments as raw JSON arrays instead of stringified JSON.
+Now falls back to GetRawText() for non-string JsonElement, preventing InvalidOperationException.
+
+### New Claude Models
+- Claude Opus 4.6 (claude-opus-4-6)
+- Claude Opus 4.5 (claude-opus-4-5-20251101)
+- Claude Sonnet 4.5 (claude-sonnet-4-5-20250929)
+- Claude Haiku 4.5 (claude-haiku-4-5-20251001)
+
+### Code Refactoring
+- ClaudeService: Extracted constants, unified helper methods (AddClaudeHeaders, CreateFunctionCallMessage, ApplySystemMessage)
+- GeminiService: SendAndReadAsync, SSE helpers, ProcessFunctionCallLoopAsync, factory methods
+- ChatGptService: General code cleanup
+
+## Supported Models
+
+### Anthropic Claude
+- Claude Opus 4.6, Opus 4.5, Opus 4.1, Opus 4
+- Claude Sonnet 4.5, Sonnet 4, Sonnet 3.7
+- Claude Haiku 4.5, Haiku 3.5, Haiku 3
+- Claude 3 Opus
+
+### OpenAI
+- GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-5 Chat Latest
+- GPT-5.1
+- GPT-5.2, GPT-5.2 Pro
+- o3, o3-pro
+- GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
+- GPT-4o, GPT-4o Mini, GPT-4 Vision
+
+### Google Gemini
+- Gemini 2.5 Pro, Flash, Flash-Lite
+- Gemini 3 Pro Preview, Flash Preview
+
+### DeepSeek
+- DeepSeek Chat, DeepSeek Reasoner
+
+### Perplexity
+- Sonar, Sonar Pro, Sonar Reasoning
 
 ## Documentation
 - Basic Usage: https://github.com/AJ-comp/Mythosia/wiki
 - Advanced Features: https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features
 - Release Notes: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
-			- GitHub: https://github.com/AJ-comp/Mythosia
+- GitHub: https://github.com/AJ-comp/Mythosia
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.0.1</Version>
+		<Version>4.1.0</Version>
 	</PropertyGroup>
 
 

@@ -50,10 +50,7 @@ namespace Mythosia.AI.Services.Anthropic
                 ["messages"] = messagesList
             };
 
-            if (!string.IsNullOrEmpty(SystemMessage))
-            {
-                requestBody["system"] = SystemMessage;
-            }
+            ApplySystemMessage(requestBody);
 
             return requestBody;
         }
@@ -67,9 +64,7 @@ namespace Mythosia.AI.Services.Anthropic
                 Content = content
             };
 
-            request.Headers.Add("x-api-key", ApiKey);
-            request.Headers.Add("anthropic-version", "2023-06-01");
-            request.Headers.Add("anthropic-beta", "token-counting-2024-11-01");
+            AddClaudeHeaders(request, "token-counting-2024-11-01");
 
             var response = await HttpClient.SendAsync(request);
 

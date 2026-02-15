@@ -106,6 +106,7 @@ namespace Mythosia.AI.Services.Anthropic
             using var reader = new StreamReader(stream);
 
             var textBuffer = new StringBuilder();
+            var thinkingBuffer = new StringBuilder();
             var collectedToolUses = new List<FunctionCall>();  // ★ 모든 tool_use 수집
             var currentToolUse = new ToolUseData();
             bool functionEventSent = false;
@@ -114,18 +115,18 @@ namespace Mythosia.AI.Services.Anthropic
             string line;
             while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
             {
-                if (!line.StartsWith("data:") && !line.StartsWith("event:"))
+                if (!line.StartsWith(SseDataPrefix) && !line.StartsWith(SseEventPrefix))
                     continue;
 
                 // Handle event type
-                if (line.StartsWith("event:"))
+                if (line.StartsWith(SseEventPrefix))
                 {
-                    var eventType = line.Substring("event:".Length).Trim();
+                    var eventType = line.Substring(SseEventPrefix.Length).Trim();
                     currentToolUse.CurrentEventType = eventType;
                     continue;
                 }
 
-                var jsonData = line.Substring("data:".Length).Trim();
+                var jsonData = line.Substring(SseDataPrefix.Length).Trim();
                 if (string.IsNullOrEmpty(jsonData))
                     continue;
 
@@ -157,6 +158,21 @@ namespace Mythosia.AI.Services.Anthropic
                         Console.WriteLine($"  → Tool use detected: {currentToolUse.Name}");
                 }
 
+                // Thinking content (extended thinking / reasoning)
+                if (!string.IsNullOrEmpty(parseResult.ThinkingContent) && options.IncludeReasoning)
+                {
+                    thinkingBuffer.Append(parseResult.ThinkingContent);
+                    streamQueue.Enqueue(new StreamingContent
+                    {
+                        Type = StreamingContentType.Reasoning,
+                        Content = parseResult.ThinkingContent,
+                        Metadata = options.IncludeMetadata ? new Dictionary<string, object>
+                        {
+                            ["model"] = currentModel ?? Model
+                        } : null
+                    });
+                }
+
                 // Text content
                 if (!string.IsNullOrEmpty(parseResult.TextContent))
                 {
@@ -175,29 +191,7 @@ namespace Mythosia.AI.Services.Anthropic
                 // ★ Tool use completed - collect it
                 if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
                 {
-                    if (string.IsNullOrEmpty(currentToolUse.Id))
-                    {
-                        throw new InvalidOperationException($"Tool use without ID: {currentToolUse.Name}");
-                    }
-
-                    // Parse arguments
-                    Dictionary<string, object> arguments = new Dictionary<string, object>();
-                    if (currentToolUse.Arguments.Length > 0)
-                    {
-                        arguments = TryParseArguments(currentToolUse.Arguments.ToString())
-                            ?? new Dictionary<string, object>();
-                    }
-
-                    // Add to collected tool uses
-                    collectedToolUses.Add(new FunctionCall
-                    {
-                        Id = currentToolUse.Id,
-                        Source = IdSource.Claude,
-                        Name = currentToolUse.Name,
-                        Arguments = arguments
-                    });
-
-                    // Reset for next tool use
+                    collectedToolUses.Add(CollectCompletedToolUse(currentToolUse));
                     currentToolUse = new ToolUseData();
                 }
 
@@ -277,11 +271,13 @@ namespace Mythosia.AI.Services.Anthropic
             public StringBuilder Arguments { get; } = new StringBuilder();
             public bool IsComplete { get; set; }
             public string CurrentEventType { get; set; }
+            public string CurrentBlockType { get; set; }
         }
 
         private class ClaudeStreamParseResult
         {
             public string TextContent { get; set; }
+            public string ThinkingContent { get; set; }
             public bool ToolUseStarted { get; set; }
             public bool MessageComplete { get; set; }
             public string Model { get; set; }
@@ -330,6 +326,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 if (blockElement.TryGetProperty("type", out var blockType))
                                 {
                                     var blockTypeStr = blockType.GetString();
+                                    toolUseData.CurrentBlockType = blockTypeStr;
 
                                     if (blockTypeStr == "tool_use")
                                     {
@@ -354,6 +351,7 @@ namespace Mythosia.AI.Services.Anthropic
                                         toolUseData.Arguments.Clear();
                                         result.ToolUseStarted = true;
                                     }
+                                    // thinking block start - no special action needed, deltas will follow
                                 }
                             }
                             break;
@@ -373,6 +371,13 @@ namespace Mythosia.AI.Services.Anthropic
                                             result.TextContent = textElem.GetString();
                                         }
                                     }
+                                    else if (deltaTypeStr == "thinking_delta")
+                                    {
+                                        if (deltaElement.TryGetProperty("thinking", out var thinkingElem))
+                                        {
+                                            result.ThinkingContent = thinkingElem.GetString();
+                                        }
+                                    }
                                     else if (deltaTypeStr == "input_json_delta")
                                     {
                                         if (deltaElement.TryGetProperty("partial_json", out var jsonElem))
@@ -386,14 +391,11 @@ namespace Mythosia.AI.Services.Anthropic
 
                         case "content_block_stop":
                             // Content block complete
-                            if (root.TryGetProperty("index", out var indexElem))
+                            if (toolUseData.CurrentBlockType == "tool_use" && !string.IsNullOrEmpty(toolUseData.Name))
                             {
-                                // Check if tool use is complete
-                                if (!string.IsNullOrEmpty(toolUseData.Name))
-                                {
-                                    toolUseData.IsComplete = true;
-                                }
+                                toolUseData.IsComplete = true;
                             }
+                            toolUseData.CurrentBlockType = null;
                             break;
 
                         case "message_delta":
@@ -430,6 +432,26 @@ namespace Mythosia.AI.Services.Anthropic
                     Console.WriteLine($"[Claude Parse Error] {ex.Message}");
                 return null;
             }
+        }
+
+        private FunctionCall CollectCompletedToolUse(ToolUseData toolUseData)
+        {
+            if (string.IsNullOrEmpty(toolUseData.Id))
+            {
+                throw new InvalidOperationException($"Tool use without ID: {toolUseData.Name}");
+            }
+
+            var arguments = toolUseData.Arguments.Length > 0
+                ? TryParseArguments(toolUseData.Arguments.ToString()) ?? new Dictionary<string, object>()
+                : new Dictionary<string, object>();
+
+            return new FunctionCall
+            {
+                Id = toolUseData.Id,
+                Source = IdSource.Claude,
+                Name = toolUseData.Name,
+                Arguments = arguments
+            };
         }
 
         private Dictionary<string, object> TryParseArguments(string argsJson)

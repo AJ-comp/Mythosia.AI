@@ -51,7 +51,9 @@ namespace Mythosia.AI.Services.Perplexity
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                throw new AIServiceException(
+                    $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                    errorContent);
             }
 
             var responseContent = await response.Content.ReadAsStringAsync();
@@ -85,7 +87,9 @@ namespace Mythosia.AI.Services.Perplexity
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                    throw new AIServiceException(
+                        $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                        errorContent);
                 }
             }
             finally

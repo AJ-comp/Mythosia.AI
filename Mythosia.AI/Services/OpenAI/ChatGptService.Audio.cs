@@ -39,7 +39,9 @@ namespace Mythosia.AI.Services.OpenAI
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Speech generation failed: {response.ReasonPhrase}", error);
+                throw new AIServiceException(
+                    $"Speech generation failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? error : response.ReasonPhrase)}",
+                    error);
             }
         }
 
@@ -77,7 +79,9 @@ namespace Mythosia.AI.Services.OpenAI
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Audio transcription failed: {response.ReasonPhrase}", error);
+                throw new AIServiceException(
+                    $"Audio transcription failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? error : response.ReasonPhrase)}",
+                    error);
             }
         }
 

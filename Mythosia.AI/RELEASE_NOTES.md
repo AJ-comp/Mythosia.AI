@@ -1,6 +1,77 @@
 # Mythosia.AI - Release Notes
 
-## �️ v4.0.1 - MaxTokens Auto-Capping & Cross-Provider Function Fallback
+## 🔧 v4.1.0 - Error Reporting, New Claude Models & Code Quality
+
+### **Enhanced Error Reporting** 🚨
+
+All AI services now include **HTTP status code and error body** in `AIServiceException`, replacing the unreliable `ReasonPhrase` which is null on HTTP/2 connections.
+
+#### Before (v4.0.x)
+```
+API request failed: <none>
+```
+
+#### After (v4.1.0)
+```
+API request failed (400): {"type":"error","error":{"type":"invalid_request_error","message":"..."}}
+```
+
+- Applied to all services: **Claude**, **ChatGPT**, **Gemini**, **DeepSeek**, **Sonar**
+- Covers both non-streaming and streaming endpoints, plus Audio, Images, TokenCount, and Search
+- `AIServiceException.ErrorDetails` provides the raw API error body for programmatic inspection
+
+### **Function Argument Conversion Fix** 🐛
+
+Fixed `ConvertValue` to handle non-string `JsonElement` when target type is `string`. Some models (e.g., Claude Opus 4.6) send function arguments as raw JSON arrays instead of stringified JSON, which previously caused `InvalidOperationException`.
+
+```csharp
+// Before: jsonElement.GetString() throws on arrays/objects
+// After: falls back to GetRawText() for non-string JsonElement
+return jsonElement.ValueKind == JsonValueKind.String
+    ? jsonElement.GetString()
+    : jsonElement.GetRawText();
+```
+
+### **New Claude Models** 🤖
+
+| Model | Enum | API Identifier |
+|-------|------|----------------|
+| **Claude Opus 4.6** | `ClaudeOpus4_6` | `claude-opus-4-6` |
+| **Claude Opus 4.5** | `ClaudeOpus4_5_251101` | `claude-opus-4-5-20251101` |
+| **Claude Sonnet 4.5** | `ClaudeSonnet4_5_250929` | `claude-sonnet-4-5-20250929` |
+| **Claude Haiku 4.5** | `ClaudeHaiku4_5_251001` | `claude-haiku-4-5-20251001` |
+
+### **Code Refactoring** 🏗️
+
+#### ClaudeService
+- Extracted constants: `AnthropicApiVersion`, `DefaultImageMimeType`, `SseDataPrefix`, `SseEventPrefix`
+- Helper methods: `AddClaudeHeaders()`, `CreateFunctionCallMessage()`, `CreateFunctionResultMessage()`, `ApplySystemMessage()`
+- Unified `ProcessMultipleToolUses` loop (removed first/rest duplication)
+
+#### GeminiService
+- `SendAndReadAsync()` — Unified HTTP send + error handling
+- `ProcessFunctionCallLoopAsync()` — Extracted function call loop from `GetCompletionAsync`
+- SSE helpers: `ReadSseLines()`, `TryExtractSseData()`, `SendStreamingRequestAsync()`
+- `AddAssistantMessage()`, `AddFunctionCallMessage()`, `AddFunctionResultMessage()` helpers
+- `CreateCompletionContent()`, `CreateErrorContent()` factory methods
+
+#### ChatGptService
+- General code cleanup and simplification
+
+### 🧪 Test Improvements
+
+- **CrossProvider test diagnostics** — Debug message history dump before Phase 2 API call, `ErrorDetails` output in catch blocks
+- **New test classes**: `Claude_Opus4_6_Tests`, `Claude_Opus4_5_Tests`, `Claude_Sonnet4_5_Tests`, `Claude_Haiku4_5_Tests`
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.0.x
+- No breaking changes
+- Error message format changed (more detailed), but `AIServiceException` API unchanged
+
+---
+
+## 🛠️ v4.0.1 - MaxTokens Auto-Capping & Cross-Provider Function Fallback
 
 ### **Automatic MaxTokens Capping** 🔒
 

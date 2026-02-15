@@ -6,14 +6,26 @@ namespace Mythosia.AI.Models.Enums
     public enum AIModel
     {
         // Anthropic Claude Models
+        [Description("claude-opus-4-6")]
+        ClaudeOpus4_6,
+
         [Description("claude-opus-4-1-20250805")]
         ClaudeOpus4_1_250805,
 
         [Description("claude-opus-4-20250514")]
         ClaudeOpus4_250514,
 
+        [Description("claude-opus-4-5-20251101")]
+        ClaudeOpus4_5_251101,
+
+        [Description("claude-sonnet-4-5-20250929")]
+        ClaudeSonnet4_5_250929,
+
         [Description("claude-sonnet-4-20250514")]
         ClaudeSonnet4_250514,
+
+        [Description("claude-haiku-4-5-20251001")]
+        ClaudeHaiku4_5_251001,
 
         [Description("claude-3-7-sonnet-latest")]
         Claude3_7SonnetLatest,

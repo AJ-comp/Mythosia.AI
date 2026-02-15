@@ -18,6 +18,9 @@ namespace Mythosia.AI.Services.Google
 {
     public partial class GeminiService
     {
+        private const string SseDataPrefix = "data:";
+        private const string SseDoneSignal = "[DONE]";
+
         #region Streaming Implementation
 
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
@@ -32,27 +35,14 @@ namespace Mythosia.AI.Services.Google
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();
-            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Gemini streaming request failed: {response.ReasonPhrase}", errorContent);
-            }
+            var response = await SendStreamingRequestAsync(request);
 
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
 
             var allContent = new StringBuilder();
-            while (!reader.EndOfStream)
+            await foreach (var jsonData in ReadSseLines(reader))
             {
-                var line = await reader.ReadLineAsync();
-                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                    continue;
-
-                var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]") break;
-
                 try
                 {
                     var content = StreamParseJson(jsonData);
@@ -87,37 +77,21 @@ namespace Mythosia.AI.Services.Google
             try
             {
                 var request = CreateMessageRequest();
-                var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException($"Gemini streaming request failed: {response.ReasonPhrase}", errorContent);
-                }
+                var response = await SendStreamingRequestAsync(request);
 
                 using var stream = await response.Content.ReadAsStreamAsync();
                 using var reader = new StreamReader(stream);
 
-                while (!reader.EndOfStream)
+                await foreach (var jsonData in ReadSseLines(reader))
                 {
-                    var line = await reader.ReadLineAsync();
-                    if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                        continue;
-
-                    var jsonData = line.Substring("data:".Length).Trim();
-                    if (jsonData == "[DONE]") break;
-
                     try
                     {
                         var content = StreamParseJson(jsonData);
                         if (!string.IsNullOrEmpty(content))
-                        {
                             await messageReceivedAsync(content);
-                        }
                     }
                     catch (JsonException)
                     {
-                        // Ignore parse errors in stateless mode
                     }
                 }
             }
@@ -132,7 +106,6 @@ namespace Mythosia.AI.Services.Google
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            // Check if functions are available and should be used
             bool useFunctions = options.IncludeFunctionCalls &&
                                ShouldUseFunctions &&
                                !FunctionsDisabled;
@@ -147,7 +120,6 @@ namespace Mythosia.AI.Services.Google
                 yield break;
             }
 
-            // Add message to history and create request
             Stream = true;
             ActivateChat.Messages.Add(message);
 
@@ -162,21 +134,10 @@ namespace Mythosia.AI.Services.Google
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
-                yield return new StreamingContent
-                {
-                    Type = StreamingContentType.Error,
-                    Content = null,
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["error"] = error,
-                        ["status_code"] = (int)response.StatusCode
-                    }
-                };
+                yield return CreateErrorContent(response);
                 yield break;
             }
 
-            // Process streaming response
             await foreach (var content in ProcessGeminiStream(
                 response, options, useFunctions, cancellationToken))
             {
@@ -213,17 +174,7 @@ namespace Mythosia.AI.Services.Google
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    yield return new StreamingContent
-                    {
-                        Type = StreamingContentType.Error,
-                        Content = null,
-                        Metadata = new Dictionary<string, object>
-                        {
-                            ["error"] = error,
-                            ["status_code"] = (int)response.StatusCode
-                        }
-                    };
+                    yield return CreateErrorContent(response);
                     yield break;
                 }
 
@@ -254,34 +205,20 @@ namespace Mythosia.AI.Services.Google
             while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync();
-                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
+                if (!TryExtractSseData(line, out var jsonData))
                     continue;
 
-                var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]")
+                if (jsonData == SseDoneSignal)
                 {
                     if (options.IncludeMetadata)
-                    {
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.Completion,
-                            Content = null,
-                            Metadata = new Dictionary<string, object>
-                            {
-                                ["total_length"] = textBuffer.Length
-                            }
-                        };
-                    }
+                        yield return CreateCompletionContent(textBuffer.Length);
                     break;
                 }
 
-                StreamingContent? parsedContent = null;
+                StreamingContent? parsedContent;
                 try
                 {
-                    parsedContent = ParseGeminiStreamChunk(
-                        jsonData,
-                        options,
-                        functionCallData);
+                    parsedContent = ParseGeminiStreamChunk(jsonData, options, functionCallData);
                 }
                 catch (JsonException)
                 {
@@ -291,77 +228,17 @@ namespace Mythosia.AI.Services.Google
                 if (parsedContent == null)
                     continue;
 
-                // Handle function calls
                 if (parsedContent.Type == StreamingContentType.FunctionCall)
                 {
-                    // Always yield the FunctionCall event
                     yield return parsedContent;
 
                     if (functionsEnabled && functionCallData.IsComplete && functionCallData.Name != null)
                     {
-                        // Add model's functionCall to conversation history
-                        var argsJson = functionCallData.Arguments.ToString();
-                        var streamFuncId = Guid.NewGuid().ToString();
-                        var fcMetadata = new Dictionary<string, object>
+                        await foreach (var content in HandleStreamFunctionCall(
+                            functionCallData, options, functionsEnabled, cancellationToken))
                         {
-                            [MessageMetadataKeys.MessageType] = "function_call",
-                            [MessageMetadataKeys.FunctionId] = streamFuncId,
-                            [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
-                            [MessageMetadataKeys.FunctionName] = functionCallData.Name,
-                            [MessageMetadataKeys.FunctionArguments] = argsJson
-                        };
-
-                        // Gemini 3: preserve thought signature for circulation
-                        if (functionCallData.ThoughtSignature != null)
-                        {
-                            fcMetadata[MessageMetadataKeys.ThoughtSignature] = functionCallData.ThoughtSignature;
+                            yield return content;
                         }
-
-                        ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "")
-                        {
-                            Metadata = fcMetadata
-                        });
-
-                        // Execute function
-                        var functionResult = await ExecuteFunctionCallAsync(
-                            functionCallData,
-                            options,
-                            cancellationToken);
-
-                        yield return functionResult;
-
-                        // Add function result to messages
-                        ActivateChat.Messages.Add(new Message(ActorRole.Function,
-                            functionResult.Metadata?["result"]?.ToString() ?? "")
-                        {
-                            Metadata = new Dictionary<string, object>
-                            {
-                                [MessageMetadataKeys.MessageType] = "function_result",
-                                [MessageMetadataKeys.FunctionId] = streamFuncId,
-                                [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
-                                [MessageMetadataKeys.FunctionName] = functionCallData.Name
-                            }
-                        });
-
-                        functionCallData = new FunctionCallData();
-
-                        // Send follow-up request with proper conversation history
-                        Stream = true;
-                        var followUpRequest = CreateFunctionMessageRequest();
-                        var followUpResponse = await HttpClient.SendAsync(
-                            followUpRequest,
-                            HttpCompletionOption.ResponseHeadersRead,
-                            cancellationToken);
-
-                        if (followUpResponse.IsSuccessStatusCode)
-                        {
-                            await foreach (var responseContent in ProcessGeminiStream(
-                                followUpResponse, options, functionsEnabled, cancellationToken))
-                            {
-                                yield return responseContent;
-                            }
-                        }
-
                         yield break;
                     }
                 }
@@ -370,9 +247,7 @@ namespace Mythosia.AI.Services.Google
                     textBuffer.Append(parsedContent.Content);
 
                     if (!options.TextOnly || parsedContent.Content != null)
-                    {
                         yield return parsedContent;
-                    }
                 }
                 else if (options.IncludeMetadata)
                 {
@@ -381,9 +256,72 @@ namespace Mythosia.AI.Services.Google
             }
 
             if (textBuffer.Length > 0)
-            {
                 ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
+        }
+
+        private async IAsyncEnumerable<StreamingContent> HandleStreamFunctionCall(
+            FunctionCallData functionCallData,
+            StreamOptions options,
+            bool functionsEnabled,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            var argsJson = functionCallData.Arguments.ToString();
+            var streamFuncId = Guid.NewGuid().ToString();
+
+            AddStreamFunctionCallMessage(streamFuncId, functionCallData, argsJson);
+
+            var functionResult = await ExecuteFunctionCallAsync(functionCallData, options, cancellationToken);
+            yield return functionResult;
+
+            AddStreamFunctionResultMessage(streamFuncId, functionCallData,
+                functionResult.Metadata?["result"]?.ToString() ?? "");
+
+            Stream = true;
+            var followUpRequest = CreateFunctionMessageRequest();
+            var followUpResponse = await HttpClient.SendAsync(
+                followUpRequest,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
+
+            if (!followUpResponse.IsSuccessStatusCode)
+                yield break;
+
+            await foreach (var responseContent in ProcessGeminiStream(
+                followUpResponse, options, functionsEnabled, cancellationToken))
+            {
+                yield return responseContent;
             }
+        }
+
+        private void AddStreamFunctionCallMessage(string functionId, FunctionCallData functionCallData, string argsJson)
+        {
+            var fcMetadata = new Dictionary<string, object>
+            {
+                [MessageMetadataKeys.MessageType] = "function_call",
+                [MessageMetadataKeys.FunctionId] = functionId,
+                [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
+                [MessageMetadataKeys.FunctionName] = functionCallData.Name,
+                [MessageMetadataKeys.FunctionArguments] = argsJson
+            };
+
+            if (functionCallData.ThoughtSignature != null)
+                fcMetadata[MessageMetadataKeys.ThoughtSignature] = functionCallData.ThoughtSignature;
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "") { Metadata = fcMetadata });
+        }
+
+        private void AddStreamFunctionResultMessage(string functionId, FunctionCallData functionCallData, string result)
+        {
+            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+            {
+                Metadata = new Dictionary<string, object>
+                {
+                    [MessageMetadataKeys.MessageType] = "function_result",
+                    [MessageMetadataKeys.FunctionId] = functionId,
+                    [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
+                    [MessageMetadataKeys.FunctionName] = functionCallData.Name
+                }
+            });
         }
 
         private async Task<StreamingContent> ExecuteFunctionCallAsync(
@@ -429,6 +367,77 @@ namespace Mythosia.AI.Services.Google
             }
 
             return content;
+        }
+
+        #endregion
+
+        #region SSE Helpers
+
+        private async Task<HttpResponseMessage> SendStreamingRequestAsync(HttpRequestMessage request)
+        {
+            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                throw new AIServiceException(
+                    $"Gemini streaming request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                    errorContent);
+            }
+
+            return response;
+        }
+
+        private static bool TryExtractSseData(string? line, out string jsonData)
+        {
+            jsonData = string.Empty;
+            if (string.IsNullOrWhiteSpace(line) || !line.StartsWith(SseDataPrefix))
+                return false;
+
+            jsonData = line.Substring(SseDataPrefix.Length).Trim();
+            return true;
+        }
+
+        private static async IAsyncEnumerable<string> ReadSseLines(StreamReader reader)
+        {
+            while (!reader.EndOfStream)
+            {
+                var line = await reader.ReadLineAsync();
+                if (!TryExtractSseData(line, out var jsonData))
+                    continue;
+
+                if (jsonData == SseDoneSignal)
+                    yield break;
+
+                yield return jsonData;
+            }
+        }
+
+        private static StreamingContent CreateCompletionContent(int totalLength)
+        {
+            return new StreamingContent
+            {
+                Type = StreamingContentType.Completion,
+                Content = null,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["total_length"] = totalLength
+                }
+            };
+        }
+
+        private static StreamingContent CreateErrorContent(HttpResponseMessage response)
+        {
+            return new StreamingContent
+            {
+                Type = StreamingContentType.Error,
+                Content = null,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["error"] = response.Content.ReadAsStringAsync().GetAwaiter().GetResult(),
+                    ["status_code"] = (int)response.StatusCode
+                }
+            };
         }
 
         #endregion

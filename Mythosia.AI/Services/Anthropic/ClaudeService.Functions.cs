@@ -25,9 +25,7 @@ namespace Mythosia.AI.Services.Anthropic
                 Content = content
             };
 
-            request.Headers.Add("x-api-key", ApiKey);
-            request.Headers.Add("anthropic-version", "2023-06-01");
-            request.Headers.Add("anthropic-beta", "tools-2024-04-04");
+            AddClaudeHeaders(request, "tools-2024-04-04");
 
             return request;
         }
@@ -38,93 +36,7 @@ namespace Mythosia.AI.Services.Anthropic
 
             foreach (var message in GetLatestMessages())
             {
-                // Handle Function results
-                if (message.Role == ActorRole.Function)
-                {
-                    var functionId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
-                    var functionSource = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionSource);
-
-                    if (string.IsNullOrEmpty(functionId) || functionSource == null)
-                    {
-                        throw new InvalidOperationException(
-                            $"Function result message missing ID or source. Function: {message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)}"
-                        );
-                    }
-
-                    var source = (IdSource)functionSource;
-                    var claudeId = FunctionIdConverter.ToClaudeId(functionId, source);
-
-                    messagesList.Add(new
-                    {
-                        role = "user",
-                        content = new[]
-                        {
-                            new
-                            {
-                                type = "tool_result",
-                                tool_use_id = claudeId,
-                                content = message.Content ?? ""
-                            }
-                        }
-                    });
-                }
-                // Handle Assistant messages with function calls
-                else if (message.Role == ActorRole.Assistant &&
-                         message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
-                {
-                    // Check if we have the original content preserved
-                    if (message.Metadata.ContainsKey(MessageMetadataKeys.OriginalContent))
-                    {
-                        var originalContent = message.Metadata[MessageMetadataKeys.OriginalContent].ToString();
-                        messagesList.Add(new
-                        {
-                            role = "assistant",
-                            content = JsonSerializer.Deserialize<JsonElement>(originalContent)
-                        });
-                    }
-                    else
-                    {
-                        // Reconstruct from metadata
-                        var functionId = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
-                        var functionSource = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionSource);
-                        var functionName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString();
-                        var argumentsStr = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
-
-                        if (string.IsNullOrEmpty(functionId) || functionSource == null)
-                        {
-                            throw new InvalidOperationException("Assistant function call message missing ID or source");
-                        }
-
-                        var source = (IdSource)functionSource;
-                        var claudeId = FunctionIdConverter.ToClaudeId(functionId, source);
-
-                        var contentList = new List<object>();
-
-                        if (!string.IsNullOrEmpty(message.Content))
-                        {
-                            contentList.Add(new { type = "text", text = message.Content });
-                        }
-
-                        contentList.Add(new
-                        {
-                            type = "tool_use",
-                            id = claudeId,
-                            name = functionName,
-                            input = JsonSerializer.Deserialize<Dictionary<string, object>>(argumentsStr) ?? new Dictionary<string, object>()
-                        });
-
-                        messagesList.Add(new
-                        {
-                            role = "assistant",
-                            content = contentList
-                        });
-                    }
-                }
-                // Handle regular messages
-                else
-                {
-                    messagesList.Add(ConvertMessageForClaude(message));
-                }
+                messagesList.Add(ConvertMessageForFunctionCalling(message));
             }
 
             var requestBody = new Dictionary<string, object>
@@ -136,38 +48,124 @@ namespace Mythosia.AI.Services.Anthropic
                 ["stream"] = Stream
             };
 
-            if (!string.IsNullOrEmpty(SystemMessage))
-            {
-                requestBody["system"] = SystemMessage;
-            }
-
-            // Add tools (Claude's function calling)
-            if (ShouldUseFunctions)
-            {
-                requestBody["tools"] = Functions.Select(f => new
-                {
-                    name = f.Name,
-                    description = f.Description,
-                    input_schema = new
-                    {
-                        type = "object",
-                        properties = f.Parameters.Properties,
-                        required = f.Parameters.Required
-                    }
-                }).ToList();
-
-                // Tool choice configuration
-                if (FunctionCallMode == FunctionCallMode.None)
-                {
-                    requestBody["tool_choice"] = new { type = "none" };
-                }
-                else
-                {
-                    requestBody["tool_choice"] = new { type = "auto" };
-                }
-            }
+            ApplySystemMessage(requestBody);
+            ApplyThinkingConfig(requestBody);
+            ApplyToolsConfig(requestBody);
 
             return requestBody;
+        }
+
+        private object ConvertMessageForFunctionCalling(Message message)
+        {
+            if (message.Role == ActorRole.Function)
+                return ConvertFunctionResultMessage(message);
+
+            if (message.Role == ActorRole.Assistant &&
+                message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
+                return ConvertAssistantFunctionCallMessage(message);
+
+            return ConvertMessageForClaude(message);
+        }
+
+        private object ConvertFunctionResultMessage(Message message)
+        {
+            var functionId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
+            var functionSource = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionSource);
+
+            if (string.IsNullOrEmpty(functionId) || functionSource == null)
+            {
+                throw new InvalidOperationException(
+                    $"Function result message missing ID or source. Function: {message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)}"
+                );
+            }
+
+            var source = (IdSource)functionSource;
+            var claudeId = FunctionIdConverter.ToClaudeId(functionId, source);
+
+            return new
+            {
+                role = "user",
+                content = new[]
+                {
+                    new
+                    {
+                        type = "tool_result",
+                        tool_use_id = claudeId,
+                        content = message.Content ?? ""
+                    }
+                }
+            };
+        }
+
+        private object ConvertAssistantFunctionCallMessage(Message message)
+        {
+            // Check if we have the original content preserved
+            if (message.Metadata.ContainsKey(MessageMetadataKeys.OriginalContent))
+            {
+                var originalContent = message.Metadata[MessageMetadataKeys.OriginalContent].ToString();
+                return new
+                {
+                    role = "assistant",
+                    content = JsonSerializer.Deserialize<JsonElement>(originalContent)
+                };
+            }
+
+            // Reconstruct from metadata
+            var functionId = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
+            var functionSource = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionSource);
+            var functionName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString();
+            var argumentsStr = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
+
+            if (string.IsNullOrEmpty(functionId) || functionSource == null)
+            {
+                throw new InvalidOperationException("Assistant function call message missing ID or source");
+            }
+
+            var source = (IdSource)functionSource;
+            var claudeId = FunctionIdConverter.ToClaudeId(functionId, source);
+
+            var contentList = new List<object>();
+
+            if (!string.IsNullOrEmpty(message.Content))
+            {
+                contentList.Add(new { type = "text", text = message.Content });
+            }
+
+            contentList.Add(new
+            {
+                type = "tool_use",
+                id = claudeId,
+                name = functionName,
+                input = JsonSerializer.Deserialize<Dictionary<string, object>>(argumentsStr) ?? new Dictionary<string, object>()
+            });
+
+            return new
+            {
+                role = "assistant",
+                content = contentList
+            };
+        }
+
+        private void ApplyToolsConfig(Dictionary<string, object> requestBody)
+        {
+            if (!ShouldUseFunctions) return;
+
+            requestBody["tools"] = Functions.Select(f => new
+            {
+                name = f.Name,
+                description = f.Description,
+                input_schema = new
+                {
+                    type = "object",
+                    properties = f.Parameters.Properties,
+                    required = f.Parameters.Required
+                }
+            }).ToList();
+
+            // Tool choice configuration
+            requestBody["tool_choice"] = FunctionCallMode == FunctionCallMode.None
+                ? new { type = "none" }
+                : (object)new { type = "auto" };
         }
 
         protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
@@ -230,19 +228,8 @@ namespace Mythosia.AI.Services.Anthropic
                         // Claude API workaround: prevent empty content
                         var messageContent = string.IsNullOrWhiteSpace(content) ? "." : content;
 
-                        // Create assistant message with standardized metadata
-                        var assistantMessage = new Message(ActorRole.Assistant, messageContent)
-                        {
-                            Metadata = new Dictionary<string, object>
-                            {
-                                [MessageMetadataKeys.MessageType] = "function_call",
-                                [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                                [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                                [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
-                                [MessageMetadataKeys.OriginalContent] = originalContent
-                            }
-                        };
+                        var assistantMessage = CreateFunctionCallMessage(functionCall, messageContent);
+                        assistantMessage.Metadata[MessageMetadataKeys.OriginalContent] = originalContent;
 
                         ActivateChat.Messages.Add(assistantMessage);
                         wasToolUseSaved = true;

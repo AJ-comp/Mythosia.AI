@@ -83,9 +83,7 @@ namespace Mythosia.AI.Services.OpenAI
             finally
             {
                 if (originalChat != null)
-                {
                     ActivateChat = originalChat;
-                }
             }
         }
 
@@ -98,9 +96,7 @@ namespace Mythosia.AI.Services.OpenAI
             CancellationToken cancellationToken)
         {
             if (policy.EnableLogging)
-            {
                 Console.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
-            }
 
             // 1. Send API request
             var response = await SendApiRequestAsync(cancellationToken);
@@ -112,13 +108,9 @@ namespace Mythosia.AI.Services.OpenAI
             bool useFunctions = ShouldUseFunctions;
 
             if (useFunctions)
-            {
                 return await ProcessFunctionResponseAsync(responseContent, policy);
-            }
-            else
-            {
-                return ProcessRegularResponseAsync(responseContent);
-            }
+
+            return ProcessRegularResponseAsync(responseContent);
         }
 
         /// <summary>
@@ -137,7 +129,9 @@ namespace Mythosia.AI.Services.OpenAI
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"API request failed: {response.ReasonPhrase}", errorContent);
+                throw new AIServiceException(
+                    $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
+                    errorContent);
             }
 
             return response;
@@ -152,29 +146,20 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var (content, functionCall) = ExtractFunctionCall(responseContent);
 
-            // Function call detected
             if (functionCall != null)
             {
                 if (policy.EnableLogging)
-                {
                     Console.WriteLine($"  Executing function: {functionCall.Name}");
-                }
 
                 await ExecuteFunctionAsync(functionCall);
-
-                // Continue to next round
                 return RoundResult.Continue();
             }
 
-            // Final response received
-            if (!string.IsNullOrEmpty(content))
-            {
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
-                return RoundResult.Complete(content);
-            }
+            if (string.IsNullOrEmpty(content))
+                return RoundResult.Continue();
 
-            // Empty response, try next round
-            return RoundResult.Continue();
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+            return RoundResult.Complete(content);
         }
 
         /// <summary>
@@ -183,14 +168,11 @@ namespace Mythosia.AI.Services.OpenAI
         private RoundResult ProcessRegularResponseAsync(string responseContent)
         {
             var result = ExtractResponseContent(responseContent);
+            if (string.IsNullOrEmpty(result))
+                return RoundResult.Continue();
 
-            if (!string.IsNullOrEmpty(result))
-            {
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
-                return RoundResult.Complete(result);
-            }
-
-            return RoundResult.Continue();
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+            return RoundResult.Complete(result);
         }
 
         /// <summary>
@@ -280,25 +262,19 @@ namespace Mythosia.AI.Services.OpenAI
             // Add all messages
             foreach (var message in GetLatestMessages())
             {
-                if (message.HasMultimodalContent)
-                {
-                    foreach (var content in message.Contents)
-                    {
-                        if (content is TextContent textContent)
-                        {
-                            allMessagesBuilder.Append(textContent.Text).Append('\n');
-                        }
-                        else if (content is ImageContent)
-                        {
-                            // Images consume fixed tokens based on detail level
-                            allMessagesBuilder.Append("[IMAGE]").Append('\n');
-                        }
-                    }
-                }
-                else
+                if (!message.HasMultimodalContent)
                 {
                     allMessagesBuilder.Append(message.Role).Append('\n')
                                       .Append(message.Content).Append('\n');
+                    continue;
+                }
+
+                foreach (var content in message.Contents)
+                {
+                    if (content is TextContent textContent)
+                        allMessagesBuilder.Append(textContent.Text).Append('\n');
+                    else if (content is ImageContent)
+                        allMessagesBuilder.Append("[IMAGE]").Append('\n');
                 }
             }
 
@@ -327,7 +303,6 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var currentModel = Model;
 
-            // Check if current model supports vision
             bool supportsVision = currentModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
                                  currentModel.Contains("gpt-4o") ||
                                  currentModel.Contains("gpt-4-turbo") ||
@@ -335,18 +310,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!supportsVision)
             {
-                // Switch to a vision-capable model
-                if (currentModel.Contains("mini"))
-                {
-                    // If using mini model, switch to full gpt-4o
-                    ChangeModel(AIModel.Gpt4oLatest);
-                }
-                else
-                {
-                    // For other models, switch to gpt-4o
-                    ChangeModel(AIModel.Gpt4oLatest);
-                }
-
+                ChangeModel(AIModel.Gpt4oLatest);
                 Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {Model} for vision support");
             }
 
@@ -362,14 +326,8 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         public ChatGptService WithOpenAIParameters(float? presencePenalty = null, float? frequencyPenalty = null, int? bestOf = null)
         {
-            if (presencePenalty.HasValue)
-            {
-                PresencePenalty = presencePenalty.Value;
-            }
-            if (frequencyPenalty.HasValue)
-            {
-                FrequencyPenalty = frequencyPenalty.Value;
-            }
+            if (presencePenalty.HasValue) PresencePenalty = presencePenalty.Value;
+            if (frequencyPenalty.HasValue) FrequencyPenalty = frequencyPenalty.Value;
             return this;
         }
 

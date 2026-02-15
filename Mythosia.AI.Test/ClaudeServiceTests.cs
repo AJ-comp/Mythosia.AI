@@ -26,6 +26,34 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
         }
     }
 
+    /// <summary>
+    /// Claude extended thinking (reasoning) 테스트
+    /// </summary>
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task ClaudeThinkingBudgetTest()
+    {
+        await RunIfSupported(
+            () => SupportsReasoning(),
+            async () =>
+            {
+                var claudeService = (ClaudeService)AI;
+                claudeService.ThinkingBudget = 1024;
+
+                var response = await claudeService.GetCompletionAsync(
+                    "Solve 15 * 17 and explain your reasoning briefly."
+                );
+
+                Assert.IsNotNull(response);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(claudeService.LastThinkingContent),
+                    "Thinking content should be captured when thinking is enabled.");
+
+                Console.WriteLine($"[Claude Thinking] {claudeService.LastThinkingContent}");
+            },
+            "Claude Thinking"
+        );
+    }
+
     protected override AIService CreateAIService()
     {
         var service = new ClaudeService(apiKey, new HttpClient());
@@ -40,6 +68,22 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
     protected override bool SupportsAudio() => false;
     protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsWebSearch() => false;
+    protected override bool SupportsReasoning()
+    {
+        if (AI is not ClaudeService claudeService)
+            return false;
+
+        var model = AI.Model?.ToLowerInvariant() ?? "";
+        var supportsThinking = model.Contains("sonnet-4") ||
+                               model.Contains("opus-4") ||
+                               model.Contains("3-7-sonnet") ||
+                               model.Contains("3.7");
+
+        if (supportsThinking && claudeService.ThinkingBudget < 1024)
+            claudeService.ThinkingBudget = 1024;
+
+        return supportsThinking;
+    }
     protected override AIModel? GetAlternativeModel() => AIModel.ClaudeSonnet4_250514;
 
     #region Claude-Specific Tests
@@ -154,6 +198,12 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 
 
 [TestClass]
+public class Claude_Opus4_6_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_6;
+}
+
+[TestClass]
 public class Claude_Opus4_1_Tests : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeOpus4_1_250805;
@@ -166,9 +216,27 @@ public class Claude_Opus4_Tests : ClaudeServiceTestsBase
 }
 
 [TestClass]
+public class Claude_Opus4_5_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_5_251101;
+}
+
+[TestClass]
+public class Claude_Sonnet4_5_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_5_250929;
+}
+
+[TestClass]
 public class Claude_Sonnet4_Tests : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_250514;
+}
+
+[TestClass]
+public class Claude_Haiku4_5_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeHaiku4_5_251001;
 }
 
 [TestClass]

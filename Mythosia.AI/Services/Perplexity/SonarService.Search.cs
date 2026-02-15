@@ -64,7 +64,9 @@ namespace Mythosia.AI.Services.Perplexity
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Search request failed: {response.ReasonPhrase}", error);
+                throw new AIServiceException(
+                    $"Search request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? error : response.ReasonPhrase)}",
+                    error);
             }
         }
 

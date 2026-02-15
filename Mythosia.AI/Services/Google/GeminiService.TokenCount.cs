@@ -1,12 +1,8 @@
 ﻿using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using TiktokenSharp;
-using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Messages;
 
 namespace Mythosia.AI.Services.Google
 {
@@ -40,7 +36,6 @@ namespace Mythosia.AI.Services.Google
         private object BuildTokenCountRequestBody()
         {
             var contentsList = new List<object>();
-
             foreach (var message in GetLatestMessages())
             {
                 contentsList.Add(ConvertMessageForGemini(message));
@@ -52,13 +47,7 @@ namespace Mythosia.AI.Services.Google
                 ["contents"] = contentsList
             };
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
-            {
-                generateContentRequest["systemInstruction"] = new
-                {
-                    parts = new[] { new { text = ActivateChat.SystemMessage } }
-                };
-            }
+            ApplySystemInstruction(generateContentRequest);
 
             return new Dictionary<string, object>
             {
@@ -68,8 +57,7 @@ namespace Mythosia.AI.Services.Google
 
         private async Task<uint> GetTokenCountFromAPI(object requestBody)
         {
-            var modelName = Model;
-            var endpoint = $"v1beta/models/{modelName}:countTokens?key={ApiKey}";
+            var endpoint = $"v1beta/models/{Model}:countTokens?key={ApiKey}";
 
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -77,22 +65,13 @@ namespace Mythosia.AI.Services.Google
                 Content = content
             };
 
-            var response = await HttpClient.SendAsync(request);
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorMsg = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException($"Gemini token count request failed: {response.ReasonPhrase}", errorMsg);
-            }
-
-            var responseString = await response.Content.ReadAsStringAsync();
+            var responseString = await SendAndReadAsync(request);
             using var doc = JsonDocument.Parse(responseString);
 
-            if (doc.RootElement.TryGetProperty("totalTokens", out var totalTokensElem))
-            {
-                return (uint)totalTokensElem.GetInt32();
-            }
+            if (!doc.RootElement.TryGetProperty("totalTokens", out var totalTokensElem))
+                return 0;
 
-            return 0;
+            return (uint)totalTokensElem.GetInt32();
         }
 
         #endregion
