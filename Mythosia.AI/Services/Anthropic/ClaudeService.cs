@@ -29,7 +29,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// Controls the thinking token budget for Claude extended thinking.
         /// -1: Disabled (default) - no extended thinking
         /// 1024+: Specific token budget (must be less than MaxTokens)
-        /// Supported models: Claude 3.7 Sonnet, Claude Sonnet 4+, Claude Opus 4+
+        /// Supported models: Claude Sonnet 4+, Claude Opus 4+
         /// Note: When thinking is enabled, temperature is automatically set to 1 (Claude requirement).
         /// </summary>
         public int ThinkingBudget { get; set; } = -1;
@@ -44,13 +44,13 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var model = Model?.ToLower() ?? "";
             if (model.Contains("opus-4-6")) return 131072;
+            if (model.Contains("sonnet-4-6")) return 65536;
+            if (model.Contains("opus-4-5")) return 65536;
+            if (model.Contains("sonnet-4-5")) return 65536;
+            if (model.Contains("haiku-4-5")) return 65536;
             if (model.Contains("opus-4")) return 32768;
             if (model.Contains("sonnet-4")) return 16384;
             if (model.Contains("haiku-4")) return 8192;
-            if (model.Contains("3-7-sonnet") || model.Contains("3.7")) return 8192;
-            if (model.Contains("3-5-haiku")) return 8192;
-            if (model.Contains("3-opus")) return 4096;
-            if (model.Contains("3-haiku")) return 4096;
             return 8192;  // safe default
         }
 
@@ -370,7 +370,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         /// <summary>
         /// Returns true if the current model supports extended thinking.
-        /// Supported: Claude 3.7 Sonnet, Claude Sonnet 4+, Claude Sonnet 4.5+, Claude Opus 4+
+        /// Supported: Claude Sonnet 4+, Claude Sonnet 4.5+, Claude Opus 4+
         /// Not supported: Claude 3 Opus, Claude 3 Haiku, Claude 3.5 Haiku
         /// </summary>
         private bool IsExtendedThinkingModel()
@@ -378,7 +378,6 @@ namespace Mythosia.AI.Services.Anthropic
             var model = Model?.ToLower() ?? "";
             if (model.Contains("sonnet-4")) return true;
             if (model.Contains("opus-4")) return true;
-            if (model.Contains("3-7-sonnet") || model.Contains("3.7")) return true;
             return false;
         }
 

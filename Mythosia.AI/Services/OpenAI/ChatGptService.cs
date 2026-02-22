@@ -26,6 +26,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var model = Model?.ToLower() ?? "";
             if (model.StartsWith("o3")) return 100000;
+            if (model.StartsWith("gpt-5") && model.Contains("chat")) return 16384;
             if (model.StartsWith("gpt-5")) return 128000;
             if (model.StartsWith("gpt-4.1")) return 32768;
             if (model.Contains("4o-mini")) return 16384;

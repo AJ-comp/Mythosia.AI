@@ -9,6 +9,9 @@ namespace Mythosia.AI.Models.Enums
         [Description("claude-opus-4-6")]
         ClaudeOpus4_6,
 
+        [Description("claude-sonnet-4-6")]
+        ClaudeSonnet4_6,
+
         [Description("claude-opus-4-1-20250805")]
         ClaudeOpus4_1_250805,
 
@@ -26,18 +29,6 @@ namespace Mythosia.AI.Models.Enums
 
         [Description("claude-haiku-4-5-20251001")]
         ClaudeHaiku4_5_251001,
-
-        [Description("claude-3-7-sonnet-latest")]
-        Claude3_7SonnetLatest,
-
-        [Description("claude-3-5-haiku-20241022")]
-        Claude3_5Haiku241022,
-
-        [Description("claude-3-opus-20240229")]
-        Claude3Opus240229,
-
-        [Description("claude-3-haiku-20240307")]
-        Claude3Haiku240307,
 
 
         // DeepSeek Models

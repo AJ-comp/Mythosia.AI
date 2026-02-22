@@ -1,4 +1,4 @@
-# Function Calling Fallback: FC ON → FC OFF
+# Function Calling (FC) Fallback: FC ON → FC OFF
 
 ## Core Problem
 

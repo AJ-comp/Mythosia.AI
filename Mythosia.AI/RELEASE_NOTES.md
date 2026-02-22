@@ -1,6 +1,34 @@
 # Mythosia.AI - Release Notes
 
-## 🔧 v4.1.0 - Error Reporting, New Claude Models & Code Quality
+## � v4.2.0 - Claude Sonnet 4.6 & Deprecated Model Cleanup
+
+### **New Model: Claude Sonnet 4.6** ✨
+
+- Added `ClaudeSonnet4_6` (`claude-sonnet-4-6`) with **64K max output tokens** (65,536)
+- Extended thinking supported (Sonnet 4+)
+
+### **Deprecated Claude 3.x Models Removed** 🗑️
+
+All Claude 3.x models have been retired by Anthropic and are removed from the library:
+
+| Model | API ID | Status |
+|-------|--------|--------|
+| Claude 3.7 Sonnet | `claude-3-7-sonnet-latest` | EOL (Feb 2026) |
+| Claude 3.5 Haiku | `claude-3-5-haiku-20241022` | Retired (404) |
+| Claude 3 Opus | `claude-3-opus-20240229` | Retired |
+| Claude 3 Haiku | `claude-3-haiku-20240307` | Retired |
+
+**Breaking changes:**
+- `AIModel.Claude3_7SonnetLatest` — removed, use `AIModel.ClaudeSonnet4_250514` or newer
+- `AIModel.Claude3_5Haiku241022` — removed, use `AIModel.ClaudeHaiku4_5_251001`
+- `AIModel.Claude3Opus240229` — removed, no direct replacement
+- `AIModel.Claude3Haiku240307` — removed, use `AIModel.ClaudeHaiku4_5_251001`
+- `GetModelMaxOutputTokens()` entries for 3.x models removed
+- `IsExtendedThinkingModel()` no longer references 3.7 Sonnet
+
+---
+
+## �🔧 v4.1.0 - Error Reporting, New Claude Models & Code Quality
 
 ### **Enhanced Error Reporting** 🚨
 
@@ -88,9 +116,6 @@ return jsonElement.ValueKind == JsonValueKind.String
 |----------|-------|-------------------|
 | **Claude** | opus-4 / opus-4-1 | 32,768 |
 | **Claude** | sonnet-4 | 16,384 |
-| **Claude** | 3.7 sonnet | 8,192 |
-| **Claude** | 3.5 haiku | 8,192 |
-| **Claude** | 3 opus / 3 haiku | 4,096 |
 | **OpenAI** | gpt-5 family | 128,000 |
 | **OpenAI** | o3 / o3-pro | 100,000 |
 | **OpenAI** | gpt-4.1 family | 32,768 |
@@ -109,8 +134,8 @@ gptService.MaxTokens = 16000;  // fine for GPT-4o
 
 var claudeService = new ClaudeService(claudeKey, httpClient);
 claudeService.CopyFrom(gptService);
-claudeService.ChangeModel(AIModel.Claude3_5Haiku241022);
-// MaxTokens=16000 > Haiku limit 8192 → API error!
+claudeService.ChangeModel(AIModel.ClaudeHaiku4_5_251001);
+// MaxTokens=16000 > Haiku limit 65536 → no issue (Haiku 4.5 supports 64K)
 
 // After v4.0.1: automatically capped
 // MaxTokens stays 16000 but GetEffectiveMaxTokens() returns 8192
@@ -159,7 +184,7 @@ service.SystemMessage = "You are a helpful assistant."; // delegates to Activate
 
 ```csharp
 var claudeService = new ClaudeService(claudeKey, httpClient).CopyFrom(gptService);
-claudeService.ChangeModel(AIModel.Claude3_7SonnetLatest);
+claudeService.ChangeModel(AIModel.ClaudeSonnet4_250514);
 // Messages, Functions, Temperature, etc. are all preserved
 ```
 
@@ -208,7 +233,7 @@ var newService = new ClaudeService(key, http).CopyFrom(oldService);
 // (Functions, Temperature, MaxTokens, etc. are all copied)
 // Model is NOT copied (stays as the new provider's default)
 var newService = new ClaudeService(key, http).CopyFrom(oldService);
-newService.ChangeModel(AIModel.Claude3_7SonnetLatest); // set model explicitly
+newService.ChangeModel(AIModel.ClaudeSonnet4_250514); // set model explicitly
 ```
 
 ### **Gemini 2.5 GA + Gemini 3 Flash/Pro Preview** 🌐

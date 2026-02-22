@@ -75,9 +75,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 
         var model = AI.Model?.ToLowerInvariant() ?? "";
         var supportsThinking = model.Contains("sonnet-4") ||
-                               model.Contains("opus-4") ||
-                               model.Contains("3-7-sonnet") ||
-                               model.Contains("3.7");
+                               model.Contains("opus-4");
 
         if (supportsThinking && claudeService.ThinkingBudget < 1024)
             claudeService.ThinkingBudget = 1024;
@@ -130,8 +128,8 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
         {
             var models = new[]
             {
-               AIModel.Claude3_5Haiku241022,
-               AIModel.Claude3Opus240229
+               AIModel.ClaudeHaiku4_5_251001,
+               AIModel.ClaudeSonnet4_250514
            };
 
             foreach (var model in models)
@@ -204,6 +202,12 @@ public class Claude_Opus4_6_Tests : ClaudeServiceTestsBase
 }
 
 [TestClass]
+public class Claude_Sonnet4_6_Tests : ClaudeServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_6;
+}
+
+[TestClass]
 public class Claude_Opus4_1_Tests : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeOpus4_1_250805;
@@ -237,16 +241,4 @@ public class Claude_Sonnet4_Tests : ClaudeServiceTestsBase
 public class Claude_Haiku4_5_Tests : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeHaiku4_5_251001;
-}
-
-[TestClass]
-public class Claude_3_7SonnetLatest_Tests : ClaudeServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Claude3_7SonnetLatest;
-}
-
-[TestClass]
-public class Claude_3_5Haiku_Tests : ClaudeServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Claude3_5Haiku241022;
 }

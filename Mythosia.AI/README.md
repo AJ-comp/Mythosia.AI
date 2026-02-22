@@ -327,8 +327,8 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 | **OpenAI GPT-4.1 / GPT-4o** | ✅ | ✅ | — | Full function support |
 | **OpenAI o3 / o3-pro** | ✅ | ✅ | ✅ | Advanced reasoning |
 | **Claude Opus 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | — | Tool use via native API |
-| **Claude Sonnet 4.5 / 4 / 3.7** | ✅ | ✅ | — | Tool use via native API |
-| **Claude Haiku 4.5 / 3.5 / 3** | ✅ | ✅ | — | Tool use via native API |
+| **Claude Sonnet 4.6 / 4.5 / 4** | ✅ | ✅ | — | Tool use via native API |
+| **Claude Haiku 4.5** | ✅ | ✅ | — | Tool use via native API |
 | **Gemini 3 Flash/Pro** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
 | **Gemini 2.5 Pro/Flash** | ✅ | ✅ | ✅ | ThinkingBudget control |
 | **DeepSeek** | ❌ | ✅ | ✅ | Reasoner model streaming |

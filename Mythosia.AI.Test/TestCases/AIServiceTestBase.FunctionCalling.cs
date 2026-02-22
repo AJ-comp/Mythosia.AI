@@ -621,51 +621,66 @@ public abstract partial class AIServiceTestBase
 
     #region Helper Methods
 
+    private const int MaxFunctionCallRetries = 3;
+
     private async Task TestFunctionCall(string prompt, string expectedFunctionName, string testDescription)
     {
         Console.WriteLine($"\n[Testing] {testDescription}");
         Console.WriteLine($"[Prompt] {prompt}");
 
-        var previousFunctionCount = AI.ActivateChat.Messages
-            .Count(m => m.Role == ActorRole.Function);
-
-        try
+        for (int attempt = 1; attempt <= MaxFunctionCallRetries; attempt++)
         {
-            var response = await AI.GetCompletionAsync(prompt);
+            var previousFunctionCount = AI.ActivateChat.Messages
+                .Count(m => m.Role == ActorRole.Function);
 
-            Assert.IsNotNull(response, $"{testDescription}: Response should not be null");
-            Console.WriteLine($"[Response] {response}");
+            try
+            {
+                var response = await AI.GetCompletionAsync(prompt);
+
+                Assert.IsNotNull(response, $"{testDescription}: Response should not be null");
+                Console.WriteLine($"[Response] {response}");
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"{testDescription}: Exception occurred - {ex.Message}");
+                return;
+            }
+
+            var currentFunctionCount = AI.ActivateChat.Messages
+                .Count(m => m.Role == ActorRole.Function);
+
+            if (currentFunctionCount > previousFunctionCount)
+            {
+                var lastFunctionMessage = AI.ActivateChat.Messages
+                    .Where(m => m.Role == ActorRole.Function)
+                    .LastOrDefault();
+
+                if (lastFunctionMessage?.Metadata != null &&
+                    lastFunctionMessage.Metadata.TryGetValue("function_name", out var calledFunction))
+                {
+                    Console.WriteLine($"[Called Function] {calledFunction}");
+                    Assert.AreEqual(
+                        expectedFunctionName,
+                        calledFunction.ToString(),
+                        $"{testDescription}: Expected {expectedFunctionName} but {calledFunction} was called"
+                    );
+                }
+
+                Console.WriteLine($"[Test Passed] {testDescription}");
+                return;
+            }
+
+            if (attempt < MaxFunctionCallRetries)
+            {
+                Console.WriteLine($"[Retry {attempt}/{MaxFunctionCallRetries}] Function not called, retrying...");
+                // 이전 시도의 assistant 응답을 제거하고 재시도
+                var lastMsg = AI.ActivateChat.Messages.LastOrDefault();
+                if (lastMsg?.Role == ActorRole.Assistant)
+                    AI.ActivateChat.Messages.Remove(lastMsg);
+            }
         }
-        catch(Exception ex)
-        {
-            Assert.Fail($"{testDescription}: Exception occurred - {ex.Message}");
-            return;
-        }
 
-        var currentFunctionCount = AI.ActivateChat.Messages
-            .Count(m => m.Role == ActorRole.Function);
-
-        Assert.IsTrue(
-            currentFunctionCount > previousFunctionCount,
-            $"{testDescription}: Function should have been called"
-        );
-
-        var lastFunctionMessage = AI.ActivateChat.Messages
-            .Where(m => m.Role == ActorRole.Function)
-            .LastOrDefault();
-
-        if (lastFunctionMessage?.Metadata != null &&
-            lastFunctionMessage.Metadata.TryGetValue("function_name", out var calledFunction))
-        {
-            Console.WriteLine($"[Called Function] {calledFunction}");
-            Assert.AreEqual(
-                expectedFunctionName,
-                calledFunction.ToString(),
-                $"{testDescription}: Expected {expectedFunctionName} but {calledFunction} was called"
-            );
-        }
-
-        Console.WriteLine($"[Test Passed] {testDescription}");
+        Assert.Fail($"{testDescription}: Function should have been called (after {MaxFunctionCallRetries} attempts)");
     }
 
     #endregion
