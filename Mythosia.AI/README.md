@@ -30,6 +30,26 @@ For advanced LINQ operations with streams:
 dotnet add package System.Linq.Async
 ```
 
+For RAG (Retrieval-Augmented Generation) support:
+
+```bash
+dotnet add package Mythosia.AI.Rag
+```
+
+This adds `.WithRag()` to any `AIService`, enabling document-based context augmentation. See the [Mythosia.AI.Rag README](https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI.Rag) for full usage details.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var service = new ClaudeService(apiKey, httpClient)
+    .WithRag(rag => rag
+        .AddDocument("manual.txt")
+        .AddDocument("policy.txt")
+    );
+
+var response = await service.GetCompletionAsync("What is the refund policy?");
+```
+
 ## Quick Start
 
 ```csharp
