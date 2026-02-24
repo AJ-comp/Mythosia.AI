@@ -32,7 +32,9 @@ public abstract partial class AIServiceTestBase
 
             Console.WriteLine($"\n[IAsyncEnumerable Stream] Chunks: {chunkCount}, Total: {fullResponse.Length}");
             Assert.IsTrue(chunkCount > 0);
-            Assert.IsTrue(fullResponse.Contains("1") && fullResponse.Contains("3"));
+            var hasOne = fullResponse.Contains("1") || fullResponse.Contains("하나");
+            var hasThree = fullResponse.Contains("3") || fullResponse.Contains("셋") || fullResponse.Contains("삼");
+            Assert.IsTrue(hasOne && hasThree, $"Unexpected response: {fullResponse}");
 
             // 2) 취소 토큰을 사용한 스트리밍
             var cts = new CancellationTokenSource();

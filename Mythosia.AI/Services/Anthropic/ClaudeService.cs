@@ -29,7 +29,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// Controls the thinking token budget for Claude extended thinking.
         /// -1: Disabled (default) - no extended thinking
         /// 1024+: Specific token budget (must be less than MaxTokens)
-        /// Supported models: Claude Sonnet 4+, Claude Opus 4+
+        /// Supported models: Claude Sonnet 4+, Claude Opus 4+, Claude Haiku 4.5+
         /// Note: When thinking is enabled, temperature is automatically set to 1 (Claude requirement).
         /// </summary>
         public int ThinkingBudget { get; set; } = -1;
@@ -351,33 +351,17 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Applies thinking configuration to the request body if enabled.
-        /// When thinking is enabled, temperature must be 1 (Claude requirement).
-        /// </summary>
-        private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
-        {
-            if (!IsThinkingEnabled) return;
-
-            requestBody["thinking"] = new Dictionary<string, object>
-            {
-                ["type"] = "enabled",
-                ["budget_tokens"] = ThinkingBudget
-            };
-
-            // Claude requires temperature = 1 when thinking is enabled
-            requestBody["temperature"] = 1;
-        }
-
-        /// <summary>
         /// Returns true if the current model supports extended thinking.
-        /// Supported: Claude Sonnet 4+, Claude Sonnet 4.5+, Claude Opus 4+
-        /// Not supported: Claude 3 Opus, Claude 3 Haiku, Claude 3.5 Haiku
+        /// Supported: Claude Sonnet 4+, Claude Opus 4+, Claude Haiku 4.5+
         /// </summary>
+        public bool SupportsExtendedThinking => IsExtendedThinkingModel();
+
         private bool IsExtendedThinkingModel()
         {
             var model = Model?.ToLower() ?? "";
             if (model.Contains("sonnet-4")) return true;
             if (model.Contains("opus-4")) return true;
+            if (model.Contains("haiku-4")) return true;
             return false;
         }
 
@@ -385,6 +369,22 @@ namespace Mythosia.AI.Services.Anthropic
         /// Returns true if extended thinking is enabled and the model supports it.
         /// </summary>
         private bool IsThinkingEnabled => ThinkingBudget >= 1024 && IsExtendedThinkingModel();
+
+        /// <summary>
+        /// Applies thinking configuration to the request body if enabled.
+        /// When thinking is enabled, temperature must be 1 (Claude requirement).
+        /// </summary>
+        private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
+        {
+            if (!IsThinkingEnabled) return;
+
+            requestBody["temperature"] = 1.0f;
+            requestBody["thinking"] = new Dictionary<string, object>
+            {
+                ["type"] = "enabled",
+                ["budget_tokens"] = ThinkingBudget
+            };
+        }
 
         /// <summary>
         /// Sets Claude extended thinking parameters.

@@ -178,6 +178,13 @@ public class OpenAI_Gpt5_2Pro_Tests : ChatGptServiceTestsBase
     protected override AIModel ModelToTest => AIModel.Gpt5_2Pro;
 }
 
+// 6. GPT-5.2 Codex 모델 테스트 클래스
+[TestClass]
+public class OpenAI_Gpt5_2Codex_Tests : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_2Codex;
+}
+
 /// <summary>
 /// GPT-5 전용 기능 테스트 (reasoning effort 설정 등)
 /// </summary>

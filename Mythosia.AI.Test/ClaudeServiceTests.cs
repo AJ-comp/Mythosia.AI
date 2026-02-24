@@ -73,14 +73,13 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
         if (AI is not ClaudeService claudeService)
             return false;
 
-        var model = AI.Model?.ToLowerInvariant() ?? "";
-        var supportsThinking = model.Contains("sonnet-4") ||
-                               model.Contains("opus-4");
+        if (!claudeService.SupportsExtendedThinking)
+            return false;
 
-        if (supportsThinking && claudeService.ThinkingBudget < 1024)
+        if (claudeService.ThinkingBudget < 1024)
             claudeService.ThinkingBudget = 1024;
 
-        return supportsThinking;
+        return true;
     }
     protected override AIModel? GetAlternativeModel() => AIModel.ClaudeSonnet4_250514;
 

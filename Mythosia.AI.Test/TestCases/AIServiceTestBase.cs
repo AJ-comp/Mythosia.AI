@@ -1,4 +1,5 @@
-﻿using Mythosia.AI.Models.Enums;
+﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -92,7 +93,19 @@ public abstract partial class AIServiceTestBase
             return;
         }
 
-        await testAction();
+        try
+        {
+            await testAction();
+        }
+        catch (AIServiceException ex)
+        {
+            if (!string.IsNullOrWhiteSpace(ex.ErrorDetails))
+            {
+                Console.WriteLine($"[AIService ErrorDetails] {ex.ErrorDetails}");
+            }
+
+            throw;
+        }
     }
 
     /// <summary>

@@ -7,24 +7,25 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.2.0</VersionPrefix>
+		<VersionPrefix>4.3.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.2.0
+## What's New in v4.3.0
 
-### New Model: Claude Sonnet 4.6
-- Added ClaudeSonnet4_6 (claude-sonnet-4-6) with 64K max output tokens
-- Extended thinking supported (Sonnet 4+)
+### New Model: GPT-5.2 Codex
+- Added Gpt5_2Codex (gpt-5.2-codex) for agentic coding tasks
+- Reasoning effort: low/medium(default)/high/xhigh (no 'none')
 
-### Deprecated Claude 3.x Models Removed (Breaking Change)
-All Claude 3.x models have been retired by Anthropic and are removed:
-- Claude3_7SonnetLatest (claude-3-7-sonnet-latest) - use ClaudeSonnet4_250514
-- Claude3_5Haiku241022 (claude-3-5-haiku-20241022) - use ClaudeHaiku4_5_251001
-- Claude3Opus240229 (claude-3-opus-20240229) - removed
-- Claude3Haiku240307 (claude-3-haiku-20240307) - use ClaudeHaiku4_5_251001
+### Claude Haiku 4.5 Extended Thinking
+- Extended thinking now supported on Claude Haiku 4.5
+- New SupportsExtendedThinking public property on ClaudeService
+
+### Test Improvements
+- AIServiceException.ErrorDetails logging in test framework
+- Relaxed streaming assertions for multilingual responses
 
 ## Supported Models
 
@@ -36,7 +37,7 @@ All Claude 3.x models have been retired by Anthropic and are removed:
 ### OpenAI
 - GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-5 Chat Latest
 - GPT-5.1
-- GPT-5.2, GPT-5.2 Pro
+- GPT-5.2, GPT-5.2 Pro, GPT-5.2 Codex
 - o3, o3-pro
 - GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
 - GPT-4o, GPT-4o Mini, GPT-4 Vision
@@ -59,7 +60,7 @@ All Claude 3.x models have been retired by Anthropic and are removed:
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.2.0</Version>
+		<Version>4.3.0</Version>
 	</PropertyGroup>
 
 

@@ -1,5 +1,35 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v4.3.0 - GPT-5.2 Codex & Claude Haiku 4.5 Extended Thinking
+
+### **New Model: GPT-5.2 Codex** 🤖
+
+- Added `Gpt5_2Codex` (`gpt-5.2-codex`) — Coding-optimized model for agentic coding tasks
+- Reasoning effort: `low` / `medium` (default) / `high` / `xhigh` — **`none` is not supported**
+- If `none` is set, automatically adjusted to `low` with a console warning
+- `IsGpt5_2CodexModel()` added for Codex-specific parameter routing
+
+### **Claude Haiku 4.5 Extended Thinking** 🧠
+
+- Extended thinking is now supported on **Claude Haiku 4.5** (`haiku-4` model detection added to `IsExtendedThinkingModel()`)
+- New **`SupportsExtendedThinking`** public property on `ClaudeService` for external callers to check thinking capability
+- `ApplyThinkingConfig()` reordered: temperature set before thinking block
+
+### 🧪 Test Improvements
+
+- **`RunIfSupported()` error logging** — Now catches `AIServiceException` and logs `ErrorDetails` before rethrowing, improving test diagnostics
+- **Streaming assertion relaxed** — `StreamingTest` now accepts Korean number words (하나, 셋, 삼) alongside digits for multilingual model responses
+- **`SupportsReasoning()` refactored** — `ClaudeServiceTests` now uses `SupportsExtendedThinking` property instead of manual model string checking
+- **New test class**: `OpenAI_Gpt5_2Codex_Tests`
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.2.0
+- No breaking changes
+- New enum value: `AIModel.Gpt5_2Codex`
+
+---
+
 ## � v4.2.0 - Claude Sonnet 4.6 & Deprecated Model Cleanup
 
 ### **New Model: Claude Sonnet 4.6** ✨
@@ -290,6 +320,7 @@ await foreach (var content in geminiService.StreamAsync(message, new StreamOptio
 - **GPT-5.1** (`gpt-5.1`) — Reasoning model with effort levels (none/low/medium/high) and text verbosity control (low/medium/high)
 - **GPT-5.2** (`gpt-5.2`) — Best model for complex, coding, and agentic tasks with effort levels (none/low/medium/high/xhigh)
 - **GPT-5.2 Pro** (`gpt-5.2-pro`) — High-compute model for tough problems, supports medium/high/xhigh reasoning effort
+- **GPT-5.2 Codex** (`gpt-5.2-codex`) — Coding-optimized model for agentic coding tasks, supports low/medium/high/xhigh reasoning effort (default: medium)
 
 #### New Builder Methods
 - **`WithGpt5_1Parameters()`** — Configure reasoning effort (`Gpt5_1Reasoning` enum), verbosity (`Verbosity` enum), and reasoning summary (`ReasoningSummary` enum) for GPT-5.1
@@ -319,11 +350,13 @@ gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.High, reasoningSumm
 - **`IsGpt5Family()`** — Unified detection for all GPT-5 variants (gpt-5, gpt-5.1, gpt-5.2), used for shared behaviors like Responses API endpoint routing and unsupported parameter removal
 - **`IsGpt5Model()`** — Matches only GPT-5 base models (gpt-5, gpt-5-mini, gpt-5-nano), excludes gpt-5.1/5.2
 - **`IsGpt5_1Model()`** — Matches GPT-5.1 models
-- **`IsGpt5_2Model()`** — Matches GPT-5.2 models (including gpt-5.2-pro)
+- **`IsGpt5_2Model()`** — Matches GPT-5.2 models (including gpt-5.2-pro, gpt-5.2-codex)
+- **`IsGpt5_2CodexModel()`** — Matches GPT-5.2 Codex models specifically (Codex does not support 'none' reasoning effort)
 - **Per-model parameter routing** — `ApplyModelSpecificParameters` now routes from most specific to least specific (5.2 → 5.1 → 5)
 
-#### GPT-5.2 Pro Defaults
+#### GPT-5.2 Pro / Codex Defaults
 - GPT-5.2 Pro automatically applies `Gpt5_2Reasoning.Medium` as default (regular GPT-5.2 defaults to `Gpt5_2Reasoning.None`)
+- GPT-5.2 Codex automatically applies `Gpt5_2Reasoning.Medium` as default; 'none' is not supported and will be adjusted to 'low'
 
 ### 🗑️ Deprecated Model Removal
 
@@ -347,7 +380,7 @@ gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.High, reasoningSumm
 | `Gpt5_2Verbosity` | `Verbosity?` | `null` | GPT-5.2 text verbosity (Low/Medium/High) |
 
 ### 🧪 Test Updates
-- **Added test classes**: `OpenAI_o3_Tests`, `OpenAI_Gpt5_1_Tests`, `OpenAI_Gpt5_2_Tests`, `OpenAI_Gpt5_2Pro_Tests`
+- **Added test classes**: `OpenAI_o3_Tests`, `OpenAI_Gpt5_1_Tests`, `OpenAI_Gpt5_2_Tests`, `OpenAI_Gpt5_2Pro_Tests`, `OpenAI_Gpt5_2Codex_Tests`
 - **Removed test classes**: `OpenAI_o3MiniTests`, `OpenAI_Gpt5Pro_Tests`, `Claude_3_5Sonnet_Tests`
 - **Relaxed streaming assertions** — Chunk count assertions changed from exact match to range-based (`Assert.IsTrue(count >= 1 && count <= N)`) to accommodate reasoning models that may return fewer chunks
 - **Updated Claude vision fallback** — Changed from `Claude3_5Sonnet241022` to `ClaudeSonnet4_250514`
@@ -363,12 +396,13 @@ gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.High, reasoningSumm
 | **gpt-5.1** | ✅ Full Support | none/low/medium/high | low/medium/high |
 | **gpt-5.2** | ✅ Full Support | none/low/medium/high/xhigh | low/medium/high |
 | **gpt-5.2-pro** | ✅ Full Support | medium/high/xhigh | low/medium/high |
+| **gpt-5.2-codex** | ✅ Full Support | low/medium/high/xhigh | low/medium/high |
 
 ### ✅ Compatibility
 - Fully backward compatible with v3.1.x
 - No breaking changes
 - `WithGpt5Parameters()` model guard removed — can now be called regardless of active model
-- New enum values in `AIModel`: `Gpt5_1`, `Gpt5_2`, `Gpt5_2Pro`
+- New enum values in `AIModel`: `Gpt5_1`, `Gpt5_2`, `Gpt5_2Pro`, `Gpt5_2Codex`
 - Removed enum values: `o3_mini`, `Gpt5Pro`, `Gpt5Pro_251006`, `Claude3_5Sonnet241022`
 
 ---

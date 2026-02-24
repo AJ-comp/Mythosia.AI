@@ -416,7 +416,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// Sets GPT-5.2 specific parameters.
-        /// Reasoning effort: None (default), Low, Medium, High, XHigh. GPT-5.2 Pro supports Medium, High, XHigh.
+        /// Reasoning effort: None (default), Low, Medium, High, XHigh. GPT-5.2 Pro supports Medium, High, XHigh. GPT-5.2 Codex supports Low, Medium (default), High, XHigh.
         /// Verbosity: Low, Medium (default), High.
         /// Reasoning summary: Auto (default), Concise, Detailed, or null to disable.
         /// </summary>

@@ -186,16 +186,28 @@ namespace Mythosia.AI.Services.OpenAI
         /// Configures GPT-5.2 specific parameters.
         /// GPT-5.2 supports reasoning effort: none (default), low, medium, high, xhigh.
         /// GPT-5.2 Pro supports reasoning effort: medium, high, xhigh.
+        /// GPT-5.2 Codex supports reasoning effort: low, medium (default), high, xhigh.
         /// GPT-5.2 supports text verbosity: low, medium (default), high.
         /// </summary>
         private void ConfigureGpt5_2Parameters(Dictionary<string, object> requestBody, string model)
         {
+            bool isCodex = IsGpt5_2CodexModel(model);
             var resolvedEffort = Gpt5_2ReasoningEffort;
             if (resolvedEffort == Gpt5_2Reasoning.Auto)
             {
-                resolvedEffort = model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase)
-                    ? Gpt5_2Reasoning.Medium
-                    : Gpt5_2Reasoning.None;
+                if (model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase))
+                    resolvedEffort = Gpt5_2Reasoning.Medium;
+                else if (isCodex)
+                    resolvedEffort = Gpt5_2Reasoning.Medium;
+                else
+                    resolvedEffort = Gpt5_2Reasoning.None;
+            }
+
+            // GPT-5.2 Codex does not support 'none' reasoning effort
+            if (isCodex && resolvedEffort == Gpt5_2Reasoning.None)
+            {
+                Console.WriteLine("[GPT-5.2 Codex] 'none' reasoning effort is not supported. Adjusting to 'low'.");
+                resolvedEffort = Gpt5_2Reasoning.Low;
             }
             var effort = resolvedEffort.ToString().ToLowerInvariant();
 
@@ -317,11 +329,20 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches GPT-5.2 models: gpt-5.2, gpt-5.2-pro, gpt-5.2-chat-latest, etc.
+        /// Matches GPT-5.2 models: gpt-5.2, gpt-5.2-pro, gpt-5.2-codex, gpt-5.2-chat-latest, etc.
         /// </summary>
         private bool IsGpt5_2Model(string model)
         {
             return model.StartsWith("gpt-5.2", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Matches GPT-5.2 Codex models: gpt-5.2-codex and its snapshots.
+        /// Codex supports reasoning effort: low, medium (default), high, xhigh (no 'none').
+        /// </summary>
+        private bool IsGpt5_2CodexModel(string model)
+        {
+            return model.StartsWith("gpt-5.2-codex", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsO3Model(string model)

@@ -82,6 +82,10 @@ namespace Mythosia.AI.Models.Enums
         [Description("gpt-5.2-pro")]
         Gpt5_2Pro,
 
+        /// <summary>OpenAI GPT-5.2 Codex - Coding-optimized model for agentic coding tasks (default effort: medium, supports: low/medium/high/xhigh)</summary>
+        [Description("gpt-5.2-codex")]
+        Gpt5_2Codex,
+
         /// <summary>OpenAI o3-pro - Top-tier reasoning model for hardest problems</summary>
         [Description("o3-pro")]
         o3_pro,

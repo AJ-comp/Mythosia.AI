@@ -6,7 +6,7 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 
 ### Supported Providers
 
-- **OpenAI** — GPT-5.2 / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
+- **OpenAI** — GPT-5.2 / 5.2 Codex / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
 - **Anthropic** — Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.5 / 4, Haiku 4.5 / 3.5
 - **Google** — Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite
 - **DeepSeek** — Chat and Reasoner models
@@ -74,7 +74,7 @@ gptService.WithGpt5_2Parameters(
     verbosity: Verbosity.High);
 ```
 
-`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro).
+`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro/Codex).
 
 ### Reasoning Summary
 
@@ -321,14 +321,14 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 
 | Service | Function Calling | Streaming | Reasoning | Notes |
 |---------|-----------------|-----------|-----------|--------|
-| **OpenAI GPT-5.2 / 5.2 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
+| **OpenAI GPT-5.2 / 5.2 Pro / 5.2 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.1** | ✅ | ✅ | ✅ | Reasoning + verbosity control |
 | **OpenAI GPT-5 / Mini / Nano** | ✅ | ✅ | ✅ | Reasoning streaming + summary |
 | **OpenAI GPT-4.1 / GPT-4o** | ✅ | ✅ | — | Full function support |
 | **OpenAI o3 / o3-pro** | ✅ | ✅ | ✅ | Advanced reasoning |
-| **Claude Opus 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | — | Tool use via native API |
-| **Claude Sonnet 4.6 / 4.5 / 4** | ✅ | ✅ | — | Tool use via native API |
-| **Claude Haiku 4.5** | ✅ | ✅ | — | Tool use via native API |
+| **Claude Opus 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
+| **Claude Sonnet 4.6 / 4.5 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
+| **Claude Haiku 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Gemini 3 Flash/Pro** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
 | **Gemini 2.5 Pro/Flash** | ✅ | ✅ | ✅ | ThinkingBudget control |
 | **DeepSeek** | ❌ | ✅ | ✅ | Reasoner model streaming |
