@@ -73,7 +73,7 @@
 
 
 	<ItemGroup>
-	  <ProjectReference Include="..\Mythosia\Mythosia.csproj" />
+	  <PackageReference Include="Mythosia" Version="1.4.0" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Mythosia.AI\Mythosia.AI.csproj" />
-    <ProjectReference Include="..\Mythosia.Azure\Mythosia.Azure.csproj" />
+    <ProjectReference Include="..\..\Mythosia.AI\Mythosia.AI.csproj" />
+    <PackageReference Include="Mythosia.Azure" Version="1.2.0" />
   </ItemGroup>
 
   <ItemGroup>
