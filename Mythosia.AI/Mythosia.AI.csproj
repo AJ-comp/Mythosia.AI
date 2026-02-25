@@ -53,12 +53,12 @@
 - Sonar, Sonar Pro, Sonar Reasoning
 
 ## Documentation
-- Basic Usage: https://github.com/AJ-comp/Mythosia/wiki
-- Advanced Features: https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features
-- Release Notes: https://github.com/AJ-comp/Mythosia/wiki/Release-Notes
-- GitHub: https://github.com/AJ-comp/Mythosia
+- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
+- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
+- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
+- GitHub: https://github.com/AJ-comp/Mythosia.AI
 		</Description>
-		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<Version>4.3.0</Version>
 	</PropertyGroup>
@@ -88,3 +88,4 @@
 	</ItemGroup>
 
 </Project>
+

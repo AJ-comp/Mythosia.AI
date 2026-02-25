@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -8,7 +8,7 @@
     <Company>Mythosia</Company>
     <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IVectorStore, IContextBuilder interfaces and shared models.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter</PackageTags>
-    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,3 +16,4 @@
   </ItemGroup>
 
 </Project>
+

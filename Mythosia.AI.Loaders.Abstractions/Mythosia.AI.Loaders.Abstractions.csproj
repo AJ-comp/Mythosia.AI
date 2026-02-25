@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -8,7 +8,8 @@
     <Company>Mythosia</Company>
     <Description>Document loader abstractions for Mythosia.AI RAG pipeline. Defines IDocumentLoader and RagDocument models.</Description>
     <PackageTags>AI;RAG;DocumentLoader;Abstractions</PackageTags>
-    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
   </PropertyGroup>
 
 </Project>
+
