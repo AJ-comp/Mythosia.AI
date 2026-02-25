@@ -7,32 +7,25 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.3.0</VersionPrefix>
+		<VersionPrefix>4.4.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.3.0
+## What's New in v4.4.0
 
-### New Model: GPT-5.2 Codex
-- Added Gpt5_2Codex (gpt-5.2-codex) for agentic coding tasks
-- Reasoning effort: low/medium(default)/high/xhigh (no 'none')
+### New Provider: xAI (Grok)
+- Added GrokService with full support for Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini
+- Function calling via OpenAI-compatible tools/tool_calls format
+- Streaming with function call support (multi-round)
+- Vision/multimodal support for Grok 4 models
+- Reasoning model parameter handling (grok-3-mini, grok-4*)
 
-### Claude Haiku 4.5 Extended Thinking
-- Extended thinking now supported on Claude Haiku 4.5
-- New SupportsExtendedThinking public property on ClaudeService
-
-### Test Improvements
-- AIServiceException.ErrorDetails logging in test framework
-- Relaxed streaming assertions for multilingual responses
+### AIModel Enum Reordering
+- OpenAI models moved to the top of the AIModel enum for consistency
 
 ## Supported Models
-
-### Anthropic Claude
-- Claude Opus 4.6, Opus 4.5, Opus 4.1, Opus 4
-- Claude Sonnet 4.6, Sonnet 4.5, Sonnet 4
-- Claude Haiku 4.5
 
 ### OpenAI
 - GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-5 Chat Latest
@@ -41,6 +34,15 @@
 - o3, o3-pro
 - GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
 - GPT-4o, GPT-4o Mini, GPT-4 Vision
+
+### Anthropic Claude
+- Claude Opus 4.6, Opus 4.5, Opus 4.1, Opus 4
+- Claude Sonnet 4.6, Sonnet 4.5, Sonnet 4
+- Claude Haiku 4.5
+
+### xAI Grok
+- Grok 4, Grok 4.1 Fast
+- Grok 3, Grok 3 Mini
 
 ### Google Gemini
 - Gemini 2.5 Pro, Flash, Flash-Lite
@@ -60,7 +62,7 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.3.0</Version>
+		<Version>4.4.0</Version>
 	</PropertyGroup>
 
 

@@ -5,41 +5,7 @@ namespace Mythosia.AI.Models.Enums
 {
     public enum AIModel
     {
-        // Anthropic Claude Models
-        [Description("claude-opus-4-6")]
-        ClaudeOpus4_6,
-
-        [Description("claude-sonnet-4-6")]
-        ClaudeSonnet4_6,
-
-        [Description("claude-opus-4-1-20250805")]
-        ClaudeOpus4_1_250805,
-
-        [Description("claude-opus-4-20250514")]
-        ClaudeOpus4_250514,
-
-        [Description("claude-opus-4-5-20251101")]
-        ClaudeOpus4_5_251101,
-
-        [Description("claude-sonnet-4-5-20250929")]
-        ClaudeSonnet4_5_250929,
-
-        [Description("claude-sonnet-4-20250514")]
-        ClaudeSonnet4_250514,
-
-        [Description("claude-haiku-4-5-20251001")]
-        ClaudeHaiku4_5_251001,
-
-
-        // DeepSeek Models
-        [Description("deepseek-chat")]
-        DeepSeekChat,
-
-        [Description("deepseek-reasoner")]
-        DeepSeekReasoner,
-
-
-        // OpenAI Models
+        #region OpenAI Models
         /// <summary>OpenAI GPT-5 - Most advanced general-purpose model</summary>
         [Description("gpt-5")]
         Gpt5,
@@ -129,9 +95,35 @@ namespace Mythosia.AI.Models.Enums
         /// <summary>OpenAI GPT-4 Vision Preview - Deprecated, use GPT-4o</summary>
         [Description("gpt-4-vision-preview")]
         Gpt4Vision,
+        #endregion
 
+        #region Anthropic Claude Models
+        [Description("claude-opus-4-6")]
+        ClaudeOpus4_6,
 
-        // Google Gemini Models
+        [Description("claude-sonnet-4-6")]
+        ClaudeSonnet4_6,
+
+        [Description("claude-opus-4-1-20250805")]
+        ClaudeOpus4_1_250805,
+
+        [Description("claude-opus-4-20250514")]
+        ClaudeOpus4_250514,
+
+        [Description("claude-opus-4-5-20251101")]
+        ClaudeOpus4_5_251101,
+
+        [Description("claude-sonnet-4-5-20250929")]
+        ClaudeSonnet4_5_250929,
+
+        [Description("claude-sonnet-4-20250514")]
+        ClaudeSonnet4_250514,
+
+        [Description("claude-haiku-4-5-20251001")]
+        ClaudeHaiku4_5_251001,
+        #endregion
+
+        #region Google Gemini Models
         [Description("gemini-2.5-pro")]
         Gemini2_5Pro,
 
@@ -146,8 +138,35 @@ namespace Mythosia.AI.Models.Enums
 
         [Description("gemini-3-pro-preview")]
         Gemini3ProPreview,
+        #endregion
 
-        // Perplexity Models
+        #region xAI Grok Models
+        /// <summary>xAI Grok 4 - Flagship reasoning model (256K context)</summary>
+        [Description("grok-4-0709")]
+        Grok4,
+
+        /// <summary>xAI Grok 4.1 Fast - Fast variant optimized for speed</summary>
+        [Description("grok-4-1-fast")]
+        Grok4_1Fast,
+
+        /// <summary>xAI Grok 3 - General-purpose model (131K context)</summary>
+        [Description("grok-3")]
+        Grok3,
+
+        /// <summary>xAI Grok 3 Mini - Cost-efficient, fast completions (131K context)</summary>
+        [Description("grok-3-mini")]
+        Grok3Mini,
+        #endregion
+
+        #region DeepSeek Models
+        [Description("deepseek-chat")]
+        DeepSeekChat,
+
+        [Description("deepseek-reasoner")]
+        DeepSeekReasoner,
+        #endregion
+
+        #region Perplexity Models
         [Description("sonar")]
         PerplexitySonar,
 
@@ -155,7 +174,8 @@ namespace Mythosia.AI.Models.Enums
         PerplexitySonarPro,
 
         [Description("sonar-reasoning")]
-        PerplexitySonarReasoning
+        PerplexitySonarReasoning,
+        #endregion
     }
 
     public enum AIProvider
@@ -163,7 +183,8 @@ namespace Mythosia.AI.Models.Enums
         OpenAI,
         Anthropic,
         Google,
+        xAI,
         DeepSeek,
-        Perplexity
+        Perplexity,
     }
 }

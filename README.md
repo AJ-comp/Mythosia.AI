@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI)
 
-Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, DeepSeek, Perplexity) and RAG extensions.
+Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, DeepSeek, Perplexity, xAI) and RAG extensions.
 
 ## Supported Providers
 
@@ -12,6 +12,7 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 | **OpenAI** | GPT-5.2 / 5.2 Codex / 5.1 / 5, GPT-4.1, GPT-4o, o3 |
 | **Anthropic** | Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.5 / 4, Haiku 4.5 |
 | **Google** | Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite |
+| **xAI** | Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini |
 | **DeepSeek** | Chat, Reasoner |
 | **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning |
 

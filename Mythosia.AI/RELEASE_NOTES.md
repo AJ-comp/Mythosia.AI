@@ -1,5 +1,73 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v4.4.0 - xAI Grok Provider & AIModel Enum Reordering
+
+### **New Provider: xAI (Grok)** 🤖
+
+Added full support for xAI's Grok models via `GrokService`:
+
+| Model | Enum | API Identifier |
+|-------|------|----------------|
+| **Grok 4** | `Grok4` | `grok-4-0709` |
+| **Grok 4.1 Fast** | `Grok4_1Fast` | `grok-4-1-fast` |
+| **Grok 3** | `Grok3` | `grok-3` |
+| **Grok 3 Mini** | `Grok3Mini` | `grok-3-mini` |
+
+#### Features
+- **Function calling** via OpenAI-compatible `tools`/`tool_calls` format
+- **Streaming** with multi-round function call support
+- **Vision/multimodal** support for Grok 4 models (Grok 3/3 Mini do not support image inputs)
+- **Reasoning model handling** — `grok-3-mini` and `grok-4*` are reasoning models that reject `frequency_penalty`, `presence_penalty`, `stop`, and `temperature` parameters; these are automatically excluded
+
+#### Usage Example
+
+```csharp
+var grokService = new GrokService(apiKey, new HttpClient());
+
+// Default model: Grok 3
+var response = await grokService.GetCompletionAsync("Hello from Grok!");
+
+// Switch to Grok 4
+grokService.ChangeModel(AIModel.Grok4);
+
+// Function calling
+grokService.WithFunction("get_weather", "Get current weather",
+    ("city", "City name", true),
+    (string city) => $"Weather in {city}: 22°C, sunny");
+
+var result = await grokService.GetCompletionAsync("What's the weather in Seoul?");
+
+// Streaming with function calls
+await foreach (var content in grokService.StreamAsync(message, StreamOptions.WithFunctions))
+{
+    if (content.Type == StreamingContentType.FunctionCall)
+        Console.WriteLine($"[Calling] {content.Metadata["function_name"]}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+```
+
+### **AIModel Enum Reordering** 📋
+
+- OpenAI models moved to the top of the `AIModel` enum for consistency
+- Added `AIProvider.xAI` to the `AIProvider` enum
+- New enum values: `Grok4`, `Grok4_1Fast`, `Grok3`, `Grok3Mini`
+
+### 🧪 Test Updates
+
+- **New test classes**: `xAI_Grok4_Tests`, `xAI_Grok4_1Fast_Tests`, `xAI_Grok3_Tests`, `xAI_Grok3Mini_Tests`
+- Per-model `SupportsMultimodal()` — only Grok 4 models return `true`
+- Per-model `GetAlternativeModel()` for conversation management tests
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.3.0
+- **Breaking change**: `AIModel` enum values have been reordered (OpenAI first). If you persist enum integer values, update your mappings.
+- New enum values: `AIModel.Grok4`, `AIModel.Grok4_1Fast`, `AIModel.Grok3`, `AIModel.Grok3Mini`
+- New enum value: `AIProvider.xAI`
+
+---
+
 ## 🚀 v4.3.0 - GPT-5.2 Codex & Claude Haiku 4.5 Extended Thinking
 
 ### **New Model: GPT-5.2 Codex** 🤖

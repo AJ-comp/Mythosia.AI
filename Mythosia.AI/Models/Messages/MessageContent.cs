@@ -45,6 +45,7 @@ namespace Mythosia.AI.Models.Messages
             return provider switch
             {
                 AIProvider.OpenAI => new { type = "text", text = Text },
+                AIProvider.xAI => new { type = "text", text = Text },
                 AIProvider.Anthropic => new { type = "text", text = Text },
                 AIProvider.Google => new { text = Text },
                 _ => Text
@@ -98,6 +99,15 @@ namespace Mythosia.AI.Models.Messages
             return provider switch
             {
                 AIProvider.OpenAI => new
+                {
+                    type = "image_url",
+                    image_url = new
+                    {
+                        url = imageUrl,
+                        detail = IsHighDetail ? "high" : "low"
+                    }
+                },
+                AIProvider.xAI => new
                 {
                     type = "image_url",
                     image_url = new
