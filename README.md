@@ -111,8 +111,9 @@ dotnet add package System.Linq.Async
 
 ## License
 
-See [LICENSE](LICENSE) for details.
+This project is licensed under the [MIT License](LICENSE).
 
 ## Originally
 
 This project was originally part of [Mythosia](https://github.com/AJ-comp/Mythosia).
+
