@@ -25,9 +25,10 @@ namespace Mythosia.AI.Services.Perplexity
             var originalModel = Model;
             var messagesList = new List<object>();
 
-            if (!string.IsNullOrEmpty(SystemMessage))
+            var effectiveSystemMsg = GetEffectiveSystemMessage();
+            if (!string.IsNullOrEmpty(effectiveSystemMsg))
             {
-                messagesList.Add(new { role = "system", content = SystemMessage });
+                messagesList.Add(new { role = "system", content = effectiveSystemMsg });
             }
 
             messagesList.Add(new { role = "user", content = prompt });

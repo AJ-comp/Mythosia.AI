@@ -161,7 +161,7 @@ namespace Mythosia.AI.Services.Google
 
         private void ApplySystemInstruction(Dictionary<string, object> requestBody)
         {
-            var systemMsg = ActivateChat.SystemMessage ?? "";
+            var systemMsg = GetEffectiveSystemMessage();
             var structuredInstruction = GetStructuredOutputInstruction();
             if (structuredInstruction != null)
                 systemMsg += structuredInstruction;

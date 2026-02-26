@@ -379,6 +379,59 @@ List<ItemDto> items = await run.Result;
 
 `List<T>`, `T[]`, `IReadOnlyList<T>` are all supported. JSON array schema is auto-generated from the element type.
 
+## Conversation Summary Policy
+
+Automatically summarize old conversation messages when the conversation exceeds a configured threshold. The summary is stored and injected into the system message on each subsequent LLM request.
+
+### Configuration
+
+```csharp
+// Token-based: summarize when total tokens exceed 3000, keep recent ~1000 tokens
+service.ConversationPolicy = SummaryConversationPolicy.ByToken(
+    triggerTokens: 3000,
+    keepRecentTokens: 1000
+);
+
+// Message-count-based: summarize when messages exceed 20, keep last 5
+service.ConversationPolicy = SummaryConversationPolicy.ByMessage(
+    triggerCount: 20,
+    keepRecentCount: 5
+);
+
+// Combined (OR condition): triggers when either threshold is exceeded
+service.ConversationPolicy = SummaryConversationPolicy.ByBoth(
+    triggerTokens: 3000,
+    triggerCount: 20
+);
+```
+
+### Usage
+
+```csharp
+// Just use as normal — summarization happens automatically
+service.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 20, keepRecentCount: 5);
+
+var response = await service.GetCompletionAsync("Continue our conversation...");
+// When message count exceeds 20, old messages are summarized automatically
+```
+
+### Session Persistence
+
+```csharp
+// Save summary for later
+string saved = service.ConversationPolicy.CurrentSummary;
+
+// Restore in a new session
+policy.LoadSummary(saved);
+```
+
+### Key Design Decisions
+
+- **StatelessMode protection** — Summary LLM calls use `StatelessMode = true` to prevent polluting the main conversation history
+- **Backward compatible** — `ConversationPolicy` defaults to `null`; existing behavior is unchanged
+- **Provider-agnostic** — Works with all providers (OpenAI, Claude, Gemini, Grok, DeepSeek, Perplexity)
+- **Incremental summarization** — When re-summarizing, existing summary is included as context for the new summary
+
 ## Enhanced Streaming
 
 ### Stream Options

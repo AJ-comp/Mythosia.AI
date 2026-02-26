@@ -29,7 +29,6 @@ namespace Mythosia.AI.Services.DeepSeek
         {
             Model = AIModel.DeepSeekChat.ToDescription();
             MaxTokens = 8000;
-            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods

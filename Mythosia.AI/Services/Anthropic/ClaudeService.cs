@@ -60,7 +60,6 @@ namespace Mythosia.AI.Services.Anthropic
             Model = AIModel.ClaudeSonnet4_250514.ToDescription();
             MaxTokens = 8192;
             Temperature = 0.7f;
-            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -345,7 +344,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private void ApplySystemMessage(Dictionary<string, object> requestBody)
         {
-            var systemMsg = SystemMessage ?? "";
+            var systemMsg = GetEffectiveSystemMessage();
             var structuredInstruction = GetStructuredOutputInstruction();
             if (structuredInstruction != null)
                 systemMsg += structuredInstruction;

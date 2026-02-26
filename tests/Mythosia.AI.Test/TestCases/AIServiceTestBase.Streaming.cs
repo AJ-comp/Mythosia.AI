@@ -413,4 +413,58 @@ public abstract partial class AIServiceTestBase
             Assert.Fail(ex.Message);
         }
     }
+
+    /// <summary>
+    /// 실시간 스트리밍 회귀 테스트 — chunk가 배치가 아닌 점진적으로 도착하는지 확인
+    /// </summary>
+    [TestCategory("Common")]
+    [TestCategory("Streaming")]
+    [TestMethod]
+    public async Task StreamingIsRealTimeNotBatchedTest()
+    {
+        try
+        {
+            AI.ActivateChat.SystemMessage = "You are a helpful assistant. Write detailed responses.";
+
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var timestamps = new List<long>();
+            string fullResponse = "";
+
+            await foreach (var chunk in AI.StreamAsync("Write a short paragraph about the history of computers."))
+            {
+                timestamps.Add(sw.ElapsedMilliseconds);
+                fullResponse += chunk;
+            }
+
+            sw.Stop();
+
+            Assert.IsTrue(timestamps.Count > 1, $"Expected multiple chunks but got {timestamps.Count}");
+            Assert.IsTrue(fullResponse.Length > 0, "Response should not be empty");
+
+            var firstChunkMs = timestamps.First();
+            var lastChunkMs = timestamps.Last();
+            var spreadMs = lastChunkMs - firstChunkMs;
+
+            Console.WriteLine($"[Real-Time Streaming Test]");
+            Console.WriteLine($"  Total chunks: {timestamps.Count}");
+            Console.WriteLine($"  First chunk at: {firstChunkMs}ms");
+            Console.WriteLine($"  Last chunk at:  {lastChunkMs}ms");
+            Console.WriteLine($"  Spread (last - first): {spreadMs}ms");
+            Console.WriteLine($"  Response length: {fullResponse.Length} chars");
+
+            // 실시간 스트리밍이면 첫 chunk와 마지막 chunk 사이에 유의미한 시간 차이가 있어야 함
+            // 배치로 한꺼번에 오면 spread가 거의 0에 가까움
+            Assert.IsTrue(spreadMs > 200,
+                $"Chunks arrived too quickly (spread={spreadMs}ms). " +
+                $"Streaming may be batched instead of real-time. " +
+                $"Chunks: {timestamps.Count}, Response: {fullResponse.Length} chars");
+
+            Console.WriteLine("  ✓ Streaming is real-time (chunks arrived progressively)");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Real-Time Streaming Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
 }

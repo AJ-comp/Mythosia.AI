@@ -32,7 +32,7 @@ namespace Mythosia.AI.Services.xAI
             var messagesList = new List<object>();
 
             // Add system message if present (with structured output instruction)
-            var systemMsg = SystemMessage ?? "";
+            var systemMsg = GetEffectiveSystemMessage();
             var structuredInstruction = GetStructuredOutputInstruction();
             if (structuredInstruction != null)
                 systemMsg += structuredInstruction;

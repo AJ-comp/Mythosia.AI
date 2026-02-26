@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/Mythosia.AI.Samples.ChatUi/Mythosia.AI.Samples.ChatUi.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />

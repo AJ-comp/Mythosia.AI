@@ -30,7 +30,6 @@ namespace Mythosia.AI.Services.Perplexity
             Model = AIModel.PerplexitySonar.ToDescription();
             MaxTokens = 4096;
             Temperature = 0.7f;
-            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods
@@ -123,7 +122,7 @@ namespace Mythosia.AI.Services.Perplexity
             var messagesList = new List<object>();
 
             // Add system message if present (with structured output instruction)
-            var systemMsg = SystemMessage ?? "";
+            var systemMsg = GetEffectiveSystemMessage();
             var structuredInstruction = GetStructuredOutputInstruction();
             if (structuredInstruction != null)
                 systemMsg += structuredInstruction;

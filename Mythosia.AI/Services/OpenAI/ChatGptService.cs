@@ -40,7 +40,6 @@ namespace Mythosia.AI.Services.OpenAI
         {
             Model = AIModel.Gpt4_1.ToDescription();
             MaxTokens = 16000;
-            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods

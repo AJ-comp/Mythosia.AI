@@ -85,7 +85,7 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["model"] = Model;
             requestBody["input"] = inputList;
 
-            var instructions = ActivateChat.SystemMessage ?? "";
+            var instructions = GetEffectiveSystemMessage();
             var structuredInstruction = GetStructuredOutputInstruction();
             if (structuredInstruction != null)
                 instructions += structuredInstruction;
@@ -119,7 +119,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var messagesList = new List<object>();
 
-            var systemMsg = ActivateChat.SystemMessage ?? "";
+            var systemMsg = GetEffectiveSystemMessage();
             var structuredInstruction = GetStructuredOutputInstruction();
             if (structuredInstruction != null)
                 systemMsg += structuredInstruction;

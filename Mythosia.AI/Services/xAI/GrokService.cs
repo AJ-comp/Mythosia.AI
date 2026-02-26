@@ -33,7 +33,6 @@ namespace Mythosia.AI.Services.xAI
         {
             Model = AIModel.Grok3.ToDescription();
             MaxTokens = 8000;
-            AddNewChat(new ChatBlock());
         }
 
         #region Core Completion Methods

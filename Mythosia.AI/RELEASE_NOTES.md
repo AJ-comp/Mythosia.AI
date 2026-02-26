@@ -1,5 +1,118 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
+
+### **SummaryConversationPolicy** 🧠
+
+Automatically summarize old conversation messages when the conversation exceeds a configured threshold. The summary is stored as a string and injected into the system message on each subsequent LLM request.
+
+#### Configuration
+
+```csharp
+// Token-based: summarize when total tokens exceed 3000, keep recent ~1000 tokens
+service.ConversationPolicy = SummaryConversationPolicy.ByToken(
+    triggerTokens: 3000,
+    keepRecentTokens: 1000
+);
+
+// Message-count-based: summarize when messages exceed 20, keep last 5
+service.ConversationPolicy = SummaryConversationPolicy.ByMessage(
+    triggerCount: 20,
+    keepRecentCount: 5
+);
+
+// Combined (OR condition): triggers when either threshold is exceeded
+service.ConversationPolicy = SummaryConversationPolicy.ByBoth(
+    triggerTokens: 3000,
+    triggerCount: 20
+);
+```
+
+#### How It Works
+
+1. `GetCompletionAsync()` checks `ConversationPolicy.ShouldSummarize(Messages)`
+2. If triggered, extracts old messages via `GetMessagesToSummarize()`
+3. Calls the LLM in `StatelessMode = true` to generate a concise summary
+4. Stores the summary in `ConversationPolicy.CurrentSummary`
+5. Removes summarized messages from `ChatBlock`
+6. Prepends `[Previous conversation summary]` to the system message on every request
+
+#### Session Persistence
+
+```csharp
+// Save summary for later
+string saved = service.ConversationPolicy.CurrentSummary;
+
+// Restore in a new session
+policy.LoadSummary(saved);
+```
+
+#### Key Design Decisions
+
+- **StatelessMode protection** — Summary LLM calls use `StatelessMode = true` to prevent polluting the main conversation history
+- **Backward compatible** — `ConversationPolicy` defaults to `null`; existing behavior is unchanged
+- **Provider-agnostic** — Works with all providers (OpenAI, Claude, Gemini, Grok, DeepSeek, Perplexity)
+- **Incremental summarization** — When re-summarizing, existing summary is included as context for the new summary
+- **`GetEffectiveSystemMessage()`** — All provider request builders now use this method to include the summary prefix
+
+### 🧪 Test Coverage
+
+- 28 unit tests covering: factory methods, ShouldSummarize (token/count/both), GetMessagesToSummarize (count-based, token-based, budget overflow), LoadSummary, GetEffectiveSystemMessage (null policy, no summary, with summary, summary-only), integration (null policy multi-turn, below threshold, exceeds threshold, StatelessMode protection, message removal, summary prompt content, incremental summary, token-based trigger, StatelessMode skip), serialization round-trip
+
+### 🔧 Internal Improvements
+
+- **`HashSet<ChatBlock>` → `List<ChatBlock>`** — `ChatBlock` has no `Equals`/`GetHashCode` override, so `HashSet` provided no deduplication benefit. `SetActivateChat()` already used LINQ O(n) lookup. `List` is simpler and more predictable.
+- **Default `ChatBlock` initialization in base constructor** — `AddNewChat()` is now called in `AIService` base constructor, guaranteeing `ActivateChat` is never `null`. Previously each concrete service (ChatGpt, Claude, Grok, Gemini, DeepSeek, Sonar) had to call `AddNewChat()` individually — forgetting this would cause `NullReferenceException` in `GetLatestMessages()`, `WithSystemMessage()`, etc.
+- **Removed redundant null checks** — `SystemMessage` property getter/setter no longer needs null-conditional access since `ActivateChat` is always initialized.
+
+### 🐛 Real-Time Streaming Fix
+
+`StreamAsync()` in 3 providers was collecting **all** API response chunks into a list/queue before yielding them to the caller. This meant consumers received all chunks at once after the full API response completed, instead of progressively as each chunk arrived.
+
+#### Root Cause
+
+- **Claude** (`ClaudeService.Streaming.cs`) — `ProcessClaudeStreamResponse()` read the entire SSE stream into a `Queue<StreamingContent>`, then `StreamAsync()` dequeued and yielded after the method returned.
+- **OpenAI** (`ChatGptService.Streaming.cs`) — `ProcessStreamRoundAsync()` → `ReadStreamAsync()` collected all chunks into `StreamData.Contents` list, then yielded from the list.
+- **Grok** (`GrokService.Streaming.cs`) — Same pattern as OpenAI via `ProcessStreamRoundAsync()` → `ReadGrokStreamAsync()`.
+
+#### Fix
+
+Inlined the stream reading loop directly into `StreamAsync()` with a 2-phase structure:
+
+1. **Phase 1 (real-time)**: Read HTTP stream line-by-line, parse each SSE event, and **`yield return` text/reasoning chunks immediately**
+2. **Phase 2 (post-processing)**: After stream completes, execute any detected function calls and continue to next round if needed
+
+#### Not Affected
+
+- **DeepSeek**, **Gemini**, **Sonar** — These providers already had correct real-time streaming implementations.
+
+#### New Regression Test
+
+**`StreamingIsRealTimeNotBatchedTest`** — Measures timestamps of each chunk arrival and asserts that the spread (last chunk time − first chunk time) exceeds 200ms. Batched implementations would show near-zero spread.
+
+```csharp
+var sw = Stopwatch.StartNew();
+var timestamps = new List<long>();
+
+await foreach (var chunk in AI.StreamAsync("Write a short paragraph..."))
+{
+    timestamps.Add(sw.ElapsedMilliseconds);
+}
+
+var spread = timestamps.Last() - timestamps.First();
+Assert.IsTrue(spread > 200, "Streaming may be batched instead of real-time");
+```
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.5.0
+- No breaking changes
+- No API changes — same `StreamAsync()` / `StreamCompletionAsync()` signatures
+- New class: `SummaryConversationPolicy`
+- New partial class: `AIService.Summary.cs` (`ConversationPolicy`, `GetEffectiveSystemMessage()`, `ApplySummaryPolicyIfNeededAsync()`)
+
+---
+
 ## 🚀 v4.5.0 - Structured Output with Auto-Recovery, Streaming & Collection Support
 
 ### **Structured Output: `GetCompletionAsync<T>()`** 🎯

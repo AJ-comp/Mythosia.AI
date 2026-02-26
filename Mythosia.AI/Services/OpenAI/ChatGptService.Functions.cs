@@ -188,9 +188,10 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["tools"] = tools;
 
             // Add instructions if present
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            var effectiveSystemMsg = GetEffectiveSystemMessage();
+            if (!string.IsNullOrEmpty(effectiveSystemMsg))
             {
-                requestBody["instructions"] = ActivateChat.SystemMessage;
+                requestBody["instructions"] = effectiveSystemMsg;
             }
 
             // Tool choice configuration
@@ -209,9 +210,10 @@ namespace Mythosia.AI.Services.OpenAI
             var messagesList = new List<object>();
 
             // Add system message if present
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            var effectiveSystemMsg = GetEffectiveSystemMessage();
+            if (!string.IsNullOrEmpty(effectiveSystemMsg))
             {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+                messagesList.Add(new { role = "system", content = effectiveSystemMsg });
             }
 
             // Convert messages

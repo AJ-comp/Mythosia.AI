@@ -46,24 +46,6 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 }
 ```
 
-### RAG (Retrieval-Augmented Generation)
-
-```bash
-dotnet add package Mythosia.AI.Rag
-```
-
-```csharp
-using Mythosia.AI.Rag;
-
-var service = new ClaudeService(apiKey, httpClient)
-    .WithRag(rag => rag
-        .AddDocument("manual.txt")
-        .AddDocument("policy.txt")
-    );
-
-var response = await service.GetCompletionAsync("What is the refund policy?");
-```
-
 ### Function Calling
 
 ```csharp
@@ -104,6 +86,47 @@ await foreach (var chunk in run.Stream())
     Console.Write(chunk);          // real-time UI
 
 MyDto dto = await run.Result;      // parsed & auto-repaired
+```
+
+### Conversation Summary Policy
+
+```csharp
+// Automatically summarize old messages when conversation gets long
+service.ConversationPolicy = SummaryConversationPolicy.ByMessage(
+    triggerCount: 20,
+    keepRecentCount: 5
+);
+
+// Token-based trigger
+service.ConversationPolicy = SummaryConversationPolicy.ByToken(
+    triggerTokens: 3000,
+    keepRecentTokens: 1000
+);
+
+// Just use as normal — summarization happens automatically
+await service.GetCompletionAsync("Continue our conversation...");
+
+// Save/restore summary across sessions
+string saved = service.ConversationPolicy.CurrentSummary;
+policy.LoadSummary(saved);
+```
+
+### RAG (Retrieval-Augmented Generation)
+
+```bash
+dotnet add package Mythosia.AI.Rag
+```
+
+```csharp
+using Mythosia.AI.Rag;
+
+var service = new ClaudeService(apiKey, httpClient)
+    .WithRag(rag => rag
+        .AddDocument("manual.txt")
+        .AddDocument("policy.txt")
+    );
+
+var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
 
 ## Repository Structure

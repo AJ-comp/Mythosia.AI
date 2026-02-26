@@ -11,35 +11,33 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.5.0</VersionPrefix>
+		<VersionPrefix>4.6.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.5.0
+## What's New in v4.6.0
 
-### Structured Output with Auto-Recovery
-- `GetCompletionAsync&lt;T&gt;()` — Deserialize LLM responses directly into C# POCOs
-- Auto-recovery retry: invalid JSON triggers correction prompt to the LLM (configurable retries)
-- `StructuredOutputException` with rich diagnostics (raw responses, parse error, attempt count, schema)
-- OpenAI-strict JSON schema generation (required arrays, additionalProperties:false, $defs/$ref)
+### Conversation Summary Policy
+- `SummaryConversationPolicy` — Automatically summarize old messages when conversation exceeds token or message count thresholds
+- Factory methods: `ByToken()`, `ByMessage()`, `ByBoth()` for flexible configuration
+- Summary injected as system message prefix via `GetEffectiveSystemMessage()`
+- StatelessMode protection for summary LLM calls
+- Incremental summarization with existing summary context
+- Session persistence via `CurrentSummary` / `LoadSummary()`
+- Provider-agnostic: works with all supported providers
 
-### Per-Call Structured Output Policy
-- `WithStructuredOutputPolicy()` — Fluent one-shot policy override per request
-- Presets: `StructuredOutputPolicy.NoRetry`, `StructuredOutputPolicy.Strict`
-- Convenience: `WithNoRetryStructuredOutput()`, `WithStrictStructuredOutput()`
+### Real-Time Streaming Fix
+- **Fixed**: `StreamAsync()` was collecting all chunks before yielding — now yields each chunk immediately as it arrives from the API
+- **Affected providers**: Claude (Anthropic), ChatGPT (OpenAI), Grok (xAI)
+- **Not affected**: DeepSeek, Gemini, Sonar (already streaming correctly)
+- **New regression test**: `StreamingIsRealTimeNotBatchedTest` — verifies chunk timing spread &gt; 200ms
 
-### Streaming Structured Output
-- `BeginStream(prompt).WithStructuredOutput(policy).As&lt;T&gt;()` — Stream text chunks in real-time while getting a final deserialized object
-- `Stream()` — Observe text chunks via `IAsyncEnumerable&lt;string&gt;` (optional, single-use)
-- `Result` — Awaitable final deserialized object with auto-repair retries
-- Works without `Stream()` — just `await run.Result` consumes internally
-- Repair retries use non-streaming calls for efficiency
-
-### Collection Support
-- `List&lt;T&gt;`, `T[]`, `IReadOnlyList&lt;T&gt;` all work as type parameter for both `GetCompletionAsync&lt;T&gt;()` and streaming
-- JSON array schema auto-generated, array extraction from markdown supported
+### Internal Improvements
+- `HashSet&lt;ChatBlock&gt;` → `List&lt;ChatBlock&gt;` — Simpler and more predictable (no Equals/GetHashCode override on ChatBlock)
+- Default `ChatBlock` initialization in base constructor — `ActivateChat` is never null, eliminates NRE risk
+- Removed redundant `AddNewChat()` calls from all 6 concrete service constructors
 
 ## Supported Models
 
@@ -78,7 +76,7 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.5.0</Version>
+		<Version>4.6.0</Version>
 	</PropertyGroup>
 
 

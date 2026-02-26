@@ -45,25 +45,178 @@ namespace Mythosia.AI.Services.OpenAI
                 Stream = true;
                 ActivateChat.Messages.Add(message);
 
-                // Main loop - same as GetCompletionAsync
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     if (policy.EnableLogging)
                         Console.WriteLine($"[Stream Round {round + 1}/{policy.MaxRounds}]");
 
-                    // Process single round and get result
-                    var roundResult = await ProcessStreamRoundAsync(
-                        useFunctions, options, policy, cancellationToken);
+                    // 1. Create and send HTTP request
+                    var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+                    var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
-                    // Yield all content from this round
-                    foreach (var content in roundResult.Contents)
+                    if (!response.IsSuccessStatusCode)
                     {
-                        yield return content;
+                        var error = await response.Content.ReadAsStringAsync();
+                        yield return new StreamingContent
+                        {
+                            Type = StreamingContentType.Error,
+                            Metadata = new Dictionary<string, object> { ["error"] = error }
+                        };
+                        yield break;
                     }
 
-                    // Check if we should continue
-                    if (!roundResult.ContinueToNextRound)
-                        yield break;
+                    // 2. Read stream and yield chunks in real-time
+                    var streamData = new StreamData();
+                    bool functionCallEventSent = false;
+
+                    using (var stream = await response.Content.ReadAsStreamAsync())
+                    using (var reader = new StreamReader(stream))
+                    {
+                        string line;
+                        while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
+                        {
+                            if (!line.StartsWith("data:")) continue;
+
+                            var jsonData = line.Substring(5).Trim();
+                            if (jsonData == "[DONE]")
+                            {
+                                if (options.IncludeMetadata && streamData.HasContent)
+                                {
+                                    yield return new StreamingContent
+                                    {
+                                        Type = StreamingContentType.Completion,
+                                        Metadata = new Dictionary<string, object>
+                                        {
+                                            ["total_length"] = streamData.TextBuffer.Length,
+                                            ["model"] = streamData.Model ?? Model
+                                        }
+                                    };
+                                }
+                                break;
+                            }
+
+                            var chunk = ParseStreamChunk(jsonData, options);
+
+                            // Text — yield immediately
+                            if (chunk.Text != null)
+                            {
+                                streamData.TextBuffer.Append(chunk.Text);
+                                yield return new StreamingContent
+                                {
+                                    Type = StreamingContentType.Text,
+                                    Content = chunk.Text,
+                                    Metadata = chunk.Metadata
+                                };
+                            }
+
+                            // Reasoning — yield immediately
+                            if (chunk.Reasoning != null && options.IncludeReasoning)
+                            {
+                                streamData.ReasoningBuffer.Append(chunk.Reasoning);
+                                yield return new StreamingContent
+                                {
+                                    Type = StreamingContentType.Reasoning,
+                                    Content = chunk.Reasoning,
+                                    Metadata = chunk.Metadata
+                                };
+                            }
+
+                            // Function call — collect for post-processing
+                            if (chunk.FunctionCall != null)
+                            {
+                                streamData.UpdateFunctionCall(chunk.FunctionCall);
+
+                                if (!functionCallEventSent && options.IncludeFunctionCalls && streamData.FunctionCall?.Name != null)
+                                {
+                                    functionCallEventSent = true;
+                                    yield return new StreamingContent
+                                    {
+                                        Type = StreamingContentType.FunctionCall,
+                                        Metadata = new Dictionary<string, object>
+                                        {
+                                            ["function_name"] = streamData.FunctionCall.Name,
+                                            ["status"] = "started"
+                                        }
+                                    };
+                                }
+                            }
+
+                            if (chunk.Model != null)
+                                streamData.Model = chunk.Model;
+
+                            // Completion event
+                            if (chunk.IsCompletion && options.IncludeMetadata)
+                            {
+                                var completionMeta = chunk.Metadata ?? new Dictionary<string, object>();
+                                completionMeta["total_length"] = streamData.TextBuffer.Length;
+                                completionMeta["model"] = streamData.Model ?? Model;
+                                yield return new StreamingContent
+                                {
+                                    Type = StreamingContentType.Completion,
+                                    Metadata = completionMeta
+                                };
+                            }
+                        }
+                    }
+
+                    // 3. Save assistant message
+                    if (streamData.HasContent || streamData.FunctionCall != null)
+                    {
+                        var assistantMsg = new Message(ActorRole.Assistant, streamData.TextContent);
+
+                        if (streamData.FunctionCall != null)
+                        {
+                            assistantMsg.Metadata = new Dictionary<string, object>
+                            {
+                                [MessageMetadataKeys.MessageType] = "function_call",
+                                [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
+                                [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
+                                [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name,
+                                [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(streamData.FunctionCall.Arguments)
+                            };
+                        }
+
+                        ActivateChat.Messages.Add(assistantMsg);
+                    }
+
+                    // 4. Execute function if detected
+                    if (streamData.FunctionCall != null && useFunctions)
+                    {
+                        if (policy.EnableLogging)
+                            Console.WriteLine($"  Executing function: {streamData.FunctionCall.Name}");
+
+                        var functionResult = await ProcessFunctionCallAsync(
+                            streamData.FunctionCall.Name,
+                            streamData.FunctionCall.Arguments);
+
+                        var resultMetadata = new Dictionary<string, object>
+                        {
+                            [MessageMetadataKeys.MessageType] = "function_result",
+                            [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
+                            [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
+                            [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name
+                        };
+
+                        ActivateChat.Messages.Add(new Message(ActorRole.Function, functionResult)
+                        {
+                            Metadata = resultMetadata
+                        });
+
+                        yield return new StreamingContent
+                        {
+                            Type = StreamingContentType.FunctionResult,
+                            Metadata = new Dictionary<string, object>
+                            {
+                                ["function_name"] = streamData.FunctionCall.Name,
+                                ["status"] = "completed",
+                                ["result"] = functionResult
+                            }
+                        };
+
+                        continue; // next round
+                    }
+
+                    yield break; // text-only response complete
                 }
             }
             finally
@@ -85,195 +238,6 @@ namespace Mythosia.AI.Services.OpenAI
         #endregion
 
         #region Private Methods
-
-        private async Task<StreamRoundResult> ProcessStreamRoundAsync(
-            bool useFunctions,
-            StreamOptions options,
-            FunctionCallingPolicy policy,
-            CancellationToken cancellationToken)
-        {
-            var result = new StreamRoundResult();
-
-            // 1. Create and send HTTP request (new for each round)
-            var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
-            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                result.Contents.Add(new StreamingContent
-                {
-                    Type = StreamingContentType.Error,
-                    Metadata = new Dictionary<string, object> { ["error"] = error }
-                });
-                return result;
-            }
-
-            // 2. Read and process stream
-            var streamData = await ReadStreamAsync(response, options, cancellationToken);
-            result.Contents.AddRange(streamData.Contents);
-
-            // 3. Save assistant message
-            if (streamData.HasContent || streamData.FunctionCall != null)
-            {
-                var assistantMsg = new Message(ActorRole.Assistant, streamData.TextContent);
-
-                if (streamData.FunctionCall != null)
-                {
-                    assistantMsg.Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
-                        [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
-                        [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(streamData.FunctionCall.Arguments)
-                    };
-                }
-
-                ActivateChat.Messages.Add(assistantMsg);
-            }
-
-            // 4. Execute function if detected
-            if (streamData.FunctionCall != null && useFunctions)
-            {
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {streamData.FunctionCall.Name}");
-
-                var functionResult = await ProcessFunctionCallAsync(
-                    streamData.FunctionCall.Name,
-                    streamData.FunctionCall.Arguments);
-
-                // Save function result message
-                var resultMetadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_result",
-                    [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name
-                };
-
-                ActivateChat.Messages.Add(new Message(ActorRole.Function, functionResult)
-                {
-                    Metadata = resultMetadata
-                });
-
-                // Add function result event
-                result.Contents.Add(new StreamingContent
-                {
-                    Type = StreamingContentType.FunctionResult,
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["function_name"] = streamData.FunctionCall.Name,
-                        ["status"] = "completed",
-                        ["result"] = functionResult
-                    }
-                });
-
-                result.ContinueToNextRound = true;
-            }
-
-            return result;
-        }
-
-        private async Task<StreamData> ReadStreamAsync(
-            HttpResponseMessage response,
-            StreamOptions options,
-            CancellationToken cancellationToken)
-        {
-            var streamData = new StreamData();
-
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-
-            string line;
-            bool functionCallEventSent = false;
-
-            while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
-            {
-                if (!line.StartsWith("data:")) continue;
-
-                var jsonData = line.Substring(5).Trim();
-                if (jsonData == "[DONE]")
-                {
-                    if (options.IncludeMetadata && streamData.HasContent)
-                    {
-                        streamData.Contents.Add(new StreamingContent
-                        {
-                            Type = StreamingContentType.Completion,
-                            Metadata = new Dictionary<string, object>
-                            {
-                                ["total_length"] = streamData.TextBuffer.Length,
-                                ["model"] = streamData.Model ?? Model
-                            }
-                        });
-                    }
-                    break;
-                }
-
-                var chunk = ParseStreamChunk(jsonData, options);
-
-                // Update stream data
-                if (chunk.Text != null)
-                {
-                    streamData.TextBuffer.Append(chunk.Text);
-                    streamData.Contents.Add(new StreamingContent
-                    {
-                        Type = StreamingContentType.Text,
-                        Content = chunk.Text,
-                        Metadata = chunk.Metadata
-                    });
-                }
-
-                if (chunk.Reasoning != null && options.IncludeReasoning)
-                {
-                    streamData.ReasoningBuffer.Append(chunk.Reasoning);
-                    streamData.Contents.Add(new StreamingContent
-                    {
-                        Type = StreamingContentType.Reasoning,
-                        Content = chunk.Reasoning,
-                        Metadata = chunk.Metadata
-                    });
-                }
-
-                if (chunk.FunctionCall != null)
-                {
-                    streamData.UpdateFunctionCall(chunk.FunctionCall);
-
-                    // Send function call event once
-                    if (!functionCallEventSent && options.IncludeFunctionCalls && streamData.FunctionCall?.Name != null)
-                    {
-                        functionCallEventSent = true;
-                        streamData.Contents.Add(new StreamingContent
-                        {
-                            Type = StreamingContentType.FunctionCall,
-                            Metadata = new Dictionary<string, object>
-                            {
-                                ["function_name"] = streamData.FunctionCall.Name,
-                                ["status"] = "started"
-                            }
-                        });
-                    }
-                }
-
-                if (chunk.Model != null)
-                    streamData.Model = chunk.Model;
-
-                // New API completion event (response.done / response.completed)
-                if (chunk.IsCompletion && options.IncludeMetadata)
-                {
-                    var completionMeta = chunk.Metadata ?? new Dictionary<string, object>();
-                    completionMeta["total_length"] = streamData.TextBuffer.Length;
-                    completionMeta["model"] = streamData.Model ?? Model;
-                    streamData.Contents.Add(new StreamingContent
-                    {
-                        Type = StreamingContentType.Completion,
-                        Metadata = completionMeta
-                    });
-                }
-            }
-
-            return streamData;
-        }
 
         private StreamChunk ParseStreamChunk(string jsonData, StreamOptions options)
         {

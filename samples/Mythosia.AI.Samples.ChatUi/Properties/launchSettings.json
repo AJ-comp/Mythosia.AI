@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Mythosia.AI.Samples.ChatUi": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:50900;http://localhost:50901"
+    }
+  }
+}

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mythosia.AI - Chat UI Sample</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="app">
+
+    <!-- ═══ LEFT: Model Selector ═══ -->
+    <aside id="sidebar-left" class="sidebar sidebar-left">
+      <div class="sidebar-header">
+        <h2>Models</h2>
+      </div>
+      <div id="model-list" class="model-list"></div>
+
+      <!-- API Key area (hidden by default) -->
+      <div id="apikey-area" class="apikey-area hidden">
+        <label id="apikey-label" class="apikey-label">API Key</label>
+        <div class="apikey-input-wrap">
+          <input id="apikey-input" type="password" placeholder="Enter API key..." autocomplete="off" />
+          <button id="apikey-toggle" class="btn-icon" title="Show / Hide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div id="apikey-masked" class="apikey-masked hidden"></div>
+        <button id="apikey-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
+      </div>
+
+      <!-- Settings -->
+      <div id="settings-area" class="settings-area hidden">
+        <h3>Settings</h3>
+        <div class="setting-row">
+          <label>System Message</label>
+          <textarea id="set-system" rows="2" placeholder="You are a helpful assistant."></textarea>
+        </div>
+        <div class="setting-row">
+          <label>Temperature <span id="temp-val">0.7</span></label>
+          <input id="set-temp" type="range" min="0" max="2" step="0.05" value="0.7" />
+        </div>
+        <div class="setting-row">
+          <label>Top P <span id="topp-val">1.0</span></label>
+          <input id="set-topp" type="range" min="0" max="1" step="0.05" value="1.0" />
+        </div>
+        <div class="setting-row">
+          <label>Max Tokens</label>
+          <input id="set-maxtokens" type="number" value="1024" min="1" max="128000" />
+        </div>
+        <div class="setting-row">
+          <label>Max Messages</label>
+          <input id="set-maxmsg" type="number" value="20" min="1" max="200" />
+        </div>
+        <div class="setting-row chk-row">
+          <label><input id="set-stateless" type="checkbox" /> Stateless Mode</label>
+        </div>
+        <button id="settings-apply" class="btn btn-secondary btn-sm">Apply Settings</button>
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="brand">Mythosia.AI v4.6</span>
+      </div>
+    </aside>
+
+    <!-- ═══ CENTER: Chat ═══ -->
+    <main class="chat-area">
+      <div class="chat-header">
+        <span id="chat-status" class="chat-status">No model selected</span>
+        <button id="btn-clear" class="btn btn-ghost btn-sm" title="Clear conversation">Clear</button>
+      </div>
+      <div id="chat-messages" class="chat-messages">
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+          </div>
+          <p>Select a model and enter your API key to start chatting.</p>
+        </div>
+      </div>
+      <form id="chat-form" class="chat-input-area">
+        <textarea id="chat-input" rows="1" placeholder="Type a message..." disabled></textarea>
+        <button id="btn-send" class="btn btn-primary" disabled>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </form>
+    </main>
+
+    <!-- ═══ RIGHT: Internal State ═══ -->
+    <aside id="sidebar-right" class="sidebar sidebar-right">
+      <div class="sidebar-header">
+        <h2>Internal State</h2>
+        <button id="btn-refresh-state" class="btn-icon" title="Refresh">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        </button>
+      </div>
+      <div id="state-container" class="state-container">
+        <div class="empty-state"><p>No service configured yet.</p></div>
+      </div>
+    </aside>
+
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -35,9 +35,10 @@ namespace Mythosia.AI.Services.xAI
             var messagesList = new List<object>();
 
             // Add system message if present
-            if (!string.IsNullOrEmpty(SystemMessage))
+            var effectiveSystemMsg = GetEffectiveSystemMessage();
+            if (!string.IsNullOrEmpty(effectiveSystemMsg))
             {
-                messagesList.Add(new { role = "system", content = SystemMessage });
+                messagesList.Add(new { role = "system", content = effectiveSystemMsg });
             }
 
             // Convert messages

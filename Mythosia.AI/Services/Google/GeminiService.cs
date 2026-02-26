@@ -49,7 +49,6 @@ namespace Mythosia.AI.Services.Google
             Temperature = 1.0f;
             TopP = 0.8f;
             MaxTokens = 2048;
-            AddNewChat(new ChatBlock());
         }
 
         #region Model Detection Helpers

@@ -21,7 +21,7 @@ namespace Mythosia.AI.Services.Base
     {
         protected readonly string ApiKey;
         protected readonly HttpClient HttpClient;
-        protected HashSet<ChatBlock> _chatRequests = new HashSet<ChatBlock>();
+        protected List<ChatBlock> _chatRequests = new List<ChatBlock>();
 
         // 기본 정책 (설정 가능)
         public FunctionCallingPolicy DefaultPolicy { get; set; } = FunctionCallingPolicy.Default;
@@ -56,8 +56,8 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         public string SystemMessage
         {
-            get => ActivateChat?.SystemMessage ?? string.Empty;
-            set { if (ActivateChat != null) ActivateChat.SystemMessage = value; }
+            get => ActivateChat.SystemMessage;
+            set => ActivateChat.SystemMessage = value;
         }
 
         public float TopP { get; set; } = 1.0f;
@@ -97,6 +97,7 @@ namespace Mythosia.AI.Services.Base
             ApiKey = apiKey;
             HttpClient = httpClient;
             httpClient.BaseAddress = new Uri(baseUrl);
+            AddNewChat(new ChatBlock());
         }
 
         #region Chat Management
@@ -173,6 +174,7 @@ namespace Mythosia.AI.Services.Base
 
         public virtual async Task<string> GetCompletionAsync(string prompt)
         {
+            await ApplySummaryPolicyIfNeededAsync();
             var message = new Message(ActorRole.User, prompt);
             return await GetCompletionAsync(message);
         }
