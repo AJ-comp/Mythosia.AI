@@ -2,9 +2,10 @@
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.Perplexity;
+using Mythosia.AI.Tests;
 using Mythosia.Azure;
 
-namespace Mythosia.AI.Tests;
+namespace Mythosia.AI.Tests.Perplexity;
 
 [TestClass]
 public class SonarServiceTests : AIServiceTestBase

@@ -1,10 +1,10 @@
-﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Enums;
+﻿using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.DeepSeek;
 using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Services.Perplexity;
+using Mythosia.AI.Services.xAI;
 using System;
 using System.Net.Http;
 using System.Threading.Tasks;
@@ -44,6 +44,7 @@ namespace Mythosia.AI.Services.Base
                 AIProvider.Anthropic => new ClaudeService(apiKey, httpClient),
                 AIProvider.Google => new GeminiService(apiKey, httpClient),
                 AIProvider.DeepSeek => new DeepSeekService(apiKey, httpClient),
+                AIProvider.xAI => new GrokService(apiKey, httpClient),
                 AIProvider.Perplexity => new SonarService(apiKey, httpClient),
                 _ => throw new NotSupportedException($"Provider {provider} not supported")
             };
@@ -53,7 +54,8 @@ namespace Mythosia.AI.Services.Base
         {
             var modelName = model.ToString();
             if (modelName.StartsWith("Claude")) return AIProvider.Anthropic;
-            if (modelName.StartsWith("Gpt") || modelName.StartsWith("GPT")) return AIProvider.OpenAI;
+            if (modelName.StartsWith("Gpt") || modelName.StartsWith("GPT") || modelName.StartsWith("o3")) return AIProvider.OpenAI;
+            if (modelName.StartsWith("Grok")) return AIProvider.xAI;
             if (modelName.StartsWith("Gemini")) return AIProvider.Google;
             if (modelName.StartsWith("DeepSeek")) return AIProvider.DeepSeek;
             if (modelName.StartsWith("Perplexity")) return AIProvider.Perplexity;

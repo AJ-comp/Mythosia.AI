@@ -230,8 +230,33 @@ namespace Mythosia.AI.Extensions
             return await service.GetCompletionAsync(contextBuilder.ToString());
         }
 
+        #region Structured Output Policy
 
-        #region Policy
+        /// <summary>
+        /// 일회성 structured output 정책 오버라이드 (Fluent 스타일).
+        /// 다음 GetCompletionAsync&lt;T&gt;() 호출에만 적용되며 호출 후 자동으로 초기화됩니다.
+        /// </summary>
+        public static AIService WithStructuredOutputPolicy(this AIService service, StructuredOutputPolicy policy)
+        {
+            service._currentStructuredOutputPolicy = policy;
+            return service;
+        }
+
+        /// <summary>
+        /// retry 없이 1회만 시도하는 structured output 정책
+        /// </summary>
+        public static AIService WithNoRetryStructuredOutput(this AIService service)
+            => service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
+
+        /// <summary>
+        /// 최대 3회 재시도하는 엄격 structured output 정책
+        /// </summary>
+        public static AIService WithStrictStructuredOutput(this AIService service)
+            => service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
+
+        #endregion
+
+        #region Function Calling Policy
 
         /// <summary>
         /// 일회성 정책 오버라이드 (Fluent 스타일)

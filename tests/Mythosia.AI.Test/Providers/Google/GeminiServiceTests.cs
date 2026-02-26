@@ -3,9 +3,10 @@ using Mythosia.AI.Extensions;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.Google;
+using Mythosia.AI.Tests;
 using Mythosia.Azure;
 
-namespace Mythosia.AI.Tests;
+namespace Mythosia.AI.Tests.Google;
 
 [TestClass]
 public abstract class GeminiServiceTestsBase : AIServiceTestBase

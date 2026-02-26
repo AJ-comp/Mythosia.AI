@@ -78,6 +78,34 @@ var service = new ChatGptService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
 
+### Structured Output (Basic)
+
+```csharp
+// Deserialize LLM responses directly into C# POCOs with auto-recovery
+var result = await service.GetCompletionAsync<WeatherResponse>(
+    "What's the weather in Seoul?");
+```
+
+### Structured Output (List)
+
+```csharp
+// Collection types work directly — no wrapper DTO needed
+var items = await service.GetCompletionAsync<List<ItemDto>>(
+    "Extract all entities from this document...");
+```
+
+### Structured Output (Streaming)
+
+```csharp
+// Stream text chunks in real-time + get final deserialized object
+var run = service.BeginStream(prompt).As<MyDto>();
+
+await foreach (var chunk in run.Stream())
+    Console.Write(chunk);          // real-time UI
+
+MyDto dto = await run.Result;      // parsed & auto-repaired
+```
+
 ## Repository Structure
 
 ```text

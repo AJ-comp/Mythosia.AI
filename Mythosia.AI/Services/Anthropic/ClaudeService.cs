@@ -340,13 +340,19 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Adds system message to request body if present
+        /// Adds system message to request body if present.
+        /// Appends structured output instruction when in structured output mode.
         /// </summary>
         private void ApplySystemMessage(Dictionary<string, object> requestBody)
         {
-            if (!string.IsNullOrEmpty(SystemMessage))
+            var systemMsg = SystemMessage ?? "";
+            var structuredInstruction = GetStructuredOutputInstruction();
+            if (structuredInstruction != null)
+                systemMsg += structuredInstruction;
+
+            if (!string.IsNullOrEmpty(systemMsg))
             {
-                requestBody["system"] = SystemMessage;
+                requestBody["system"] = systemMsg;
             }
         }
 

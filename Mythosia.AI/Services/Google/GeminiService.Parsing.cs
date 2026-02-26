@@ -36,6 +36,11 @@ namespace Mythosia.AI.Services.Google
 
             ApplyThinkingConfig(generationConfig);
 
+            if (_structuredOutputSchemaJson != null)
+            {
+                generationConfig["responseMimeType"] = "application/json";
+            }
+
             var requestBody = new Dictionary<string, object>
             {
                 ["contents"] = contentsList,

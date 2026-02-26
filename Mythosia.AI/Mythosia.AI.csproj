@@ -5,25 +5,41 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mythosia.AI.Test" />
+  </ItemGroup>
+
 
 	<PropertyGroup>
-		<VersionPrefix>4.4.0</VersionPrefix>
+		<VersionPrefix>4.5.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.4.0
+## What's New in v4.5.0
 
-### New Provider: xAI (Grok)
-- Added GrokService with full support for Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini
-- Function calling via OpenAI-compatible tools/tool_calls format
-- Streaming with function call support (multi-round)
-- Vision/multimodal support for Grok 4 models
-- Reasoning model parameter handling (grok-3-mini, grok-4*)
+### Structured Output with Auto-Recovery
+- `GetCompletionAsync&lt;T&gt;()` — Deserialize LLM responses directly into C# POCOs
+- Auto-recovery retry: invalid JSON triggers correction prompt to the LLM (configurable retries)
+- `StructuredOutputException` with rich diagnostics (raw responses, parse error, attempt count, schema)
+- OpenAI-strict JSON schema generation (required arrays, additionalProperties:false, $defs/$ref)
 
-### AIModel Enum Reordering
-- OpenAI models moved to the top of the AIModel enum for consistency
+### Per-Call Structured Output Policy
+- `WithStructuredOutputPolicy()` — Fluent one-shot policy override per request
+- Presets: `StructuredOutputPolicy.NoRetry`, `StructuredOutputPolicy.Strict`
+- Convenience: `WithNoRetryStructuredOutput()`, `WithStrictStructuredOutput()`
+
+### Streaming Structured Output
+- `BeginStream(prompt).WithStructuredOutput(policy).As&lt;T&gt;()` — Stream text chunks in real-time while getting a final deserialized object
+- `Stream()` — Observe text chunks via `IAsyncEnumerable&lt;string&gt;` (optional, single-use)
+- `Result` — Awaitable final deserialized object with auto-repair retries
+- Works without `Stream()` — just `await run.Result` consumes internally
+- Repair retries use non-streaming calls for efficiency
+
+### Collection Support
+- `List&lt;T&gt;`, `T[]`, `IReadOnlyList&lt;T&gt;` all work as type parameter for both `GetCompletionAsync&lt;T&gt;()` and streaming
+- JSON array schema auto-generated, array extraction from markdown supported
 
 ## Supported Models
 
@@ -62,15 +78,16 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.4.0</Version>
+		<Version>4.5.0</Version>
 	</PropertyGroup>
 
 
 	<ItemGroup>
 		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-		<PackageReference Include="System.Threading.Channels" Version="9.0.7" />
-		<PackageReference Include="TiktokenSharp" Version="1.2.0" />
+		<PackageReference Include="NJsonSchema" Version="11.5.2" />
+        <PackageReference Include="System.Threading.Channels" Version="10.0.3" />
+        <PackageReference Include="TiktokenSharp" Version="1.2.1" />
 	</ItemGroup>
 
 

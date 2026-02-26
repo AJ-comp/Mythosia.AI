@@ -277,6 +277,108 @@ var response = await service.AskWithoutFunctionsAsync(
 );
 ```
 
+## Structured Output
+
+Deserialize LLM responses directly into C# POCOs with automatic JSON recovery.
+
+### Basic Usage
+
+```csharp
+// Define your POCO
+public class WeatherResponse
+{
+    public string City { get; set; }
+    public double Temperature { get; set; }
+    public string Condition { get; set; }
+}
+
+// Get typed result — schema is auto-generated and sent to the LLM
+var result = await service.GetCompletionAsync<WeatherResponse>(
+    "What's the weather in Seoul?");
+Console.WriteLine($"{result.City}: {result.Temperature}°C, {result.Condition}");
+```
+
+### Auto-Recovery Retry
+
+When the LLM returns invalid JSON, a correction prompt is automatically sent asking the model to fix its output. This is **not** a network retry — it's an output quality/format correction loop.
+
+```csharp
+// Configure service-level retry count (default: 2)
+service.StructuredOutputMaxRetries = 3;
+
+// On final failure, StructuredOutputException is thrown with rich diagnostics:
+// - FirstRawResponse, LastRawResponse
+// - ParseError, AttemptCount, SchemaJson, TargetTypeName
+```
+
+### Per-Call Structured Output Policy
+
+Override retry behavior for a single request without changing service defaults:
+
+```csharp
+// Custom policy — applies only to this call, then auto-cleared
+var result = await service
+    .WithStructuredOutputPolicy(new StructuredOutputPolicy { MaxRepairAttempts = 5 })
+    .GetCompletionAsync<MyDto>(prompt);
+
+// Preset: no retry (1 attempt only)
+var result = await service
+    .WithNoRetryStructuredOutput()
+    .GetCompletionAsync<MyDto>(prompt);
+
+// Preset: strict mode (up to 3 retries = 4 total attempts)
+var result = await service
+    .WithStrictStructuredOutput()
+    .GetCompletionAsync<MyDto>(prompt);
+```
+
+| Preset | MaxRepairAttempts | Description |
+|--------|-------------------|-------------|
+| `Default` | `null` (service default) | Uses `StructuredOutputMaxRetries` |
+| `NoRetry` | `0` | Single attempt, no retry |
+| `Strict` | `3` | Up to 3 correction retries |
+
+### Streaming Structured Output
+
+Stream text chunks in real-time to the UI while getting a final deserialized object with auto-repair:
+
+```csharp
+var run = service.BeginStream(prompt)
+    .WithStructuredOutput(new StructuredOutputPolicy { MaxRepairAttempts = 2 })
+    .As<MyDto>();
+
+// Optional: observe chunks in real-time
+await foreach (var chunk in run.Stream(cancellationToken))
+{
+    Console.Write(chunk); // UI display
+}
+
+// Final deserialized result (waits for stream + parse/repair)
+MyDto dto = await run.Result;
+```
+
+- **`Result` works without `Stream()`** — just `await run.Result` internally consumes the stream and parses
+- **`Stream()` is single-use** — second call throws `InvalidOperationException`
+- **`Result` waits for stream completion** — even if awaited mid-stream, it won't resolve early
+- **Repair retries are non-streaming** — correction prompts use `GetCompletionAsync()` for efficiency
+
+### Collection Support (`List<T>`, `T[]`)
+
+Both `GetCompletionAsync<T>()` and streaming support collection types — no wrapper DTO needed:
+
+```csharp
+// Non-streaming: get a list directly
+var items = await service.GetCompletionAsync<List<ItemDto>>(
+    "Extract all entities from this document...");
+
+// Streaming: observe chunks + get list result
+var run = service.BeginStream(prompt).As<List<ItemDto>>();
+await foreach (var chunk in run.Stream()) Console.Write(chunk);
+List<ItemDto> items = await run.Result;
+```
+
+`List<T>`, `T[]`, `IReadOnlyList<T>` are all supported. JSON array schema is auto-generated from the element type.
+
 ## Enhanced Streaming
 
 ### Stream Options

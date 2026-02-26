@@ -31,10 +31,15 @@ namespace Mythosia.AI.Services.DeepSeek
         {
             var messagesList = new List<object>();
 
-            // Add system message if present
-            if (!string.IsNullOrEmpty(SystemMessage))
+            // Add system message if present (with structured output instruction)
+            var systemMsg = SystemMessage ?? "";
+            var structuredInstruction = GetStructuredOutputInstruction();
+            if (structuredInstruction != null)
+                systemMsg += structuredInstruction;
+
+            if (!string.IsNullOrEmpty(systemMsg))
             {
-                messagesList.Add(new { role = "system", content = SystemMessage });
+                messagesList.Add(new { role = "system", content = systemMsg });
             }
 
             // Add conversation messages
@@ -43,18 +48,22 @@ namespace Mythosia.AI.Services.DeepSeek
                 messagesList.Add(ConvertMessageForDeepSeek(message));
             }
 
-            var requestBody = new
+            var requestBody = new Dictionary<string, object>
             {
-                model = Model,
-                messages = messagesList,
-                temperature = Temperature,
-                top_p = TopP,
-                max_tokens = (int)GetEffectiveMaxTokens(),
-                stream = Stream,
-                frequency_penalty = FrequencyPenalty,
-                presence_penalty = PresencePenalty,
-                stop = (string?)null
+                ["model"] = Model,
+                ["messages"] = messagesList,
+                ["temperature"] = Temperature,
+                ["top_p"] = TopP,
+                ["max_tokens"] = (int)GetEffectiveMaxTokens(),
+                ["stream"] = Stream,
+                ["frequency_penalty"] = FrequencyPenalty,
+                ["presence_penalty"] = PresencePenalty
             };
+
+            if (_structuredOutputSchemaJson != null)
+            {
+                requestBody["response_format"] = new Dictionary<string, object> { ["type"] = "json_object" };
+            }
 
             return requestBody;
         }

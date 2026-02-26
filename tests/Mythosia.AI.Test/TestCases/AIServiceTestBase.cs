@@ -35,6 +35,7 @@ public abstract partial class AIServiceTestBase
     protected virtual bool SupportsImageGeneration() => false;
     protected virtual bool SupportsWebSearch() => false;
     protected virtual bool SupportsReasoning() => false;
+    protected virtual bool SupportsStructuredOutput() => true;
     protected virtual AIModel? GetAlternativeModel() => null;
 
     #endregion

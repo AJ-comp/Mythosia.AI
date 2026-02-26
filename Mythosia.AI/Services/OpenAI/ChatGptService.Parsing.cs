@@ -85,9 +85,28 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["model"] = Model;
             requestBody["input"] = inputList;
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            var instructions = ActivateChat.SystemMessage ?? "";
+            var structuredInstruction = GetStructuredOutputInstruction();
+            if (structuredInstruction != null)
+                instructions += structuredInstruction;
+
+            if (!string.IsNullOrEmpty(instructions))
             {
-                requestBody["instructions"] = ActivateChat.SystemMessage;
+                requestBody["instructions"] = instructions;
+            }
+
+            if (_structuredOutputSchemaJson != null)
+            {
+                var schemaElement = JsonDocument.Parse(_structuredOutputSchemaJson).RootElement.Clone();
+                requestBody["text"] = new Dictionary<string, object>
+                {
+                    ["format"] = new Dictionary<string, object>
+                    {
+                        ["type"] = "json_schema",
+                        ["name"] = "structured_output",
+                        ["schema"] = schemaElement
+                    }
+                };
             }
 
             if (Stream)
@@ -100,9 +119,14 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var messagesList = new List<object>();
 
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            var systemMsg = ActivateChat.SystemMessage ?? "";
+            var structuredInstruction = GetStructuredOutputInstruction();
+            if (structuredInstruction != null)
+                systemMsg += structuredInstruction;
+
+            if (!string.IsNullOrEmpty(systemMsg))
             {
-                messagesList.Add(new { role = "system", content = ActivateChat.SystemMessage });
+                messagesList.Add(new { role = "system", content = systemMsg });
             }
 
             foreach (var message in GetLatestMessagesWithFunctionFallback())
@@ -117,6 +141,11 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["frequency_penalty"] = FrequencyPenalty;
             requestBody["presence_penalty"] = PresencePenalty;
             requestBody["stream"] = Stream;
+
+            if (_structuredOutputSchemaJson != null)
+            {
+                requestBody["response_format"] = new Dictionary<string, object> { ["type"] = "json_object" };
+            }
         }
 
         private object ConvertMessageForOpenAI(Message message)

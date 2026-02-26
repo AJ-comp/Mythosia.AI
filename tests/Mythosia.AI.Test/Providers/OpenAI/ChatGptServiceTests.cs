@@ -3,9 +3,10 @@ using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.OpenAI;
+using Mythosia.AI.Tests;
 using Mythosia.Azure;
 
-namespace Mythosia.AI.Tests;
+namespace Mythosia.AI.Tests.OpenAI;
 
 // 1. 기존 클래스를 추상 클래스로 변경 (이름에 Base 추가)
 [TestClass]

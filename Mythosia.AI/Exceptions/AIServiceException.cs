@@ -151,4 +151,58 @@ namespace Mythosia.AI.Exceptions
             ServiceName = serviceName;
         }
     }
+
+    /// <summary>
+    /// Exception thrown when structured output deserialization fails after all retry attempts.
+    /// Contains rich diagnostic context: raw LLM responses, parse errors, attempt count, and schema.
+    /// </summary>
+    public class StructuredOutputException : AIServiceException
+    {
+        /// <summary>
+        /// The raw LLM response from the first attempt.
+        /// </summary>
+        public string FirstRawResponse { get; }
+
+        /// <summary>
+        /// The raw LLM response from the last attempt.
+        /// </summary>
+        public string LastRawResponse { get; }
+
+        /// <summary>
+        /// The last JSON parse/deserialization error message.
+        /// </summary>
+        public string ParseError { get; }
+
+        /// <summary>
+        /// Total number of attempts made (1 initial + retries).
+        /// </summary>
+        public int AttemptCount { get; }
+
+        /// <summary>
+        /// The JSON schema that the LLM was instructed to follow.
+        /// </summary>
+        public string SchemaJson { get; }
+
+        /// <summary>
+        /// The target type name that deserialization was attempted for.
+        /// </summary>
+        public string TargetTypeName { get; }
+
+        public StructuredOutputException(
+            string targetTypeName,
+            string firstRawResponse,
+            string lastRawResponse,
+            string parseError,
+            int attemptCount,
+            string schemaJson)
+            : base($"Failed to deserialize LLM response to {targetTypeName} after {attemptCount} attempt(s). Parse error: {parseError}")
+        {
+            TargetTypeName = targetTypeName;
+            FirstRawResponse = firstRawResponse;
+            LastRawResponse = lastRawResponse;
+            ParseError = parseError;
+            AttemptCount = attemptCount;
+            SchemaJson = schemaJson;
+        }
+    }
 }

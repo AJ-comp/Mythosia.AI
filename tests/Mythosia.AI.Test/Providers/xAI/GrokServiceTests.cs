@@ -2,9 +2,10 @@ using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.xAI;
+using Mythosia.AI.Tests;
 using Mythosia.Azure;
 
-namespace Mythosia.AI.Tests;
+namespace Mythosia.AI.Tests.xAI;
 
 // 1. Abstract base class
 [TestClass]
