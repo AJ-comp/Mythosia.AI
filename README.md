@@ -26,6 +26,22 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 | [Mythosia.AI.VectorDB](Mythosia.AI.VectorDB/) |  | In-memory vector store with cosine similarity search |
 | [Mythosia.AI.Loaders.Abstractions](Mythosia.AI.Loaders.Abstractions/) |  | Document loader interfaces and models |
 
+## Demo / Test Bed (Chat UI)
+
+This repository includes a sample Chat UI built on Mythosia.AI — launch Mythosia.AI.Samples.ChatUi to test the library in action.
+
+### Run the sample
+
+Run **`Mythosia.AI.Samples.ChatUi`** to try it locally:
+
+```bash
+# from repo root
+dotnet run --project Mythosia.AI.Samples.ChatUi
+```
+
+https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
+
+
 ## Quick Start
 
 ### Basic AI Completion
