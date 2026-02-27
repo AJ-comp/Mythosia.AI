@@ -107,6 +107,7 @@ namespace Mythosia.AI.Services.Base
                     await channel.Writer.WriteAsync(new StreamingContent
                     {
                         Type = StreamingContentType.Error,
+                        Content = ex.Message,
                         Metadata = new Dictionary<string, object> { ["error"] = ex.Message }
                     }, cancellationToken);
                 }

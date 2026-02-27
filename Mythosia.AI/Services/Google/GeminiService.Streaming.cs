@@ -428,13 +428,14 @@ namespace Mythosia.AI.Services.Google
 
         private static StreamingContent CreateErrorContent(HttpResponseMessage response)
         {
+            var error = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
             return new StreamingContent
             {
                 Type = StreamingContentType.Error,
-                Content = null,
+                Content = $"API error ({(int)response.StatusCode}): {error}",
                 Metadata = new Dictionary<string, object>
                 {
-                    ["error"] = response.Content.ReadAsStringAsync().GetAwaiter().GetResult(),
+                    ["error"] = error,
                     ["status_code"] = (int)response.StatusCode
                 }
             };

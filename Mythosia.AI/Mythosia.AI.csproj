@@ -11,33 +11,26 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.6.0</VersionPrefix>
+		<VersionPrefix>4.6.1</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.6.0
+## What's New in v4.6.1
 
-### Conversation Summary Policy
-- `SummaryConversationPolicy` — Automatically summarize old messages when conversation exceeds token or message count thresholds
-- Factory methods: `ByToken()`, `ByMessage()`, `ByBoth()` for flexible configuration
-- Summary injected as system message prefix via `GetEffectiveSystemMessage()`
-- StatelessMode protection for summary LLM calls
-- Incremental summarization with existing summary context
-- Session persistence via `CurrentSummary` / `LoadSummary()`
-- Provider-agnostic: works with all supported providers
+### Streaming Error Content
+- `StreamingContent.Content` now contains descriptive error message (`API error ({statusCode}): {error}`) across all providers
+- Previously `Content` was null on error — now enables reliable client-side error handling
+- Affected: Claude, ChatGPT, DeepSeek, Gemini, Grok, Sonar
 
-### Real-Time Streaming Fix
-- **Fixed**: `StreamAsync()` was collecting all chunks before yielding — now yields each chunk immediately as it arrives from the API
-- **Affected providers**: Claude (Anthropic), ChatGPT (OpenAI), Grok (xAI)
-- **Not affected**: DeepSeek, Gemini, Sonar (already streaming correctly)
-- **New regression test**: `StreamingIsRealTimeNotBatchedTest` — verifies chunk timing spread &gt; 200ms
+### Claude Fixes
+- Corrected `opus-4-6` max output tokens: 131072 → 128000
+- `ApplyThinkingConfig` auto-adjusts `max_tokens` when `budget_tokens >= max_tokens` (Claude API requirement)
 
-### Internal Improvements
-- `HashSet&lt;ChatBlock&gt;` → `List&lt;ChatBlock&gt;` — Simpler and more predictable (no Equals/GetHashCode override on ChatBlock)
-- Default `ChatBlock` initialization in base constructor — `ActivateChat` is never null, eliminates NRE risk
-- Removed redundant `AddNewChat()` calls from all 6 concrete service constructors
+### Tests
+- `ClaudeThinkingBudgetAutoAdjustTest` — verifies budget auto-adjust logic
+- `ReasoningStreamingTest` — reasoning streaming with early error detection
 
 ## Supported Models
 
@@ -76,7 +69,7 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.6.0</Version>
+		<Version>4.6.1</Version>
 	</PropertyGroup>
 
 
@@ -98,10 +91,6 @@
 	    <Pack>True</Pack>
 	    <PackagePath>\</PackagePath>
 	  </None>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="docs\" />
 	</ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-# Model Metadata (ModelSpec) Refactor Proposal
+# [To-Be] Model Metadata (ModelSpec) Refactor Proposal
 
 ## Background
 
@@ -35,13 +35,13 @@
 ## Resolution Rules
 
 1. When `Model` is set, attempt resolve via **ModelSpecRegistry**
-2. **Resolved** ‚Üí apply capability/limit from ModelSpec
-3. **Not resolved** ‚Üí use existing per-service string parsing
+2. **Resolved** °Ê apply capability/limit from ModelSpec
+3. **Not resolved** °Ê use existing per-service string parsing
 4. Unknown strings must still work reliably
 
 ## Expected Benefits
 
-- Centralized metadata for known models ‚Üí **better maintainability**
+- Centralized metadata for known models °Ê **better maintainability**
 - Keeps **flexibility** for custom models
 - Enables **gradual migration**
 
@@ -49,7 +49,7 @@
 
 1. Add `ModelSpec` / `ModelSpecRegistry` skeleton
 2. Register known models incrementally
-3. Apply ‚ÄúSpec-first + fallback‚Äù in service parsing
+3. Apply "Spec-first + fallback" in service parsing
 4. Add tests (known model metadata, unknown model path)
 
 ## Open Questions

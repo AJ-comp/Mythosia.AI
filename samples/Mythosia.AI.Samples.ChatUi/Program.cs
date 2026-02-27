@@ -2,6 +2,8 @@ using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.DeepSeek;
@@ -22,7 +24,6 @@ app.UseStaticFiles();
 AIService? currentService = null;
 string? currentProvider = null;
 string? currentModelEnum = null;
-var httpClient = new HttpClient();
 
 // ── Helper: build model catalogue ───────────────────────────────
 static List<object> BuildModelCatalogue()
@@ -39,10 +40,37 @@ static List<object> BuildModelCatalogue()
         if (!groups.ContainsKey(provider))
             groups[provider] = new List<object>();
 
-        groups[provider].Add(new { name = model.ToString(), description });
+        var reasoning = GetReasoningLevels(model);
+        var maxOutputTokens = GetDefaultMaxOutputTokens(model);
+        groups[provider].Add(new { name = model.ToString(), description, reasoning, maxOutputTokens });
     }
 
     return groups.Select(g => (object)new { provider = g.Key, models = g.Value }).ToList();
+}
+
+static object? GetReasoningLevels(AIModel model)
+{
+    var name = model.ToString();
+    // OpenAI GPT-5
+    if (name.StartsWith("Gpt5") && !name.StartsWith("Gpt5_1") && !name.StartsWith("Gpt5_2"))
+        return new { type = "gpt5", levels = new[] { "Auto", "Minimal", "Low", "Medium", "High" } };
+    // OpenAI GPT-5.1
+    if (name.StartsWith("Gpt5_1"))
+        return new { type = "gpt5_1", levels = new[] { "Auto", "None", "Low", "Medium", "High" } };
+    // OpenAI GPT-5.2
+    if (name.StartsWith("Gpt5_2"))
+        return new { type = "gpt5_2", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
+    // OpenAI o3
+    if (name.StartsWith("o3") || name.StartsWith("O3"))
+        return new { type = "o3", levels = new[] { "Low", "Medium", "High" } };
+    // Claude (extended thinking)
+    if (name.StartsWith("Claude"))
+    {
+        // Sonnet 4+, Opus 4+, Haiku 4.5+
+        if (name.Contains("Sonnet4") || name.Contains("Opus4") || name.Contains("Haiku4_5"))
+            return new { type = "claude", levels = new[] { "1024", "2048", "4096", "8192", "16384" } };
+    }
+    return null;
 }
 
 static string GetProviderForModel(AIModel model)
@@ -55,6 +83,46 @@ static string GetProviderForModel(AIModel model)
     if (name.StartsWith("DeepSeek")) return "DeepSeek";
     if (name.StartsWith("Perplexity")) return "Perplexity";
     return "Unknown";
+}
+
+static uint GetDefaultMaxOutputTokens(AIModel model)
+{
+    var desc = model.GetType()
+        .GetField(model.ToString())!
+        .GetCustomAttribute<DescriptionAttribute>()?.Description?.ToLower() ?? "";
+
+    var provider = GetProviderForModel(model);
+    return provider switch
+    {
+        "OpenAI" => desc switch
+        {
+            _ when desc.StartsWith("o3") => 100000,
+            _ when desc.StartsWith("gpt-5") && desc.Contains("chat") => 16384,
+            _ when desc.StartsWith("gpt-5") => 128000,
+            _ when desc.StartsWith("gpt-4.1") => 32768,
+            _ when desc.Contains("4o-mini") => 16384,
+            _ when desc.Contains("4o") => 16384,
+            _ when desc.Contains("vision") => 4096,
+            _ => 16384
+        },
+        "Anthropic" => desc switch
+        {
+            _ when desc.Contains("opus-4-6") => 128000,
+            _ when desc.Contains("sonnet-4-6") => 65536,
+            _ when desc.Contains("opus-4-5") => 65536,
+            _ when desc.Contains("sonnet-4-5") => 65536,
+            _ when desc.Contains("haiku-4-5") => 65536,
+            _ when desc.Contains("opus-4") => 32768,
+            _ when desc.Contains("sonnet-4") => 16384,
+            _ when desc.Contains("haiku-4") => 8192,
+            _ => 8192
+        },
+        "Google" => 65536,
+        "xAI" => 131072,
+        "DeepSeek" => 8192,
+        "Perplexity" => 8192,
+        _ => 4096
+    };
 }
 
 // ── GET /api/models ─────────────────────────────────────────────
@@ -76,6 +144,8 @@ app.MapPost("/api/configure", (ConfigureRequest req) =>
 
     try
     {
+        var previousService = currentService;
+        var httpClient = new HttpClient();
         currentService = provider switch
         {
             "OpenAI" => new ChatGptService(req.ApiKey, httpClient),
@@ -87,6 +157,11 @@ app.MapPost("/api/configure", (ConfigureRequest req) =>
             _ => throw new NotSupportedException($"Provider {provider} not supported")
         };
         currentService.ChangeModel(aiModel);
+
+        // Carry over conversation history and settings from previous service
+        if (previousService != null)
+            currentService.CopyFrom(previousService);
+
         currentProvider = provider;
         currentModelEnum = req.Model;
 
@@ -125,12 +200,38 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
 
     ctx.Response.ContentType = "text/event-stream";
     ctx.Response.Headers["Cache-Control"] = "no-cache";
+    ctx.Response.Headers["X-Accel-Buffering"] = "no";
+    ctx.Response.Headers["Connection"] = "keep-alive";
 
     try
     {
-        await foreach (var chunk in currentService.StreamAsync(req.Message, ctx.RequestAborted))
+        var message = new Message(ActorRole.User, req.Message);
+        var options = new StreamOptions
         {
-            var payload = JsonSerializer.Serialize(new { content = chunk });
+            IncludeReasoning = true,
+            IncludeMetadata = false,
+            IncludeFunctionCalls = false,
+            TextOnly = false
+        };
+
+        await foreach (var sc in currentService.StreamAsync(message, options, ctx.RequestAborted))
+        {
+            string type = sc.Type switch
+            {
+                StreamingContentType.Reasoning => "reasoning",
+                StreamingContentType.Text => "text",
+                StreamingContentType.Error => "error",
+                _ => null
+            };
+            if (type == null) continue;
+
+            // For error types, fall back to metadata if Content is null
+            var content = sc.Content
+                ?? sc.Metadata?.GetValueOrDefault("error")?.ToString()
+                ?? "(unknown error)";
+            if (type != "error" && sc.Content == null) continue;
+
+            var payload = JsonSerializer.Serialize(new { type, content });
             await ctx.Response.WriteAsync($"data: {payload}\n\n", ctx.RequestAborted);
             await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
         }
@@ -171,6 +272,53 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     if (req.PresencePenalty.HasValue) currentService.PresencePenalty = req.PresencePenalty.Value;
     if (req.StatelessMode.HasValue) currentService.StatelessMode = req.StatelessMode.Value;
     if (req.SystemMessage != null) currentService.SystemMessage = req.SystemMessage;
+
+    // Apply reasoning settings
+    if (req.ReasoningEnabled == true && req.ReasoningLevel != null && req.ReasoningType != null)
+    {
+        if (currentService is ChatGptService gpt)
+        {
+            switch (req.ReasoningType)
+            {
+                case "gpt5":
+                    if (Enum.TryParse<Gpt5Reasoning>(req.ReasoningLevel, out var g5))
+                        gpt.Gpt5ReasoningEffort = g5;
+                    gpt.Gpt5ReasoningSummary = ReasoningSummary.Detailed;
+                    break;
+                case "gpt5_1":
+                    if (Enum.TryParse<Gpt5_1Reasoning>(req.ReasoningLevel, out var g51))
+                        gpt.Gpt5_1ReasoningEffort = g51;
+                    gpt.Gpt5_1ReasoningSummary = ReasoningSummary.Detailed;
+                    break;
+                case "gpt5_2":
+                    if (Enum.TryParse<Gpt5_2Reasoning>(req.ReasoningLevel, out var g52))
+                        gpt.Gpt5_2ReasoningEffort = g52;
+                    gpt.Gpt5_2ReasoningSummary = ReasoningSummary.Detailed;
+                    break;
+            }
+        }
+        else if (currentService is ClaudeService claude)
+        {
+            if (int.TryParse(req.ReasoningLevel, out var budget))
+                claude.ThinkingBudget = budget;
+        }
+    }
+    else if (req.ReasoningEnabled == false)
+    {
+        if (currentService is ChatGptService gptOff)
+        {
+            gptOff.Gpt5ReasoningEffort = Gpt5Reasoning.Auto;
+            gptOff.Gpt5ReasoningSummary = null;
+            gptOff.Gpt5_1ReasoningEffort = Gpt5_1Reasoning.Auto;
+            gptOff.Gpt5_1ReasoningSummary = null;
+            gptOff.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Auto;
+            gptOff.Gpt5_2ReasoningSummary = null;
+        }
+        else if (currentService is ClaudeService claudeOff)
+        {
+            claudeOff.ThinkingBudget = -1;
+        }
+    }
 
     return Results.Ok(new { status = "updated" });
 });
@@ -272,6 +420,7 @@ app.MapGet("/api/state", () =>
         activeChatId = svc.ActivateChat.Id,
         systemMessage = svc.ActivateChat.SystemMessage,
         messageCount = svc.ActivateChat.Messages.Count,
+        sentMessageCount = Math.Min(svc.ActivateChat.Messages.Count, (int)svc.MaxMessageCount),
         chatBlockCount = svc.ChatRequests.Count,
 
         // Messages
@@ -279,10 +428,131 @@ app.MapGet("/api/state", () =>
     });
 });
 
+// ── GET /api/code-snippet ────────────────────────────────────────
+app.MapPost("/api/code-snippet", (CodeSnippetRequest req) =>
+{
+    if (currentService == null)
+        return Results.BadRequest(new { error = "Service not configured" });
+
+    var svc = currentService;
+    var code = GenerateCodeSnippet(svc, currentProvider!, currentModelEnum!, req.UserMessage);
+    return Results.Ok(new { code });
+});
+
 // ── Fallback to index.html ──────────────────────────────────────
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// ── Code Snippet Generator ───────────────────────────────────────
+static string GenerateCodeSnippet(AIService svc, string provider, string modelEnum, string? userMessage)
+{
+    var serviceClass = provider switch
+    {
+        "OpenAI" => "ChatGptService",
+        "Anthropic" => "ClaudeService",
+        "Google" => "GeminiService",
+        "DeepSeek" => "DeepSeekService",
+        "xAI" => "GrokService",
+        "Perplexity" => "SonarService",
+        _ => "AIService"
+    };
+
+    var sb = new System.Text.StringBuilder();
+
+    // Using statements
+    sb.AppendLine("using Mythosia.AI.Extensions;");
+    sb.AppendLine("using Mythosia.AI.Models;");
+    sb.AppendLine("using Mythosia.AI.Models.Enums;");
+    sb.AppendLine("using Mythosia.AI.Models.Messages;");
+    sb.AppendLine("using Mythosia.AI.Models.Streaming;");
+    sb.AppendLine($"using Mythosia.AI.Services.{(provider == "xAI" ? "xAI" : provider)};");
+    sb.AppendLine();
+
+    // Service creation
+    sb.AppendLine($"// 1. Create the AI service");
+    sb.AppendLine($"var httpClient = new HttpClient();");
+    sb.AppendLine($"var service = new {serviceClass}(\"YOUR_API_KEY\", httpClient);");
+    sb.AppendLine($"service.ChangeModel(AIModel.{modelEnum});");
+    sb.AppendLine();
+
+    // Settings
+    sb.AppendLine($"// 2. Configure settings");
+    if (!string.IsNullOrEmpty(svc.SystemMessage))
+        sb.AppendLine($"service.SystemMessage = \"{EscapeSnippetString(svc.SystemMessage)}\";");
+    sb.AppendLine($"service.Temperature = {svc.Temperature:F2}f;");
+    sb.AppendLine($"service.TopP = {svc.TopP:F2}f;");
+    sb.AppendLine($"service.MaxTokens = {svc.MaxTokens};");
+    sb.AppendLine($"service.MaxMessageCount = {svc.MaxMessageCount};");
+    if (svc.StatelessMode)
+        sb.AppendLine($"service.StatelessMode = true;");
+
+    // Reasoning settings
+    if (svc is ChatGptService gpt)
+    {
+        if (modelEnum.StartsWith("Gpt5") && !modelEnum.StartsWith("Gpt5_1") && !modelEnum.StartsWith("Gpt5_2"))
+        {
+            if (gpt.Gpt5ReasoningSummary != null)
+            {
+                sb.AppendLine($"gpt.Gpt5ReasoningEffort = Gpt5Reasoning.{gpt.Gpt5ReasoningEffort};");
+                sb.AppendLine($"gpt.Gpt5ReasoningSummary = ReasoningSummary.{gpt.Gpt5ReasoningSummary};");
+            }
+        }
+        else if (modelEnum.StartsWith("Gpt5_1"))
+        {
+            if (gpt.Gpt5_1ReasoningSummary != null)
+            {
+                sb.AppendLine($"gpt.Gpt5_1ReasoningEffort = Gpt5_1Reasoning.{gpt.Gpt5_1ReasoningEffort};");
+                sb.AppendLine($"gpt.Gpt5_1ReasoningSummary = ReasoningSummary.{gpt.Gpt5_1ReasoningSummary};");
+            }
+        }
+        else if (modelEnum.StartsWith("Gpt5_2"))
+        {
+            if (gpt.Gpt5_2ReasoningSummary != null)
+            {
+                sb.AppendLine($"gpt.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.{gpt.Gpt5_2ReasoningEffort};");
+                sb.AppendLine($"gpt.Gpt5_2ReasoningSummary = ReasoningSummary.{gpt.Gpt5_2ReasoningSummary};");
+            }
+        }
+    }
+    else if (svc is ClaudeService claude && claude.ThinkingBudget > 0)
+    {
+        sb.AppendLine($"claude.ThinkingBudget = {claude.ThinkingBudget};");
+    }
+
+    sb.AppendLine();
+
+    // Send message
+    var escapedMsg = EscapeSnippetString(userMessage ?? "Hello!");
+    sb.AppendLine($"// 3. Send a message and stream the response");
+    sb.AppendLine($"var message = new Message(ActorRole.User, \"{escapedMsg}\");");
+    sb.AppendLine($"var options = new StreamOptions");
+    sb.AppendLine($"{{");
+    sb.AppendLine($"    IncludeReasoning = true,");
+    sb.AppendLine($"    TextOnly = false");
+    sb.AppendLine($"}};");
+    sb.AppendLine();
+    sb.AppendLine($"await foreach (var chunk in service.StreamAsync(message, options))");
+    sb.AppendLine($"{{");
+    sb.AppendLine($"    if (chunk.Type == StreamingContentType.Reasoning)");
+    sb.AppendLine($"        Console.Write($\"[Thinking] {{chunk.Content}}\");");
+    sb.AppendLine($"    else if (chunk.Type == StreamingContentType.Text)");
+    sb.AppendLine($"        Console.Write(chunk.Content);");
+    sb.AppendLine($"}}");
+
+    // Alternative: simple non-streaming
+    sb.AppendLine();
+    sb.AppendLine($"// Alternative: Non-streaming (simple)");
+    sb.AppendLine($"// string response = await service.SendAsync(\"{escapedMsg}\");");
+    sb.AppendLine($"// Console.WriteLine(response);");
+
+    return sb.ToString();
+}
+
+static string EscapeSnippetString(string s)
+{
+    return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+}
 
 // ── Request DTOs ────────────────────────────────────────────────
 record ConfigureRequest(string? ApiKey, string? Model, string? SystemMessage);
@@ -295,4 +565,8 @@ record SettingsRequest(
     float? FrequencyPenalty,
     float? PresencePenalty,
     bool? StatelessMode,
-    string? SystemMessage);
+    string? SystemMessage,
+    bool? ReasoningEnabled,
+    string? ReasoningLevel,
+    string? ReasoningType);
+record CodeSnippetRequest(string? UserMessage);

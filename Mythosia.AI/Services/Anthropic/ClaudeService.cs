@@ -43,7 +43,7 @@ namespace Mythosia.AI.Services.Anthropic
         protected override uint GetModelMaxOutputTokens()
         {
             var model = Model?.ToLower() ?? "";
-            if (model.Contains("opus-4-6")) return 131072;
+            if (model.Contains("opus-4-6")) return 128000;
             if (model.Contains("sonnet-4-6")) return 65536;
             if (model.Contains("opus-4-5")) return 65536;
             if (model.Contains("sonnet-4-5")) return 65536;
@@ -378,10 +378,20 @@ namespace Mythosia.AI.Services.Anthropic
         /// <summary>
         /// Applies thinking configuration to the request body if enabled.
         /// When thinking is enabled, temperature must be 1 (Claude requirement).
+        /// Also auto-adjusts max_tokens to ensure budget_tokens &lt; max_tokens.
         /// </summary>
         private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
         {
             if (!IsThinkingEnabled) return;
+
+            // Claude requires budget_tokens < max_tokens
+            var effectiveMaxTokens = GetEffectiveMaxTokens();
+            if ((uint)ThinkingBudget >= effectiveMaxTokens)
+            {
+                var modelMax = GetModelMaxOutputTokens();
+                var required = (uint)ThinkingBudget + 1024;
+                requestBody["max_tokens"] = Math.Min(required, modelMax);
+            }
 
             requestBody["temperature"] = 1.0f;
             requestBody["thinking"] = new Dictionary<string, object>

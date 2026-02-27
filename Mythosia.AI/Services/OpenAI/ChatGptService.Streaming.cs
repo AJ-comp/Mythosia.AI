@@ -60,6 +60,7 @@ namespace Mythosia.AI.Services.OpenAI
                         yield return new StreamingContent
                         {
                             Type = StreamingContentType.Error,
+                            Content = $"API error ({(int)response.StatusCode}): {error}",
                             Metadata = new Dictionary<string, object> { ["error"] = error }
                         };
                         yield break;

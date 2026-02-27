@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mythosia.AI - Chat UI Sample</title>
   <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
 </head>
 <body>
   <div class="app">
@@ -15,19 +16,6 @@
         <h2>Models</h2>
       </div>
       <div id="model-list" class="model-list"></div>
-
-      <!-- API Key area (hidden by default) -->
-      <div id="apikey-area" class="apikey-area hidden">
-        <label id="apikey-label" class="apikey-label">API Key</label>
-        <div class="apikey-input-wrap">
-          <input id="apikey-input" type="password" placeholder="Enter API key..." autocomplete="off" />
-          <button id="apikey-toggle" class="btn-icon" title="Show / Hide">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>
-        </div>
-        <div id="apikey-masked" class="apikey-masked hidden"></div>
-        <button id="apikey-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
-      </div>
 
       <!-- Settings -->
       <div id="settings-area" class="settings-area hidden">
@@ -45,8 +33,8 @@
           <input id="set-topp" type="range" min="0" max="1" step="0.05" value="1.0" />
         </div>
         <div class="setting-row">
-          <label>Max Tokens</label>
-          <input id="set-maxtokens" type="number" value="1024" min="1" max="128000" />
+          <label>Max Output Tokens</label>
+          <input id="set-maxtokens" type="number" value="1024" min="1" max="200000" />
         </div>
         <div class="setting-row">
           <label>Max Messages</label>
@@ -55,7 +43,13 @@
         <div class="setting-row chk-row">
           <label><input id="set-stateless" type="checkbox" /> Stateless Mode</label>
         </div>
-        <button id="settings-apply" class="btn btn-secondary btn-sm">Apply Settings</button>
+        <div class="setting-row chk-row">
+          <label><input id="set-reasoning" type="checkbox" disabled /> Reasoning Mode</label>
+        </div>
+        <div id="reasoning-options" class="reasoning-options hidden">
+          <label class="reasoning-options-label">Reasoning Level</label>
+          <div id="reasoning-levels" class="reasoning-levels"></div>
+        </div>
       </div>
 
       <div class="sidebar-footer">
@@ -78,10 +72,12 @@
         </div>
       </div>
       <form id="chat-form" class="chat-input-area">
-        <textarea id="chat-input" rows="1" placeholder="Type a message..." disabled></textarea>
-        <button id="btn-send" class="btn btn-primary" disabled>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <div class="chat-input-wrap">
+          <textarea id="chat-input" rows="1" placeholder="Type a message..." disabled></textarea>
+          <button id="btn-send" class="btn btn-primary" disabled>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
       </form>
     </main>
 
@@ -100,6 +96,55 @@
 
   </div>
 
+  <!-- ═══ API Key Modal ═══ -->
+  <div id="apikey-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-title">API Key</h3>
+        <button id="modal-close" class="btn-icon" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label">Enter your API key for <strong id="modal-provider-name"></strong></label>
+        <div class="modal-input-wrap">
+          <input id="modal-apikey-input" type="password" placeholder="sk-... or your API key" autocomplete="off" />
+          <button id="modal-apikey-toggle" class="btn-icon" title="Show / Hide">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
+        </div>
+        <div id="modal-key-status" class="modal-key-status hidden"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="modal-remove-key" class="btn btn-ghost btn-sm" style="display:none">Remove Key</button>
+        <div style="flex:1"></div>
+        <button id="modal-cancel" class="btn btn-secondary btn-sm">Cancel</button>
+        <button id="modal-save" class="btn btn-primary btn-sm" disabled>Save Key</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Code Viewer Modal ═══ -->
+  <div id="code-modal" class="modal-overlay hidden">
+    <div class="modal-card code-modal-card">
+      <div class="modal-header">
+        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Library Code</h3>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button id="code-copy-all" class="btn btn-ghost btn-sm" title="Copy code">Copy</button>
+          <button id="code-modal-close" class="btn-icon" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body code-modal-body">
+        <pre><code id="code-modal-content" class="language-csharp"></code></pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
   <script src="/js/app.js"></script>
 </body>
 </html>

@@ -1,6 +1,57 @@
 # Mythosia.AI - Release Notes
 
-## 🚀 v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
+## � v4.6.1 - Streaming Error Content & Claude Thinking Budget Fix
+
+### **Streaming Error Content** 🐛
+
+`StreamingContent.Content` was `null` when an API error occurred during streaming, making it difficult for consumers to display or handle error messages. Now all providers populate `Content` with a descriptive message:
+
+```
+API error (429): {"error":{"type":"rate_limit_error","message":"..."}}
+```
+
+#### Affected Providers
+- **Claude** (`ClaudeService.Streaming.cs`)
+- **ChatGPT** (`ChatGptService.Streaming.cs`)
+- **Grok** (`GrokService.Streaming.cs`)
+- **DeepSeek** (`DeepSeekService.Streaming.cs`)
+- **Gemini** (`GeminiService.Streaming.cs`)
+- **Sonar** (`SonarService.Streaming.cs`)
+
+The error body is still available in `Metadata["error"]` as before — `Content` is now an additional, consumer-friendly surface.
+
+### **Claude Thinking Budget Auto-Adjust** 🧠
+
+Claude API requires `budget_tokens < max_tokens`. When `ThinkingBudget >= MaxTokens`, `ApplyThinkingConfig` now automatically increases `max_tokens` to `ThinkingBudget + 1024` (capped at the model's maximum), preventing `400 Bad Request` errors.
+
+```csharp
+var claude = new ClaudeService(apiKey, httpClient);
+claude.MaxTokens = 8192;
+claude.ThinkingBudget = 8192;  // budget_tokens == max_tokens → auto-adjusted to 9216
+```
+
+### **Claude Opus 4.6 Max Output Tokens Correction** 🔧
+
+- `opus-4-6` max output tokens corrected from `131072` to `128000` to match the Anthropic API specification
+
+### 🧪 New Tests
+
+- **`ClaudeThinkingBudgetAutoAdjustTest`** — Verifies that thinking budget auto-adjust produces a valid response without API errors
+- **`ReasoningStreamingTest`** — Validates reasoning + text chunk streaming with early error detection via `StreamingContent.Content`
+
+### 🗑️ Chore
+
+- Removed internal design docs (`docs/` directory) and related `.csproj` folder entry
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.6.0
+- No breaking changes
+- `StreamingContent.Content` on error is now non-null (previously `null`) — consumers relying on `Content == null` to detect errors should update to check `Type == StreamingContentType.Error`
+
+---
+
+## �🚀 v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
 
 ### **SummaryConversationPolicy** 🧠
 

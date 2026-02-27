@@ -84,6 +84,37 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
     }
     protected override AIModel? GetAlternativeModel() => AIModel.ClaudeSonnet4_250514;
 
+    /// <summary>
+    /// ThinkingBudget이 MaxTokens 이상일 때 자동 조정 테스트
+    /// budget_tokens >= max_tokens인 경우 API 에러 없이 정상 응답해야 함
+    /// </summary>
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task ClaudeThinkingBudgetAutoAdjustTest()
+    {
+        await RunIfSupported(
+            () => SupportsReasoning(),
+            async () =>
+            {
+                var claudeService = (ClaudeService)AI;
+
+                // max_tokens 기본값(8192)과 같은 budget 설정 — 자동 조정이 동작해야 함
+                claudeService.MaxTokens = 8192;
+                claudeService.ThinkingBudget = 8192;
+
+                var response = await claudeService.GetCompletionAsync(
+                    "What is 2 + 2? Answer briefly."
+                );
+
+                Assert.IsNotNull(response);
+                Assert.IsTrue(response.Length > 0, "Response should not be empty");
+                Console.WriteLine($"[Auto-Adjust] Response: {response}");
+                Console.WriteLine($"[Auto-Adjust] Thinking: {claudeService.LastThinkingContent?.Substring(0, Math.Min(200, claudeService.LastThinkingContent?.Length ?? 0))}...");
+            },
+            "Claude Thinking Budget Auto-Adjust"
+        );
+    }
+
     #region Claude-Specific Tests
 
     /// <summary>

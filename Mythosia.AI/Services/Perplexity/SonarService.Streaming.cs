@@ -160,7 +160,7 @@ namespace Mythosia.AI.Services.Perplexity
                 yield return new StreamingContent
                 {
                     Type = StreamingContentType.Error,
-                    Content = null,
+                    Content = $"API error ({(int)response.StatusCode}): {error}",
                     Metadata = new Dictionary<string, object>
                     {
                         ["error"] = error,
@@ -205,7 +205,7 @@ namespace Mythosia.AI.Services.Perplexity
                     yield return new StreamingContent
                     {
                         Type = StreamingContentType.Error,
-                        Content = null,
+                        Content = $"API error ({(int)response.StatusCode}): {error}",
                         Metadata = new Dictionary<string, object>
                         {
                             ["error"] = error,

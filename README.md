@@ -10,7 +10,7 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 | Provider | Models |
 | --- | --- |
 | **OpenAI** | GPT-5.2 / 5.2 Codex / 5.1 / 5, GPT-4.1, GPT-4o, o3 |
-| **Anthropic** | Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.5 / 4, Haiku 4.5 |
+| **Anthropic** | Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5 / 4, Haiku 4.5 |
 | **Google** | Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite |
 | **xAI** | Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini |
 | **DeepSeek** | Chat, Reasoner |

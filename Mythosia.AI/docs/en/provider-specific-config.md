@@ -12,18 +12,18 @@
 Provider-specific settings are managed as properties of each service class.
 
 ```csharp
-// Common settings â†’ ChatBlock
+// Common settings ¡æ ChatBlock
 geminiService.ActivateChat.Temperature = 0.7f;
 geminiService.ActivateChat.MaxTokens = 4096;
 
-// Provider-specific settings â†’ Service
+// Provider-specific settings ¡æ Service
 geminiService.ThinkingBudget = 1024;
 ```
 
 ### Pros
 - ChatBlock remains completely provider-agnostic (clean separation)
 - Follows OOP principles (each service manages its own config)
-- One setting per service instance â†’ simple structure
+- One setting per service instance ¡æ simple structure
 
 ### Cons
 - All ChatBlocks within one service share the same provider-specific settings

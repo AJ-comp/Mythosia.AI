@@ -59,4 +59,61 @@ public abstract partial class AIServiceTestBase
             "Reasoning"
         );
     }
+
+    /// <summary>
+    /// 추론 모드 스트리밍 테스트 — reasoning + text 청크가 모두 수신되는지 검증
+    /// 에러 발생 시 즉시 실패 처리하여 empty response 문제를 조기 감지
+    /// </summary>
+    [TestCategory("Common")]
+    [TestCategory("Reasoning")]
+    [TestMethod]
+    public async Task ReasoningStreamingTest()
+    {
+        await RunIfSupported(
+            () => SupportsReasoning(),
+            async () =>
+            {
+                var options = new StreamOptions().WithReasoning().WithMetadata(false);
+
+                var reasoningChunks = new List<string>();
+                var textChunks = new List<string>();
+                var receivedTypes = new HashSet<StreamingContentType>();
+
+                await foreach (var content in AI.StreamAsync(
+                    "What is 15 * 17? Explain your reasoning.", options))
+                {
+                    receivedTypes.Add(content.Type);
+
+                    if (content.Type == StreamingContentType.Reasoning && content.Content != null)
+                    {
+                        reasoningChunks.Add(content.Content);
+                        Console.Write($"[R]{content.Content}");
+                    }
+                    else if (content.Type == StreamingContentType.Text && content.Content != null)
+                    {
+                        textChunks.Add(content.Content);
+                        Console.Write(content.Content);
+                    }
+                    else if (content.Type == StreamingContentType.Error)
+                    {
+                        Console.WriteLine($"\n[ERROR] {content.Content}");
+                        Assert.Fail($"Received error during reasoning streaming: {content.Content}");
+                    }
+                }
+
+                var fullReasoning = string.Join("", reasoningChunks);
+                var fullText = string.Join("", textChunks);
+
+                Console.WriteLine($"\n[Reasoning Stream] Reasoning chunks: {reasoningChunks.Count} ({fullReasoning.Length} chars)");
+                Console.WriteLine($"[Reasoning Stream] Text chunks: {textChunks.Count} ({fullText.Length} chars)");
+                Console.WriteLine($"[Reasoning Stream] Received types: {string.Join(", ", receivedTypes)}");
+
+                Assert.IsTrue(textChunks.Count > 0, "Should have received text chunks");
+                Assert.IsTrue(fullText.Length > 0, "Text response should not be empty");
+                Assert.IsTrue(reasoningChunks.Count > 0,
+                    "Should have received reasoning chunks when reasoning mode is enabled");
+            },
+            "Reasoning Streaming"
+        );
+    }
 }
