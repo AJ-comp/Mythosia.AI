@@ -71,6 +71,13 @@ namespace Mythosia.AI.Services.xAI
                 requestBody["response_format"] = new Dictionary<string, object> { ["type"] = "json_object" };
             }
 
+            // Apply reasoning_effort — only grok-3-mini supports this parameter.
+            // grok-3, grok-4, grok-4-fast-reasoning do NOT support it.
+            if (SupportsReasoningEffort() && ReasoningEffort != GrokReasoning.Off)
+            {
+                requestBody["reasoning_effort"] = ReasoningEffort.ToString().ToLowerInvariant();
+            }
+
             return requestBody;
         }
 
@@ -83,6 +90,16 @@ namespace Mythosia.AI.Services.xAI
             var model = Model?.ToLower() ?? "";
             return model.Contains("grok-3-mini") ||
                    model.Contains("grok-4");
+        }
+
+        /// <summary>
+        /// Only grok-3-mini supports the reasoning_effort parameter.
+        /// grok-3, grok-4, grok-4-fast-reasoning do NOT support it.
+        /// </summary>
+        private bool SupportsReasoningEffort()
+        {
+            var model = Model?.ToLower() ?? "";
+            return model.Contains("grok-3-mini");
         }
 
         private object ConvertMessageForGrok(Message message)

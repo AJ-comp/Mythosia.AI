@@ -74,8 +74,33 @@ public class SummaryConversationPolicyTests
         public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
             => Task.FromResult(string.Empty);
 
-        public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
-            => Task.CompletedTask;
+        public int StreamCallCount { get; private set; }
+
+        public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+        {
+            StreamCallCount++;
+
+            if (!StatelessMode)
+            {
+                ActivateChat.Messages.Add(message);
+            }
+
+            if (_responses.Count == 0)
+                throw new AIServiceException("No more mock responses");
+
+            var response = _responses.Dequeue();
+
+            // Simulate streaming by sending word-by-word
+            foreach (var word in response.Split(' '))
+            {
+                await messageReceivedAsync(word + " ");
+            }
+
+            if (!StatelessMode)
+            {
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, response));
+            }
+        }
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
@@ -227,8 +252,8 @@ public class SummaryConversationPolicyTests
     [TestMethod]
     public void GetMessagesToSummarize_AllFitInKeep_ReturnsEmpty()
     {
-        var policy = SummaryConversationPolicy.ByMessage(triggerCount: 5, keepRecentCount: 10);
-        var messages = CreateMessages(8);
+        var policy = SummaryConversationPolicy.ByMessage(triggerCount: 10, keepRecentCount: 5);
+        var messages = CreateMessages(5);
 
         var (toSummarize, keepFromIndex) = policy.GetMessagesToSummarize(messages);
 
@@ -635,6 +660,195 @@ public class SummaryConversationPolicyTests
             messages.Add(new Message(role, $"msg{i}"));
         }
         return messages;
+    }
+
+    #endregion
+
+    #region Streaming + Summary Integration Tests
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public async Task Streaming_ExplicitSummaryCall_TriggersSummarization()
+    {
+        // ApplySummaryPolicyIfNeededAsync()를 StreamAsync 전에 명시적으로 호출하는 패턴 검증
+        // (ChatUI에서 사용하는 패턴)
+        var mock = new MockAIService("Summary of old conversation", "Streamed response");
+        mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 5, keepRecentCount: 2);
+
+        // Pre-fill 6 messages to exceed threshold
+        for (int i = 0; i < 6; i++)
+        {
+            var role = i % 2 == 0 ? ActorRole.User : ActorRole.Assistant;
+            mock.ActivateChat.Messages.Add(new Message(role, $"msg{i}"));
+        }
+
+        // Explicitly call summary (as done before StreamAsync in ChatUI)
+        await mock.ApplySummaryPolicyIfNeededAsync();
+
+        // Verify summary was created
+        Assert.AreEqual("Summary of old conversation", mock.ConversationPolicy.CurrentSummary,
+            "Summary should be created after explicit ApplySummaryPolicyIfNeededAsync call");
+
+        // Verify old messages were removed
+        Assert.IsFalse(mock.ActivateChat.Messages.Any(m => m.Content == "msg0"),
+            "Old messages should be removed after summarization");
+        Assert.IsFalse(mock.ActivateChat.Messages.Any(m => m.Content == "msg1"),
+            "Old messages should be removed after summarization");
+
+        // Verify recent messages were kept
+        Assert.IsTrue(mock.ActivateChat.Messages.Any(m => m.Content == "msg4"),
+            "Recent messages should be kept");
+        Assert.IsTrue(mock.ActivateChat.Messages.Any(m => m.Content == "msg5"),
+            "Recent messages should be kept");
+
+        // Now stream — should work normally after summarization
+        string streamed = "";
+        await foreach (var chunk in mock.StreamAsync("New streaming question"))
+        {
+            streamed += chunk;
+        }
+
+        Assert.IsTrue(streamed.Contains("Streamed") && streamed.Contains("response"),
+            $"Streaming should work after summarization. Got: {streamed}");
+        Assert.AreEqual(1, mock.StreamCallCount, "StreamAsync should have been called once");
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public async Task Streaming_BelowThreshold_NoSummarization()
+    {
+        // 임계값 미만일 때는 요약 없이 스트리밍 정상 동작
+        var mock = new MockAIService("Streamed answer");
+        mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 100, keepRecentCount: 5);
+
+        // Pre-fill just a few messages (below threshold)
+        for (int i = 0; i < 3; i++)
+            mock.ActivateChat.Messages.Add(new Message(ActorRole.User, $"msg{i}"));
+
+        // Explicitly call summary — should be a no-op
+        await mock.ApplySummaryPolicyIfNeededAsync();
+
+        Assert.IsNull(mock.ConversationPolicy.CurrentSummary,
+            "No summary should be created when below threshold");
+        Assert.AreEqual(3, mock.ActivateChat.Messages.Count,
+            "No messages should be removed");
+
+        // Stream should work normally
+        string streamed = "";
+        await foreach (var chunk in mock.StreamAsync("question"))
+        {
+            streamed += chunk;
+        }
+
+        Assert.IsTrue(streamed.Contains("Streamed"),
+            $"Streaming should work normally. Got: {streamed}");
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public async Task Streaming_EffectiveSystemMessage_IncludesSummary()
+    {
+        // 요약 후 GetEffectiveSystemMessage에 요약이 포함되는지 검증
+        var mock = new MockAIService("Summary result", "Stream output");
+        mock.SystemMessage = "You are a helpful assistant.";
+        mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 3, keepRecentCount: 1);
+
+        // Pre-fill 4 messages
+        for (int i = 0; i < 4; i++)
+            mock.ActivateChat.Messages.Add(new Message(ActorRole.User, $"msg{i}"));
+
+        // Trigger summary before streaming
+        await mock.ApplySummaryPolicyIfNeededAsync();
+
+        // Verify effective system message includes summary
+        var effective = mock.GetEffectiveSystemMessage();
+        Assert.IsTrue(effective.Contains("[Previous conversation summary]"),
+            "Effective system message should contain summary prefix");
+        Assert.IsTrue(effective.Contains("Summary result"),
+            "Effective system message should contain the summary content");
+        Assert.IsTrue(effective.Contains("You are a helpful assistant."),
+            "Effective system message should still contain original system message");
+
+        // Stream should work with summary context
+        string streamed = "";
+        await foreach (var chunk in mock.StreamAsync("follow up"))
+        {
+            streamed += chunk;
+        }
+        Assert.IsTrue(streamed.Length > 0, "Streaming should produce output after summarization");
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public void ByMessage_KeepRecentGreaterOrEqual_Throws()
+    {
+        try
+        {
+            SummaryConversationPolicy.ByMessage(triggerCount: 5, keepRecentCount: 5);
+            Assert.Fail("Expected ArgumentException when keepRecentCount equals triggerCount");
+        }
+        catch (ArgumentException)
+        {
+        }
+
+        try
+        {
+            SummaryConversationPolicy.ByMessage(triggerCount: 5, keepRecentCount: 10);
+            Assert.Fail("Expected ArgumentException when keepRecentCount exceeds triggerCount");
+        }
+        catch (ArgumentException)
+        {
+        }
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public void ByBoth_KeepRecentGreaterOrEqual_Throws()
+    {
+        try
+        {
+            SummaryConversationPolicy.ByBoth(triggerTokens: 100, triggerCount: 5, keepRecentCount: 5);
+            Assert.Fail("Expected ArgumentException when keepRecentCount equals triggerCount");
+        }
+        catch (ArgumentException)
+        {
+        }
+
+        try
+        {
+            SummaryConversationPolicy.ByBoth(triggerTokens: 100, triggerCount: 5, keepRecentCount: 10);
+            Assert.Fail("Expected ArgumentException when keepRecentCount exceeds triggerCount");
+        }
+        catch (ArgumentException)
+        {
+        }
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public async Task Streaming_StatelessMode_SkipsSummarization()
+    {
+        // StatelessMode에서는 ApplySummaryPolicyIfNeededAsync가 무시되는지 검증
+        var mock = new MockAIService("Streamed response");
+        mock.StatelessMode = true;
+        mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 2, keepRecentCount: 1);
+
+        // Pre-fill beyond threshold
+        for (int i = 0; i < 5; i++)
+            mock.ActivateChat.Messages.Add(new Message(ActorRole.User, $"msg{i}"));
+
+        await mock.ApplySummaryPolicyIfNeededAsync();
+
+        Assert.IsNull(mock.ConversationPolicy.CurrentSummary,
+            "No summary should be created in StatelessMode");
+        Assert.AreEqual(5, mock.ActivateChat.Messages.Count,
+            "Messages should not be removed in StatelessMode");
     }
 
     #endregion

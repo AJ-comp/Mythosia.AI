@@ -63,12 +63,17 @@ namespace Mythosia.AI.Models
         /// Triggers when message count exceeds triggerCount,
         /// keeps the most recent keepRecentCount messages.
         /// </summary>
-        public static SummaryConversationPolicy ByMessage(uint triggerCount, uint keepRecentCount = 5)
+        public static SummaryConversationPolicy ByMessage(uint triggerCount, uint? keepRecentCount = null)
         {
+            var effectiveKeepRecentCount = keepRecentCount ?? 5u;
+            if (!keepRecentCount.HasValue && effectiveKeepRecentCount >= triggerCount)
+                effectiveKeepRecentCount = triggerCount > 0 ? triggerCount - 1 : 0;
+
+            ValidateKeepRecentCount(triggerCount, effectiveKeepRecentCount);
             return new SummaryConversationPolicy
             {
                 TriggerCount = triggerCount,
-                KeepRecentCount = keepRecentCount
+                KeepRecentCount = effectiveKeepRecentCount
             };
         }
 
@@ -82,12 +87,17 @@ namespace Mythosia.AI.Models
             uint? keepRecentTokens = null,
             uint? keepRecentCount = null)
         {
+            var effectiveKeepRecentTokens = keepRecentTokens ?? triggerTokens / 3;
+            var effectiveKeepRecentCount = keepRecentCount ?? Math.Max(3u, triggerCount / 4);
+            if (!keepRecentCount.HasValue && effectiveKeepRecentCount >= triggerCount)
+                effectiveKeepRecentCount = triggerCount > 0 ? triggerCount - 1 : 0;
+            ValidateKeepRecentCount(triggerCount, effectiveKeepRecentCount);
             return new SummaryConversationPolicy
             {
                 TriggerTokens = triggerTokens,
                 TriggerCount = triggerCount,
-                KeepRecentTokens = keepRecentTokens ?? triggerTokens / 3,
-                KeepRecentCount = keepRecentCount ?? Math.Max(3, triggerCount / 4)
+                KeepRecentTokens = effectiveKeepRecentTokens,
+                KeepRecentCount = effectiveKeepRecentCount
             };
         }
 
@@ -176,6 +186,12 @@ namespace Mythosia.AI.Models
 
             // Default: keep last 5 messages
             return 5;
+        }
+
+        private static void ValidateKeepRecentCount(uint triggerCount, uint keepRecentCount)
+        {
+            if (keepRecentCount >= triggerCount)
+                throw new ArgumentException("keepRecentCount must be less than triggerCount.", nameof(keepRecentCount));
         }
 
         #endregion

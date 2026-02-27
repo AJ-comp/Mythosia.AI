@@ -41,6 +41,23 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
     protected override bool SupportsWebSearch() => false;
     protected override AIModel? GetAlternativeModel() => AIModel.Grok3Mini;
 
+    protected override bool SupportsReasoning()
+    {
+        if (AI is not GrokService grokService)
+            return false;
+
+        // Only grok-3-mini returns reasoning_content in Chat Completions API.
+        // grok-4, grok-3, grok-4-fast-reasoning do NOT return it.
+        var model = grokService.Model?.ToLower() ?? "";
+        if (!model.Contains("grok-3-mini"))
+            return false;
+
+        if (grokService.ReasoningEffort == GrokReasoning.Off)
+            grokService.ReasoningEffort = GrokReasoning.High;
+
+        return true;
+    }
+
     #region Grok-Specific Tests
 
     /// <summary>

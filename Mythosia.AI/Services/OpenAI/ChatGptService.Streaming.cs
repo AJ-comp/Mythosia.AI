@@ -289,13 +289,17 @@ namespace Mythosia.AI.Services.OpenAI
 
                 // 함수 호출 이벤트
                 case "response.function_call":
-                case "response.function_call.arguments.delta":
+                case "response.function_call_arguments.delta":
+                case "response.function_call_arguments.done":
+                case "response.function_call.arguments.delta":  // legacy compat
+                case "response.function_call.arguments.done":   // legacy compat
                     ParseStreamFunctionCallEvent(root, type, chunk);
                     break;
 
                 // 출력 아이템 이벤트 (텍스트 또는 함수 호출 포함)
                 case "response.output_item.added":
                 case "response.output_item.delta":
+                case "response.output_item.done":
                     ParseStreamOutputItemEvent(root, chunk);
                     break;
 
@@ -333,7 +337,10 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// 함수 호출 관련 이벤트 파싱 (response.function_call, response.function_call.arguments.delta)
+        /// 함수 호출 관련 이벤트 파싱
+        /// - response.function_call: 초기 함수 호출 정보
+        /// - response.function_call_arguments.delta: 인자 스트리밍 델타
+        /// - response.function_call_arguments.done: 인자 스트리밍 완료
         /// </summary>
         private void ParseStreamFunctionCallEvent(JsonElement root, string type, StreamChunk chunk)
         {
@@ -348,8 +355,28 @@ namespace Mythosia.AI.Services.OpenAI
                         chunk.FunctionCall.Id = id.GetString();
                 }
             }
-            else // response.function_call.arguments.delta
+            else if (type.Contains("done"))
             {
+                // response.function_call_arguments.done — 완성된 인자 JSON
+                if (root.TryGetProperty("arguments", out var argsComplete))
+                {
+                    var argsStr = argsComplete.GetString();
+                    if (!string.IsNullOrEmpty(argsStr))
+                    {
+                        chunk.FunctionCall = new FunctionCall
+                        {
+                            Arguments = new Dictionary<string, object>
+                            {
+                                ["_partial"] = argsStr
+                            },
+                            Source = IdSource.OpenAI
+                        };
+                    }
+                }
+            }
+            else
+            {
+                // response.function_call_arguments.delta — 인자 스트리밍 델타
                 if (root.TryGetProperty("delta", out var argDelta))
                 {
                     chunk.FunctionCall = new FunctionCall

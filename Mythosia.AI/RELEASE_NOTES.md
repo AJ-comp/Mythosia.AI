@@ -1,5 +1,100 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v4.6.2 - Grok Reasoning Support & SummaryConversationPolicy Improvements
+
+### **Grok Reasoning Support** 🧠
+
+Added `GrokReasoning` enum and `reasoning_effort` parameter support for xAI Grok reasoning models.
+
+#### GrokReasoning Enum
+
+| Value | Description |
+|-------|-------------|
+| `Off` | No `reasoning_effort` parameter sent (default) |
+| `Low` | Low reasoning effort |
+| `High` | High reasoning effort |
+
+> **Note:** Only `grok-3-mini` supports the `reasoning_effort` API parameter. `grok-3`, `grok-4`, and `grok-4-fast-reasoning` do **not** support it.
+
+#### Reasoning Content Streaming
+
+Grok reasoning models (`grok-3-mini`, `grok-4`, `grok-4-1-fast`) now stream `reasoning_content` deltas. When `StreamOptions.WithReasoning()` is enabled, reasoning chunks are emitted as `StreamingContentType.Reasoning`.
+
+```csharp
+var grokService = new GrokService(apiKey, httpClient);
+grokService.ChangeModel(AIModel.Grok3Mini);
+grokService.WithGrokParameters(reasoningEffort: GrokReasoning.High);
+
+await foreach (var content in grokService.StreamAsync(message, new StreamOptions().WithReasoning()))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Think] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+```
+
+#### New API
+
+- **`GrokReasoning`** enum (`Off` / `Low` / `High`)
+- **`GrokService.ReasoningEffort`** property (default: `Off`)
+- **`GrokService.WithGrokParameters()`** — Builder method to configure reasoning effort
+- **`SupportsReasoningEffort()`** — Internal helper; returns `true` only for `grok-3-mini`
+
+### **SummaryConversationPolicy Improvements** 🔧
+
+#### Auto-Adjust `keepRecentCount`
+
+`ByMessage()` and `ByBoth()` now automatically adjust `keepRecentCount` when the default value would be greater than or equal to `triggerCount`:
+
+```csharp
+// Before v4.6.2: ByMessage(triggerCount: 3) with default keepRecentCount=5 → invalid (5 >= 3)
+// After v4.6.2: auto-adjusted to keepRecentCount=2 (triggerCount - 1)
+var policy = SummaryConversationPolicy.ByMessage(triggerCount: 3);
+```
+
+When `keepRecentCount` is explicitly provided and is `>= triggerCount`, an `ArgumentException` is thrown.
+
+#### `ApplySummaryPolicyIfNeededAsync()` Now Public
+
+Changed from `protected` to `public` so that streaming scenarios can explicitly call summarization before `StreamAsync()`:
+
+```csharp
+await service.ApplySummaryPolicyIfNeededAsync();
+await foreach (var chunk in service.StreamAsync("Continue..."))
+{
+    Console.Write(chunk.Content);
+}
+```
+
+### **Streaming Fixes** 🐛
+
+#### Claude — `function_call_arguments.done` Handling
+
+Claude streaming now correctly handles the `response.function_call_arguments.done` SSE event, capturing the complete arguments JSON in addition to the incremental deltas.
+
+#### ChatGPT — `function_call_arguments.done` Handling
+
+ChatGPT (Responses API) streaming now correctly handles the `response.function_call_arguments.done` event, ensuring complete function call arguments are captured when the done event arrives.
+
+### 🧪 New Tests
+
+- **`ByMessage_DefaultKeepRecent_AutoAdjusted`** — Verifies auto-adjustment when default `keepRecentCount` would exceed `triggerCount`
+- **`ByBoth_DefaultKeepRecent_AutoAdjusted`** — Same for `ByBoth()` factory
+- **`ByMessage_KeepRecentGreaterOrEqual_Throws`** — Explicit `keepRecentCount >= triggerCount` throws `ArgumentException`
+- **`ByBoth_KeepRecentGreaterOrEqual_Throws`** — Same for `ByBoth()`
+- **`Streaming_StatelessMode_SkipsSummarization`** — Verifies `ApplySummaryPolicyIfNeededAsync()` is no-op in `StatelessMode`
+- **`GrokServiceTests.SupportsReasoning()`** — Enables reasoning for `grok-3-mini` tests
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.6.1
+- No breaking changes
+- `ApplySummaryPolicyIfNeededAsync()` visibility changed from `protected` to `public` (non-breaking)
+- `ByMessage()` / `ByBoth()` default `keepRecentCount` may now be auto-adjusted instead of silently producing an invalid policy
+
+---
+
 ## � v4.6.1 - Streaming Error Content & Claude Thinking Budget Fix
 
 ### **Streaming Error Content** 🐛
@@ -51,7 +146,7 @@ claude.ThinkingBudget = 8192;  // budget_tokens == max_tokens → auto-adjusted 
 
 ---
 
-## �🚀 v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
+## �� v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
 
 ### **SummaryConversationPolicy** 🧠
 

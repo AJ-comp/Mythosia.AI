@@ -183,17 +183,35 @@ namespace Mythosia.AI.Services.Anthropic
                         if (policy.EnableLogging)
                             Console.WriteLine($"  → Processing {collectedToolUses.Count} tool use(s)");
 
-                        await ProcessMultipleToolUses(collectedToolUses, textBuffer.ToString(), policy);
+                        // Execute functions and capture results for streaming events
+                        var functionResults = new Dictionary<string, string>();
+                        for (int i = 0; i < collectedToolUses.Count; i++)
+                        {
+                            var call = collectedToolUses[i];
+                            var content = (i == 0) ? (textBuffer.ToString() ?? ".") : ".";
+
+                            if (policy.EnableLogging)
+                                Console.WriteLine($"  Executing function: {call.Name}");
+
+                            ActivateChat.Messages.Add(CreateFunctionCallMessage(call, content));
+                            var result = await ExecuteFunctionAndAddResultAsync(call);
+                            functionResults[call.Id ?? call.Name] = result;
+                        }
 
                         foreach (var toolUse in collectedToolUses)
                         {
+                            var result = functionResults.GetValueOrDefault(toolUse.Id ?? toolUse.Name, "");
                             yield return new StreamingContent
                             {
                                 Type = StreamingContentType.FunctionResult,
                                 Metadata = new Dictionary<string, object>
                                 {
                                     ["function_name"] = toolUse.Name,
-                                    ["status"] = "completed"
+                                    ["function_arguments"] = toolUse.Arguments != null
+                                        ? JsonSerializer.Serialize(toolUse.Arguments)
+                                        : "{}",
+                                    ["status"] = "completed",
+                                    ["result"] = result
                                 }
                             };
                         }

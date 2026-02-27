@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mythosia.AI - Chat UI Sample</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
 </head>
@@ -49,6 +52,51 @@
         <div id="reasoning-options" class="reasoning-options hidden">
           <label class="reasoning-options-label">Reasoning Level</label>
           <div id="reasoning-levels" class="reasoning-levels"></div>
+        </div>
+      </div>
+
+      <!-- Summary Policy -->
+      <div class="setting-row chk-row">
+        <label><input id="set-summary" type="checkbox" /> Auto-Summarize</label>
+      </div>
+      <div id="summary-options" class="summary-options hidden">
+        <div class="summary-trigger-row">
+          <label>Trigger</label>
+          <select id="summary-trigger-type">
+            <option value="message">By Messages</option>
+            <option value="token">By Tokens</option>
+            <option value="both">Both</option>
+          </select>
+        </div>
+        <div class="summary-trigger-row">
+          <label>Threshold</label>
+          <input id="summary-trigger-value" type="number" value="20" min="4" max="10000" />
+        </div>
+        <div class="summary-trigger-row">
+          <label>Keep Recent</label>
+          <input id="summary-keep-value" type="number" value="5" min="1" max="100" />
+        </div>
+        <div id="summary-error" class="summary-error hidden"></div>
+        <div id="summary-current" class="summary-current hidden">
+          <div class="summary-current-header">
+            <span>Current Summary</span>
+            <button id="summary-clear" class="summary-clear-btn" title="Clear summary">Clear</button>
+          </div>
+          <div id="summary-text" class="summary-text"></div>
+        </div>
+      </div>
+
+      <!-- Functions Panel -->
+      <div id="functions-area" class="functions-area hidden">
+        <div class="functions-header">
+          <h3>Functions</h3>
+          <label class="fn-toggle">
+            <input id="fn-preset-toggle" type="checkbox" checked />
+            <span>Preset</span>
+          </label>
+        </div>
+        <div id="fn-list" class="fn-list">
+          <p class="fn-empty">No functions registered.</p>
         </div>
       </div>
 
@@ -145,6 +193,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
-  <script src="/js/app.js"></script>
+  <script type="module" src="/js/app.js"></script>
 </body>
 </html>

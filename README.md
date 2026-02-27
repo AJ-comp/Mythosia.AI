@@ -106,9 +106,28 @@ service.ConversationPolicy = SummaryConversationPolicy.ByToken(
 // Just use as normal — summarization happens automatically
 await service.GetCompletionAsync("Continue our conversation...");
 
+// For streaming, call summarization explicitly before StreamAsync()
+await service.ApplySummaryPolicyIfNeededAsync();
+await foreach (var chunk in service.StreamAsync("Continue..."))
+    Console.Write(chunk.Content);
+
 // Save/restore summary across sessions
 string saved = service.ConversationPolicy.CurrentSummary;
 policy.LoadSummary(saved);
+```
+
+### Reasoning Streaming
+
+All reasoning-capable providers (OpenAI, Claude, Gemini, Grok, DeepSeek) share the same streaming pattern:
+
+```csharp
+await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Think] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
 ```
 
 ### RAG (Retrieval-Augmented Generation)

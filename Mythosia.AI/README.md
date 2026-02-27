@@ -120,6 +120,34 @@ geminiService.ChangeModel(AIModel.Gemini2_5Pro);
 geminiService.ThinkingBudget = 8192;  // -1 = dynamic (default), 0 = disable
 ```
 
+## Grok Configuration
+
+### Reasoning Effort
+
+```csharp
+var grokService = new GrokService(apiKey, httpClient);
+grokService.ChangeModel(AIModel.Grok3Mini);
+
+// GrokReasoning enum: Off / Low / High
+grokService.WithGrokParameters(reasoningEffort: GrokReasoning.High);
+```
+
+> **Note:** Only `grok-3-mini` supports the `reasoning_effort` API parameter. Other Grok models ignore it.
+
+### Reasoning Content Streaming
+
+Grok reasoning models (`grok-3-mini`, `grok-4`, `grok-4-1-fast`) stream `reasoning_content` when reasoning is enabled:
+
+```csharp
+await foreach (var content in grokService.StreamAsync(message, new StreamOptions().WithReasoning()))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Think] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+```
+
 ## Function Calling
 
 ### Quick Start with Functions
@@ -481,7 +509,7 @@ await foreach (var content in service.StreamAsync("Query", options))
 
 ## Reasoning Streaming
 
-GPT-5 and Gemini 3 models support streaming reasoning (thinking) content.
+GPT-5, Gemini 3, and Grok reasoning models support streaming reasoning (thinking) content.
 
 ```csharp
 await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
@@ -507,6 +535,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 | **Claude Haiku 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Gemini 3 Flash/Pro** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
 | **Gemini 2.5 Pro/Flash** | ✅ | ✅ | ✅ | ThinkingBudget control |
+| **xAI Grok 4 / 4.1 Fast / 3 / 3 Mini** | ✅ | ✅ | ✅ | `GrokReasoning` effort + reasoning streaming |
 | **DeepSeek** | ❌ | ✅ | ✅ | Reasoner model streaming |
 | **Perplexity** | ❌ | ✅ | — | Web search + citations |
 

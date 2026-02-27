@@ -117,7 +117,7 @@ public abstract partial class AIServiceTestBase
                 );
 
                 await TestFunctionCall(
-                    "What is 15 plus 27?",
+                    "Use the calculate_sum function to add 15 and 27",
                     "calculate_sum",
                     "Two parameter function"
                 );
@@ -181,7 +181,7 @@ public abstract partial class AIServiceTestBase
                         timeInvoked = true;
 
                         var s = $"Async time: {DateTime.UtcNow:HH:mm:ss.fff}";
-                        timeOutput = s;       // 🔹 테스트용으로 결과를 캡처
+                        timeOutput = s;       // 테스트용으로 결과를 캡처
                         return s;
                     }
                 );
@@ -217,7 +217,7 @@ public abstract partial class AIServiceTestBase
                         orderInvoked = true;
 
                         var s = $"Order processed: {qty}x {product} for {customer}";
-                        orderOutput = s;      // 🔹 테스트용으로 결과를 캡처
+                        orderOutput = s;      // 테스트용으로 결과를 캡처
                         return s;
                     }
                 );
@@ -302,13 +302,13 @@ public abstract partial class AIServiceTestBase
                     {
                         Assert.IsNotNull(content.Metadata);
                         Assert.IsTrue(content.Metadata.ContainsKey("function_name"));
-                        Console.WriteLine($"✅ Function Call Event: {content.Metadata["function_name"]}");
+                        Console.WriteLine($" Function Call Event: {content.Metadata["function_name"]}");
                     }
                     else if (content.Type == StreamingContentType.FunctionResult)
                     {
                         Assert.IsNotNull(content.Metadata);
                         Assert.IsTrue(content.Metadata.ContainsKey("status"));
-                        Console.WriteLine($"✅ Function Result Event: {content.Metadata["status"]}");
+                        Console.WriteLine($" Function Result Event: {content.Metadata["status"]}");
                     }
                 }
 
@@ -474,8 +474,8 @@ public abstract partial class AIServiceTestBase
                 try
                 {
                     var response = await AI.GetCompletionAsync(
-    "Get the details for username 'john_doe'"
-);
+                        "Get the details for username 'john_doe'"
+                    );
                     Assert.IsNotNull(response);
                     Console.WriteLine($"[Chain Response] {response}");
                 }
@@ -619,8 +619,6 @@ public abstract partial class AIServiceTestBase
         );
     }
 
-    #region Helper Methods
-
     private const int MaxFunctionCallRetries = 3;
 
     private async Task TestFunctionCall(string prompt, string expectedFunctionName, string testDescription)
@@ -682,6 +680,4 @@ public abstract partial class AIServiceTestBase
 
         Assert.Fail($"{testDescription}: Function should have been called (after {MaxFunctionCallRetries} attempts)");
     }
-
-    #endregion
 }

@@ -11,26 +11,26 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.6.1</VersionPrefix>
+		<VersionPrefix>4.6.2</VersionPrefix>
 
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.6.1
+## What's New in v4.6.2
 
-### Streaming Error Content
-- `StreamingContent.Content` now contains descriptive error message (`API error ({statusCode}): {error}`) across all providers
-- Previously `Content` was null on error — now enables reliable client-side error handling
-- Affected: Claude, ChatGPT, DeepSeek, Gemini, Grok, Sonar
+### Grok Reasoning Support
+- `GrokReasoning` enum (Off/Low/High) and `reasoning_effort` parameter for grok-3-mini
+- Streaming `reasoning_content` from Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast)
+- `WithGrokParameters()` builder method for reasoning configuration
 
-### Claude Fixes
-- Corrected `opus-4-6` max output tokens: 131072 → 128000
-- `ApplyThinkingConfig` auto-adjusts `max_tokens` when `budget_tokens >= max_tokens` (Claude API requirement)
+### SummaryConversationPolicy Improvements
+- `ByMessage`/`ByBoth` auto-adjust `keepRecentCount` when it would exceed `triggerCount`
+- `ValidateKeepRecentCount` guard throws `ArgumentException` for invalid configurations
+- `ApplySummaryPolicyIfNeededAsync()` changed to `public` for explicit streaming scenarios
 
-### Tests
-- `ClaudeThinkingBudgetAutoAdjustTest` — verifies budget auto-adjust logic
-- `ReasoningStreamingTest` — reasoning streaming with early error detection
+### Streaming Fixes
+- Claude/ChatGPT: improved `function_call_arguments.done` handling for complete argument capture
 
 ## Supported Models
 
@@ -69,7 +69,7 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.6.1</Version>
+		<Version>4.6.2</Version>
 	</PropertyGroup>
 
 

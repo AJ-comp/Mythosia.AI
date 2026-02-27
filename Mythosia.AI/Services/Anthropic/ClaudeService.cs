@@ -45,7 +45,7 @@ namespace Mythosia.AI.Services.Anthropic
             var model = Model?.ToLower() ?? "";
             if (model.Contains("opus-4-6")) return 128000;
             if (model.Contains("sonnet-4-6")) return 65536;
-            if (model.Contains("opus-4-5")) return 65536;
+            if (model.Contains("opus-4-5")) return 64000;
             if (model.Contains("sonnet-4-5")) return 65536;
             if (model.Contains("haiku-4-5")) return 65536;
             if (model.Contains("opus-4")) return 32768;

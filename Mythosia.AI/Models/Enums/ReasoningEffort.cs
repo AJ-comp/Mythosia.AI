@@ -39,4 +39,16 @@ namespace Mythosia.AI.Models.Enums
         High,
         XHigh
     }
+
+    /// <summary>
+    /// Reasoning effort level for xAI Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast).
+    /// Off: Disables reasoning effort parameter (default).
+    /// Low/High: Explicit reasoning effort levels.
+    /// </summary>
+    public enum GrokReasoning
+    {
+        Off,
+        Low,
+        High
+    }
 }

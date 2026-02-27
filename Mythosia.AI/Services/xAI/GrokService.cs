@@ -20,6 +20,13 @@ namespace Mythosia.AI.Services.xAI
     {
         public override AIProvider Provider => AIProvider.xAI;
 
+        /// <summary>
+        /// Reasoning effort level for Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast).
+        /// Off: No reasoning_effort parameter sent (default).
+        /// Low/High: Explicit reasoning effort levels.
+        /// </summary>
+        public GrokReasoning ReasoningEffort { get; set; } = GrokReasoning.Off;
+
         protected override uint GetModelMaxOutputTokens()
         {
             var model = Model?.ToLower() ?? "";
@@ -273,6 +280,16 @@ namespace Mythosia.AI.Services.xAI
         public GrokService UseGrok4FastModel()
         {
             ChangeModel(AIModel.Grok4_1Fast);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets Grok reasoning parameters.
+        /// Reasoning effort: Low or High. Supported on grok-3-mini, grok-4, grok-4-1-fast.
+        /// </summary>
+        public GrokService WithGrokParameters(GrokReasoning reasoningEffort = GrokReasoning.High)
+        {
+            ReasoningEffort = reasoningEffort;
             return this;
         }
 

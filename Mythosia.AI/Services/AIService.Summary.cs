@@ -43,8 +43,9 @@ namespace Mythosia.AI.Services.Base
         /// Checks whether the conversation should be summarized based on the current
         /// ConversationPolicy, and if so, performs the summarization using StatelessMode.
         /// Called automatically at the beginning of GetCompletionAsync(string).
+        /// For streaming scenarios, call this explicitly before StreamAsync().
         /// </summary>
-        protected async Task ApplySummaryPolicyIfNeededAsync()
+        public async Task ApplySummaryPolicyIfNeededAsync()
         {
             if (_isSummarizing) return;
             if (ConversationPolicy == null) return;
@@ -52,9 +53,14 @@ namespace Mythosia.AI.Services.Base
             if (!ConversationPolicy.ShouldSummarize(ActivateChat.Messages)) return;
 
             var (messagesToSummarize, keepFromIndex) = ConversationPolicy.GetMessagesToSummarize(ActivateChat.Messages);
-            if (messagesToSummarize.Count == 0) return;
 
-            var prompt = BuildSummaryPrompt(messagesToSummarize, ConversationPolicy.CurrentSummary);
+            // When trigger fires, always generate summary.
+            // If KeepRecent >= message count, summarize all messages but don't delete any.
+            var msgsForSummary = messagesToSummarize.Count > 0
+                ? messagesToSummarize
+                : (IList<Message>)ActivateChat.Messages;
+
+            var prompt = BuildSummaryPrompt(msgsForSummary, ConversationPolicy.CurrentSummary);
 
             _isSummarizing = true;
             try
@@ -71,10 +77,13 @@ namespace Mythosia.AI.Services.Base
                     StatelessMode = backupStateless;
                 }
 
-                // Remove summarized messages (iterate backwards to keep indices valid)
-                for (int i = keepFromIndex - 1; i >= 0; i--)
+                // Only remove messages when there are messages beyond KeepRecent
+                if (messagesToSummarize.Count > 0)
                 {
-                    ActivateChat.Messages.RemoveAt(i);
+                    for (int i = keepFromIndex - 1; i >= 0; i--)
+                    {
+                        ActivateChat.Messages.RemoveAt(i);
+                    }
                 }
             }
             finally

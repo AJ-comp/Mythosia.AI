@@ -113,6 +113,18 @@ namespace Mythosia.AI.Services.xAI
                                 continue;
                             }
 
+                            // Reasoning — yield immediately
+                            if (chunk.ReasoningText != null && options.IncludeReasoning)
+                            {
+                                streamData.ReasoningBuffer.Append(chunk.ReasoningText);
+                                yield return new StreamingContent
+                                {
+                                    Type = StreamingContentType.Reasoning,
+                                    Content = chunk.ReasoningText,
+                                    Metadata = chunk.Metadata
+                                };
+                            }
+
                             // Text — yield immediately
                             if (chunk.Text != null)
                             {
@@ -249,6 +261,13 @@ namespace Mythosia.AI.Services.xAI
                 chunk.Text = contentElem.GetString();
             }
 
+            // Reasoning content (xAI reasoning models: grok-3-mini, grok-4, grok-4-1-fast)
+            if (delta.TryGetProperty("reasoning_content", out var reasoningElem) &&
+                reasoningElem.ValueKind == JsonValueKind.String)
+            {
+                chunk.ReasoningText = reasoningElem.GetString();
+            }
+
             // Tool calls (OpenAI-compatible format)
             if (delta.TryGetProperty("tool_calls", out var toolCalls) &&
                 toolCalls.ValueKind == JsonValueKind.Array &&
@@ -300,6 +319,7 @@ namespace Mythosia.AI.Services.xAI
         {
             public List<StreamingContent> Contents { get; } = new List<StreamingContent>();
             public StringBuilder TextBuffer { get; } = new StringBuilder();
+            public StringBuilder ReasoningBuffer { get; } = new StringBuilder();
             public StringBuilder FunctionArgsBuffer { get; } = new StringBuilder();
             public FunctionCall? FunctionCall { get; set; }
             public string? Model { get; set; }
@@ -347,6 +367,7 @@ namespace Mythosia.AI.Services.xAI
         private class GrokStreamChunk
         {
             public string? Text { get; set; }
+            public string? ReasoningText { get; set; }
             public FunctionCall? FunctionCall { get; set; }
             public string? Model { get; set; }
             public Dictionary<string, object>? Metadata { get; set; }
