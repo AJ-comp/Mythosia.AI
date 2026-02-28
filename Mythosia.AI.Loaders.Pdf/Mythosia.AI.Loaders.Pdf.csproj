@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>PDF document loaders for Mythosia.AI RAG pipeline. Includes PdfDocumentLoader and PdfPig parser.</Description>
+    <PackageTags>AI;RAG;DocumentLoader;Pdf;PdfPig</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.AI.Loaders.Abstractions\Mythosia.AI.Loaders.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PdfPig" Version="0.1.13" />
+  </ItemGroup>
+
+</Project>

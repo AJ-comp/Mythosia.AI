@@ -7,6 +7,8 @@
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
   </Folder>
   <Project Path="Mythosia.AI.Loaders.Abstractions/Mythosia.AI.Loaders.Abstractions.csproj" />
+  <Project Path="Mythosia.AI.Loaders.Office/Mythosia.AI.Loaders.Office.csproj" />
+  <Project Path="Mythosia.AI.Loaders.Pdf/Mythosia.AI.Loaders.Pdf.csproj" />
   <Project Path="Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
   <Project Path="Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
   <Project Path="Mythosia.AI.VectorDB/Mythosia.AI.VectorDB.csproj" />

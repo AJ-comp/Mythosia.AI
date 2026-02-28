@@ -2,8 +2,20 @@
 
 ## Package Summary
 
-Defines the `IDocumentLoader` interface and `RagDocument` model for loading documents into the RAG pipeline.  
+Defines the `IDocumentLoader` and `IDocumentParser` interfaces plus `RagDocument`/`ParsedDocument` models for loading documents into the RAG pipeline.  
 Reference this package only if you're building a **custom document loader**.
+
+## Documentation
+
+- [Loaders Guide (EN)](docs/en/loaders.md)
+- [Loaders Guide (KO)](docs/ko/loaders.md)
+- [Loaders Guide (JA)](docs/ja/loaders.md)
+- [Loaders Guide (ZH)](docs/zh/loaders.md)
+
+## Related Packages
+
+- **Mythosia.AI.Loaders.Office** — Word/Excel/PowerPoint (.docx/.xlsx/.pptx)
+- **Mythosia.AI.Loaders.Pdf** — PDF loader with PdfPig parser
 
 ## Interfaces
 
@@ -13,6 +25,16 @@ Reference this package only if you're building a **custom document loader**.
 public interface IDocumentLoader
 {
     Task<IReadOnlyList<RagDocument>> LoadAsync(string source, CancellationToken ct = default);
+}
+```
+
+### IDocumentParser
+
+```csharp
+public interface IDocumentParser
+{
+    bool CanParse(string source);
+    Task<ParsedDocument> ParseAsync(string source, CancellationToken ct = default);
 }
 ```
 

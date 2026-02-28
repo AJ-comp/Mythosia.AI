@@ -65,14 +65,19 @@ namespace Mythosia.AI.Rag
             string? collection = null,
             CancellationToken cancellationToken = default)
         {
-            var col = collection ?? Options.DefaultCollection;
-            await _vectorStore.CreateCollectionAsync(col, cancellationToken);
+            await IndexDocumentsInternalAsync(documents, textSplitter: null, collection, cancellationToken);
+        }
 
-            foreach (var document in documents)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                await IndexSingleDocumentAsync(document, col, cancellationToken);
-            }
+        /// <summary>
+        /// Indexes pre-loaded documents with an optional per-source text splitter.
+        /// </summary>
+        public async Task IndexDocumentsAsync(
+            IEnumerable<RagDocument> documents,
+            ITextSplitter? textSplitter,
+            string? collection = null,
+            CancellationToken cancellationToken = default)
+        {
+            await IndexDocumentsInternalAsync(documents, textSplitter, collection, cancellationToken);
         }
 
         /// <summary>
@@ -83,18 +88,58 @@ namespace Mythosia.AI.Rag
             string? collection = null,
             CancellationToken cancellationToken = default)
         {
+            await IndexDocumentInternalAsync(document, textSplitter: null, collection, cancellationToken);
+        }
+
+        /// <summary>
+        /// Indexes a single document with an optional per-source text splitter.
+        /// </summary>
+        public async Task IndexDocumentAsync(
+            RagDocument document,
+            ITextSplitter? textSplitter,
+            string? collection = null,
+            CancellationToken cancellationToken = default)
+        {
+            await IndexDocumentInternalAsync(document, textSplitter, collection, cancellationToken);
+        }
+
+        private async Task IndexDocumentsInternalAsync(
+            IEnumerable<RagDocument> documents,
+            ITextSplitter? textSplitter,
+            string? collection,
+            CancellationToken cancellationToken)
+        {
+            var effectiveSplitter = textSplitter ?? _textSplitter;
             var col = collection ?? Options.DefaultCollection;
             await _vectorStore.CreateCollectionAsync(col, cancellationToken);
-            await IndexSingleDocumentAsync(document, col, cancellationToken);
+
+            foreach (var document in documents)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await IndexSingleDocumentAsync(document, col, effectiveSplitter, cancellationToken);
+            }
+        }
+
+        private async Task IndexDocumentInternalAsync(
+            RagDocument document,
+            ITextSplitter? textSplitter,
+            string? collection,
+            CancellationToken cancellationToken)
+        {
+            var col = collection ?? Options.DefaultCollection;
+            await _vectorStore.CreateCollectionAsync(col, cancellationToken);
+            var effectiveSplitter = textSplitter ?? _textSplitter;
+            await IndexSingleDocumentAsync(document, col, effectiveSplitter, cancellationToken);
         }
 
         private async Task IndexSingleDocumentAsync(
             RagDocument document,
             string collection,
+            ITextSplitter textSplitter,
             CancellationToken cancellationToken)
         {
             // 1. Split
-            var chunks = _textSplitter.Split(document);
+            IReadOnlyList<RagChunk> chunks = textSplitter.Split(document);
             if (chunks.Count == 0) return;
 
             // 2. Embed in batches

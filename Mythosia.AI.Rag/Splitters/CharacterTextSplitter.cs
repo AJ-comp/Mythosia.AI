@@ -80,9 +80,27 @@ namespace Mythosia.AI.Rag.Splitters
                 }
 
                 // Advance position with overlap
-                int advance = end - position - ChunkOverlap;
-                if (advance <= 0) advance = end - position; // Prevent infinite loop
-                position += advance;
+                int nextPosition = end - ChunkOverlap;
+                if (Separator != null && nextPosition > position)
+                {
+                    int searchStart = Math.Min(nextPosition, text.Length - 1);
+                    int searchLength = searchStart - position + 1;
+                    if (searchLength > 0)
+                    {
+                        int lastSep = text.LastIndexOf(Separator, searchStart, searchLength, StringComparison.Ordinal);
+                        if (lastSep >= position)
+                        {
+                            int aligned = lastSep + Separator.Length;
+                            if (aligned > position && aligned < end)
+                                nextPosition = aligned;
+                        }
+                    }
+                }
+
+                if (nextPosition <= position)
+                    nextPosition = end; // Prevent infinite loop
+
+                position = nextPosition;
             }
 
             return chunks;

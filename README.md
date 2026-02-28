@@ -46,6 +46,20 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 }
 ```
 
+### Reasoning Streaming
+
+All reasoning-capable providers (OpenAI, Claude, Gemini, Grok, DeepSeek) share the same streaming pattern:
+
+```csharp
+await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Think] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+```
+
 ### Function Calling
 
 ```csharp
@@ -116,20 +130,6 @@ string saved = service.ConversationPolicy.CurrentSummary;
 policy.LoadSummary(saved);
 ```
 
-### Reasoning Streaming
-
-All reasoning-capable providers (OpenAI, Claude, Gemini, Grok, DeepSeek) share the same streaming pattern:
-
-```csharp
-await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
-{
-    if (content.Type == StreamingContentType.Reasoning)
-        Console.Write($"[Think] {content.Content}");
-    else if (content.Type == StreamingContentType.Text)
-        Console.Write(content.Content);
-}
-```
-
 ### RAG (Retrieval-Augmented Generation)
 
 ```bash
@@ -178,6 +178,7 @@ dotnet add package System.Linq.Async
 - [Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)
 - [Mythosia.AI README](Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
 - [Mythosia.AI.Rag README](Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
+- Loaders Guide: [EN](Mythosia.AI.Loaders.Abstractions/docs/en/loaders.md) · [KO](Mythosia.AI.Loaders.Abstractions/docs/ko/loaders.md) · [JA](Mythosia.AI.Loaders.Abstractions/docs/ja/loaders.md) · [ZH](Mythosia.AI.Loaders.Abstractions/docs/zh/loaders.md)
 - [Release Notes](Mythosia.AI/RELEASE_NOTES.md)
 
 ## License

@@ -37,6 +37,18 @@ That's it. Documents are automatically loaded, chunked, embedded, and indexed on
     // All files in a directory (recursive)
     .AddDocuments("./knowledge-base/")
 
+    // Per-extension routing in a directory
+    .AddDocuments("./knowledge-base/", src => src
+        .WithExtension(".pdf")
+        .WithLoader(new PdfDocumentLoader())
+        .WithTextSplitter(new CharacterTextSplitter(800, 80))
+    )
+    .AddDocuments("./knowledge-base/", src => src
+        .WithExtension(".docx")
+        .WithLoader(new WordDocumentLoader())
+        .WithTextSplitter(new TokenTextSplitter(600, 60))
+    )
+
     // Inline text
     .AddText("Product price is $99.", id: "price-info")
 
