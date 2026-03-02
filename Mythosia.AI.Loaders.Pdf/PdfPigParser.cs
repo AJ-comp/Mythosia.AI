@@ -1,18 +1,16 @@
+using Mythosia.AI.Loaders.Document;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Mythosia.AI.Loaders;
 using UglyToad.PdfPig;
-using UglyToad.PdfPig.Parser;
 
 namespace Mythosia.AI.Loaders.Pdf
 {
     /// <summary>
-    /// Parses PDF files using PdfPig.
+    /// Parses PDF files using PdfPig into a structured DoclingDocument.
     /// </summary>
     public class PdfPigParser : IDocumentParser
     {
@@ -26,12 +24,14 @@ namespace Mythosia.AI.Loaders.Pdf
         public bool CanParse(string source)
             => string.Equals(Path.GetExtension(source), ".pdf", StringComparison.OrdinalIgnoreCase);
 
-        public Task<ParsedDocument> ParseAsync(string source, CancellationToken ct = default)
+        public Task<DoclingDocument> ParseAsync(string source, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
 
+            var docName = Path.GetFileNameWithoutExtension(source);
+            var result = new DoclingDocument { Name = docName };
+
             using var document = OpenDocument(source);
-            var sb = new StringBuilder();
             var pageCount = 0;
 
             foreach (var page in document.GetPages())
@@ -40,24 +40,17 @@ namespace Mythosia.AI.Loaders.Pdf
                 pageCount++;
 
                 if (_options.IncludePageNumbers)
-                    sb.AppendLine($"[page {pageCount}]");
+                    result.AddHeading($"Page {pageCount}", 2);
 
                 var pageText = page.Text ?? string.Empty;
                 if (_options.NormalizeWhitespace)
                     pageText = NormalizeWhitespace(pageText);
 
-                sb.AppendLine(pageText);
-                sb.AppendLine();
+                if (!string.IsNullOrWhiteSpace(pageText))
+                    result.AddParagraph(pageText);
             }
 
-            var parsed = new ParsedDocument(sb.ToString().Trim());
-            if (_options.IncludeMetadata)
-            {
-                parsed.Metadata["page_count"] = pageCount.ToString(CultureInfo.InvariantCulture);
-                AddDocumentInfoMetadata(document, parsed.Metadata);
-            }
-
-            return Task.FromResult(parsed);
+            return Task.FromResult(result);
         }
 
         private PdfDocument OpenDocument(string source)

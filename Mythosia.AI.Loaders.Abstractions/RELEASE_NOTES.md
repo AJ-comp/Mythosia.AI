@@ -1,5 +1,15 @@
 # Mythosia.AI.Loaders.Abstractions - Release Notes
 
+## v1.2.0
+
+### Added
+
+- `ParsedDocument` model class for structured parser output.
+- Multi-language loaders documentation (`docs/en`, `docs/ko`, `docs/ja`, `docs/zh`).
+- Loaders guide redirect (`docs/loaders.md`) for backward compatibility.
+
+---
+
 ## v1.1.0
 
 ### Added

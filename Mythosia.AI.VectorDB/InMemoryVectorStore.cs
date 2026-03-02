@@ -115,9 +115,52 @@ namespace Mythosia.AI.VectorDB
             var results = store.Values
                 .Where(r => filter == null || MatchesFilter(r, filter))
                 .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
-                .Where(r => !filter?.MinScore.HasValue ?? true || r.Score >= (filter?.MinScore ?? 0))
+                .Where(r => filter?.MinScore == null || r.Score >= (filter?.MinScore ?? 0))
                 .OrderByDescending(r => r.Score)
                 .Take(topK)
+                .ToList();
+
+            return Task.FromResult<IReadOnlyList<VectorSearchResult>>(results);
+        }
+
+        #endregion
+
+        #region Diagnostics
+
+        /// <summary>
+        /// Returns ALL records in a collection. For diagnostic/debugging use only.
+        /// </summary>
+        public Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(string collection, CancellationToken cancellationToken = default)
+        {
+            if (!_collections.TryGetValue(collection, out var store))
+                return Task.FromResult<IReadOnlyList<VectorRecord>>(Array.Empty<VectorRecord>());
+
+            return Task.FromResult<IReadOnlyList<VectorRecord>>(store.Values.ToList());
+        }
+
+        /// <summary>
+        /// Returns the total number of records across all collections.
+        /// </summary>
+        public int GetTotalRecordCount()
+        {
+            return _collections.Values.Sum(s => s.Count);
+        }
+
+        /// <summary>
+        /// Computes cosine similarity scores for a query vector against ALL records in a collection.
+        /// Results are sorted by descending score. No TopK or MinScore filtering is applied.
+        /// </summary>
+        public Task<IReadOnlyList<VectorSearchResult>> ScoredListAsync(
+            string collection,
+            float[] queryVector,
+            CancellationToken cancellationToken = default)
+        {
+            if (!_collections.TryGetValue(collection, out var store))
+                return Task.FromResult<IReadOnlyList<VectorSearchResult>>(Array.Empty<VectorSearchResult>());
+
+            var results = store.Values
+                .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
+                .OrderByDescending(r => r.Score)
                 .ToList();
 
             return Task.FromResult<IReadOnlyList<VectorSearchResult>>(results);

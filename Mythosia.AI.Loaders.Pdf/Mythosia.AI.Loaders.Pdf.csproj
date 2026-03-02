@@ -3,12 +3,14 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionPrefix>1.1.0</VersionPrefix>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>PDF document loaders for Mythosia.AI RAG pipeline. Includes PdfDocumentLoader and PdfPig parser.</Description>
     <PackageTags>AI;RAG;DocumentLoader;Pdf;PdfPig</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v1.1.0: Unified PdfPig parser via IDocumentParser (PdfPigParser), CanParse validation, PdfParserOptions support (Password, IncludeMetadata, IncludePageNumbers).</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,13 @@
 
   <ItemGroup>
     <PackageReference Include="PdfPig" Version="0.1.13" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

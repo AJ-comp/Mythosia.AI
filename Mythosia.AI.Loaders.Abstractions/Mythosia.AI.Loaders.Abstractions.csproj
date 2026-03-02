@@ -3,13 +3,26 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>1.1.0</VersionPrefix>
+    <VersionPrefix>1.2.0</VersionPrefix>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Document loader abstractions for Mythosia.AI RAG pipeline. Defines IDocumentLoader/IDocumentParser and RagDocument/ParsedDocument models.</Description>
     <PackageTags>AI;RAG;DocumentLoader;DocumentParser;Abstractions</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v1.2.0: Added ParsedDocument model, multi-language documentation (EN/KO/JA/ZH), loaders guide reorganization.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
 </Project>
 

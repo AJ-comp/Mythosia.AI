@@ -13,11 +13,23 @@ namespace Mythosia.AI.Loaders.Office
 
             var sb = new StringBuilder(value.Length);
             var inWhitespace = false;
+            var consecutiveNewlines = 0;
 
             foreach (var ch in value)
             {
-                if (char.IsWhiteSpace(ch))
+                if (ch == '\r')
+                    continue;
+
+                if (ch == '\n')
                 {
+                    consecutiveNewlines++;
+                    if (consecutiveNewlines <= 2)
+                        sb.Append('\n');
+                    inWhitespace = false;
+                }
+                else if (char.IsWhiteSpace(ch))
+                {
+                    consecutiveNewlines = 0;
                     if (!inWhitespace)
                     {
                         sb.Append(' ');
@@ -26,6 +38,7 @@ namespace Mythosia.AI.Loaders.Office
                 }
                 else
                 {
+                    consecutiveNewlines = 0;
                     sb.Append(ch);
                     inWhitespace = false;
                 }

@@ -4,6 +4,17 @@ using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Loaders;
+using Mythosia.AI.Loaders.Office.Excel;
+using Mythosia.AI.Loaders.Office.PowerPoint;
+using Mythosia.AI.Loaders.Office.Word;
+using Mythosia.AI.Loaders.Pdf;
+using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Diagnostics;
+using Mythosia.AI.Rag.Embeddings;
+using Mythosia.AI.Rag.Loaders;
+using Mythosia.AI.Rag.Splitters;
+using Mythosia.AI.VectorDB;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.DeepSeek;
@@ -11,6 +22,8 @@ using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Services.Perplexity;
 using Mythosia.AI.Services.xAI;
+using Mythosia.AI.Samples.ChatUi;
+using Microsoft.AspNetCore.Http;
 using System.ComponentModel;
 using System.Net.Http;
 using System.Reflection;
@@ -20,13 +33,24 @@ using System.Text.RegularExpressions;
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers["Cache-Control"] = "no-cache, no-store, must-revalidate";
+        ctx.Context.Response.Headers["Pragma"] = "no-cache";
+        ctx.Context.Response.Headers["Expires"] = "0";
+    }
+});
 
 // ── Shared state ────────────────────────────────────────────────
 AIService? currentService = null;
 string? currentProvider = null;
 string? currentModelEnum = null;
 bool presetFunctionsEnabled = true; // Whether preset functions are registered
+var ragState = new RagReferenceState();
+var ragVectorStore = new InMemoryVectorStore();
+var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 
 // ── Helper: build model catalogue ───────────────────────────────
 static List<object> BuildModelCatalogue()
@@ -259,7 +283,23 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             }
         }
 
-        var message = new Message(ActorRole.User, req.Message);
+        RagProcessedQuery? ragProcessed = null;
+        if (ragState.Store != null)
+        {
+            ragProcessed = await ragState.Store.QueryAsync(req.Message, ctx.RequestAborted);
+        }
+
+        var messageContent = ragProcessed?.AugmentedPrompt ?? req.Message;
+        var message = new Message(ActorRole.User, messageContent);
+        if (ragProcessed != null)
+        {
+            message.Metadata = new Dictionary<string, object>
+            {
+                ["rag"] = true,
+                ["rag_original_query"] = req.Message,
+                ["rag_reference_count"] = ragProcessed.References.Count
+            };
+        }
         var options = new StreamOptions
         {
             IncludeReasoning = true,
@@ -616,6 +656,317 @@ app.MapPost("/api/functions/toggle-preset", (TogglePresetRequest req) =>
     return Results.Ok(new { status = "updated", presetEnabled = presetFunctionsEnabled, functionCount = currentService.Functions.Count });
 });
 
+// ── GET /api/rag/pipeline-settings ─────────────────────────────
+app.MapGet("/api/rag/pipeline-settings", () =>
+{
+    return Results.Ok(ragState.GetSettings());
+});
+
+// ── POST /api/rag/pipeline-settings ─────────────────────────────
+app.MapPost("/api/rag/pipeline-settings", (RagPipelineSettingsRequest req) =>
+{
+    var current = ragState.GetSettings();
+    var settings = new RagPipelineSettings(
+        ChunkSize: req.ChunkSize is > 0 ? req.ChunkSize.Value : current.ChunkSize,
+        ChunkOverlap: req.ChunkOverlap is >= 0 ? req.ChunkOverlap.Value : current.ChunkOverlap,
+        Chunker: string.IsNullOrWhiteSpace(req.Chunker) ? current.Chunker : req.Chunker.Trim().ToLowerInvariant(),
+        EmbeddingProvider: string.IsNullOrWhiteSpace(req.EmbeddingProvider) ? current.EmbeddingProvider : req.EmbeddingProvider.Trim().ToLowerInvariant(),
+        EmbeddingModel: string.IsNullOrWhiteSpace(req.EmbeddingModel) ? current.EmbeddingModel : req.EmbeddingModel.Trim(),
+        EmbeddingDimensions: req.EmbeddingDimensions is > 0 ? req.EmbeddingDimensions.Value : current.EmbeddingDimensions,
+        EmbeddingBaseUrl: string.IsNullOrWhiteSpace(req.EmbeddingBaseUrl) ? current.EmbeddingBaseUrl : req.EmbeddingBaseUrl.Trim(),
+        TopK: req.TopK is > 0 ? req.TopK.Value : current.TopK,
+        MinScore: req.MinScore ?? current.MinScore,
+        PromptTemplate: req.PromptTemplate ?? current.PromptTemplate);
+
+    ragState.UpdateSettings(settings);
+    ragState.TryApplyQuerySettings(settings);
+    return Results.Ok(settings);
+});
+
+// ── GET /api/rag/status ────────────────────────────────────────
+app.MapGet("/api/rag/status", () =>
+{
+    var settings = ragState.GetSettings();
+    var hasIndex = ragState.TryGetSnapshot(out _, out _);
+    return Results.Ok(new
+    {
+        hasIndex,
+        lastUpdated = ragState.LastUpdated,
+        settings
+    });
+});
+
+// ── POST /api/rag/reference ─────────────────────────────────────
+app.MapPost("/api/rag/reference", async (HttpRequest request, HttpContext ctx) =>
+{
+    if (!request.HasFormContentType)
+        return Results.BadRequest(new { error = "Multipart form data is required." });
+
+    var form = await request.ReadFormAsync(ctx.RequestAborted);
+    if (form.Files.Count == 0)
+        return Results.BadRequest(new { error = "At least one file is required." });
+
+    var settings = ragState.GetSettings();
+    var chunkSize = ParsePositiveInt(form["chunkSize"], settings.ChunkSize);
+    var chunkOverlap = ParsePositiveInt(form["chunkOverlap"], settings.ChunkOverlap);
+    var chunkerKey = NormalizeRagKey(form["chunker"], settings.Chunker);
+    var embeddingProviderKey = NormalizeRagKey(form["embeddingProvider"], settings.EmbeddingProvider);
+    var embeddingModel = string.IsNullOrWhiteSpace(form["embeddingModel"])
+        ? settings.EmbeddingModel
+        : form["embeddingModel"].ToString().Trim();
+    var embeddingDimensions = ParsePositiveInt(form["embeddingDimensions"], settings.EmbeddingDimensions);
+    var embeddingBaseUrl = string.IsNullOrWhiteSpace(form["embeddingBaseUrl"])
+        ? settings.EmbeddingBaseUrl
+        : form["embeddingBaseUrl"].ToString().Trim();
+    var topK = ParsePositiveInt(form["topK"], settings.TopK);
+    var minScore = ParseOptionalDouble(form["minScore"]) ?? settings.MinScore;
+    var promptTemplate = string.IsNullOrWhiteSpace(form["promptTemplate"])
+        ? settings.PromptTemplate
+        : form["promptTemplate"].ToString();
+    var openAiApiKey = form["openaiApiKey"].ToString();
+
+    var documents = new List<RagDocument>();
+    var chunks = new List<RagChunk>();
+    var records = new List<VectorRecord>();
+
+    var splitter = new TrackingTextSplitter(BuildTextSplitter(chunkerKey, chunkSize, chunkOverlap), chunks);
+    var resolvedEmbeddingModel = string.IsNullOrWhiteSpace(embeddingModel)
+        ? embeddingProviderKey == "ollama" ? "qwen3-embedding:4b" : "text-embedding-3-small"
+        : embeddingModel;
+    IEmbeddingProvider embeddingProvider = embeddingProviderKey?.Equals("ollama", StringComparison.OrdinalIgnoreCase) == true
+        ? new Mythosia.AI.Rag.Embeddings.OllamaEmbeddingProvider(
+            embeddingHttpClient,
+            resolvedEmbeddingModel,
+            embeddingDimensions,
+            embeddingBaseUrl)
+        : embeddingProviderKey?.Equals("openai", StringComparison.OrdinalIgnoreCase) == true
+            ? BuildOpenAiEmbeddingProvider(openAiApiKey, embeddingHttpClient, resolvedEmbeddingModel, embeddingDimensions)
+            : new LocalEmbeddingProvider(embeddingDimensions);
+    var trackingStore = new TrackingVectorStore(ragVectorStore, records);
+
+    var tempRoot = Path.Combine(Path.GetTempPath(), "mythosia-rag", Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(tempRoot);
+    var savedFiles = new List<(string path, string displayName)>();
+
+    try
+    {
+        foreach (var file in form.Files)
+        {
+            if (file.Length <= 0)
+                continue;
+
+            var safeName = Path.GetFileName(file.FileName);
+            var filePath = Path.Combine(tempRoot, safeName);
+
+            await using var stream = File.Create(filePath);
+            await file.CopyToAsync(stream, ctx.RequestAborted);
+
+            savedFiles.Add((filePath, safeName));
+        }
+
+        if (savedFiles.Count == 0)
+            return Results.BadRequest(new { error = "Uploaded files were empty." });
+
+        var store = await RagStore.BuildAsync(builder =>
+        {
+            builder
+                .WithTextSplitter(splitter)
+                .WithTopK(topK)
+                .UseEmbedding(embeddingProvider)
+                .UseStore(trackingStore);
+
+            if (minScore.HasValue)
+            {
+                builder.WithScoreThreshold(minScore.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(promptTemplate))
+            {
+                builder.WithPromptTemplate(promptTemplate);
+            }
+
+            foreach (var entry in savedFiles)
+            {
+                var loader = new TrackingDocumentLoader(
+                    CreateLoaderForExtension(Path.GetExtension(entry.path)),
+                    documents,
+                    entry.displayName);
+                builder.AddDocuments(loader, entry.path);
+            }
+        }, ctx.RequestAborted);
+
+        var trace = RagReferenceTraceBuilder.Build(documents, chunks, records, embeddingProvider.Dimensions);
+        var config = new RagReferenceConfig(
+            savedFiles.Select(entry => entry.displayName).ToList(),
+            chunkSize,
+            chunkOverlap,
+            NormalizeRagKey(chunkerKey, "character"),
+            NormalizeRagKey(embeddingProviderKey, "local"),
+            resolvedEmbeddingModel,
+            embeddingDimensions,
+            embeddingBaseUrl,
+            topK,
+            minScore,
+            promptTemplate);
+        ragState.Update(store, trace, config);
+        return Results.Ok(trace);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    finally
+    {
+        try
+        {
+            if (Directory.Exists(tempRoot))
+                Directory.Delete(tempRoot, true);
+        }
+        catch
+        {
+            // ignore cleanup failures
+        }
+    }
+});
+
+// ── GET /api/rag/code-snippet ──────────────────────────────────
+app.MapGet("/api/rag/code-snippet", () =>
+{
+    if (!ragState.TryGetSnapshot(out _, out var config))
+        return Results.BadRequest(new { error = "Run Reference first to generate the code snippet." });
+
+    var code = GenerateRagReferenceCodeSnippet(config!);
+    return Results.Ok(new { code });
+});
+
+// ── GET /api/rag/reference-history ──────────────────────────────
+app.MapGet("/api/rag/reference-history", () =>
+{
+    var history = ragState.GetHistory()
+        .Select(entry => new
+        {
+            id = entry.Id,
+            createdAt = entry.CreatedAt,
+            sources = entry.Sources,
+            summary = entry.Summary,
+            config = entry.Config
+        })
+        .ToList();
+    return Results.Ok(new { history });
+});
+
+// ── GET /api/rag/diagnose/health-check ──────────────────────────
+app.MapGet("/api/rag/diagnose/health-check", async (CancellationToken ct) =>
+{
+    if (ragState.Store == null)
+        return Results.BadRequest(new { error = "No RAG index. Run Document Reference first." });
+
+    try
+    {
+        var session = ragState.Store.Diagnose();
+        var result = await session.HealthCheckAsync(cancellationToken: ct);
+        return Results.Ok(new
+        {
+            collection = result.Collection,
+            totalChunks = result.TotalChunks,
+            hasWarnings = result.HasWarnings,
+            items = result.Items.Select(i => new
+            {
+                status = i.Status.ToString().ToLowerInvariant(),
+                category = i.Category,
+                message = i.Message
+            }),
+            report = result.ToReport()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// ── POST /api/rag/diagnose/why-missing ──────────────────────────
+app.MapPost("/api/rag/diagnose/why-missing", async (WhyMissingRequest req, CancellationToken ct) =>
+{
+    if (ragState.Store == null)
+        return Results.BadRequest(new { error = "No RAG index. Run Document Reference first." });
+
+    if (string.IsNullOrWhiteSpace(req.Query) || string.IsNullOrWhiteSpace(req.ExpectedText))
+        return Results.BadRequest(new { error = "query and expectedText are required." });
+
+    try
+    {
+        var session = ragState.Store.Diagnose();
+        var result = await session.WhyMissingAsync(req.Query, req.ExpectedText, cancellationToken: ct);
+        return Results.Ok(new
+        {
+            query = result.Query,
+            expectedText = result.ExpectedText,
+            hasIssues = result.HasIssues,
+            steps = result.Steps.Select(s => new
+            {
+                status = s.Status.ToString().ToLowerInvariant(),
+                stepName = s.StepName,
+                message = s.Message,
+                suggestion = s.Suggestion
+            }),
+            suggestions = result.Suggestions,
+            report = result.ToReport()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// ── POST /api/rag/diagnose/query-scores ─────────────────────────
+app.MapPost("/api/rag/diagnose/query-scores", async (QueryScoresRequest req, CancellationToken ct) =>
+{
+    if (ragState.Store == null)
+        return Results.BadRequest(new { error = "No RAG index. Run Document Reference first." });
+
+    if (string.IsNullOrWhiteSpace(req.Query))
+        return Results.BadRequest(new { error = "query is required." });
+
+    try
+    {
+        var diag = new RagDiagnostics(ragState.Store);
+        var result = await diag.DiagnoseQueryAsync(req.Query, req.ExpectedText, cancellationToken: ct);
+        return Results.Ok(new
+        {
+            query = req.Query,
+            expectedText = req.ExpectedText,
+            totalScored = result.AllScoredResults.Count,
+            topK = result.TopK,
+            minScore = result.MinScore,
+            targetChunk = result.TargetChunkInfo != null ? new
+            {
+                rank = result.TargetChunkInfo.Rank,
+                score = result.TargetChunkInfo.Score,
+                isInTopK = result.TargetChunkInfo.IsInTopK,
+                passesMinScore = result.TargetChunkInfo.PassesMinScore,
+                preview = result.TargetChunkInfo.Preview,
+                contentLength = result.TargetChunkInfo.Record.Content.Length
+            } : (object?)null,
+            results = result.AllScoredResults.Select(r => new
+            {
+                rank = r.Rank,
+                score = r.Score,
+                containsText = r.ContainsTarget,
+                preview = r.Preview,
+                content = r.Record.Content,
+                contentLength = r.Record.Content.Length,
+                id = r.Record.Id
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 // ── Fallback to index.html ──────────────────────────────────────
 app.MapFallbackToFile("index.html");
 
@@ -784,6 +1135,56 @@ static string GenerateCodeSnippet(AIService svc, string provider, string modelEn
     return sb.ToString();
 }
 
+static string GenerateRagReferenceCodeSnippet(RagReferenceConfig config)
+{
+    var sb = new System.Text.StringBuilder();
+
+    sb.AppendLine("using Mythosia.AI.Rag;");
+    sb.AppendLine("using Mythosia.AI.Rag.Embeddings;");
+    sb.AppendLine("using Mythosia.AI.Rag.Splitters;");
+    sb.AppendLine("using Mythosia.AI.Services.OpenAI;");
+    sb.AppendLine("using System.Net.Http;");
+    sb.AppendLine();
+    sb.AppendLine("// 1. Create your AI service and enable RAG (extension method)");
+    sb.AppendLine("var service = new ChatGptService(\"YOUR_API_KEY\", new HttpClient())");
+    sb.AppendLine("    .WithRag(rag => rag");
+
+    if (config.Sources.Count == 0)
+    {
+        sb.AppendLine("        // .AddDocument(\"manual.pdf\")");
+    }
+    else
+    {
+        foreach (var source in config.Sources)
+            sb.AppendLine($"        .AddDocument(\"{EscapeSnippetString(source)}\")");
+    }
+
+    sb.AppendLine($"        .WithTextSplitter({BuildRagTextSplitterSnippet(config)})");
+
+    switch (NormalizeRagKey(config.EmbeddingProvider, "local"))
+    {
+        case "openai":
+            sb.AppendLine("        // OpenAI API key required for embeddings.");
+            sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"text-embedding-3-small\", dimensions: {config.EmbeddingDimensions})");
+            break;
+        case "ollama":
+            sb.AppendLine("        // Requires Ollama running on http://localhost:11434.");
+            sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(new HttpClient(), model: \"qwen3-embedding:4b\", dimensions: {config.EmbeddingDimensions}))");
+            break;
+        default:
+            sb.AppendLine($"        .UseLocalEmbedding(dimensions: {config.EmbeddingDimensions})");
+            break;
+    }
+
+    sb.AppendLine("        .UseInMemoryStore()" );
+    sb.AppendLine("    );");
+    sb.AppendLine();
+    sb.AppendLine("// 2. Ask questions");
+    sb.AppendLine("// var answer = await service.GetCompletionAsync(\"문서 기준으로 요약해줘\");");
+
+    return sb.ToString();
+}
+
 static string EscapeSnippetString(string s)
 {
     return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
@@ -798,6 +1199,78 @@ static string JsonTypeToCSharp(string jsonType) => jsonType?.ToLower() switch
     "array" => "string[]",
     _ => "string"
 };
+
+static int ParsePositiveInt(string? value, int fallback)
+{
+    return int.TryParse(value, out var parsed) && parsed > 0
+        ? parsed
+        : fallback;
+}
+
+static string NormalizeRagKey(string? value, string fallback)
+{
+    return string.IsNullOrWhiteSpace(value)
+        ? fallback
+        : value.Trim().ToLowerInvariant();
+}
+
+static string BuildRagTextSplitterSnippet(RagReferenceConfig config)
+{
+    var chunker = NormalizeRagKey(config.Chunker, "character");
+    return chunker switch
+    {
+        "token" => $"new TokenTextSplitter({config.ChunkSize}, {config.ChunkOverlap})",
+        "recursive" => $"new RecursiveTextSplitter({config.ChunkSize}, {config.ChunkOverlap})",
+        "markdown" => "new MarkdownTextSplitter()",
+        _ => $"new CharacterTextSplitter({config.ChunkSize}, {config.ChunkOverlap})"
+    };
+}
+
+static IEmbeddingProvider BuildOpenAiEmbeddingProvider(string? apiKey, HttpClient httpClient, string model, int dimensions)
+{
+    if (string.IsNullOrWhiteSpace(apiKey))
+        throw new InvalidOperationException("OpenAI API key is required.");
+
+    return new OpenAIEmbeddingProvider(apiKey, httpClient, model, dimensions);
+}
+
+static double? ParseOptionalDouble(string? value)
+{
+    return double.TryParse(value, out var parsed)
+        ? parsed
+        : null;
+}
+
+static ITextSplitter BuildTextSplitter(string? chunkerKey, int chunkSize, int chunkOverlap)
+{
+    var normalized = chunkerKey?.Trim().ToLowerInvariant();
+    return normalized switch
+    {
+        "token" => new TokenTextSplitter(chunkSize, chunkOverlap),
+        "recursive" => new RecursiveTextSplitter(chunkSize, chunkOverlap),
+        "markdown" => new MarkdownTextSplitter(),
+        _ => new CharacterTextSplitter(chunkSize, chunkOverlap)
+    };
+}
+
+static IDocumentLoader CreateLoaderForExtension(string extension)
+{
+    if (string.IsNullOrWhiteSpace(extension))
+        return new PlainTextDocumentLoader();
+
+    var normalized = extension.Trim();
+    if (!normalized.StartsWith(".", StringComparison.Ordinal))
+        normalized = "." + normalized;
+
+    return normalized.ToLowerInvariant() switch
+    {
+        ".docx" => new WordDocumentLoader(),
+        ".xlsx" => new ExcelDocumentLoader(),
+        ".pptx" => new PowerPointDocumentLoader(),
+        ".pdf" => new PdfDocumentLoader(),
+        _ => new PlainTextDocumentLoader()
+    };
+}
 
 // ── Preset Function Registration ────────────────────────────────
 static void RegisterPresetFunctions(AIService service)
@@ -892,3 +1365,16 @@ record SettingsRequest(
 record CodeSnippetRequest(string? UserMessage);
 record TogglePresetRequest(bool Enabled);
 record SummaryPolicyRequest(bool Enabled, string? TriggerType, int Threshold, int KeepRecent);
+record RagPipelineSettingsRequest(
+    int? ChunkSize,
+    int? ChunkOverlap,
+    string? Chunker,
+    string? EmbeddingProvider,
+    string? EmbeddingModel,
+    int? EmbeddingDimensions,
+    string? EmbeddingBaseUrl,
+    int? TopK,
+    double? MinScore,
+    string? PromptTemplate);
+record WhyMissingRequest(string? Query, string? ExpectedText);
+record QueryScoresRequest(string? Query, string? ExpectedText);

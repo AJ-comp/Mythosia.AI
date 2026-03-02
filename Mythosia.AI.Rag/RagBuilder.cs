@@ -1,4 +1,5 @@
 using Mythosia.AI.Loaders;
+using Mythosia.AI.Loaders.Document;
 using Mythosia.AI.Loaders.Office;
 using Mythosia.AI.Loaders.Office.Excel;
 using Mythosia.AI.Loaders.Office.PowerPoint;

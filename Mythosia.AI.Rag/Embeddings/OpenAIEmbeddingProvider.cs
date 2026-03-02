@@ -7,7 +7,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mythosia.AI.Rag
+namespace Mythosia.AI.Rag.Embeddings
 {
     /// <summary>
     /// IEmbeddingProvider implementation that calls the OpenAI Embeddings API.

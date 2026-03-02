@@ -35,6 +35,34 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
+        /// Updates query-time settings (TopK, MinScore, Prompt Template) without rebuilding the index.
+        /// Returns false if the underlying pipeline does not support updates.
+        /// </summary>
+        public bool UpdateQuerySettings(int topK, double? minScore, string? promptTemplate)
+        {
+            var ragPipeline = Pipeline as RagPipeline;
+            if (ragPipeline == null)
+                return false;
+
+            if (topK > 0)
+                ragPipeline.Options.TopK = topK;
+            ragPipeline.Options.MinScore = minScore;
+
+            IContextBuilder contextBuilder;
+            if (string.IsNullOrWhiteSpace(promptTemplate))
+            {
+                contextBuilder = new DefaultContextBuilder();
+            }
+            else
+            {
+                contextBuilder = new TemplateContextBuilder(promptTemplate);
+            }
+            ragPipeline.SetContextBuilder(contextBuilder);
+
+            return true;
+        }
+
+        /// <summary>
         /// Builds a RagStore by loading, splitting, embedding, and indexing all configured documents.
         /// The resulting store can be shared across multiple AIService instances.
         /// </summary>

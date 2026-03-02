@@ -4,12 +4,13 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Mythosia.AI.Loaders;
+using Mythosia.AI.Loaders.Document;
 using Mythosia.AI.Loaders.Office.PowerPoint.Parsers;
 
 namespace Mythosia.AI.Loaders.Office.PowerPoint
 {
     /// <summary>
-    /// Loads PowerPoint documents using a configurable parser strategy.
+    /// Loads PowerPoint documents via DoclingDocument → MarkdownSerializer.
     /// </summary>
     public class PowerPointDocumentLoader : IDocumentLoader
     {
@@ -33,14 +34,16 @@ namespace Mythosia.AI.Loaders.Office.PowerPoint
             if (!_parser.CanParse(source))
                 throw new NotSupportedException($"Parser '{_parser.GetType().Name}' cannot parse '{source}'.");
 
-            var parsed = await _parser.ParseAsync(source, ct);
+            var doclingDoc = await _parser.ParseAsync(source, ct);
+            var content = doclingDoc.ToMarkdown();
+
             var fileName = Path.GetFileName(source);
             var extension = Path.GetExtension(source).ToLowerInvariant();
 
             var doc = new RagDocument
             {
                 Id = fileName,
-                Content = parsed.Content,
+                Content = content,
                 Source = source,
                 Metadata =
                 {
@@ -51,12 +54,6 @@ namespace Mythosia.AI.Loaders.Office.PowerPoint
                     ["parser"] = _parser.GetType().Name
                 }
             };
-
-            foreach (var entry in parsed.Metadata)
-            {
-                if (!doc.Metadata.ContainsKey(entry.Key))
-                    doc.Metadata[entry.Key] = entry.Value;
-            }
 
             return new[] { doc };
         }

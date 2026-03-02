@@ -3,12 +3,14 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>1.0.0</VersionPrefix>
+    <VersionPrefix>1.1.0</VersionPrefix>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Office document loaders for Mythosia.AI RAG pipeline. Includes OpenXml parsers for docx/xlsx/pptx.</Description>
     <PackageTags>AI;RAG;DocumentLoader;Office;OpenXml;Word;Excel;PowerPoint</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v1.1.0: Unified OpenXml parsers via IDocumentParser (Word/Excel/PowerPoint), CanParse validation, OfficeParserOptions support.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,6 +19,13 @@
 
   <ItemGroup>
     <PackageReference Include="DocumentFormat.OpenXml" Version="3.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
   </ItemGroup>
 
 </Project>

@@ -18,12 +18,16 @@ namespace Mythosia.AI.Rag
         private readonly IEmbeddingProvider _embeddingProvider;
         private readonly IVectorStore _vectorStore;
         private readonly ITextSplitter _textSplitter;
-        private readonly IContextBuilder _contextBuilder;
+        private IContextBuilder _contextBuilder;
 
         /// <summary>
         /// Pipeline configuration options.
         /// </summary>
         public RagPipelineOptions Options { get; set; }
+
+        internal IEmbeddingProvider EmbeddingProvider => _embeddingProvider;
+        internal IVectorStore VectorStore => _vectorStore;
+        internal ITextSplitter TextSplitter => _textSplitter;
 
         /// <summary>
         /// Creates a new RAG pipeline with the specified components.
@@ -40,6 +44,14 @@ namespace Mythosia.AI.Rag
             _textSplitter = textSplitter ?? throw new ArgumentNullException(nameof(textSplitter));
             _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
             Options = options ?? new RagPipelineOptions();
+        }
+
+        /// <summary>
+        /// Updates the context builder used to assemble prompts at query time.
+        /// </summary>
+        public void SetContextBuilder(IContextBuilder contextBuilder)
+        {
+            _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
         }
 
         #region Indexing Pipeline: load → split → embed → store

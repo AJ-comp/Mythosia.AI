@@ -62,11 +62,28 @@
       <div id="summary-options" class="summary-options hidden">
         <div class="summary-trigger-row">
           <label>Trigger</label>
-          <select id="summary-trigger-type">
-            <option value="message">By Messages</option>
-            <option value="token">By Tokens</option>
-            <option value="both">Both</option>
-          </select>
+          <div class="rag-select summary-select">
+            <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="rag-select-label">By Messages</span>
+              <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="rag-select-menu hidden" role="listbox" aria-label="Summary trigger">
+              <button class="rag-select-option" type="button" data-value="message" role="option">
+                <span class="rag-select-option-label">By Messages</span>
+              </button>
+              <button class="rag-select-option" type="button" data-value="token" role="option">
+                <span class="rag-select-option-label">By Tokens</span>
+              </button>
+              <button class="rag-select-option" type="button" data-value="both" role="option">
+                <span class="rag-select-option-label">Both</span>
+              </button>
+            </div>
+            <select id="summary-trigger-type" class="rag-select-native" aria-hidden="true">
+              <option value="message">By Messages</option>
+              <option value="token">By Tokens</option>
+              <option value="both">Both</option>
+            </select>
+          </div>
         </div>
         <div class="summary-trigger-row">
           <label>Threshold</label>
@@ -108,8 +125,16 @@
     <!-- ═══ CENTER: Chat ═══ -->
     <main class="chat-area">
       <div class="chat-header">
-        <span id="chat-status" class="chat-status">No model selected</span>
-        <button id="btn-clear" class="btn btn-ghost btn-sm" title="Clear conversation">Clear</button>
+        <div class="chat-status-stack">
+          <span id="chat-status" class="chat-status">No model selected</span>
+          <span id="rag-chat-status" class="rag-chat-status">RAG: Not indexed</span>
+        </div>
+        <div class="chat-actions">
+          <button id="btn-doc-reference" class="btn btn-secondary btn-sm" title="Document reference">Document Reference</button>
+          <button id="btn-rag-diagnose" class="btn btn-ghost btn-sm" title="RAG diagnostics" disabled>🔍 Diagnose</button>
+          <button id="btn-rag-settings" class="btn btn-ghost btn-sm" title="RAG pipeline settings">RAG Pipeline Settings</button>
+          <button id="btn-clear" class="btn btn-ghost btn-sm" title="Clear conversation">Clear</button>
+        </div>
       </div>
       <div id="chat-messages" class="chat-messages">
         <div class="empty-state">
@@ -190,9 +215,240 @@
     </div>
   </div>
 
+  <!-- ═══ RAG Diagnostics Modal ═══ -->
+  <div id="rag-diag-modal" class="modal-overlay hidden">
+    <div class="modal-card diag-modal-card">
+      <div class="modal-header">
+        <h3>🔍 RAG Diagnostics</h3>
+        <button id="rag-diag-modal-close" class="btn-icon" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="diag-tabs">
+        <button class="diag-tab active" data-panel="diag-panel-health">Health Check</button>
+        <button class="diag-tab" data-panel="diag-panel-why">Why Missing</button>
+        <button class="diag-tab" data-panel="diag-panel-scores">Query Scores</button>
+      </div>
+      <div class="modal-body diag-modal-body">
+        <!-- Health Check -->
+        <div id="diag-panel-health" class="diag-panel active">
+          <p class="diag-desc">Run a health check on the RAG index to detect chunk size issues, duplicates, and other quality problems.</p>
+          <button id="diag-health-btn" class="btn btn-primary btn-sm">Run Health Check</button>
+          <div id="diag-health-result" class="diag-result"></div>
+        </div>
+        <!-- Why Missing -->
+        <div id="diag-panel-why" class="diag-panel">
+          <p class="diag-desc">Analyze why a specific text was not found (or ranked low) for a given query. Traces through every pipeline stage.</p>
+          <div class="diag-form">
+            <label>Query (what you asked)</label>
+            <input id="diag-why-query" type="text" placeholder="e.g. What is the refund policy?" />
+            <label>Expected text (what should have been found)</label>
+            <input id="diag-why-expected" type="text" placeholder="e.g. Full refund within 30 days" />
+          </div>
+          <button id="diag-why-btn" class="btn btn-primary btn-sm">Analyze</button>
+          <div id="diag-why-result" class="diag-result"></div>
+        </div>
+        <!-- Query Scores -->
+        <div id="diag-panel-scores" class="diag-panel">
+          <p class="diag-desc">See ALL chunk scores for a query (not just TopK). Optionally highlight a target text.</p>
+          <div class="diag-form">
+            <label>Query</label>
+            <input id="diag-score-query" type="text" placeholder="e.g. What is the refund policy?" />
+            <label>Target text (optional)</label>
+            <input id="diag-score-expected" type="text" placeholder="e.g. Full refund within 30 days" />
+          </div>
+          <button id="diag-score-btn" class="btn btn-primary btn-sm">Show Scores</button>
+          <div id="diag-score-result" class="diag-result"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RAG Pipeline Settings Modal ═══ -->
+  <div id="rag-settings-modal" class="modal-overlay hidden">
+    <div class="modal-card rag-settings-card">
+      <div class="modal-header">
+        <h3>RAG Pipeline Settings</h3>
+        <button id="rag-settings-close" class="btn-icon" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body rag-settings-body">
+        <div class="rag-settings-section">
+          <div class="rag-settings-section-header">
+            <span>Query Pipeline</span>
+            <span class="rag-settings-section-hint">Used when asking questions</span>
+          </div>
+          <div class="rag-grid">
+            <div class="rag-field">
+              <label>Top K</label>
+              <input id="rag-topk" type="number" value="5" min="1" max="50" />
+            </div>
+            <div class="rag-field">
+              <label>Min score</label>
+              <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.2" placeholder="0.0" />
+              <div class="rag-hint">Score is cosine similarity (higher is better).</div>
+            </div>
+          </div>
+          <div class="rag-field rag-field-wide">
+            <label>Prompt template</label>
+            <textarea id="rag-prompt-template" rows="4" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
+            <div class="rag-hint">Leave empty to use the default context builder. Use {context} and {question}.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer rag-settings-footer">
+        <span id="rag-settings-status" class="rag-settings-status">Changes apply on the next indexing run.</span>
+        <button id="rag-settings-save" class="btn btn-primary btn-sm">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ RAG Reference Modal ═══ -->
+  <div id="rag-modal" class="modal-overlay hidden">
+    <div class="modal-card rag-modal-card">
+      <div class="modal-header">
+        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h16"/></svg>Document Reference</h3>
+        <div class="rag-header-actions">
+          <button id="rag-view-code" class="btn btn-secondary btn-sm rag-view-code-btn" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            View Code
+          </button>
+          <button id="rag-modal-close" class="btn-icon" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body rag-modal-body">
+        <div class="rag-controls">
+          <div class="rag-input">
+            <label>Upload documents</label>
+            <input id="rag-files" type="file" multiple accept=".txt,.md,.pdf,.docx,.xlsx,.pptx" />
+            <div class="rag-hint">Supports .txt, .md, .pdf, .docx, .xlsx, .pptx</div>
+            <div id="rag-file-list" class="rag-file-list"></div>
+          </div>
+          <details class="rag-index-settings" open>
+            <summary class="rag-index-settings-toggle">Indexing Settings</summary>
+            <div class="rag-index-settings-body">
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Chunk size</label>
+                  <input id="rag-chunk-size" type="number" value="300" min="50" max="2000" />
+                </div>
+                <div class="rag-field">
+                  <label>Chunk overlap</label>
+                  <input id="rag-chunk-overlap" type="number" value="30" min="0" max="500" />
+                </div>
+              </div>
+              <div class="rag-field rag-field-wide">
+                <label>Chunking strategy</label>
+                <div class="rag-select" id="rag-chunker-select">
+                  <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="rag-select-label">Recursive (multi-separator)</span>
+                    <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="rag-select-menu hidden" role="listbox" aria-label="Chunking strategy">
+                    <button class="rag-select-option" type="button" data-value="character" role="option">
+                      <span class="rag-select-option-label">Character (separator aware)</span>
+                    </button>
+                    <button class="rag-select-option" type="button" data-value="token" role="option">
+                      <span class="rag-select-option-label">Token (whitespace)</span>
+                    </button>
+                    <button class="rag-select-option" type="button" data-value="recursive" role="option">
+                      <span class="rag-select-option-label">Recursive (multi-separator)</span>
+                    </button>
+                    <button class="rag-select-option" type="button" data-value="markdown" role="option">
+                      <span class="rag-select-option-label">Markdown headings (##)</span>
+                    </button>
+                  </div>
+                  <select id="rag-chunker" class="rag-select-native" aria-hidden="true">
+                    <option value="character">Character (separator aware)</option>
+                    <option value="token">Token (whitespace)</option>
+                    <option value="recursive" selected>Recursive (multi-separator)</option>
+                    <option value="markdown">Markdown headings (##)</option>
+                  </select>
+                </div>
+                <div class="rag-hint">Chunk size/overlap apply to character, token, and recursive splitters.</div>
+              </div>
+              <div class="rag-field rag-field-wide">
+                <div class="rag-field-label">
+                  <label>Embedding provider</label>
+                </div>
+                <div id="rag-embedding-select" class="rag-select">
+                  <button id="rag-embedding-trigger" class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span id="rag-embedding-value" class="rag-select-label">OpenAI (text-embedding-3-small)</span>
+                    <span id="rag-embedding-value-badge" class="rag-badge rag-badge-inline">Recommended</span>
+                    <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div id="rag-embedding-menu" class="rag-select-menu hidden" role="listbox" aria-label="Embedding provider">
+                    <button class="rag-select-option" type="button" data-value="local" role="option">
+                      <span class="rag-select-option-label">Local (hashing)</span>
+                    </button>
+                    <button class="rag-select-option" type="button" data-value="ollama" role="option">
+                      <span class="rag-select-option-label">Ollama (qwen3-embedding:4b)</span>
+                    </button>
+                    <button class="rag-select-option" type="button" data-value="openai" role="option">
+                      <span class="rag-select-option-label">OpenAI (text-embedding-3-small)</span>
+                      <span class="rag-badge">Recommended</span>
+                    </button>
+                  </div>
+                  <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
+                    <option value="local">Local (hashing)</option>
+                    <option value="ollama">Ollama (qwen3-embedding:4b)</option>
+                    <option value="openai" selected>OpenAI (text-embedding-3-small)</option>
+                  </select>
+                </div>
+                <div id="rag-embedding-hint" class="rag-hint">OpenAI embeddings (text-embedding-3-small).</div>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Embedding model</label>
+                  <input id="rag-embedding-model" type="text" value="text-embedding-3-small" />
+                </div>
+                <div class="rag-field">
+                  <label>Embedding dimensions</label>
+                  <input id="rag-embedding-dimensions" type="number" value="1536" min="128" max="4096" />
+                </div>
+              </div>
+              <div id="rag-embedding-base-row" class="rag-field rag-field-wide hidden">
+                <label>Ollama base URL</label>
+                <input id="rag-embedding-base-url" type="text" value="http://localhost:11434" />
+              </div>
+              <div id="rag-openai-key" class="rag-field rag-field-wide hidden">
+                <label>OpenAI API key</label>
+                <div class="rag-inline-input">
+                  <input id="rag-openai-key-input" type="password" placeholder="sk-..." autocomplete="off" />
+                  <button id="rag-openai-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
+                </div>
+                <div id="rag-openai-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
+              </div>
+            </div>
+          </details>
+          <div class="rag-actions">
+            <button id="rag-run" class="btn btn-primary btn-sm" disabled>Run Reference</button>
+            <span id="rag-status" class="rag-status">Awaiting files</span>
+          </div>
+        </div>
+        <div id="rag-trace" class="rag-trace">
+          <div class="rag-empty">Upload documents to see the indexing trace.</div>
+        </div>
+        <div class="rag-history">
+          <div class="rag-history-title">Recent references</div>
+          <div id="rag-history-list" class="rag-history-list">
+            <div class="rag-empty">No references yet.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
+  <script type="module" src="/js/custom-select.js"></script>
   <script type="module" src="/js/app.js"></script>
 </body>
 </html>

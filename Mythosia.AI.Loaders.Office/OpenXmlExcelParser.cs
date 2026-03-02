@@ -1,19 +1,18 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
-using Mythosia.AI.Loaders;
-using Mythosia.AI.Loaders.Office;
+using Mythosia.AI.Loaders.Document;
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Mythosia.AI.Loaders.Office.Excel.Parsers
 {
     /// <summary>
-    /// Parses .xlsx files using OpenXml SDK.
+    /// Parses .xlsx files using OpenXml SDK into a structured DoclingDocument.
     /// </summary>
     public class OpenXmlExcelParser : IDocumentParser
     {
@@ -27,17 +26,23 @@ namespace Mythosia.AI.Loaders.Office.Excel.Parsers
         public bool CanParse(string source)
             => string.Equals(Path.GetExtension(source), ".xlsx", StringComparison.OrdinalIgnoreCase);
 
-        public Task<ParsedDocument> ParseAsync(string source, CancellationToken ct = default)
+        // -----------------------------------------------------------------
+        //  Structured parsing → DoclingDocument
+        // -----------------------------------------------------------------
+
+        public Task<DoclingDocument> ParseAsync(string source, CancellationToken ct = default)
         {
             ct.ThrowIfCancellationRequested();
 
-            using var doc = SpreadsheetDocument.Open(source, false);
-            var workbookPart = doc.WorkbookPart;
+            var docName = Path.GetFileNameWithoutExtension(source);
+            var result = new DoclingDocument { Name = docName };
+
+            using var spreadsheet = SpreadsheetDocument.Open(source, false);
+            var workbookPart = spreadsheet.WorkbookPart;
             if (workbookPart?.Workbook?.Sheets == null)
-                return Task.FromResult(new ParsedDocument(string.Empty));
+                return Task.FromResult(result);
 
             var sharedStrings = workbookPart.SharedStringTablePart?.SharedStringTable;
-            var sb = new StringBuilder();
             var sheetCount = 0;
 
             foreach (var sheet in workbookPart.Workbook.Sheets.Elements<Sheet>())
@@ -46,46 +51,108 @@ namespace Mythosia.AI.Loaders.Office.Excel.Parsers
                 sheetCount++;
 
                 var sheetName = sheet.Name?.Value ?? $"Sheet{sheetCount}";
-                if (_options.IncludeSheetNames)
-                    sb.AppendLine($"[sheet {sheetCount}: {sheetName}]");
+
+                // Each sheet becomes a Group with label = Sheet
+                var sheetGroup = result.AddGroup(sheetName, GroupLabel.Sheet);
+
+                // Add sheet name as heading
+                result.AddHeading(sheetName, 2, sheetGroup);
 
                 var worksheetPart = workbookPart.GetPartById(sheet.Id!) as WorksheetPart;
                 if (worksheetPart?.Worksheet == null)
-                {
-                    sb.AppendLine();
                     continue;
-                }
 
-                foreach (var row in worksheetPart.Worksheet.Descendants<Row>())
-                {
-                    var rowValues = new List<string>();
-                    foreach (var cell in row.Elements<Cell>())
-                    {
-                        var cellValue = GetCellValue(cell, sharedStrings);
-                        if (string.IsNullOrWhiteSpace(cellValue))
-                            continue;
-
-                        if (_options.NormalizeWhitespace)
-                            cellValue = OfficeParserUtilities.NormalizeWhitespace(cellValue);
-
-                        rowValues.Add(cellValue);
-                    }
-
-                    if (rowValues.Count > 0)
-                        sb.AppendLine(string.Join("\t", rowValues));
-                }
-
-                sb.AppendLine();
+                BuildSheetTable(result, worksheetPart, sharedStrings, sheetGroup);
             }
 
-            var parsed = new ParsedDocument(sb.ToString().Trim());
-            if (_options.IncludeMetadata)
+            return Task.FromResult(result);
+        }
+
+        private void BuildSheetTable(
+            DoclingDocument doc,
+            WorksheetPart worksheetPart,
+            SharedStringTable? sharedStrings,
+            NodeItem parent)
+        {
+            var rows = worksheetPart.Worksheet.Descendants<Row>().ToList();
+            if (rows.Count == 0)
+                return;
+
+            // Determine max column count across all rows
+            int maxCols = 0;
+            var rowDataList = new List<List<string>>();
+
+            foreach (var row in rows)
             {
-                parsed.Metadata["sheet_count"] = sheetCount.ToString(CultureInfo.InvariantCulture);
-                OfficeParserUtilities.AddPackageMetadata(doc, parsed.Metadata);
+                var cellValues = new List<string>();
+                foreach (var cell in row.Elements<Cell>())
+                {
+                    // Fill gaps for sparse columns
+                    var colIndex = GetColumnIndex(cell.CellReference?.Value);
+                    while (cellValues.Count < colIndex)
+                        cellValues.Add(string.Empty);
+
+                    var value = GetCellValue(cell, sharedStrings);
+                    if (_options.NormalizeWhitespace && !string.IsNullOrWhiteSpace(value))
+                        value = OfficeParserUtilities.NormalizeWhitespace(value);
+                    cellValues.Add(value);
+                }
+
+                if (cellValues.Count > maxCols)
+                    maxCols = cellValues.Count;
+                rowDataList.Add(cellValues);
             }
 
-            return Task.FromResult(parsed);
+            if (maxCols == 0)
+                return;
+
+            var tableData = new TableData
+            {
+                NumRows = rowDataList.Count,
+                NumCols = maxCols,
+            };
+
+            for (int r = 0; r < rowDataList.Count; r++)
+            {
+                var rowData = rowDataList[r];
+                for (int c = 0; c < maxCols; c++)
+                {
+                    var text = c < rowData.Count ? rowData[c] : string.Empty;
+                    tableData.TableCells.Add(new Document.TableCell
+                    {
+                        Text = text,
+                        RowSpan = 1,
+                        ColSpan = 1,
+                        StartRowOffsetIdx = r,
+                        EndRowOffsetIdx = r + 1,
+                        StartColOffsetIdx = c,
+                        EndColOffsetIdx = c + 1,
+                        ColumnHeader = r == 0, // first row = header
+                    });
+                }
+            }
+
+            doc.AddTable(tableData, parent);
+        }
+
+        private static readonly Regex ColumnLetterRegex = new Regex(@"^([A-Z]+)", RegexOptions.Compiled);
+
+        private static int GetColumnIndex(string? cellReference)
+        {
+            if (string.IsNullOrEmpty(cellReference))
+                return 0;
+
+            var match = ColumnLetterRegex.Match(cellReference);
+            if (!match.Success)
+                return 0;
+
+            var letters = match.Groups[1].Value;
+            int index = 0;
+            foreach (var ch in letters)
+            {
+                index = index * 26 + (ch - 'A' + 1);
+            }
+            return index - 1; // 0-based
         }
 
         private static string GetCellValue(Cell cell, SharedStringTable? sharedStrings)

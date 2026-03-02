@@ -1,10 +1,10 @@
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mythosia.AI.Loaders
+namespace Mythosia.AI.Loaders.Document
 {
     /// <summary>
-    /// Parses a document into extracted text and metadata.
+    /// Parses a document into a structured <see cref="DoclingDocument"/> representation.
     /// </summary>
     public interface IDocumentParser
     {
@@ -14,8 +14,8 @@ namespace Mythosia.AI.Loaders
         bool CanParse(string source);
 
         /// <summary>
-        /// Parses the document and returns extracted content.
+        /// Parses the document and returns a structured <see cref="DoclingDocument"/>.
         /// </summary>
-        Task<ParsedDocument> ParseAsync(string source, CancellationToken ct = default);
+        Task<DoclingDocument> ParseAsync(string source, CancellationToken ct = default);
     }
 }

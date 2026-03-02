@@ -1,5 +1,26 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v1.2.0
+
+### Changed
+
+- Integrated `IDocumentParser`-based loaders for Office and PDF sources.
+- Removed semantic splitter from `RagBuilder`/`RagPipeline`.
+
+### Added
+
+- `DocumentSourceBuilder` for per-extension routing with per-source loader/text splitter configuration.
+- `MarkdownTextSplitter` — splits on markdown headers.
+- `RecursiveTextSplitter` — recursive splitting with ordered separators.
+- Convenience document helpers: `AddWord`, `AddExcel`, `AddPowerPoint`.
+- Per-source routing: single-file sources prioritized over directory sources; deduplicated by normalized full path.
+
+### Fixed
+
+- `CharacterTextSplitter` overlap now aligns to separator boundaries.
+
+---
+
 ## v1.1.0
 
 ### Added

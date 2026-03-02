@@ -4,11 +4,12 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Mythosia.AI.Loaders;
+using Mythosia.AI.Loaders.Document;
 
 namespace Mythosia.AI.Loaders.Pdf
 {
     /// <summary>
-    /// Loads PDF documents using a configurable parser.
+    /// Loads PDF documents via DoclingDocument → MarkdownSerializer.
     /// </summary>
     public class PdfDocumentLoader : IDocumentLoader
     {
@@ -31,32 +32,27 @@ namespace Mythosia.AI.Loaders.Pdf
             if (!File.Exists(source))
                 throw new FileNotFoundException($"Document file not found: {source}", source);
 
-            var parser = _parser;
-            if (!parser.CanParse(source))
-                throw new NotSupportedException($"Parser '{parser.GetType().Name}' cannot parse '{source}'.");
+            if (!_parser.CanParse(source))
+                throw new NotSupportedException($"Parser '{_parser.GetType().Name}' cannot parse '{source}'.");
 
-            var parsed = await parser.ParseAsync(source, ct);
+            var doclingDoc = await _parser.ParseAsync(source, ct);
+            var content = doclingDoc.ToMarkdown();
+
             var fileName = Path.GetFileName(source);
 
             var doc = new RagDocument
             {
                 Id = fileName,
-                Content = parsed.Content,
+                Content = content,
                 Source = source,
                 Metadata =
                 {
                     ["type"] = "pdf",
                     ["filename"] = fileName,
                     ["extension"] = Path.GetExtension(source).ToLowerInvariant(),
-                    ["parser"] = parser.GetType().Name
+                    ["parser"] = _parser.GetType().Name
                 }
             };
-
-            foreach (var entry in parsed.Metadata)
-            {
-                if (!doc.Metadata.ContainsKey(entry.Key))
-                    doc.Metadata[entry.Key] = entry.Value;
-            }
 
             return new[] { doc };
         }

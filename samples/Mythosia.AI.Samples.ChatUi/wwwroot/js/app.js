@@ -10,7 +10,10 @@ import { initChat } from './chat.js';
 import { initSettings } from './settings.js';
 import { initStatePanel } from './state-panel.js';
 import { initCodeModal } from './code-modal.js';
+import { initCustomSelects } from './custom-select.js';
 import { initFunctionsPanel } from './functions-panel.js';
+import { initRagReference } from './rag-reference.js';
+import { initRagDiagnostics } from './rag-diagnostics.js';
 
 // ── Scroll tracking ──────────────────────────────────────────
 chatMessages.addEventListener('scroll', () => {
@@ -23,7 +26,10 @@ initChat();
 initSettings();
 initStatePanel();
 initCodeModal();
+initCustomSelects();
 initFunctionsPanel();
+initRagReference();
+initRagDiagnostics();
 
 // ── Boot ─────────────────────────────────────────────────────
 loadKeysFromStorage();
