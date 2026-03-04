@@ -1,4 +1,4 @@
-using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mythosia.AI.VectorDB
+namespace Mythosia.VectorDb.InMemory
 {
     /// <summary>
     /// Thread-safe in-memory implementation of IVectorStore using cosine similarity for TopK search.

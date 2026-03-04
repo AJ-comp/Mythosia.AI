@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Mythosia.AI.Rag
+namespace Mythosia.VectorDb
 {
     /// <summary>
     /// A record stored in a vector store, containing the embedding vector, content, and metadata.

@@ -1,5 +1,6 @@
 using Mythosia.AI.Loaders;
 using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;

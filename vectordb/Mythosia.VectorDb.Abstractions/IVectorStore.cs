@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace Mythosia.AI.Rag
+namespace Mythosia.VectorDb
 {
     /// <summary>
     /// Abstracts vector storage and similarity search operations.

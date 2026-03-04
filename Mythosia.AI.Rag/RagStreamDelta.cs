@@ -1,3 +1,4 @@
+using Mythosia.VectorDb;
 using System.Collections.Generic;
 
 namespace Mythosia.AI.Rag

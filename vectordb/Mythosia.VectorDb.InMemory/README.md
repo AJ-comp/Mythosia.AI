@@ -1,4 +1,4 @@
-# Mythosia.AI.VectorDB
+# Mythosia.VectorDb.InMemory
 
 ## Package Summary
 
@@ -30,7 +30,7 @@ Automatically used as the default vector store in `Mythosia.AI.Rag`:
 ## Standalone Usage
 
 ```csharp
-using Mythosia.AI.VectorDB;
+using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
 

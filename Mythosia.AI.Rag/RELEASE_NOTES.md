@@ -1,5 +1,16 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v2.0.0
+
+### Breaking Changes
+
+- Vector DB abstraction types (`IVectorStore`, `VectorRecord`, `VectorFilter`, `VectorSearchResult`) moved to `Mythosia.VectorDb` namespace.
+- `InMemoryVectorStore` moved to `Mythosia.VectorDb.InMemory` package (namespace `Mythosia.VectorDb.InMemory`).
+- Consumers must replace `using Mythosia.AI.VectorDB;` with `using Mythosia.VectorDb.InMemory;`.
+- Consumers must add `using Mythosia.VectorDb;` for vector DB contract types.
+
+---
+
 ## v1.2.0
 
 ### Changed

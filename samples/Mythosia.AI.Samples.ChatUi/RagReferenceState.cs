@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Mythosia.AI.Loaders;
 using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
 
 namespace Mythosia.AI.Samples.ChatUi;
 

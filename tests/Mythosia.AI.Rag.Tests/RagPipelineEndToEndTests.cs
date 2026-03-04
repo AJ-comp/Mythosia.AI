@@ -2,7 +2,7 @@ using Mythosia.AI.Loaders;
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Splitters;
-using Mythosia.AI.VectorDB;
+using Mythosia.VectorDb.InMemory;
 
 namespace Mythosia.AI.Rag.Tests;
 

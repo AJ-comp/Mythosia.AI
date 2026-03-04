@@ -1,3 +1,4 @@
+using Mythosia.VectorDb;
 using System;
 using System.Threading;
 using System.Threading.Tasks;

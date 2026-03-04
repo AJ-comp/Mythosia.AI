@@ -1,5 +1,6 @@
 using Mythosia.AI.Loaders;
-using Mythosia.AI.VectorDB;
+using Mythosia.VectorDb.InMemory;
+using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
 using System.Linq;

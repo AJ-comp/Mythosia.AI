@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <VersionPrefix>1.0.0</VersionPrefix>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/collection support, and upsert/delete operations.</Description>
+    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

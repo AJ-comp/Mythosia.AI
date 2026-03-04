@@ -1,4 +1,4 @@
-namespace Mythosia.AI.Rag
+namespace Mythosia.VectorDb
 {
     /// <summary>
     /// A single result from a vector similarity search.

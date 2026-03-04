@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Mythosia.AI.Rag
+namespace Mythosia.VectorDb
 {
     /// <summary>
     /// Filter criteria for vector store queries and deletions.
