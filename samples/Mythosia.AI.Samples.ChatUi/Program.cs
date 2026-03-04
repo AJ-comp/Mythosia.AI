@@ -289,6 +289,25 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             ragProcessed = await ragState.Store.QueryAsync(req.Message, ctx.RequestAborted);
         }
 
+        // Send RAG info event so the frontend can show per-message diagnostics
+        if (ragProcessed != null)
+        {
+            var ragInfoPayload = JsonSerializer.Serialize(new
+            {
+                type = "rag_info",
+                augmentedPrompt = ragProcessed.AugmentedPrompt,
+                originalQuery = ragProcessed.OriginalQuery,
+                references = ragProcessed.References.Select(r => new
+                {
+                    score = r.Score,
+                    content = r.Record.Content,
+                    metadata = r.Record.Metadata
+                })
+            });
+            await ctx.Response.WriteAsync($"data: {ragInfoPayload}\n\n", ctx.RequestAborted);
+            await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+        }
+
         var messageContent = ragProcessed?.AugmentedPrompt ?? req.Message;
         var message = new Message(ActorRole.User, messageContent);
         if (ragProcessed != null)

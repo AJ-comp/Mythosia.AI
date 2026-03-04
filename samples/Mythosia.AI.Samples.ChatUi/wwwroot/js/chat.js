@@ -85,6 +85,7 @@ async function sendMessage() {
     let contentSpan = null;
     let gotText = false;
     let fcCardEl = null;
+    let ragInfo = null;
 
     // Summarizing indicator
     let summaryIndicator = null;
@@ -118,6 +119,9 @@ async function sendMessage() {
           else if (parsed.type === 'summary_error') {
             if (summaryIndicator) failSummaryBubble(summaryIndicator, parsed.content);
             summaryIndicator = null;
+          }
+          else if (parsed.type === 'rag_info') {
+            ragInfo = parsed;
           }
           else if (parsed.type === 'function_call') {
             if (thinkingEl) collapseThinking(thinkingEl);
@@ -176,11 +180,11 @@ async function sendMessage() {
       const fallbackDiv = createMessageElement('assistant', responseContainer);
       const fallbackSpan = fallbackDiv.querySelector('.msg-content');
       fallbackSpan.innerHTML = renderMarkdown(reasoningText || '(empty response)');
-      addViewCodeButton(fallbackDiv, text);
+      addViewCodeButton(fallbackDiv, text, ragInfo);
     } else if (msgDiv && !fullText) {
       contentSpan.innerHTML = '<p>(empty response)</p>';
     }
-    if (msgDiv) addViewCodeButton(msgDiv, text);
+    if (msgDiv) addViewCodeButton(msgDiv, text, ragInfo);
     if (thinkingEl) {
       const hdr = thinkingEl.querySelector('.thinking-header');
       if (hdr) hdr.classList.add('done');

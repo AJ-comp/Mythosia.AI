@@ -17,11 +17,11 @@ import {
   ragChunkOverlap,
   ragChunker,
   ragEmbeddingProvider,
-  ragEmbeddingModel,
-  ragEmbeddingDimensions,
   ragEmbeddingBaseRow,
   ragEmbeddingBaseUrl,
   ragEmbeddingHint,
+  ragOpenAiModelRow,
+  ragOpenAiModel,
   ragOpenAiKey,
   ragOpenAiKeyInput,
   ragOpenAiKeySave,
@@ -64,8 +64,10 @@ export function initRagReference() {
     updateEmbeddingUI();
     markReferenceStale();
   });
-  ragEmbeddingModel?.addEventListener('input', markReferenceStale);
-  ragEmbeddingDimensions?.addEventListener('input', markReferenceStale);
+  ragOpenAiModel?.addEventListener('change', () => {
+    updateEmbeddingUI();
+    markReferenceStale();
+  });
   ragEmbeddingBaseUrl?.addEventListener('input', markReferenceStale);
   ragTopK?.addEventListener('input', markReferenceStale);
   ragMinScore?.addEventListener('input', markReferenceStale);
@@ -125,8 +127,7 @@ function applyPipelineSettings(settings) {
   if (ragChunkOverlap && settings.chunkOverlap) ragChunkOverlap.value = settings.chunkOverlap;
   if (ragChunker && settings.chunker && !autoChunkerFromFiles) setSelectValue(ragChunker, settings.chunker);
   if (ragEmbeddingProvider && settings.embeddingProvider) setSelectValue(ragEmbeddingProvider, settings.embeddingProvider);
-  if (ragEmbeddingModel && settings.embeddingModel) ragEmbeddingModel.value = settings.embeddingModel;
-  if (ragEmbeddingDimensions && settings.embeddingDimensions) ragEmbeddingDimensions.value = settings.embeddingDimensions;
+  if (ragOpenAiModel && settings.embeddingModel) setSelectValue(ragOpenAiModel, settings.embeddingModel);
   if (ragEmbeddingBaseUrl && settings.embeddingBaseUrl) ragEmbeddingBaseUrl.value = settings.embeddingBaseUrl;
   if (ragTopK && settings.topK) ragTopK.value = settings.topK;
   if (ragMinScore) ragMinScore.value = settings.minScore ?? '';
@@ -145,8 +146,8 @@ async function savePipelineSettings() {
     chunkOverlap: toInt(ragChunkOverlap?.value, 30),
     chunker: ragChunker?.value || 'character',
     embeddingProvider: ragEmbeddingProvider?.value || 'local',
-    embeddingModel: ragEmbeddingModel?.value?.trim() || '',
-    embeddingDimensions: toInt(ragEmbeddingDimensions?.value, 1024),
+    embeddingModel: getEmbeddingDefaults(ragEmbeddingProvider?.value).model,
+    embeddingDimensions: getEmbeddingDefaults(ragEmbeddingProvider?.value).dims,
     embeddingBaseUrl: ragEmbeddingBaseUrl?.value?.trim() || '',
     topK: toInt(ragTopK?.value, 3),
     minScore: toFloatOrNull(ragMinScore?.value),
@@ -241,12 +242,34 @@ function getSelectedEmbeddingProvider() {
   return ragEmbeddingProvider?.value || 'local';
 }
 
+function getEmbeddingDefaults(provider) {
+  const p = provider || getSelectedEmbeddingProvider();
+  if (p === 'openai') {
+    const model = ragOpenAiModel?.value || 'text-embedding-3-small';
+    const dimsMap = {
+      'text-embedding-3-small': 1536,
+      'text-embedding-3-large': 3072,
+      'text-embedding-ada-002': 1536
+    };
+    return { model, dims: dimsMap[model] || 1536 };
+  }
+  const map = {
+    ollama:  { model: 'qwen3-embedding:4b',     dims: 1024 },
+    local:   { model: '',                        dims: 1024 }
+  };
+  return map[p] || map.local;
+}
+
 function updateEmbeddingUI() {
   const provider = getSelectedEmbeddingProvider();
   const hasOpenAiKey = !!providerKeys?.OpenAI;
 
   if (ragOpenAiKey) {
     ragOpenAiKey.classList.toggle('hidden', provider !== 'openai' || hasOpenAiKey);
+  }
+
+  if (ragOpenAiModelRow) {
+    ragOpenAiModelRow.classList.toggle('hidden', provider !== 'openai');
   }
 
   if (ragEmbeddingBaseRow) {
@@ -267,8 +290,9 @@ function updateEmbeddingUI() {
     if (provider === 'ollama') {
       ragEmbeddingHint.textContent = 'Ollama must be installed and running on the base URL below.';
     } else if (provider === 'openai') {
+      const modelName = ragOpenAiModel?.value || 'text-embedding-3-small';
       ragEmbeddingHint.textContent = hasOpenAiKey
-        ? 'Using stored OpenAI API key.'
+        ? `Using stored OpenAI API key (${modelName}).`
         : 'OpenAI API key required. Enter it below.';
     } else {
       ragEmbeddingHint.textContent = 'Local hashing embeddings (no key required).';
@@ -311,8 +335,9 @@ async function runReference() {
   if (ragChunkOverlap) formData.append('chunkOverlap', ragChunkOverlap.value || '30');
   if (ragChunker) formData.append('chunker', ragChunker.value || 'character');
   formData.append('embeddingProvider', provider);
-  if (ragEmbeddingModel) formData.append('embeddingModel', ragEmbeddingModel.value || '');
-  if (ragEmbeddingDimensions) formData.append('embeddingDimensions', ragEmbeddingDimensions.value || '');
+  const embDefaults = getEmbeddingDefaults(provider);
+  formData.append('embeddingModel', embDefaults.model);
+  formData.append('embeddingDimensions', String(embDefaults.dims));
   if (ragEmbeddingBaseUrl) formData.append('embeddingBaseUrl', ragEmbeddingBaseUrl.value || '');
   if (ragTopK) formData.append('topK', ragTopK.value || '');
   if (ragMinScore) formData.append('minScore', ragMinScore.value || '');
@@ -540,6 +565,21 @@ function renderTrace(trace) {
     .map((chunk) => renderRecordGroupNode(chunk, recordsByChunk.get(chunk.id) || []))
     .join('');
 
+  const tabs = [
+    { key: 'docs', label: 'Documents', count: trace.summary.documentCount, body: docNodes || '<div class="rag-empty">No documents.</div>' },
+    { key: 'chunks', label: 'Chunks', count: trace.summary.chunkCount, body: chunkNodes || '<div class="rag-empty">No chunks.</div>' },
+    { key: 'embeddings', label: 'Embeddings', count: trace.summary.embeddingCount, body: embeddingNodes || '<div class="rag-empty">No embeddings.</div>' },
+    { key: 'vectors', label: 'Vector Table', count: trace.summary.recordCount, body: recordNodes || '<div class="rag-empty">No vector records.</div>' }
+  ];
+
+  const tabButtons = tabs
+    .map((t, i) => `<button class="rag-trace-tab${i === 0 ? ' active' : ''}" data-panel="rag-tp-${t.key}" type="button">${t.label} <span class="rag-trace-tab-count">${t.count}</span></button>`)
+    .join('');
+
+  const tabPanels = tabs
+    .map((t, i) => `<div class="rag-trace-panel${i === 0 ? ' active' : ''}" id="rag-tp-${t.key}"><div class="rag-tree">${t.body}</div></div>`)
+    .join('');
+
   ragTrace.innerHTML = `
     <div class="rag-summary">
       <div class="rag-summary-stats">
@@ -551,14 +591,30 @@ function renderTrace(trace) {
       </div>
       <div class="rag-summary-actions" id="rag-summary-actions"></div>
     </div>
-    <div class="rag-tree">
-      ${renderTopSection('Documents', docNodes || '<div class="rag-empty">No documents.</div>')}
-      ${renderTopSection('Chunks', chunkNodes || '<div class="rag-empty">No chunks.</div>')}
-      ${renderTopSection('Embeddings', embeddingNodes || '<div class="rag-empty">No embeddings.</div>')}
-      ${renderTopSection('Vector Table', recordNodes || '<div class="rag-empty">No vector records.</div>')}
-      ${orphanNodes}
+    <div class="rag-trace-tabs">${tabButtons}</div>
+    <div class="rag-trace-panels">
+      ${tabPanels}
+      ${orphanNodes ? `<div class="rag-trace-orphans">${orphanNodes}</div>` : ''}
     </div>
   `;
+
+  ragTrace.querySelectorAll('.rag-trace-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      ragTrace.querySelectorAll('.rag-trace-tab').forEach((b) => b.classList.remove('active'));
+      ragTrace.querySelectorAll('.rag-trace-panel').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = ragTrace.querySelector(`#${btn.dataset.panel}`);
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  // Click-to-expand full content for truncated previews
+  ragTrace.addEventListener('click', (e) => {
+    const preview = e.target.closest('.rag-preview--clickable');
+    if (preview && preview.dataset.fullContent) {
+      openContentViewer(preview.dataset.fullTitle || '', preview.dataset.fullMeta || '', preview.dataset.fullContent);
+    }
+  });
 
   const summaryActions = ragTrace.querySelector('#rag-summary-actions');
   if (summaryActions && ragViewCode) {
@@ -600,6 +656,7 @@ function renderDocumentNode(doc, chunks) {
 }
 
 function renderChunkNode(chunk) {
+  const needsExpand = chunk.content && chunk.content.length > 180;
   return `
     <details class="rag-tree-node rag-tree-node--chunk" open>
       <summary>
@@ -609,7 +666,7 @@ function renderChunkNode(chunk) {
         </div>
       </summary>
       <div class="rag-node-body">
-        <div class="rag-preview">${escapeHtml(truncate(chunk.content, 180))}</div>
+        <div class="rag-preview${needsExpand ? ' rag-preview--clickable' : ''}"${needsExpand ? ` data-full-title="Chunk #${chunk.index}" data-full-meta="${chunk.contentLength} chars · ${escapeHtml(chunk.id)}" data-full-content="${escapeHtml(chunk.content).replace(/"/g, '&quot;')}"` : ''}>${escapeHtml(truncate(chunk.content, 180))}</div>
         ${renderMetadata(chunk.metadata)}
       </div>
     </details>`;
@@ -675,11 +732,12 @@ function renderRecordGroupNode(chunk, records) {
 }
 
 function renderRecordNode(rec) {
+  const needsExpand = rec.content && rec.content.length > 140;
   return `
     <div class="rag-leaf">
       <div class="rag-node-title">Vector Record</div>
       <div class="rag-node-meta">${rec.namespace || '(default)'} · ${rec.contentLength} chars</div>
-      <div class="rag-preview">${escapeHtml(truncate(rec.content, 140))}</div>
+      <div class="rag-preview${needsExpand ? ' rag-preview--clickable' : ''}"${needsExpand ? ` data-full-title="Vector Record" data-full-meta="${rec.namespace || '(default)'} · ${rec.contentLength} chars" data-full-content="${escapeHtml(rec.content).replace(/"/g, '&quot;')}"` : ''}>${escapeHtml(truncate(rec.content, 140))}</div>
       ${renderMetadata(rec.metadata)}
     </div>`;
 }
@@ -718,4 +776,49 @@ function renderLoading() {
 
 function renderError(message) {
   return `<div class="rag-empty rag-error">${escapeHtml(message)}</div>`;
+}
+
+// ── Full Content Viewer ──────────────────────────────────────
+function openContentViewer(title, meta, content) {
+  const existing = document.getElementById('rag-content-viewer');
+  if (existing) existing.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'rag-content-viewer';
+  overlay.className = 'modal-overlay';
+
+  overlay.innerHTML = `
+    <div class="modal-card content-viewer-card">
+      <div class="modal-header">
+        <div>
+          <h3>${escapeHtml(title)}</h3>
+          ${meta ? `<div class="content-viewer-meta">${escapeHtml(meta)}</div>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="btn btn-ghost btn-sm" id="content-viewer-copy">Copy</button>
+          <button class="btn-icon" id="content-viewer-close" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body content-viewer-body">
+        <pre class="content-viewer-pre"><code class="content-viewer-code"></code></pre>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+
+  const codeEl = overlay.querySelector('.content-viewer-code');
+  codeEl.textContent = content;
+
+  overlay.querySelector('#content-viewer-close').addEventListener('click', () => overlay.remove());
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.querySelector('#content-viewer-copy').addEventListener('click', (e) => {
+    navigator.clipboard.writeText(content).then(() => {
+      e.target.textContent = 'Copied!';
+      setTimeout(() => { e.target.textContent = 'Copy'; }, 1500);
+    });
+  });
 }
