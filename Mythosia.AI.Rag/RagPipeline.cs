@@ -247,7 +247,14 @@ namespace Mythosia.AI.Rag
         public async Task<RagProcessedQuery> ProcessAsync(string query, CancellationToken cancellationToken = default)
         {
             var result = await QueryAsync(query, cancellationToken: cancellationToken);
-            return new RagProcessedQuery(query, result.Context, result.SearchResults);
+
+            // When no references are found, return the original query as-is
+            // instead of a context-less template that confuses the LLM.
+            var augmentedPrompt = result.SearchResults.Count > 0
+                ? result.Context
+                : query;
+
+            return new RagProcessedQuery(query, augmentedPrompt, result.SearchResults);
         }
 
         #endregion

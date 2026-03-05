@@ -20,7 +20,7 @@ This package defines the contracts that all RAG components implement — you onl
 | Model | Description |
 | --- | --- |
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
-| `RagProcessedQuery` | Pipeline output: original query, augmented prompt, references |
+| `RagProcessedQuery` | Pipeline output: original query, augmented prompt, references, `HasReferences` flag |
 | `RagPipelineOptions` | Configuration: TopK, MinScore, DefaultCollection |
 | `VectorRecord` | Stored vector with ID, content, embedding, metadata, namespace |
 | `VectorSearchResult` | Search result with record and similarity score |

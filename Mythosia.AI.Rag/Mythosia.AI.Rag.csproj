@@ -9,7 +9,7 @@
     <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Includes RagPipeline, text splitters, context builder, and OpenAI embedding provider.</Description>
     <PackageTags>AI;RAG;Pipeline;TextSplitter;Embedding;ContextBuilder</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.0.0: Vector DB types moved to Mythosia.VectorDb namespace. InMemoryVectorStore moved to Mythosia.VectorDb.InMemory package. Breaking namespace changes require using directive updates.</PackageReleaseNotes>
+    <PackageReleaseNotes>v2.0.0: Vector DB types moved to Mythosia.VectorDb namespace. InMemoryVectorStore moved to Mythosia.VectorDb.InMemory package. Breaking namespace changes require using directive updates. ProcessAsync returns the original query when no references are found.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

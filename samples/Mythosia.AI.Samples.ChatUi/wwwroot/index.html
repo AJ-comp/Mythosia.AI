@@ -405,9 +405,6 @@
                   <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
                 <div id="rag-embedding-menu" class="rag-select-menu hidden" role="listbox" aria-label="Embedding provider">
-                  <button class="rag-select-option" type="button" data-value="local" role="option">
-                    <span class="rag-select-option-label">Local (hashing)</span>
-                  </button>
                   <button class="rag-select-option" type="button" data-value="ollama" role="option">
                     <span class="rag-select-option-label">Ollama (qwen3-embedding:4b)</span>
                   </button>
@@ -417,7 +414,6 @@
                   </button>
                 </div>
                 <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
-                  <option value="local">Local (hashing)</option>
                   <option value="ollama">Ollama (qwen3-embedding:4b)</option>
                   <option value="openai" selected>OpenAI</option>
                 </select>

@@ -15,6 +15,7 @@
   - Large table blocks are now split by row within chunk budget.
   - Table header/separator rows are preserved at the start of each split chunk.
   - Code fence blocks remain unsplit.
+- `ProcessAsync` now returns the original query as-is when no references are found, instead of an empty context template that confuses the LLM.
 
 ---
 

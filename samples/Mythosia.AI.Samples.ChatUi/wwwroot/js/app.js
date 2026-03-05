@@ -20,6 +20,11 @@ chatMessages.addEventListener('scroll', () => {
   if (app.isSending) app.shouldAutoScroll = isNearBottom();
 });
 
+// ── Boot ─────────────────────────────────────────────────────
+// Load API keys BEFORE module init so that auto-reconnect flows
+// (e.g., Postgres vector-store) can include the OpenAI key.
+loadKeysFromStorage();
+
 // ── Initialize all modules ───────────────────────────────────
 initApiKeyModal(refreshProviderGroup, deselectModel);
 initChat();
@@ -31,6 +36,4 @@ initFunctionsPanel();
 initRagReference();
 initRagDiagnostics();
 
-// ── Boot ─────────────────────────────────────────────────────
-loadKeysFromStorage();
 loadModels();

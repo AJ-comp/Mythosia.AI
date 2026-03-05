@@ -24,6 +24,12 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public IReadOnlyList<VectorSearchResult> References { get; set; } = System.Array.Empty<VectorSearchResult>();
 
+        /// <summary>
+        /// Whether the query returned any references from the vector store.
+        /// When false, <see cref="AugmentedPrompt"/> contains the original query unchanged.
+        /// </summary>
+        public bool HasReferences => References.Count > 0;
+
         public RagProcessedQuery() { }
 
         public RagProcessedQuery(string originalQuery, string augmentedPrompt, IReadOnlyList<VectorSearchResult> references)

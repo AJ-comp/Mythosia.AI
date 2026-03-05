@@ -93,6 +93,36 @@ public sealed class RagReferenceState
         }
     }
 
+    /// <summary>
+    /// Sets the RAG store for an external database connection (e.g., PostgreSQL)
+    /// without requiring a full document upload trace.
+    /// </summary>
+    public void SetExternalStore(RagStore store)
+    {
+        if (store == null) throw new ArgumentNullException(nameof(store));
+        lock (_lock)
+        {
+            Store = store;
+            LastUpdated = DateTimeOffset.UtcNow;
+        }
+    }
+
+    /// <summary>
+    /// Clears the RAG store (e.g., when disconnecting from an external database).
+    /// </summary>
+    public void ClearStore()
+    {
+        lock (_lock)
+        {
+            Store = null;
+        }
+    }
+
+    public bool HasStore
+    {
+        get { lock (_lock) { return Store != null; } }
+    }
+
     public IReadOnlyList<RagReferenceHistoryEntry> GetHistory()
     {
         lock (_lock)

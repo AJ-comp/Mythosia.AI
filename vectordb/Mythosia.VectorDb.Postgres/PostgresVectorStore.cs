@@ -193,10 +193,16 @@ WHERE collection = @c AND id = @id";
 
             await ApplySearchRuntimeSettingsAsync(conn, tx, runtimeOptions, cancellationToken);
 
-            using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
+            var results = new List<VectorSearchResult>();
 
-            cmd.CommandText = $@"
+            // Block-scoped using for cmd/reader ensures they are fully disposed
+            // before tx.CommitAsync(). Npgsql requires the DataReader to be closed
+            // before any other command (including COMMIT) can execute on the connection.
+            using (var cmd = conn.CreateCommand())
+            {
+                cmd.Transaction = tx;
+
+                cmd.CommandText = $@"
 SELECT id, namespace, content, metadata, embedding::text,
        {scoreExpression} AS score
 FROM {_qualifiedTable}
@@ -204,20 +210,22 @@ WHERE collection = @c{whereClause}
 ORDER BY embedding {distanceOperator} @q::vector
 LIMIT @topK";
 
-            cmd.Parameters.AddWithValue("@c", collection);
-            cmd.Parameters.AddWithValue("@q", VectorToString(queryVector));
-            cmd.Parameters.AddWithValue("@topK", topK);
+                cmd.Parameters.AddWithValue("@c", collection);
+                cmd.Parameters.AddWithValue("@q", VectorToString(queryVector));
+                cmd.Parameters.AddWithValue("@topK", topK);
 
-            foreach (var p in filterParams)
-                cmd.Parameters.Add(p);
+                foreach (var p in filterParams)
+                    cmd.Parameters.Add(p);
 
-            var results = new List<VectorSearchResult>();
-            using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                var record = ReadRecord(reader);
-                var score = reader.GetDouble(reader.GetOrdinal("score"));
-                results.Add(new VectorSearchResult(record, score));
+                using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
+                {
+                    while (await reader.ReadAsync(cancellationToken))
+                    {
+                        var record = ReadRecord(reader);
+                        var score = reader.GetDouble(reader.GetOrdinal("score"));
+                        results.Add(new VectorSearchResult(record, score));
+                    }
+                }
             }
 
             await tx.CommitAsync(cancellationToken);
@@ -482,9 +490,6 @@ ON CONFLICT (collection, id) DO UPDATE SET
         {
             var (profileIvfflatProbes, profileHnswEfSearch) = GetProfileDefaults(runtimeOptions?.Profile);
 
-            using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-
             if (_options.Index is NoIndexOptions)
                 return;
 
@@ -496,9 +501,16 @@ ON CONFLICT (collection, id) DO UPDATE SET
                 var runtimeIvf = runtimeOptions as IvfFlatSearchRuntimeOptions;
                 var probes = runtimeIvf?.Probes ?? profileIvfflatProbes ?? ivfFlat.Probes;
 
-                cmd.CommandText = "SET LOCAL ivfflat.probes = @probes";
-                cmd.Parameters.AddWithValue("@probes", probes);
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                // Block-scoped using ensures the command is fully disposed before returning,
+                // preventing "A command is already in progress" errors from Npgsql.
+                // SET LOCAL does not support parameterized queries ($1) in PostgreSQL.
+                // The value is always a validated integer, so interpolation is safe.
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.Transaction = tx;
+                    cmd.CommandText = $"SET LOCAL ivfflat.probes = {probes}";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                }
                 return;
             }
 
@@ -510,9 +522,16 @@ ON CONFLICT (collection, id) DO UPDATE SET
                 var runtimeHnsw = runtimeOptions as HnswSearchRuntimeOptions;
                 var efSearch = runtimeHnsw?.EfSearch ?? profileHnswEfSearch ?? hnsw.EfSearch;
 
-                cmd.CommandText = "SET LOCAL hnsw.ef_search = @ef_search";
-                cmd.Parameters.AddWithValue("@ef_search", efSearch);
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                // Block-scoped using ensures the command is fully disposed before returning,
+                // preventing "A command is already in progress" errors from Npgsql.
+                // SET LOCAL does not support parameterized queries ($1) in PostgreSQL.
+                // The value is always a validated integer, so interpolation is safe.
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.Transaction = tx;
+                    cmd.CommandText = $"SET LOCAL hnsw.ef_search = {efSearch}";
+                    await cmd.ExecuteNonQueryAsync(cancellationToken);
+                }
                 return;
             }
 

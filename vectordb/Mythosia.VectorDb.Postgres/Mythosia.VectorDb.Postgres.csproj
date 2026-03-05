@@ -9,7 +9,8 @@
     <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresVectorStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, typed index settings (HNSW/IVFFlat/NoIndex), and schema provisioning support.</Description>
     <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>v1.0.0: Fixed SearchAsync/ApplySearchRuntimeSettingsAsync command lifecycle ? block-scoped disposal prevents Npgsql concurrency errors. SET LOCAL now uses interpolation (PostgreSQL does not support parameterized SET LOCAL).</PackageReleaseNotes>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>

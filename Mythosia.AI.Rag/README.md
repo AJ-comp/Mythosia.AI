@@ -161,11 +161,19 @@ Inspect the augmented prompt and references before sending to the LLM:
 ```csharp
 var result = await ragService.RetrieveAsync("What is the refund policy?");
 
-Console.WriteLine(result.AugmentedPrompt);  // Context + query
-Console.WriteLine(result.References.Count); // Number of matched chunks
-foreach (var r in result.References)
+if (result.HasReferences)
 {
-    Console.WriteLine($"Score: {r.Score:F4} | {r.Record.Content}");
+    Console.WriteLine(result.AugmentedPrompt);  // Context + query
+    Console.WriteLine(result.References.Count); // Number of matched chunks
+    foreach (var r in result.References)
+    {
+        Console.WriteLine($"Score: {r.Score:F4} | {r.Record.Content}");
+    }
+}
+else
+{
+    // No references found — AugmentedPrompt contains the original query unchanged
+    Console.WriteLine(result.AugmentedPrompt);
 }
 ```
 

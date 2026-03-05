@@ -23,3 +23,9 @@
   - `SearchProfile` presets (`Fast`, `Balanced`, `HighRecall`)
 - `FailFastOnIndexCreationFailure` option for index provisioning behavior.
 - `gin(metadata)` and `(collection, namespace)` indexes.
+
+### Fixed
+
+- `SearchAsync`: Refactored `NpgsqlCommand`/`NpgsqlDataReader` to block-scoped `using` to ensure disposal before `tx.CommitAsync()`, preventing Npgsql "A command is already in progress" errors.
+- `ApplySearchRuntimeSettingsAsync`: Each index branch now creates its own block-scoped `NpgsqlCommand`, preventing shared-command conflicts.
+- `SET LOCAL` statements changed from parameterized queries to string interpolation — PostgreSQL `SET LOCAL` does not support `$1`-style parameters.

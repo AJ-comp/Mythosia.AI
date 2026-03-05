@@ -1,0 +1,14 @@
+warning: in the working copy of 'samples/Mythosia.AI.Samples.ChatUi/Program.cs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'samples/Mythosia.AI.Samples.ChatUi/RagReferenceState.cs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'samples/Mythosia.AI.Samples.ChatUi/wwwroot/index.html', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'samples/Mythosia.AI.Samples.ChatUi/wwwroot/js/app.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'samples/Mythosia.AI.Samples.ChatUi/wwwroot/js/rag-reference.js', LF will be replaced by CRLF the next time Git touches it
+.github/copilot-instructions.md
+Mythosia.AI.Rag.Abstractions/RagProcessedQuery.cs
+Mythosia.AI.Rag/RagPipeline.cs
+samples/Mythosia.AI.Samples.ChatUi/Program.cs
+samples/Mythosia.AI.Samples.ChatUi/RagReferenceState.cs
+samples/Mythosia.AI.Samples.ChatUi/wwwroot/index.html
+samples/Mythosia.AI.Samples.ChatUi/wwwroot/js/app.js
+samples/Mythosia.AI.Samples.ChatUi/wwwroot/js/rag-reference.js
+vectordb/Mythosia.VectorDb.Postgres/PostgresVectorStore.cs

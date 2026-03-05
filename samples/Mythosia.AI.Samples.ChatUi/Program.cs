@@ -59,6 +59,7 @@ string ragPgSchemaName = "public";
 int ragPgDimension = 1536;
 bool ragPgEnsureSchema = true;
 var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+string ragEmbeddingOpenAiKey = "";
 
 // ── Helper: build model catalogue ───────────────────────────────
 static List<object> BuildModelCatalogue()
@@ -294,7 +295,32 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         RagProcessedQuery? ragProcessed = null;
         if (ragState.Store != null)
         {
-            ragProcessed = await ragState.Store.QueryAsync(req.Message, ctx.RequestAborted);
+            try
+            {
+                ragProcessed = await ragState.Store.QueryAsync(req.Message, ctx.RequestAborted);
+                // The library sets AugmentedPrompt = OriginalQuery when no references are found,
+                // so the LLM receives a clean query. We still null-out ragProcessed to skip
+                // sending unnecessary RAG diagnostics to the frontend.
+                if (ragProcessed is { HasReferences: false })
+                {
+                    ragProcessed = null;
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ragEx)
+            {
+                // RAG query failed — fall back to original message and notify frontend
+                var ragErrorPayload = JsonSerializer.Serialize(new
+                {
+                    type = "rag_info",
+                    error = ragEx.Message,
+                    augmentedPrompt = (string?)null,
+                    originalQuery = req.Message,
+                    references = Array.Empty<object>()
+                });
+                await ctx.Response.WriteAsync($"data: {ragErrorPayload}\n\n", ctx.RequestAborted);
+                await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+            }
         }
 
         // Send RAG info event so the frontend can show per-message diagnostics
@@ -725,7 +751,7 @@ app.MapGet("/api/rag/vector-store", () =>
 });
 
 // ── POST /api/rag/vector-store ──────────────────────────────────
-app.MapPost("/api/rag/vector-store", (VectorStoreConfigRequest req) =>
+app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req) =>
 {
     var provider = (req.Provider ?? "inmemory").Trim().ToLowerInvariant();
 
@@ -739,6 +765,10 @@ app.MapPost("/api/rag/vector-store", (VectorStoreConfigRequest req) =>
         ragPgSchemaName = string.IsNullOrWhiteSpace(req.SchemaName) ? "public" : req.SchemaName.Trim();
         ragPgDimension = req.Dimension is > 0 ? req.Dimension.Value : 1536;
         ragPgEnsureSchema = req.EnsureSchema ?? true;
+
+        // Save the OpenAI API key if provided
+        if (!string.IsNullOrWhiteSpace(req.OpenAiApiKey))
+            ragEmbeddingOpenAiKey = req.OpenAiApiKey.Trim();
 
         try
         {
@@ -756,7 +786,58 @@ app.MapPost("/api/rag/vector-store", (VectorStoreConfigRequest req) =>
             if (oldStore is IDisposable disposable)
                 disposable.Dispose();
 
-            return Results.Ok(new { provider = ragVectorStoreProvider, status = "connected", tableName = ragPgTableName, schemaName = ragPgSchemaName, dimension = ragPgDimension });
+            // Auto-connect RAG pipeline for external DB (existing vectors are queryable immediately)
+            string? autoConnectWarning = null;
+            try
+            {
+                var settings = ragState.GetSettings();
+                var embeddingKey = !string.IsNullOrWhiteSpace(ragEmbeddingOpenAiKey) ? ragEmbeddingOpenAiKey : null;
+                var epKey = settings.EmbeddingProvider?.ToLowerInvariant() ?? "openai";
+
+                // Fail fast when OpenAI is selected but no API key is available.
+                if (epKey != "ollama" && embeddingKey == null)
+                {
+                    autoConnectWarning = "No API key provided for the embedding provider. "
+                        + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
+                }
+                else
+                {
+                    var store = await RagStore.BuildAsync(builder =>
+                    {
+                        builder
+                            .UseStore(ragVectorStore)
+                            .WithTopK(settings.TopK);
+
+                        if (epKey == "ollama")
+                        {
+                            builder.UseEmbedding(new Mythosia.AI.Rag.Embeddings.OllamaEmbeddingProvider(
+                                embeddingHttpClient,
+                                settings.EmbeddingModel ?? "qwen3-embedding:4b",
+                                settings.EmbeddingDimensions,
+                                settings.EmbeddingBaseUrl));
+                        }
+                        else
+                        {
+                            builder.UseEmbedding(new OpenAIEmbeddingProvider(
+                                embeddingKey!, embeddingHttpClient,
+                                settings.EmbeddingModel ?? "text-embedding-3-small",
+                                settings.EmbeddingDimensions));
+                        }
+
+                        if (settings.MinScore.HasValue)
+                            builder.WithScoreThreshold(settings.MinScore.Value);
+                        if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
+                            builder.WithPromptTemplate(settings.PromptTemplate);
+                    });
+                    ragState.SetExternalStore(store);
+                }
+            }
+            catch
+            {
+                // Auto-connect is best-effort; vector store connection is still valid
+            }
+
+            return Results.Ok(new { provider = ragVectorStoreProvider, status = "connected", warning = autoConnectWarning, tableName = ragPgTableName, schemaName = ragPgSchemaName, dimension = ragPgDimension });
         }
         catch (Exception ex)
         {
@@ -772,6 +853,8 @@ app.MapPost("/api/rag/vector-store", (VectorStoreConfigRequest req) =>
         if (oldStore is IDisposable disposable)
             disposable.Dispose();
 
+        ragState.ClearStore();
+
         return Results.Ok(new { provider = ragVectorStoreProvider, status = "switched" });
     }
 });
@@ -780,7 +863,7 @@ app.MapPost("/api/rag/vector-store", (VectorStoreConfigRequest req) =>
 app.MapGet("/api/rag/status", () =>
 {
     var settings = ragState.GetSettings();
-    var hasIndex = ragState.TryGetSnapshot(out _, out _);
+    var hasIndex = ragState.HasStore || ragState.TryGetSnapshot(out _, out _);
     return Results.Ok(new
     {
         hasIndex,
@@ -818,6 +901,8 @@ app.MapPost("/api/rag/reference", async (HttpRequest request, HttpContext ctx) =
         ? settings.PromptTemplate
         : form["promptTemplate"].ToString();
     var openAiApiKey = form["openaiApiKey"].ToString();
+    if (!string.IsNullOrWhiteSpace(openAiApiKey))
+        ragEmbeddingOpenAiKey = openAiApiKey.Trim();
 
     var documents = new List<RagDocument>();
     var chunks = new List<RagChunk>();
@@ -833,9 +918,7 @@ app.MapPost("/api/rag/reference", async (HttpRequest request, HttpContext ctx) =
             resolvedEmbeddingModel,
             embeddingDimensions,
             embeddingBaseUrl)
-        : embeddingProviderKey?.Equals("openai", StringComparison.OrdinalIgnoreCase) == true
-            ? BuildOpenAiEmbeddingProvider(openAiApiKey, embeddingHttpClient, resolvedEmbeddingModel, embeddingDimensions)
-            : new LocalEmbeddingProvider(embeddingDimensions);
+        : BuildOpenAiEmbeddingProvider(openAiApiKey, embeddingHttpClient, resolvedEmbeddingModel, embeddingDimensions);
     var trackingStore = new TrackingVectorStore(ragVectorStore, records);
 
     var tempRoot = Path.Combine(Path.GetTempPath(), "mythosia-rag", Guid.NewGuid().ToString("N"));
@@ -1255,18 +1338,15 @@ static string GenerateRagReferenceCodeSnippet(RagReferenceConfig config)
 
     sb.AppendLine($"        .WithTextSplitter({BuildRagTextSplitterSnippet(config)})");
 
-    switch (NormalizeRagKey(config.EmbeddingProvider, "local"))
+    switch (NormalizeRagKey(config.EmbeddingProvider, "openai"))
     {
-        case "openai":
-            sb.AppendLine("        // OpenAI API key required for embeddings.");
-            sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"text-embedding-3-small\", dimensions: {config.EmbeddingDimensions})");
-            break;
         case "ollama":
             sb.AppendLine("        // Requires Ollama running on http://localhost:11434.");
             sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(new HttpClient(), model: \"qwen3-embedding:4b\", dimensions: {config.EmbeddingDimensions}))");
             break;
         default:
-            sb.AppendLine($"        .UseLocalEmbedding(dimensions: {config.EmbeddingDimensions})");
+            sb.AppendLine("        // OpenAI API key required for embeddings.");
+            sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"text-embedding-3-small\", dimensions: {config.EmbeddingDimensions})");
             break;
     }
 
@@ -1478,4 +1558,5 @@ record VectorStoreConfigRequest(
     string? TableName,
     string? SchemaName,
     int? Dimension,
-    bool? EnsureSchema);
+    bool? EnsureSchema,
+    string? OpenAiApiKey = null);

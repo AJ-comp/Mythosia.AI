@@ -269,7 +269,7 @@ function updateFileList() {
 }
 
 function getSelectedEmbeddingProvider() {
-  return ragEmbeddingProvider?.value || 'local';
+  return ragEmbeddingProvider?.value || 'openai';
 }
 
 function getEmbeddingDefaults(provider) {
@@ -284,10 +284,9 @@ function getEmbeddingDefaults(provider) {
     return { model, dims: dimsMap[model] || 1536 };
   }
   const map = {
-    ollama:  { model: 'qwen3-embedding:4b',     dims: 1024 },
-    local:   { model: '',                        dims: 1024 }
+    ollama:  { model: 'qwen3-embedding:4b',     dims: 1024 }
   };
-  return map[p] || map.local;
+  return map[p] || { model: 'text-embedding-3-small', dims: 1536 };
 }
 
 function updateEmbeddingUI() {
@@ -324,8 +323,6 @@ function updateEmbeddingUI() {
       ragEmbeddingHint.textContent = hasOpenAiKey
         ? `Using stored OpenAI API key (${modelName}).`
         : 'OpenAI API key required. Enter it below.';
-    } else {
-      ragEmbeddingHint.textContent = 'Local hashing embeddings (no key required).';
     }
   }
 
@@ -335,7 +332,7 @@ function updateEmbeddingUI() {
 function updateRunState(files) {
   const fileCount = files ? files.length : (ragFiles.files ? ragFiles.files.length : 0);
   const provider = getSelectedEmbeddingProvider();
-  const needsKey = provider === 'openai';
+  const needsKey = provider !== 'ollama';
   const hasKey = !needsKey || !!providerKeys?.OpenAI;
   const vsProvider = ragVectorStoreProvider?.value || 'inmemory';
   const vsReady = vsProvider !== 'postgres' || pgConnected;
@@ -621,7 +618,8 @@ async function connectPostgres() {
     tableName: ragPgTable?.value?.trim() || 'vectors',
     schemaName: ragPgSchema?.value?.trim() || 'public',
     dimension: parseInt(ragPgDimension?.value, 10) || 1536,
-    ensureSchema: ragPgEnsureSchema?.checked ?? true
+    ensureSchema: ragPgEnsureSchema?.checked ?? true,
+    openAiApiKey: providerKeys?.OpenAI || null
   };
   const storagePayload = {
     ...payload,
@@ -643,7 +641,10 @@ async function connectPostgres() {
 
     pgConnected = true;
     savePgToStorage(storagePayload);
-    if (ragPgStatus) ragPgStatus.textContent = `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension})`;
+    const statusMsg = data.warning
+      ? `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension}) ⚠️ ${data.warning}`
+      : `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension})`;
+    if (ragPgStatus) ragPgStatus.textContent = statusMsg;
     if (ragPgConnect) ragPgConnect.textContent = 'Reconnect';
     updatePgDisconnectVisibility();
     updateRunState();
