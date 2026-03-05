@@ -361,14 +361,23 @@ namespace Mythosia.AI.Rag.Splitters
             if (current.Length > 0)
                 result.Add(current.ToString());
 
-            // Final pass: split any individual chunks that still exceed budget
-            // (e.g. a single huge paragraph). Atomic blocks are preserved as-is.
+            // Final pass: split any individual chunks that still exceed budget.
+            // Code fences are preserved as-is (truly atomic).
+            // Large tables are split by rows, preserving the header.
             var final = new List<string>();
             foreach (var chunk in result)
             {
-                if (chunk.Length <= budget || IsAtomicBlock(chunk))
+                if (chunk.Length <= budget)
                 {
                     final.Add(chunk);
+                }
+                else if (IsCodeFenceBlock(chunk))
+                {
+                    final.Add(chunk);
+                }
+                else if (IsTableBlock(chunk))
+                {
+                    final.AddRange(SplitLargeTable(chunk, budget));
                 }
                 else
                 {
@@ -445,6 +454,67 @@ namespace Mythosia.AI.Rag.Splitters
         }
 
         // =================================================================
+        //  Table splitting
+        // =================================================================
+
+        /// <summary>
+        /// Splits a large Markdown table by rows, preserving the header row(s)
+        /// at the start of each chunk so that each chunk remains a valid table.
+        /// </summary>
+        private List<string> SplitLargeTable(string tableText, int budget)
+        {
+            var lines = tableText.Split(new[] { "\n" }, StringSplitOptions.None);
+            if (lines.Length <= 2)
+                return new List<string> { tableText };
+
+            // Identify header: first row + optional separator row (e.g. |---|---|)
+            var headerParts = new List<string> { lines[0] };
+            int dataStart = 1;
+
+            if (lines.Length > 1 && IsTableSeparatorRow(lines[1]))
+            {
+                headerParts.Add(lines[1]);
+                dataStart = 2;
+            }
+
+            var header = string.Join("\n", headerParts);
+
+            var parts = new List<string>();
+            var sb = new StringBuilder(header);
+
+            for (int i = dataStart; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (sb.Length > header.Length && sb.Length + 1 + line.Length > budget)
+                {
+                    parts.Add(sb.ToString());
+                    sb.Clear();
+                    sb.Append(header);
+                }
+                sb.Append('\n');
+                sb.Append(line);
+            }
+
+            if (sb.Length > header.Length)
+                parts.Add(sb.ToString());
+
+            return parts.Count > 0 ? parts : new List<string> { tableText };
+        }
+
+        private static bool IsTableSeparatorRow(string line)
+        {
+            var trimmed = line.Trim();
+            if (trimmed.Length < 3 || trimmed[0] != '|')
+                return false;
+            foreach (var c in trimmed)
+            {
+                if (c != '|' && c != '-' && c != ':' && c != ' ')
+                    return false;
+            }
+            return true;
+        }
+
+        // =================================================================
         //  Overlap helper
         // =================================================================
 
@@ -514,10 +584,20 @@ namespace Mythosia.AI.Rag.Splitters
 
         private static bool IsAtomicBlock(string text)
         {
+            return IsCodeFenceBlock(text) || IsTableBlock(text);
+        }
+
+        private static bool IsCodeFenceBlock(string text)
+        {
             var trimmed = text.TrimStart();
             return trimmed.StartsWith("```", StringComparison.Ordinal)
-                || trimmed.StartsWith("~~~", StringComparison.Ordinal)
-                || (trimmed.Length > 0 && trimmed[0] == '|');
+                || trimmed.StartsWith("~~~", StringComparison.Ordinal);
+        }
+
+        private static bool IsTableBlock(string text)
+        {
+            var trimmed = text.TrimStart();
+            return trimmed.Length > 0 && trimmed[0] == '|';
         }
     }
 }

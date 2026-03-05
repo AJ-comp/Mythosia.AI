@@ -1,13 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <VersionPrefix>1.0.0</VersionPrefix>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresVectorStore with cosine similarity search, metadata jsonb filtering, namespace isolation, and automatic schema provisioning.</Description>
-    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;CosineSimilarity</PackageTags>
+    <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresVectorStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, typed index settings (HNSW/IVFFlat/NoIndex), and schema provisioning support.</Description>
+    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -17,8 +17,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Npgsql" Version="8.0.6" />
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="Npgsql" Version="10.0.1" />
+    <PackageReference Include="System.Text.Json" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>

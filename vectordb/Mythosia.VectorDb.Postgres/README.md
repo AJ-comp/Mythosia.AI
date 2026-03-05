@@ -21,7 +21,8 @@ var store = new PostgresVectorStore(new PostgresVectorStoreOptions
 {
     ConnectionString = "Host=localhost;Database=mydb;Username=postgres;Password=secret",
     Dimension = 1536,
-    EnsureSchema = true  // auto-creates table + indexes
+    EnsureSchema = true,  // auto-creates table + indexes
+    Index = new HnswIndexOptions { M = 16, EfConstruction = 64, EfSearch = 40 }
 });
 ```
 
@@ -29,7 +30,7 @@ var store = new PostgresVectorStore(new PostgresVectorStoreOptions
 
 ```mermaid
 erDiagram
-    mythosia_vectors {
+    vectors {
         text collection PK "NOT NULL — logical collection name"
         text id PK "NOT NULL — unique record ID within collection"
         text namespace "NULL — optional tenant/scope isolation"
@@ -48,7 +49,7 @@ erDiagram
 | Index | Type | Target | Purpose |
 | --- | --- | --- | --- |
 | PK | btree | `(collection, id)` | Primary key / upsert conflict |
-| `idx_*_embedding` | ivfflat | `embedding vector_cosine_ops` | Cosine similarity search |
+| `idx_*_embedding` | hnsw / ivfflat | `embedding vector_*_ops` | ANN similarity search (distance strategy dependent) |
 | `idx_*_metadata` | gin | `metadata` | jsonb containment filter (`@>`) |
 | `idx_*_collection_ns` | btree | `(collection, namespace)` | Namespace-scoped queries |
 
@@ -57,7 +58,9 @@ erDiagram
 When `EnsureSchema = true`, the following is created automatically:
 
 ```sql
-CREATE TABLE IF NOT EXISTS "public"."mythosia_vectors" (
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE IF NOT EXISTS "public"."vectors" (
     collection  text        NOT NULL,
     id          text        NOT NULL,
     namespace   text        NULL,
@@ -70,16 +73,23 @@ CREATE TABLE IF NOT EXISTS "public"."mythosia_vectors" (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_mythosia_vectors_metadata
-    ON "public"."mythosia_vectors" USING gin (metadata);
+CREATE INDEX IF NOT EXISTS idx_vectors_metadata
+    ON "public"."vectors" USING gin (metadata);
 
-CREATE INDEX IF NOT EXISTS idx_mythosia_vectors_collection_ns
-    ON "public"."mythosia_vectors" (collection, namespace);
+CREATE INDEX IF NOT EXISTS idx_vectors_collection_ns
+    ON "public"."vectors" (collection, namespace);
 
--- ivfflat (created when data exists)
-CREATE INDEX IF NOT EXISTS idx_mythosia_vectors_embedding
-    ON "public"."mythosia_vectors" USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- vector index (default: HNSW)
+CREATE INDEX IF NOT EXISTS idx_vectors_embedding
+    ON "public"."vectors" USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 ```
+
+Notes:
+- The vector index SQL changes by `Index` type (`HnswIndexOptions` / `IvfFlatIndexOptions` / `NoIndexOptions`).
+- The operator class changes by `DistanceStrategy`:
+  - `Cosine` -> `vector_cosine_ops`
+  - `Euclidean` -> `vector_l2_ops`
+  - `InnerProduct` -> `vector_ip_ops`
 
 When `EnsureSchema = false` (recommended for production), the table must already exist.  
 An `InvalidOperationException` is thrown with a clear message if the table is missing.
@@ -93,7 +103,7 @@ For production deployments, create the schema manually before starting the appli
 CREATE EXTENSION IF NOT EXISTS vector;
 
 -- 2. Create table (adjust dimension as needed)
-CREATE TABLE public.mythosia_vectors (
+CREATE TABLE public.vectors (
     collection  text        NOT NULL,
     id          text        NOT NULL,
     namespace   text        NULL,
@@ -106,19 +116,23 @@ CREATE TABLE public.mythosia_vectors (
 );
 
 -- 3. Indexes
-CREATE INDEX idx_mythosia_vectors_metadata
-    ON public.mythosia_vectors USING gin (metadata);
+CREATE INDEX idx_vectors_metadata
+    ON public.vectors USING gin (metadata);
 
-CREATE INDEX idx_mythosia_vectors_collection_ns
-    ON public.mythosia_vectors (collection, namespace);
+CREATE INDEX idx_vectors_collection_ns
+    ON public.vectors (collection, namespace);
 
--- 4. Load data first, then create ivfflat index
---    (ivfflat requires rows to exist for training)
-CREATE INDEX idx_mythosia_vectors_embedding
-    ON public.mythosia_vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+-- 4-A. Option A (recommended default): HNSW
+CREATE INDEX idx_vectors_embedding
+    ON public.vectors USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 
--- 5. Analyze for query planner
-ANALYZE public.mythosia_vectors;
+-- 4-B. Option B: IVFFlat (create after loading data)
+--      ivfflat requires rows to exist for training
+-- CREATE INDEX idx_vectors_embedding
+--     ON public.vectors USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+
+-- 5. Analyze for query planner (recommended)
+ANALYZE public.vectors;
 ```
 
 ## Options
@@ -128,9 +142,36 @@ ANALYZE public.mythosia_vectors;
 | `ConnectionString` | *(required)* | PostgreSQL connection string |
 | `Dimension` | *(required)* | Embedding vector dimension (e.g., 1536 for OpenAI) |
 | `SchemaName` | `"public"` | Database schema |
-| `TableName` | `"mythosia_vectors"` | Table name |
+| `TableName` | `"vectors"` | Table name |
 | `EnsureSchema` | `false` | Auto-create extension/table/indexes |
-| `IvfflatLists` | `100` | Number of IVF lists for the ivfflat index |
+| `DistanceStrategy` | `Cosine` | Similarity metric (`Cosine`, `Euclidean`, `InnerProduct`) |
+| `Index` | `new HnswIndexOptions()` | Vector index settings object (`HnswIndexOptions`, `IvfFlatIndexOptions`, `NoIndexOptions`) |
+| `HnswIndexOptions.M` | `16` | HNSW build param (`m`), typical range `8-64` |
+| `HnswIndexOptions.EfConstruction` | `64` | HNSW build param (`ef_construction`), typical range `32-400` |
+| `HnswIndexOptions.EfSearch` | `40` | HNSW runtime `ef_search` default |
+| `IvfFlatIndexOptions.Lists` | `100` | Number of IVF lists for the ivfflat index |
+| `IvfFlatIndexOptions.Probes` | `10` | IVFFlat runtime `probes` default |
+| `FailFastOnIndexCreationFailure` | `true` | Throw when vector index creation fails (recommended for production) |
+
+## Runtime Tuning Guide (DX)
+
+- `IvfFlatSearchRuntimeOptions.Probes`: increase for better recall, decrease for lower latency.
+- `HnswSearchRuntimeOptions.EfSearch`: increase for better recall, decrease for lower latency.
+- `IvfFlatIndexOptions.Lists`: start around `sqrt(total_rows)` and tune from there.
+
+Use runtime options matching your index settings:
+- `Index = new HnswIndexOptions(...)` -> `HnswSearchRuntimeOptions`
+- `Index = new IvfFlatIndexOptions(...)` -> `IvfFlatSearchRuntimeOptions`
+
+Recommended starting points:
+
+| Goal | `IvfFlatSearchRuntimeOptions.Probes` | `HnswSearchRuntimeOptions.EfSearch` |
+|---|---:|---:|
+| Fast | 4 | 16 |
+| Balanced | 10 | 40 |
+| HighRecall | 32 | 120 |
+
+These are practical ranges, not strict hard limits. Final values should be chosen from production latency/recall measurements.
 
 ## Collection & Filter Behavior
 
@@ -139,7 +180,10 @@ ANALYZE public.mythosia_vectors;
 - `DeleteCollectionAsync` deletes all rows matching the collection.
 - **Namespace filter**: `WHERE namespace = @ns`
 - **Metadata filter**: `WHERE metadata @> @jsonb` (jsonb containment, AND logic)
-- **MinScore filter**: `WHERE (1 - (embedding <=> query)) >= @minScore`
+- **MinScore filter** (distance-strategy dependent):
+  - `Cosine`: `1 - (embedding <=> @q::vector) >= @minScore`
+  - `Euclidean`: `1 / (1 + (embedding <-> @q::vector)) >= @minScore`
+  - `InnerProduct`: `-(embedding <#> @q::vector) >= @minScore`
 
 ## RAG Integration
 
@@ -151,7 +195,8 @@ var store = await RagStore.BuildAsync(config => config
     {
         ConnectionString = Environment.GetEnvironmentVariable("MYTHOSIA_PG_CONN")!,
         Dimension = 512,
-        EnsureSchema = true
+        EnsureSchema = true,
+        Index = new HnswIndexOptions()
     }))
     .WithTopK(5)
 );
@@ -160,7 +205,7 @@ var store = await RagStore.BuildAsync(config => config
 ## Performance Tips
 
 - **ivfflat lists**: Rule of thumb — `lists = sqrt(total_rows)`. Default 100 is good for up to ~10K rows.
-- Run `ANALYZE mythosia_vectors;` after bulk inserts for optimal query plans.
+- Run `ANALYZE vectors;` after bulk inserts for optimal query plans.
 - For large datasets (1M+ rows), consider HNSW index (`CREATE INDEX ... USING hnsw`) instead of ivfflat.
 - Use connection pooling (e.g., `Npgsql` connection string `Pooling=true;Maximum Pool Size=20`).
 
@@ -168,3 +213,6 @@ var store = await RagStore.BuildAsync(config => config
 
 - **`EnsureSchema = true`**: Development, testing, local Docker — auto-provisions everything.
 - **`EnsureSchema = false`**: Production — schema managed by DBA/migration tools; fails fast with clear error if missing.
+- For `ivfflat`, index creation can fail on empty tables (PostgreSQL/pgvector behavior). In that case, use `Hnsw` or create `ivfflat` after loading data.
+- `FailFastOnIndexCreationFailure = true` (default): throws immediately if vector index creation fails.
+- `FailFastOnIndexCreationFailure = false`: startup continues even if vector index creation fails.

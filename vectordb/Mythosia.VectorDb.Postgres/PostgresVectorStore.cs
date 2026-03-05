@@ -86,7 +86,8 @@ namespace Mythosia.VectorDb.Postgres
             await EnsureSchemaIfNeededAsync(cancellationToken);
 
             using var conn = await OpenConnectionAsync(cancellationToken);
-            var batch = new NpgsqlBatch(conn);
+            await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+            using var batch = new NpgsqlBatch(conn) { Transaction = tx };
 
             foreach (var record in records)
             {
@@ -99,6 +100,8 @@ namespace Mythosia.VectorDb.Postgres
 
             if (batch.BatchCommands.Count > 0)
                 await batch.ExecuteNonQueryAsync(cancellationToken);
+
+            await tx.CommitAsync(cancellationToken);
         }
 
         #endregion
@@ -141,7 +144,7 @@ WHERE collection = @c AND id = @id";
         {
             await EnsureSchemaIfNeededAsync(cancellationToken);
 
-            var (whereClause, parameters) = BuildFilterWhere(filter, includeMinScore: false);
+            var (whereClause, parameters) = BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty);
 
             using var conn = await OpenConnectionAsync(cancellationToken);
             using var cmd = conn.CreateCommand();
@@ -163,23 +166,42 @@ WHERE collection = @c AND id = @id";
             int topK = 5,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
+            => await SearchAsync(collection, queryVector, topK, filter, runtimeOptions: null, cancellationToken);
+
+        /// <summary>
+        /// Performs a similarity search with optional per-request runtime tuning.
+        /// </summary>
+        public async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
+            string collection,
+            float[] queryVector,
+            int topK,
+            VectorFilter? filter,
+            VectorSearchRuntimeOptions? runtimeOptions,
+            CancellationToken cancellationToken = default)
         {
             await EnsureSchemaIfNeededAsync(cancellationToken);
 
+            var distanceOperator = GetDistanceOperator();
+            var scoreExpression = GetScoreExpression();
+
             var (whereClause, filterParams) = filter != null
-                ? BuildFilterWhere(filter, includeMinScore: true)
+                ? BuildFilterWhere(filter, includeMinScore: true, scoreExpression)
                 : ("", new List<NpgsqlParameter>());
 
             using var conn = await OpenConnectionAsync(cancellationToken);
-            using var cmd = conn.CreateCommand();
+            await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
-            // score = 1 - cosine_distance; ORDER BY distance ASC = ORDER BY score DESC
+            await ApplySearchRuntimeSettingsAsync(conn, tx, runtimeOptions, cancellationToken);
+
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+
             cmd.CommandText = $@"
 SELECT id, namespace, content, metadata, embedding::text,
-       1 - (embedding <=> @q::vector) AS score
+       {scoreExpression} AS score
 FROM {_qualifiedTable}
 WHERE collection = @c{whereClause}
-ORDER BY embedding <=> @q::vector
+ORDER BY embedding {distanceOperator} @q::vector
 LIMIT @topK";
 
             cmd.Parameters.AddWithValue("@c", collection);
@@ -197,6 +219,8 @@ LIMIT @topK";
                 var score = reader.GetDouble(reader.GetOrdinal("score"));
                 results.Add(new VectorSearchResult(record, score));
             }
+
+            await tx.CommitAsync(cancellationToken);
 
             return results;
         }
@@ -262,25 +286,34 @@ CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_collection_ns
             cmd.CommandText = sql;
             await cmd.ExecuteNonQueryAsync(cancellationToken);
 
-            // ivfflat index requires rows to exist; create only if table has data.
-            // For empty tables, the index will be created on first search-time or manually.
-            await TryCreateIvfflatIndexAsync(conn, cancellationToken);
+            await TryCreateVectorIndexAsync(conn, cancellationToken);
         }
 
-        private async Task TryCreateIvfflatIndexAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+        private async Task TryCreateVectorIndexAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
         {
+            if (_options.Index is NoIndexOptions)
+                return;
+
             try
             {
                 using var cmd = conn.CreateCommand();
-                cmd.CommandText = $@"
+                var operatorClass = GetVectorOperatorClass();
+                cmd.CommandText = _options.Index switch
+                {
+                    HnswIndexOptions hnsw => $@"
 CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_embedding
-    ON {_qualifiedTable} USING ivfflat (embedding vector_cosine_ops) WITH (lists = {_options.IvfflatLists})";
+    ON {_qualifiedTable} USING hnsw (embedding {operatorClass}) WITH (m = {hnsw.M}, ef_construction = {hnsw.EfConstruction})",
+                    IvfFlatIndexOptions ivfFlat => $@"
+CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_embedding
+    ON {_qualifiedTable} USING ivfflat (embedding {operatorClass}) WITH (lists = {ivfFlat.Lists})",
+                    _ => throw new InvalidOperationException($"Unsupported index options type: {_options.Index.GetType().Name}")
+                };
+
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
-            catch
+            catch when (!_options.FailFastOnIndexCreationFailure)
             {
-                // ivfflat index creation may fail on empty tables — this is expected.
-                // The index can be created manually after data is loaded.
+                // Non-fail-fast mode: allow startup to continue even if index creation fails.
             }
         }
 
@@ -338,7 +371,10 @@ ON CONFLICT (collection, id) DO UPDATE SET
             parameters.AddWithValue("@embedding", VectorToString(record.Vector));
         }
 
-        private static (string whereClause, List<NpgsqlParameter> parameters) BuildFilterWhere(VectorFilter filter, bool includeMinScore)
+        private static (string whereClause, List<NpgsqlParameter> parameters) BuildFilterWhere(
+            VectorFilter filter,
+            bool includeMinScore,
+            string scoreExpression)
         {
             var sb = new StringBuilder();
             var parameters = new List<NpgsqlParameter>();
@@ -358,7 +394,7 @@ ON CONFLICT (collection, id) DO UPDATE SET
 
             if (includeMinScore && filter.MinScore.HasValue)
             {
-                sb.Append(" AND (1 - (embedding <=> @q::vector)) >= @min_score");
+                sb.Append($" AND ({scoreExpression}) >= @min_score");
                 parameters.Add(new NpgsqlParameter("@min_score", filter.MinScore.Value));
             }
 
@@ -436,6 +472,95 @@ ON CONFLICT (collection, id) DO UPDATE SET
         {
             string json = value is string s ? s : JsonSerializer.Serialize(value);
             return new NpgsqlParameter(name, NpgsqlDbType.Jsonb) { Value = json };
+        }
+
+        private async Task ApplySearchRuntimeSettingsAsync(
+            NpgsqlConnection conn,
+            NpgsqlTransaction tx,
+            VectorSearchRuntimeOptions? runtimeOptions,
+            CancellationToken cancellationToken)
+        {
+            var (profileIvfflatProbes, profileHnswEfSearch) = GetProfileDefaults(runtimeOptions?.Profile);
+
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+
+            if (_options.Index is NoIndexOptions)
+                return;
+
+            if (_options.Index is IvfFlatIndexOptions ivfFlat)
+            {
+                if (runtimeOptions is not null && runtimeOptions is not IvfFlatSearchRuntimeOptions)
+                    throw new ArgumentException("Use IvfFlatSearchRuntimeOptions when Index is IvfFlatIndexOptions.", nameof(runtimeOptions));
+
+                var runtimeIvf = runtimeOptions as IvfFlatSearchRuntimeOptions;
+                var probes = runtimeIvf?.Probes ?? profileIvfflatProbes ?? ivfFlat.Probes;
+
+                cmd.CommandText = "SET LOCAL ivfflat.probes = @probes";
+                cmd.Parameters.AddWithValue("@probes", probes);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                return;
+            }
+
+            if (_options.Index is HnswIndexOptions hnsw)
+            {
+                if (runtimeOptions is not null && runtimeOptions is not HnswSearchRuntimeOptions)
+                    throw new ArgumentException("Use HnswSearchRuntimeOptions when Index is HnswIndexOptions.", nameof(runtimeOptions));
+
+                var runtimeHnsw = runtimeOptions as HnswSearchRuntimeOptions;
+                var efSearch = runtimeHnsw?.EfSearch ?? profileHnswEfSearch ?? hnsw.EfSearch;
+
+                cmd.CommandText = "SET LOCAL hnsw.ef_search = @ef_search";
+                cmd.Parameters.AddWithValue("@ef_search", efSearch);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+                return;
+            }
+
+            throw new InvalidOperationException($"Unsupported index options type: {_options.Index.GetType().Name}");
+        }
+
+        private static (int? ivfflatProbes, int? hnswEfSearch) GetProfileDefaults(SearchProfile? profile)
+        {
+            return profile switch
+            {
+                SearchProfile.Fast => (4, 16),
+                SearchProfile.Balanced => (10, 40),
+                SearchProfile.HighRecall => (32, 120),
+                _ => (null, null)
+            };
+        }
+
+        private string GetDistanceOperator()
+        {
+            return _options.DistanceStrategy switch
+            {
+                DistanceStrategy.Cosine => "<=>",
+                DistanceStrategy.Euclidean => "<->",
+                DistanceStrategy.InnerProduct => "<#>",
+                _ => throw new InvalidOperationException($"Unsupported distance strategy: {_options.DistanceStrategy}")
+            };
+        }
+
+        private string GetVectorOperatorClass()
+        {
+            return _options.DistanceStrategy switch
+            {
+                DistanceStrategy.Cosine => "vector_cosine_ops",
+                DistanceStrategy.Euclidean => "vector_l2_ops",
+                DistanceStrategy.InnerProduct => "vector_ip_ops",
+                _ => throw new InvalidOperationException($"Unsupported distance strategy: {_options.DistanceStrategy}")
+            };
+        }
+
+        private string GetScoreExpression()
+        {
+            return _options.DistanceStrategy switch
+            {
+                DistanceStrategy.Cosine => "1 - (embedding <=> @q::vector)",
+                DistanceStrategy.Euclidean => "1 / (1 + (embedding <-> @q::vector))",
+                DistanceStrategy.InnerProduct => "-(embedding <#> @q::vector)",
+                _ => throw new InvalidOperationException($"Unsupported distance strategy: {_options.DistanceStrategy}")
+            };
         }
 
         #endregion

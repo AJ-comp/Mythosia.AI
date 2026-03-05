@@ -327,6 +327,7 @@
         </div>
       </div>
       <div class="modal-body rag-modal-body">
+        <!-- ── LEFT: Documents + History + Run ── -->
         <div class="rag-controls">
           <div class="rag-input">
             <label>Upload documents</label>
@@ -334,133 +335,213 @@
             <div class="rag-hint">Supports .txt, .md, .pdf, .docx, .xlsx, .pptx</div>
             <div id="rag-file-list" class="rag-file-list"></div>
           </div>
-          <details class="rag-index-settings" open>
-            <summary class="rag-index-settings-toggle">Indexing Settings</summary>
-            <div class="rag-index-settings-body">
-              <div class="rag-grid">
-                <div class="rag-field">
-                  <label>Chunk size</label>
-                  <input id="rag-chunk-size" type="number" value="300" min="50" max="2000" />
-                </div>
-                <div class="rag-field">
-                  <label>Chunk overlap</label>
-                  <input id="rag-chunk-overlap" type="number" value="30" min="0" max="500" />
-                </div>
-              </div>
-              <div class="rag-field rag-field-wide">
-                <label>Chunking strategy</label>
-                <div class="rag-select" id="rag-chunker-select">
-                  <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="rag-select-label">Recursive (multi-separator)</span>
-                    <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  </button>
-                  <div class="rag-select-menu hidden" role="listbox" aria-label="Chunking strategy">
-                    <button class="rag-select-option" type="button" data-value="character" role="option">
-                      <span class="rag-select-option-label">Character (separator aware)</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="token" role="option">
-                      <span class="rag-select-option-label">Token (whitespace)</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="recursive" role="option">
-                      <span class="rag-select-option-label">Recursive (multi-separator)</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="markdown" role="option">
-                      <span class="rag-select-option-label">Markdown headings (##)</span>
-                    </button>
-                  </div>
-                  <select id="rag-chunker" class="rag-select-native" aria-hidden="true">
-                    <option value="character">Character (separator aware)</option>
-                    <option value="token">Token (whitespace)</option>
-                    <option value="recursive" selected>Recursive (multi-separator)</option>
-                    <option value="markdown">Markdown headings (##)</option>
-                  </select>
-                </div>
-                <div class="rag-hint">Applies to all chunking strategies.</div>
-              </div>
-              <div class="rag-field rag-field-wide">
-                <div class="rag-field-label">
-                  <label>Embedding provider</label>
-                </div>
-                <div id="rag-embedding-select" class="rag-select">
-                  <button id="rag-embedding-trigger" class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-                    <span id="rag-embedding-value" class="rag-select-label">OpenAI</span>
-                    <span id="rag-embedding-value-badge" class="rag-badge rag-badge-inline">Recommended</span>
-                    <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  </button>
-                  <div id="rag-embedding-menu" class="rag-select-menu hidden" role="listbox" aria-label="Embedding provider">
-                    <button class="rag-select-option" type="button" data-value="local" role="option">
-                      <span class="rag-select-option-label">Local (hashing)</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="ollama" role="option">
-                      <span class="rag-select-option-label">Ollama (qwen3-embedding:4b)</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="openai" role="option">
-                      <span class="rag-select-option-label">OpenAI</span>
-                        <span class="rag-badge">Recommended</span>
-                    </button>
-                  </div>
-                  <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
-                    <option value="local">Local (hashing)</option>
-                    <option value="ollama">Ollama (qwen3-embedding:4b)</option>
-                    <option value="openai" selected>OpenAI</option>
-                  </select>
-                </div>
-                <div id="rag-embedding-hint" class="rag-hint">OpenAI embeddings. Select a model below.</div>
-              </div>
-              <div id="rag-openai-model-row" class="rag-field rag-field-wide hidden">
-                <label>OpenAI model</label>
-                <div class="rag-select" id="rag-openai-model-select">
-                  <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-                    <span class="rag-select-label">text-embedding-3-small</span>
-                    <span class="rag-badge rag-badge-inline">Recommended</span>
-                    <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-                  </button>
-                  <div class="rag-select-menu hidden" role="listbox" aria-label="OpenAI embedding model">
-                    <button class="rag-select-option" type="button" data-value="text-embedding-3-small" role="option">
-                      <span class="rag-select-option-label">text-embedding-3-small</span>
-                      <span class="rag-badge">Recommended</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="text-embedding-3-large" role="option">
-                      <span class="rag-select-option-label">text-embedding-3-large</span>
-                    </button>
-                    <button class="rag-select-option" type="button" data-value="text-embedding-ada-002" role="option">
-                      <span class="rag-select-option-label">text-embedding-ada-002</span>
-                      <span class="rag-badge">Legacy</span>
-                    </button>
-                  </div>
-                  <select id="rag-openai-model" class="rag-select-native" aria-hidden="true">
-                    <option value="text-embedding-3-small" selected>text-embedding-3-small</option>
-                    <option value="text-embedding-3-large">text-embedding-3-large</option>
-                    <option value="text-embedding-ada-002">text-embedding-ada-002</option>
-                  </select>
-                </div>
-              </div>
-              <div id="rag-embedding-base-row" class="rag-field rag-field-wide hidden">
-                <label>Ollama base URL</label>
-                <input id="rag-embedding-base-url" type="text" value="http://localhost:11434" />
-              </div>
-              <div id="rag-openai-key" class="rag-field rag-field-wide hidden">
-                <label>OpenAI API key</label>
-                <div class="rag-inline-input">
-                  <input id="rag-openai-key-input" type="password" placeholder="sk-..." autocomplete="off" />
-                  <button id="rag-openai-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
-                </div>
-                <div id="rag-openai-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
-              </div>
+          <div class="rag-history">
+            <div class="rag-history-title">Recent references</div>
+            <div id="rag-history-list" class="rag-history-list">
+              <div class="rag-empty">No references yet.</div>
             </div>
-          </details>
+          </div>
           <div class="rag-actions">
             <button id="rag-run" class="btn btn-primary btn-sm" disabled>Run Reference</button>
             <span id="rag-status" class="rag-status">Awaiting files</span>
           </div>
         </div>
+        <!-- ── CENTER: Analysis Results ── -->
         <div id="rag-trace" class="rag-trace">
           <div class="rag-empty">Upload documents to see the indexing trace.</div>
         </div>
-        <div class="rag-history">
-          <div class="rag-history-title">Recent references</div>
-          <div id="rag-history-list" class="rag-history-list">
-            <div class="rag-empty">No references yet.</div>
+        <!-- ── RIGHT: Indexing Settings ── -->
+        <div class="rag-settings-panel">
+          <div class="rag-settings-panel-title">Indexing Settings</div>
+          <div class="rag-settings-panel-body">
+            <div class="rag-grid">
+              <div class="rag-field">
+                <label>Chunk size</label>
+                <input id="rag-chunk-size" type="number" value="300" min="50" max="2000" />
+              </div>
+              <div class="rag-field">
+                <label>Chunk overlap</label>
+                <input id="rag-chunk-overlap" type="number" value="30" min="0" max="500" />
+              </div>
+            </div>
+            <div class="rag-field rag-field-wide">
+              <label>Chunking strategy</label>
+              <div class="rag-select" id="rag-chunker-select">
+                <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="rag-select-label">Recursive (multi-separator)</span>
+                  <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="rag-select-menu hidden" role="listbox" aria-label="Chunking strategy">
+                  <button class="rag-select-option" type="button" data-value="character" role="option">
+                    <span class="rag-select-option-label">Character (separator aware)</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="token" role="option">
+                    <span class="rag-select-option-label">Token (whitespace)</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="recursive" role="option">
+                    <span class="rag-select-option-label">Recursive (multi-separator)</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="markdown" role="option">
+                    <span class="rag-select-option-label">Markdown headings (##)</span>
+                  </button>
+                </div>
+                <select id="rag-chunker" class="rag-select-native" aria-hidden="true">
+                  <option value="character">Character (separator aware)</option>
+                  <option value="token">Token (whitespace)</option>
+                  <option value="recursive" selected>Recursive (multi-separator)</option>
+                  <option value="markdown">Markdown headings (##)</option>
+                </select>
+              </div>
+              <div class="rag-hint">Applies to all chunking strategies.</div>
+            </div>
+            <div class="rag-field rag-field-wide">
+              <div class="rag-field-label">
+                <label>Embedding provider</label>
+              </div>
+              <div id="rag-embedding-select" class="rag-select">
+                <button id="rag-embedding-trigger" class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span id="rag-embedding-value" class="rag-select-label">OpenAI</span>
+                  <span id="rag-embedding-value-badge" class="rag-badge rag-badge-inline">Recommended</span>
+                  <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div id="rag-embedding-menu" class="rag-select-menu hidden" role="listbox" aria-label="Embedding provider">
+                  <button class="rag-select-option" type="button" data-value="local" role="option">
+                    <span class="rag-select-option-label">Local (hashing)</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="ollama" role="option">
+                    <span class="rag-select-option-label">Ollama (qwen3-embedding:4b)</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="openai" role="option">
+                    <span class="rag-select-option-label">OpenAI</span>
+                      <span class="rag-badge">Recommended</span>
+                  </button>
+                </div>
+                <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
+                  <option value="local">Local (hashing)</option>
+                  <option value="ollama">Ollama (qwen3-embedding:4b)</option>
+                  <option value="openai" selected>OpenAI</option>
+                </select>
+              </div>
+              <div id="rag-embedding-hint" class="rag-hint">OpenAI embeddings. Select a model below.</div>
+            </div>
+            <div id="rag-openai-model-row" class="rag-field rag-field-wide hidden">
+              <label>OpenAI model</label>
+              <div class="rag-select" id="rag-openai-model-select">
+                <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="rag-select-label">text-embedding-3-small</span>
+                  <span class="rag-badge rag-badge-inline">Recommended</span>
+                  <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="rag-select-menu hidden" role="listbox" aria-label="OpenAI embedding model">
+                  <button class="rag-select-option" type="button" data-value="text-embedding-3-small" role="option">
+                    <span class="rag-select-option-label">text-embedding-3-small</span>
+                    <span class="rag-badge">Recommended</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="text-embedding-3-large" role="option">
+                    <span class="rag-select-option-label">text-embedding-3-large</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="text-embedding-ada-002" role="option">
+                    <span class="rag-select-option-label">text-embedding-ada-002</span>
+                    <span class="rag-badge">Legacy</span>
+                  </button>
+                </div>
+                <select id="rag-openai-model" class="rag-select-native" aria-hidden="true">
+                  <option value="text-embedding-3-small" selected>text-embedding-3-small</option>
+                  <option value="text-embedding-3-large">text-embedding-3-large</option>
+                  <option value="text-embedding-ada-002">text-embedding-ada-002</option>
+                </select>
+              </div>
+            </div>
+            <div id="rag-embedding-base-row" class="rag-field rag-field-wide hidden">
+              <label>Ollama base URL</label>
+              <input id="rag-embedding-base-url" type="text" value="http://localhost:11434" />
+            </div>
+            <div id="rag-openai-key" class="rag-field rag-field-wide hidden">
+              <label>OpenAI API key</label>
+              <div class="rag-inline-input">
+                <input id="rag-openai-key-input" type="password" placeholder="sk-..." autocomplete="off" />
+                <button id="rag-openai-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
+              </div>
+              <div id="rag-openai-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
+            </div>
+            <div class="rag-field rag-field-wide" style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+              <div class="rag-field-label">
+                <label>Vector Store</label>
+              </div>
+              <div id="rag-vectorstore-select" class="rag-select">
+                <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="rag-select-label">InMemory</span>
+                  <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="rag-select-menu hidden" role="listbox" aria-label="Vector store provider">
+                  <button class="rag-select-option" type="button" data-value="inmemory" role="option">
+                    <span class="rag-select-option-label">InMemory</span>
+                    <span class="rag-badge">Default</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="postgres" role="option">
+                    <span class="rag-select-option-label">PostgreSQL (pgvector)</span>
+                  </button>
+                </div>
+                <select id="rag-vectorstore-provider" class="rag-select-native" aria-hidden="true">
+                  <option value="inmemory" selected>InMemory</option>
+                  <option value="postgres">PostgreSQL (pgvector)</option>
+                </select>
+              </div>
+              <div id="rag-vectorstore-hint" class="rag-hint">In-memory store. Data is lost on restart.</div>
+            </div>
+            <div id="rag-pg-config" class="hidden" style="margin-top:8px">
+              <div class="rag-field rag-field-wide">
+                <label>Host</label>
+                <input id="rag-pg-host" type="text" placeholder="localhost" value="localhost" />
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Port</label>
+                  <input id="rag-pg-port" type="number" value="5432" min="1" max="65535" />
+                </div>
+                <div class="rag-field">
+                  <label>Database</label>
+                  <input id="rag-pg-database" type="text" placeholder="postgres" />
+                </div>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Username</label>
+                  <input id="rag-pg-user" type="text" placeholder="postgres" />
+                </div>
+                <div class="rag-field">
+                  <label>Password</label>
+                  <input id="rag-pg-password" type="password" placeholder="••••••" autocomplete="off" />
+                </div>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Table name</label>
+                  <input id="rag-pg-table" type="text" value="vectors" />
+                </div>
+                <div class="rag-field">
+                  <label>Schema</label>
+                  <input id="rag-pg-schema" type="text" value="public" />
+                </div>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Dimension</label>
+                  <input id="rag-pg-dimension" type="number" value="1536" min="1" />
+                </div>
+                <div class="rag-field" style="display:flex;align-items:end;gap:8px;padding-bottom:2px">
+                  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                    <input id="rag-pg-ensure-schema" type="checkbox" checked />
+                    EnsureSchema
+                  </label>
+                </div>
+              </div>
+              <div class="rag-actions" style="margin-top:6px">
+                <button id="rag-pg-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
+                <button id="rag-pg-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
+                <span id="rag-pg-status" class="rag-hint"></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

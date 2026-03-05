@@ -24,9 +24,9 @@ namespace Mythosia.VectorDb.Postgres
         public string SchemaName { get; set; } = "public";
 
         /// <summary>
-        /// Table name for vector storage. Default: "mythosia_vectors".
+        /// Table name for vector storage. Default: "vectors".
         /// </summary>
-        public string TableName { get; set; } = "mythosia_vectors";
+        public string TableName { get; set; } = "vectors";
 
         /// <summary>
         /// When true, automatically creates the pgvector extension, table, and indexes
@@ -36,10 +36,20 @@ namespace Mythosia.VectorDb.Postgres
         public bool EnsureSchema { get; set; } = false;
 
         /// <summary>
-        /// Number of IVF lists for the ivfflat index. Default: 100.
-        /// Higher values improve recall at the cost of index build time.
+        /// Distance function for similarity search. Default: <see cref="DistanceStrategy.Cosine"/>.
         /// </summary>
-        public int IvfflatLists { get; set; } = 100;
+        public DistanceStrategy DistanceStrategy { get; set; } = DistanceStrategy.Cosine;
+
+        /// <summary>
+        /// Vector index settings. Default: <see cref="HnswIndexOptions"/>.
+        /// </summary>
+        public VectorIndexOptions Index { get; set; } = new HnswIndexOptions();
+
+        /// <summary>
+        /// When true (default), index creation failures throw and fail fast.
+        /// When false, index creation failures are downgraded to warnings and startup continues.
+        /// </summary>
+        public bool FailFastOnIndexCreationFailure { get; set; } = true;
 
         /// <summary>
         /// Validates the options and throws <see cref="ArgumentException"/> if invalid.
@@ -57,6 +67,14 @@ namespace Mythosia.VectorDb.Postgres
 
             if (string.IsNullOrWhiteSpace(SchemaName))
                 throw new ArgumentException("SchemaName must not be empty.", nameof(SchemaName));
+
+            if (!Enum.IsDefined(typeof(DistanceStrategy), DistanceStrategy))
+                throw new ArgumentException("DistanceStrategy is invalid.", nameof(DistanceStrategy));
+
+            if (Index is null)
+                throw new ArgumentException("Index must not be null.", nameof(Index));
+
+            Index.Validate();
 
             ValidateIdentifier(SchemaName, nameof(SchemaName));
             ValidateIdentifier(TableName, nameof(TableName));

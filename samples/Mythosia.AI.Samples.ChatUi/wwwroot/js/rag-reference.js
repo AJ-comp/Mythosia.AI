@@ -35,6 +35,21 @@ import {
   ragMinScore,
   ragPromptTemplate,
   ragChatStatus,
+  ragVectorStoreProvider,
+  ragVectorStoreHint,
+  ragPgConfig,
+  ragPgHost,
+  ragPgPort,
+  ragPgDatabase,
+  ragPgUser,
+  ragPgPassword,
+  ragPgTable,
+  ragPgSchema,
+  ragPgDimension,
+  ragPgEnsureSchema,
+  ragPgConnect,
+  ragPgDisconnect,
+  ragPgStatus,
   codeModal,
   codeModalContent,
   codeCopyAll
@@ -84,8 +99,23 @@ export function initRagReference() {
   });
   ragOpenAiKeySave?.addEventListener('click', saveInlineOpenAiKey);
 
+  // Vector Store provider
+  ragVectorStoreProvider?.addEventListener('change', () => {
+    updateVectorStoreUI();
+    markReferenceStale();
+  });
+  ragPgHost?.addEventListener('input', updatePgConnectState);
+  ragPgPort?.addEventListener('input', updatePgConnectState);
+  ragPgDatabase?.addEventListener('input', updatePgConnectState);
+  ragPgUser?.addEventListener('input', updatePgConnectState);
+  ragPgPassword?.addEventListener('input', updatePgConnectState);
+  ragPgConnect?.addEventListener('click', connectPostgres);
+  ragPgDisconnect?.addEventListener('click', disconnectPostgres);
+
   updateFileList();
   updateEmbeddingUI();
+  updateVectorStoreUI();
+  loadVectorStoreConfig();
   loadPipelineSettings();
   refreshRagStatus();
   refreshReferenceHistory();
@@ -307,7 +337,9 @@ function updateRunState(files) {
   const provider = getSelectedEmbeddingProvider();
   const needsKey = provider === 'openai';
   const hasKey = !needsKey || !!providerKeys?.OpenAI;
-  ragRun.disabled = fileCount === 0 || !hasKey;
+  const vsProvider = ragVectorStoreProvider?.value || 'inmemory';
+  const vsReady = vsProvider !== 'postgres' || pgConnected;
+  ragRun.disabled = fileCount === 0 || !hasKey || !vsReady;
 }
 
 async function runReference() {
@@ -483,6 +515,206 @@ function openRagCodeModal() {
 
 let hasReferenceRun = false;
 let autoChunkerFromFiles = false;
+let pgConnected = false;
+
+// ── Vector Store Provider ─────────────────────────────────────
+function updateVectorStoreUI() {
+  const provider = ragVectorStoreProvider?.value || 'inmemory';
+  if (ragPgConfig) {
+    ragPgConfig.classList.toggle('hidden', provider !== 'postgres');
+  }
+  if (ragVectorStoreHint) {
+    ragVectorStoreHint.textContent = provider === 'postgres'
+      ? 'PostgreSQL with pgvector. Configure and connect below.'
+      : 'In-memory store. Data is lost on restart.';
+  }
+  updatePgConnectState();
+  updateRunState();
+}
+
+function updatePgConnectState() {
+  if (!ragPgConnect) return;
+  const hasHost = !!ragPgHost?.value?.trim();
+  const hasDb = !!ragPgDatabase?.value?.trim();
+  ragPgConnect.disabled = !(hasHost && hasDb);
+}
+
+function buildConnectionString() {
+  const host = ragPgHost?.value?.trim() || 'localhost';
+  const port = ragPgPort?.value?.trim() || '5432';
+  const db = ragPgDatabase?.value?.trim() || '';
+  const user = ragPgUser?.value?.trim() || '';
+  const pass = ragPgPassword?.value || '';
+  let parts = [`Host=${host}`, `Port=${port}`];
+  if (db) parts.push(`Database=${db}`);
+  if (user) parts.push(`Username=${user}`);
+  if (pass) parts.push(`Password=${pass}`);
+  return parts.join(';');
+}
+
+function parseConnectionString(connStr) {
+  const result = { host: 'localhost', port: '5432', database: '', username: '', password: '' };
+  if (!connStr) return result;
+  for (const part of connStr.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    const k = part.substring(0, idx).trim().toLowerCase();
+    const v = part.substring(idx + 1).trim();
+    if (k === 'host' || k === 'server') result.host = v;
+    else if (k === 'port') result.port = v;
+    else if (k === 'database' || k === 'db') result.database = v;
+    else if (k === 'username' || k === 'user id' || k === 'userid') result.username = v;
+    else if (k === 'password') result.password = v;
+  }
+  return result;
+}
+
+function applyPgFields(cfg) {
+  if (!cfg) return;
+  // Support both individual fields (new) and connectionString (old/server)
+  let fields = cfg;
+  if (!cfg.host && cfg.connectionString) {
+    fields = parseConnectionString(cfg.connectionString);
+  }
+  if (ragPgHost) ragPgHost.value = fields.host || 'localhost';
+  if (ragPgPort) ragPgPort.value = fields.port || '5432';
+  if (ragPgDatabase) ragPgDatabase.value = fields.database || '';
+  if (ragPgUser) ragPgUser.value = fields.username || '';
+  if (ragPgPassword) ragPgPassword.value = fields.password || '';
+  if (ragPgTable) ragPgTable.value = cfg.tableName || 'vectors';
+  if (ragPgSchema) ragPgSchema.value = cfg.schemaName || 'public';
+  if (ragPgDimension) ragPgDimension.value = cfg.dimension || 1536;
+  if (ragPgEnsureSchema) ragPgEnsureSchema.checked = cfg.ensureSchema ?? true;
+}
+
+const PG_STORAGE_KEY = 'rag_pg_config';
+
+function savePgToStorage(config) {
+  try { localStorage.setItem(PG_STORAGE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+}
+
+function loadPgFromStorage() {
+  try {
+    const raw = localStorage.getItem(PG_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function clearPgFromStorage() {
+  try { localStorage.removeItem(PG_STORAGE_KEY); } catch { /* ignore */ }
+}
+
+function updatePgDisconnectVisibility() {
+  if (ragPgDisconnect) {
+    ragPgDisconnect.classList.toggle('hidden', !pgConnected);
+  }
+}
+
+async function connectPostgres() {
+  if (!ragPgConnect) return;
+  ragPgConnect.disabled = true;
+  if (ragPgStatus) ragPgStatus.textContent = 'Connecting...';
+
+  const payload = {
+    provider: 'postgres',
+    connectionString: buildConnectionString(),
+    tableName: ragPgTable?.value?.trim() || 'vectors',
+    schemaName: ragPgSchema?.value?.trim() || 'public',
+    dimension: parseInt(ragPgDimension?.value, 10) || 1536,
+    ensureSchema: ragPgEnsureSchema?.checked ?? true
+  };
+  const storagePayload = {
+    ...payload,
+    host: ragPgHost?.value?.trim() || 'localhost',
+    port: ragPgPort?.value?.trim() || '5432',
+    database: ragPgDatabase?.value?.trim() || '',
+    username: ragPgUser?.value?.trim() || '',
+    password: ragPgPassword?.value || ''
+  };
+
+  try {
+    const res = await fetch('/api/rag/vector-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || 'Connection failed.');
+
+    pgConnected = true;
+    savePgToStorage(storagePayload);
+    if (ragPgStatus) ragPgStatus.textContent = `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension})`;
+    if (ragPgConnect) ragPgConnect.textContent = 'Reconnect';
+    updatePgDisconnectVisibility();
+    updateRunState();
+    refreshRagStatus();
+  } catch (err) {
+    pgConnected = false;
+    updatePgDisconnectVisibility();
+    if (ragPgStatus) ragPgStatus.textContent = err.message || 'Connection failed.';
+  } finally {
+    updatePgConnectState();
+  }
+}
+
+async function disconnectPostgres() {
+  if (ragPgDisconnect) ragPgDisconnect.disabled = true;
+  if (ragPgStatus) ragPgStatus.textContent = 'Disconnecting...';
+
+  try {
+    const res = await fetch('/api/rag/vector-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'inmemory' })
+    });
+    await res.json().catch(() => null);
+
+    pgConnected = false;
+    clearPgFromStorage();
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'inmemory');
+    if (ragPgConnect) ragPgConnect.textContent = 'Connect';
+    if (ragPgStatus) ragPgStatus.textContent = '';
+    updateVectorStoreUI();
+    updatePgDisconnectVisibility();
+    refreshRagStatus();
+    markReferenceStale();
+  } catch (err) {
+    if (ragPgStatus) ragPgStatus.textContent = err.message || 'Failed to disconnect.';
+  } finally {
+    if (ragPgDisconnect) ragPgDisconnect.disabled = false;
+  }
+}
+
+async function loadVectorStoreConfig() {
+  // First check localStorage for saved Postgres config
+  const saved = loadPgFromStorage();
+  if (saved && saved.provider === 'postgres' && (saved.host || saved.connectionString)) {
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'postgres');
+    applyPgFields(saved);
+    updateVectorStoreUI();
+
+    // Auto-reconnect to the server
+    await connectPostgres();
+    return;
+  }
+
+  // Fallback: check server state
+  try {
+    const res = await fetch('/api/rag/vector-store');
+    const data = await res.json().catch(() => null);
+    if (!res.ok) return;
+
+    if (data?.provider === 'postgres') {
+      if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'postgres');
+      applyPgFields(data);
+      pgConnected = true;
+      if (ragPgConnect) ragPgConnect.textContent = 'Reconnect';
+      if (ragPgStatus) ragPgStatus.textContent = `Connected · ${data.schemaName}.${data.tableName}`;
+      updatePgDisconnectVisibility();
+    }
+    updateVectorStoreUI();
+  } catch { /* ignore */ }
+}
 
 function setViewCodeEnabled(enabled) {
   hasReferenceRun = enabled;

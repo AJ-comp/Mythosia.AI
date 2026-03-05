@@ -16,6 +16,7 @@ using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb;
+using Mythosia.VectorDb.Postgres;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.DeepSeek;
@@ -50,7 +51,13 @@ string? currentProvider = null;
 string? currentModelEnum = null;
 bool presetFunctionsEnabled = true; // Whether preset functions are registered
 var ragState = new RagReferenceState();
-var ragVectorStore = new InMemoryVectorStore();
+IVectorStore ragVectorStore = new InMemoryVectorStore();
+string ragVectorStoreProvider = "inmemory";
+string ragPgConnectionString = "";
+string ragPgTableName = "vectors";
+string ragPgSchemaName = "public";
+int ragPgDimension = 1536;
+bool ragPgEnsureSchema = true;
 var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 
 // ── Helper: build model catalogue ───────────────────────────────
@@ -703,6 +710,72 @@ app.MapPost("/api/rag/pipeline-settings", (RagPipelineSettingsRequest req) =>
     return Results.Ok(settings);
 });
 
+// ── GET /api/rag/vector-store ────────────────────────────────────
+app.MapGet("/api/rag/vector-store", () =>
+{
+    return Results.Ok(new
+    {
+        provider = ragVectorStoreProvider,
+        connectionString = ragPgConnectionString,
+        tableName = ragPgTableName,
+        schemaName = ragPgSchemaName,
+        dimension = ragPgDimension,
+        ensureSchema = ragPgEnsureSchema
+    });
+});
+
+// ── POST /api/rag/vector-store ──────────────────────────────────
+app.MapPost("/api/rag/vector-store", (VectorStoreConfigRequest req) =>
+{
+    var provider = (req.Provider ?? "inmemory").Trim().ToLowerInvariant();
+
+    if (provider == "postgres")
+    {
+        if (string.IsNullOrWhiteSpace(req.ConnectionString))
+            return Results.BadRequest(new { error = "ConnectionString is required for PostgreSQL." });
+
+        ragPgConnectionString = req.ConnectionString.Trim();
+        ragPgTableName = string.IsNullOrWhiteSpace(req.TableName) ? "vectors" : req.TableName.Trim();
+        ragPgSchemaName = string.IsNullOrWhiteSpace(req.SchemaName) ? "public" : req.SchemaName.Trim();
+        ragPgDimension = req.Dimension is > 0 ? req.Dimension.Value : 1536;
+        ragPgEnsureSchema = req.EnsureSchema ?? true;
+
+        try
+        {
+            var oldStore = ragVectorStore;
+            ragVectorStore = new PostgresVectorStore(new PostgresVectorStoreOptions
+            {
+                ConnectionString = ragPgConnectionString,
+                Dimension = ragPgDimension,
+                TableName = ragPgTableName,
+                SchemaName = ragPgSchemaName,
+                EnsureSchema = ragPgEnsureSchema
+            });
+            ragVectorStoreProvider = "postgres";
+
+            if (oldStore is IDisposable disposable)
+                disposable.Dispose();
+
+            return Results.Ok(new { provider = ragVectorStoreProvider, status = "connected", tableName = ragPgTableName, schemaName = ragPgSchemaName, dimension = ragPgDimension });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
+        }
+    }
+    else
+    {
+        var oldStore = ragVectorStore;
+        ragVectorStore = new InMemoryVectorStore();
+        ragVectorStoreProvider = "inmemory";
+
+        if (oldStore is IDisposable disposable)
+            disposable.Dispose();
+
+        return Results.Ok(new { provider = ragVectorStoreProvider, status = "switched" });
+    }
+});
+
 // ── GET /api/rag/status ────────────────────────────────────────
 app.MapGet("/api/rag/status", () =>
 {
@@ -712,7 +785,8 @@ app.MapGet("/api/rag/status", () =>
     {
         hasIndex,
         lastUpdated = ragState.LastUpdated,
-        settings
+        settings,
+        vectorStoreProvider = ragVectorStoreProvider
     });
 });
 
@@ -1398,3 +1472,10 @@ record RagPipelineSettingsRequest(
     string? PromptTemplate);
 record WhyMissingRequest(string? Query, string? ExpectedText);
 record QueryScoresRequest(string? Query, string? ExpectedText);
+record VectorStoreConfigRequest(
+    string? Provider,
+    string? ConnectionString,
+    string? TableName,
+    string? SchemaName,
+    int? Dimension,
+    bool? EnsureSchema);

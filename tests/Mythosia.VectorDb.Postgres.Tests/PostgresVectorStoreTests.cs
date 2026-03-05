@@ -41,8 +41,7 @@ public class PostgresVectorStoreTests
             ConnectionString = _connectionString!,
             Dimension = TestDimension,
             TableName = "mythosia_vectors_test",
-            EnsureSchema = ensureSchema,
-            IvfflatLists = 10
+            EnsureSchema = ensureSchema
         });
     }
 
@@ -279,6 +278,33 @@ public class PostgresVectorStoreTests
         Assert.IsTrue(results.Any(r => r.Record.Id == "high"), "High similarity record should be included");
     }
 
+    [TestMethod]
+    public async Task Search_RuntimeOptions_WorksWithProfileAndOverride()
+    {
+        SkipIfNoDb();
+        using var store = CreateStore();
+        await CleanCollection(store);
+
+        await store.UpsertBatchAsync(TestCollection, new[]
+        {
+            new VectorRecord("p1", new float[] { 1, 0, 0 }, "P1"),
+            new VectorRecord("p2", new float[] { 0.9f, 0.1f, 0 }, "P2")
+        });
+
+        var results = await store.SearchAsync(
+            TestCollection,
+            new float[] { 1, 0, 0 },
+            topK: 2,
+            filter: null,
+            runtimeOptions: new HnswSearchRuntimeOptions
+            {
+                Profile = SearchProfile.Fast,
+                EfSearch = 32
+            });
+
+        Assert.IsTrue(results.Count > 0);
+    }
+
     #endregion
 
     #region Delete Tests
@@ -443,6 +469,81 @@ public class PostgresVectorStoreTests
             SchemaName = "public",
             TableName = "my_vectors"
         }.Validate();
+    }
+
+    [TestMethod]
+    public void Options_ZeroIvfflatLists_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new PostgresVectorStoreOptions
+            {
+                ConnectionString = "Host=x",
+                Dimension = 3,
+                Index = new IvfFlatIndexOptions
+                {
+                    Lists = 0
+                }
+            }.Validate());
+    }
+
+    [TestMethod]
+    public void Options_ZeroHnswEfConstruction_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new PostgresVectorStoreOptions
+            {
+                ConnectionString = "Host=x",
+                Dimension = 3,
+                Index = new HnswIndexOptions
+                {
+                    EfConstruction = 0
+                }
+            }.Validate());
+    }
+
+    [TestMethod]
+    public void Options_ZeroHnswM_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new PostgresVectorStoreOptions
+            {
+                ConnectionString = "Host=x",
+                Dimension = 3,
+                Index = new HnswIndexOptions
+                {
+                    M = 0
+                }
+            }.Validate());
+    }
+
+    [TestMethod]
+    public void Options_ZeroIvfflatProbes_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new PostgresVectorStoreOptions
+            {
+                ConnectionString = "Host=x",
+                Dimension = 3,
+                Index = new IvfFlatIndexOptions
+                {
+                    Probes = 0
+                }
+            }.Validate());
+    }
+
+    [TestMethod]
+    public void Options_ZeroHnswEfSearch_Throws()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new PostgresVectorStoreOptions
+            {
+                ConnectionString = "Host=x",
+                Dimension = 3,
+                Index = new HnswIndexOptions
+                {
+                    EfSearch = 0
+                }
+            }.Validate());
     }
 
     #endregion

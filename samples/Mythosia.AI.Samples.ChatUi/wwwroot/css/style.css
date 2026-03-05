@@ -318,7 +318,7 @@ html, body {
 
 /* ── RAG Reference Modal ─────────────────────────────────── */
 .rag-modal-card {
-  width: min(1360px, 94vw);
+  width: min(1520px, 96vw);
   max-height: 88vh;
 }
 .rag-settings-card {
@@ -327,7 +327,7 @@ html, body {
 }
 .rag-modal-body {
   display: grid;
-  grid-template-columns: 320px 1fr 260px;
+  grid-template-columns: 280px 1fr 320px;
   gap: 16px;
   padding: 18px;
   height: 70vh;
@@ -381,12 +381,43 @@ html, body {
   flex-direction: column;
   gap: 14px;
   overflow-y: auto;
+  min-height: 0;
 }
-.rag-controls:has(.rag-select.open) {
-  overflow-y: visible;
+.rag-controls .rag-history {
+  flex: 1;
+  min-height: 100px;
+  overflow-y: auto;
 }
 .rag-controls .rag-actions {
   margin-top: auto;
+  flex-shrink: 0;
+}
+.rag-settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: rgba(8,10,16,.45);
+  overflow-y: auto;
+  min-height: 0;
+}
+.rag-settings-panel:has(.rag-select.open) {
+  overflow-y: visible;
+}
+.rag-settings-panel-title {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.rag-settings-panel-body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 .rag-input label,
 .rag-field label {
@@ -592,6 +623,12 @@ html, body {
   left: 0;
   right: 0;
   z-index: 20;
+}
+.rag-select-menu.drop-up {
+  top: auto;
+  bottom: calc(100% + 6px);
+}
+.rag-select-menu {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1056,12 +1093,16 @@ html, body {
     grid-template-columns: 1fr;
     height: auto;
     max-height: 80vh;
+    overflow-y: auto;
   }
-  .rag-trace {
-    max-height: 45vh;
+  .rag-modal-body > .rag-trace {
+    max-height: 50vh;
   }
-  .rag-history {
+  .rag-controls .rag-history {
     max-height: 200px;
+  }
+  .rag-settings-panel {
+    max-height: 50vh;
   }
   .rag-trace-tabs {
     overflow-x: auto;

@@ -78,6 +78,23 @@ export const ragTopK         = $('#rag-topk');
 export const ragMinScore     = $('#rag-min-score');
 export const ragPromptTemplate = $('#rag-prompt-template');
 
+// RAG Vector Store
+export const ragVectorStoreProvider = $('#rag-vectorstore-provider');
+export const ragVectorStoreHint = $('#rag-vectorstore-hint');
+export const ragPgConfig     = $('#rag-pg-config');
+export const ragPgHost       = $('#rag-pg-host');
+export const ragPgPort       = $('#rag-pg-port');
+export const ragPgDatabase   = $('#rag-pg-database');
+export const ragPgUser       = $('#rag-pg-user');
+export const ragPgPassword   = $('#rag-pg-password');
+export const ragPgTable      = $('#rag-pg-table');
+export const ragPgSchema     = $('#rag-pg-schema');
+export const ragPgDimension  = $('#rag-pg-dimension');
+export const ragPgEnsureSchema = $('#rag-pg-ensure-schema');
+export const ragPgConnect    = $('#rag-pg-connect');
+export const ragPgDisconnect = $('#rag-pg-disconnect');
+export const ragPgStatus     = $('#rag-pg-status');
+
 // RAG Diagnostics Modal
 export const btnRagDiagnose   = $('#btn-rag-diagnose');
 export const diagModal        = $('#rag-diag-modal');

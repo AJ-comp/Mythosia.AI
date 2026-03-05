@@ -9,6 +9,13 @@
 - Consumers must replace `using Mythosia.AI.VectorDB;` with `using Mythosia.VectorDb.InMemory;`.
 - Consumers must add `using Mythosia.VectorDb;` for vector DB contract types.
 
+### Changed
+
+- Improved `MarkdownTextSplitter` behavior for large markdown tables:
+  - Large table blocks are now split by row within chunk budget.
+  - Table header/separator rows are preserved at the start of each split chunk.
+  - Code fence blocks remain unsplit.
+
 ---
 
 ## v1.2.0
