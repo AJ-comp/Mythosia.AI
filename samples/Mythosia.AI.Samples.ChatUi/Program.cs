@@ -17,6 +17,7 @@ using Mythosia.AI.Rag.Splitters;
 using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.Postgres;
+using Mythosia.VectorDb.Qdrant;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.DeepSeek;
@@ -58,6 +59,12 @@ string ragPgTableName = "vectors";
 string ragPgSchemaName = "public";
 int ragPgDimension = 1536;
 bool ragPgEnsureSchema = true;
+string ragQdrantHost = "localhost";
+int ragQdrantPort = 6334;
+string? ragQdrantApiKey = null;
+bool ragQdrantUseTls = false;
+int ragQdrantDimension = 1536;
+string ragQdrantCollectionName = "default";
 var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 string ragEmbeddingOpenAiKey = "";
 
@@ -746,7 +753,13 @@ app.MapGet("/api/rag/vector-store", () =>
         tableName = ragPgTableName,
         schemaName = ragPgSchemaName,
         dimension = ragPgDimension,
-        ensureSchema = ragPgEnsureSchema
+        ensureSchema = ragPgEnsureSchema,
+        qdrantHost = ragQdrantHost,
+        qdrantPort = ragQdrantPort,
+        qdrantApiKey = (string?)null,
+        qdrantUseTls = ragQdrantUseTls,
+        qdrantDimension = ragQdrantDimension,
+        qdrantCollectionName = ragQdrantCollectionName
     });
 });
 
@@ -773,7 +786,7 @@ app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req) =>
         try
         {
             var oldStore = ragVectorStore;
-            ragVectorStore = new PostgresVectorStore(new PostgresVectorStoreOptions
+            ragVectorStore = new PostgresStore(new PostgresOptions
             {
                 ConnectionString = ragPgConnectionString,
                 Dimension = ragPgDimension,
@@ -838,6 +851,101 @@ app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req) =>
             }
 
             return Results.Ok(new { provider = ragVectorStoreProvider, status = "connected", warning = autoConnectWarning, tableName = ragPgTableName, schemaName = ragPgSchemaName, dimension = ragPgDimension });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
+        }
+    }
+    else if (provider == "qdrant")
+    {
+        // Strip scheme (https://, http://) and trailing slashes/paths from host
+        var rawHost = (req.QdrantHost ?? "").Trim();
+        if (rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            rawHost = rawHost.Substring("https://".Length);
+        else if (rawHost.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            rawHost = rawHost.Substring("http://".Length);
+        var slashIdx = rawHost.IndexOf('/');
+        if (slashIdx >= 0) rawHost = rawHost.Substring(0, slashIdx);
+        ragQdrantHost = string.IsNullOrWhiteSpace(rawHost) ? "localhost" : rawHost;
+        ragQdrantPort = req.QdrantPort is > 0 ? req.QdrantPort.Value : 6334;
+        ragQdrantApiKey = string.IsNullOrWhiteSpace(req.QdrantApiKey) ? null : req.QdrantApiKey.Trim();
+        ragQdrantUseTls = req.QdrantUseTls ?? false;
+        ragQdrantDimension = req.Dimension is > 0 ? req.Dimension.Value : 1536;
+        ragQdrantCollectionName = string.IsNullOrWhiteSpace(req.QdrantCollectionName) ? "default" : req.QdrantCollectionName.Trim();
+
+        if (!string.IsNullOrWhiteSpace(req.OpenAiApiKey))
+            ragEmbeddingOpenAiKey = req.OpenAiApiKey.Trim();
+
+        try
+        {
+            var oldStore = ragVectorStore;
+            ragVectorStore = new QdrantStore(new QdrantOptions
+            {
+                Host = ragQdrantHost,
+                Port = ragQdrantPort,
+                ApiKey = ragQdrantApiKey,
+                UseTls = ragQdrantUseTls,
+                Dimension = ragQdrantDimension,
+                CollectionName = ragQdrantCollectionName
+            });
+            ragVectorStoreProvider = "qdrant";
+
+            if (oldStore is IDisposable disposable)
+                disposable.Dispose();
+
+            // Auto-connect RAG pipeline for external DB
+            string? autoConnectWarning = null;
+            try
+            {
+                var settings = ragState.GetSettings();
+                var embeddingKey = !string.IsNullOrWhiteSpace(ragEmbeddingOpenAiKey) ? ragEmbeddingOpenAiKey : null;
+                var epKey = settings.EmbeddingProvider?.ToLowerInvariant() ?? "openai";
+
+                if (epKey != "ollama" && embeddingKey == null)
+                {
+                    autoConnectWarning = "No API key provided for the embedding provider. "
+                        + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
+                }
+                else
+                {
+                    var store = await RagStore.BuildAsync(builder =>
+                    {
+                        builder
+                            .UseStore(ragVectorStore)
+                            .WithTopK(settings.TopK)
+                            .WithNamespace(ragQdrantCollectionName);
+
+                        if (epKey == "ollama")
+                        {
+                            builder.UseEmbedding(new Mythosia.AI.Rag.Embeddings.OllamaEmbeddingProvider(
+                                embeddingHttpClient,
+                                settings.EmbeddingModel ?? "qwen3-embedding:4b",
+                                settings.EmbeddingDimensions,
+                                settings.EmbeddingBaseUrl));
+                        }
+                        else
+                        {
+                            builder.UseEmbedding(new OpenAIEmbeddingProvider(
+                                embeddingKey!, embeddingHttpClient,
+                                settings.EmbeddingModel ?? "text-embedding-3-small",
+                                settings.EmbeddingDimensions));
+                        }
+
+                        if (settings.MinScore.HasValue)
+                            builder.WithScoreThreshold(settings.MinScore.Value);
+                        if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
+                            builder.WithPromptTemplate(settings.PromptTemplate);
+                    });
+                    ragState.SetExternalStore(store);
+                }
+            }
+            catch
+            {
+                // Auto-connect is best-effort; vector store connection is still valid
+            }
+
+            return Results.Ok(new { provider = ragVectorStoreProvider, status = "connected", warning = autoConnectWarning, host = ragQdrantHost, port = ragQdrantPort, dimension = ragQdrantDimension, collectionName = ragQdrantCollectionName });
         }
         catch (Exception ex)
         {
@@ -952,6 +1060,10 @@ app.MapPost("/api/rag/reference", async (HttpRequest request, HttpContext ctx) =
                 .UseEmbedding(embeddingProvider)
                 .UseStore(trackingStore);
 
+            // Use collection name for external DBs
+            if (ragVectorStoreProvider == "qdrant")
+                builder.WithNamespace(ragQdrantCollectionName);
+
             if (minScore.HasValue)
             {
                 builder.WithScoreThreshold(minScore.Value);
@@ -1044,7 +1156,7 @@ app.MapGet("/api/rag/diagnose/health-check", async (CancellationToken ct) =>
         var result = await session.HealthCheckAsync(cancellationToken: ct);
         return Results.Ok(new
         {
-            collection = result.Collection,
+            @namespace = result.Namespace,
             totalChunks = result.TotalChunks,
             hasWarnings = result.HasWarnings,
             items = result.Items.Select(i => new
@@ -1559,4 +1671,9 @@ record VectorStoreConfigRequest(
     string? SchemaName,
     int? Dimension,
     bool? EnsureSchema,
-    string? OpenAiApiKey = null);
+    string? OpenAiApiKey = null,
+    string? QdrantHost = null,
+    int? QdrantPort = null,
+    string? QdrantApiKey = null,
+    bool? QdrantUseTls = null,
+    string? QdrantCollectionName = null);

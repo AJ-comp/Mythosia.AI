@@ -63,11 +63,11 @@ namespace Mythosia.AI.Rag
         public async Task IndexAsync(
             IDocumentLoader loader,
             string source,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
             var documents = await loader.LoadAsync(source, cancellationToken);
-            await IndexDocumentsAsync(documents, collection, cancellationToken);
+            await IndexDocumentsAsync(documents, @namespace, cancellationToken);
         }
 
         /// <summary>
@@ -75,10 +75,10 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task IndexDocumentsAsync(
             IEnumerable<RagDocument> documents,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentsInternalAsync(documents, textSplitter: null, collection, cancellationToken);
+            await IndexDocumentsInternalAsync(documents, textSplitter: null, @namespace, cancellationToken);
         }
 
         /// <summary>
@@ -87,10 +87,10 @@ namespace Mythosia.AI.Rag
         public async Task IndexDocumentsAsync(
             IEnumerable<RagDocument> documents,
             ITextSplitter? textSplitter,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentsInternalAsync(documents, textSplitter, collection, cancellationToken);
+            await IndexDocumentsInternalAsync(documents, textSplitter, @namespace, cancellationToken);
         }
 
         /// <summary>
@@ -98,10 +98,10 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task IndexDocumentAsync(
             RagDocument document,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentInternalAsync(document, textSplitter: null, collection, cancellationToken);
+            await IndexDocumentInternalAsync(document, textSplitter: null, @namespace, cancellationToken);
         }
 
         /// <summary>
@@ -110,44 +110,42 @@ namespace Mythosia.AI.Rag
         public async Task IndexDocumentAsync(
             RagDocument document,
             ITextSplitter? textSplitter,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentInternalAsync(document, textSplitter, collection, cancellationToken);
+            await IndexDocumentInternalAsync(document, textSplitter, @namespace, cancellationToken);
         }
 
         private async Task IndexDocumentsInternalAsync(
             IEnumerable<RagDocument> documents,
             ITextSplitter? textSplitter,
-            string? collection,
+            string? @namespace,
             CancellationToken cancellationToken)
         {
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            var col = collection ?? Options.DefaultCollection;
-            await _vectorStore.CreateCollectionAsync(col, cancellationToken);
+            var ns = @namespace ?? Options.DefaultNamespace;
 
             foreach (var document in documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await IndexSingleDocumentAsync(document, col, effectiveSplitter, cancellationToken);
+                await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken);
             }
         }
 
         private async Task IndexDocumentInternalAsync(
             RagDocument document,
             ITextSplitter? textSplitter,
-            string? collection,
+            string? @namespace,
             CancellationToken cancellationToken)
         {
-            var col = collection ?? Options.DefaultCollection;
-            await _vectorStore.CreateCollectionAsync(col, cancellationToken);
+            var ns = @namespace ?? Options.DefaultNamespace;
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            await IndexSingleDocumentAsync(document, col, effectiveSplitter, cancellationToken);
+            await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken);
         }
 
         private async Task IndexSingleDocumentAsync(
             RagDocument document,
-            string collection,
+            string @namespace,
             ITextSplitter textSplitter,
             CancellationToken cancellationToken)
         {
@@ -177,11 +175,12 @@ namespace Mythosia.AI.Rag
                     Vector = allEmbeddings[i],
                     Content = chunks[i].Content,
                     Metadata = chunks[i].Metadata,
-                    Namespace = Options.DefaultNamespace
+                    Namespace = @namespace,
+                    Scope = Options.DefaultScope
                 });
             }
 
-            await _vectorStore.UpsertBatchAsync(collection, records, cancellationToken);
+            await _vectorStore.UpsertBatchAsync(records, cancellationToken);
         }
 
         #endregion
@@ -194,27 +193,27 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
             string query,
-            string? collection = null,
+            string? @namespace = null,
             int? topK = null,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var col = collection ?? Options.DefaultCollection;
+            var ns = @namespace ?? Options.DefaultNamespace;
             var k = topK ?? Options.TopK;
 
             // 1. Embed query
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
 
-            // 2. Apply MinScore filter
-            var effectiveFilter = filter;
+            // 2. Apply namespace and MinScore filter
+            var effectiveFilter = filter ?? new VectorFilter();
+            effectiveFilter.Namespace = ns;
             if (Options.MinScore.HasValue)
             {
-                effectiveFilter = effectiveFilter ?? new VectorFilter();
                 effectiveFilter.MinScore = Options.MinScore;
             }
 
             // 3. Search
-            var searchResults = await _vectorStore.SearchAsync(col, queryVector, k, effectiveFilter, cancellationToken);
+            var searchResults = await _vectorStore.SearchAsync(queryVector, k, effectiveFilter, cancellationToken);
 
             // 4. Build context
             var context = _contextBuilder.BuildContext(query, searchResults);
@@ -228,12 +227,12 @@ namespace Mythosia.AI.Rag
         public async Task<string> QueryAndGenerateAsync(
             AIService aiService,
             string query,
-            string? collection = null,
+            string? @namespace = null,
             int? topK = null,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var result = await QueryAsync(query, collection, topK, filter, cancellationToken);
+            var result = await QueryAsync(query, @namespace, topK, filter, cancellationToken);
             return await aiService.GetCompletionAsync(result.Context);
         }
 
@@ -266,12 +265,13 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task DeleteDocumentAsync(
             string documentId,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var col = collection ?? Options.DefaultCollection;
+            var ns = @namespace ?? Options.DefaultNamespace;
             var filter = VectorFilter.ByMetadata("document_id", documentId);
-            await _vectorStore.DeleteByFilterAsync(col, filter, cancellationToken);
+            filter.Namespace = ns;
+            await _vectorStore.DeleteByFilterAsync(filter, cancellationToken);
         }
 
         #endregion

@@ -35,6 +35,7 @@ import {
   ragMinScore,
   ragPromptTemplate,
   ragChatStatus,
+  vectordbChatStatus,
   ragVectorStoreProvider,
   ragVectorStoreHint,
   ragPgConfig,
@@ -50,6 +51,16 @@ import {
   ragPgConnect,
   ragPgDisconnect,
   ragPgStatus,
+  ragQdrantConfig,
+  ragQdrantHost,
+  ragQdrantPort,
+  ragQdrantApiKey,
+  ragQdrantDimension,
+  ragQdrantCollection,
+  ragQdrantUseTls,
+  ragQdrantConnect,
+  ragQdrantDisconnect,
+  ragQdrantStatus,
   codeModal,
   codeModalContent,
   codeCopyAll
@@ -111,6 +122,11 @@ export function initRagReference() {
   ragPgPassword?.addEventListener('input', updatePgConnectState);
   ragPgConnect?.addEventListener('click', connectPostgres);
   ragPgDisconnect?.addEventListener('click', disconnectPostgres);
+
+  ragQdrantHost?.addEventListener('input', updateQdrantConnectState);
+  ragQdrantPort?.addEventListener('input', updateQdrantConnectState);
+  ragQdrantConnect?.addEventListener('click', connectQdrant);
+  ragQdrantDisconnect?.addEventListener('click', disconnectQdrant);
 
   updateFileList();
   updateEmbeddingUI();
@@ -335,7 +351,9 @@ function updateRunState(files) {
   const needsKey = provider !== 'ollama';
   const hasKey = !needsKey || !!providerKeys?.OpenAI;
   const vsProvider = ragVectorStoreProvider?.value || 'inmemory';
-  const vsReady = vsProvider !== 'postgres' || pgConnected;
+  const vsReady = vsProvider === 'inmemory'
+    || (vsProvider === 'postgres' && pgConnected)
+    || (vsProvider === 'qdrant' && qdrantConnected);
   ragRun.disabled = fileCount === 0 || !hasKey || !vsReady;
 }
 
@@ -434,6 +452,25 @@ function applyRagStatus(settings, hasIndex) {
   ragChatStatus.classList.remove('error');
 }
 
+function updateVectorDbStatus() {
+  if (!vectordbChatStatus) return;
+  const provider = ragVectorStoreProvider?.value || 'inmemory';
+  if (provider === 'postgres' && pgConnected) {
+    const schema = ragPgSchema?.value || 'public';
+    const table = ragPgTable?.value || 'vectors';
+    vectordbChatStatus.textContent = `VectorDB: PostgreSQL · ${schema}.${table}`;
+    vectordbChatStatus.classList.add('active');
+  } else if (provider === 'qdrant' && qdrantConnected) {
+    const host = ragQdrantHost?.value || 'localhost';
+    const col = ragQdrantCollection?.value || 'default';
+    vectordbChatStatus.textContent = `VectorDB: Qdrant · ${host} · collection=${col}`;
+    vectordbChatStatus.classList.add('active');
+  } else {
+    vectordbChatStatus.textContent = provider === 'inmemory' ? 'VectorDB: InMemory' : '';
+    vectordbChatStatus.classList.remove('active');
+  }
+}
+
 function showRagStatusError(err) {
   if (!ragChatStatus) return;
   ragChatStatus.textContent = `RAG: ERROR · ${err.message || 'Status unavailable'}`;
@@ -513,19 +550,29 @@ function openRagCodeModal() {
 let hasReferenceRun = false;
 let autoChunkerFromFiles = false;
 let pgConnected = false;
+let qdrantConnected = false;
 
 // ── Vector Store Provider ─────────────────────────────────────
 function updateVectorStoreUI() {
   const provider = ragVectorStoreProvider?.value || 'inmemory';
+  updateVectorDbStatus();
   if (ragPgConfig) {
     ragPgConfig.classList.toggle('hidden', provider !== 'postgres');
   }
+  if (ragQdrantConfig) {
+    ragQdrantConfig.classList.toggle('hidden', provider !== 'qdrant');
+  }
   if (ragVectorStoreHint) {
-    ragVectorStoreHint.textContent = provider === 'postgres'
-      ? 'PostgreSQL with pgvector. Configure and connect below.'
-      : 'In-memory store. Data is lost on restart.';
+    if (provider === 'postgres') {
+      ragVectorStoreHint.textContent = 'PostgreSQL with pgvector. Configure and connect below.';
+    } else if (provider === 'qdrant') {
+      ragVectorStoreHint.textContent = 'Qdrant vector database. Configure and connect below.';
+    } else {
+      ragVectorStoreHint.textContent = 'In-memory store. Data is lost on restart.';
+    }
   }
   updatePgConnectState();
+  updateQdrantConnectState();
   updateRunState();
 }
 
@@ -641,6 +688,7 @@ async function connectPostgres() {
 
     pgConnected = true;
     savePgToStorage(storagePayload);
+    saveLastActiveProvider('postgres');
     const statusMsg = data.warning
       ? `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension}) ⚠️ ${data.warning}`
       : `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension})`;
@@ -648,10 +696,12 @@ async function connectPostgres() {
     if (ragPgConnect) ragPgConnect.textContent = 'Reconnect';
     updatePgDisconnectVisibility();
     updateRunState();
+    updateVectorDbStatus();
     refreshRagStatus();
   } catch (err) {
     pgConnected = false;
     updatePgDisconnectVisibility();
+    updateVectorDbStatus();
     if (ragPgStatus) ragPgStatus.textContent = err.message || 'Connection failed.';
   } finally {
     updatePgConnectState();
@@ -671,7 +721,7 @@ async function disconnectPostgres() {
     await res.json().catch(() => null);
 
     pgConnected = false;
-    clearPgFromStorage();
+    clearLastActiveProvider();
     if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'inmemory');
     if (ragPgConnect) ragPgConnect.textContent = 'Connect';
     if (ragPgStatus) ragPgStatus.textContent = '';
@@ -687,15 +737,26 @@ async function disconnectPostgres() {
 }
 
 async function loadVectorStoreConfig() {
-  // First check localStorage for saved Postgres config
-  const saved = loadPgFromStorage();
-  if (saved && saved.provider === 'postgres' && (saved.host || saved.connectionString)) {
-    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'postgres');
-    applyPgFields(saved);
-    updateVectorStoreUI();
+  // Restore saved fields for both providers (so UI shows saved values)
+  const savedPg = loadPgFromStorage();
+  if (savedPg) applyPgFields(savedPg);
+  const savedQd = loadQdrantFromStorage();
+  if (savedQd) applyQdrantFields(savedQd);
 
-    // Auto-reconnect to the server
+  // Determine which provider to auto-reconnect based on last active
+  const lastActive = loadLastActiveProvider();
+
+  if (lastActive === 'postgres' && savedPg && (savedPg.host || savedPg.connectionString)) {
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'postgres');
+    updateVectorStoreUI();
     await connectPostgres();
+    return;
+  }
+
+  if (lastActive === 'qdrant' && savedQd && savedQd.host) {
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'qdrant');
+    updateVectorStoreUI();
+    await connectQdrant();
     return;
   }
 
@@ -712,9 +773,159 @@ async function loadVectorStoreConfig() {
       if (ragPgConnect) ragPgConnect.textContent = 'Reconnect';
       if (ragPgStatus) ragPgStatus.textContent = `Connected · ${data.schemaName}.${data.tableName}`;
       updatePgDisconnectVisibility();
+    } else if (data?.provider === 'qdrant') {
+      if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'qdrant');
+      applyQdrantFields(data);
+      qdrantConnected = true;
+      if (ragQdrantConnect) ragQdrantConnect.textContent = 'Reconnect';
+      if (ragQdrantStatus) ragQdrantStatus.textContent = `Connected · ${data.qdrantHost}:${data.qdrantPort}`;
+      updateQdrantDisconnectVisibility();
     }
     updateVectorStoreUI();
   } catch { /* ignore */ }
+}
+
+// ── Qdrant ────────────────────────────────────────────────────
+
+function updateQdrantConnectState() {
+  if (!ragQdrantConnect) return;
+  const hasHost = !!ragQdrantHost?.value?.trim();
+  ragQdrantConnect.disabled = !hasHost;
+}
+
+function updateQdrantDisconnectVisibility() {
+  if (ragQdrantDisconnect) {
+    ragQdrantDisconnect.classList.toggle('hidden', !qdrantConnected);
+  }
+}
+
+const ACTIVE_PROVIDER_KEY = 'rag_active_provider';
+
+function saveLastActiveProvider(provider) {
+  try { localStorage.setItem(ACTIVE_PROVIDER_KEY, provider); } catch { /* ignore */ }
+}
+
+function loadLastActiveProvider() {
+  try { return localStorage.getItem(ACTIVE_PROVIDER_KEY); } catch { return null; }
+}
+
+function clearLastActiveProvider() {
+  try { localStorage.removeItem(ACTIVE_PROVIDER_KEY); } catch { /* ignore */ }
+}
+
+const QDRANT_STORAGE_KEY = 'rag_qdrant_config';
+
+function saveQdrantToStorage(config) {
+  try { localStorage.setItem(QDRANT_STORAGE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+}
+
+function loadQdrantFromStorage() {
+  try {
+    const raw = localStorage.getItem(QDRANT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function clearQdrantFromStorage() {
+  try { localStorage.removeItem(QDRANT_STORAGE_KEY); } catch { /* ignore */ }
+}
+
+function applyQdrantFields(cfg) {
+  if (!cfg) return;
+  if (ragQdrantHost) ragQdrantHost.value = cfg.host || cfg.qdrantHost || 'localhost';
+  if (ragQdrantPort) ragQdrantPort.value = cfg.port || cfg.qdrantPort || 6334;
+  if (ragQdrantApiKey) ragQdrantApiKey.value = cfg.apiKey || cfg.qdrantApiKey || '';
+  if (ragQdrantDimension) ragQdrantDimension.value = cfg.dimension || cfg.qdrantDimension || 1536;
+  if (ragQdrantCollection) ragQdrantCollection.value = cfg.collectionName || cfg.qdrantCollectionName || 'default';
+  if (ragQdrantUseTls) ragQdrantUseTls.checked = cfg.useTls ?? cfg.qdrantUseTls ?? false;
+}
+
+async function connectQdrant() {
+  if (!ragQdrantConnect) return;
+  ragQdrantConnect.disabled = true;
+  if (ragQdrantStatus) ragQdrantStatus.textContent = 'Connecting...';
+
+  let host = (ragQdrantHost?.value?.trim() || 'localhost')
+    .replace(/^https?:\/\//i, '')
+    .replace(/\/.*$/, '');
+  if (ragQdrantHost) ragQdrantHost.value = host;
+  const payload = {
+    provider: 'qdrant',
+    qdrantHost: host,
+    qdrantPort: parseInt(ragQdrantPort?.value, 10) || 6334,
+    qdrantApiKey: ragQdrantApiKey?.value?.trim() || null,
+    qdrantUseTls: ragQdrantUseTls?.checked ?? false,
+    dimension: parseInt(ragQdrantDimension?.value, 10) || 1536,
+    qdrantCollectionName: ragQdrantCollection?.value?.trim() || 'default',
+    openAiApiKey: providerKeys?.OpenAI || null
+  };
+  const storagePayload = {
+    provider: 'qdrant',
+    host: payload.qdrantHost,
+    port: payload.qdrantPort,
+    apiKey: payload.qdrantApiKey,
+    useTls: payload.qdrantUseTls,
+    dimension: payload.dimension,
+    collectionName: payload.qdrantCollectionName
+  };
+
+  try {
+    const res = await fetch('/api/rag/vector-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || 'Connection failed.');
+
+    qdrantConnected = true;
+    saveQdrantToStorage(storagePayload);
+    saveLastActiveProvider('qdrant');
+    const statusMsg = data.warning
+      ? `Connected · ${data.host}:${data.port} (dim=${data.dimension}) ⚠️ ${data.warning}`
+      : `Connected · ${data.host}:${data.port} (dim=${data.dimension})`;
+    if (ragQdrantStatus) ragQdrantStatus.textContent = statusMsg;
+    if (ragQdrantConnect) ragQdrantConnect.textContent = 'Reconnect';
+    updateQdrantDisconnectVisibility();
+    updateRunState();
+    updateVectorDbStatus();
+    refreshRagStatus();
+  } catch (err) {
+    qdrantConnected = false;
+    updateQdrantDisconnectVisibility();
+    updateVectorDbStatus();
+    if (ragQdrantStatus) ragQdrantStatus.textContent = err.message || 'Connection failed.';
+  } finally {
+    updateQdrantConnectState();
+  }
+}
+
+async function disconnectQdrant() {
+  if (ragQdrantDisconnect) ragQdrantDisconnect.disabled = true;
+  if (ragQdrantStatus) ragQdrantStatus.textContent = 'Disconnecting...';
+
+  try {
+    const res = await fetch('/api/rag/vector-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'inmemory' })
+    });
+    await res.json().catch(() => null);
+
+    qdrantConnected = false;
+    clearLastActiveProvider();
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'inmemory');
+    if (ragQdrantConnect) ragQdrantConnect.textContent = 'Connect';
+    if (ragQdrantStatus) ragQdrantStatus.textContent = '';
+    updateVectorStoreUI();
+    updateQdrantDisconnectVisibility();
+    refreshRagStatus();
+    markReferenceStale();
+  } catch (err) {
+    if (ragQdrantStatus) ragQdrantStatus.textContent = err.message || 'Failed to disconnect.';
+  } finally {
+    if (ragQdrantDisconnect) ragQdrantDisconnect.disabled = false;
+  }
 }
 
 function setViewCodeEnabled(enabled) {

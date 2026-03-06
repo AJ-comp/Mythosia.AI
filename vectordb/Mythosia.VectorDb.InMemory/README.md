@@ -1,5 +1,12 @@
 # Mythosia.VectorDb.InMemory
 
+## Migration from v1.0.0
+
+v10.1.0 renames logical separation units:
+
+- **`collection` → `namespace`**: All `IVectorStore` method parameters and `CollectionExistsAsync` / `CreateCollectionAsync` / `DeleteCollectionAsync` → `NamespaceExistsAsync` / `CreateNamespaceAsync` / `DeleteNamespaceAsync`.
+- **`namespace` → `scope`**: `VectorRecord.Namespace` → `VectorRecord.Scope`, `VectorFilter.ByNamespace(...)` → `VectorFilter.ByScope(...)`.
+
 ## Package Summary
 
 Provides `InMemoryVectorStore`, a thread-safe in-memory implementation of `IVectorStore` using cosine similarity search.  
@@ -21,22 +28,27 @@ Automatically used as the default vector store in `Mythosia.AI.Rag`:
 
 - **Thread-safe** — Uses `ConcurrentDictionary` for safe concurrent access
 - **Cosine similarity** — TopK search with configurable result count
-- **Namespace isolation** — Filter by namespace for multi-tenant scenarios
+- **Scope isolation** — Filter by scope for multi-tenant scenarios
 - **Metadata filtering** — Filter search results by key-value metadata
 - **Minimum score** — Discard results below a similarity threshold
 - **Upsert** — Single and batch upsert operations
-- **Collection management** — Create, check, and delete collections
+- **Namespace management** — Create, check, and delete namespaces
 
 ## Standalone Usage
 
+### Fluent API (recommended)
+
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
+var ns = store.InNamespace("my-namespace");
 
-await store.CreateCollectionAsync("my-collection");
+await ns.CreateAsync();
 
-await store.UpsertAsync("my-collection", new VectorRecord
+// Namespace-only
+await ns.UpsertAsync(new VectorRecord
 {
     Id = "doc-1",
     Content = "Some text content",
@@ -44,7 +56,32 @@ await store.UpsertAsync("my-collection", new VectorRecord
     Metadata = { ["source"] = "manual.txt" }
 });
 
-var results = await store.SearchAsync("my-collection", queryVector, topK: 5);
+var results = await ns.SearchAsync(queryVector, topK: 5);
+
+// Namespace + Scope
+var scoped = ns.InScope("tenant-1");
+await scoped.UpsertAsync(record);   // record.Scope is set automatically
+var scopedResults = await scoped.SearchAsync(queryVector);
+```
+
+### Legacy (flat) API
+
+```csharp
+using Mythosia.VectorDb.InMemory;
+
+var store = new InMemoryVectorStore();
+
+await store.CreateNamespaceAsync("my-namespace");
+
+await store.UpsertAsync("my-namespace", new VectorRecord
+{
+    Id = "doc-1",
+    Content = "Some text content",
+    Vector = new float[] { 0.1f, 0.2f, 0.3f },
+    Metadata = { ["source"] = "manual.txt" }
+});
+
+var results = await store.SearchAsync("my-namespace", queryVector, topK: 5);
 ```
 
 ## Limitations

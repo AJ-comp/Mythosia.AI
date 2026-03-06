@@ -1,6 +1,50 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
-## v1.0.0
+## v10.1.0
+
+### Breaking Changes — Namespace Now Optional
+
+Aligned with `IVectorStore` v2.0.0: namespace moved from method parameter to `VectorRecord.Namespace` / `VectorFilter.Namespace` properties.
+
+- All methods no longer take `string @namespace` as a parameter.
+- Namespace is read from `record.Namespace` or `filter.Namespace` (defaults to `"default"` when null).
+- `NamespaceExistsAsync` / `CreateNamespaceAsync` / `DeleteNamespaceAsync` removed — use `DeleteByFilterAsync(new VectorFilter { Namespace = "ns" })`.
+- `GetAsync` / `DeleteAsync` now accept optional `VectorFilter? filter` for namespace/scope narrowing.
+- **`PostgresVectorStore` → `PostgresStore`**: Class renamed for shorter DX.
+- **`PostgresVectorStoreOptions` → `PostgresOptions`**: Options class renamed.
+
+### Breaking Changes — Schema
+
+- Primary key remains `(namespace, id)`.
+- Column `collection` → `namespace`, column `namespace` → `scope` (from v10.0.0 terminology).
+
+### Migration from v10.0.0
+
+For existing PostgreSQL databases, run the following migration **before** upgrading:
+
+```sql
+-- 1. Rename columns (order matters: rename 'namespace' first to avoid conflict)
+ALTER TABLE "public"."vectors" RENAME COLUMN namespace TO scope;
+ALTER TABLE "public"."vectors" RENAME COLUMN collection TO namespace;
+
+-- 2. Recreate composite index
+DROP INDEX IF EXISTS idx_vectors_collection_ns;
+CREATE INDEX idx_vectors_ns_scope ON "public"."vectors" (namespace, scope);
+
+-- 3. Recreate primary key
+ALTER TABLE "public"."vectors" DROP CONSTRAINT vectors_pkey;
+ALTER TABLE "public"."vectors" ADD PRIMARY KEY (namespace, id);
+```
+
+### Fluent Builder API
+
+```csharp
+var store = new PostgresStore(options);
+await store.InNamespace("docs").InScope("tenant-1").UpsertAsync(record);
+var results = await store.InNamespace("docs").InScope("tenant-1").SearchAsync(queryVector);
+```
+
+## v10.0.0
 
 ### Initial Release
 

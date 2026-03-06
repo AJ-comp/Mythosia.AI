@@ -1,5 +1,25 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v2.0.0
+
+### Breaking Changes — Namespace Now Optional
+
+Aligned with `IVectorStore` v2.0.0: namespace moved from method parameter to `VectorRecord.Namespace` / `VectorFilter.Namespace` properties.
+
+- All methods no longer take `string @namespace` as a parameter.
+- Namespace is read from `record.Namespace` (defaults to `"default"` when null).
+- `NamespaceExistsAsync` / `CreateNamespaceAsync` / `DeleteNamespaceAsync` removed.
+- Diagnostic methods `ListAllRecordsAsync` and `ScoredListAsync` now take `string? @namespace = null`.
+
+### Fluent API
+
+`InNamespace()` / `InScope()` fluent builder pattern works seamlessly:
+
+```csharp
+var store = new InMemoryVectorStore();
+await store.InNamespace("docs").InScope("tenant-1").UpsertAsync(record);
+```
+
 ## v1.0.0
 
 ### Initial Release
@@ -7,8 +27,7 @@
 - `InMemoryVectorStore` — thread-safe in-memory implementation of `IVectorStore`.
 - Cosine similarity TopK search with configurable result count.
 - Thread-safe concurrent access via `ConcurrentDictionary`.
-- Namespace isolation and metadata key-value filtering.
+- Scope isolation and metadata key-value filtering.
 - Minimum score threshold support.
 - Single and batch upsert/delete operations.
-- Collection management (create, check, delete).
 - Diagnostic helpers: `ListAllRecordsAsync`, `ScoredListAsync`, `GetTotalRecordCount`.

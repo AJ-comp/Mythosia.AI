@@ -1,65 +1,64 @@
-namespace Mythosia.VectorDb.Postgres
+namespace Mythosia.VectorDb.Postgres;
+
+/// <summary>
+/// Optional per-request runtime tuning for vector search.
+/// </summary>
+public abstract class VectorSearchRuntimeOptions
 {
     /// <summary>
-    /// Optional per-request runtime tuning for vector search.
+    /// Optional preset profile for this request.
     /// </summary>
-    public abstract class VectorSearchRuntimeOptions
-    {
-        /// <summary>
-        /// Optional preset profile for this request.
-        /// </summary>
-        public SearchProfile? Profile { get; init; }
-    }
+    public SearchProfile? Profile { get; init; }
+}
+
+/// <summary>
+/// HNSW runtime search options.
+/// </summary>
+public sealed class HnswSearchRuntimeOptions : VectorSearchRuntimeOptions
+{
+    /// <summary>
+    /// Optional HNSW ef_search override for this request.
+    /// </summary>
+    public int? EfSearch { get; init; }
 
     /// <summary>
-    /// HNSW runtime search options.
+    /// Fast profile preset for HNSW.
     /// </summary>
-    public sealed class HnswSearchRuntimeOptions : VectorSearchRuntimeOptions
-    {
-        /// <summary>
-        /// Optional HNSW ef_search override for this request.
-        /// </summary>
-        public int? EfSearch { get; init; }
-
-        /// <summary>
-        /// Fast profile preset for HNSW.
-        /// </summary>
-        public static HnswSearchRuntimeOptions Fast => new() { Profile = SearchProfile.Fast };
-
-        /// <summary>
-        /// Balanced profile preset for HNSW.
-        /// </summary>
-        public static HnswSearchRuntimeOptions Balanced => new() { Profile = SearchProfile.Balanced };
-
-        /// <summary>
-        /// HighRecall profile preset for HNSW.
-        /// </summary>
-        public static HnswSearchRuntimeOptions HighRecall => new() { Profile = SearchProfile.HighRecall };
-    }
+    public static HnswSearchRuntimeOptions Fast => new() { Profile = SearchProfile.Fast };
 
     /// <summary>
-    /// IVFFlat runtime search options.
+    /// Balanced profile preset for HNSW.
     /// </summary>
-    public sealed class IvfFlatSearchRuntimeOptions : VectorSearchRuntimeOptions
-    {
-        /// <summary>
-        /// Optional IVFFlat probes override for this request.
-        /// </summary>
-        public int? Probes { get; init; }
+    public static HnswSearchRuntimeOptions Balanced => new() { Profile = SearchProfile.Balanced };
 
-        /// <summary>
-        /// Fast profile preset for IVFFlat.
-        /// </summary>
-        public static IvfFlatSearchRuntimeOptions Fast => new() { Profile = SearchProfile.Fast };
+    /// <summary>
+    /// HighRecall profile preset for HNSW.
+    /// </summary>
+    public static HnswSearchRuntimeOptions HighRecall => new() { Profile = SearchProfile.HighRecall };
+}
 
-        /// <summary>
-        /// Balanced profile preset for IVFFlat.
-        /// </summary>
-        public static IvfFlatSearchRuntimeOptions Balanced => new() { Profile = SearchProfile.Balanced };
+/// <summary>
+/// IVFFlat runtime search options.
+/// </summary>
+public sealed class IvfFlatSearchRuntimeOptions : VectorSearchRuntimeOptions
+{
+    /// <summary>
+    /// Optional IVFFlat probes override for this request.
+    /// </summary>
+    public int? Probes { get; init; }
 
-        /// <summary>
-        /// HighRecall profile preset for IVFFlat.
-        /// </summary>
-        public static IvfFlatSearchRuntimeOptions HighRecall => new() { Profile = SearchProfile.HighRecall };
-    }
+    /// <summary>
+    /// Fast profile preset for IVFFlat.
+    /// </summary>
+    public static IvfFlatSearchRuntimeOptions Fast => new() { Profile = SearchProfile.Fast };
+
+    /// <summary>
+    /// Balanced profile preset for IVFFlat.
+    /// </summary>
+    public static IvfFlatSearchRuntimeOptions Balanced => new() { Profile = SearchProfile.Balanced };
+
+    /// <summary>
+    /// HighRecall profile preset for IVFFlat.
+    /// </summary>
+    public static IvfFlatSearchRuntimeOptions HighRecall => new() { Profile = SearchProfile.HighRecall };
 }

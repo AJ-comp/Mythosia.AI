@@ -12,6 +12,7 @@ export const sidebarLeft    = $('#sidebar-left');
 // Chat area
 export const chatStatus     = $('#chat-status');
 export const ragChatStatus  = $('#rag-chat-status');
+export const vectordbChatStatus = $('#vectordb-chat-status');
 export const chatMessages   = $('#chat-messages');
 export const chatForm       = $('#chat-form');
 export const chatInput      = $('#chat-input');
@@ -94,6 +95,16 @@ export const ragPgEnsureSchema = $('#rag-pg-ensure-schema');
 export const ragPgConnect    = $('#rag-pg-connect');
 export const ragPgDisconnect = $('#rag-pg-disconnect');
 export const ragPgStatus     = $('#rag-pg-status');
+export const ragQdrantConfig    = $('#rag-qdrant-config');
+export const ragQdrantHost      = $('#rag-qdrant-host');
+export const ragQdrantPort      = $('#rag-qdrant-port');
+export const ragQdrantApiKey    = $('#rag-qdrant-apikey');
+export const ragQdrantDimension = $('#rag-qdrant-dimension');
+export const ragQdrantCollection = $('#rag-qdrant-collection');
+export const ragQdrantUseTls    = $('#rag-qdrant-usetls');
+export const ragQdrantConnect   = $('#rag-qdrant-connect');
+export const ragQdrantDisconnect = $('#rag-qdrant-disconnect');
+export const ragQdrantStatus    = $('#rag-qdrant-status');
 
 // RAG Diagnostics Modal
 export const btnRagDiagnose   = $('#btn-rag-diagnose');

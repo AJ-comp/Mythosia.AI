@@ -170,7 +170,7 @@ public class LoaderRoutingTests
 
         public IReadOnlyList<VectorRecord> Records => _records;
 
-        public Task UpsertAsync(string collection, VectorRecord record, CancellationToken cancellationToken = default)
+        public Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             lock (_records)
@@ -181,7 +181,7 @@ public class LoaderRoutingTests
             return Task.CompletedTask;
         }
 
-        public Task UpsertBatchAsync(string collection, IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
+        public Task UpsertBatchAsync(IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             lock (_records)
@@ -193,7 +193,6 @@ public class LoaderRoutingTests
         }
 
         public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
-            string collection,
             float[] queryVector,
             int topK = 5,
             VectorFilter? filter = null,
@@ -202,7 +201,7 @@ public class LoaderRoutingTests
             return Task.FromResult<IReadOnlyList<VectorSearchResult>>(Array.Empty<VectorSearchResult>());
         }
 
-        public Task<VectorRecord?> GetAsync(string collection, string id, CancellationToken cancellationToken = default)
+        public Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
             lock (_records)
             {
@@ -210,7 +209,7 @@ public class LoaderRoutingTests
             }
         }
 
-        public Task DeleteAsync(string collection, string id, CancellationToken cancellationToken = default)
+        public Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
             lock (_records)
             {
@@ -220,28 +219,8 @@ public class LoaderRoutingTests
             return Task.CompletedTask;
         }
 
-        public Task DeleteByFilterAsync(string collection, VectorFilter filter, CancellationToken cancellationToken = default)
+        public Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default)
         {
-            return Task.CompletedTask;
-        }
-
-        public Task<bool> CollectionExistsAsync(string collection, CancellationToken cancellationToken = default)
-        {
-            return Task.FromResult(true);
-        }
-
-        public Task CreateCollectionAsync(string collection, CancellationToken cancellationToken = default)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task DeleteCollectionAsync(string collection, CancellationToken cancellationToken = default)
-        {
-            lock (_records)
-            {
-                _records.Clear();
-            }
-
             return Task.CompletedTask;
         }
     }

@@ -4,7 +4,7 @@ using Mythosia.VectorDb.Postgres;
 namespace Mythosia.VectorDb.Postgres.Tests;
 
 /// <summary>
-/// Integration tests for <see cref="PostgresVectorStore"/>.
+/// Integration tests for <see cref="PostgresStore"/>.
 /// Requires a running PostgreSQL instance with pgvector extension.
 /// 
 /// Set environment variable MYTHOSIA_PG_CONN to the connection string, e.g.:
@@ -14,10 +14,10 @@ namespace Mythosia.VectorDb.Postgres.Tests;
 ///   docker run -d --name pgvector -p 5432:5432 -e POSTGRES_PASSWORD=secret pgvector/pgvector:pg16
 /// </summary>
 [TestClass]
-public class PostgresVectorStoreTests
+public class PostgresStoreTests
 {
     private const int TestDimension = 3;
-    private const string TestCollection = "test_collection";
+    private const string TestNamespace = "test_namespace";
 
     private static string? _connectionString;
     private static bool _skipTests;
@@ -34,9 +34,9 @@ public class PostgresVectorStoreTests
         }
     }
 
-    private PostgresVectorStore CreateStore(bool ensureSchema = true)
+    private PostgresStore CreateStore(bool ensureSchema = true)
     {
-        return new PostgresVectorStore(new PostgresVectorStoreOptions
+        return new PostgresStore(new PostgresOptions
         {
             ConnectionString = _connectionString!,
             Dimension = TestDimension,
@@ -59,15 +59,17 @@ public class PostgresVectorStoreTests
         SkipIfNoDb();
         using var store = CreateStore(ensureSchema: true);
 
-        // Should not throw
-        await store.CreateCollectionAsync(TestCollection);
+        // Should not throw — upsert triggers schema creation
+        var record = new VectorRecord("schema-test", new float[] { 1, 0, 0 }, "Test") { Namespace = TestNamespace };
+        await store.UpsertAsync(record);
+        await store.DeleteAsync("schema-test", new VectorFilter { Namespace = TestNamespace });
     }
 
     [TestMethod]
     public async Task EnsureSchemaFalse_ThrowsWhenTableMissing()
     {
         SkipIfNoDb();
-        using var store = new PostgresVectorStore(new PostgresVectorStoreOptions
+        using var store = new PostgresStore(new PostgresOptions
         {
             ConnectionString = _connectionString!,
             Dimension = TestDimension,
@@ -76,7 +78,7 @@ public class PostgresVectorStoreTests
         });
 
         await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => store.CollectionExistsAsync("any"));
+            () => store.UpsertAsync(new VectorRecord("any", new float[] { 1, 0, 0 }, "Test")));
     }
 
     #endregion
@@ -88,25 +90,26 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
         var record = new VectorRecord
         {
             Id = "doc-1",
             Content = "Hello world",
             Vector = new float[] { 0.1f, 0.2f, 0.3f },
-            Namespace = "ns1",
+            Scope = "scope1",
             Metadata = { ["source"] = "test.txt", ["lang"] = "en" }
         };
 
-        await store.UpsertAsync(TestCollection, record);
+        record.Namespace = TestNamespace;
+        await store.UpsertAsync(record);
 
-        var retrieved = await store.GetAsync(TestCollection, "doc-1");
+        var retrieved = await store.GetAsync("doc-1", new VectorFilter { Namespace = TestNamespace });
 
         Assert.IsNotNull(retrieved);
         Assert.AreEqual("doc-1", retrieved.Id);
         Assert.AreEqual("Hello world", retrieved.Content);
-        Assert.AreEqual("ns1", retrieved.Namespace);
+        Assert.AreEqual("scope1", retrieved.Scope);
         Assert.AreEqual(3, retrieved.Vector.Length);
         Assert.AreEqual("test.txt", retrieved.Metadata["source"]);
         Assert.AreEqual("en", retrieved.Metadata["lang"]);
@@ -117,23 +120,25 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertAsync(TestCollection, new VectorRecord
+        await store.UpsertAsync(new VectorRecord
         {
             Id = "doc-update",
             Content = "Version 1",
-            Vector = new float[] { 0.1f, 0.1f, 0.1f }
+            Vector = new float[] { 0.1f, 0.1f, 0.1f },
+            Namespace = TestNamespace
         });
 
-        await store.UpsertAsync(TestCollection, new VectorRecord
+        await store.UpsertAsync(new VectorRecord
         {
             Id = "doc-update",
             Content = "Version 2",
-            Vector = new float[] { 0.9f, 0.9f, 0.9f }
+            Vector = new float[] { 0.9f, 0.9f, 0.9f },
+            Namespace = TestNamespace
         });
 
-        var retrieved = await store.GetAsync(TestCollection, "doc-update");
+        var retrieved = await store.GetAsync("doc-update", new VectorFilter { Namespace = TestNamespace });
         Assert.IsNotNull(retrieved);
         Assert.AreEqual("Version 2", retrieved.Content);
     }
@@ -143,7 +148,7 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
         var records = new[]
         {
@@ -152,11 +157,13 @@ public class PostgresVectorStoreTests
             new VectorRecord("batch-3", new float[] { 0.7f, 0.8f, 0.9f }, "Third")
         };
 
-        await store.UpsertBatchAsync(TestCollection, records);
+        foreach (var r in records) r.Namespace = TestNamespace;
+        await store.UpsertBatchAsync(records);
 
-        var r1 = await store.GetAsync(TestCollection, "batch-1");
-        var r2 = await store.GetAsync(TestCollection, "batch-2");
-        var r3 = await store.GetAsync(TestCollection, "batch-3");
+        var nsFilter = new VectorFilter { Namespace = TestNamespace };
+        var r1 = await store.GetAsync("batch-1", nsFilter);
+        var r2 = await store.GetAsync("batch-2", nsFilter);
+        var r3 = await store.GetAsync("batch-3", nsFilter);
 
         Assert.IsNotNull(r1);
         Assert.IsNotNull(r2);
@@ -172,7 +179,7 @@ public class PostgresVectorStoreTests
         SkipIfNoDb();
         using var store = CreateStore();
 
-        var result = await store.GetAsync(TestCollection, "nonexistent-id");
+        var result = await store.GetAsync("nonexistent-id", new VectorFilter { Namespace = TestNamespace });
         Assert.IsNull(result);
     }
 
@@ -185,18 +192,19 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
         // Insert vectors with known similarity to query
-        await store.UpsertBatchAsync(TestCollection, new[]
+        var records = new[]
         {
-            new VectorRecord("close", new float[] { 0.9f, 0.1f, 0.0f }, "Close match"),
-            new VectorRecord("far",   new float[] { 0.0f, 0.0f, 1.0f }, "Far match"),
-            new VectorRecord("mid",   new float[] { 0.5f, 0.5f, 0.0f }, "Mid match")
-        });
+            new VectorRecord("close", new float[] { 0.9f, 0.1f, 0.0f }, "Close match") { Namespace = TestNamespace },
+            new VectorRecord("far",   new float[] { 0.0f, 0.0f, 1.0f }, "Far match") { Namespace = TestNamespace },
+            new VectorRecord("mid",   new float[] { 0.5f, 0.5f, 0.0f }, "Mid match") { Namespace = TestNamespace }
+        };
+        await store.UpsertBatchAsync(records);
 
         var queryVector = new float[] { 1.0f, 0.0f, 0.0f };
-        var results = await store.SearchAsync(TestCollection, queryVector, topK: 3);
+        var results = await store.SearchAsync(queryVector, topK: 3, filter: new VectorFilter { Namespace = TestNamespace });
 
         Assert.IsTrue(results.Count > 0, "Should have results");
         Assert.AreEqual("close", results[0].Record.Id, "Closest vector should be first");
@@ -208,24 +216,24 @@ public class PostgresVectorStoreTests
     }
 
     [TestMethod]
-    public async Task Search_NamespaceFilter_FiltersCorrectly()
+    public async Task Search_ScopeFilter_FiltersCorrectly()
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertBatchAsync(TestCollection, new[]
+        await store.UpsertBatchAsync(new[]
         {
-            new VectorRecord { Id = "ns-a1", Vector = new float[] { 1, 0, 0 }, Content = "A1", Namespace = "alpha" },
-            new VectorRecord { Id = "ns-b1", Vector = new float[] { 1, 0, 0 }, Content = "B1", Namespace = "beta" }
+            new VectorRecord { Id = "sc-a1", Vector = new float[] { 1, 0, 0 }, Content = "A1", Scope = "alpha", Namespace = TestNamespace },
+            new VectorRecord { Id = "sc-b1", Vector = new float[] { 1, 0, 0 }, Content = "B1", Scope = "beta", Namespace = TestNamespace }
         });
 
-        var results = await store.SearchAsync(TestCollection,
+        var results = await store.SearchAsync(
             new float[] { 1, 0, 0 }, topK: 10,
-            filter: VectorFilter.ByNamespace("alpha"));
+            filter: new VectorFilter { Namespace = TestNamespace, Scope = "alpha" });
 
         Assert.AreEqual(1, results.Count);
-        Assert.AreEqual("ns-a1", results[0].Record.Id);
+        Assert.AreEqual("sc-a1", results[0].Record.Id);
     }
 
     [TestMethod]
@@ -233,25 +241,29 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertBatchAsync(TestCollection, new[]
+        await store.UpsertBatchAsync(new[]
         {
             new VectorRecord
             {
                 Id = "meta-1", Vector = new float[] { 1, 0, 0 }, Content = "Doc1",
+                Namespace = TestNamespace,
                 Metadata = { ["type"] = "article", ["lang"] = "en" }
             },
             new VectorRecord
             {
                 Id = "meta-2", Vector = new float[] { 1, 0, 0 }, Content = "Doc2",
+                Namespace = TestNamespace,
                 Metadata = { ["type"] = "faq", ["lang"] = "en" }
             }
         });
 
-        var results = await store.SearchAsync(TestCollection,
+        var filter = VectorFilter.ByMetadata("type", "article");
+        filter.Namespace = TestNamespace;
+        var results = await store.SearchAsync(
             new float[] { 1, 0, 0 }, topK: 10,
-            filter: VectorFilter.ByMetadata("type", "article"));
+            filter: filter);
 
         Assert.AreEqual(1, results.Count);
         Assert.AreEqual("meta-1", results[0].Record.Id);
@@ -262,17 +274,17 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertBatchAsync(TestCollection, new[]
+        await store.UpsertBatchAsync(new[]
         {
-            new VectorRecord("high", new float[] { 1, 0, 0 }, "High similarity"),
-            new VectorRecord("low",  new float[] { 0, 0, 1 }, "Low similarity")
+            new VectorRecord("high", new float[] { 1, 0, 0 }, "High similarity") { Namespace = TestNamespace },
+            new VectorRecord("low",  new float[] { 0, 0, 1 }, "Low similarity") { Namespace = TestNamespace }
         });
 
-        var results = await store.SearchAsync(TestCollection,
+        var results = await store.SearchAsync(
             new float[] { 1, 0, 0 }, topK: 10,
-            filter: new VectorFilter { MinScore = 0.8 });
+            filter: new VectorFilter { Namespace = TestNamespace, MinScore = 0.8 });
 
         Assert.IsTrue(results.All(r => r.Score >= 0.8), "All results should be above MinScore");
         Assert.IsTrue(results.Any(r => r.Record.Id == "high"), "High similarity record should be included");
@@ -283,19 +295,18 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertBatchAsync(TestCollection, new[]
+        await store.UpsertBatchAsync(new[]
         {
-            new VectorRecord("p1", new float[] { 1, 0, 0 }, "P1"),
-            new VectorRecord("p2", new float[] { 0.9f, 0.1f, 0 }, "P2")
+            new VectorRecord("p1", new float[] { 1, 0, 0 }, "P1") { Namespace = TestNamespace },
+            new VectorRecord("p2", new float[] { 0.9f, 0.1f, 0 }, "P2") { Namespace = TestNamespace }
         });
 
         var results = await store.SearchAsync(
-            TestCollection,
             new float[] { 1, 0, 0 },
             topK: 2,
-            filter: null,
+            filter: new VectorFilter { Namespace = TestNamespace },
             runtimeOptions: new HnswSearchRuntimeOptions
             {
                 Profile = SearchProfile.Fast,
@@ -314,12 +325,12 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertAsync(TestCollection, new VectorRecord("del-1", new float[] { 1, 0, 0 }, "To delete"));
-        await store.DeleteAsync(TestCollection, "del-1");
+        await store.UpsertAsync(new VectorRecord("del-1", new float[] { 1, 0, 0 }, "To delete") { Namespace = TestNamespace });
+        await store.DeleteAsync("del-1", new VectorFilter { Namespace = TestNamespace });
 
-        var result = await store.GetAsync(TestCollection, "del-1");
+        var result = await store.GetAsync("del-1", new VectorFilter { Namespace = TestNamespace });
         Assert.IsNull(result);
     }
 
@@ -328,70 +339,72 @@ public class PostgresVectorStoreTests
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertBatchAsync(TestCollection, new[]
+        await store.UpsertBatchAsync(new[]
         {
-            new VectorRecord { Id = "df-1", Vector = new float[] { 1, 0, 0 }, Content = "Keep", Namespace = "keep" },
-            new VectorRecord { Id = "df-2", Vector = new float[] { 0, 1, 0 }, Content = "Delete", Namespace = "remove" },
-            new VectorRecord { Id = "df-3", Vector = new float[] { 0, 0, 1 }, Content = "Delete too", Namespace = "remove" }
+            new VectorRecord { Id = "df-1", Vector = new float[] { 1, 0, 0 }, Content = "Keep", Scope = "keep", Namespace = TestNamespace },
+            new VectorRecord { Id = "df-2", Vector = new float[] { 0, 1, 0 }, Content = "Delete", Scope = "remove", Namespace = TestNamespace },
+            new VectorRecord { Id = "df-3", Vector = new float[] { 0, 0, 1 }, Content = "Delete too", Scope = "remove", Namespace = TestNamespace }
         });
 
-        await store.DeleteByFilterAsync(TestCollection, VectorFilter.ByNamespace("remove"));
+        await store.DeleteByFilterAsync(new VectorFilter { Namespace = TestNamespace, Scope = "remove" });
 
-        Assert.IsNotNull(await store.GetAsync(TestCollection, "df-1"), "Kept record should still exist");
-        Assert.IsNull(await store.GetAsync(TestCollection, "df-2"), "Deleted record should be gone");
-        Assert.IsNull(await store.GetAsync(TestCollection, "df-3"), "Deleted record should be gone");
+        var nsFilter = new VectorFilter { Namespace = TestNamespace };
+        Assert.IsNotNull(await store.GetAsync("df-1", nsFilter), "Kept record should still exist");
+        Assert.IsNull(await store.GetAsync("df-2", nsFilter), "Deleted record should be gone");
+        Assert.IsNull(await store.GetAsync("df-3", nsFilter), "Deleted record should be gone");
     }
 
     [TestMethod]
-    public async Task DeleteCollection_RemovesAllRecordsInCollection()
+    public async Task DeleteByNamespaceFilter_RemovesAllRecordsInNamespace()
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertBatchAsync(TestCollection, new[]
+        await store.UpsertBatchAsync(new[]
         {
-            new VectorRecord("dc-1", new float[] { 1, 0, 0 }, "One"),
-            new VectorRecord("dc-2", new float[] { 0, 1, 0 }, "Two")
+            new VectorRecord("dc-1", new float[] { 1, 0, 0 }, "One") { Namespace = TestNamespace },
+            new VectorRecord("dc-2", new float[] { 0, 1, 0 }, "Two") { Namespace = TestNamespace }
         });
 
-        // Also insert into a different collection to verify isolation
-        await store.UpsertAsync("other_collection", new VectorRecord("other-1", new float[] { 0, 0, 1 }, "Other"));
+        // Also insert into a different namespace to verify isolation
+        await store.UpsertAsync(new VectorRecord("other-1", new float[] { 0, 0, 1 }, "Other") { Namespace = "other_namespace" });
 
-        await store.DeleteCollectionAsync(TestCollection);
+        await store.DeleteByFilterAsync(new VectorFilter { Namespace = TestNamespace });
 
-        Assert.IsFalse(await store.CollectionExistsAsync(TestCollection), "Collection should not exist after deletion");
-        Assert.IsTrue(await store.CollectionExistsAsync("other_collection"), "Other collection should still exist");
+        var testResult = await store.GetAsync("dc-1", new VectorFilter { Namespace = TestNamespace });
+        Assert.IsNull(testResult, "Record should not exist after namespace deletion");
+
+        var otherResult = await store.GetAsync("other-1", new VectorFilter { Namespace = "other_namespace" });
+        Assert.IsNotNull(otherResult, "Other namespace record should still exist");
 
         // Cleanup
-        await store.DeleteCollectionAsync("other_collection");
+        await store.DeleteByFilterAsync(new VectorFilter { Namespace = "other_namespace" });
     }
 
     #endregion
 
-    #region Collection Tests
+    #region Namespace Filter Tests
 
     [TestMethod]
-    public async Task CollectionExists_ReturnsTrueWhenDataPresent()
+    public async Task SearchWithNamespaceFilter_ReturnsOnlyMatchingNamespace()
     {
         SkipIfNoDb();
         using var store = CreateStore();
-        await CleanCollection(store);
+        await CleanNamespace(store);
 
-        await store.UpsertAsync(TestCollection, new VectorRecord("exists-1", new float[] { 1, 0, 0 }, "Exists"));
+        await store.UpsertAsync(new VectorRecord("exists-1", new float[] { 1, 0, 0 }, "Exists") { Namespace = TestNamespace });
+        await store.UpsertAsync(new VectorRecord("other-1", new float[] { 1, 0, 0 }, "Other") { Namespace = "other_ns" });
 
-        Assert.IsTrue(await store.CollectionExistsAsync(TestCollection));
-    }
+        var results = await store.SearchAsync(new float[] { 1, 0, 0 }, topK: 10,
+            filter: new VectorFilter { Namespace = TestNamespace });
 
-    [TestMethod]
-    public async Task CollectionExists_ReturnsFalseWhenEmpty()
-    {
-        SkipIfNoDb();
-        using var store = CreateStore();
+        Assert.IsTrue(results.All(r => r.Record.Namespace == TestNamespace));
 
-        Assert.IsFalse(await store.CollectionExistsAsync("definitely_nonexistent_collection_xyz"));
+        // Cleanup
+        await store.DeleteByFilterAsync(new VectorFilter { Namespace = "other_ns" });
     }
 
     #endregion
@@ -401,14 +414,14 @@ public class PostgresVectorStoreTests
     [TestMethod]
     public void VectorToString_FormatsCorrectly()
     {
-        var result = PostgresVectorStore.VectorToString(new float[] { 0.1f, 0.2f, 0.3f });
+        var result = PostgresStore.VectorToString(new float[] { 0.1f, 0.2f, 0.3f });
         Assert.AreEqual("[0.1,0.2,0.3]", result);
     }
 
     [TestMethod]
     public void ParseVectorString_ParsesCorrectly()
     {
-        var result = PostgresVectorStore.ParseVectorString("[0.1,0.2,0.3]");
+        var result = PostgresStore.ParseVectorString("[0.1,0.2,0.3]");
         Assert.AreEqual(3, result.Length);
         Assert.AreEqual(0.1f, result[0], 0.001f);
         Assert.AreEqual(0.2f, result[1], 0.001f);
@@ -418,16 +431,16 @@ public class PostgresVectorStoreTests
     [TestMethod]
     public void ParseVectorString_EmptyReturnsEmpty()
     {
-        Assert.AreEqual(0, PostgresVectorStore.ParseVectorString("").Length);
-        Assert.AreEqual(0, PostgresVectorStore.ParseVectorString("[]").Length);
+        Assert.AreEqual(0, PostgresStore.ParseVectorString("").Length);
+        Assert.AreEqual(0, PostgresStore.ParseVectorString("[]").Length);
     }
 
     [TestMethod]
     public void VectorRoundTrip_PreservesValues()
     {
         var original = new float[] { -1.5f, 0f, 3.14159f, 100.001f };
-        var str = PostgresVectorStore.VectorToString(original);
-        var parsed = PostgresVectorStore.ParseVectorString(str);
+        var str = PostgresStore.VectorToString(original);
+        var parsed = PostgresStore.ParseVectorString(str);
 
         Assert.AreEqual(original.Length, parsed.Length);
         for (int i = 0; i < original.Length; i++)
@@ -442,27 +455,27 @@ public class PostgresVectorStoreTests
     public void Options_EmptyConnectionString_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions { ConnectionString = "", Dimension = 3 }.Validate());
+            new PostgresOptions { ConnectionString = "", Dimension = 3 }.Validate());
     }
 
     [TestMethod]
     public void Options_ZeroDimension_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions { ConnectionString = "Host=x", Dimension = 0 }.Validate());
+            new PostgresOptions { ConnectionString = "Host=x", Dimension = 0 }.Validate());
     }
 
     [TestMethod]
     public void Options_InvalidTableName_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions { ConnectionString = "Host=x", Dimension = 3, TableName = "bad;name" }.Validate());
+            new PostgresOptions { ConnectionString = "Host=x", Dimension = 3, TableName = "bad;name" }.Validate());
     }
 
     [TestMethod]
     public void Options_ValidOptions_DoesNotThrow()
     {
-        new PostgresVectorStoreOptions
+        new PostgresOptions
         {
             ConnectionString = "Host=localhost",
             Dimension = 1536,
@@ -475,7 +488,7 @@ public class PostgresVectorStoreTests
     public void Options_ZeroIvfflatLists_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions
+            new PostgresOptions
             {
                 ConnectionString = "Host=x",
                 Dimension = 3,
@@ -490,7 +503,7 @@ public class PostgresVectorStoreTests
     public void Options_ZeroHnswEfConstruction_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions
+            new PostgresOptions
             {
                 ConnectionString = "Host=x",
                 Dimension = 3,
@@ -505,7 +518,7 @@ public class PostgresVectorStoreTests
     public void Options_ZeroHnswM_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions
+            new PostgresOptions
             {
                 ConnectionString = "Host=x",
                 Dimension = 3,
@@ -520,7 +533,7 @@ public class PostgresVectorStoreTests
     public void Options_ZeroIvfflatProbes_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions
+            new PostgresOptions
             {
                 ConnectionString = "Host=x",
                 Dimension = 3,
@@ -535,7 +548,7 @@ public class PostgresVectorStoreTests
     public void Options_ZeroHnswEfSearch_Throws()
     {
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new PostgresVectorStoreOptions
+            new PostgresOptions
             {
                 ConnectionString = "Host=x",
                 Dimension = 3,
@@ -548,9 +561,9 @@ public class PostgresVectorStoreTests
 
     #endregion
 
-    private static async Task CleanCollection(PostgresVectorStore store)
+    private static async Task CleanNamespace(PostgresStore store)
     {
-        try { await store.DeleteCollectionAsync(TestCollection); }
+        try { await store.DeleteByFilterAsync(new VectorFilter { Namespace = TestNamespace }); }
         catch { /* ignore if table doesn't exist yet */ }
     }
 }

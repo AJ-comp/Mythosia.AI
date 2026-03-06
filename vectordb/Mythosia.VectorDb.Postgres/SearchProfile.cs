@@ -1,12 +1,11 @@
-namespace Mythosia.VectorDb.Postgres
+namespace Mythosia.VectorDb.Postgres;
+
+/// <summary>
+/// Runtime search profile presets for recall/latency tradeoffs.
+/// </summary>
+public enum SearchProfile
 {
-    /// <summary>
-    /// Runtime search profile presets for recall/latency tradeoffs.
-    /// </summary>
-    public enum SearchProfile
-    {
-        Fast,
-        Balanced,
-        HighRecall
-    }
+    Fast,
+    Balanced,
+    HighRecall
 }

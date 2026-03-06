@@ -11,6 +11,7 @@
     <Project Path="vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj" Id="de25aa02-69a3-4c4a-a999-b3401d920f13" />
     <Project Path="vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj" />
     <Project Path="vectordb/Mythosia.VectorDb.Postgres/Mythosia.VectorDb.Postgres.csproj" />
+    <Project Path="vectordb/Mythosia.VectorDb.Qdrant/Mythosia.VectorDb.Qdrant.csproj" />
   </Folder>
   <Project Path="Mythosia.AI.Loaders.Abstractions/Mythosia.AI.Loaders.Abstractions.csproj" />
   <Project Path="Mythosia.AI.Loaders.Office/Mythosia.AI.Loaders.Office.csproj" />

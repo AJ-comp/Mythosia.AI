@@ -99,25 +99,25 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// </summary>
         public Task<IReadOnlyList<ChunkSearchMatch>> FindChunksContainingAsync(
             string text,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            return FindChunksContainingInternalAsync(text, collection, cancellationToken);
+            return FindChunksContainingInternalAsync(text, @namespace, cancellationToken);
         }
 
         private async Task<IReadOnlyList<ChunkSearchMatch>> FindChunksContainingInternalAsync(
             string text,
-            string? collection,
+            string? @namespace,
             CancellationToken cancellationToken)
         {
-            var col = collection ?? _pipeline.Options.DefaultCollection;
+            var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
             var inMemory = _vectorStore as InMemoryVectorStore;
             if (inMemory == null)
                 throw new InvalidOperationException(
                     "FindChunksContainingAsync requires InMemoryVectorStore. " +
                     "For other vector stores, use DiagnoseQueryAsync instead.");
 
-            var allRecords = await inMemory.ListAllRecordsAsync(col, cancellationToken);
+            var allRecords = await inMemory.ListAllRecordsAsync(ns, cancellationToken);
             var matches = new List<ChunkSearchMatch>();
 
             foreach (var record in allRecords)
@@ -146,15 +146,15 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// <param name="query">The user query to diagnose.</param>
         /// <param name="targetText">Optional: text you expect to find in results (e.g., "6,300만원"). 
         /// When provided, results are annotated with whether they contain this text.</param>
-        /// <param name="collection">Optional collection name override.</param>
+        /// <param name="namespace">Optional namespace override.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public async Task<QueryDiagnosticResult> DiagnoseQueryAsync(
             string query,
             string? targetText = null,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var col = collection ?? _pipeline.Options.DefaultCollection;
+            var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
             var topK = _pipeline.Options.TopK;
             var minScore = _pipeline.Options.MinScore;
 
@@ -166,12 +166,12 @@ namespace Mythosia.AI.Rag.Diagnostics
             var inMemory = _vectorStore as InMemoryVectorStore;
             if (inMemory != null)
             {
-                allScored = await inMemory.ScoredListAsync(col, queryVector, cancellationToken);
+                allScored = await inMemory.ScoredListAsync(queryVector, ns, cancellationToken);
             }
             else
             {
                 // Fallback: use SearchAsync with max TopK
-                allScored = await _vectorStore.SearchAsync(col, queryVector, int.MaxValue, null, cancellationToken);
+                allScored = await _vectorStore.SearchAsync(queryVector, int.MaxValue, new VectorFilter { Namespace = ns }, cancellationToken);
             }
 
             // Step 3: Annotate results

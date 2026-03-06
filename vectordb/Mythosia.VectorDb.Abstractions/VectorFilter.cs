@@ -14,6 +14,11 @@ namespace Mythosia.VectorDb
         public string? Namespace { get; set; }
 
         /// <summary>
+        /// Filter by scope. Null means no scope filter.
+        /// </summary>
+        public string? Scope { get; set; }
+
+        /// <summary>
         /// Filter by metadata key-value pairs. All pairs must match (AND).
         /// </summary>
         public Dictionary<string, string>? MetadataMatch { get; set; }
@@ -25,7 +30,9 @@ namespace Mythosia.VectorDb
 
         public VectorFilter() { }
 
-        public static VectorFilter ByNamespace(string ns) => new VectorFilter { Namespace = ns };
+        public static VectorFilter ByNamespace(string @namespace) => new VectorFilter { Namespace = @namespace };
+
+        public static VectorFilter ByScope(string scope) => new VectorFilter { Scope = scope };
 
         public static VectorFilter ByMetadata(string key, string value)
             => new VectorFilter { MetadataMatch = new Dictionary<string, string> { { key, value } } };

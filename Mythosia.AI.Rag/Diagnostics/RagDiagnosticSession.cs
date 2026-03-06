@@ -52,12 +52,12 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// </summary>
         /// <param name="query">The query that produced incorrect/incomplete results.</param>
         /// <param name="expectedText">The text you expected to find in results (e.g., "6,300만원").</param>
-        /// <param name="collection">Optional collection name override.</param>
+        /// <param name="namespace">Optional namespace override.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public async Task<MissingAnalysis> WhyMissingAsync(
             string query,
             string expectedText,
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
             var steps = new List<AnalysisStep>();
@@ -71,7 +71,7 @@ namespace Mythosia.AI.Rag.Diagnostics
 
             if (canSearchChunks)
             {
-                var matches = await _diag.FindChunksContainingAsync(expectedText, collection, cancellationToken);
+                var matches = await _diag.FindChunksContainingAsync(expectedText, @namespace, cancellationToken);
 
                 if (matches.Count == 0)
                 {
@@ -94,7 +94,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             }
 
             // ── Step 2: Score all chunks against the query ──
-            var queryResult = await _diag.DiagnoseQueryAsync(query, expectedText, collection, cancellationToken);
+            var queryResult = await _diag.DiagnoseQueryAsync(query, expectedText, @namespace, cancellationToken);
             var target = queryResult.TargetChunkInfo;
 
             if (target == null)
@@ -189,27 +189,27 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// chunk size variance, oversized chunks, very small chunks, and potential duplicates.
         /// </summary>
         public async Task<HealthCheckResult> HealthCheckAsync(
-            string? collection = null,
+            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
             var items = new List<HealthCheckItem>();
-            var col = collection ?? _pipeline.Options.DefaultCollection;
+            var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
 
             var inMemory = _pipeline.VectorStore as InMemoryVectorStore;
             if (inMemory == null)
             {
                 items.Add(HealthCheckItem.Info("Store Type",
                     "HealthCheck requires InMemoryVectorStore for full analysis."));
-                return new HealthCheckResult(col, 0, items);
+                return new HealthCheckResult(ns, 0, items);
             }
 
-            var allRecords = await inMemory.ListAllRecordsAsync(col, cancellationToken);
+            var allRecords = await inMemory.ListAllRecordsAsync(ns, cancellationToken);
             int count = allRecords.Count;
 
             if (count == 0)
             {
                 items.Add(HealthCheckItem.Fail("Chunk Count", "No chunks found. Index is empty."));
-                return new HealthCheckResult(col, 0, items);
+                return new HealthCheckResult(ns, 0, items);
             }
 
             // ── Chunk count ──
@@ -270,7 +270,7 @@ namespace Mythosia.AI.Rag.Diagnostics
                 items.Add(HealthCheckItem.Pass("Duplicates", "No exact duplicates detected."));
             }
 
-            return new HealthCheckResult(col, count, items);
+            return new HealthCheckResult(ns, count, items);
         }
 
         #endregion
@@ -484,13 +484,13 @@ namespace Mythosia.AI.Rag.Diagnostics
     /// </summary>
     public class HealthCheckResult
     {
-        public string Collection { get; }
+        public string Namespace { get; }
         public int TotalChunks { get; }
         public IReadOnlyList<HealthCheckItem> Items { get; }
 
-        public HealthCheckResult(string collection, int totalChunks, IReadOnlyList<HealthCheckItem> items)
+        public HealthCheckResult(string @namespace, int totalChunks, IReadOnlyList<HealthCheckItem> items)
         {
-            Collection = collection;
+            Namespace = @namespace;
             TotalChunks = totalChunks;
             Items = items;
         }
@@ -503,7 +503,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             sb.AppendLine("========================================");
             sb.AppendLine("  RAG Index Health Check");
             sb.AppendLine("========================================");
-            sb.AppendLine($"  Collection: \"{Collection}\" ({TotalChunks} chunks)");
+            sb.AppendLine($"  Namespace: \"{Namespace}\" ({TotalChunks} chunks)");
             sb.AppendLine("----------------------------------------");
 
             foreach (var item in Items)

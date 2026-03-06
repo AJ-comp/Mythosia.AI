@@ -62,6 +62,7 @@ namespace Mythosia.AI.Rag
         private int _chunkOverlap = 30;
         private double? _scoreThreshold;
         private string? _promptTemplate;
+        private string? _defaultNamespace;
 
         #region Document Sources
 
@@ -408,6 +409,17 @@ namespace Mythosia.AI.Rag
         #region Prompt Template
 
         /// <summary>
+        /// Sets the default namespace (collection name) used for indexing and querying.
+        /// For Qdrant this maps to a collection, for PostgreSQL it maps to the namespace column.
+        /// Default is "default".
+        /// </summary>
+        public RagBuilder WithNamespace(string defaultNamespace)
+        {
+            _defaultNamespace = defaultNamespace;
+            return this;
+        }
+
+        /// <summary>
         /// Sets a custom prompt template. Use {context} and {question} placeholders.
         /// </summary>
         /// <example>
@@ -474,6 +486,9 @@ namespace Mythosia.AI.Rag
                 TopK = _topK,
                 MinScore = _scoreThreshold
             };
+
+            if (!string.IsNullOrWhiteSpace(_defaultNamespace))
+                options.DefaultNamespace = _defaultNamespace;
 
             // 2. Create pipeline
             var pipeline = new RagPipeline(embeddingProvider, vectorStore, textSplitter, contextBuilder, options);

@@ -11,6 +11,7 @@
     <ProjectReference Include="..\..\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
     <ProjectReference Include="..\..\Mythosia.AI\Mythosia.AI.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Postgres\Mythosia.VectorDb.Postgres.csproj" />
+    <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Qdrant\Mythosia.VectorDb.Qdrant.csproj" />
   </ItemGroup>
 
 </Project>

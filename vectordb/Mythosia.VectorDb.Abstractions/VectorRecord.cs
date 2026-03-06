@@ -28,9 +28,15 @@ namespace Mythosia.VectorDb
         public Dictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
 
         /// <summary>
-        /// Logical namespace for multi-tenant or scoped isolation.
+        /// Logical namespace for first-tier isolation.
+        /// When null, the store may apply a default or skip namespace filtering.
         /// </summary>
         public string? Namespace { get; set; }
+
+        /// <summary>
+        /// Logical scope for second-tier isolation within a namespace.
+        /// </summary>
+        public string? Scope { get; set; }
 
         public VectorRecord() { }
 

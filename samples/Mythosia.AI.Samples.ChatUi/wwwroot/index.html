@@ -130,6 +130,7 @@
         <div class="chat-status-stack">
           <span id="chat-status" class="chat-status">No model selected</span>
           <span id="rag-chat-status" class="rag-chat-status">RAG: Not indexed</span>
+          <span id="vectordb-chat-status" class="rag-chat-status"></span>
         </div>
         <div class="chat-actions">
           <button id="btn-rag-diagnose" class="btn btn-ghost btn-sm" title="RAG diagnostics" disabled>🔍 Diagnose</button>
@@ -477,10 +478,14 @@
                   <button class="rag-select-option" type="button" data-value="postgres" role="option">
                     <span class="rag-select-option-label">PostgreSQL (pgvector)</span>
                   </button>
+                  <button class="rag-select-option" type="button" data-value="qdrant" role="option">
+                    <span class="rag-select-option-label">Qdrant</span>
+                  </button>
                 </div>
                 <select id="rag-vectorstore-provider" class="rag-select-native" aria-hidden="true">
                   <option value="inmemory" selected>InMemory</option>
                   <option value="postgres">PostgreSQL (pgvector)</option>
+                  <option value="qdrant">Qdrant</option>
                 </select>
               </div>
               <div id="rag-vectorstore-hint" class="rag-hint">In-memory store. Data is lost on restart.</div>
@@ -536,6 +541,43 @@
                 <button id="rag-pg-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
                 <button id="rag-pg-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
                 <span id="rag-pg-status" class="rag-hint"></span>
+              </div>
+            </div>
+            <div id="rag-qdrant-config" class="hidden" style="margin-top:8px">
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Host</label>
+                  <input id="rag-qdrant-host" type="text" placeholder="localhost" value="localhost" />
+                </div>
+                <div class="rag-field">
+                  <label>gRPC Port</label>
+                  <input id="rag-qdrant-port" type="number" value="6334" min="1" max="65535" />
+                </div>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>API Key</label>
+                  <input id="rag-qdrant-apikey" type="password" placeholder="(optional)" autocomplete="off" />
+                </div>
+                <div class="rag-field">
+                  <label>Dimension</label>
+                  <input id="rag-qdrant-dimension" type="number" value="1536" min="1" />
+                </div>
+              </div>
+              <div class="rag-field rag-field-wide">
+                <label>Collection Name</label>
+                <input id="rag-qdrant-collection" type="text" placeholder="default" value="default" />
+              </div>
+              <div class="rag-field" style="display:flex;align-items:center;gap:6px;padding-bottom:2px">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+                  <input id="rag-qdrant-usetls" type="checkbox" />
+                  Use TLS
+                </label>
+              </div>
+              <div class="rag-actions" style="margin-top:6px">
+                <button id="rag-qdrant-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
+                <button id="rag-qdrant-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
+                <span id="rag-qdrant-status" class="rag-hint"></span>
               </div>
             </div>
           </div>

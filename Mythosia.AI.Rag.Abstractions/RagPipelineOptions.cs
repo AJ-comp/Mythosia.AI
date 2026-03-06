@@ -6,14 +6,14 @@ namespace Mythosia.AI.Rag
     public class RagPipelineOptions
     {
         /// <summary>
-        /// Default collection name used when none is specified.
+        /// Default namespace used when none is specified.
         /// </summary>
-        public string DefaultCollection { get; set; } = "default";
+        public string DefaultNamespace { get; set; } = "default";
 
         /// <summary>
-        /// Default namespace for vector records.
+        /// Default scope for vector records.
         /// </summary>
-        public string? DefaultNamespace { get; set; }
+        public string? DefaultScope { get; set; }
 
         /// <summary>
         /// Number of top results to retrieve during search. Default is 5.

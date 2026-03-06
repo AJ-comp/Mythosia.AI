@@ -201,7 +201,7 @@ public record RagReferenceEmbedding(
 
 public record RagReferenceRecord(
     string Id,
-    string? Namespace,
+    string? Scope,
     int ContentLength,
     string Content,
     IReadOnlyDictionary<string, string> Metadata);
@@ -233,7 +233,7 @@ internal static class RagReferenceTraceBuilder
 
         var recordItems = records.Select(record => new RagReferenceRecord(
             record.Id,
-            record.Namespace,
+            record.Scope,
             record.Content?.Length ?? 0,
             record.Content ?? string.Empty,
             new Dictionary<string, string>(record.Metadata))).ToList();
@@ -324,40 +324,31 @@ internal sealed class TrackingVectorStore : IVectorStore
         _records = records ?? throw new ArgumentNullException(nameof(records));
     }
 
-    public Task UpsertAsync(string collection, VectorRecord record, CancellationToken cancellationToken = default)
+    public Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default)
     {
         if (record == null)
             throw new ArgumentNullException(nameof(record));
 
         _records.Add(record);
-        return _inner.UpsertAsync(collection, record, cancellationToken);
+        return _inner.UpsertAsync(record, cancellationToken);
     }
 
-    public Task UpsertBatchAsync(string collection, IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
+    public Task UpsertBatchAsync(IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
     {
         var recordList = records?.ToList() ?? new List<VectorRecord>();
         _records.AddRange(recordList);
-        return _inner.UpsertBatchAsync(collection, recordList, cancellationToken);
+        return _inner.UpsertBatchAsync(recordList, cancellationToken);
     }
 
-    public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(string collection, float[] queryVector, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
-        => _inner.SearchAsync(collection, queryVector, topK, filter, cancellationToken);
+    public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(float[] queryVector, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        => _inner.SearchAsync(queryVector, topK, filter, cancellationToken);
 
-    public Task<VectorRecord?> GetAsync(string collection, string id, CancellationToken cancellationToken = default)
-        => _inner.GetAsync(collection, id, cancellationToken);
+    public Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        => _inner.GetAsync(id, filter, cancellationToken);
 
-    public Task DeleteAsync(string collection, string id, CancellationToken cancellationToken = default)
-        => _inner.DeleteAsync(collection, id, cancellationToken);
+    public Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        => _inner.DeleteAsync(id, filter, cancellationToken);
 
-    public Task DeleteByFilterAsync(string collection, VectorFilter filter, CancellationToken cancellationToken = default)
-        => _inner.DeleteByFilterAsync(collection, filter, cancellationToken);
-
-    public Task<bool> CollectionExistsAsync(string collection, CancellationToken cancellationToken = default)
-        => _inner.CollectionExistsAsync(collection, cancellationToken);
-
-    public Task CreateCollectionAsync(string collection, CancellationToken cancellationToken = default)
-        => _inner.CreateCollectionAsync(collection, cancellationToken);
-
-    public Task DeleteCollectionAsync(string collection, CancellationToken cancellationToken = default)
-        => _inner.DeleteCollectionAsync(collection, cancellationToken);
+    public Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default)
+        => _inner.DeleteByFilterAsync(filter, cancellationToken);
 }

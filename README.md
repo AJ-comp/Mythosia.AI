@@ -18,13 +18,90 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 
 ## Packages
 
+### Core
+
 | Package | NuGet | Description |
 | --- | --- | --- |
 | [Mythosia.AI](Mythosia.AI/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI) | Core library — multi-provider AI service with streaming, function calling, and multimodal support |
-| [Mythosia.AI.Rag](Mythosia.AI.Rag/) |  | Fluent RAG extension for AIService with `.WithRag()` API |
-| [Mythosia.AI.Rag.Abstractions](Mythosia.AI.Rag.Abstractions/) |  | Interfaces and models for RAG pipeline components |
-| [Mythosia.AI.VectorDB](Mythosia.AI.VectorDB/) |  | In-memory vector store with cosine similarity search |
-| [Mythosia.AI.Loaders.Abstractions](Mythosia.AI.Loaders.Abstractions/) |  | Document loader interfaces and models |
+
+### RAG
+
+| Package | NuGet | Description |
+| --- | --- | --- |
+| [Mythosia.AI.Rag](Mythosia.AI.Rag/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag) | Fluent RAG extension for AIService with `.WithRag()` API |
+| [Mythosia.AI.Rag.Abstractions](Mythosia.AI.Rag.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag.Abstractions) | Interfaces and models for RAG pipeline components |
+
+### Document Loaders
+
+| Package | NuGet | Description |
+| --- | --- | --- |
+| [Mythosia.AI.Loaders.Abstractions](Mythosia.AI.Loaders.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Abstractions) | Document loader interfaces and models |
+| [Mythosia.AI.Loaders.Office](Mythosia.AI.Loaders.Office/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Office.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Office) | OpenXml parsers for Word / Excel / PowerPoint |
+| [Mythosia.AI.Loaders.Pdf](Mythosia.AI.Loaders.Pdf/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Pdf.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Pdf) | PDF parser via PdfPig |
+
+### Vector Stores
+
+> **Pick one or more** — all implement `IVectorStore` from the Abstractions package.
+
+| Package | NuGet | Description |
+| --- | --- | --- |
+| [Mythosia.VectorDb.Abstractions](vectordb/Mythosia.VectorDb.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `VectorRecord` · `VectorFilter` contracts |
+| [Mythosia.VectorDb.InMemory](vectordb/Mythosia.VectorDb.InMemory/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | In-memory store — zero infrastructure, great for prototyping |
+| [Mythosia.VectorDb.Postgres](vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat indexes, production-ready |
+| [Mythosia.VectorDb.Qdrant](vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot, auto-provisioning |
+
+## Architecture
+
+```mermaid
+graph TD
+    subgraph "🔗 Orchestration Layer"
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · Diagnostics<br/><i>netstandard2.1 · v2.0.0</i>"]
+    end
+
+    subgraph "📐 Composite Abstractions"
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder<br/><i>netstandard2.1 · v2.0.0</i>"]
+    end
+
+    subgraph "⚡ Core AI"
+        AI["<b>Mythosia.AI</b><br/>ChatGPT · Claude · Gemini<br/>Grok · DeepSeek · Sonar<br/><i>netstandard2.1 · v4.6.2</i>"]
+    end
+
+    subgraph "📄 Document Loaders"
+        Office["<b>Mythosia.AI.Loaders.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
+        Pdf["<b>Mythosia.AI.Loaders.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.0</i>"]
+    end
+
+    subgraph "🗄️ Vector Stores — pick one or more"
+        InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK<br/><i>netstandard2.1 · v1.1.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat<br/><i>net10.0 · v10.1.0</i>"]
+        Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot<br/><i>netstandard2.1 · v1.0.0</i>"]
+    end
+
+    subgraph "🧱 Foundation Abstractions"
+        LoaderAbs["<b>Mythosia.AI.Loaders.Abstractions</b><br/>IDocumentLoader · IDocumentParser<br/>ParsedDocument · DoclingDocument<br/><i>netstandard2.1 · v1.2.0</i>"]
+        VdbAbs["<b>Mythosia.VectorDb.Abstractions</b><br/>IVectorStore · VectorRecord<br/>VectorFilter · VectorSearchResult<br/><i>netstandard2.1 · v1.1.0</i>"]
+    end
+
+    %% Orchestration → dependencies
+    Rag --> RagAbs
+    Rag --> AI
+    Rag --> Office
+    Rag --> Pdf
+    Rag --> InMem
+
+    %% Composite → Foundation
+    RagAbs --> LoaderAbs
+    RagAbs --> VdbAbs
+
+    %% Loaders → Foundation
+    Office --> LoaderAbs
+    Pdf --> LoaderAbs
+
+    %% VectorStores → Foundation
+    InMem --> VdbAbs
+    Pg --> VdbAbs
+    Qd --> VdbAbs
+```
 
 ## Demo / Test Bed (Chat UI)
 
