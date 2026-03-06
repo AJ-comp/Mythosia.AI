@@ -49,8 +49,20 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<string> GetCompletionAsync(string query)
         {
-            var store = await EnsureInitializedAsync();
-            var processed = await store.Pipeline.ProcessAsync(query);
+            return await GetCompletionAsync(query, options: null);
+        }
+
+        /// <summary>
+        /// Processes the query through RAG pipeline with per-request query overrides,
+        /// then sends the augmented prompt to the LLM.
+        /// </summary>
+        public async Task<string> GetCompletionAsync(
+            string query,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
+            var store = await EnsureInitializedAsync(cancellationToken);
+            var processed = await store.Pipeline.ProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(processed.AugmentedPrompt);
         }
 
@@ -59,9 +71,21 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<string> GetCompletionAsync(Message message)
         {
+            return await GetCompletionAsync(message, options: null);
+        }
+
+        /// <summary>
+        /// Processes a Message through RAG pipeline (extracts text content for retrieval)
+        /// with per-request query overrides.
+        /// </summary>
+        public async Task<string> GetCompletionAsync(
+            Message message,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
             var query = message.Content ?? message.GetDisplayText();
-            var store = await EnsureInitializedAsync();
-            var processed = await store.Pipeline.ProcessAsync(query);
+            var store = await EnsureInitializedAsync(cancellationToken);
+            var processed = await store.Pipeline.ProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(processed.AugmentedPrompt);
         }
 
@@ -72,8 +96,22 @@ namespace Mythosia.AI.Rag
             string prompt,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            await foreach (var chunk in StreamAsync(prompt, options: null, cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Streams the LLM response after RAG augmentation with per-request query overrides.
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamAsync(
+            string prompt,
+            RagQueryOptions? options,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
             var store = await EnsureInitializedAsync(cancellationToken);
-            var processed = await store.Pipeline.ProcessAsync(prompt, cancellationToken);
+            var processed = await store.Pipeline.ProcessAsync(prompt, options, cancellationToken);
 
             await foreach (var chunk in _innerService.StreamAsync(processed.AugmentedPrompt, cancellationToken))
             {
@@ -88,8 +126,23 @@ namespace Mythosia.AI.Rag
             string prompt,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            await foreach (var chunk in StreamOnceAsync(prompt, options: null, cancellationToken))
+            {
+                yield return chunk;
+            }
+        }
+
+        /// <summary>
+        /// Streams the LLM response as a one-off query with per-request query overrides
+        /// (no conversation history).
+        /// </summary>
+        public async IAsyncEnumerable<string> StreamOnceAsync(
+            string prompt,
+            RagQueryOptions? options,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
             var store = await EnsureInitializedAsync(cancellationToken);
-            var processed = await store.Pipeline.ProcessAsync(prompt, cancellationToken);
+            var processed = await store.Pipeline.ProcessAsync(prompt, options, cancellationToken);
 
             await foreach (var chunk in _innerService.StreamOnceAsync(processed.AugmentedPrompt, cancellationToken))
             {
@@ -103,8 +156,20 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<RagProcessedQuery> RetrieveAsync(string query, CancellationToken cancellationToken = default)
         {
+            return await RetrieveAsync(query, options: null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Performs RAG retrieval with per-request query overrides and returns the processed query
+        /// (context + references) without calling the LLM.
+        /// </summary>
+        public async Task<RagProcessedQuery> RetrieveAsync(
+            string query,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
             var store = await EnsureInitializedAsync(cancellationToken);
-            return await store.Pipeline.ProcessAsync(query, cancellationToken);
+            return await store.Pipeline.ProcessAsync(query, options, cancellationToken);
         }
 
         #endregion

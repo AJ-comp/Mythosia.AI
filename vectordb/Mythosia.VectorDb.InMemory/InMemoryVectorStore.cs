@@ -13,7 +13,7 @@ namespace Mythosia.VectorDb.InMemory
     /// Supports metadata storage, scope isolation, filtering, upsert, and delete operations.
     /// Suitable for development, testing, and small-scale workloads.
     /// </summary>
-    public class InMemoryVectorStore : IVectorStore
+    public class InMemoryVectorStore : IVectorStore, Mythosia.AI.Rag.IRagDiagnosticsStore
     {
         private const string DefaultNamespace = "default";
 

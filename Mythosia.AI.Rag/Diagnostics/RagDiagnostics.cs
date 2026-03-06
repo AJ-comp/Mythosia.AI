@@ -1,5 +1,4 @@
 using Mythosia.AI.Loaders;
-using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
@@ -35,6 +34,7 @@ namespace Mythosia.AI.Rag.Diagnostics
     {
         private readonly RagPipeline _pipeline;
         private readonly IVectorStore _vectorStore;
+        private readonly IRagDiagnosticsStore? _diagnosticsStore;
         private readonly ITextSplitter _textSplitter;
         private readonly IEmbeddingProvider _embeddingProvider;
 
@@ -45,6 +45,7 @@ namespace Mythosia.AI.Rag.Diagnostics
         {
             _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
             _vectorStore = pipeline.VectorStore;
+            _diagnosticsStore = pipeline.VectorStore as IRagDiagnosticsStore;
             _textSplitter = pipeline.TextSplitter;
             _embeddingProvider = pipeline.EmbeddingProvider;
         }
@@ -58,6 +59,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             _pipeline = store.Pipeline as RagPipeline
                 ?? throw new InvalidOperationException("RagDiagnostics requires the underlying pipeline to be a RagPipeline.");
             _vectorStore = store.VectorStore;
+            _diagnosticsStore = store.VectorStore as IRagDiagnosticsStore;
             _textSplitter = _pipeline.TextSplitter;
             _embeddingProvider = _pipeline.EmbeddingProvider;
         }
@@ -111,13 +113,12 @@ namespace Mythosia.AI.Rag.Diagnostics
             CancellationToken cancellationToken)
         {
             var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
-            var inMemory = _vectorStore as InMemoryVectorStore;
-            if (inMemory == null)
+            if (_diagnosticsStore == null)
                 throw new InvalidOperationException(
-                    "FindChunksContainingAsync requires InMemoryVectorStore. " +
+                    "FindChunksContainingAsync requires a vector store implementing IRagDiagnosticsStore. " +
                     "For other vector stores, use DiagnoseQueryAsync instead.");
 
-            var allRecords = await inMemory.ListAllRecordsAsync(ns, cancellationToken);
+            var allRecords = await _diagnosticsStore.ListAllRecordsAsync(ns, cancellationToken);
             var matches = new List<ChunkSearchMatch>();
 
             foreach (var record in allRecords)
@@ -163,10 +164,9 @@ namespace Mythosia.AI.Rag.Diagnostics
 
             // Step 2: Get ALL scores (not just TopK)
             IReadOnlyList<VectorSearchResult> allScored;
-            var inMemory = _vectorStore as InMemoryVectorStore;
-            if (inMemory != null)
+            if (_diagnosticsStore != null)
             {
-                allScored = await inMemory.ScoredListAsync(queryVector, ns, cancellationToken);
+                allScored = await _diagnosticsStore.ScoredListAsync(queryVector, ns, cancellationToken);
             }
             else
             {

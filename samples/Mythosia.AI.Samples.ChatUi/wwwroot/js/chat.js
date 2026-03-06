@@ -52,6 +52,12 @@ async function sendMessage() {
   chatInput.style.height = 'auto';
 
   const typingEl = showTyping();
+  let typingVisible = true;
+  const stopTyping = () => {
+    if (!typingVisible) return;
+    removeTyping(typingEl);
+    typingVisible = false;
+  };
 
   try {
     const res = await fetch('/api/chat', {
@@ -60,12 +66,11 @@ async function sendMessage() {
       body: JSON.stringify({ message: text })
     });
 
-    removeTyping(typingEl);
-
     const contentType = res.headers.get('Content-Type') || '';
 
     // Non-stream response (error JSON)
     if (!contentType.includes('text/event-stream')) {
+      stopTyping();
       const data = await res.json();
       const el = appendMessage('assistant', res.ok ? (data.response || JSON.stringify(data)) : `Error: ${data.error}`);
       if (res.ok && el) addViewCodeButton(el, text);
@@ -108,6 +113,7 @@ async function sendMessage() {
         if (payload === '[DONE]') continue;
         try {
           const parsed = JSON.parse(payload);
+          stopTyping();
 
           if (parsed.type === 'summary_start') {
             summaryIndicator = createSummaryBubble(responseContainer);
@@ -173,6 +179,8 @@ async function sendMessage() {
       autoScroll();
     }
 
+    stopTyping();
+
     if (fcCardEl) completeFunctionCallCard(fcCardEl, '(no result)', '', null);
 
     if (!gotText && !fullText) {
@@ -193,7 +201,7 @@ async function sendMessage() {
     if (!responseContainer.hasChildNodes()) responseContainer.remove();
     refreshState();
   } catch (e) {
-    removeTyping(typingEl);
+    stopTyping();
     appendMessage('assistant', `Network error: ${e.message}`);
   } finally {
     app.isSending = false;

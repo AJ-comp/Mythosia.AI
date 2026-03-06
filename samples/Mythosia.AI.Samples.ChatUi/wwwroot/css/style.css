@@ -2150,6 +2150,11 @@ pre:hover .code-copy-btn { opacity: 1; }
 .rag-popup-meta strong {
   color: var(--text-primary);
 }
+.rag-popup-meta--diag {
+  margin-top: -4px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
 .rag-popup-scores-wrap {
   overflow-x: auto;
   max-height: 240px;

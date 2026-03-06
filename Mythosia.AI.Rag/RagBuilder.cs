@@ -8,8 +8,8 @@ using Mythosia.AI.Loaders.Pdf;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Splitters;
-using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -63,6 +63,9 @@ namespace Mythosia.AI.Rag
         private double? _scoreThreshold;
         private string? _promptTemplate;
         private string? _defaultNamespace;
+
+        private static IVectorStore CreateInMemoryStore()
+            => new InMemoryVectorStore();
 
         #region Document Sources
 
@@ -380,7 +383,7 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public RagBuilder UseInMemoryStore()
         {
-            _vectorStore = new InMemoryVectorStore();
+            _vectorStore = CreateInMemoryStore();
             return this;
         }
 
@@ -470,7 +473,7 @@ namespace Mythosia.AI.Rag
         {
             // 1. Apply defaults
             var embeddingProvider = _embeddingProvider ?? new LocalEmbeddingProvider();
-            var vectorStore = _vectorStore ?? new InMemoryVectorStore();
+            var vectorStore = _vectorStore ?? CreateInMemoryStore();
             var textSplitter = _textSplitter ?? new CharacterTextSplitter(_chunkSize, _chunkOverlap);
 
             IContextBuilder contextBuilder;

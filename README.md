@@ -247,11 +247,16 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 Mythosia.AI/                          # Core AI service library
 Mythosia.AI.Rag/                      # RAG fluent API and pipeline
 Mythosia.AI.Rag.Abstractions/         # RAG interfaces and models
-Mythosia.AI.VectorDB/                 # In-memory vector store
 Mythosia.AI.Loaders.Abstractions/     # Document loader contracts
-tests/
-  Mythosia.AI.Test/                   # Core AI service tests
-  Mythosia.AI.Rag.Tests/             # RAG pipeline tests
+Mythosia.AI.Loaders.Office/           # Office document loaders (Word/Excel/PowerPoint)
+Mythosia.AI.Loaders.Pdf/              # PDF document loader
+vectordb/
+  Mythosia.VectorDb.Abstractions/     # Vector store contracts
+  Mythosia.VectorDb.InMemory/         # In-memory vector store
+  Mythosia.VectorDb.Postgres/         # PostgreSQL + pgvector store
+  Mythosia.VectorDb.Qdrant/           # Qdrant vector store
+samples/                              # Sample applications
+tests/                                # Unit/integration test projects
 ```
 
 ## Installation

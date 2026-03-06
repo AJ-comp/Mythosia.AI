@@ -46,7 +46,6 @@ var store = new PostgresStore(new PostgresOptions
 
 // Fluent API (recommended)
 var ns = store.InNamespace("my-namespace");
-await ns.CreateAsync();
 await ns.UpsertAsync(record);
 var results = await ns.SearchAsync(queryVector, topK: 5);
 
@@ -206,8 +205,8 @@ These are practical ranges, not strict hard limits. Final values should be chose
 ## Namespace & Filter Behavior
 
 - **Namespaces** are stored as a `namespace` column in a single shared table (not separate tables).
-- `CreateNamespaceAsync` is a no-op — namespaces are implicitly created on upsert.
-- `DeleteNamespaceAsync` deletes all rows matching the namespace.
+- There is no explicit namespace-create API. Namespaces are implicitly created on first upsert.
+- Delete all rows in a namespace via `store.InNamespace("your-ns").DeleteAllAsync()`.
 - **Scope filter**: `WHERE scope = @scope`
 - **Metadata filter**: `WHERE metadata @> @jsonb` (jsonb containment, AND logic)
 - **MinScore filter** (distance-strategy dependent):

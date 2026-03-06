@@ -2,6 +2,10 @@
 
 ## v2.0.0
 
+### Added
+
+- Implements `IRagDiagnosticsStore` to provide contract-based diagnostic operations used by `Mythosia.AI.Rag` diagnostics.
+
 ### Breaking Changes — Namespace Now Optional
 
 Aligned with `IVectorStore` v2.0.0: namespace moved from method parameter to `VectorRecord.Namespace` / `VectorFilter.Namespace` properties.

@@ -338,6 +338,13 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 type = "rag_info",
                 augmentedPrompt = ragProcessed.AugmentedPrompt,
                 originalQuery = ragProcessed.OriginalQuery,
+                diagnostics = new
+                {
+                    appliedNamespace = ragProcessed.Diagnostics.AppliedNamespace,
+                    appliedTopK = ragProcessed.Diagnostics.AppliedTopK,
+                    appliedMinScore = ragProcessed.Diagnostics.AppliedMinScore,
+                    elapsedMs = ragProcessed.Diagnostics.ElapsedMs
+                },
                 references = ragProcessed.References.Select(r => new
                 {
                     score = r.Score,

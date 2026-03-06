@@ -61,6 +61,11 @@ function openRagDiagnosePopup(ragInfo) {
   overlay.className = 'modal-overlay msg-rag-modal-overlay';
 
   const refs = ragInfo.references || [];
+  const diagnostics = ragInfo.diagnostics || {};
+  const appliedNamespace = diagnostics.appliedNamespace || 'default';
+  const appliedTopK = diagnostics.appliedTopK ?? '-';
+  const appliedMinScore = diagnostics.appliedMinScore ?? 'none';
+  const elapsedMs = diagnostics.elapsedMs ?? '-';
   const scoreRows = refs.map((r, i) => {
     const score = (r.score != null) ? r.score.toFixed(4) : 'N/A';
     const barWidth = Math.max(0, Math.min(100, (r.score || 0) * 100));
@@ -101,6 +106,12 @@ function openRagDiagnosePopup(ragInfo) {
           <div class="rag-popup-meta">
             <span>Original Query: <strong>"${escapeHtml(truncate(ragInfo.originalQuery || '', 60))}"</strong></span>
             <span>References: <strong>${refs.length}</strong></span>
+          </div>
+          <div class="rag-popup-meta rag-popup-meta--diag">
+            <span>Namespace: <strong>${escapeHtml(String(appliedNamespace))}</strong></span>
+            <span>TopK: <strong>${escapeHtml(String(appliedTopK))}</strong></span>
+            <span>MinScore: <strong>${escapeHtml(String(appliedMinScore))}</strong></span>
+            <span>Elapsed: <strong>${escapeHtml(String(elapsedMs))} ms</strong></span>
           </div>
           ${scoresHtml}
         </div>

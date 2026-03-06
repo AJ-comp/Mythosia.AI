@@ -165,6 +165,7 @@ if (result.HasReferences)
 {
     Console.WriteLine(result.AugmentedPrompt);  // Context + query
     Console.WriteLine(result.References.Count); // Number of matched chunks
+    Console.WriteLine($"TopK={result.Diagnostics.AppliedTopK}, MinScore={result.Diagnostics.AppliedMinScore}, Namespace={result.Diagnostics.AppliedNamespace}, Elapsed={result.Diagnostics.ElapsedMs}ms");
     foreach (var r in result.References)
     {
         Console.WriteLine($"Score: {r.Score:F4} | {r.Record.Content}");
@@ -177,6 +178,25 @@ else
 }
 ```
 
+## Per-Request Query Overrides
+
+Keep global defaults in `RagBuilder`, then override per request when needed:
+
+```csharp
+var ragStore = await RagStore.BuildAsync(config => config
+    .AddDocuments("./knowledge-base/")
+    .WithTopK(3)
+    .WithScoreThreshold(0.5)
+);
+
+var normal = await ragStore.QueryAsync("refund policy?");
+
+var highRecall = await ragStore.QueryAsync(
+    "refund policy?",
+    new RagQueryOptions { TopK = 15, MinScore = 0.2 }
+);
+```
+
 ## Architecture
 
 ```text
@@ -185,7 +205,7 @@ Mythosia.AI (core)                    <- unchanged
 Mythosia.AI.Rag.Abstractions         <- interfaces (IRagPipeline, IVectorStore, etc.)
     |
 Mythosia.AI.Rag                      <- fluent API, pipeline, builders, extensions
-Mythosia.AI.VectorDB                 <- InMemoryVectorStore
+Mythosia.VectorDb.InMemory (optional) <- InMemoryVectorStore
 Mythosia.AI.Loaders.Abstractions     <- IDocumentLoader, RagDocument
 ```
 

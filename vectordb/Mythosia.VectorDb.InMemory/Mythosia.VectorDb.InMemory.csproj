@@ -14,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,5 +1,22 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v3.0.0
+
+### Breaking Changes
+
+- `RagProcessedQuery` construction is now diagnostics-first; call sites must provide `RagQueryDiagnostics` when creating instances directly.
+
+### Changed
+
+- `Mythosia.AI.Rag` directly references `Mythosia.VectorDb.InMemory` for out-of-the-box defaults.
+- Default store resolution in `RagBuilder.BuildAsync` uses in-memory store creation when no custom store is configured.
+- RAG diagnostics now use `IRagDiagnosticsStore` (from `Mythosia.AI.Rag.Abstractions`) for full chunk-level analysis capabilities.
+- Removed reflection-based in-memory diagnostics probing and switched to interface-based capability detection.
+- Added per-request retrieval overrides via `RagQueryOptions` (`TopK`, `MinScore`, `Namespace`) across `IRagPipeline`, `RagStore`, and `RagEnabledService`.
+- `RagProcessedQuery` now includes `Diagnostics` (`RagQueryDiagnostics`) with applied retrieval settings (`AppliedNamespace`, `AppliedTopK`, `AppliedMinScore`) and `ElapsedMs` for request-level observability.
+
+---
+
 ## v2.0.0
 
 ### Breaking Changes

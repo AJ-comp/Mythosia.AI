@@ -12,6 +12,7 @@ This package defines the contracts that all RAG components implement — you onl
 | `IRagPipeline` | Main pipeline contract: `ProcessAsync(query)` → `RagProcessedQuery` |
 | `IEmbeddingProvider` | Text → vector embedding (`GetEmbeddingAsync`, `GetEmbeddingsAsync`) |
 | `IVectorStore` | Vector storage & search (`UpsertAsync`, `SearchAsync`, `DeleteAsync`) |
+| `IRagDiagnosticsStore` | Optional diagnostics contract (`ListAllRecordsAsync`, `ScoredListAsync`) |
 | `ITextSplitter` | Document → chunks (`Split(RagDocument)`) |
 | `IContextBuilder` | Search results → LLM prompt (`BuildContext(query, results)`) |
 
@@ -20,8 +21,10 @@ This package defines the contracts that all RAG components implement — you onl
 | Model | Description |
 | --- | --- |
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
-| `RagProcessedQuery` | Pipeline output: original query, augmented prompt, references, `HasReferences` flag |
+| `RagProcessedQuery` | Pipeline output: original query, augmented prompt, references, `HasReferences` flag, and `Diagnostics` |
+| `RagQueryDiagnostics` | Applied retrieval metadata (`AppliedNamespace`, `AppliedTopK`, `AppliedMinScore`, `ElapsedMs`) |
 | `RagPipelineOptions` | Configuration: TopK, MinScore, DefaultCollection |
+| `RagQueryOptions` | Per-request overrides: TopK, MinScore, Namespace |
 | `VectorRecord` | Stored vector with ID, content, embedding, metadata, namespace |
 | `VectorSearchResult` | Search result with record and similarity score |
 | `VectorFilter` | Filter by namespace, metadata, or minimum score |

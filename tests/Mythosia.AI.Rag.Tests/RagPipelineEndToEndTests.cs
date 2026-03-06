@@ -97,8 +97,43 @@ public class RagPipelineEndToEndTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(processed.AugmentedPrompt));
         Assert.IsTrue(processed.AugmentedPrompt.Contains("가격이 얼마인가요?"),
             "Augmented prompt should contain the original query");
+        Assert.AreEqual("default", processed.Diagnostics.AppliedNamespace);
+        Assert.AreEqual(5, processed.Diagnostics.AppliedTopK);
+        Assert.IsNull(processed.Diagnostics.AppliedMinScore);
+        Assert.IsTrue(processed.Diagnostics.ElapsedMs >= 0);
 
         Console.WriteLine($"Augmented Prompt:\n{processed.AugmentedPrompt}");
+    }
+
+    [TestMethod]
+    public async Task ProcessAsync_WithOverrides_PopulatesDiagnostics()
+    {
+        var embedding = new LocalEmbeddingProvider(dimensions: 256);
+        var vectorStore = new InMemoryVectorStore();
+        var splitter = new CharacterTextSplitter(chunkSize: 100, chunkOverlap: 20);
+        var contextBuilder = new DefaultContextBuilder();
+        var pipeline = new RagPipeline(embedding, vectorStore, splitter, contextBuilder,
+            new RagPipelineOptions { TopK = 3, MinScore = 0.4, DefaultNamespace = "base" });
+
+        await pipeline.IndexDocumentAsync(new RagDocument
+        {
+            Id = "doc",
+            Content = "환불은 구매일로부터 14일 이내 요청할 수 있습니다.",
+            Source = "policy.txt"
+        });
+
+        IRagPipeline ragPipeline = pipeline;
+        var processed = await ragPipeline.ProcessAsync("환불 정책", new RagQueryOptions
+        {
+            Namespace = "policy",
+            TopK = 5,
+            MinScore = 0.2
+        });
+
+        Assert.AreEqual("policy", processed.Diagnostics.AppliedNamespace);
+        Assert.AreEqual(5, processed.Diagnostics.AppliedTopK);
+        Assert.AreEqual(0.2, processed.Diagnostics.AppliedMinScore);
+        Assert.IsTrue(processed.Diagnostics.ElapsedMs >= 0);
     }
 
     /// <summary>

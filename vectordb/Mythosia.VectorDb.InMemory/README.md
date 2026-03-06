@@ -2,10 +2,10 @@
 
 ## Migration from v1.0.0
 
-v10.1.0 renames logical separation units:
+v2.0.0 renames logical separation units:
 
-- **`collection` → `namespace`**: All `IVectorStore` method parameters and `CollectionExistsAsync` / `CreateCollectionAsync` / `DeleteCollectionAsync` → `NamespaceExistsAsync` / `CreateNamespaceAsync` / `DeleteNamespaceAsync`.
-- **`namespace` → `scope`**: `VectorRecord.Namespace` → `VectorRecord.Scope`, `VectorFilter.ByNamespace(...)` → `VectorFilter.ByScope(...)`.
+- **`collection` → `namespace`** (terminology update in public API/docs)
+- **`namespace` → `scope`** (for second-tier logical isolation)
 
 ## Package Summary
 
@@ -32,7 +32,7 @@ Automatically used as the default vector store in `Mythosia.AI.Rag`:
 - **Metadata filtering** — Filter search results by key-value metadata
 - **Minimum score** — Discard results below a similarity threshold
 - **Upsert** — Single and batch upsert operations
-- **Namespace management** — Create, check, and delete namespaces
+- **Namespace-aware operations** — Use `InNamespace(...)` or `VectorFilter.Namespace`
 
 ## Standalone Usage
 
@@ -44,8 +44,6 @@ using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
 var ns = store.InNamespace("my-namespace");
-
-await ns.CreateAsync();
 
 // Namespace-only
 await ns.UpsertAsync(new VectorRecord
@@ -64,24 +62,27 @@ await scoped.UpsertAsync(record);   // record.Scope is set automatically
 var scopedResults = await scoped.SearchAsync(queryVector);
 ```
 
-### Legacy (flat) API
+### Direct `IVectorStore` API
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
 
-await store.CreateNamespaceAsync("my-namespace");
-
-await store.UpsertAsync("my-namespace", new VectorRecord
+await store.UpsertAsync(new VectorRecord
 {
+    Namespace = "my-namespace",
     Id = "doc-1",
     Content = "Some text content",
     Vector = new float[] { 0.1f, 0.2f, 0.3f },
     Metadata = { ["source"] = "manual.txt" }
 });
 
-var results = await store.SearchAsync("my-namespace", queryVector, topK: 5);
+var results = await store.SearchAsync(
+    queryVector,
+    topK: 5,
+    filter: VectorFilter.ByNamespace("my-namespace"));
 ```
 
 ## Limitations

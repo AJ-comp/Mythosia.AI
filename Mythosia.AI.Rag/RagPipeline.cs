@@ -3,6 +3,7 @@ using Mythosia.AI.Services.Base;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -198,8 +199,31 @@ namespace Mythosia.AI.Rag
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = @namespace ?? Options.DefaultNamespace;
-            var k = topK ?? Options.TopK;
+            RagQueryOptions? queryOptions = null;
+            if (@namespace != null || topK.HasValue)
+            {
+                queryOptions = new RagQueryOptions
+                {
+                    Namespace = @namespace,
+                    TopK = topK
+                };
+            }
+
+            return await QueryAsync(query, queryOptions, filter, cancellationToken);
+        }
+
+        /// <summary>
+        /// Performs a RAG query with per-request query overrides:
+        /// embed query → search → build context.
+        /// </summary>
+        public async Task<RagQueryResult> QueryAsync(
+            string query,
+            RagQueryOptions? queryOptions,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            var ns = queryOptions?.Namespace ?? Options.DefaultNamespace;
+            var k = queryOptions?.TopK ?? Options.TopK;
 
             // 1. Embed query
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
@@ -207,7 +231,11 @@ namespace Mythosia.AI.Rag
             // 2. Apply namespace and MinScore filter
             var effectiveFilter = filter ?? new VectorFilter();
             effectiveFilter.Namespace = ns;
-            if (Options.MinScore.HasValue)
+            if (queryOptions?.MinScore.HasValue == true)
+            {
+                effectiveFilter.MinScore = queryOptions.MinScore;
+            }
+            else if (Options.MinScore.HasValue)
             {
                 effectiveFilter.MinScore = Options.MinScore;
             }
@@ -236,6 +264,20 @@ namespace Mythosia.AI.Rag
             return await aiService.GetCompletionAsync(result.Context);
         }
 
+        /// <summary>
+        /// Performs a full RAG query with per-request overrides and calls the LLM.
+        /// </summary>
+        public async Task<string> QueryAndGenerateAsync(
+            AIService aiService,
+            string query,
+            RagQueryOptions? queryOptions,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            var result = await QueryAsync(query, queryOptions, filter, cancellationToken);
+            return await aiService.GetCompletionAsync(result.Context);
+        }
+
         #endregion
 
         #region IRagPipeline Implementation
@@ -245,7 +287,24 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<RagProcessedQuery> ProcessAsync(string query, CancellationToken cancellationToken = default)
         {
-            var result = await QueryAsync(query, cancellationToken: cancellationToken);
+            return await ProcessAsync(query, options: null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Implements IRagPipeline with per-request query overrides.
+        /// </summary>
+        public async Task<RagProcessedQuery> ProcessAsync(
+            string query,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
+            var appliedNamespace = options?.Namespace ?? Options.DefaultNamespace;
+            var appliedTopK = options?.TopK ?? Options.TopK;
+            var appliedMinScore = options?.MinScore ?? Options.MinScore;
+
+            var stopwatch = Stopwatch.StartNew();
+            var result = await QueryAsync(query, options, cancellationToken: cancellationToken);
+            stopwatch.Stop();
 
             // When no references are found, return the original query as-is
             // instead of a context-less template that confuses the LLM.
@@ -253,7 +312,17 @@ namespace Mythosia.AI.Rag
                 ? result.Context
                 : query;
 
-            return new RagProcessedQuery(query, augmentedPrompt, result.SearchResults);
+            return new RagProcessedQuery(
+                query,
+                augmentedPrompt,
+                result.SearchResults,
+                new RagQueryDiagnostics
+                {
+                    AppliedNamespace = appliedNamespace,
+                    AppliedTopK = appliedTopK,
+                    AppliedMinScore = appliedMinScore,
+                    ElapsedMs = stopwatch.ElapsedMilliseconds
+                });
         }
 
         #endregion

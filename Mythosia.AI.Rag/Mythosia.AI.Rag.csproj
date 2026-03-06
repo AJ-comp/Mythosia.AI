@@ -3,13 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>2.0.0</VersionPrefix>
+    <VersionPrefix>3.0.0</VersionPrefix>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Includes RagPipeline, text splitters, context builder, and OpenAI embedding provider.</Description>
     <PackageTags>AI;RAG;Pipeline;TextSplitter;Embedding;ContextBuilder</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.0.0: Vector DB types moved to Mythosia.VectorDb namespace. InMemoryVectorStore moved to Mythosia.VectorDb.InMemory package. Breaking namespace changes require using directive updates. ProcessAsync returns the original query when no references are found.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.0: Mythosia.AI.Rag directly references Mythosia.VectorDb.InMemory and uses InMemoryVectorStore by default.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -17,8 +17,8 @@
     <ProjectReference Include="..\Mythosia.AI.Loaders.Office\Mythosia.AI.Loaders.Office.csproj" />
     <ProjectReference Include="..\Mythosia.AI.Loaders.Pdf\Mythosia.AI.Loaders.Pdf.csproj" />
     <ProjectReference Include="..\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
-    <ProjectReference Include="..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
     <ProjectReference Include="..\Mythosia.AI\Mythosia.AI.csproj" />
+    <ProjectReference Include="..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
   </ItemGroup>
 
   <ItemGroup>

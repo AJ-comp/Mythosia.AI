@@ -4,6 +4,32 @@ using Mythosia.VectorDb;
 namespace Mythosia.AI.Rag
 {
     /// <summary>
+    /// Diagnostics metadata captured during RAG query processing.
+    /// </summary>
+    public class RagQueryDiagnostics
+    {
+        /// <summary>
+        /// The namespace that was actually applied during retrieval.
+        /// </summary>
+        public string AppliedNamespace { get; set; } = string.Empty;
+
+        /// <summary>
+        /// The TopK value that was actually applied during retrieval.
+        /// </summary>
+        public int AppliedTopK { get; set; }
+
+        /// <summary>
+        /// The MinScore value that was actually applied during retrieval.
+        /// </summary>
+        public double? AppliedMinScore { get; set; }
+
+        /// <summary>
+        /// End-to-end processing time for retrieval/context assembly in milliseconds.
+        /// </summary>
+        public long ElapsedMs { get; set; }
+    }
+
+    /// <summary>
     /// The output of IRagPipeline.ProcessAsync — contains the augmented prompt ready for the LLM,
     /// along with the original query and retrieved references.
     /// </summary>
@@ -30,13 +56,21 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public bool HasReferences => References.Count > 0;
 
-        public RagProcessedQuery() { }
+        /// <summary>
+        /// Processing diagnostics for this query.
+        /// </summary>
+        public RagQueryDiagnostics Diagnostics { get; set; } = new RagQueryDiagnostics();
 
-        public RagProcessedQuery(string originalQuery, string augmentedPrompt, IReadOnlyList<VectorSearchResult> references)
+        public RagProcessedQuery(
+            string originalQuery,
+            string augmentedPrompt,
+            IReadOnlyList<VectorSearchResult> references,
+            RagQueryDiagnostics diagnostics)
         {
             OriginalQuery = originalQuery;
             AugmentedPrompt = augmentedPrompt;
             References = references;
+            Diagnostics = diagnostics ?? new RagQueryDiagnostics();
         }
     }
 }

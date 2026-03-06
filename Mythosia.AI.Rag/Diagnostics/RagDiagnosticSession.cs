@@ -1,6 +1,5 @@
 using Mythosia.AI.Loaders;
 using Mythosia.AI.Rag.Splitters;
-using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
@@ -66,7 +65,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             var minScore = _pipeline.Options.MinScore;
 
             // ── Step 1: Was the text ever indexed? ──
-            bool canSearchChunks = _pipeline.VectorStore is InMemoryVectorStore;
+            bool canSearchChunks = _pipeline.VectorStore is IRagDiagnosticsStore;
             ChunkSearchMatch? targetMatch = null;
 
             if (canSearchChunks)
@@ -90,7 +89,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             else
             {
                 steps.Add(AnalysisStep.Info("Indexing",
-                    "Cannot verify (requires InMemoryVectorStore). Skipping to search analysis."));
+                    "Cannot verify (requires IRagDiagnosticsStore). Skipping to search analysis."));
             }
 
             // ── Step 2: Score all chunks against the query ──
@@ -195,15 +194,15 @@ namespace Mythosia.AI.Rag.Diagnostics
             var items = new List<HealthCheckItem>();
             var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
 
-            var inMemory = _pipeline.VectorStore as InMemoryVectorStore;
-            if (inMemory == null)
+            var diagnosticsStore = _pipeline.VectorStore as IRagDiagnosticsStore;
+            if (diagnosticsStore == null)
             {
                 items.Add(HealthCheckItem.Info("Store Type",
-                    "HealthCheck requires InMemoryVectorStore for full analysis."));
+                    "HealthCheck requires a vector store implementing IRagDiagnosticsStore for full analysis."));
                 return new HealthCheckResult(ns, 0, items);
             }
 
-            var allRecords = await inMemory.ListAllRecordsAsync(ns, cancellationToken);
+            var allRecords = await diagnosticsStore.ListAllRecordsAsync(ns, cancellationToken);
             int count = allRecords.Count;
 
             if (count == 0)

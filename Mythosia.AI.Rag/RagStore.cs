@@ -32,7 +32,18 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public Task<RagProcessedQuery> QueryAsync(string query, CancellationToken cancellationToken = default)
         {
-            return Pipeline.ProcessAsync(query, cancellationToken);
+            return Pipeline.ProcessAsync(query, options: null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Processes a query through the RAG pipeline with per-request query overrides.
+        /// </summary>
+        public Task<RagProcessedQuery> QueryAsync(
+            string query,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
+            return Pipeline.ProcessAsync(query, options, cancellationToken);
         }
 
         /// <summary>
