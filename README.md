@@ -55,11 +55,11 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · Diagnostics<br/><i>netstandard2.1 · v3.0.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · Diagnostics<br/><i>netstandard2.1 · v3.1.0</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder<br/><i>netstandard2.1 · v3.0.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder<br/><i>netstandard2.1 · v3.1.0</i>"]
     end
 
     subgraph "⚡ Core AI"

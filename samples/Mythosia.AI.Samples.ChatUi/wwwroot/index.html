@@ -300,6 +300,43 @@
             <textarea id="rag-prompt-template" rows="4" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
             <div class="rag-hint">Leave empty to use the default context builder. Use {context} and {question}.</div>
           </div>
+          <div class="rag-field rag-field-wide">
+            <label class="rag-toggle-label">
+              <input id="rag-query-rewriter" type="checkbox" checked />
+              <span>Query Rewriter (Multi-Turn)</span>
+            </label>
+            <div class="rag-hint">Rewrites follow-up queries into standalone queries using conversation history before RAG search.</div>
+          </div>
+          <div id="rag-rewriter-override-row" class="rag-field rag-field-wide rag-rewriter-sub">
+            <label class="rag-toggle-label">
+              <input id="rag-rewriter-override" type="checkbox" />
+              <span>Use cheaper model for rewriting</span>
+            </label>
+            <div id="rag-rewriter-model-row" class="rag-rewriter-model-row hidden">
+              <select id="rag-rewriter-model">
+                <optgroup label="OpenAI">
+                  <option value="Gpt4oMini">GPT-4o Mini</option>
+                  <option value="Gpt4_1Mini">GPT-4.1 Mini</option>
+                  <option value="Gpt4_1Nano">GPT-4.1 Nano</option>
+                  <option value="Gpt5Mini">GPT-5 Mini</option>
+                  <option value="Gpt5Nano">GPT-5 Nano</option>
+                </optgroup>
+                <optgroup label="Anthropic">
+                  <option value="ClaudeHaiku4_5_251001">Claude Haiku 4.5</option>
+                </optgroup>
+                <optgroup label="Google">
+                  <option value="Gemini2_5FlashLite">Gemini 2.5 Flash Lite</option>
+                </optgroup>
+                <optgroup label="xAI">
+                  <option value="Grok3Mini">Grok 3 Mini</option>
+                </optgroup>
+                <optgroup label="DeepSeek">
+                  <option value="DeepSeekChat">DeepSeek Chat</option>
+                </optgroup>
+              </select>
+              <div class="rag-hint">Select a cost-effective model for query rewriting. Requires an API key for the selected provider.</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-footer rag-settings-footer">

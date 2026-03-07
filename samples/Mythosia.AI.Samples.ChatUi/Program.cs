@@ -66,6 +66,7 @@ string? ragQdrantApiKey = null;
 bool ragQdrantUseTls = false;
 int ragQdrantDimension = 1536;
 string ragQdrantCollectionName = "default";
+string? rewriterApiKey = null;
 var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 string ragEmbeddingOpenAiKey = "";
 
@@ -320,11 +321,78 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         }
 
         RagProcessedQuery? ragProcessed = null;
+        string? rewriterModelName = null;
         if (ragState.Store != null)
         {
             try
             {
-                ragProcessed = await ragState.Store.QueryAsync(req.Message, ctx.RequestAborted);
+                var ragQuery = req.Message;
+                string? rewrittenQuery = null;
+
+                // Query Rewriting for multi-turn conversations
+                var ragSettings = ragState.GetSettings();
+                if (ragSettings.QueryRewriterEnabled && currentService != null)
+                {
+                    var messages = currentService.ActivateChat.Messages;
+                    if (messages.Count > 0)
+                    {
+                        var history = messages
+                            .Where(m => m.Role == ActorRole.User || m.Role == ActorRole.Assistant)
+                            .Select(m => new ConversationTurn(
+                                m.Role == ActorRole.User ? "user" : "assistant",
+                                m.Content ?? string.Empty))
+                            .ToList();
+
+                        if (history.Count > 0)
+                        {
+                            AIService rewriterService = currentService;
+
+                            // Use override model if configured
+                            if (!string.IsNullOrWhiteSpace(ragSettings.RewriterModelOverride)
+                                && !string.IsNullOrWhiteSpace(rewriterApiKey)
+                                && Enum.TryParse<AIModel>(ragSettings.RewriterModelOverride, out var overrideModel))
+                            {
+                                var apiKey = rewriterApiKey;
+                                if (!string.IsNullOrWhiteSpace(apiKey))
+                                {
+                                    var overrideProvider = GetProviderForModel(overrideModel);
+                                    var overrideHttpClient = new HttpClient();
+                                    rewriterService = overrideProvider switch
+                                    {
+                                        "OpenAI" => new ChatGptService(apiKey, overrideHttpClient),
+                                        "Anthropic" => new ClaudeService(apiKey, overrideHttpClient),
+                                        "Google" => new GeminiService(apiKey, overrideHttpClient),
+                                        "DeepSeek" => new DeepSeekService(apiKey, overrideHttpClient),
+                                        "xAI" => new GrokService(apiKey, overrideHttpClient),
+                                        "Perplexity" => new SonarService(apiKey, overrideHttpClient),
+                                        _ => currentService
+                                    };
+                                    rewriterService.ChangeModel(overrideModel);
+                                }
+                            }
+
+                            rewriterModelName = rewriterService.Model;
+
+                            var rewriter = new LlmQueryRewriter(rewriterService);
+                            var rewritten = await rewriter.RewriteAsync(ragQuery, history, ctx.RequestAborted);
+                            if (!string.IsNullOrWhiteSpace(rewritten) && rewritten != ragQuery)
+                            {
+                                rewrittenQuery = rewritten;
+                                ragQuery = rewritten;
+                            }
+                        }
+                    }
+                }
+
+                ragProcessed = await ragState.Store.QueryAsync(ragQuery, ctx.RequestAborted);
+
+                // Preserve rewritten query info
+                if (rewrittenQuery != null)
+                {
+                    ragProcessed.RewrittenQuery = rewrittenQuery;
+                    ragProcessed.OriginalQuery = req.Message;
+                }
+
                 // The library sets AugmentedPrompt = OriginalQuery when no references are found,
                 // so the LLM receives a clean query. We still null-out ragProcessed to skip
                 // sending unnecessary RAG diagnostics to the frontend.
@@ -358,6 +426,8 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 type = "rag_info",
                 augmentedPrompt = ragProcessed.AugmentedPrompt,
                 originalQuery = ragProcessed.OriginalQuery,
+                rewrittenQuery = ragProcessed.RewrittenQuery,
+                rewriterModel = rewriterModelName,
                 diagnostics = new
                 {
                     appliedNamespace = ragProcessed.Diagnostics.AppliedNamespace,
@@ -799,7 +869,13 @@ app.MapPost("/api/rag/pipeline-settings", (RagPipelineSettingsRequest req) =>
         EmbeddingBaseUrl: string.IsNullOrWhiteSpace(req.EmbeddingBaseUrl) ? current.EmbeddingBaseUrl : req.EmbeddingBaseUrl.Trim(),
         TopK: req.TopK is > 0 ? req.TopK.Value : current.TopK,
         MinScore: req.MinScore ?? current.MinScore,
-        PromptTemplate: req.PromptTemplate ?? current.PromptTemplate);
+        PromptTemplate: req.PromptTemplate ?? current.PromptTemplate,
+        QueryRewriterEnabled: req.QueryRewriterEnabled ?? current.QueryRewriterEnabled,
+        RewriterModelOverride: req.RewriterModelOverride);
+
+    // Store rewriter API key separately
+    if (req.RewriterApiKey != null)
+        rewriterApiKey = string.IsNullOrWhiteSpace(req.RewriterApiKey) ? null : req.RewriterApiKey;
 
     ragState.UpdateSettings(settings);
     ragState.TryApplyQuerySettings(settings);
@@ -1755,7 +1831,10 @@ record RagPipelineSettingsRequest(
     string? EmbeddingBaseUrl,
     int? TopK,
     double? MinScore,
-    string? PromptTemplate);
+    string? PromptTemplate,
+    bool? QueryRewriterEnabled,
+    string? RewriterModelOverride,
+    string? RewriterApiKey);
 record WhyMissingRequest(string? Query, string? ExpectedText);
 record QueryScoresRequest(string? Query, string? ExpectedText);
 record VectorStoreConfigRequest(

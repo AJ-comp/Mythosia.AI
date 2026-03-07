@@ -169,7 +169,9 @@ public record RagPipelineSettings(
     string EmbeddingBaseUrl = "http://localhost:11434",
     int TopK = 5,
     double? MinScore = 0.2,
-    string? PromptTemplate = null);
+    string? PromptTemplate = null,
+    bool QueryRewriterEnabled = true,
+    string? RewriterModelOverride = null);
 
 public record RagReferenceHistoryEntry(
     Guid Id,

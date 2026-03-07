@@ -3,7 +3,9 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>1.1.0</VersionPrefix>
+    <PackageId>Mythosia.AI.Loaders.Office</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>1.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Office document loaders for Mythosia.AI RAG pipeline. Includes OpenXml parsers for docx/xlsx/pptx.</Description>

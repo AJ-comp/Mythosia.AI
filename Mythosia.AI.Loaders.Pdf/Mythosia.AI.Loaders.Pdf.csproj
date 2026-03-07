@@ -3,7 +3,9 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>1.1.0</VersionPrefix>
+    <PackageId>Mythosia.AI.Loaders.Pdf</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>1.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>PDF document loaders for Mythosia.AI RAG pipeline. Includes PdfDocumentLoader and PdfPig parser.</Description>

@@ -105,6 +105,8 @@ function openRagDiagnosePopup(ragInfo) {
           </div>
           <div class="rag-popup-meta">
             <span>Original Query: <strong>"${escapeHtml(truncate(ragInfo.originalQuery || '', 60))}"</strong></span>
+            ${ragInfo.rewrittenQuery ? `<span class="rag-rewritten-row" title="Click to expand">Rewritten Query: <strong>"${escapeHtml(truncate(ragInfo.rewrittenQuery, 60))}"</strong>${ragInfo.rewriterModel ? ` <em class="rag-rewriter-model">(${escapeHtml(ragInfo.rewriterModel)})</em>` : ''}</span>
+            <div class="rag-rewritten-full hidden"><pre class="rag-rewritten-pre">${escapeHtml(ragInfo.rewrittenQuery)}</pre></div>` : ''}
             <span>References: <strong>${refs.length}</strong></span>
           </div>
           <div class="rag-popup-meta rag-popup-meta--diag">
@@ -135,6 +137,15 @@ function openRagDiagnosePopup(ragInfo) {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
+
+  // Expand rewritten query on click
+  const rewrittenRow = overlay.querySelector('.rag-rewritten-row');
+  const rewrittenFull = overlay.querySelector('.rag-rewritten-full');
+  if (rewrittenRow && rewrittenFull) {
+    rewrittenRow.addEventListener('click', () => {
+      rewrittenFull.classList.toggle('hidden');
+    });
+  }
 
   // Copy handler
   const copyBtn = overlay.querySelector('.rag-popup-copy-btn');

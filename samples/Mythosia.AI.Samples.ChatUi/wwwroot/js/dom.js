@@ -78,6 +78,11 @@ export const ragTrace        = $('#rag-trace');
 export const ragTopK         = $('#rag-topk');
 export const ragMinScore     = $('#rag-min-score');
 export const ragPromptTemplate = $('#rag-prompt-template');
+export const ragQueryRewriter  = $('#rag-query-rewriter');
+export const ragRewriterOverride    = $('#rag-rewriter-override');
+export const ragRewriterOverrideRow = $('#rag-rewriter-override-row');
+export const ragRewriterModelRow    = $('#rag-rewriter-model-row');
+export const ragRewriterModel       = $('#rag-rewriter-model');
 
 // RAG Vector Store
 export const ragVectorStoreProvider = $('#rag-vectorstore-provider');

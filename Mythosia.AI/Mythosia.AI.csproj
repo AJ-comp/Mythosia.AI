@@ -11,8 +11,8 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.7.0</VersionPrefix>
-
+		<PackageId>Mythosia.AI</PackageId>
+		<IsPackable>true</IsPackable>
 		<Company>Mythosia</Company>
 		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>

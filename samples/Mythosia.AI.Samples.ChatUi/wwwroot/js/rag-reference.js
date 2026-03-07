@@ -34,6 +34,11 @@ import {
   ragTopK,
   ragMinScore,
   ragPromptTemplate,
+  ragQueryRewriter,
+  ragRewriterOverride,
+  ragRewriterOverrideRow,
+  ragRewriterModelRow,
+  ragRewriterModel,
   ragChatStatus,
   vectordbChatStatus,
   ragVectorStoreProvider,
@@ -84,6 +89,9 @@ export function initRagReference() {
     if (e.target === ragSettingsModal) closeSettingsModal();
   });
   ragSettingsSave?.addEventListener('click', savePipelineSettings);
+
+  ragQueryRewriter?.addEventListener('change', updateRewriterUI);
+  ragRewriterOverride?.addEventListener('change', updateRewriterOverrideUI);
 
   ragFiles.addEventListener('change', updateFileList);
   ragEmbeddingProvider?.addEventListener('change', () => {
@@ -178,7 +186,11 @@ function applyPipelineSettings(settings) {
   if (ragTopK && settings.topK) ragTopK.value = settings.topK;
   if (ragMinScore) ragMinScore.value = settings.minScore ?? '';
   if (ragPromptTemplate) ragPromptTemplate.value = settings.promptTemplate ?? '';
+  if (ragQueryRewriter) ragQueryRewriter.checked = settings.queryRewriterEnabled !== false;
+  if (ragRewriterOverride) ragRewriterOverride.checked = !!settings.rewriterModelOverride;
+  if (ragRewriterModel && settings.rewriterModelOverride) ragRewriterModel.value = settings.rewriterModelOverride;
 
+  updateRewriterUI();
   updateEmbeddingUI();
 }
 
@@ -197,7 +209,10 @@ async function savePipelineSettings() {
     embeddingBaseUrl: ragEmbeddingBaseUrl?.value?.trim() || '',
     topK: toInt(ragTopK?.value, 3),
     minScore: toFloatOrNull(ragMinScore?.value),
-    promptTemplate: ragPromptTemplate?.value?.trim() || null
+    promptTemplate: ragPromptTemplate?.value?.trim() || null,
+    queryRewriterEnabled: ragQueryRewriter?.checked ?? true,
+    rewriterModelOverride: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? ragRewriterModel.value : null,
+    rewriterApiKey: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? getApiKeyForRewriterModel(ragRewriterModel.value) : null
   };
 
   try {
@@ -223,6 +238,41 @@ function setSelectValue(select, value) {
   if (!select) return;
   select.value = value;
   select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+// ── Query Rewriter UI ─────────────────────────────────────────
+function updateRewriterUI() {
+  const enabled = ragQueryRewriter?.checked ?? true;
+  if (ragRewriterOverrideRow) {
+    ragRewriterOverrideRow.classList.toggle('hidden', !enabled);
+  }
+  if (!enabled) {
+    updateRewriterOverrideUI();
+  }
+}
+
+function updateRewriterOverrideUI() {
+  const visible = (ragQueryRewriter?.checked ?? true) && (ragRewriterOverride?.checked ?? false);
+  if (ragRewriterModelRow) {
+    ragRewriterModelRow.classList.toggle('hidden', !visible);
+  }
+}
+
+function getProviderForRewriterModel(modelEnum) {
+  if (!modelEnum) return null;
+  if (modelEnum.startsWith('Gpt') || modelEnum.startsWith('GPT')) return 'OpenAI';
+  if (modelEnum.startsWith('Claude')) return 'Anthropic';
+  if (modelEnum.startsWith('Gemini')) return 'Google';
+  if (modelEnum.startsWith('Grok')) return 'xAI';
+  if (modelEnum.startsWith('DeepSeek')) return 'DeepSeek';
+  if (modelEnum.startsWith('Perplexity')) return 'Perplexity';
+  return null;
+}
+
+function getApiKeyForRewriterModel(modelEnum) {
+  const provider = getProviderForRewriterModel(modelEnum);
+  if (!provider) return null;
+  return providerKeys?.[provider] || null;
 }
 
 function toInt(value, fallback) {

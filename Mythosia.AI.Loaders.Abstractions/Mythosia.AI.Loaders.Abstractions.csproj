@@ -3,7 +3,9 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>1.2.0</VersionPrefix>
+    <PackageId>Mythosia.AI.Loaders.Abstractions</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>1.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Document loader abstractions for Mythosia.AI RAG pipeline. Defines IDocumentLoader/IDocumentParser and RagDocument/ParsedDocument models.</Description>
