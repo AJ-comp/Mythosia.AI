@@ -15,13 +15,15 @@ This package defines the contracts that all RAG components implement — you onl
 | `IRagDiagnosticsStore` | Optional diagnostics contract (`ListAllRecordsAsync`, `ScoredListAsync`) |
 | `ITextSplitter` | Document → chunks (`Split(RagDocument)`) |
 | `IContextBuilder` | Search results → LLM prompt (`BuildContext(query, results)`) |
+| `IQueryRewriter` | Rewrites follow-up queries into standalone queries using conversation history |
 
 ## Models
 
 | Model | Description |
 | --- | --- |
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
-| `RagProcessedQuery` | Pipeline output: original query, augmented prompt, references, `HasReferences` flag, and `Diagnostics` |
+| `RagProcessedQuery` | Pipeline output: original query, rewritten query, augmented prompt, references, `HasReferences` flag, and `Diagnostics` |
+| `ConversationTurn` | Lightweight DTO representing a single conversation turn (role + content) for `IQueryRewriter` |
 | `RagQueryDiagnostics` | Applied retrieval metadata (`AppliedNamespace`, `AppliedTopK`, `AppliedMinScore`, `ElapsedMs`) |
 | `RagPipelineOptions` | Configuration: TopK, MinScore, DefaultCollection |
 | `RagQueryOptions` | Per-request overrides: TopK, MinScore, Namespace |

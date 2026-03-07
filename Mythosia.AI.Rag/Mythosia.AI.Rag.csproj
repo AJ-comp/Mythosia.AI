@@ -3,13 +3,15 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <VersionPrefix>3.0.0</VersionPrefix>
+    <PackageId>Mythosia.AI.Rag</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>3.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Includes RagPipeline, text splitters, context builder, and OpenAI embedding provider.</Description>
     <PackageTags>AI;RAG;Pipeline;TextSplitter;Embedding;ContextBuilder</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v3.0.0: Mythosia.AI.Rag directly references Mythosia.VectorDb.InMemory and uses InMemoryVectorStore by default.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.1.0: Add WithQueryRewriter() for multi-turn RAG. Follow-up queries are automatically rewritten into standalone queries using conversation history.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

@@ -111,6 +111,52 @@ Answer based only on the provided documents.
 
 Use `{context}` and `{question}` placeholders. If no template is specified, a default numbered-reference format is used.
 
+## Multi-Turn Conversations (Query Rewriting)
+
+By default, follow-up questions like *"Tell me more about that"* fail in RAG because the search query lacks context from previous turns. `WithQueryRewriter()` solves this by automatically rewriting follow-up queries into standalone queries before vector search.
+
+```csharp
+var service = new ChatGptService(apiKey, httpClient)
+    .WithRag(rag => rag
+        .AddDocument("manual.txt")
+        .WithQueryRewriter()   // Enables automatic query rewriting
+    );
+
+// Turn 1: "Do you know about OPM?" → RAG finds OPM documents ✓
+var r1 = await service.GetCompletionAsync("Do you know about OPM?");
+
+// Turn 2: "Tell me more about that" → rewritten to "Tell me more about OPM" → RAG finds OPM documents ✓
+var r2 = await service.GetCompletionAsync("Tell me more about that");
+```
+
+Use a cheaper/smaller LLM for rewriting to reduce cost:
+
+```csharp
+var rewriterService = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
+
+var service = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4o)
+    .WithRag(rag => rag
+        .AddDocument("manual.txt")
+        .WithQueryRewriter(new LlmQueryRewriter(rewriterService))
+    );
+```
+
+You can also provide a fully custom `IQueryRewriter` implementation:
+
+```csharp
+.WithRag(rag => rag
+    .AddDocument("manual.txt")
+    .WithQueryRewriter(new MyCustomRewriter())
+)
+```
+
+Inspect the rewritten query via `RagProcessedQuery.RewrittenQuery`:
+
+```csharp
+var result = await service.RetrieveAsync("Tell me more about that");
+Console.WriteLine(result.RewrittenQuery);  // "Tell me more about OPM"
+```
+
 ## Streaming
 
 ```csharp

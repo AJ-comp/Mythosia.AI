@@ -20,10 +20,28 @@ namespace Mythosia.AI.Rag
         /// </summary>
         internal IVectorStore VectorStore { get; }
 
+        /// <summary>
+        /// The query rewriter for multi-turn conversations, or null if disabled.
+        /// </summary>
+        internal IQueryRewriter? QueryRewriter { get; }
+
+        /// <summary>
+        /// Whether query rewriting was enabled via WithQueryRewriter() without a custom implementation.
+        /// When true and QueryRewriter is null, RagEnabledService creates a LlmQueryRewriter using the inner AIService.
+        /// </summary>
+        internal bool QueryRewriterEnabled { get; }
+
         internal RagStore(IRagPipeline pipeline, IVectorStore vectorStore)
+            : this(pipeline, vectorStore, null, false)
+        {
+        }
+
+        internal RagStore(IRagPipeline pipeline, IVectorStore vectorStore, IQueryRewriter? queryRewriter, bool queryRewriterEnabled)
         {
             Pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
             VectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
+            QueryRewriter = queryRewriter;
+            QueryRewriterEnabled = queryRewriterEnabled;
         }
 
         /// <summary>

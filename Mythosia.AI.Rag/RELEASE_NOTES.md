@@ -1,5 +1,22 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v3.1.0
+
+### Added
+
+- `WithQueryRewriter()` fluent API for multi-turn RAG conversations.
+  - Automatically rewrites follow-up queries (e.g., "Tell me more about that") into standalone queries using conversation history before vector search.
+  - Uses the inner `AIService` as the LLM for rewriting by default.
+  - Supports custom `IQueryRewriter` implementations via `WithQueryRewriter(IQueryRewriter)`.
+- `LlmQueryRewriter` — default `IQueryRewriter` implementation that uses an `AIService` in `StatelessMode` for rewriting without polluting conversation history.
+- `RagProcessedQuery.RewrittenQuery` property for inspecting/debugging rewritten queries.
+
+### Compatibility
+
+- Fully backward compatible with v3.0.0. No breaking changes.
+
+---
+
 ## v3.0.0
 
 ### Breaking Changes

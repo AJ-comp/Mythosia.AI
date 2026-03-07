@@ -56,6 +56,8 @@ namespace Mythosia.AI.Rag
         private IVectorStore? _vectorStore;
         private ITextSplitter? _textSplitter;
         private IContextBuilder? _contextBuilder;
+        private IQueryRewriter? _queryRewriter;
+        private bool _queryRewriterEnabled;
 
         private int _topK = 3;
         private int _chunkSize = 300;
@@ -462,6 +464,31 @@ namespace Mythosia.AI.Rag
             return this;
         }
 
+        /// <summary>
+        /// Enables automatic query rewriting for multi-turn conversations.
+        /// When enabled, follow-up queries like "tell me more about that" are rewritten
+        /// into standalone queries using the conversation history before vector search.
+        /// The inner AIService is used as the LLM for rewriting.
+        /// </summary>
+        public RagBuilder WithQueryRewriter()
+        {
+            // Marker: actual LlmQueryRewriter is created in RagEnabledService
+            // which has access to the inner AIService.
+            _queryRewriter = null;
+            _queryRewriterEnabled = true;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables query rewriting with a custom <see cref="IQueryRewriter"/> implementation.
+        /// </summary>
+        public RagBuilder WithQueryRewriter(IQueryRewriter queryRewriter)
+        {
+            _queryRewriter = queryRewriter ?? throw new ArgumentNullException(nameof(queryRewriter));
+            _queryRewriterEnabled = true;
+            return this;
+        }
+
         #endregion
 
         #region Internal Build
@@ -534,7 +561,7 @@ namespace Mythosia.AI.Rag
                     TrackProcessedPaths(docsToIndex, processedPaths);
             }
 
-            return new RagStore(pipeline, vectorStore);
+            return new RagStore(pipeline, vectorStore, _queryRewriter, _queryRewriterEnabled);
         }
 
         #endregion

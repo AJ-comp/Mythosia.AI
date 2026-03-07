@@ -1,7 +1,9 @@
+using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,6 +19,7 @@ namespace Mythosia.AI.Rag
         private readonly AIService _innerService;
         private readonly RagBuilder? _builder;
         private RagStore? _ragStore;
+        private IQueryRewriter? _queryRewriter;
         private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
 
         /// <summary>
@@ -35,6 +38,7 @@ namespace Mythosia.AI.Rag
         {
             _innerService = innerService ?? throw new ArgumentNullException(nameof(innerService));
             _ragStore = ragStore ?? throw new ArgumentNullException(nameof(ragStore));
+            ResolveQueryRewriter();
         }
 
         /// <summary>
@@ -61,8 +65,7 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
-            var store = await EnsureInitializedAsync(cancellationToken);
-            var processed = await store.Pipeline.ProcessAsync(query, options, cancellationToken);
+            var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(processed.AugmentedPrompt);
         }
 
@@ -84,8 +87,7 @@ namespace Mythosia.AI.Rag
             CancellationToken cancellationToken = default)
         {
             var query = message.Content ?? message.GetDisplayText();
-            var store = await EnsureInitializedAsync(cancellationToken);
-            var processed = await store.Pipeline.ProcessAsync(query, options, cancellationToken);
+            var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(processed.AugmentedPrompt);
         }
 
@@ -110,8 +112,7 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var store = await EnsureInitializedAsync(cancellationToken);
-            var processed = await store.Pipeline.ProcessAsync(prompt, options, cancellationToken);
+            var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
 
             await foreach (var chunk in _innerService.StreamAsync(processed.AugmentedPrompt, cancellationToken))
             {
@@ -141,8 +142,7 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var store = await EnsureInitializedAsync(cancellationToken);
-            var processed = await store.Pipeline.ProcessAsync(prompt, options, cancellationToken);
+            var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
 
             await foreach (var chunk in _innerService.StreamOnceAsync(processed.AugmentedPrompt, cancellationToken))
             {
@@ -168,8 +168,63 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            return await RewriteAndProcessAsync(query, options, cancellationToken);
+        }
+
+        #endregion
+
+        #region Query Rewriting
+
+        /// <summary>
+        /// Rewrites the query using conversation history (if a rewriter is configured),
+        /// then processes through the RAG pipeline.
+        /// </summary>
+        private async Task<RagProcessedQuery> RewriteAndProcessAsync(
+            string query,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken)
+        {
             var store = await EnsureInitializedAsync(cancellationToken);
-            return await store.Pipeline.ProcessAsync(query, options, cancellationToken);
+
+            string searchQuery = query;
+            string? rewrittenQuery = null;
+
+            if (_queryRewriter != null)
+            {
+                var history = GetConversationHistory();
+                if (history.Count > 0)
+                {
+                    var rewritten = await _queryRewriter.RewriteAsync(query, history, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(rewritten) && rewritten != query)
+                    {
+                        rewrittenQuery = rewritten;
+                        searchQuery = rewritten;
+                    }
+                }
+            }
+
+            var processed = await store.Pipeline.ProcessAsync(searchQuery, options, cancellationToken);
+            processed.RewrittenQuery = rewrittenQuery;
+
+            // Keep the original query in OriginalQuery (not the rewritten one)
+            if (rewrittenQuery != null)
+                processed.OriginalQuery = query;
+
+            return processed;
+        }
+
+        private IReadOnlyList<ConversationTurn> GetConversationHistory()
+        {
+            var messages = _innerService.ActivateChat.Messages;
+            if (messages.Count == 0)
+                return Array.Empty<ConversationTurn>();
+
+            return messages
+                .Where(m => m.Role == ActorRole.User || m.Role == ActorRole.Assistant)
+                .Select(m => new ConversationTurn(
+                    m.Role == ActorRole.User ? "user" : "assistant",
+                    m.Content ?? string.Empty))
+                .ToList();
         }
 
         #endregion
@@ -191,11 +246,29 @@ namespace Mythosia.AI.Rag
                     throw new InvalidOperationException("RagBuilder is null and RagStore is not initialized.");
 
                 _ragStore = await _builder.BuildAsync(cancellationToken);
+                ResolveQueryRewriter();
                 return _ragStore;
             }
             finally
             {
                 _initLock.Release();
+            }
+        }
+
+        private void ResolveQueryRewriter()
+        {
+            if (_ragStore == null) return;
+
+            if (_ragStore.QueryRewriter != null)
+            {
+                // Custom IQueryRewriter was provided
+                _queryRewriter = _ragStore.QueryRewriter;
+            }
+            else if (_ragStore.QueryRewriterEnabled)
+            {
+                // WithQueryRewriter() was called without a custom implementation;
+                // use the inner AIService as the LLM for rewriting.
+                _queryRewriter = new LlmQueryRewriter(_innerService);
             }
         }
 

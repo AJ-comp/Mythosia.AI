@@ -41,6 +41,12 @@ namespace Mythosia.AI.Rag
         public string OriginalQuery { get; set; } = string.Empty;
 
         /// <summary>
+        /// The rewritten query produced by <see cref="IQueryRewriter"/>, or null if no rewriting occurred.
+        /// When set, this standalone query was used for vector search instead of <see cref="OriginalQuery"/>.
+        /// </summary>
+        public string? RewrittenQuery { get; set; }
+
+        /// <summary>
         /// The fully assembled prompt (context + query) to send to the LLM.
         /// </summary>
         public string AugmentedPrompt { get; set; } = string.Empty;

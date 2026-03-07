@@ -1,5 +1,20 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v3.1.0
+
+### Added
+
+- `IQueryRewriter` interface for rewriting follow-up queries into standalone queries using conversation history.
+  - `RewriteAsync(query, conversationHistory, cancellationToken)` — returns a standalone query suitable for vector search.
+- `ConversationTurn` lightweight DTO representing a single conversation turn (`Role`, `Content`) for use with `IQueryRewriter`.
+- `RagProcessedQuery.RewrittenQuery` nullable property — contains the rewritten query when query rewriting occurred, or `null` if no rewriting was needed.
+
+### Compatibility
+
+- Fully backward compatible with v3.0.0. No breaking changes.
+
+---
+
 ## v3.0.0
 
 ### Breaking Changes
