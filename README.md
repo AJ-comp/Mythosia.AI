@@ -28,8 +28,8 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI.Rag](Mythosia.AI.Rag/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag) | Fluent RAG extension for AIService with `.WithRag()` API |
-| [Mythosia.AI.Rag.Abstractions](Mythosia.AI.Rag.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag.Abstractions) | Interfaces and models for RAG pipeline components |
+| [Mythosia.AI.Rag](rag/Mythosia.AI.Rag/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag) | Fluent RAG extension for AIService with `.WithRag()` API |
+| [Mythosia.AI.Rag.Abstractions](rag/Mythosia.AI.Rag.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag.Abstractions) | Interfaces and models for RAG pipeline components |
 
 ### Document Loaders
 
@@ -47,6 +47,7 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 | --- | --- | --- |
 | [Mythosia.VectorDb.Abstractions](vectordb/Mythosia.VectorDb.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `VectorRecord` · `VectorFilter` contracts |
 | [Mythosia.VectorDb.InMemory](vectordb/Mythosia.VectorDb.InMemory/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | In-memory store — zero infrastructure, great for prototyping |
+| [Mythosia.VectorDb.Pinecone](vectordb/Mythosia.VectorDb.Pinecone/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — index/namespace/scope isolation for managed vector DB |
 | [Mythosia.VectorDb.Postgres](vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat indexes, production-ready |
 | [Mythosia.VectorDb.Qdrant](vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot, auto-provisioning |
 
@@ -73,6 +74,7 @@ graph TD
 
     subgraph "🗄️ Vector Stores — pick one or more"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK<br/><i>netstandard2.1 · v2.0.0</i>"]
+        Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v1.0.0</i>"]
         Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat<br/><i>net10.0 · v10.1.0</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
@@ -99,6 +101,7 @@ graph TD
 
     %% VectorStores → Foundation
     InMem --> VdbAbs
+    Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
 ```
@@ -245,14 +248,15 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 ```text
 Mythosia.AI/                          # Core AI service library
-Mythosia.AI.Rag/                      # RAG fluent API and pipeline
-Mythosia.AI.Rag.Abstractions/         # RAG interfaces and models
+rag/Mythosia.AI.Rag/                  # RAG fluent API and pipeline
+rag/Mythosia.AI.Rag.Abstractions/     # RAG interfaces and models
 Mythosia.AI.Loaders.Abstractions/     # Document loader contracts
 Mythosia.AI.Loaders.Office/           # Office document loaders (Word/Excel/PowerPoint)
 Mythosia.AI.Loaders.Pdf/              # PDF document loader
 vectordb/
   Mythosia.VectorDb.Abstractions/     # Vector store contracts
   Mythosia.VectorDb.InMemory/         # In-memory vector store
+  Mythosia.VectorDb.Pinecone/         # Pinecone vector store
   Mythosia.VectorDb.Postgres/         # PostgreSQL + pgvector store
   Mythosia.VectorDb.Qdrant/           # Qdrant vector store
 samples/                              # Sample applications
@@ -275,7 +279,7 @@ dotnet add package System.Linq.Async
 
 - [Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)
 - [Mythosia.AI README](Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
-- [Mythosia.AI.Rag README](Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
+- [Mythosia.AI.Rag README](rag/Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
 - Loaders Guide: [EN](Mythosia.AI.Loaders.Abstractions/docs/en/loaders.md) · [KO](Mythosia.AI.Loaders.Abstractions/docs/ko/loaders.md) · [JA](Mythosia.AI.Loaders.Abstractions/docs/ja/loaders.md) · [ZH](Mythosia.AI.Loaders.Abstractions/docs/zh/loaders.md)
 - [Release Notes](Mythosia.AI/RELEASE_NOTES.md)
 

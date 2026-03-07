@@ -14,9 +14,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Mythosia.AI\Mythosia.AI.csproj" />
-    <ProjectReference Include="..\..\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
+    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
-    <ProjectReference Include="..\..\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
+    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
     <ProjectReference Include="..\..\Mythosia.AI.Loaders.Abstractions\Mythosia.AI.Loaders.Abstractions.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
   </ItemGroup>

@@ -110,6 +110,13 @@ export const ragQdrantUseTls    = $('#rag-qdrant-usetls');
 export const ragQdrantConnect   = $('#rag-qdrant-connect');
 export const ragQdrantDisconnect = $('#rag-qdrant-disconnect');
 export const ragQdrantStatus    = $('#rag-qdrant-status');
+export const ragPineconeConfig     = $('#rag-pinecone-config');
+export const ragPineconeIndexHost  = $('#rag-pinecone-index-host');
+export const ragPineconeApiKey     = $('#rag-pinecone-apikey');
+export const ragPineconeNamespace  = $('#rag-pinecone-namespace');
+export const ragPineconeConnect    = $('#rag-pinecone-connect');
+export const ragPineconeDisconnect = $('#rag-pinecone-disconnect');
+export const ragPineconeStatus     = $('#rag-pinecone-status');
 
 // RAG Diagnostics Modal
 export const btnRagDiagnose   = $('#btn-rag-diagnose');

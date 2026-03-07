@@ -66,6 +66,13 @@ import {
   ragQdrantConnect,
   ragQdrantDisconnect,
   ragQdrantStatus,
+  ragPineconeConfig,
+  ragPineconeIndexHost,
+  ragPineconeApiKey,
+  ragPineconeNamespace,
+  ragPineconeConnect,
+  ragPineconeDisconnect,
+  ragPineconeStatus,
   codeModal,
   codeModalContent,
   codeCopyAll
@@ -135,6 +142,11 @@ export function initRagReference() {
   ragQdrantPort?.addEventListener('input', updateQdrantConnectState);
   ragQdrantConnect?.addEventListener('click', connectQdrant);
   ragQdrantDisconnect?.addEventListener('click', disconnectQdrant);
+
+  ragPineconeIndexHost?.addEventListener('input', updatePineconeConnectState);
+  ragPineconeApiKey?.addEventListener('input', updatePineconeConnectState);
+  ragPineconeConnect?.addEventListener('click', connectPinecone);
+  ragPineconeDisconnect?.addEventListener('click', disconnectPinecone);
 
   updateFileList();
   updateEmbeddingUI();
@@ -403,7 +415,8 @@ function updateRunState(files) {
   const vsProvider = ragVectorStoreProvider?.value || 'inmemory';
   const vsReady = vsProvider === 'inmemory'
     || (vsProvider === 'postgres' && pgConnected)
-    || (vsProvider === 'qdrant' && qdrantConnected);
+    || (vsProvider === 'qdrant' && qdrantConnected)
+    || (vsProvider === 'pinecone' && pineconeConnected);
   ragRun.disabled = fileCount === 0 || !hasKey || !vsReady;
 }
 
@@ -515,6 +528,11 @@ function updateVectorDbStatus() {
     const col = ragQdrantCollection?.value || 'default';
     vectordbChatStatus.textContent = `VectorDB: Qdrant · ${host} · collection=${col}`;
     vectordbChatStatus.classList.add('active');
+  } else if (provider === 'pinecone' && pineconeConnected) {
+    const host = ragPineconeIndexHost?.value || '';
+    const ns = ragPineconeNamespace?.value || 'default';
+    vectordbChatStatus.textContent = `VectorDB: Pinecone · ${host} · namespace=${ns}`;
+    vectordbChatStatus.classList.add('active');
   } else {
     vectordbChatStatus.textContent = provider === 'inmemory' ? 'VectorDB: InMemory' : '';
     vectordbChatStatus.classList.remove('active');
@@ -601,6 +619,7 @@ let hasReferenceRun = false;
 let autoChunkerFromFiles = false;
 let pgConnected = false;
 let qdrantConnected = false;
+let pineconeConnected = false;
 
 // ── Vector Store Provider ─────────────────────────────────────
 function updateVectorStoreUI() {
@@ -612,17 +631,23 @@ function updateVectorStoreUI() {
   if (ragQdrantConfig) {
     ragQdrantConfig.classList.toggle('hidden', provider !== 'qdrant');
   }
+  if (ragPineconeConfig) {
+    ragPineconeConfig.classList.toggle('hidden', provider !== 'pinecone');
+  }
   if (ragVectorStoreHint) {
     if (provider === 'postgres') {
       ragVectorStoreHint.textContent = 'PostgreSQL with pgvector. Configure and connect below.';
     } else if (provider === 'qdrant') {
       ragVectorStoreHint.textContent = 'Qdrant vector database. Configure and connect below.';
+    } else if (provider === 'pinecone') {
+      ragVectorStoreHint.textContent = 'Pinecone managed vector database. Configure index host/API key and connect.';
     } else {
       ragVectorStoreHint.textContent = 'In-memory store. Data is lost on restart.';
     }
   }
   updatePgConnectState();
   updateQdrantConnectState();
+  updatePineconeConnectState();
   updateRunState();
 }
 
@@ -792,6 +817,8 @@ async function loadVectorStoreConfig() {
   if (savedPg) applyPgFields(savedPg);
   const savedQd = loadQdrantFromStorage();
   if (savedQd) applyQdrantFields(savedQd);
+  const savedPine = loadPineconeFromStorage();
+  if (savedPine) applyPineconeFields(savedPine);
 
   // Determine which provider to auto-reconnect based on last active
   const lastActive = loadLastActiveProvider();
@@ -807,6 +834,13 @@ async function loadVectorStoreConfig() {
     if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'qdrant');
     updateVectorStoreUI();
     await connectQdrant();
+    return;
+  }
+
+  if (lastActive === 'pinecone' && savedPine && savedPine.indexHost) {
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'pinecone');
+    updateVectorStoreUI();
+    await connectPinecone();
     return;
   }
 
@@ -830,6 +864,13 @@ async function loadVectorStoreConfig() {
       if (ragQdrantConnect) ragQdrantConnect.textContent = 'Reconnect';
       if (ragQdrantStatus) ragQdrantStatus.textContent = `Connected · ${data.qdrantHost}:${data.qdrantPort}`;
       updateQdrantDisconnectVisibility();
+    } else if (data?.provider === 'pinecone') {
+      if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'pinecone');
+      applyPineconeFields(data);
+      pineconeConnected = true;
+      if (ragPineconeConnect) ragPineconeConnect.textContent = 'Reconnect';
+      if (ragPineconeStatus) ragPineconeStatus.textContent = `Connected · ${data.pineconeIndexHost} · ns=${data.pineconeNamespace || 'default'}`;
+      updatePineconeDisconnectVisibility();
     }
     updateVectorStoreUI();
   } catch { /* ignore */ }
@@ -975,6 +1016,125 @@ async function disconnectQdrant() {
     if (ragQdrantStatus) ragQdrantStatus.textContent = err.message || 'Failed to disconnect.';
   } finally {
     if (ragQdrantDisconnect) ragQdrantDisconnect.disabled = false;
+  }
+}
+
+// ── Pinecone ──────────────────────────────────────────────────
+
+const PINECONE_STORAGE_KEY = 'rag_pinecone_config';
+
+function updatePineconeConnectState() {
+  if (!ragPineconeConnect) return;
+  const hasHost = !!ragPineconeIndexHost?.value?.trim();
+  const hasApiKey = !!ragPineconeApiKey?.value?.trim();
+  ragPineconeConnect.disabled = !(hasHost && hasApiKey);
+}
+
+function updatePineconeDisconnectVisibility() {
+  if (ragPineconeDisconnect) {
+    ragPineconeDisconnect.classList.toggle('hidden', !pineconeConnected);
+  }
+}
+
+function savePineconeToStorage(config) {
+  try { localStorage.setItem(PINECONE_STORAGE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+}
+
+function loadPineconeFromStorage() {
+  try {
+    const raw = localStorage.getItem(PINECONE_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function clearPineconeFromStorage() {
+  try { localStorage.removeItem(PINECONE_STORAGE_KEY); } catch { /* ignore */ }
+}
+
+function applyPineconeFields(cfg) {
+  if (!cfg) return;
+  if (ragPineconeIndexHost) ragPineconeIndexHost.value = cfg.indexHost || cfg.pineconeIndexHost || '';
+  if (ragPineconeApiKey) ragPineconeApiKey.value = cfg.apiKey || cfg.pineconeApiKey || '';
+  if (ragPineconeNamespace) ragPineconeNamespace.value = cfg.namespace || cfg.pineconeNamespace || 'default';
+}
+
+async function connectPinecone() {
+  if (!ragPineconeConnect) return;
+  ragPineconeConnect.disabled = true;
+  if (ragPineconeStatus) ragPineconeStatus.textContent = 'Connecting...';
+
+  const payload = {
+    provider: 'pinecone',
+    pineconeIndexHost: ragPineconeIndexHost?.value?.trim() || '',
+    pineconeApiKey: ragPineconeApiKey?.value?.trim() || '',
+    pineconeNamespace: ragPineconeNamespace?.value?.trim() || 'default',
+    openAiApiKey: providerKeys?.OpenAI || null
+  };
+  const storagePayload = {
+    provider: 'pinecone',
+    indexHost: payload.pineconeIndexHost,
+    apiKey: payload.pineconeApiKey,
+    namespace: payload.pineconeNamespace
+  };
+
+  try {
+    const res = await fetch('/api/rag/vector-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || 'Connection failed.');
+
+    pineconeConnected = true;
+    savePineconeToStorage(storagePayload);
+    saveLastActiveProvider('pinecone');
+    const connectedNs = data?.namespace || payload.pineconeNamespace;
+    const statusMsg = data?.warning
+      ? `Connected · ${payload.pineconeIndexHost} · ns=${connectedNs} ⚠️ ${data.warning}`
+      : `Connected · ${payload.pineconeIndexHost} · ns=${connectedNs}`;
+    if (ragPineconeStatus) ragPineconeStatus.textContent = statusMsg;
+    if (ragPineconeConnect) ragPineconeConnect.textContent = 'Reconnect';
+    updatePineconeDisconnectVisibility();
+    updateRunState();
+    updateVectorDbStatus();
+    refreshRagStatus();
+  } catch (err) {
+    pineconeConnected = false;
+    updatePineconeDisconnectVisibility();
+    updateVectorDbStatus();
+    if (ragPineconeStatus) ragPineconeStatus.textContent = err.message || 'Connection failed.';
+  } finally {
+    updatePineconeConnectState();
+  }
+}
+
+async function disconnectPinecone() {
+  if (ragPineconeDisconnect) ragPineconeDisconnect.disabled = true;
+  if (ragPineconeStatus) ragPineconeStatus.textContent = 'Disconnecting...';
+
+  try {
+    const res = await fetch('/api/rag/vector-store', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: 'inmemory' })
+    });
+    await res.json().catch(() => null);
+
+    pineconeConnected = false;
+    clearPineconeFromStorage();
+    clearLastActiveProvider();
+    if (ragVectorStoreProvider) setSelectValue(ragVectorStoreProvider, 'inmemory');
+    if (ragPineconeConnect) ragPineconeConnect.textContent = 'Connect';
+    if (ragPineconeStatus) ragPineconeStatus.textContent = '';
+    updateVectorStoreUI();
+    updatePineconeDisconnectVisibility();
+    refreshRagStatus();
+    markReferenceStale();
+  } catch (err) {
+    if (ragPineconeStatus) ragPineconeStatus.textContent = err.message || 'Failed to disconnect.';
+  } finally {
+    if (ragPineconeDisconnect) ragPineconeDisconnect.disabled = false;
   }
 }
 

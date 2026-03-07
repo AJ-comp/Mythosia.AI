@@ -16,11 +16,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Mythosia.AI.Loaders.Office\Mythosia.AI.Loaders.Office.csproj" />
-    <ProjectReference Include="..\Mythosia.AI.Loaders.Pdf\Mythosia.AI.Loaders.Pdf.csproj" />
+    <ProjectReference Include="..\..\Mythosia.AI.Loaders.Office\Mythosia.AI.Loaders.Office.csproj" />
+    <ProjectReference Include="..\..\Mythosia.AI.Loaders.Pdf\Mythosia.AI.Loaders.Pdf.csproj" />
     <ProjectReference Include="..\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
-    <ProjectReference Include="..\Mythosia.AI\Mythosia.AI.csproj" />
-    <ProjectReference Include="..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
+    <ProjectReference Include="..\..\Mythosia.AI\Mythosia.AI.csproj" />
+    <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
   </ItemGroup>
 
   <ItemGroup>

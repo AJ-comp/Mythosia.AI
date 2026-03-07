@@ -16,6 +16,7 @@ using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb;
+using Mythosia.VectorDb.Pinecone;
 using Mythosia.VectorDb.Postgres;
 using Mythosia.VectorDb.Qdrant;
 using Mythosia.AI.Services.Anthropic;
@@ -26,6 +27,8 @@ using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Services.Perplexity;
 using Mythosia.AI.Services.xAI;
 using Mythosia.AI.Samples.ChatUi;
+using static Mythosia.AI.Samples.ChatUi.ChatUiModelHelpers;
+using static Mythosia.AI.Samples.ChatUi.ChatUiUtilityHelpers;
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel;
 using System.Net.Http;
@@ -66,137 +69,12 @@ string? ragQdrantApiKey = null;
 bool ragQdrantUseTls = false;
 int ragQdrantDimension = 1536;
 string ragQdrantCollectionName = "default";
+string ragPineconeIndexHost = "";
+string? ragPineconeApiKey = null;
+string ragPineconeNamespace = "default";
 string? rewriterApiKey = null;
 var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
 string ragEmbeddingOpenAiKey = "";
-
-// ── Helper: build model catalogue ───────────────────────────────
-static List<object> BuildModelCatalogue()
-{
-    var groups = new Dictionary<string, List<object>>();
-
-    foreach (AIModel model in Enum.GetValues(typeof(AIModel)))
-    {
-        var provider = GetProviderForModel(model);
-        var description = model.GetType()
-            .GetField(model.ToString())!
-            .GetCustomAttribute<DescriptionAttribute>()?.Description ?? model.ToString();
-
-        if (!groups.ContainsKey(provider))
-            groups[provider] = new List<object>();
-
-        var reasoning = GetReasoningLevels(model);
-        var maxOutputTokens = GetDefaultMaxOutputTokens(model);
-        groups[provider].Add(new { name = model.ToString(), description, reasoning, maxOutputTokens });
-    }
-
-    return groups.Select(g => (object)new { provider = g.Key, models = g.Value }).ToList();
-}
-
-static object? GetReasoningLevels(AIModel model)
-{
-    var name = model.ToString();
-    // OpenAI GPT-5
-    if (name.StartsWith("Gpt5") &&
-        !name.StartsWith("Gpt5_1") &&
-        !name.StartsWith("Gpt5_2") &&
-        !name.StartsWith("Gpt5_3") &&
-        !name.StartsWith("Gpt5_4"))
-        return new { type = "gpt5", levels = new[] { "Auto", "Minimal", "Low", "Medium", "High" } };
-    // OpenAI GPT-5.1
-    if (name.StartsWith("Gpt5_1"))
-        return new { type = "gpt5_1", levels = new[] { "Auto", "None", "Low", "Medium", "High" } };
-    // OpenAI GPT-5.2
-    if (name.StartsWith("Gpt5_2"))
-        return new { type = "gpt5_2", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
-    // OpenAI GPT-5.3
-    if (name.StartsWith("Gpt5_3"))
-        return new { type = "gpt5_3", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
-    // OpenAI GPT-5.4
-    if (name.StartsWith("Gpt5_4"))
-        return new { type = "gpt5_4", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
-    // Gemini 3
-    if (name.StartsWith("Gemini3Pro"))
-        return new { type = "gemini3", levels = new[] { "Auto", "Low", "High" } };
-    if (name.StartsWith("Gemini3Flash"))
-        return new { type = "gemini3", levels = new[] { "Auto", "Minimal", "Low", "Medium", "High" } };
-    // Gemini 2.5
-    if (name.StartsWith("Gemini2_5"))
-        return new { type = "gemini25", levels = new[] { "128", "1024", "4096", "8192", "16384" } };
-    // OpenAI o3
-    if (name.StartsWith("o3") || name.StartsWith("O3"))
-        return new { type = "o3", levels = new[] { "Low", "Medium", "High" } };
-    // Claude (extended thinking)
-    if (name.StartsWith("Claude"))
-    {
-        // Sonnet 4+, Opus 4+, Haiku 4.5+
-        if (name.Contains("Sonnet4") || name.Contains("Opus4") || name.Contains("Haiku4_5"))
-            return new { type = "claude", levels = new[] { "1024", "2048", "4096", "8192", "16384" } };
-    }
-    // xAI Grok reasoning models
-    if (name.StartsWith("Grok"))
-    {
-        // grok-3-mini: supports reasoning_effort (Low/High), returns reasoning_content
-        if (name.Contains("Grok3Mini"))
-            return new { type = "grok", levels = new[] { "Low", "High" } };
-        // grok-4, grok-4-1-fast: always reasoning, no controllable parameters, no visible reasoning
-        if (name.Contains("Grok4"))
-            return new { type = "grok_always", levels = Array.Empty<string>() };
-    }
-    return null;
-}
-
-static string GetProviderForModel(AIModel model)
-{
-    var name = model.ToString();
-    if (name.StartsWith("Claude")) return "Anthropic";
-    if (name.StartsWith("Gpt") || name.StartsWith("GPT") || name.StartsWith("o3")) return "OpenAI";
-    if (name.StartsWith("Grok")) return "xAI";
-    if (name.StartsWith("Gemini")) return "Google";
-    if (name.StartsWith("DeepSeek")) return "DeepSeek";
-    if (name.StartsWith("Perplexity")) return "Perplexity";
-    return "Unknown";
-}
-
-static uint GetDefaultMaxOutputTokens(AIModel model)
-{
-    var desc = model.GetType()
-        .GetField(model.ToString())!
-        .GetCustomAttribute<DescriptionAttribute>()?.Description?.ToLower() ?? "";
-
-    var provider = GetProviderForModel(model);
-    return provider switch
-    {
-        "OpenAI" => desc switch
-        {
-            _ when desc.StartsWith("o3") => 100000,
-            _ when desc.StartsWith("gpt-5") && desc.Contains("chat") => 16384,
-            _ when desc.StartsWith("gpt-5") => 128000,
-            _ when desc.StartsWith("gpt-4.1") => 32768,
-            _ when desc.Contains("4o-mini") => 16384,
-            _ when desc.Contains("4o") => 16384,
-            _ when desc.Contains("vision") => 4096,
-            _ => 16384
-        },
-        "Anthropic" => desc switch
-        {
-            _ when desc.Contains("opus-4-6") => 128000,
-            _ when desc.Contains("sonnet-4-6") => 65536,
-            _ when desc.Contains("opus-4-5") => 65536,
-            _ when desc.Contains("sonnet-4-5") => 65536,
-            _ when desc.Contains("haiku-4-5") => 65536,
-            _ when desc.Contains("opus-4") => 32768,
-            _ when desc.Contains("sonnet-4") => 16384,
-            _ when desc.Contains("haiku-4") => 8192,
-            _ => 8192
-        },
-        "Google" => 65536,
-        "xAI" => 131072,
-        "DeepSeek" => 8192,
-        "Perplexity" => 8192,
-        _ => 4096
-    };
-}
 
 // ── GET /api/models ─────────────────────────────────────────────
 app.MapGet("/api/models", () => Results.Ok(BuildModelCatalogue()));
@@ -898,7 +776,10 @@ app.MapGet("/api/rag/vector-store", () =>
         qdrantApiKey = (string?)null,
         qdrantUseTls = ragQdrantUseTls,
         qdrantDimension = ragQdrantDimension,
-        qdrantCollectionName = ragQdrantCollectionName
+        qdrantCollectionName = ragQdrantCollectionName,
+        pineconeIndexHost = ragPineconeIndexHost,
+        pineconeApiKey = (string?)null,
+        pineconeNamespace = ragPineconeNamespace
     });
 });
 
@@ -1091,6 +972,92 @@ app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req) =>
             return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
         }
     }
+    else if (provider == "pinecone")
+    {
+        ragPineconeIndexHost = (req.PineconeIndexHost ?? "").Trim();
+        ragPineconeApiKey = string.IsNullOrWhiteSpace(req.PineconeApiKey) ? null : req.PineconeApiKey.Trim();
+        ragPineconeNamespace = string.IsNullOrWhiteSpace(req.PineconeNamespace) ? "default" : req.PineconeNamespace.Trim();
+
+        if (string.IsNullOrWhiteSpace(ragPineconeIndexHost))
+            return Results.BadRequest(new { error = "PineconeIndexHost is required for Pinecone." });
+
+        if (string.IsNullOrWhiteSpace(ragPineconeApiKey))
+            return Results.BadRequest(new { error = "PineconeApiKey is required for Pinecone." });
+
+        if (!string.IsNullOrWhiteSpace(req.OpenAiApiKey))
+            ragEmbeddingOpenAiKey = req.OpenAiApiKey.Trim();
+
+        try
+        {
+            var oldStore = ragVectorStore;
+            ragVectorStore = new PineconeStore(new PineconeOptions
+            {
+                IndexHost = ragPineconeIndexHost,
+                ApiKey = ragPineconeApiKey,
+                DefaultNamespace = ragPineconeNamespace
+            });
+            ragVectorStoreProvider = "pinecone";
+
+            if (oldStore is IDisposable disposable)
+                disposable.Dispose();
+
+            string? autoConnectWarning = null;
+            try
+            {
+                var settings = ragState.GetSettings();
+                var embeddingKey = !string.IsNullOrWhiteSpace(ragEmbeddingOpenAiKey) ? ragEmbeddingOpenAiKey : null;
+                var epKey = settings.EmbeddingProvider?.ToLowerInvariant() ?? "openai";
+
+                if (epKey != "ollama" && embeddingKey == null)
+                {
+                    autoConnectWarning = "No API key provided for the embedding provider. "
+                        + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
+                }
+                else
+                {
+                    var store = await RagStore.BuildAsync(builder =>
+                    {
+                        builder
+                            .UseStore(ragVectorStore)
+                            .WithTopK(settings.TopK)
+                            .WithNamespace(ragPineconeNamespace);
+
+                        if (epKey == "ollama")
+                        {
+                            builder.UseEmbedding(new Mythosia.AI.Rag.Embeddings.OllamaEmbeddingProvider(
+                                embeddingHttpClient,
+                                settings.EmbeddingModel ?? "qwen3-embedding:4b",
+                                settings.EmbeddingDimensions,
+                                settings.EmbeddingBaseUrl));
+                        }
+                        else
+                        {
+                            builder.UseEmbedding(new OpenAIEmbeddingProvider(
+                                embeddingKey!, embeddingHttpClient,
+                                settings.EmbeddingModel ?? "text-embedding-3-small",
+                                settings.EmbeddingDimensions));
+                        }
+
+                        if (settings.MinScore.HasValue)
+                            builder.WithScoreThreshold(settings.MinScore.Value);
+                        if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
+                            builder.WithPromptTemplate(settings.PromptTemplate);
+                    });
+                    ragState.SetExternalStore(store);
+                }
+            }
+            catch
+            {
+                // Auto-connect is best-effort; vector store connection is still valid
+            }
+
+            return Results.Ok(new { provider = ragVectorStoreProvider, status = "connected", warning = autoConnectWarning, indexHost = ragPineconeIndexHost, @namespace = ragPineconeNamespace });
+        }
+        catch (Exception ex)
+        {
+            return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
+        }
+    }
     else
     {
         var oldStore = ragVectorStore;
@@ -1202,6 +1169,8 @@ app.MapPost("/api/rag/reference", async (HttpRequest request, HttpContext ctx) =
             // Use collection name for external DBs
             if (ragVectorStoreProvider == "qdrant")
                 builder.WithNamespace(ragQdrantCollectionName);
+            else if (ragVectorStoreProvider == "pinecone")
+                builder.WithNamespace(ragPineconeNamespace);
 
             if (minScore.HasValue)
             {
@@ -1399,454 +1368,3 @@ app.MapPost("/api/rag/diagnose/query-scores", async (QueryScoresRequest req, Can
 app.MapFallbackToFile("index.html");
 
 app.Run();
-
-// ── Code Snippet Generator ───────────────────────────────────────
-static string GenerateCodeSnippet(AIService svc, string provider, string modelEnum, string? userMessage)
-{
-    var serviceClass = provider switch
-    {
-        "OpenAI" => "ChatGptService",
-        "Anthropic" => "ClaudeService",
-        "Google" => "GeminiService",
-        "DeepSeek" => "DeepSeekService",
-        "xAI" => "GrokService",
-        "Perplexity" => "SonarService",
-        _ => "AIService"
-    };
-
-    var sb = new System.Text.StringBuilder();
-
-    // Using statements
-    sb.AppendLine("using Mythosia.AI.Extensions;");
-    sb.AppendLine("using Mythosia.AI.Models;");
-    sb.AppendLine("using Mythosia.AI.Models.Enums;");
-    sb.AppendLine("using Mythosia.AI.Models.Messages;");
-    sb.AppendLine("using Mythosia.AI.Models.Streaming;");
-    sb.AppendLine($"using Mythosia.AI.Services.{(provider == "xAI" ? "xAI" : provider)};");
-    sb.AppendLine();
-
-    // Service creation
-    sb.AppendLine($"// 1. Create the AI service");
-    sb.AppendLine($"var httpClient = new HttpClient();");
-    sb.AppendLine($"var service = new {serviceClass}(\"YOUR_API_KEY\", httpClient);");
-    sb.AppendLine($"service.ChangeModel(AIModel.{modelEnum});");
-    sb.AppendLine();
-
-    // Settings
-    sb.AppendLine($"// 2. Configure settings");
-    if (!string.IsNullOrEmpty(svc.SystemMessage))
-        sb.AppendLine($"service.SystemMessage = \"{EscapeSnippetString(svc.SystemMessage)}\";");
-    sb.AppendLine($"service.Temperature = {svc.Temperature:F2}f;");
-    sb.AppendLine($"service.TopP = {svc.TopP:F2}f;");
-    sb.AppendLine($"service.MaxTokens = {svc.MaxTokens};");
-    sb.AppendLine($"service.MaxMessageCount = {svc.MaxMessageCount};");
-    if (svc.StatelessMode)
-        sb.AppendLine($"service.StatelessMode = true;");
-
-    // Reasoning settings
-    if (svc is ChatGptService gpt)
-    {
-        if (modelEnum.StartsWith("Gpt5") &&
-            !modelEnum.StartsWith("Gpt5_1") &&
-            !modelEnum.StartsWith("Gpt5_2") &&
-            !modelEnum.StartsWith("Gpt5_3") &&
-            !modelEnum.StartsWith("Gpt5_4"))
-        {
-            if (gpt.Gpt5ReasoningSummary != null)
-            {
-                sb.AppendLine($"gpt.Gpt5ReasoningEffort = Gpt5Reasoning.{gpt.Gpt5ReasoningEffort};");
-                sb.AppendLine($"gpt.Gpt5ReasoningSummary = ReasoningSummary.{gpt.Gpt5ReasoningSummary};");
-            }
-        }
-        else if (modelEnum.StartsWith("Gpt5_1"))
-        {
-            if (gpt.Gpt5_1ReasoningSummary != null)
-            {
-                sb.AppendLine($"gpt.Gpt5_1ReasoningEffort = Gpt5_1Reasoning.{gpt.Gpt5_1ReasoningEffort};");
-                sb.AppendLine($"gpt.Gpt5_1ReasoningSummary = ReasoningSummary.{gpt.Gpt5_1ReasoningSummary};");
-            }
-        }
-        else if (modelEnum.StartsWith("Gpt5_2"))
-        {
-            if (gpt.Gpt5_2ReasoningSummary != null)
-            {
-                sb.AppendLine($"gpt.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.{gpt.Gpt5_2ReasoningEffort};");
-                sb.AppendLine($"gpt.Gpt5_2ReasoningSummary = ReasoningSummary.{gpt.Gpt5_2ReasoningSummary};");
-            }
-        }
-        else if (modelEnum.StartsWith("Gpt5_3"))
-        {
-            if (gpt.Gpt5_3ReasoningSummary != null)
-            {
-                sb.AppendLine($"gpt.Gpt5_3ReasoningEffort = Gpt5_3Reasoning.{gpt.Gpt5_3ReasoningEffort};");
-                sb.AppendLine($"gpt.Gpt5_3ReasoningSummary = ReasoningSummary.{gpt.Gpt5_3ReasoningSummary};");
-            }
-        }
-        else if (modelEnum.StartsWith("Gpt5_4"))
-        {
-            if (gpt.Gpt5_4ReasoningSummary != null)
-            {
-                sb.AppendLine($"gpt.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.{gpt.Gpt5_4ReasoningEffort};");
-                sb.AppendLine($"gpt.Gpt5_4ReasoningSummary = ReasoningSummary.{gpt.Gpt5_4ReasoningSummary};");
-            }
-        }
-    }
-    else if (svc is ClaudeService claude && claude.ThinkingBudget > 0)
-    {
-        sb.AppendLine($"claude.ThinkingBudget = {claude.ThinkingBudget};");
-    }
-    else if (svc is GeminiService gemini)
-    {
-        if (gemini.ThinkingBudget > 0)
-        {
-            sb.AppendLine($"gemini.ThinkingBudget = {gemini.ThinkingBudget};");
-        }
-        else if (gemini.ThinkingLevel != GeminiThinkingLevel.Auto)
-        {
-            sb.AppendLine($"gemini.ThinkingLevel = GeminiThinkingLevel.{gemini.ThinkingLevel};");
-        }
-    }
-
-    sb.AppendLine();
-
-    // Function Calling — if functions are registered
-    var hasFunctions = svc.Functions.Count > 0;
-    if (hasFunctions)
-    {
-        sb.AppendLine($"// 3. Register functions (Function Calling)");
-        foreach (var fn in svc.Functions)
-        {
-            var props = fn.Parameters?.Properties;
-            var required = fn.Parameters?.Required ?? new List<string>();
-            if (props == null || props.Count == 0)
-            {
-                sb.AppendLine($"service.WithFunction(");
-                sb.AppendLine($"    \"{fn.Name}\",");
-                sb.AppendLine($"    \"{EscapeSnippetString(fn.Description ?? "")}\",");
-                sb.AppendLine($"    args => {{ /* your logic here */ return \"result\"; }});");
-            }
-            else
-            {
-                var typeParams = string.Join(", ", props.Values.Select(p => JsonTypeToCSharp(p.Type)));
-                sb.AppendLine($"service.WithFunction<{typeParams}>(");
-                sb.AppendLine($"    \"{fn.Name}\",");
-                sb.AppendLine($"    \"{EscapeSnippetString(fn.Description ?? "")}\",");
-                foreach (var kvp in props)
-                {
-                    var isReq = required.Contains(kvp.Key);
-                    sb.AppendLine($"    (\"{kvp.Key}\", \"{EscapeSnippetString(kvp.Value.Description ?? "")}\", {(isReq ? "true" : "false")}),");
-                }
-                var lambdaParams = string.Join(", ", props.Keys);
-                sb.AppendLine($"    ({lambdaParams}) =>");
-                sb.AppendLine($"    {{");
-                sb.AppendLine($"        // Your function logic here");
-                sb.AppendLine($"        return \"result\";");
-                sb.AppendLine($"    }});");
-            }
-            sb.AppendLine();
-        }
-    }
-
-    // Send message
-    var stepNum = hasFunctions ? 4 : 3;
-    var escapedMsg = EscapeSnippetString(userMessage ?? "Hello!");
-    sb.AppendLine($"// {stepNum}. Send a message and stream the response");
-    sb.AppendLine($"var message = new Message(ActorRole.User, \"{escapedMsg}\");");
-    sb.AppendLine($"var options = new StreamOptions");
-    sb.AppendLine($"{{");
-    sb.AppendLine($"    IncludeReasoning = true,");
-    if (hasFunctions)
-        sb.AppendLine($"    IncludeFunctionCalls = true,");
-    sb.AppendLine($"    TextOnly = false");
-    sb.AppendLine($"}};");
-    sb.AppendLine();
-    sb.AppendLine($"await foreach (var chunk in service.StreamAsync(message, options))");
-    sb.AppendLine($"{{");
-    sb.AppendLine($"    switch (chunk.Type)");
-    sb.AppendLine($"    {{");
-    sb.AppendLine($"        case StreamingContentType.Reasoning:");
-    sb.AppendLine($"            Console.Write($\"[Thinking] {{chunk.Content}}\");");
-    sb.AppendLine($"            break;");
-    sb.AppendLine($"        case StreamingContentType.Text:");
-    sb.AppendLine($"            Console.Write(chunk.Content);");
-    sb.AppendLine($"            break;");
-    if (hasFunctions)
-    {
-        sb.AppendLine($"        case StreamingContentType.FunctionCall:");
-        sb.AppendLine($"            var fnName = chunk.Metadata?[\"function_name\"];");
-        sb.AppendLine($"            Console.WriteLine($\"\\n[Function Call] {{fnName}}\");");
-        sb.AppendLine($"            break;");
-        sb.AppendLine($"        case StreamingContentType.FunctionResult:");
-        sb.AppendLine($"            var resultName = chunk.Metadata?[\"function_name\"];");
-        sb.AppendLine($"            var result = chunk.Metadata?[\"result\"];");
-        sb.AppendLine($"            Console.WriteLine($\"[Function Result] {{resultName}}: {{result}}\");");
-        sb.AppendLine($"            break;");
-    }
-    sb.AppendLine($"    }}");
-    sb.AppendLine($"}}");
-
-    // Alternative: simple non-streaming
-    sb.AppendLine();
-    sb.AppendLine($"// Alternative: Non-streaming (simple)");
-    sb.AppendLine($"// string response = await service.SendAsync(\"{escapedMsg}\");");
-    sb.AppendLine($"// Console.WriteLine(response);");
-
-    return sb.ToString();
-}
-
-static string GenerateRagReferenceCodeSnippet(RagReferenceConfig config)
-{
-    var sb = new System.Text.StringBuilder();
-
-    sb.AppendLine("using Mythosia.AI.Rag;");
-    sb.AppendLine("using Mythosia.AI.Rag.Embeddings;");
-    sb.AppendLine("using Mythosia.AI.Rag.Splitters;");
-    sb.AppendLine("using Mythosia.AI.Services.OpenAI;");
-    sb.AppendLine("using System.Net.Http;");
-    sb.AppendLine();
-    sb.AppendLine("// 1. Create your AI service and enable RAG (extension method)");
-    sb.AppendLine("var service = new ChatGptService(\"YOUR_API_KEY\", new HttpClient())");
-    sb.AppendLine("    .WithRag(rag => rag");
-
-    if (config.Sources.Count == 0)
-    {
-        sb.AppendLine("        // .AddDocument(\"manual.pdf\")");
-    }
-    else
-    {
-        foreach (var source in config.Sources)
-            sb.AppendLine($"        .AddDocument(\"{EscapeSnippetString(source)}\")");
-    }
-
-    sb.AppendLine($"        .WithTextSplitter({BuildRagTextSplitterSnippet(config)})");
-
-    switch (NormalizeRagKey(config.EmbeddingProvider, "openai"))
-    {
-        case "ollama":
-            sb.AppendLine("        // Requires Ollama running on http://localhost:11434.");
-            sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(new HttpClient(), model: \"qwen3-embedding:4b\", dimensions: {config.EmbeddingDimensions}))");
-            break;
-        default:
-            sb.AppendLine("        // OpenAI API key required for embeddings.");
-            sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"text-embedding-3-small\", dimensions: {config.EmbeddingDimensions})");
-            break;
-    }
-
-    sb.AppendLine("        .UseInMemoryStore()" );
-    sb.AppendLine("    );");
-    sb.AppendLine();
-    sb.AppendLine("// 2. Ask questions");
-    sb.AppendLine("// var answer = await service.GetCompletionAsync(\"문서 기준으로 요약해줘\");");
-
-    return sb.ToString();
-}
-
-static string EscapeSnippetString(string s)
-{
-    return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
-}
-
-static string JsonTypeToCSharp(string jsonType) => jsonType?.ToLower() switch
-{
-    "string" => "string",
-    "integer" => "int",
-    "number" => "double",
-    "boolean" => "bool",
-    "array" => "string[]",
-    _ => "string"
-};
-
-static int ParsePositiveInt(string? value, int fallback)
-{
-    return int.TryParse(value, out var parsed) && parsed > 0
-        ? parsed
-        : fallback;
-}
-
-static string NormalizeRagKey(string? value, string fallback)
-{
-    return string.IsNullOrWhiteSpace(value)
-        ? fallback
-        : value.Trim().ToLowerInvariant();
-}
-
-static string BuildRagTextSplitterSnippet(RagReferenceConfig config)
-{
-    var chunker = NormalizeRagKey(config.Chunker, "character");
-    return chunker switch
-    {
-        "token" => $"new TokenTextSplitter({config.ChunkSize}, {config.ChunkOverlap})",
-        "recursive" => $"new RecursiveTextSplitter({config.ChunkSize}, {config.ChunkOverlap})",
-        "markdown" => "new MarkdownTextSplitter()",
-        _ => $"new CharacterTextSplitter({config.ChunkSize}, {config.ChunkOverlap})"
-    };
-}
-
-static IEmbeddingProvider BuildOpenAiEmbeddingProvider(string? apiKey, HttpClient httpClient, string model, int dimensions)
-{
-    if (string.IsNullOrWhiteSpace(apiKey))
-        throw new InvalidOperationException("OpenAI API key is required.");
-
-    return new OpenAIEmbeddingProvider(apiKey, httpClient, model, dimensions);
-}
-
-static double? ParseOptionalDouble(string? value)
-{
-    return double.TryParse(value, out var parsed)
-        ? parsed
-        : null;
-}
-
-static ITextSplitter BuildTextSplitter(string? chunkerKey, int chunkSize, int chunkOverlap)
-{
-    var normalized = chunkerKey?.Trim().ToLowerInvariant();
-    return normalized switch
-    {
-        "token" => new TokenTextSplitter(chunkSize, chunkOverlap),
-        "recursive" => new RecursiveTextSplitter(chunkSize, chunkOverlap),
-        "markdown" => new MarkdownTextSplitter(),
-        _ => new CharacterTextSplitter(chunkSize, chunkOverlap)
-    };
-}
-
-static IDocumentLoader CreateLoaderForExtension(string extension)
-{
-    if (string.IsNullOrWhiteSpace(extension))
-        return new PlainTextDocumentLoader();
-
-    var normalized = extension.Trim();
-    if (!normalized.StartsWith(".", StringComparison.Ordinal))
-        normalized = "." + normalized;
-
-    return normalized.ToLowerInvariant() switch
-    {
-        ".docx" => new WordDocumentLoader(),
-        ".xlsx" => new ExcelDocumentLoader(),
-        ".pptx" => new PowerPointDocumentLoader(),
-        ".pdf" => new PdfDocumentLoader(),
-        _ => new PlainTextDocumentLoader()
-    };
-}
-
-// ── Preset Function Registration ────────────────────────────────
-static void RegisterPresetFunctions(AIService service)
-{
-    var fetchClient = new HttpClient();
-    fetchClient.Timeout = TimeSpan.FromSeconds(15);
-    fetchClient.DefaultRequestHeaders.Add("User-Agent", "Mythosia.AI-ChatUI/1.0");
-
-    service.WithFunction<string, int>(
-        "get_url_content",
-        "Fetches the text content of a web page at the given URL. Returns the extracted text (HTML tags stripped). Use this when the user asks to read, summarize, or analyze a web page.",
-        ("url", "The full URL to fetch (must start with http:// or https://)", true),
-        ("max_length", "Maximum number of characters to return (default: 5000)", false),
-        (url, maxLength) =>
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(url))
-                    return "{\"error\": \"URL is required\"}";
-
-                if (!url.StartsWith("http://") && !url.StartsWith("https://"))
-                    url = "https://" + url;
-
-                // Basic SSRF protection
-                if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
-                {
-                    var host = uri.Host.ToLower();
-                    if (host == "localhost" || host == "127.0.0.1" || host == "::1" || host.StartsWith("192.168.") || host.StartsWith("10.") || host.StartsWith("172."))
-                        return "{\"error\": \"Access to local/private addresses is not allowed\"}";
-                }
-
-                var effectiveMax = maxLength > 0 ? maxLength : 5000;
-
-                var response = fetchClient.GetAsync(url).GetAwaiter().GetResult();
-                response.EnsureSuccessStatusCode();
-
-                var html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-
-                // Strip HTML tags to get plain text
-                var text = StripHtml(html);
-
-                // Truncate
-                if (text.Length > effectiveMax)
-                    text = text.Substring(0, effectiveMax) + "\n\n[... truncated]";
-
-                return JsonSerializer.Serialize(new { url, length = text.Length, content = text });
-            }
-            catch (HttpRequestException ex)
-            {
-                return JsonSerializer.Serialize(new { error = $"HTTP error: {ex.Message}", url });
-            }
-            catch (TaskCanceledException)
-            {
-                return JsonSerializer.Serialize(new { error = "Request timed out (15s)", url });
-            }
-            catch (Exception ex)
-            {
-                return JsonSerializer.Serialize(new { error = ex.Message, url });
-            }
-        });
-}
-
-static string StripHtml(string html)
-{
-    // Remove script and style blocks
-    html = Regex.Replace(html, @"<script[^>]*>[\s\S]*?</script>", "", RegexOptions.IgnoreCase);
-    html = Regex.Replace(html, @"<style[^>]*>[\s\S]*?</style>", "", RegexOptions.IgnoreCase);
-    // Remove HTML tags
-    html = Regex.Replace(html, @"<[^>]+>", " ");
-    // Decode common HTML entities
-    html = html.Replace("&nbsp;", " ").Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">").Replace("&quot;", "\"");
-    // Collapse whitespace
-    html = Regex.Replace(html, @"\s+", " ").Trim();
-    return html;
-}
-
-// ── Request DTOs ────────────────────────────────────────────────
-record ConfigureRequest(string? ApiKey, string? Model, string? SystemMessage);
-record ChatRequest(string? Message);
-record SettingsRequest(
-    float? Temperature,
-    float? TopP,
-    int? MaxTokens,
-    int? MaxMessageCount,
-    float? FrequencyPenalty,
-    float? PresencePenalty,
-    bool? StatelessMode,
-    string? SystemMessage,
-    bool? ReasoningEnabled,
-    string? ReasoningLevel,
-    string? ReasoningType);
-record CodeSnippetRequest(string? UserMessage);
-record TogglePresetRequest(bool Enabled);
-record SummaryPolicyRequest(bool Enabled, string? TriggerType, int Threshold, int KeepRecent);
-record RagPipelineSettingsRequest(
-    int? ChunkSize,
-    int? ChunkOverlap,
-    string? Chunker,
-    string? EmbeddingProvider,
-    string? EmbeddingModel,
-    int? EmbeddingDimensions,
-    string? EmbeddingBaseUrl,
-    int? TopK,
-    double? MinScore,
-    string? PromptTemplate,
-    bool? QueryRewriterEnabled,
-    string? RewriterModelOverride,
-    string? RewriterApiKey);
-record WhyMissingRequest(string? Query, string? ExpectedText);
-record QueryScoresRequest(string? Query, string? ExpectedText);
-record VectorStoreConfigRequest(
-    string? Provider,
-    string? ConnectionString,
-    string? TableName,
-    string? SchemaName,
-    int? Dimension,
-    bool? EnsureSchema,
-    string? OpenAiApiKey = null,
-    string? QdrantHost = null,
-    int? QdrantPort = null,
-    string? QdrantApiKey = null,
-    bool? QdrantUseTls = null,
-    string? QdrantCollectionName = null);

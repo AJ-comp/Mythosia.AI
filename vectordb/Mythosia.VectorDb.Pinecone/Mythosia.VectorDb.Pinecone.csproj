@@ -3,20 +3,23 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
-    <PackageId>Mythosia.VectorDb.InMemory</PackageId>
+    <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>2.0.0</Version>
+    <Version>1.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, and upsert/delete operations.</Description>
-    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity</PackageTags>
+    <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with native namespace partitioning and metadata-based scope filtering.</Description>
+    <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
-    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>

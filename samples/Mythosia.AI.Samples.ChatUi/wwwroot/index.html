@@ -518,11 +518,15 @@
                   <button class="rag-select-option" type="button" data-value="qdrant" role="option">
                     <span class="rag-select-option-label">Qdrant</span>
                   </button>
+                  <button class="rag-select-option" type="button" data-value="pinecone" role="option">
+                    <span class="rag-select-option-label">Pinecone</span>
+                  </button>
                 </div>
                 <select id="rag-vectorstore-provider" class="rag-select-native" aria-hidden="true">
                   <option value="inmemory" selected>InMemory</option>
                   <option value="postgres">PostgreSQL (pgvector)</option>
                   <option value="qdrant">Qdrant</option>
+                  <option value="pinecone">Pinecone</option>
                 </select>
               </div>
               <div id="rag-vectorstore-hint" class="rag-hint">In-memory store. Data is lost on restart.</div>
@@ -615,6 +619,27 @@
                 <button id="rag-qdrant-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
                 <button id="rag-qdrant-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
                 <span id="rag-qdrant-status" class="rag-hint"></span>
+              </div>
+            </div>
+            <div id="rag-pinecone-config" class="hidden" style="margin-top:8px">
+              <div class="rag-field rag-field-wide">
+                <label>Index Host</label>
+                <input id="rag-pinecone-index-host" type="text" placeholder="my-index-xxxx.svc.us-east1-gcp.pinecone.io" />
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>API Key</label>
+                  <input id="rag-pinecone-apikey" type="password" placeholder="pcsk_..." autocomplete="off" />
+                </div>
+                <div class="rag-field">
+                  <label>Namespace</label>
+                  <input id="rag-pinecone-namespace" type="text" value="default" />
+                </div>
+              </div>
+              <div class="rag-actions" style="margin-top:6px">
+                <button id="rag-pinecone-connect" class="btn btn-primary btn-sm" disabled>Connect</button>
+                <button id="rag-pinecone-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
+                <span id="rag-pinecone-status" class="rag-hint"></span>
               </div>
             </div>
           </div>
