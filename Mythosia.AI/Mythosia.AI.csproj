@@ -11,26 +11,28 @@
 
 
 	<PropertyGroup>
-		<VersionPrefix>4.6.2</VersionPrefix>
+		<VersionPrefix>4.7.0</VersionPrefix>
 
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.6.2
+## What's New in v4.7.0
 
-### Grok Reasoning Support
-- `GrokReasoning` enum (Off/Low/High) and `reasoning_effort` parameter for grok-3-mini
-- Streaming `reasoning_content` from Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast)
-- `WithGrokParameters()` builder method for reasoning configuration
+### OpenAI Model Expansion
+- Added `gpt-5.3-codex`, `gpt-5.4`, `gpt-5.4-pro` model support
+- New `Gpt5_3Reasoning` and `Gpt5_4Reasoning` enums
+- New fluent APIs: `WithGpt5_3Parameters(...)`, `WithGpt5_4Parameters(...)`
 
-### SummaryConversationPolicy Improvements
-- `ByMessage`/`ByBoth` auto-adjust `keepRecentCount` when it would exceed `triggerCount`
-- `ValidateKeepRecentCount` guard throws `ArgumentException` for invalid configurations
-- `ApplySummaryPolicyIfNeededAsync()` changed to `public` for explicit streaming scenarios
+### OpenAI Reasoning Streaming Improvements
+- Improved parsing for reasoning delta/done events (`response.reasoning_text.*`, `response.reasoning_summary_text.done`)
+- Added support for summary array payload extraction (`summary[].text`)
+- More reliable reasoning chunk delivery in mixed event formats
 
-### Streaming Fixes
-- Claude/ChatGPT: improved `function_call_arguments.done` handling for complete argument capture
+### Gemini Reasoning Streaming Improvements
+- Streaming requests now propagate reasoning intent via `includeThoughts`
+- Function-calling streaming path also carries `includeThoughts`
+- Parser prioritizes thought chunks when reasoning is requested
 
 ## Supported Models
 
@@ -38,6 +40,8 @@
 - GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-5 Chat Latest
 - GPT-5.1
 - GPT-5.2, GPT-5.2 Pro, GPT-5.2 Codex
+- GPT-5.3 Codex
+- GPT-5.4, GPT-5.4 Pro
 - o3, o3-pro
 - GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
 - GPT-4o, GPT-4o Mini, GPT-4 Vision
@@ -69,7 +73,7 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.6.2</Version>
+		<Version>4.7.0</Version>
 	</PropertyGroup>
 
 

@@ -7,7 +7,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 오디오 기능 테스트 (지원하는 서비스만)
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Audio")]
     [TestMethod]
     public async Task AudioFeaturesTest()

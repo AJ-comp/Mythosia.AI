@@ -11,7 +11,7 @@ namespace Mythosia.AI.Tests.Google;
 [TestClass]
 public abstract class GeminiServiceTestsBase : AIServiceTestBase
 {
-    private static string apiKey;
+    private static string? apiKey;
     protected abstract AIModel ModelToTest { get; }
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
@@ -27,7 +27,7 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new GeminiService(apiKey, new HttpClient());
+        var service = new GeminiService(apiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);
         Console.WriteLine($"[Testing Model] {ModelToTest}");
         return service;
@@ -41,6 +41,21 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning() => true;
     protected override AIModel? GetAlternativeModel() => AIModel.Gemini2_5Flash;
+
+    protected override void SetupReasoningEffort()
+    {
+        if (AI is not GeminiService geminiService)
+            return;
+
+        if (geminiService.Model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase))
+        {
+            geminiService.ThinkingLevel = GeminiThinkingLevel.High;
+            return;
+        }
+
+        if (geminiService.ThinkingBudget < 0)
+            geminiService.ThinkingBudget = 1024;
+    }
 
     /// <summary>
     /// Gemini Vision 기능 테스트

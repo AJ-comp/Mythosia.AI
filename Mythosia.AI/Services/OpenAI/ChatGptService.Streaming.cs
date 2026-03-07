@@ -305,8 +305,11 @@ namespace Mythosia.AI.Services.OpenAI
 
                 // 추론 요약 이벤트
                 case "response.reasoning_summary_text.delta":
+                case "response.reasoning_summary_text.done":
                 case "response.reasoning_summary_part.added":
                 case "response.reasoning_summary_part.done":
+                case "response.reasoning_text.delta":
+                case "response.reasoning_text.done":
                     ParseStreamReasoningEvent(root, type, chunk);
                     break;
 
@@ -419,6 +422,35 @@ namespace Mythosia.AI.Services.OpenAI
                 return;
             }
 
+            // reasoning 타입 아이템에서 reasoning 요약/텍스트 추출
+            if (item.TryGetProperty("type", out var reasoningItemType) &&
+                (reasoningItemType.GetString() == "reasoning" || reasoningItemType.GetString() == "reasoning_summary"))
+            {
+                if (item.TryGetProperty("summary", out var summaryElem) && summaryElem.ValueKind == JsonValueKind.Array)
+                {
+                    var reasoningText = new StringBuilder();
+                    foreach (var summaryItem in summaryElem.EnumerateArray())
+                    {
+                        if (summaryItem.TryGetProperty("text", out var summaryText))
+                        {
+                            reasoningText.Append(summaryText.GetString());
+                        }
+                    }
+
+                    if (reasoningText.Length > 0)
+                    {
+                        chunk.Reasoning = reasoningText.ToString();
+                        return;
+                    }
+                }
+
+                if (item.TryGetProperty("text", out var itemText) && itemText.ValueKind == JsonValueKind.String)
+                {
+                    chunk.Reasoning = itemText.GetString();
+                    return;
+                }
+            }
+
             // message 타입 아이템에서 텍스트 추출
             if (item.TryGetProperty("message", out var messageObj) &&
                 messageObj.TryGetProperty("content", out var content))
@@ -432,14 +464,42 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ParseStreamReasoningEvent(JsonElement root, string type, StreamChunk chunk)
         {
-            if (type == "response.reasoning_summary_text.delta" &&
+            if ((type == "response.reasoning_summary_text.delta" ||
+                 type == "response.reasoning_text.delta") &&
                 root.TryGetProperty("delta", out var reasoningDelta))
             {
                 chunk.Reasoning = reasoningDelta.ValueKind == JsonValueKind.String
                     ? reasoningDelta.GetString()
-                    : null;
+                    : reasoningDelta.TryGetProperty("text", out var deltaText) ? deltaText.GetString() : null;
+
+                return;
             }
-            // response.reasoning_summary_part.added / done - 무시
+
+            // done 이벤트에서 최종 텍스트가 제공되는 경우 처리
+            if ((type == "response.reasoning_summary_text.done" ||
+                 type == "response.reasoning_text.done") &&
+                root.TryGetProperty("text", out var reasoningText) &&
+                reasoningText.ValueKind == JsonValueKind.String)
+            {
+                chunk.Reasoning = reasoningText.GetString();
+                return;
+            }
+
+            // 일부 이벤트는 summary 배열로 전달됨
+            if (root.TryGetProperty("summary", out var summary) && summary.ValueKind == JsonValueKind.Array)
+            {
+                var sb = new StringBuilder();
+                foreach (var summaryItem in summary.EnumerateArray())
+                {
+                    if (summaryItem.TryGetProperty("text", out var sText))
+                        sb.Append(sText.GetString());
+                }
+
+                if (sb.Length > 0)
+                    chunk.Reasoning = sb.ToString();
+            }
+
+            // response.reasoning_summary_part.added / done 는 텍스트 필드가 없으면 무시
         }
 
         /// <summary>

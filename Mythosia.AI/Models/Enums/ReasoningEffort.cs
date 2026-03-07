@@ -41,6 +41,38 @@ namespace Mythosia.AI.Models.Enums
     }
 
     /// <summary>
+    /// Reasoning effort level for GPT-5.3 models.
+    /// Auto: Uses model default (Medium for Codex).
+    /// GPT-5.3 Codex supports: low, medium (default), high, xhigh.
+    /// GPT-5.3 Codex Spark and Instant use simplified configs.
+    /// </summary>
+    public enum Gpt5_3Reasoning
+    {
+        Auto,
+        None,
+        Low,
+        Medium,
+        High,
+        XHigh
+    }
+
+    /// <summary>
+    /// Reasoning effort level for GPT-5.4 models.
+    /// Auto: Uses model default (None for GPT-5.4, Medium for GPT-5.4 Pro).
+    /// GPT-5.4 supports: none (default), low, medium, high, xhigh.
+    /// GPT-5.4 Pro supports: medium, high, xhigh.
+    /// </summary>
+    public enum Gpt5_4Reasoning
+    {
+        Auto,
+        None,
+        Low,
+        Medium,
+        High,
+        XHigh
+    }
+
+    /// <summary>
     /// Reasoning effort level for xAI Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast).
     /// Off: Disables reasoning effort parameter (default).
     /// Low/High: Explicit reasoning effort levels.

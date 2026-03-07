@@ -12,7 +12,7 @@ namespace Mythosia.AI.Tests.OpenAI;
 [TestClass]
 public abstract class ChatGptServiceTestsBase : AIServiceTestBase
 {
-    private static string openAiKey;
+    private static string? openAiKey;
     protected abstract AIModel ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]  // 상속 동작 추가
@@ -31,7 +31,7 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new ChatGptService(openAiKey, new HttpClient());
+        var service = new ChatGptService(openAiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
         service.ActivateChat.SystemMessage = "You are a helpful assistant for testing purposes.";
         Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
@@ -105,101 +105,37 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
     #endregion
 }
 
-// 2. 구체 클래스들 추가 (각 모델별로)
-
 [TestClass]
-public class OpenAI_ChatGpt4oMiniTests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt4oMini;
-}
-
-[TestClass]
-public class OpenAI_ChatGpt4oTests : ChatGptServiceTestsBase
+public class Gpt4o : ChatGptServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Gpt4o;
 }
 
 [TestClass]
-public class OpenAI_Gpt4o240806_Tests : ChatGptServiceTestsBase
+public class Gpt4oMini : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt4oMini;
+    protected override AIModel? GetAlternativeModel() => AIModel.Gpt4o;
+}
+
+[TestClass]
+public class Gpt4o240806 : ChatGptServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Gpt4o240806;
 }
 
 [TestClass]
-public class OpenAI_Gpt4o241120_Tests : ChatGptServiceTestsBase
+public class Gpt4o241120 : ChatGptServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Gpt4o241120;
 }
 
-// 3. o3 모델 테스트 클래스들
-
 [TestClass]
-public class OpenAI_o3_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.o3;
-}
-
-// 4. GPT-5 모델 테스트 클래스들
-
-[TestClass]
-public class OpenAI_Gpt5_Tests : ChatGptServiceTestsBase
+public class Gpt5 : ChatGptServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.Gpt5;
-}
+    protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Low);
 
-[TestClass]
-public class OpenAI_Gpt5Mini_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5Mini;
-}
-
-[TestClass]
-public class OpenAI_Gpt5Nano_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5Nano;
-}
-
-// 4. GPT-5.1 모델 테스트 클래스들
-[TestClass]
-public class OpenAI_Gpt5_1_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5_1;
-}
-
-// 5. GPT-5.2 모델 테스트 클래스들
-[TestClass]
-public class OpenAI_Gpt5_2_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5_2;
-}
-
-[TestClass]
-public class OpenAI_Gpt5_2Pro_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5_2Pro;
-}
-
-// 6. GPT-5.2 Codex 모델 테스트 클래스
-[TestClass]
-public class OpenAI_Gpt5_2Codex_Tests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5_2Codex;
-}
-
-/// <summary>
-/// GPT-5 전용 기능 테스트 (reasoning effort 설정 등)
-/// </summary>
-[TestClass]
-public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
-{
-    protected override AIModel ModelToTest => AIModel.Gpt5;
-
-    #region GPT-5 Reasoning Effort Tests
-
-    /// <summary>
-    /// GPT-5 reasoning effort 파라미터 설정 및 응답 테스트
-    /// Valid values: minimal, low, medium, high
-    /// </summary>
     [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task Gpt5_ReasoningEffort_CanBeConfigured()
@@ -208,13 +144,11 @@ public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
         {
             var gptService = (ChatGptService)AI;
 
-            // minimal reasoning effort로 빠른 응답
             gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Minimal);
             var quickResponse = await gptService.GetCompletionAsync("What is 2+2?");
             Assert.IsNotNull(quickResponse);
             Console.WriteLine($"[Minimal Effort] {quickResponse}");
 
-            // high reasoning effort로 심층 응답
             gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.High);
             var detailedResponse = await gptService.GetCompletionAsync(
                 "Explain briefly why the sky is blue in one sentence."
@@ -229,9 +163,6 @@ public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
         }
     }
 
-    /// <summary>
-    /// GPT-5 체이닝 설정 테스트 (WithGpt5Parameters + WithSystemMessage 등)
-    /// </summary>
     [TestCategory("ServiceSpecific")]
     [TestMethod]
     public async Task Gpt5_ChainingParameters_WorksCorrectly()
@@ -257,6 +188,94 @@ public class OpenAI_Gpt5_ReasoningTests : ChatGptServiceTestsBase
             Assert.Fail(ex.Message);
         }
     }
+}
 
-    #endregion
+[TestClass]
+public class Gpt5Mini : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5Mini;
+}
+
+[TestClass]
+public class Gpt5Nano : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5Nano;
+}
+
+[TestClass]
+public class Gpt5_1 : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_1;
+}
+
+[TestClass]
+public class Gpt5_2 : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_2;
+}
+
+[TestClass]
+public class Gpt5_2Pro : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_2Pro;
+}
+
+[TestClass]
+public class Gpt5_2Codex : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_2Codex;
+}
+
+[TestClass]
+public class Gpt5_3Codex : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_3Codex;
+    protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.Low);
+
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task Gpt5_3Codex_ReasoningEffort_CanBeConfigured()
+    {
+        try
+        {
+            var gptService = (ChatGptService)AI;
+
+            gptService.WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.Medium);
+            var mediumResponse = await gptService.GetCompletionAsync("What is 2+2?");
+            Assert.IsNotNull(mediumResponse);
+            Console.WriteLine($"[Medium Effort] {mediumResponse}");
+
+            gptService.WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.High);
+            var highResponse = await gptService.GetCompletionAsync(
+                "Explain briefly why the sky is blue in one sentence."
+            );
+            Assert.IsNotNull(highResponse);
+            Console.WriteLine($"[High Effort] {highResponse}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[GPT-5.3 Reasoning Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+}
+
+[TestClass]
+public class Gpt5_4 : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_4;
+    protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Low);
+}
+
+[TestClass]
+public class Gpt5_4Pro : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.Gpt5_4Pro;
+    protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
+}
+
+[TestClass]
+public class O3 : ChatGptServiceTestsBase
+{
+    protected override AIModel ModelToTest => AIModel.o3;
 }

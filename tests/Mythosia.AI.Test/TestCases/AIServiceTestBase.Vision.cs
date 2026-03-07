@@ -10,7 +10,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Vision 기능 테스트 (지원하는 서비스만)
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Vision")]
     [TestMethod]
     public async Task VisionTest()
@@ -48,7 +47,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 멀티모달 메시지 빌더 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Vision")]
     [TestMethod]
     public async Task MultimodalMessageBuilderTest()
@@ -84,7 +82,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 다중 이미지 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Vision")]
     [TestMethod]
     public async Task MultipleImagesTest()
@@ -119,7 +116,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 이미지와 함께 스트리밍 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Vision")]
     [TestMethod]
     public async Task StreamingWithImageTest()

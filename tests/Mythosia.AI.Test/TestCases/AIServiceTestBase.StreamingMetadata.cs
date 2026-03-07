@@ -9,7 +9,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 기본 메타데이터 포함 스트리밍 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingWithMetadataTest()
@@ -69,7 +68,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 모델 및 응답 ID 메타데이터 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingModelMetadataTest()
@@ -84,8 +82,8 @@ public abstract partial class AIServiceTestBase
 
             var options = StreamOptions.FullOptions;
 
-            string capturedModel = null;
-            string responseId = null;
+            string? capturedModel = null;
+            string? responseId = null;
             var timestamps = new List<DateTime>();
 
             string prompt = "What is 2+2?";
@@ -145,7 +143,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 완료 상태 메타데이터 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingCompletionMetadataTest()
@@ -164,8 +161,8 @@ public abstract partial class AIServiceTestBase
                 TextOnly = false
             };
 
-            StreamingContent completionContent = null;
-            string finishReason = null;
+            StreamingContent? completionContent = null;
+            string? finishReason = null;
             int totalLength = 0;
             var allContent = new List<StreamingContent>();
 
@@ -216,7 +213,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 에러 메타데이터 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingErrorMetadataTest()
@@ -231,7 +227,7 @@ public abstract partial class AIServiceTestBase
 
             var options = StreamOptions.FullOptions;
             var originalModel = AI.Model;
-            StreamingContent errorContent = null;
+            StreamingContent? errorContent = null;
 
             try
             {
@@ -279,7 +275,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 텍스트 전용 vs 메타데이터 포함 비교 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingTextOnlyVsMetadataTest()
@@ -335,7 +330,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 스트리밍 중 취소와 메타데이터 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingCancellationWithMetadataTest()
@@ -395,7 +389,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 이미지와 함께 스트리밍 시 메타데이터 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("StreamingMetadata")]
     [TestMethod]
     public async Task StreamingWithImageMetadataTest()

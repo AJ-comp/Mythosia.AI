@@ -52,6 +52,20 @@ namespace Mythosia.AI.Models.Enums
         [Description("gpt-5.2-codex")]
         Gpt5_2Codex,
 
+        // OpenAI GPT-5.3 Models
+        /// <summary>OpenAI GPT-5.3 Codex - Most capable agentic coding model (default effort: medium, supports: low/medium/high/xhigh)</summary>
+        [Description("gpt-5.3-codex")]
+        Gpt5_3Codex,
+
+        // OpenAI GPT-5.4 Models
+        /// <summary>OpenAI GPT-5.4 - Flagship frontier model combining coding, reasoning, and agentic workflows (default effort: none, supports: none/low/medium/high/xhigh)</summary>
+        [Description("gpt-5.4")]
+        Gpt5_4,
+
+        /// <summary>OpenAI GPT-5.4 Pro - High-compute model for tough problems (supports: medium/high/xhigh)</summary>
+        [Description("gpt-5.4-pro")]
+        Gpt5_4Pro,
+
         /// <summary>OpenAI o3-pro - Top-tier reasoning model for hardest problems</summary>
         [Description("o3-pro")]
         o3_pro,

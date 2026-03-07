@@ -10,7 +10,6 @@ public abstract partial class AIServiceTestBase
     /// RunAgentAsync 기본 통합 테스트
     /// FC(get_weather)를 등록한 뒤, 에이전트가 도구를 호출하고 최종 텍스트 답변을 반환하는지 검증
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Agent")]
     [TestMethod]
     public async Task AgentRunAsync_WithFunctionCalling_ReturnsAnswer()

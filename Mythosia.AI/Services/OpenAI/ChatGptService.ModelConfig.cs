@@ -21,6 +21,14 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 ConfigureO3Parameters(requestBody, model);
             }
+            else if (IsGpt5_4Model(model))
+            {
+                ConfigureGpt5_4Parameters(requestBody, model);
+            }
+            else if (IsGpt5_3Model(model))
+            {
+                ConfigureGpt5_3Parameters(requestBody, model);
+            }
             else if (IsGpt5_2Model(model))
             {
                 ConfigureGpt5_2Parameters(requestBody, model);
@@ -247,6 +255,122 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
+        /// Configures GPT-5.3 specific parameters.
+        /// GPT-5.3 Codex supports reasoning effort: low, medium (default), high, xhigh.
+        /// GPT-5.3 Codex Spark uses simplified config with lower defaults.
+        /// GPT-5.3 Instant (chat-latest) is a conversation model.
+        /// GPT-5.3 supports text verbosity: low, medium (default), high.
+        /// </summary>
+        private void ConfigureGpt5_3Parameters(Dictionary<string, object> requestBody, string model)
+        {
+            bool isCodex = IsGpt5_3CodexModel(model);
+            var resolvedEffort = Gpt5_3ReasoningEffort;
+            if (resolvedEffort == Gpt5_3Reasoning.Auto)
+            {
+                if (isCodex)
+                    resolvedEffort = Gpt5_3Reasoning.Medium;
+                else
+                    resolvedEffort = Gpt5_3Reasoning.None;
+            }
+
+            // GPT-5.3 Codex does not support 'none' reasoning effort
+            if (isCodex && resolvedEffort == Gpt5_3Reasoning.None)
+            {
+                Console.WriteLine("[GPT-5.3 Codex] 'none' reasoning effort is not supported. Adjusting to 'low'.");
+                resolvedEffort = Gpt5_3Reasoning.Low;
+            }
+            var effort = resolvedEffort.ToString().ToLowerInvariant();
+
+            if (!requestBody.ContainsKey("reasoning"))
+            {
+                var summary = Gpt5_3ReasoningSummary?.ToString().ToLowerInvariant();
+                requestBody["reasoning"] = summary != null
+                    ? (object)new { effort = effort, summary = summary }
+                    : new { effort = effort };
+            }
+
+            if (!requestBody.ContainsKey("text"))
+            {
+                var verbosity = (Gpt5_3Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
+                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
+            }
+
+            // GPT-5.3 uses max_output_tokens instead of max_tokens
+            const int Gpt5_3MinOutputTokens = 4096;
+
+            if (requestBody.ContainsKey("max_tokens"))
+            {
+                requestBody.Remove("max_tokens");
+            }
+
+            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
+                currentMax is int currentMaxInt && currentMaxInt < Gpt5_3MinOutputTokens)
+            {
+                Console.WriteLine($"[GPT-5.3] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
+                    $"Adjusting to {Gpt5_3MinOutputTokens} to ensure room for both reasoning and text output.");
+                requestBody["max_output_tokens"] = Gpt5_3MinOutputTokens;
+            }
+            else if (!requestBody.ContainsKey("max_output_tokens"))
+            {
+                requestBody["max_output_tokens"] = Gpt5_3MinOutputTokens;
+            }
+        }
+
+        /// <summary>
+        /// Configures GPT-5.4 specific parameters.
+        /// GPT-5.4 supports reasoning effort: none (default), low, medium, high, xhigh.
+        /// GPT-5.4 Pro supports reasoning effort: medium, high, xhigh.
+        /// GPT-5.4 supports text verbosity: low, medium (default), high.
+        /// </summary>
+        private void ConfigureGpt5_4Parameters(Dictionary<string, object> requestBody, string model)
+        {
+            var resolvedEffort = Gpt5_4ReasoningEffort;
+            if (resolvedEffort == Gpt5_4Reasoning.Auto)
+            {
+                if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase))
+                    resolvedEffort = Gpt5_4Reasoning.Medium;
+                else
+                    resolvedEffort = Gpt5_4Reasoning.None;
+            }
+
+            var effort = resolvedEffort.ToString().ToLowerInvariant();
+
+            if (!requestBody.ContainsKey("reasoning"))
+            {
+                var summary = Gpt5_4ReasoningSummary?.ToString().ToLowerInvariant();
+                requestBody["reasoning"] = summary != null
+                    ? (object)new { effort = effort, summary = summary }
+                    : new { effort = effort };
+            }
+
+            if (!requestBody.ContainsKey("text"))
+            {
+                var verbosity = (Gpt5_4Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
+                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
+            }
+
+            // GPT-5.4 uses max_output_tokens instead of max_tokens
+            const int Gpt5_4MinOutputTokens = 4096;
+
+            if (requestBody.ContainsKey("max_tokens"))
+            {
+                requestBody.Remove("max_tokens");
+            }
+
+            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
+                currentMax is int currentMaxInt && currentMaxInt < Gpt5_4MinOutputTokens)
+            {
+                Console.WriteLine($"[GPT-5.4] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
+                    $"Adjusting to {Gpt5_4MinOutputTokens} to ensure room for both reasoning and text output.");
+                requestBody["max_output_tokens"] = Gpt5_4MinOutputTokens;
+            }
+            else if (!requestBody.ContainsKey("max_output_tokens"))
+            {
+                requestBody["max_output_tokens"] = Gpt5_4MinOutputTokens;
+            }
+        }
+
+        /// <summary>
         /// Configures GPT-4 specific parameters
         /// </summary>
         private void ConfigureGpt4Parameters(Dictionary<string, object> requestBody, string model)
@@ -302,7 +426,7 @@ namespace Mythosia.AI.Services.OpenAI
         #region Model Detection Helpers
 
         /// <summary>
-        /// Matches the entire GPT-5 family: gpt-5, gpt-5.1, gpt-5.2 and all variants.
+        /// Matches the entire GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5.3 and all variants.
         /// Used for shared behaviors like New API endpoint, unsupported parameters.
         /// </summary>
         private bool IsGpt5Family(string model)
@@ -312,7 +436,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// Matches only GPT-5 base models: gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-chat-latest, etc.
-        /// Excludes gpt-5.1 and gpt-5.2 variants.
+        /// Excludes gpt-5.1, gpt-5.2, and gpt-5.3 variants.
         /// </summary>
         private bool IsGpt5Model(string model)
         {
@@ -337,12 +461,37 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
+        /// Matches GPT-5.3 models: gpt-5.3-codex, gpt-5.3-chat-latest, etc.
+        /// </summary>
+        private bool IsGpt5_3Model(string model)
+        {
+            return model.StartsWith("gpt-5.3", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Matches GPT-5.4 models: gpt-5.4, gpt-5.4-pro, etc.
+        /// </summary>
+        private bool IsGpt5_4Model(string model)
+        {
+            return model.StartsWith("gpt-5.4", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Matches GPT-5.2 Codex models: gpt-5.2-codex and its snapshots.
         /// Codex supports reasoning effort: low, medium (default), high, xhigh (no 'none').
         /// </summary>
         private bool IsGpt5_2CodexModel(string model)
         {
             return model.StartsWith("gpt-5.2-codex", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Matches GPT-5.3 Codex models: gpt-5.3-codex and its snapshots.
+        /// Codex supports reasoning effort: low, medium (default), high, xhigh (no 'none').
+        /// </summary>
+        private bool IsGpt5_3CodexModel(string model)
+        {
+            return model.StartsWith("gpt-5.3-codex", StringComparison.OrdinalIgnoreCase);
         }
 
         private bool IsO3Model(string model)

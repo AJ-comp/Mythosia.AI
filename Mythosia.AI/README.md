@@ -6,7 +6,7 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 
 ### Supported Providers
 
-- **OpenAI** — GPT-5.2 / 5.2 Codex / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
+- **OpenAI** — GPT-5.4 / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Codex / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
 - **Anthropic** — Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5 / 4, Haiku 4.5
 - **Google** — Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite
 - **DeepSeek** — Chat and Reasoner models
@@ -69,7 +69,7 @@ var response = await geminiService.GetCompletionAsync("Hello!");
 
 ## GPT-5 Family Configuration
 
-GPT-5 family models support **type-safe reasoning configuration** with per-model enums.
+GPT-5 family models (GPT-5 / 5.1 / 5.2 / 5.3 / 5.4) support **type-safe reasoning configuration** with per-model enums.
 
 ### Reasoning Effort (Per-Model Enums)
 
@@ -93,9 +93,21 @@ gptService.WithGpt5_1Parameters(
 gptService.WithGpt5_2Parameters(
     reasoningEffort: Gpt5_2Reasoning.XHigh,
     verbosity: Verbosity.High);
+
+// GPT-5.3 Codex: Gpt5_3Reasoning (Auto/None/Low/Medium/High/XHigh) + Verbosity
+gptService.WithGpt5_3Parameters(
+    reasoningEffort: Gpt5_3Reasoning.Medium,
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Concise);
+
+// GPT-5.4 / 5.4 Pro: Gpt5_4Reasoning (Auto/None/Low/Medium/High/XHigh) + Verbosity
+gptService.WithGpt5_4Parameters(
+    reasoningEffort: Gpt5_4Reasoning.Auto,
+    verbosity: Verbosity.High,
+    reasoningSummary: ReasoningSummary.Auto);
 ```
 
-`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro/Codex).
+`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro/Codex, Medium for GPT-5.3 Codex, None for GPT-5.4, Medium for GPT-5.4 Pro).
 
 ### Reasoning Summary
 
@@ -118,6 +130,20 @@ geminiService.ThinkingLevel = GeminiThinkingLevel.Low;  // Auto = model default 
 ```csharp
 geminiService.ChangeModel(AIModel.Gemini2_5Pro);
 geminiService.ThinkingBudget = 8192;  // -1 = dynamic (default), 0 = disable
+```
+
+### Gemini Streaming Reasoning (`includeThoughts`)
+
+When streaming with `StreamOptions.WithReasoning()`, Mythosia.AI now requests Gemini thought chunks (`includeThoughts: true`) and emits them as `StreamingContentType.Reasoning`.
+
+```csharp
+await foreach (var content in geminiService.StreamAsync(message, new StreamOptions().WithReasoning()))
+{
+    if (content.Type == StreamingContentType.Reasoning)
+        Console.Write($"[Gemini Thinking] {content.Content}");
+    else if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
 ```
 
 ## Grok Configuration
@@ -525,6 +551,8 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 
 | Service | Function Calling | Streaming | Reasoning | Notes |
 |---------|-----------------|-----------|-----------|--------|
+| **OpenAI GPT-5.4 / 5.4 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
+| **OpenAI GPT-5.3 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.2 / 5.2 Pro / 5.2 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.1** | ✅ | ✅ | ✅ | Reasoning + verbosity control |
 | **OpenAI GPT-5 / Mini / Nano** | ✅ | ✅ | ✅ | Reasoning streaming + summary |
@@ -689,3 +717,29 @@ For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)
 **Q: Can I use functions with streaming?**
 - Yes! Functions work seamlessly with streaming
 - Use `StreamOptions.WithFunctions` to see function execution in real-time
+
+---
+
+## 📋 TODO — Unsupported Models (Planned)
+
+The following OpenAI models are **not yet supported** due to significant API differences:
+
+| Model | API Name | Status | Notes |
+|-------|----------|--------|-------|
+| GPT-5.2 Instant | `gpt-5.2-chat-latest` | ⏳ Planned | ChatGPT-optimized model; uses a different routing/parameter set than standard Responses API models |
+| GPT-5.3 Instant | `gpt-5.3-chat-latest` | ⏳ Planned | ChatGPT-optimized model; same API constraints as GPT-5.2 Instant |
+| GPT-5.3 Codex Spark | `gpt-5.3-codex-spark` | ⏳ Planned | Research preview; completely different infrastructure (Cerebras-powered, WebSocket-based, text-only) |
+
+### Why are these models different?
+
+**`chat-latest` models (Instant)**
+- These are ChatGPT-internal models exposed to the API. OpenAI recommends using the standard models (e.g., `gpt-5.2`, `gpt-5.3-codex`) for API usage instead.
+- They do not support the full set of Responses API parameters such as `reasoning.effort`, `text.verbosity`, and other model-specific configurations.
+- Response format and content structure may differ from standard models.
+
+**`gpt-5.3-codex-spark`**
+- Research preview available only to ChatGPT Pro subscribers.
+- Powered by Cerebras inference hardware for near-instant responses.
+- Uses persistent **WebSocket connections** and an optimized Responses API — a fundamentally different transport layer than the standard HTTP-based request/response pattern.
+- Text-only (no multimodal support).
+- Designed specifically for real-time coding iteration within Codex, not general-purpose API usage.

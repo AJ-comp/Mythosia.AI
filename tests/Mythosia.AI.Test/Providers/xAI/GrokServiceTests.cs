@@ -11,7 +11,7 @@ namespace Mythosia.AI.Tests.xAI;
 [TestClass]
 public abstract class GrokServiceTestsBase : AIServiceTestBase
 {
-    private static string apiKey;
+    private static string? apiKey;
     protected abstract AIModel ModelToTest { get; }
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
@@ -27,7 +27,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new GrokService(apiKey, new HttpClient());
+        var service = new GrokService(apiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);
         Console.WriteLine($"[Testing Model] {ModelToTest}");
         return service;

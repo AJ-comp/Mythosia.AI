@@ -17,7 +17,7 @@ namespace Mythosia.AI.Services.Google
 
         #region Request Body Building
 
-        private object BuildRequestBody()
+        private object BuildRequestBody(bool includeThoughts = false)
         {
             var contentsList = new List<object>();
             foreach (var message in GetLatestMessagesWithFunctionFallback())
@@ -35,6 +35,7 @@ namespace Mythosia.AI.Services.Google
             };
 
             ApplyThinkingConfig(generationConfig);
+            ApplyIncludeThoughtsConfig(generationConfig, includeThoughts);
 
             if (_structuredOutputSchemaJson != null)
             {
@@ -51,6 +52,24 @@ namespace Mythosia.AI.Services.Google
             ApplySystemInstruction(requestBody);
 
             return requestBody;
+        }
+
+        private static void ApplyIncludeThoughtsConfig(Dictionary<string, object> generationConfig, bool includeThoughts)
+        {
+            if (!includeThoughts)
+                return;
+
+            if (generationConfig.TryGetValue("thinkingConfig", out var existingConfigObj) &&
+                existingConfigObj is Dictionary<string, object> existingThinkingConfig)
+            {
+                existingThinkingConfig["includeThoughts"] = true;
+                return;
+            }
+
+            generationConfig["thinkingConfig"] = new Dictionary<string, object>
+            {
+                ["includeThoughts"] = true
+            };
         }
 
         private object ConvertMessageForGemini(Message message)
@@ -335,11 +354,31 @@ namespace Mythosia.AI.Services.Google
             if (candidate.TryGetProperty("content", out var contentObj) &&
                 contentObj.TryGetProperty("parts", out var parts))
             {
+                // 1) Function call takes precedence for loop control.
                 foreach (var part in parts.EnumerateArray())
                 {
                     if (TryParseFunctionCallPart(part, options, functionCallData, content, out var functionContent))
                         return functionContent;
+                }
 
+                // 2) If reasoning is requested, prefer thought chunks over plain text
+                // to avoid losing reasoning when both are present in the same SSE payload.
+                if (options.IncludeReasoning)
+                {
+                    foreach (var part in parts.EnumerateArray())
+                    {
+                        if (part.TryGetProperty("thought", out var thoughtElem) && thoughtElem.GetBoolean())
+                        {
+                            var thoughtContent = TryParseTextPart(part, candidate, root, options, content);
+                            if (thoughtContent != null)
+                                return thoughtContent;
+                        }
+                    }
+                }
+
+                // 3) Fallback to regular text/status parsing.
+                foreach (var part in parts.EnumerateArray())
+                {
                     var textContent = TryParseTextPart(part, candidate, root, options, content);
                     if (textContent != null)
                         return textContent;

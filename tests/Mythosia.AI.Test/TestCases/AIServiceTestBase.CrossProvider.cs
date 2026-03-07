@@ -14,10 +14,9 @@ public abstract partial class AIServiceTestBase
 /// <summary>
 /// Provider 간 Function Call 전환 테스트
 /// </summary>
-[TestCategory("Common")]
-[TestCategory("FunctionCalling")]
+[TestCategory("CrossProvider")]
 [TestMethod]
-public async Task CrossProviderToClaude()
+public async Task ToClaude()
 {
     await RunIfSupported(
         () => SupportsFunctionCalling(),
@@ -151,10 +150,9 @@ public async Task CrossProviderToClaude()
 /// <summary>
 /// Provider 간 Function Call 전환 테스트 - ChatGPT로
 /// </summary>
-[TestCategory("Common")]
-[TestCategory("FunctionCalling")]
+[TestCategory("CrossProvider")]
 [TestMethod]
-public async Task CrossProviderToGpt4o()
+public async Task ToGpt4o()
 {
     await RunIfSupported(
         () => SupportsFunctionCalling(),
@@ -301,10 +299,9 @@ public async Task CrossProviderToGpt4o()
     /// <summary>
     /// Provider 간 Function Call 전환 테스트 - ChatGPT로
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
+    [TestCategory("CrossProvider")]
     [TestMethod]
-    public async Task CrossProviderToOpenAIo3()
+    public async Task ToOpenAIo3()
     {
         await RunIfSupported(
             () => SupportsFunctionCalling(),
@@ -448,10 +445,9 @@ public async Task CrossProviderToGpt4o()
     /// 3-Way 라운드트립: Current → Claude → ChatGPT → Gemini 2.5
     /// Function ON 상태에서 3개 provider를 연속 전환하며 이력과 function 동작 확인
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
+    [TestCategory("CrossProvider")]
     [TestMethod]
-    public async Task CrossProvider_ThreeWayRoundTrip_FunctionOn()
+    public async Task ThreeWayRoundTrip_FunctionOn()
     {
         await RunIfSupported(
             () => SupportsFunctionCalling(),
@@ -536,10 +532,9 @@ public async Task CrossProviderToGpt4o()
     /// Function OFF 상태에서 function 이력이 있는 대화를 non-function 경로로 전환하는 테스트.
     /// 각 서비스의 non-function BuildRequestBody()가 ActorRole.Function 메시지를 처리할 수 있는지 확인.
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
+    [TestCategory("CrossProvider")]
     [TestMethod]
-    public async Task CrossProvider_FunctionOff_WithFunctionHistory()
+    public async Task FunctionOff_WithFunctionHistory()
     {
         await RunIfSupported(
             () => SupportsFunctionCalling(),
@@ -683,10 +678,9 @@ public async Task CrossProviderToGpt4o()
     /// 다른 Provider에서 function 호출 후 Gemini 3로 전환 시 ThoughtSignature 누락 문제 테스트.
     /// Gemini 3는 function call 메시지에 ThoughtSignature를 요구할 수 있음 (strict validation).
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
+    [TestCategory("CrossProvider")]
     [TestMethod]
-    public async Task CrossProvider_ToGemini3_ThoughtSignatureMissing()
+    public async Task ToGemini3_ThoughtSignatureMissing()
     {
         await RunIfSupported(
             () => SupportsFunctionCalling(),

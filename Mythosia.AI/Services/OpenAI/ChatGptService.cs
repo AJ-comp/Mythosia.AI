@@ -26,6 +26,8 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var model = Model?.ToLower() ?? "";
             if (model.StartsWith("o3")) return 100000;
+            if (model.StartsWith("gpt-5.4")) return 128000;
+            if (model.StartsWith("gpt-5.3")) return 128000;
             if (model.StartsWith("gpt-5") && model.Contains("chat")) return 16384;
             if (model.StartsWith("gpt-5")) return 128000;
             if (model.StartsWith("gpt-4.1")) return 32768;
@@ -380,6 +382,42 @@ namespace Mythosia.AI.Services.OpenAI
         public Verbosity? Gpt5_2Verbosity { get; set; }
 
         /// <summary>
+        /// GPT-5.3 reasoning effort level.
+        /// GPT-5.3 Codex defaults to Medium.
+        /// </summary>
+        public Gpt5_3Reasoning Gpt5_3ReasoningEffort { get; set; } = Gpt5_3Reasoning.Auto;
+
+        /// <summary>
+        /// GPT-5.3 reasoning summary mode.
+        /// Defaults to Auto. Set to null to disable reasoning summaries.
+        /// </summary>
+        public ReasoningSummary? Gpt5_3ReasoningSummary { get; set; } = ReasoningSummary.Auto;
+
+        /// <summary>
+        /// GPT-5.3 verbosity level.
+        /// GPT-5.3 defaults to Medium.
+        /// </summary>
+        public Verbosity? Gpt5_3Verbosity { get; set; }
+
+        /// <summary>
+        /// GPT-5.4 reasoning effort level.
+        /// GPT-5.4 defaults to None. GPT-5.4 Pro defaults to Medium.
+        /// </summary>
+        public Gpt5_4Reasoning Gpt5_4ReasoningEffort { get; set; } = Gpt5_4Reasoning.Auto;
+
+        /// <summary>
+        /// GPT-5.4 reasoning summary mode.
+        /// Defaults to Auto. Set to null to disable reasoning summaries.
+        /// </summary>
+        public ReasoningSummary? Gpt5_4ReasoningSummary { get; set; } = ReasoningSummary.Auto;
+
+        /// <summary>
+        /// GPT-5.4 verbosity level.
+        /// GPT-5.4 defaults to Medium.
+        /// </summary>
+        public Verbosity? Gpt5_4Verbosity { get; set; }
+
+        /// <summary>
         /// Contains the reasoning summary from the last non-streaming API call.
         /// Only populated when using reasoning models (GPT-5, o3) with reasoning.summary enabled.
         /// </summary>
@@ -425,6 +463,36 @@ namespace Mythosia.AI.Services.OpenAI
             Gpt5_2Verbosity = verbosity;
             Gpt5_2ReasoningSummary = reasoningSummary;
             Console.WriteLine($"[GPT-5.2 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}, Summary: {reasoningSummary?.ToString() ?? "disabled"}");
+            return this;
+        }
+
+        /// <summary>
+        /// Sets GPT-5.3 specific parameters.
+        /// Reasoning effort: None (default for Instant), Low, Medium (default for Codex), High, XHigh. GPT-5.3 Codex supports Low, Medium (default), High, XHigh.
+        /// Verbosity: Low, Medium (default), High.
+        /// Reasoning summary: Auto (default), Concise, Detailed, or null to disable.
+        /// </summary>
+        public ChatGptService WithGpt5_3Parameters(Gpt5_3Reasoning reasoningEffort = Gpt5_3Reasoning.None, Verbosity verbosity = Verbosity.Medium, ReasoningSummary? reasoningSummary = ReasoningSummary.Auto)
+        {
+            Gpt5_3ReasoningEffort = reasoningEffort;
+            Gpt5_3Verbosity = verbosity;
+            Gpt5_3ReasoningSummary = reasoningSummary;
+            Console.WriteLine($"[GPT-5.3 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}, Summary: {reasoningSummary?.ToString() ?? "disabled"}");
+            return this;
+        }
+
+        /// <summary>
+        /// Sets GPT-5.4 specific parameters.
+        /// Reasoning effort: None (default), Low, Medium, High, XHigh. GPT-5.4 Pro supports Medium, High, XHigh.
+        /// Verbosity: Low, Medium (default), High.
+        /// Reasoning summary: Auto (default), Concise, Detailed, or null to disable.
+        /// </summary>
+        public ChatGptService WithGpt5_4Parameters(Gpt5_4Reasoning reasoningEffort = Gpt5_4Reasoning.None, Verbosity verbosity = Verbosity.Medium, ReasoningSummary? reasoningSummary = ReasoningSummary.Auto)
+        {
+            Gpt5_4ReasoningEffort = reasoningEffort;
+            Gpt5_4Verbosity = verbosity;
+            Gpt5_4ReasoningSummary = reasoningSummary;
+            Console.WriteLine($"[GPT-5.4 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}, Summary: {reasoningSummary?.ToString() ?? "disabled"}");
             return this;
         }
 

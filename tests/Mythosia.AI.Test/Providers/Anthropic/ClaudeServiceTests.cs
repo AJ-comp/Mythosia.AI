@@ -10,7 +10,7 @@ namespace Mythosia.AI.Tests.Anthropic;
 [TestClass]
 public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 {
-    private static string apiKey;
+    private static string? apiKey;
     protected abstract AIModel ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]  // 상속 동작 추가
@@ -57,7 +57,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new ClaudeService(apiKey, new HttpClient());
+        var service = new ClaudeService(apiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
         Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
         return service;
@@ -221,55 +221,53 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
             Assert.Fail(ex.Message);
         }
     }
-
     #endregion
 }
 
-
 [TestClass]
-public class Claude_Opus4_6_Tests : ClaudeServiceTestsBase
+public class Claude_Opus4_6 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeOpus4_6;
 }
 
 [TestClass]
-public class Claude_Sonnet4_6_Tests : ClaudeServiceTestsBase
+public class Claude_Sonnet4_6 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_6;
 }
 
 [TestClass]
-public class Claude_Opus4_1_Tests : ClaudeServiceTestsBase
+public class Claude_Opus4_1 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeOpus4_1_250805;
 }
 
 [TestClass]
-public class Claude_Opus4_Tests : ClaudeServiceTestsBase
+public class Claude_Opus4 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeOpus4_250514;
 }
 
 [TestClass]
-public class Claude_Opus4_5_Tests : ClaudeServiceTestsBase
+public class Claude_Opus4_5 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeOpus4_5_251101;
 }
 
 [TestClass]
-public class Claude_Sonnet4_5_Tests : ClaudeServiceTestsBase
+public class Claude_Sonnet4_5 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_5_250929;
 }
 
 [TestClass]
-public class Claude_Sonnet4_Tests : ClaudeServiceTestsBase
+public class Claude_Sonnet4 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_250514;
 }
 
 [TestClass]
-public class Claude_Haiku4_5_Tests : ClaudeServiceTestsBase
+public class Claude_Haiku4_5 : ClaudeServiceTestsBase
 {
     protected override AIModel ModelToTest => AIModel.ClaudeHaiku4_5_251001;
 }

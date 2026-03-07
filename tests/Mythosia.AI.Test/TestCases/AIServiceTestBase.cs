@@ -14,8 +14,8 @@ namespace Mythosia.AI.Tests;
 [TestClass]
 public abstract partial class AIServiceTestBase
 {
-    protected AIService AI { get; private set; }
-    protected string TestImagePath { get; private set; }
+    protected AIService AI { get; private set; } = null!;
+    protected string TestImagePath { get; private set; } = null!;
 
     #region Abstract Methods - 각 구현체에서 제공
 
@@ -37,6 +37,14 @@ public abstract partial class AIServiceTestBase
     protected virtual bool SupportsReasoning() => false;
     protected virtual bool SupportsStructuredOutput() => true;
     protected virtual AIModel? GetAlternativeModel() => null;
+
+    /// <summary>
+    /// Called before reasoning tests to set a minimum reasoning effort level.
+    /// Override in model-specific test classes to configure the appropriate effort
+    /// so that reasoning tokens are generated (required for reasoning streaming tests).
+    /// Default implementation does nothing (uses the model's default effort).
+    /// </summary>
+    protected virtual void SetupReasoningEffort() { }
 
     #endregion
 

@@ -124,8 +124,8 @@ namespace Mythosia.AI.Services.Google
             ActivateChat.Messages.Add(message);
 
             var request = useFunctions ?
-                CreateFunctionMessageRequest() :
-                CreateMessageRequest();
+                CreateFunctionMessageRequest(options.IncludeReasoning) :
+                CreateMessageRequest(options.IncludeReasoning);
 
             var response = await HttpClient.SendAsync(
                 request,
@@ -164,8 +164,8 @@ namespace Mythosia.AI.Services.Google
             try
             {
                 var request = useFunctions ?
-                    CreateFunctionMessageRequest() :
-                    CreateMessageRequest();
+                    CreateFunctionMessageRequest(options.IncludeReasoning) :
+                    CreateMessageRequest(options.IncludeReasoning);
 
                 var response = await HttpClient.SendAsync(
                     request,
@@ -249,6 +249,11 @@ namespace Mythosia.AI.Services.Google
                     if (!options.TextOnly || parsedContent.Content != null)
                         yield return parsedContent;
                 }
+                else if (parsedContent.Type == StreamingContentType.Reasoning)
+                {
+                    if (!options.TextOnly)
+                        yield return parsedContent;
+                }
                 else if (options.IncludeMetadata)
                 {
                     yield return parsedContent;
@@ -277,7 +282,7 @@ namespace Mythosia.AI.Services.Google
                 functionResult.Metadata?["result"]?.ToString() ?? "");
 
             Stream = true;
-            var followUpRequest = CreateFunctionMessageRequest();
+            var followUpRequest = CreateFunctionMessageRequest(options.IncludeReasoning);
             var followUpResponse = await HttpClient.SendAsync(
                 followUpRequest,
                 HttpCompletionOption.ResponseHeadersRead,

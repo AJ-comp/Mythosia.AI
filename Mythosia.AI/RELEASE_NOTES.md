@@ -1,5 +1,59 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v4.7.0 - GPT-5.3/5.4 Expansion & Reasoning Streaming Reliability
+
+### **OpenAI Model Lineup Expanded** 🤖
+
+Added new OpenAI models to `AIModel`:
+
+- `AIModel.Gpt5_3Codex` → `gpt-5.3-codex`
+- `AIModel.Gpt5_4` → `gpt-5.4`
+- `AIModel.Gpt5_4Pro` → `gpt-5.4-pro`
+
+### **New GPT-5.3 / GPT-5.4 Reasoning Configuration** 🧠
+
+Added dedicated reasoning enums and fluent configuration APIs for newer GPT-5 variants:
+
+- `Gpt5_3Reasoning` enum (`Auto`, `None`, `Low`, `Medium`, `High`, `XHigh`)
+- `Gpt5_4Reasoning` enum (`Auto`, `None`, `Low`, `Medium`, `High`, `XHigh`)
+- `WithGpt5_3Parameters(...)`
+- `WithGpt5_4Parameters(...)`
+
+Model-specific defaults and guard behavior:
+
+- GPT-5.3 Codex defaults to `Medium`
+- GPT-5.4 defaults to `None`
+- GPT-5.4 Pro defaults to `Medium`
+- Codex models auto-adjust unsupported `None` reasoning effort to `Low`
+- GPT-5.3/5.4 request builders ensure `max_output_tokens` minimum for reasoning scenarios
+
+### **OpenAI Streaming Reasoning Parsing Improvements** 🌊
+
+`ChatGptService` streaming now recognizes and parses additional reasoning events for more complete real-time output:
+
+- `response.reasoning_text.delta`
+- `response.reasoning_text.done`
+- `response.reasoning_summary_text.done`
+- summary array payloads (`summary[].text`) and reasoning/text item variants
+
+This improves reliability when providers emit reasoning content in mixed delta/done/summary formats.
+
+### **Gemini Reasoning Streaming Improvements** ✨
+
+Gemini streaming now requests and handles thought content more consistently when reasoning is enabled:
+
+- Streaming requests propagate reasoning intent into generation config (`includeThoughts`)
+- Function-calling streaming path also propagates `includeThoughts`
+- Parser prioritizes thought parts when `StreamOptions.WithReasoning()` is enabled
+- Reasoning chunks are yielded in streaming responses without being dropped by text-only filters
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.6.2
+- No breaking changes
+
+---
+
 ## 🚀 v4.6.2 - Grok Reasoning Support & SummaryConversationPolicy Improvements
 
 ### **Grok Reasoning Support** 🧠

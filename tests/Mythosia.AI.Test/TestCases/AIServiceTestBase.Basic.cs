@@ -9,7 +9,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 기본 텍스트 Completion 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Core")]
     [TestMethod]
     public async Task BasicCompletionTest()
@@ -59,7 +58,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Stateless 모드 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Core")]
     [TestMethod]
     public async Task StatelessModeTest()
@@ -88,9 +86,8 @@ public abstract partial class AIServiceTestBase
     }
 
     /// <summary>
-    /// Extension 메서드 테스트
+    /// 확장 메서드 테스트 (Fluent API)
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Core")]
     [TestMethod]
     public async Task ExtensionMethodsTest()
@@ -131,7 +128,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// MessageBuilder 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Core")]
     [TestMethod]
     public async Task MessageBuilderTest()

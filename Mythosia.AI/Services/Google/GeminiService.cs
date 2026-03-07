@@ -221,11 +221,16 @@ namespace Mythosia.AI.Services.Google
 
         protected override HttpRequestMessage CreateMessageRequest()
         {
+            return CreateMessageRequest(includeThoughts: false);
+        }
+
+        internal HttpRequestMessage CreateMessageRequest(bool includeThoughts)
+        {
             var endpoint = Stream
                 ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse&key={ApiKey}"
                 : $"v1beta/models/{Model}:generateContent?key={ApiKey}";
 
-            var requestBody = BuildRequestBody();
+            var requestBody = BuildRequestBody(includeThoughts);
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             return new HttpRequestMessage(HttpMethod.Post, endpoint)

@@ -7,7 +7,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 설정 체이닝 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Configuration")]
     [TestMethod]
     public async Task ConfigurationChainingTest()

@@ -71,9 +71,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 기본 Function Calling 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task BasicFunctionCallingTest()
     {
         await RunIfSupported(
@@ -159,9 +157,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 비동기 Function Calling 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task AsyncFunctionCallingTest()
     {
         await RunIfSupported(
@@ -237,9 +233,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Attribute 기반 Function 등록 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task AttributeBasedFunctionTest()
     {
         await RunIfSupported(
@@ -269,9 +263,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Function Calling with Streaming 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task FunctionCallingStreamEventsTest()
     {
         await RunIfSupported(
@@ -333,9 +325,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Function 비활성화 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task DisableFunctionsTest()
     {
         await RunIfSupported(
@@ -382,9 +372,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 복잡한 Function 파라미터 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task ComplexFunctionParametersTest()
     {
         await RunIfSupported(
@@ -440,9 +428,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Function Chain 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task FunctionChainingTest()
     {
         await RunIfSupported(
@@ -506,9 +492,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// Function 에러 처리 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task FunctionErrorHandlingTest()
     {
         await RunIfSupported(
@@ -539,8 +523,8 @@ public abstract partial class AIServiceTestBase
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Function Error] {ex.GetType().Name}: {ex.Message}");
-                    Assert.Fail("Function should not have thrown an error in success case");
+                    Assert.Fail($"Function should not have thrown an error in success case: {ex.Message}");
+                    return;
                 }
 
                 AI.ActivateChat.Messages.Clear();
@@ -569,9 +553,7 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 복합 시나리오 테스트
     /// </summary>
-    [TestCategory("Common")]
-    [TestCategory("FunctionCalling")]
-    [TestMethod]
+    [TestCategory("FunctionCalling"), TestMethod]
     public async Task ComplexFunctionScenarioTest()
     {
         await RunIfSupported(

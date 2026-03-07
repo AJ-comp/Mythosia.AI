@@ -50,6 +50,7 @@ app.UseStaticFiles(new StaticFileOptions
 AIService? currentService = null;
 string? currentProvider = null;
 string? currentModelEnum = null;
+bool streamIncludeReasoning = true;
 bool presetFunctionsEnabled = true; // Whether preset functions are registered
 var ragState = new RagReferenceState();
 IVectorStore ragVectorStore = new InMemoryVectorStore();
@@ -95,7 +96,11 @@ static object? GetReasoningLevels(AIModel model)
 {
     var name = model.ToString();
     // OpenAI GPT-5
-    if (name.StartsWith("Gpt5") && !name.StartsWith("Gpt5_1") && !name.StartsWith("Gpt5_2"))
+    if (name.StartsWith("Gpt5") &&
+        !name.StartsWith("Gpt5_1") &&
+        !name.StartsWith("Gpt5_2") &&
+        !name.StartsWith("Gpt5_3") &&
+        !name.StartsWith("Gpt5_4"))
         return new { type = "gpt5", levels = new[] { "Auto", "Minimal", "Low", "Medium", "High" } };
     // OpenAI GPT-5.1
     if (name.StartsWith("Gpt5_1"))
@@ -103,6 +108,20 @@ static object? GetReasoningLevels(AIModel model)
     // OpenAI GPT-5.2
     if (name.StartsWith("Gpt5_2"))
         return new { type = "gpt5_2", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
+    // OpenAI GPT-5.3
+    if (name.StartsWith("Gpt5_3"))
+        return new { type = "gpt5_3", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
+    // OpenAI GPT-5.4
+    if (name.StartsWith("Gpt5_4"))
+        return new { type = "gpt5_4", levels = new[] { "Auto", "None", "Low", "Medium", "High", "XHigh" } };
+    // Gemini 3
+    if (name.StartsWith("Gemini3Pro"))
+        return new { type = "gemini3", levels = new[] { "Auto", "Low", "High" } };
+    if (name.StartsWith("Gemini3Flash"))
+        return new { type = "gemini3", levels = new[] { "Auto", "Minimal", "Low", "Medium", "High" } };
+    // Gemini 2.5
+    if (name.StartsWith("Gemini2_5"))
+        return new { type = "gemini25", levels = new[] { "128", "1024", "4096", "8192", "16384" } };
     // OpenAI o3
     if (name.StartsWith("o3") || name.StartsWith("O3"))
         return new { type = "o3", levels = new[] { "Low", "Medium", "High" } };
@@ -210,6 +229,7 @@ app.MapPost("/api/configure", (ConfigureRequest req) =>
             _ => throw new NotSupportedException($"Provider {provider} not supported")
         };
         currentService.ChangeModel(aiModel);
+        streamIncludeReasoning = true;
 
         // Carry over conversation history and settings from previous service
         if (previousService != null)
@@ -369,7 +389,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         }
         var options = new StreamOptions
         {
-            IncludeReasoning = true,
+            IncludeReasoning = streamIncludeReasoning,
             IncludeMetadata = true,
             IncludeFunctionCalls = currentService.ShouldUseFunctions,
             TextOnly = false
@@ -457,6 +477,7 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     if (req.PresencePenalty.HasValue) currentService.PresencePenalty = req.PresencePenalty.Value;
     if (req.StatelessMode.HasValue) currentService.StatelessMode = req.StatelessMode.Value;
     if (req.SystemMessage != null) currentService.SystemMessage = req.SystemMessage;
+    if (req.ReasoningEnabled.HasValue) streamIncludeReasoning = req.ReasoningEnabled.Value;
 
     // Apply reasoning settings
     if (req.ReasoningEnabled == true && req.ReasoningLevel != null && req.ReasoningType != null)
@@ -480,6 +501,16 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
                         gpt.Gpt5_2ReasoningEffort = g52;
                     gpt.Gpt5_2ReasoningSummary = ReasoningSummary.Detailed;
                     break;
+                case "gpt5_3":
+                    if (Enum.TryParse<Gpt5_3Reasoning>(req.ReasoningLevel, out var g53))
+                        gpt.Gpt5_3ReasoningEffort = g53;
+                    gpt.Gpt5_3ReasoningSummary = ReasoningSummary.Detailed;
+                    break;
+                case "gpt5_4":
+                    if (Enum.TryParse<Gpt5_4Reasoning>(req.ReasoningLevel, out var g54))
+                        gpt.Gpt5_4ReasoningEffort = g54;
+                    gpt.Gpt5_4ReasoningSummary = ReasoningSummary.Detailed;
+                    break;
             }
         }
         else if (currentService is ClaudeService claude)
@@ -492,6 +523,22 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
             if (Enum.TryParse<GrokReasoning>(req.ReasoningLevel, out var grokEffort))
                 grok.ReasoningEffort = grokEffort;
         }
+        else if (currentService is GeminiService gemini)
+        {
+            switch (req.ReasoningType)
+            {
+                case "gemini3":
+                    if (Enum.TryParse<GeminiThinkingLevel>(req.ReasoningLevel, out var thinkingLevel))
+                        gemini.ThinkingLevel = thinkingLevel;
+                    gemini.ThinkingBudget = -1;
+                    break;
+                case "gemini25":
+                    if (int.TryParse(req.ReasoningLevel, out var thinkingBudget))
+                        gemini.ThinkingBudget = thinkingBudget;
+                    gemini.ThinkingLevel = GeminiThinkingLevel.Auto;
+                    break;
+            }
+        }
     }
     else if (req.ReasoningEnabled == false)
     {
@@ -503,6 +550,10 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
             gptOff.Gpt5_1ReasoningSummary = null;
             gptOff.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Auto;
             gptOff.Gpt5_2ReasoningSummary = null;
+            gptOff.Gpt5_3ReasoningEffort = Gpt5_3Reasoning.Auto;
+            gptOff.Gpt5_3ReasoningSummary = null;
+            gptOff.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.Auto;
+            gptOff.Gpt5_4ReasoningSummary = null;
         }
         else if (currentService is ClaudeService claudeOff)
         {
@@ -511,6 +562,11 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
         else if (currentService is GrokService grokOff)
         {
             grokOff.ReasoningEffort = GrokReasoning.Off;
+        }
+        else if (currentService is GeminiService geminiOff)
+        {
+            geminiOff.ThinkingLevel = GeminiThinkingLevel.Auto;
+            geminiOff.ThinkingBudget = -1;
         }
     }
 
@@ -1314,7 +1370,11 @@ static string GenerateCodeSnippet(AIService svc, string provider, string modelEn
     // Reasoning settings
     if (svc is ChatGptService gpt)
     {
-        if (modelEnum.StartsWith("Gpt5") && !modelEnum.StartsWith("Gpt5_1") && !modelEnum.StartsWith("Gpt5_2"))
+        if (modelEnum.StartsWith("Gpt5") &&
+            !modelEnum.StartsWith("Gpt5_1") &&
+            !modelEnum.StartsWith("Gpt5_2") &&
+            !modelEnum.StartsWith("Gpt5_3") &&
+            !modelEnum.StartsWith("Gpt5_4"))
         {
             if (gpt.Gpt5ReasoningSummary != null)
             {
@@ -1338,10 +1398,37 @@ static string GenerateCodeSnippet(AIService svc, string provider, string modelEn
                 sb.AppendLine($"gpt.Gpt5_2ReasoningSummary = ReasoningSummary.{gpt.Gpt5_2ReasoningSummary};");
             }
         }
+        else if (modelEnum.StartsWith("Gpt5_3"))
+        {
+            if (gpt.Gpt5_3ReasoningSummary != null)
+            {
+                sb.AppendLine($"gpt.Gpt5_3ReasoningEffort = Gpt5_3Reasoning.{gpt.Gpt5_3ReasoningEffort};");
+                sb.AppendLine($"gpt.Gpt5_3ReasoningSummary = ReasoningSummary.{gpt.Gpt5_3ReasoningSummary};");
+            }
+        }
+        else if (modelEnum.StartsWith("Gpt5_4"))
+        {
+            if (gpt.Gpt5_4ReasoningSummary != null)
+            {
+                sb.AppendLine($"gpt.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.{gpt.Gpt5_4ReasoningEffort};");
+                sb.AppendLine($"gpt.Gpt5_4ReasoningSummary = ReasoningSummary.{gpt.Gpt5_4ReasoningSummary};");
+            }
+        }
     }
     else if (svc is ClaudeService claude && claude.ThinkingBudget > 0)
     {
         sb.AppendLine($"claude.ThinkingBudget = {claude.ThinkingBudget};");
+    }
+    else if (svc is GeminiService gemini)
+    {
+        if (gemini.ThinkingBudget > 0)
+        {
+            sb.AppendLine($"gemini.ThinkingBudget = {gemini.ThinkingBudget};");
+        }
+        else if (gemini.ThinkingLevel != GeminiThinkingLevel.Auto)
+        {
+            sb.AppendLine($"gemini.ThinkingLevel = GeminiThinkingLevel.{gemini.ThinkingLevel};");
+        }
     }
 
     sb.AppendLine();

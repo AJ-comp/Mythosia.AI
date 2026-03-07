@@ -7,7 +7,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 멀티턴 대화 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Conversation")]
     [TestMethod]
     public async Task MultiTurnConversationTest()
@@ -44,7 +43,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 대화 관리 기능 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Conversation")]
     [TestMethod]
     public async Task ConversationManagementTest()
@@ -89,7 +87,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 컨텍스트 관리 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Conversation")]
     [TestMethod]
     public async Task ContextManagementTest()

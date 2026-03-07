@@ -10,7 +10,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 배열 파라미터 Function Calling 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("FunctionCalling")]
     [TestMethod]
     public async Task ArrayParameterFunctionTest()
@@ -114,7 +113,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 숫자 배열 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("FunctionCalling")]
     [TestMethod]
     public async Task NumberArrayFunctionTest()

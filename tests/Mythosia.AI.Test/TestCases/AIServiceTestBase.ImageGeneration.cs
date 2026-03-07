@@ -5,7 +5,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 이미지 생성 테스트 (지원하는 서비스만)
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("ImageGeneration")]
     [TestMethod]
     public async Task ImageGenerationTest()

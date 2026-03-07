@@ -7,7 +7,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 메모리 효율성 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Performance")]
     [TestMethod]
     public async Task StreamingMemoryEfficiencyTest()
@@ -54,7 +53,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 응답 시간 벤치마크 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Performance")]
     [TestMethod]
     public async Task ResponseTimeBenchmarkTest()

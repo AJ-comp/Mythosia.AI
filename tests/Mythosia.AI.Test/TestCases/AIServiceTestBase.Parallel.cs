@@ -5,7 +5,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// IAsyncEnumerable 병렬 스트리밍 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Parallel")]
     [TestMethod]
     public async Task IAsyncEnumerableParallelStreamingTest()
@@ -34,7 +33,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// 다중 스트림 병합 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Parallel")]
     [TestMethod]
     public async Task MultiStreamMergeTest()

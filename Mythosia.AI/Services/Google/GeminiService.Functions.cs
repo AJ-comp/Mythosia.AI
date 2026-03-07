@@ -17,11 +17,16 @@ namespace Mythosia.AI.Services.Google
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
+            return CreateFunctionMessageRequest(includeThoughts: false);
+        }
+
+        internal HttpRequestMessage CreateFunctionMessageRequest(bool includeThoughts)
+        {
             var endpoint = Stream
                 ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse&key={ApiKey}"
                 : $"v1beta/models/{Model}:generateContent?key={ApiKey}";
 
-            var requestBody = BuildRequestBodyWithFunctions();
+            var requestBody = BuildRequestBodyWithFunctions(includeThoughts);
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             return new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -30,7 +35,7 @@ namespace Mythosia.AI.Services.Google
             };
         }
 
-        private object BuildRequestBodyWithFunctions()
+        private object BuildRequestBodyWithFunctions(bool includeThoughts = false)
         {
             var contentsList = BuildFunctionContentsList();
 
@@ -43,6 +48,7 @@ namespace Mythosia.AI.Services.Google
             };
 
             ApplyThinkingConfig(generationConfig);
+            ApplyIncludeThoughtsConfig(generationConfig, includeThoughts);
 
             var requestBody = new Dictionary<string, object>
             {

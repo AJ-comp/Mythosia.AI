@@ -5,7 +5,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// System.Linq.Async를 사용한 고급 스트리밍 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Linq")]
     [TestMethod]
     public async Task AdvancedLinqAsyncTest()
@@ -92,7 +91,7 @@ public abstract partial class AIServiceTestBase
         }
 
         // 4. FirstOrDefault로 첫 번째 의미 있는 청크 찾기
-        string firstMeaningfulChunk = null;
+        string? firstMeaningfulChunk = null;
         await foreach (var chunk in AI.StreamAsync("Say hello and then explain quantum physics"))
         {
             if (chunk.Length > 20)
@@ -161,7 +160,6 @@ public abstract partial class AIServiceTestBase
     /// <summary>
     /// IAsyncEnumerable LINQ 시뮬레이션 테스트
     /// </summary>
-    [TestCategory("Common")]
     [TestCategory("Linq")]
     [TestMethod]
     public async Task IAsyncEnumerableLinqSimulationTest()

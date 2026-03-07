@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/rag/">
+    <Project Path="Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
+    <Project Path="Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
+  </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Mythosia.AI.Samples.ChatUi/Mythosia.AI.Samples.ChatUi.csproj" />
   </Folder>
@@ -16,7 +20,5 @@
   <Project Path="Mythosia.AI.Loaders.Abstractions/Mythosia.AI.Loaders.Abstractions.csproj" />
   <Project Path="Mythosia.AI.Loaders.Office/Mythosia.AI.Loaders.Office.csproj" />
   <Project Path="Mythosia.AI.Loaders.Pdf/Mythosia.AI.Loaders.Pdf.csproj" />
-  <Project Path="Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
-  <Project Path="Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
   <Project Path="Mythosia.AI/Mythosia.AI.csproj" />
 </Solution>
