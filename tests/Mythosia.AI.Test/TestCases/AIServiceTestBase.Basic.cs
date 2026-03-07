@@ -7,6 +7,33 @@ namespace Mythosia.AI.Tests;
 public abstract partial class AIServiceTestBase
 {
     /// <summary>
+    /// Hello World 테스트 — SayHelloAsync 가 대화 히스토리에 영향을 주지 않으면서 응답을 반환하는지 확인
+    /// </summary>
+    [TestCategory("Core")]
+    [TestMethod]
+    public async Task SayHelloTest()
+    {
+        try
+        {
+            int messagesBefore = AI.ActivateChat.Messages.Count;
+
+            string response = await AI.SayHelloAsync();
+
+            Assert.IsNotNull(response);
+            Assert.IsTrue(response.Length > 0);
+            Console.WriteLine($"[SayHello] {response}");
+
+            // SayHelloAsync는 StatelessMode를 사용하므로 대화 히스토리가 변경되어서는 안 된다
+            Assert.AreEqual(messagesBefore, AI.ActivateChat.Messages.Count);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Error in SayHello Test] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// 기본 텍스트 Completion 테스트
     /// </summary>
     [TestCategory("Core")]

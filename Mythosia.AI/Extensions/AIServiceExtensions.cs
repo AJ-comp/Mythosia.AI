@@ -208,6 +208,13 @@ namespace Mythosia.AI.Extensions
         }
 
         /// <summary>
+        /// Sends a "Hello!" greeting to the AI service and returns the response.
+        /// Runs in stateless mode so it does not affect the conversation history.
+        /// </summary>
+        public static Task<string> SayHelloAsync(this AIService service)
+            => service.AskOnceAsync("Hello!");
+
+        /// <summary>
         /// Adds context from previous messages to a new prompt
         /// </summary>
         public static async Task<string> GetCompletionWithContextAsync(
