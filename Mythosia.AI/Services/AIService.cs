@@ -236,6 +236,23 @@ namespace Mythosia.AI.Services.Base
             StatelessMode = sourceService.StatelessMode;
             FunctionsDisabled = sourceService.FunctionsDisabled;
 
+            if (sourceService.ConversationPolicy != null)
+            {
+                var sourcePolicy = sourceService.ConversationPolicy;
+                ConversationPolicy = new SummaryConversationPolicy
+                {
+                    TriggerTokens = sourcePolicy.TriggerTokens,
+                    TriggerCount = sourcePolicy.TriggerCount,
+                    KeepRecentTokens = sourcePolicy.KeepRecentTokens,
+                    KeepRecentCount = sourcePolicy.KeepRecentCount,
+                    CurrentSummary = sourcePolicy.CurrentSummary
+                };
+            }
+            else
+            {
+                ConversationPolicy = null;
+            }
+
             return this;
         }
 
@@ -243,7 +260,6 @@ namespace Mythosia.AI.Services.Base
 
         #region Abstract Methods
 
-        /// <summary>
         /// Creates the HTTP request message for the AI service
         /// </summary>
         protected abstract HttpRequestMessage CreateMessageRequest();

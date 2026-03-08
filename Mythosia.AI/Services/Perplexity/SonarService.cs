@@ -36,12 +36,13 @@ namespace Mythosia.AI.Services.Perplexity
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            Stream = false;
+
             if (StatelessMode)
             {
                 return await ProcessStatelessRequestAsync(message);
             }
 
-            Stream = false;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();

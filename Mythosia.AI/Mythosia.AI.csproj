@@ -17,7 +17,17 @@
 		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v4.7.0
+## What's New in v4.7.1
+
+### AIService Internal Bug Fix
+- Fixed `AIService.CopyFrom(...)` to correctly copy service-level runtime configuration from the source instance
+- Ensures copied instances preserve conversation settings and summary policy values consistently
+
+### Gemini Completion Path Flag Fix
+- Fixed `GeminiService.GetCompletionAsync(...)` to set `Stream = false` before the `StatelessMode` early-return path
+- Prevents stale stream-state leakage from prior streaming calls into normal completion requests
+
+## Previous Highlights (v4.7.0)
 
 ### OpenAI Model Expansion
 - Added `gpt-5.3-codex`, `gpt-5.4`, `gpt-5.4-pro` model support
@@ -73,7 +83,7 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<Version>4.7.0</Version>
+		<Version>4.7.1</Version>
 	</PropertyGroup>
 
 

@@ -36,12 +36,13 @@ namespace Mythosia.AI.Services.DeepSeek
         public override async Task<string> GetCompletionAsync(Message message)
         {
             // DeepSeek doesn't support function calling yet
+            Stream = false;
+
             if (StatelessMode)
             {
                 return await ProcessStatelessRequestAsync(message);
             }
 
-            Stream = false;
             ActivateChat.Messages.Add(message);
 
             var request = CreateMessageRequest();

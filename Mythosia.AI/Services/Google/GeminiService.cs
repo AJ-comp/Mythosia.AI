@@ -68,11 +68,11 @@ namespace Mythosia.AI.Services.Google
         public override async Task<string> GetCompletionAsync(Message message)
         {
             bool useFunctions = ShouldUseFunctions;
+            Stream = false;
 
             if (StatelessMode)
                 return await ProcessStatelessRequestAsync(message, useFunctions);
 
-            Stream = false;
             ActivateChat.Messages.Add(message);
 
             var request = useFunctions

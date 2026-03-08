@@ -647,6 +647,30 @@ public class SummaryConversationPolicyTests
         Assert.AreEqual("Important context from previous session", restored.CurrentSummary);
     }
 
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public void CopyFrom_PreservesConversationPolicyAndSummary()
+    {
+        var source = new MockAIService();
+        source.ConversationPolicy = SummaryConversationPolicy.ByBoth(
+            triggerTokens: 3000,
+            triggerCount: 20,
+            keepRecentTokens: 1000,
+            keepRecentCount: 5);
+        source.ConversationPolicy.CurrentSummary = "existing summary";
+
+        var target = new MockAIService();
+        target.CopyFrom(source);
+
+        Assert.IsNotNull(target.ConversationPolicy, "ConversationPolicy should be copied");
+        Assert.AreEqual(3000u, target.ConversationPolicy!.TriggerTokens);
+        Assert.AreEqual(20u, target.ConversationPolicy.TriggerCount);
+        Assert.AreEqual(1000u, target.ConversationPolicy.KeepRecentTokens);
+        Assert.AreEqual(5u, target.ConversationPolicy.KeepRecentCount);
+        Assert.AreEqual("existing summary", target.ConversationPolicy.CurrentSummary);
+    }
+
     #endregion
 
     #region Helpers

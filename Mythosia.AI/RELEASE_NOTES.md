@@ -1,5 +1,31 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v4.7.1 - AIService Copy Reliability Fix
+
+### **AIService Internal Bug Fix** 🐛
+
+Fixed `AIService.CopyFrom(...)` so copied service instances now preserve service-level runtime configuration from the source instance more reliably.
+
+#### What was fixed
+
+- `Functions`, function-calling mode, and related execution policy values are copied consistently
+- Runtime tuning settings (temperature/top-p/max tokens/penalties/stream flags) are preserved
+- `ConversationPolicy` values and current summary state are copied safely
+
+### **Gemini Completion Path Flag Fix** 🐛
+
+Fixed `GeminiService.GetCompletionAsync(...)` to set `Stream = false` before the `StatelessMode` early-return path.
+
+- `StatelessMode` requests now also force non-streaming mode consistently
+- Prevents stale stream-state leakage from previous streaming calls into completion requests
+
+### ✅ Compatibility
+
+- Fully backward compatible with v4.7.0
+- No breaking changes
+
+---
+
 ## 🚀 v4.7.0 - GPT-5.3/5.4 Expansion & Reasoning Streaming Reliability
 
 ### **OpenAI Model Lineup Expanded** 🤖
