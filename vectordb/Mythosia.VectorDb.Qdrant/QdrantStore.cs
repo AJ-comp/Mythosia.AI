@@ -3,10 +3,9 @@ using Qdrant.Client.Grpc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static Mythosia.VectorDb.Qdrant.QdrantHelpers;
 
 namespace Mythosia.VectorDb.Qdrant
 {
@@ -26,13 +25,6 @@ namespace Mythosia.VectorDb.Qdrant
         private readonly bool _ownsClient;
         private readonly SemaphoreSlim _collectionLock = new SemaphoreSlim(1, 1);
         private volatile bool _collectionEnsured;
-
-        // Reserved payload keys
-        private const string PayloadKeyId = "_id";
-        private const string PayloadKeyContent = "_content";
-        private const string PayloadKeyNamespace = "_namespace";
-        private const string PayloadKeyScope = "_scope";
-        private const string PayloadMetadataPrefix = "meta.";
 
         /// <summary>
         /// Creates a new <see cref="QdrantStore"/> that owns its <see cref="QdrantClient"/>.
@@ -66,7 +58,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            var point = ToPointStruct(record);
+            var point = QdrantHelpers.ToPointStruct(record, includeSparseVector: true);
             await _client.UpsertAsync(_options.CollectionName, new[] { point }, cancellationToken: cancellationToken);
         }
 
@@ -74,7 +66,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            var points = records.Select(r => ToPointStruct(r)).ToList();
+            var points = records.Select(r => QdrantHelpers.ToPointStruct(r, includeSparseVector: true)).ToList();
             if (points.Count > 0)
                 await _client.UpsertAsync(_options.CollectionName, points, cancellationToken: cancellationToken);
         }
@@ -88,7 +80,7 @@ namespace Mythosia.VectorDb.Qdrant
             await EnsureCollectionAsync(cancellationToken);
 
             var ns = filter?.Namespace;
-            var pointId = StringToPointId(ns, id);
+            var pointId = CreatePointId(ns, id);
             var points = await _client.RetrieveAsync(
                 _options.CollectionName,
                 new PointId[] { pointId },
@@ -100,10 +92,10 @@ namespace Mythosia.VectorDb.Qdrant
                 return null;
 
             var point = points[0];
-            if (ns != null && !HasNamespace(point.Payload, ns))
+            if (ns != null && !QdrantHelpers.HasNamespace(point.Payload, ns))
                 return null;
 
-            return ToVectorRecord(point);
+            return QdrantHelpers.ToVectorRecord(point);
         }
 
         public async Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
@@ -111,7 +103,7 @@ namespace Mythosia.VectorDb.Qdrant
             await EnsureCollectionAsync(cancellationToken);
 
             var ns = filter?.Namespace;
-            var pointId = StringToPointId(ns, id);
+            var pointId = CreatePointId(ns, id);
             await _client.DeleteAsync(_options.CollectionName, new PointId[] { pointId }, cancellationToken: cancellationToken);
         }
 
@@ -143,6 +135,7 @@ namespace Mythosia.VectorDb.Qdrant
             var results = await _client.SearchAsync(
                 _options.CollectionName,
                 queryVector,
+                vectorName: QdrantOptions.DenseVectorName,
                 filter: qdrantFilter,
                 limit: (ulong)topK,
                 scoreThreshold: scoreThreshold,
@@ -153,11 +146,106 @@ namespace Mythosia.VectorDb.Qdrant
             var searchResults = new List<VectorSearchResult>(results.Count);
             foreach (var scored in results)
             {
-                var record = ToVectorRecord(scored);
-                searchResults.Add(new VectorSearchResult(record, scored.Score));
+                var rec = QdrantHelpers.ToVectorRecord(scored);
+                searchResults.Add(new VectorSearchResult(rec, scored.Score));
             }
 
-            return searchResults;
+            return ApplyMinScoreFilter(searchResults, filter);
+        }
+
+        #endregion
+
+        #region IVectorStore — Hybrid Search
+
+        /// <summary>
+        /// Performs a native hybrid search using Qdrant's prefetch + server-side fusion.
+        /// Dense vector search and sparse (BM25-based) vector search are combined using
+        /// <see cref="QdrantOptions.HybridFusionStrategy"/>.
+        /// </summary>
+        public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            int topK,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            await EnsureCollectionAsync(cancellationToken);
+
+            var qdrantFilter = BuildFilter(filter);
+
+            // Build sparse vector from query using BM25 tokenizer
+            var (sparseIndices, sparseValues) = BuildSparseVector(query);
+
+            // Dense vector prefetch
+            var denseVec = new DenseVector();
+            denseVec.Data.AddRange(denseVector);
+            var densePrefetch = new PrefetchQuery
+            {
+                Query = new Query { Nearest = new VectorInput { Dense = denseVec } },
+                Using = QdrantOptions.DenseVectorName,
+                Limit = (ulong)(topK * 2),
+                Filter = qdrantFilter
+            };
+
+            // Sparse vector prefetch
+            var sparseVec = new SparseVector();
+            sparseVec.Indices.AddRange(sparseIndices);
+            sparseVec.Values.AddRange(sparseValues);
+            var sparsePrefetch = new PrefetchQuery
+            {
+                Query = new Query { Nearest = new VectorInput { Sparse = sparseVec } },
+                Using = QdrantOptions.SparseVectorName,
+                Limit = (ulong)(topK * 2),
+                Filter = qdrantFilter
+            };
+
+            var prefetches = new List<PrefetchQuery> { densePrefetch, sparsePrefetch };
+
+            var results = await _client.QueryAsync(
+                _options.CollectionName,
+                query: new Query { Fusion = MapFusion(_options.HybridFusionStrategy) },
+                prefetch: prefetches,
+                limit: (ulong)topK,
+                payloadSelector: new WithPayloadSelector { Enable = true },
+                vectorsSelector: new WithVectorsSelector { Enable = true },
+                cancellationToken: cancellationToken);
+
+            var searchResults = new List<VectorSearchResult>(results.Count);
+            foreach (var scored in results)
+            {
+                var rec = QdrantHelpers.ToVectorRecord(scored);
+                searchResults.Add(new VectorSearchResult(rec, scored.Score));
+            }
+
+            return ApplyMinScoreFilter(searchResults, filter);
+        }
+
+        #endregion
+
+        #region Private Helpers — Search Scoring
+
+        private static Fusion MapFusion(QdrantHybridFusionStrategy strategy)
+        {
+            return strategy switch
+            {
+                QdrantHybridFusionStrategy.Rrf => Fusion.Rrf,
+                QdrantHybridFusionStrategy.Dbsf => Fusion.Dbsf,
+                _ => throw new InvalidOperationException($"Unsupported hybrid fusion strategy: {strategy}")
+            };
+        }
+
+        private static IReadOnlyList<VectorSearchResult> ApplyMinScoreFilter(
+            List<VectorSearchResult> results,
+            VectorFilter? filter)
+        {
+            if (filter == null || !filter.MinScore.HasValue)
+                return results;
+
+            var minScore = filter.MinScore.Value;
+
+            return results
+                .Where(r => r.Score >= minScore)
+                .ToList();
         }
 
         #endregion
@@ -182,17 +270,29 @@ namespace Mythosia.VectorDb.Qdrant
                             $"Collection \"{_options.CollectionName}\" does not exist. " +
                             $"Create the collection manually or set AutoCreateCollection = true.");
 
-                    await _client.CreateCollectionAsync(
-                        _options.CollectionName,
+                    // Always create collection with both dense and sparse vector params.
+                    var denseConfig = new VectorParamsMap();
+                    denseConfig.Map.Add(
+                        QdrantOptions.DenseVectorName,
                         new VectorParams
                         {
                             Size = (ulong)_options.Dimension,
                             Distance = MapDistance(_options.DistanceStrategy)
-                        },
+                        });
+
+                    var sparseConfig = new SparseVectorConfig();
+                    sparseConfig.Map.Add(QdrantOptions.SparseVectorName, new SparseVectorParams());
+
+                    await _client.CreateCollectionAsync(
+                        _options.CollectionName,
+                        denseConfig,
+                        sparseVectorsConfig: sparseConfig,
                         cancellationToken: cancellationToken);
+
+                    await WriteSchemaMarkerAsync(cancellationToken);
                 }
 
-                await TryCreatePayloadIndexesAsync(cancellationToken);
+                await QdrantHelpers.CreatePayloadIndexesAsync(_client, _options.CollectionName, _options, cancellationToken);
 
                 _collectionEnsured = true;
             }
@@ -202,145 +302,10 @@ namespace Mythosia.VectorDb.Qdrant
             }
         }
 
-        /// <summary>
-        /// Creates payload indexes required for filtering.
-        /// Reserved fields (<c>_namespace</c>, <c>_scope</c>) are always included,
-        /// and user-defined indexes are taken from <see cref="QdrantOptions.AdditionalPayloadIndexes"/>.
-        /// Failures are silently ignored (indexes may already exist).
-        /// </summary>
-        private async Task TryCreatePayloadIndexesAsync(CancellationToken cancellationToken)
+        private async Task WriteSchemaMarkerAsync(CancellationToken cancellationToken)
         {
-            var indexedFields = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var indexOption in _options.GetAllPayloadIndexes())
-            {
-                if (!indexedFields.Add(indexOption.Field))
-                    continue;
-
-                try
-                {
-                    await _client.CreatePayloadIndexAsync(
-                        _options.CollectionName,
-                        indexOption.Field,
-                        indexOption.SchemaType,
-                        cancellationToken: cancellationToken);
-                }
-                catch
-                {
-                    // Index may already exist; safe to ignore.
-                }
-            }
-        }
-
-        #endregion
-
-        #region Private Helpers — Mapping
-
-        private static PointStruct ToPointStruct(VectorRecord record)
-        {
-            var point = new PointStruct
-            {
-                Id = StringToPointId(record.Namespace, record.Id),
-                Vectors = record.Vector,
-            };
-
-            point.Payload[PayloadKeyId] = record.Id;
-            point.Payload[PayloadKeyContent] = record.Content ?? string.Empty;
-
-            if (record.Namespace != null)
-                point.Payload[PayloadKeyNamespace] = record.Namespace;
-
-            if (record.Scope != null)
-                point.Payload[PayloadKeyScope] = record.Scope;
-
-            if (record.Metadata != null)
-            {
-                foreach (var kvp in record.Metadata)
-                {
-                    point.Payload[$"{PayloadMetadataPrefix}{kvp.Key}"] = kvp.Value;
-                }
-            }
-
-            return point;
-        }
-
-        private static VectorRecord ToVectorRecord(RetrievedPoint point)
-        {
-            return new VectorRecord
-            {
-                Id = point.Payload.TryGetValue(PayloadKeyId, out var idVal)
-                    ? idVal.StringValue : string.Empty,
-                Content = point.Payload.TryGetValue(PayloadKeyContent, out var contentVal)
-                    ? contentVal.StringValue : string.Empty,
-                Namespace = point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal)
-                    ? nsVal.StringValue : null,
-                Scope = point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal)
-                    ? scopeVal.StringValue : null,
-                Vector = ExtractVector(point.Vectors),
-                Metadata = ExtractMetadata(point.Payload)
-            };
-        }
-
-        private static VectorRecord ToVectorRecord(ScoredPoint point)
-        {
-            return new VectorRecord
-            {
-                Id = point.Payload.TryGetValue(PayloadKeyId, out var idVal)
-                    ? idVal.StringValue : string.Empty,
-                Content = point.Payload.TryGetValue(PayloadKeyContent, out var contentVal)
-                    ? contentVal.StringValue : string.Empty,
-                Namespace = point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal)
-                    ? nsVal.StringValue : null,
-                Scope = point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal)
-                    ? scopeVal.StringValue : null,
-                Vector = ExtractVector(point.Vectors),
-                Metadata = ExtractMetadata(point.Payload)
-            };
-        }
-
-        private static float[] ExtractVector(VectorsOutput? vectors)
-        {
-            var dense = vectors?.Vector?.GetDenseVector();
-            if (dense?.Data == null)
-                return Array.Empty<float>();
-
-            return dense.Data.ToArray();
-        }
-
-        private static Dictionary<string, string> ExtractMetadata(
-            Google.Protobuf.Collections.MapField<string, Value> payload)
-        {
-            var metadata = new Dictionary<string, string>();
-            foreach (var kvp in payload)
-            {
-                if (kvp.Key.StartsWith(PayloadMetadataPrefix, StringComparison.Ordinal))
-                {
-                    var metaKey = kvp.Key.Substring(PayloadMetadataPrefix.Length);
-                    metadata[metaKey] = kvp.Value.StringValue;
-                }
-            }
-            return metadata;
-        }
-
-        private static bool HasNamespace(
-            Google.Protobuf.Collections.MapField<string, Value> payload, string @namespace)
-        {
-            return payload.TryGetValue(PayloadKeyNamespace, out var nsVal)
-                && nsVal.StringValue == @namespace;
-        }
-
-        /// <summary>
-        /// Creates a deterministic <see cref="PointId"/> (UUID) from namespace + record Id.
-        /// When namespace is provided, it is included so that the same record Id in different
-        /// namespaces produces distinct point IDs within the single shared collection.
-        /// </summary>
-        private static PointId StringToPointId(string? @namespace, string id)
-        {
-            var input = @namespace != null ? $"{@namespace}\0{id}" : id;
-            using (var md5 = MD5.Create())
-            {
-                var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
-                return new Guid(hash);
-            }
+            var marker = QdrantHelpers.CreateSchemaMarkerPoint(_options.Dimension);
+            await _client.UpsertAsync(_options.CollectionName, new[] { marker }, cancellationToken: cancellationToken);
         }
 
         #endregion
@@ -357,7 +322,7 @@ namespace Mythosia.VectorDb.Qdrant
                 {
                     Field = new FieldCondition
                     {
-                        Key = PayloadKeyNamespace,
+                        Key = QdrantHelpers.PayloadKeyNamespace,
                         Match = new Match { Keyword = filter.Namespace }
                     }
                 });
@@ -369,7 +334,7 @@ namespace Mythosia.VectorDb.Qdrant
                 {
                     Field = new FieldCondition
                     {
-                        Key = PayloadKeyScope,
+                        Key = QdrantHelpers.PayloadKeyScope,
                         Match = new Match { Keyword = filter.Scope }
                     }
                 });
@@ -383,7 +348,7 @@ namespace Mythosia.VectorDb.Qdrant
                     {
                         Field = new FieldCondition
                         {
-                            Key = $"{PayloadMetadataPrefix}{kvp.Key}",
+                            Key = $"{QdrantHelpers.PayloadMetadataPrefix}{kvp.Key}",
                             Match = new Match { Keyword = kvp.Value }
                         }
                     });

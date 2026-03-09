@@ -207,6 +207,159 @@ LIMIT @topK";
 
     #endregion
 
+    #region IVectorStore — Hybrid Search
+
+    /// <summary>
+    /// Performs a hybrid search combining dense vector similarity with PostgreSQL full-text search (tsvector/tsquery).
+    /// Both searches run in parallel, then results are merged using Reciprocal Rank Fusion (RRF).
+    /// </summary>
+    public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+        float[] denseVector,
+        string query,
+        int topK,
+        VectorFilter? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaIfNeededAsync(cancellationToken);
+
+        var ns = filter?.Namespace ?? DefaultNamespace;
+        var distanceOperator = GetDistanceOperator();
+        var scoreExpression = GetScoreExpression();
+        var expandedTopK = topK * 2;
+
+        var (whereClause, filterParams) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression)
+            : ("", new List<NpgsqlParameter>());
+
+        using var conn = await OpenConnectionAsync(cancellationToken);
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+
+        var vectorResults = new List<VectorSearchResult>();
+        var bm25Results = new List<(string id, string content, float[] vector, Dictionary<string, string> metadata, string? resultNamespace, string? scope, double bm25Score)>();
+
+        // 1. Vector search
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $@"
+SELECT id, namespace, scope, content, metadata, embedding::text,
+       {scoreExpression} AS score
+FROM {_qualifiedTable}
+WHERE namespace = @ns{whereClause}
+ORDER BY embedding {distanceOperator} @q::vector
+LIMIT @topK";
+
+            cmd.Parameters.AddWithValue("@ns", ns);
+            cmd.Parameters.AddWithValue("@q", VectorToString(denseVector));
+            cmd.Parameters.AddWithValue("@topK", expandedTopK);
+
+            foreach (var p in filterParams)
+                cmd.Parameters.Add(p);
+
+            using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var record = ReadRecord(reader);
+                    var score = reader.GetDouble(reader.GetOrdinal("score"));
+                    vectorResults.Add(new VectorSearchResult(record, score));
+                }
+            }
+        }
+
+        // 2. Full-text search (BM25-like via ts_rank)
+        var (bm25WhereClause, bm25FilterParams) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
+            : ("", new List<NpgsqlParameter>());
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $@"
+SELECT id, namespace, scope, content, metadata, embedding::text,
+       ts_rank(to_tsvector('simple', coalesce(content, '')), plainto_tsquery('simple', @query)) AS bm25_score
+FROM {_qualifiedTable}
+WHERE namespace = @ns2{bm25WhereClause}
+  AND plainto_tsquery('simple', @query) <> ''::tsquery
+  AND to_tsvector('simple', coalesce(content, '')) @@ plainto_tsquery('simple', @query)
+ORDER BY bm25_score DESC
+LIMIT @topK2";
+
+            cmd.Parameters.AddWithValue("@ns2", ns);
+            cmd.Parameters.AddWithValue("@query", query);
+            cmd.Parameters.AddWithValue("@topK2", expandedTopK);
+
+            foreach (var p in bm25FilterParams)
+                cmd.Parameters.Add(p);
+
+            using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
+            {
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var record = ReadRecord(reader);
+                    var bm25Score = reader.GetDouble(reader.GetOrdinal("bm25_score"));
+                    bm25Results.Add((record.Id, record.Content, record.Vector, record.Metadata, record.Namespace, record.Scope, bm25Score));
+                }
+            }
+        }
+
+        await tx.CommitAsync(cancellationToken);
+
+        // 3. RRF merge
+        return RrfMerge(vectorResults, bm25Results, topK, vectorWeight: 0.5f);
+    }
+
+    private static IReadOnlyList<VectorSearchResult> RrfMerge(
+        List<VectorSearchResult> vectorResults,
+        List<(string id, string content, float[] vector, Dictionary<string, string> metadata, string? resultNamespace, string? scope, double bm25Score)> bm25Results,
+        int topK,
+        float vectorWeight)
+    {
+        const int rrfK = 60;
+        float keywordWeight = 1f - vectorWeight;
+
+        var scores = new Dictionary<string, (double rrfScore, VectorSearchResult? vectorResult)>(StringComparer.Ordinal);
+
+        for (int i = 0; i < vectorResults.Count; i++)
+        {
+            var id = vectorResults[i].Record.Id;
+            var rrfScore = vectorWeight * (1.0 / (rrfK + i + 1));
+            scores[id] = (rrfScore, vectorResults[i]);
+        }
+
+        for (int i = 0; i < bm25Results.Count; i++)
+        {
+            var item = bm25Results[i];
+            var rrfScore = keywordWeight * (1.0 / (rrfK + i + 1));
+
+            if (scores.TryGetValue(item.id, out var existing))
+            {
+                scores[item.id] = (existing.rrfScore + rrfScore, existing.vectorResult);
+            }
+            else
+            {
+                var record = new VectorRecord
+                {
+                    Id = item.id,
+                    Content = item.content,
+                    Vector = item.vector,
+                    Metadata = item.metadata,
+                    Namespace = item.resultNamespace,
+                    Scope = item.scope
+                };
+                scores[item.id] = (rrfScore, new VectorSearchResult(record, 0));
+            }
+        }
+
+        return scores
+            .OrderByDescending(kvp => kvp.Value.rrfScore)
+            .Take(topK)
+            .Select(kvp => new VectorSearchResult(kvp.Value.vectorResult!.Record, kvp.Value.rrfScore))
+            .ToList();
+    }
+
+    #endregion
+
     #region Schema Management
 
     private async Task EnsureSchemaIfNeededAsync(CancellationToken cancellationToken)

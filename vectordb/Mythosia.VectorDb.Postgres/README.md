@@ -214,6 +214,33 @@ These are practical ranges, not strict hard limits. Final values should be chose
   - `Euclidean`: `1 / (1 + (embedding <-> @q::vector)) >= @minScore`
   - `InnerProduct`: `-(embedding <#> @q::vector) >= @minScore`
 
+## Hybrid Search (v10.2.0)
+
+`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called via `UseHybridSearch()`, it runs **parallel queries** — `tsvector/tsquery` full-text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)**.
+
+No schema changes or extra configuration required. PostgreSQL's built-in `to_tsvector`/`to_tsquery` is used for keyword matching.
+
+```csharp
+var store = await RagStore.BuildAsync(config => config
+    .AddDocument("docs.txt")
+    .UseOpenAIEmbedding(apiKey)
+    .UseVectorStore(new PostgresStore(new PostgresOptions
+    {
+        ConnectionString = connString,
+        Dimension = 1536,
+        EnsureSchema = true
+    }))
+    .UseHybridSearch()        // Enables tsvector + pgvector hybrid search
+    .WithTopK(5)
+);
+```
+
+For optimal full-text search performance, consider adding a GIN index on `to_tsvector('simple', content)`:
+
+```sql
+CREATE INDEX idx_vectors_fts ON public.vectors USING gin (to_tsvector('simple', content));
+```
+
 ## RAG Integration
 
 ```csharp

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,6 +41,25 @@ namespace Mythosia.VectorDb
             int topK = 5,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Performs a hybrid search combining dense vector similarity and keyword matching.
+        /// Implementations with native hybrid support should override this method.
+        /// </summary>
+        /// <param name="denseVector">The dense embedding vector for semantic similarity.</param>
+        /// <param name="query">The original text query for keyword-based matching.</param>
+        /// <param name="topK">Maximum number of results to return.</param>
+        /// <param name="filter">Optional filter criteria (namespace, scope, metadata, min score).</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>Results ordered by descending hybrid relevance score.</returns>
+        Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            int topK = 5,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException(
+                $"Store {GetType().Name} does not support native hybrid search.");
 
         /// <summary>
         /// Retrieves a single record by its Id.

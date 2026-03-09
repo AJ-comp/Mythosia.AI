@@ -1,5 +1,22 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v2.1.0
+
+### Added
+
+- `Bm25Index` — thread-safe in-memory BM25 keyword search index for hybrid retrieval.
+  - `Index(string id, string content)` — indexes a document's content for keyword search.
+  - `Search(string query, int topK)` — returns BM25-scored results ranked by keyword relevance.
+  - `Remove(string id)` — removes a document from the index.
+  - Supports IDF (inverse document frequency) and term-frequency scoring with document length normalization (k1=1.2, b=0.75).
+- Used automatically by `HybridRetrievalStrategy` when `UseHybridSearch()` is called with `InMemoryVectorStore` (store without native `IVectorStore.HybridSearchAsync` support).
+
+### Compatibility
+
+- Fully backward compatible with v2.0.0. No breaking changes — `InMemoryVectorStore` API unchanged.
+
+---
+
 ## v2.0.0
 
 ### Added

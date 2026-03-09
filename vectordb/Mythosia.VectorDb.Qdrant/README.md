@@ -3,15 +3,44 @@
 [Qdrant](https://qdrant.tech/) vector store implementation for the **Mythosia VectorDb** abstraction layer.
 
 Uses a single Qdrant **collection** (physical container) with payload-based logical isolation:
+
 - **`_namespace`** — first-tier logical partition
 - **`_scope`** — second-tier logical partition
 
 ---
 
+## Migration from v1.0.0
+
+`v1.0.0` collections are dense-only. `v2.0.0` uses hybrid-capable collections and writes a schema marker so the tooling can detect whether migration is needed.
+
+Install the migration tool first:
+
+```powershell
+Install-Package Mythosia.VectorDb.Tools
+```
+
+If `docs` is the collection you want to migrate, run:
+
+```bash
+mythosia-vectordb migrate qdrant --endpoint localhost:6334 --source docs --replace
+```
+
+This migrates through a staging collection, then recreates `docs` with the new schema and copies the migrated data back into `docs`.
+
+If your Qdrant server is remote or authenticated, add `--api-key your-api-key` and use your remote endpoint URL.
+
+Stop application writes before migration if consistency matters.
+
 ## Installation
 
 ```bash
 dotnet add package Mythosia.VectorDb.Qdrant
+```
+
+Current package version:
+
+```bash
+dotnet add package Mythosia.VectorDb.Qdrant --version 2.0.0
 ```
 
 ## Quick Start
@@ -45,7 +74,7 @@ var results = await store.InNamespace("documents")
 ## Options
 
 | Property | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `Host` | `"localhost"` | Qdrant server host |
 | `Port` | `6334` | Qdrant gRPC port |
 | `UseTls` | `false` | Enable TLS for gRPC |
@@ -54,6 +83,41 @@ var results = await store.InNamespace("documents")
 | `Dimension` | *(required)* | Embedding vector dimension |
 | `DistanceStrategy` | `Cosine` | `Cosine`, `Euclidean`, or `DotProduct` |
 | `AutoCreateCollection` | `true` | Auto-create the collection on first use |
+| `EnableHybridSearch` | `true` | Legacy compatibility option (ignored). Collections are always created hybrid-capable and upserts always include sparse vectors. |
+
+## Hybrid Search (v2.0.0)
+
+`QdrantStore` always provisions/uses hybrid-capable storage (dense + sparse) and supports native `IVectorStore.HybridSearchAsync`.
+Choose retrieval mode at query time (`SearchAsync` for vector-only, `HybridSearchAsync` for native hybrid):
+
+```csharp
+var options = new QdrantOptions
+{
+    Host              = "localhost",
+    Port              = 6334,
+    CollectionName    = "my_vectors",
+    Dimension         = 1536
+};
+
+var store = new QdrantStore(options);
+```
+
+On upsert, BM25 sparse vectors are automatically computed from the record's `Content` and stored alongside the dense embedding. Hybrid search uses Qdrant's built-in **prefetch + fusion (RRF/DBSF)** for server-side scoring.
+
+When used via the RAG pipeline:
+
+```csharp
+var store = await RagStore.BuildAsync(config => config
+    .AddDocument("docs.txt")
+    .UseOpenAIEmbedding(apiKey)
+    .UseVectorStore(new QdrantStore(new QdrantOptions
+    {
+        Host = "localhost",
+        Dimension = 1536
+    }))
+    .UseHybridSearch()
+);
+```
 
 ## Scope & Metadata Filtering
 
@@ -89,7 +153,7 @@ var store = new QdrantStore(options, client);
 Records are stored as Qdrant points with the following payload keys:
 
 | Key | Description |
-|---|---|
+| --- | --- |
 | `_id` | Original string record ID |
 | `_namespace` | Logical namespace for first-tier isolation (omitted if null) |
 | `_content` | Text content |

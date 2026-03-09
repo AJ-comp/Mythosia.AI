@@ -1,3 +1,4 @@
+using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Concurrent;
@@ -13,12 +14,16 @@ namespace Mythosia.VectorDb.InMemory
     /// Supports metadata storage, scope isolation, filtering, upsert, and delete operations.
     /// Suitable for development, testing, and small-scale workloads.
     /// </summary>
-    public class InMemoryVectorStore : IVectorStore, Mythosia.AI.Rag.IRagDiagnosticsStore
+    public class InMemoryVectorStore : IVectorStore, IRagDiagnosticsStore
     {
         private const string DefaultNamespace = "default";
+        private const int RrfK = 60;
+        private const float HybridVectorWeight = 0.5f;
 
         private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, VectorRecord>> _namespaces
             = new ConcurrentDictionary<string, ConcurrentDictionary<string, VectorRecord>>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, Bm25Index> _bm25Indexes
+            = new ConcurrentDictionary<string, Bm25Index>(StringComparer.OrdinalIgnoreCase);
 
         #region Upsert
 
@@ -27,6 +32,10 @@ namespace Mythosia.VectorDb.InMemory
             var ns = record.Namespace ?? DefaultNamespace;
             var store = GetOrCreateNamespace(ns);
             store[record.Id] = record;
+
+            var bm25 = GetOrCreateBm25Index(ns);
+            bm25.Index(record.Id, record.Content);
+
             return Task.CompletedTask;
         }
 
@@ -38,6 +47,9 @@ namespace Mythosia.VectorDb.InMemory
                 var ns = record.Namespace ?? DefaultNamespace;
                 var store = GetOrCreateNamespace(ns);
                 store[record.Id] = record;
+
+                var bm25 = GetOrCreateBm25Index(ns);
+                bm25.Index(record.Id, record.Content);
             }
             return Task.CompletedTask;
         }
@@ -65,6 +77,9 @@ namespace Mythosia.VectorDb.InMemory
             if (_namespaces.TryGetValue(ns, out var store))
                 store.TryRemove(id, out _);
 
+            if (_bm25Indexes.TryGetValue(ns, out var bm25Index))
+                bm25Index.Remove(id);
+
             return Task.CompletedTask;
         }
 
@@ -76,6 +91,8 @@ namespace Mythosia.VectorDb.InMemory
 
             foreach (var nsKvp in targetNamespaces)
             {
+                _bm25Indexes.TryGetValue(nsKvp.Key, out var bm25Index);
+
                 var keysToRemove = nsKvp.Value.Values
                     .Where(r => MatchesFilter(r, filter))
                     .Select(r => r.Id)
@@ -85,6 +102,7 @@ namespace Mythosia.VectorDb.InMemory
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     nsKvp.Value.TryRemove(key, out _);
+                    bm25Index?.Remove(key);
                 }
             }
 
@@ -114,6 +132,33 @@ namespace Mythosia.VectorDb.InMemory
                 .ToList();
 
             return Task.FromResult<IReadOnlyList<VectorSearchResult>>(results);
+        }
+
+        public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            int topK = 5,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            var ns = filter?.Namespace ?? DefaultNamespace;
+            if (!_namespaces.TryGetValue(ns, out var store) || store.Count == 0)
+                return Array.Empty<VectorSearchResult>();
+
+            if (!_bm25Indexes.TryGetValue(ns, out var bm25Index))
+                return await SearchAsync(denseVector, topK, filter, cancellationToken);
+
+            var expandedTopK = Math.Max(topK * 2, topK);
+            var vectorFilter = WithoutMinScore(filter);
+
+            var vectorResults = await SearchAsync(denseVector, expandedTopK, vectorFilter, cancellationToken);
+            var bm25Candidates = bm25Index.Search(query, expandedTopK);
+            var bm25Results = bm25Candidates
+                .Where(r => store.TryGetValue(r.Id, out var record) && (vectorFilter == null || MatchesFilter(record, vectorFilter)))
+                .ToList();
+
+            var merged = RrfMerge(vectorResults, bm25Results, store, topK);
+            return ApplyMinScoreFilter(merged, filter?.MinScore);
         }
 
         #endregion
@@ -168,6 +213,83 @@ namespace Mythosia.VectorDb.InMemory
         private ConcurrentDictionary<string, VectorRecord> GetOrCreateNamespace(string @namespace)
         {
             return _namespaces.GetOrAdd(@namespace, _ => new ConcurrentDictionary<string, VectorRecord>(StringComparer.Ordinal));
+        }
+
+        private Bm25Index GetOrCreateBm25Index(string @namespace)
+        {
+            return _bm25Indexes.GetOrAdd(@namespace, _ => new Bm25Index());
+        }
+
+        private static VectorFilter? WithoutMinScore(VectorFilter? filter)
+        {
+            if (filter == null || !filter.MinScore.HasValue)
+                return filter;
+
+            return new VectorFilter
+            {
+                Namespace = filter.Namespace,
+                Scope = filter.Scope,
+                MetadataMatch = filter.MetadataMatch,
+                MinScore = null
+            };
+        }
+
+        private static IReadOnlyList<VectorSearchResult> RrfMerge(
+            IReadOnlyList<VectorSearchResult> vectorResults,
+            IReadOnlyList<Bm25Index.Bm25Result> bm25Results,
+            ConcurrentDictionary<string, VectorRecord> namespaceStore,
+            int topK)
+        {
+            var scores = new Dictionary<string, (double score, VectorSearchResult? vectorResult, Bm25Index.Bm25Result? bm25Result)>(StringComparer.Ordinal);
+            var keywordWeight = 1f - HybridVectorWeight;
+
+            for (int i = 0; i < vectorResults.Count; i++)
+            {
+                var id = vectorResults[i].Record.Id;
+                var rrf = HybridVectorWeight * (1.0 / (RrfK + i + 1));
+
+                if (scores.TryGetValue(id, out var existing))
+                    scores[id] = (existing.score + rrf, vectorResults[i], existing.bm25Result);
+                else
+                    scores[id] = (rrf, vectorResults[i], null);
+            }
+
+            for (int i = 0; i < bm25Results.Count; i++)
+            {
+                var id = bm25Results[i].Id;
+                var rrf = keywordWeight * (1.0 / (RrfK + i + 1));
+
+                if (scores.TryGetValue(id, out var existing))
+                    scores[id] = (existing.score + rrf, existing.vectorResult, bm25Results[i]);
+                else
+                    scores[id] = (rrf, null, bm25Results[i]);
+            }
+
+            return scores
+                .OrderByDescending(kvp => kvp.Value.score)
+                .Take(topK)
+                .Select(kvp =>
+                {
+                    if (kvp.Value.vectorResult != null)
+                        return new VectorSearchResult(kvp.Value.vectorResult.Record, kvp.Value.score);
+
+                    var bm25 = kvp.Value.bm25Result!;
+                    if (namespaceStore.TryGetValue(bm25.Id, out var record))
+                        return new VectorSearchResult(record, kvp.Value.score);
+
+                    return new VectorSearchResult(new VectorRecord { Id = bm25.Id, Content = bm25.Content }, kvp.Value.score);
+                })
+                .ToList();
+        }
+
+        private static IReadOnlyList<VectorSearchResult> ApplyMinScoreFilter(
+            IReadOnlyList<VectorSearchResult> results,
+            double? minScore)
+        {
+            if (!minScore.HasValue)
+                return results;
+
+            return results.Where(r => r.Score >= minScore.Value).ToList();
         }
 
         private static bool MatchesFilter(VectorRecord record, VectorFilter filter)

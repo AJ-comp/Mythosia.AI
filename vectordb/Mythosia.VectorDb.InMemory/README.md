@@ -85,6 +85,33 @@ var results = await store.SearchAsync(
     filter: VectorFilter.ByNamespace("my-namespace"));
 ```
 
+## BM25 Index (v2.1.0)
+
+`Bm25Index` provides in-memory BM25 keyword search for hybrid retrieval. When `UseHybridSearch()` is called with `InMemoryVectorStore`, the RAG pipeline automatically builds a BM25 index alongside the vector store and merges results via RRF.
+
+```csharp
+// Automatic — just enable hybrid search in the builder
+var store = await RagStore.BuildAsync(config => config
+    .AddText("환불은 14일 이내 가능합니다.", id: "refund")
+    .UseLocalEmbedding(512)
+    .UseInMemoryStore()
+    .UseHybridSearch()     // BM25 index is built automatically
+);
+```
+
+Standalone usage:
+
+```csharp
+using Mythosia.VectorDb.InMemory;
+
+var bm25 = new Bm25Index();
+bm25.Index("doc1", "machine learning neural network");
+bm25.Index("doc2", "cooking recipe pasta");
+
+var results = bm25.Search("machine learning", topK: 5);
+// results[0].Id == "doc1", results[0].Score > 0
+```
+
 ## Limitations
 
 - Data is **not persisted** — lost when the process exits

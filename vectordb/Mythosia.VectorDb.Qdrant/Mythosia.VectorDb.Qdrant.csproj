@@ -1,17 +1,19 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Qdrant</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based namespace and scope isolation. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, and automatic collection provisioning.</Description>
-    <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC</PackageTags>
+    <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based namespace and scope isolation. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, automatic collection provisioning, and native hybrid search with sparse-dense fusion.</Description>
+    <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC;HybridSearch;BM25</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v2.0.0: Introduces hybrid-by-default Qdrant storage, native HybridSearchAsync, and the Mythosia.VectorDb.Tools CLI for migrate/copy workflows. If you are upgrading from v1.0.0, you must read the README migration section.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <UserSecretsId>36819fe4-a0b6-41e3-9bdb-7cdfd9d51aa5</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -20,6 +22,7 @@
 
   <ItemGroup>
     <PackageReference Include="Qdrant.Client" Version="1.17.0" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>

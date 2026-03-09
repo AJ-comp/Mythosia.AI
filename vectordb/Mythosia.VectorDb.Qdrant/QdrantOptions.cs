@@ -58,6 +58,32 @@ namespace Mythosia.VectorDb.Qdrant
         public bool AutoCreateCollection { get; set; } = true;
 
         /// <summary>
+        /// Legacy compatibility option.
+        /// Collections are always provisioned as hybrid-capable (dense + sparse) and
+        /// upserts always include sparse vectors regardless of this value.
+        /// Default: true.
+        /// </summary>
+        public bool EnableHybridSearch { get; set; } = true;
+
+        /// <summary>
+        /// Native server-side fusion strategy for hybrid search queries.
+        /// Default: <see cref="QdrantHybridFusionStrategy.Rrf"/>.
+        /// </summary>
+        public QdrantHybridFusionStrategy HybridFusionStrategy { get; set; } = QdrantHybridFusionStrategy.Rrf;
+
+        /// <summary>
+        /// Name of the dense vector field used for text embeddings.
+        /// Default: "text-dense".
+        /// </summary>
+        internal const string DenseVectorName = "text-dense";
+
+        /// <summary>
+        /// Name of the sparse vector field used for hybrid search.
+        /// Default: "text-sparse".
+        /// </summary>
+        internal const string SparseVectorName = "text-sparse";
+
+        /// <summary>
         /// Additional payload fields to index when the collection is ensured.
         /// Reserved fields (<c>_namespace</c>, <c>_scope</c>) are always indexed.
         /// </summary>
@@ -100,7 +126,26 @@ namespace Mythosia.VectorDb.Qdrant
 
             if (!Enum.IsDefined(typeof(QdrantDistanceStrategy), DistanceStrategy))
                 throw new ArgumentException("DistanceStrategy is invalid.", nameof(DistanceStrategy));
+
+            if (!Enum.IsDefined(typeof(QdrantHybridFusionStrategy), HybridFusionStrategy))
+                throw new ArgumentException("HybridFusionStrategy is invalid.", nameof(HybridFusionStrategy));
         }
+    }
+
+    /// <summary>
+    /// Qdrant native fusion strategy for hybrid queries.
+    /// </summary>
+    public enum QdrantHybridFusionStrategy
+    {
+        /// <summary>
+        /// Reciprocal Rank Fusion.
+        /// </summary>
+        Rrf = 0,
+
+        /// <summary>
+        /// Distribution-Based Score Fusion.
+        /// </summary>
+        Dbsf = 1
     }
 
     /// <summary>

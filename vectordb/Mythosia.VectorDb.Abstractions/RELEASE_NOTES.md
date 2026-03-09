@@ -1,5 +1,21 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v2.1.0
+
+### Added
+
+- Native hybrid search contract in `IVectorStore`.
+  - `HybridSearchAsync(float[] queryVector, string queryText, int topK, VectorFilter?, CancellationToken)` — method for native hybrid search.
+- `Bm25Tokenizer` static utility class for BM25 keyword indexing.
+  - `Tokenize(string text)` — tokenizes text with lowercasing, punctuation stripping, and English stop-word removal.
+  - `ComputeTermFrequency(string text)` — returns term-frequency dictionary for a document.
+
+### Compatibility
+
+- Fully backward compatible with v2.0.0. No breaking changes — `IVectorStore` interface unchanged. New types are additive only.
+
+---
+
 ## v2.0.0
 
 ### Breaking Changes — Namespace Now Optional

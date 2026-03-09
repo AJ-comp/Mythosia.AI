@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Postgres</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>10.1.0</Version>
+    <Version>10.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, typed index settings (HNSW/IVFFlat/NoIndex), and schema provisioning support.</Description>
-    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct</PackageTags>
+    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v10.1.0: Breaking — namespace now optional (VectorRecord/VectorFilter property). Removed NamespaceExistsAsync/CreateNamespaceAsync/DeleteNamespaceAsync. See RELEASE_NOTES.md for details.</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.2.0: Implement native hybrid search via IVectorStore.HybridSearchAsync — parallel tsvector full-text + pgvector similarity queries merged via Reciprocal Rank Fusion (RRF). No schema changes required.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
