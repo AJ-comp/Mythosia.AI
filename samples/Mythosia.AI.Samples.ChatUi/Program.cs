@@ -282,6 +282,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         // Send RAG info event so the frontend can show per-message diagnostics
         if (ragProcessed != null)
         {
+            var ragSettings2 = ragState.GetSettings();
             var ragInfoPayload = JsonSerializer.Serialize(new
             {
                 type = "rag_info",
@@ -289,6 +290,9 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 originalQuery = ragProcessed.OriginalQuery,
                 rewrittenQuery = ragProcessed.RewrittenQuery,
                 rewriterModel = rewriterModelName,
+                searchMode = ragSettings2.HybridSearchEnabled ? "hybrid" : "vector",
+                hybridWeight = ragSettings2.HybridSearchEnabled ? ragSettings2.HybridSearchVectorWeight : (float?)null,
+                vectorStoreProvider = ragEndpointState.VectorStoreProvider,
                 diagnostics = new
                 {
                     appliedNamespace = ragProcessed.Diagnostics.AppliedNamespace,

@@ -83,6 +83,15 @@ export const ragRewriterOverride    = $('#rag-rewriter-override');
 export const ragRewriterOverrideRow = $('#rag-rewriter-override-row');
 export const ragRewriterModelRow    = $('#rag-rewriter-model-row');
 export const ragRewriterModel       = $('#rag-rewriter-model');
+export const ragRewriterOptions     = $('#rag-rewriter-options');
+export const ragHybridSearch        = $('#rag-hybrid-search');
+export const ragHybridOptions       = $('#rag-hybrid-options');
+export const ragHybridWeight        = $('#rag-hybrid-weight');
+export const ragHybridWeightVal     = $('#rag-hybrid-weight-val');
+export const ragRerankEnabled       = $('#rag-rerank-enabled');
+export const ragRerankOptions       = $('#rag-rerank-options');
+export const ragRerankProvider      = $('#rag-rerank-provider');
+export const ragRerankApiKey        = $('#rag-rerank-apikey');
 
 // RAG Vector Store
 export const ragVectorStoreProvider = $('#rag-vectorstore-provider');

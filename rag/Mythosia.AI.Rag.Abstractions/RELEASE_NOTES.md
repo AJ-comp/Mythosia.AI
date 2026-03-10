@@ -1,5 +1,20 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v3.2.0
+
+### Added
+
+- `IRetrievalStrategy` interface — abstracts retrieval logic for pluggable search strategies (pure vector or hybrid).
+  - `RetrieveAsync(IVectorStore, float[], string, int, VectorFilter?, CancellationToken)` — returns ranked `VectorSearchResult` list.
+- `IReranker` interface — re-ranks search results post-retrieval for improved relevance.
+  - `RerankAsync(string query, IReadOnlyList<VectorSearchResult>, int topN, CancellationToken)` — returns reordered results.
+
+### Compatibility
+
+- Fully backward compatible with v3.1.0. No breaking changes — new interfaces are additive only.
+
+---
+
 ## v3.1.0
 
 ### Added

@@ -1,5 +1,28 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v3.2.0
+
+### Added
+
+- **Hybrid Search** — `UseHybridSearch()` fluent API combines BM25 keyword search with vector similarity search via **Reciprocal Rank Fusion (RRF)**.
+  - `UseHybridSearch(float vectorWeight = 0.5f)` — adjustable balance between vector and keyword relevance.
+  - `UseVectorSearch()` — explicit pure vector mode (same as default behavior).
+  - Automatically selects the optimal strategy based on the store:
+    - Stores with native `IVectorStore.HybridSearchAsync` support (Postgres, Qdrant) → native hybrid query delegation.
+    - Non-hybrid stores (InMemory) → application-level BM25 index + vector search + RRF merge.
+- **Re-ranking** — `WithReranker(IReranker)` fluent API re-orders search results after retrieval.
+  - `CohereReranker` — Cohere Rerank API v2 (`rerank-v3.5` default model).
+  - `LlmReranker` — uses any `AIService` to score and reorder results via LLM.
+- **Retrieval Strategy abstraction** — `VectorRetrievalStrategy` and `HybridRetrievalStrategy` implement `IRetrievalStrategy` for pluggable retrieval logic.
+- `RagPipeline` now accepts optional `IRetrievalStrategy` and `IReranker` via constructor injection.
+
+### Compatibility
+
+- Fully backward compatible with v3.1.0. No breaking changes.
+- Existing code without `UseHybridSearch()` or `WithReranker()` behaves identically to v3.1.0 (pure vector search, no re-ranking).
+
+---
+
 ## v3.1.0
 
 ### Added

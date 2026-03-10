@@ -79,6 +79,10 @@ public sealed class RagReferenceState
                 return false;
 
             var updated = Store.UpdateQuerySettings(settings.TopK, settings.MinScore, settings.PromptTemplate);
+
+            // Switch retrieval strategy at runtime when hybrid search is toggled
+            Store.UpdateRetrievalStrategy(settings.HybridSearchEnabled, settings.HybridSearchVectorWeight);
+
             if (updated && LastConfig != null)
             {
                 LastConfig = LastConfig with
@@ -171,7 +175,12 @@ public record RagPipelineSettings(
     double? MinScore = 0.2,
     string? PromptTemplate = null,
     bool QueryRewriterEnabled = true,
-    string? RewriterModelOverride = null);
+    string? RewriterModelOverride = null,
+    bool HybridSearchEnabled = true,
+    float HybridSearchVectorWeight = 0.5f,
+    bool RerankEnabled = false,
+    string RerankProvider = "cohere",
+    string? RerankApiKey = null);
 
 public record RagReferenceHistoryEntry(
     Guid Id,
@@ -344,6 +353,9 @@ internal sealed class TrackingVectorStore : IVectorStore
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(float[] queryVector, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         => _inner.SearchAsync(queryVector, topK, filter, cancellationToken);
+
+    public Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(float[] denseVector, string query, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        => _inner.HybridSearchAsync(denseVector, query, topK, filter, cancellationToken);
 
     public Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         => _inner.GetAsync(id, filter, cancellationToken);

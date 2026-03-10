@@ -257,4 +257,84 @@ public class RagPipelineEndToEndTests
         Assert.IsTrue(topResult.Record.Content.Contains("환불"),
             "Top result should be about refund");
     }
+
+    /// <summary>
+    /// Hybrid search with MinScore post-filters by cosine similarity.
+    /// Unrelated query with high MinScore → cosine similarity too low → 0 results.
+    /// </summary>
+    [TestMethod]
+    public async Task HybridSearch_WithHighMinScore_UnrelatedQuery_ReturnsZero()
+    {
+        var store = await RagStore.BuildAsync(config => config
+            .AddText("환불은 구매일로부터 14일 이내 요청할 수 있습니다.", id: "refund")
+            .AddText("배송은 2-3일 소요됩니다. 무료 배송은 5만원 이상입니다.", id: "shipping")
+            .UseLocalEmbedding(256)
+            .UseInMemoryStore()
+            .UseHybridSearch(0.6f)
+            .WithScoreThreshold(0.9)
+            .WithTopK(5)
+        );
+
+        // Completely unrelated query. Cosine similarity << 0.9.
+        // Post-filter runs vector-only search with MinScore=0.9 → approved set is empty → 0 results.
+        var processed = await store.QueryAsync("xyz123 totally unrelated query");
+
+        Console.WriteLine($"[Hybrid+MinScore] References: {processed.References.Count}");
+        foreach (var r in processed.References)
+            Console.WriteLine($"  Score={r.Score:F4} | {r.Record.Content}");
+
+        Assert.AreEqual(0, processed.References.Count,
+            "Hybrid search must return 0 results when no document passes cosine MinScore threshold");
+    }
+
+    /// <summary>
+    /// Vector-only search with MinScore behaves the same — unrelated query returns 0.
+    /// </summary>
+    [TestMethod]
+    public async Task VectorOnly_WithHighMinScore_UnrelatedQuery_ReturnsZero()
+    {
+        var store = await RagStore.BuildAsync(config => config
+            .AddText("환불은 구매일로부터 14일 이내 요청할 수 있습니다.", id: "refund")
+            .AddText("배송은 2-3일 소요됩니다. 무료 배송은 5만원 이상입니다.", id: "shipping")
+            .UseLocalEmbedding(256)
+            .UseInMemoryStore()
+            .WithScoreThreshold(0.9)
+            .WithTopK(5)
+        );
+
+        var processed = await store.QueryAsync("xyz123 totally unrelated query");
+
+        Console.WriteLine($"[VectorOnly+MinScore] References: {processed.References.Count}");
+        foreach (var r in processed.References)
+            Console.WriteLine($"  Score={r.Score:F4} | {r.Record.Content}");
+
+        Assert.AreEqual(0, processed.References.Count,
+            "Vector-only search must return 0 results when cosine similarity is below MinScore");
+    }
+
+    /// <summary>
+    /// Hybrid search without MinScore always returns TopK results regardless of relevance.
+    /// </summary>
+    [TestMethod]
+    public async Task HybridSearch_WithoutMinScore_AlwaysReturnsTopK()
+    {
+        var store = await RagStore.BuildAsync(config => config
+            .AddText("환불은 구매일로부터 14일 이내 요청할 수 있습니다.", id: "refund")
+            .AddText("배송은 2-3일 소요됩니다. 무료 배송은 5만원 이상입니다.", id: "shipping")
+            .UseLocalEmbedding(256)
+            .UseInMemoryStore()
+            .UseHybridSearch(0.6f)
+            .WithTopK(5)
+        );
+
+        // No MinScore set → no post-filter → TopK results returned regardless of relevance.
+        var processed = await store.QueryAsync("xyz123 totally unrelated query");
+
+        Console.WriteLine($"[Hybrid-NoMinScore] References: {processed.References.Count}");
+        foreach (var r in processed.References)
+            Console.WriteLine($"  Score={r.Score:F4} | {r.Record.Content}");
+
+        Assert.IsTrue(processed.References.Count > 0,
+            "Hybrid search without MinScore should return results for any query");
+    }
 }

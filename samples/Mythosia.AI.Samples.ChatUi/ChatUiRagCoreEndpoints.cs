@@ -1,6 +1,7 @@
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
+using Mythosia.AI.Rag.Reranking;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.AI.Loaders;
 using Mythosia.VectorDb;
@@ -43,7 +44,12 @@ namespace Mythosia.AI.Samples.ChatUi
                     MinScore: req.MinScore ?? current.MinScore,
                     PromptTemplate: req.PromptTemplate ?? current.PromptTemplate,
                     QueryRewriterEnabled: req.QueryRewriterEnabled ?? current.QueryRewriterEnabled,
-                    RewriterModelOverride: req.RewriterModelOverride);
+                    RewriterModelOverride: req.RewriterModelOverride,
+                    HybridSearchEnabled: req.HybridSearchEnabled ?? current.HybridSearchEnabled,
+                    HybridSearchVectorWeight: req.HybridSearchVectorWeight ?? current.HybridSearchVectorWeight,
+                    RerankEnabled: req.RerankEnabled ?? current.RerankEnabled,
+                    RerankProvider: string.IsNullOrWhiteSpace(req.RerankProvider) ? current.RerankProvider : req.RerankProvider.Trim().ToLowerInvariant(),
+                    RerankApiKey: req.RerankApiKey ?? current.RerankApiKey);
 
                 if (req.RewriterApiKey != null)
                     state.RewriterApiKey = string.IsNullOrWhiteSpace(req.RewriterApiKey) ? null : req.RewriterApiKey;
@@ -149,6 +155,8 @@ namespace Mythosia.AI.Samples.ChatUi
                                         builder.WithScoreThreshold(settings.MinScore.Value);
                                     if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
                                         builder.WithPromptTemplate(settings.PromptTemplate);
+
+                                    ApplyHybridAndReranker(builder, settings);
                                 });
                                 ragState.SetExternalStore(store);
                             }
@@ -242,6 +250,8 @@ namespace Mythosia.AI.Samples.ChatUi
                                         builder.WithScoreThreshold(settings.MinScore.Value);
                                     if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
                                         builder.WithPromptTemplate(settings.PromptTemplate);
+
+                                    ApplyHybridAndReranker(builder, settings);
                                 });
                                 ragState.SetExternalStore(store);
                             }
@@ -328,6 +338,8 @@ namespace Mythosia.AI.Samples.ChatUi
                                         builder.WithScoreThreshold(settings.MinScore.Value);
                                     if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
                                         builder.WithPromptTemplate(settings.PromptTemplate);
+
+                                    ApplyHybridAndReranker(builder, settings);
                                 });
                                 ragState.SetExternalStore(store);
                             }
@@ -461,6 +473,8 @@ namespace Mythosia.AI.Samples.ChatUi
                         if (!string.IsNullOrWhiteSpace(promptTemplate))
                             builder.WithPromptTemplate(promptTemplate);
 
+                        ApplyHybridAndReranker(builder, settings);
+
                         foreach (var entry in savedFiles)
                         {
                             var loader = new TrackingDocumentLoader(
@@ -504,6 +518,19 @@ namespace Mythosia.AI.Samples.ChatUi
                     }
                 }
             });
+        }
+
+        private static void ApplyHybridAndReranker(RagBuilder builder, RagPipelineSettings settings)
+        {
+            if (settings.HybridSearchEnabled)
+                builder.UseHybridSearch(settings.HybridSearchVectorWeight);
+
+            if (settings.RerankEnabled && !string.IsNullOrWhiteSpace(settings.RerankApiKey))
+            {
+                var provider = settings.RerankProvider?.ToLowerInvariant() ?? "cohere";
+                if (provider == "cohere")
+                    builder.WithReranker(new CohereReranker(settings.RerankApiKey));
+            }
         }
     }
 }

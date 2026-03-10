@@ -39,6 +39,15 @@ import {
   ragRewriterOverrideRow,
   ragRewriterModelRow,
   ragRewriterModel,
+  ragRewriterOptions,
+  ragHybridSearch,
+  ragHybridOptions,
+  ragHybridWeight,
+  ragHybridWeightVal,
+  ragRerankEnabled,
+  ragRerankOptions,
+  ragRerankProvider,
+  ragRerankApiKey,
   ragChatStatus,
   vectordbChatStatus,
   ragVectorStoreProvider,
@@ -99,6 +108,9 @@ export function initRagReference() {
 
   ragQueryRewriter?.addEventListener('change', updateRewriterUI);
   ragRewriterOverride?.addEventListener('change', updateRewriterOverrideUI);
+  ragHybridSearch?.addEventListener('change', updateHybridUI);
+  ragHybridWeight?.addEventListener('input', updateHybridWeightDisplay);
+  ragRerankEnabled?.addEventListener('change', updateRerankUI);
 
   ragFiles.addEventListener('change', updateFileList);
   ragEmbeddingProvider?.addEventListener('change', () => {
@@ -201,8 +213,16 @@ function applyPipelineSettings(settings) {
   if (ragQueryRewriter) ragQueryRewriter.checked = settings.queryRewriterEnabled !== false;
   if (ragRewriterOverride) ragRewriterOverride.checked = !!settings.rewriterModelOverride;
   if (ragRewriterModel && settings.rewriterModelOverride) ragRewriterModel.value = settings.rewriterModelOverride;
+  if (ragHybridSearch) ragHybridSearch.checked = settings.hybridSearchEnabled !== false;
+  if (ragHybridWeight) ragHybridWeight.value = settings.hybridSearchVectorWeight ?? 0.5;
+  if (ragRerankEnabled) ragRerankEnabled.checked = !!settings.rerankEnabled;
+  if (ragRerankProvider && settings.rerankProvider) setSelectValue(ragRerankProvider, settings.rerankProvider);
+  if (ragRerankApiKey && settings.rerankApiKey) ragRerankApiKey.value = settings.rerankApiKey;
 
   updateRewriterUI();
+  updateHybridUI();
+  updateHybridWeightDisplay();
+  updateRerankUI();
   updateEmbeddingUI();
 }
 
@@ -224,7 +244,12 @@ async function savePipelineSettings() {
     promptTemplate: ragPromptTemplate?.value?.trim() || null,
     queryRewriterEnabled: ragQueryRewriter?.checked ?? true,
     rewriterModelOverride: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? ragRewriterModel.value : null,
-    rewriterApiKey: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? getApiKeyForRewriterModel(ragRewriterModel.value) : null
+    rewriterApiKey: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? getApiKeyForRewriterModel(ragRewriterModel.value) : null,
+    hybridSearchEnabled: ragHybridSearch?.checked ?? true,
+    hybridSearchVectorWeight: ragHybridWeight ? parseFloat(ragHybridWeight.value) : 0.5,
+    rerankEnabled: ragRerankEnabled?.checked ?? false,
+    rerankProvider: ragRerankProvider?.value || 'cohere',
+    rerankApiKey: ragRerankApiKey?.value?.trim() || null
   };
 
   try {
@@ -255,11 +280,33 @@ function setSelectValue(select, value) {
 // ── Query Rewriter UI ─────────────────────────────────────────
 function updateRewriterUI() {
   const enabled = ragQueryRewriter?.checked ?? true;
-  if (ragRewriterOverrideRow) {
-    ragRewriterOverrideRow.classList.toggle('hidden', !enabled);
+  if (ragRewriterOptions) {
+    ragRewriterOptions.classList.toggle('hidden', !enabled);
   }
   if (!enabled) {
     updateRewriterOverrideUI();
+  }
+}
+
+// ── Hybrid Search UI ──────────────────────────────────────────
+function updateHybridUI() {
+  const enabled = ragHybridSearch?.checked ?? true;
+  if (ragHybridOptions) {
+    ragHybridOptions.classList.toggle('hidden', !enabled);
+  }
+}
+
+function updateHybridWeightDisplay() {
+  if (ragHybridWeightVal && ragHybridWeight) {
+    ragHybridWeightVal.textContent = parseFloat(ragHybridWeight.value).toFixed(2);
+  }
+}
+
+// ── Re-ranking UI ─────────────────────────────────────────────
+function updateRerankUI() {
+  const enabled = ragRerankEnabled?.checked ?? false;
+  if (ragRerankOptions) {
+    ragRerankOptions.classList.toggle('hidden', !enabled);
   }
 }
 

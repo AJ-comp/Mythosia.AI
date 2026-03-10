@@ -7,6 +7,7 @@ using Mythosia.AI.Loaders.Office.Word;
 using Mythosia.AI.Loaders.Pdf;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
+using Mythosia.AI.Rag.Retrieval;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
@@ -58,6 +59,10 @@ namespace Mythosia.AI.Rag
         private IContextBuilder? _contextBuilder;
         private IQueryRewriter? _queryRewriter;
         private bool _queryRewriterEnabled;
+
+        private bool _useHybridSearch;
+        private float _vectorWeight = 0.5f;
+        private IReranker? _reranker;
 
         private int _topK = 3;
         private int _chunkSize = 300;
@@ -411,6 +416,56 @@ namespace Mythosia.AI.Rag
 
         #endregion
 
+        #region Retrieval Strategy
+
+        /// <summary>
+        /// Uses the default pure vector search strategy. This is the default.
+        /// </summary>
+        public RagBuilder UseVectorSearch()
+        {
+            _useHybridSearch = false;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables hybrid search combining BM25 keyword matching with dense vector similarity.
+        /// Uses Reciprocal Rank Fusion (RRF) to merge results.
+        /// <para>
+        /// When the underlying store supports <c>IVectorStore.HybridSearchAsync</c>,
+        /// the query is delegated natively. Otherwise, BM25 is computed at the application level.
+        /// </para>
+        /// </summary>
+        /// <param name="vectorWeight">
+        /// Weight for vector similarity vs keyword matching. Range [0, 1].
+        /// 0.5 = equal weight (default), 1.0 = pure vector, 0.0 = pure keyword.
+        /// </param>
+        /// <param name="minScore">
+        /// Optional minimum score threshold applied after retrieval.
+        /// When set, results below this score are discarded.
+        /// </param>
+        public RagBuilder UseHybridSearch(float vectorWeight = 0.5f, double? minScore = null)
+        {
+            _useHybridSearch = true;
+            _vectorWeight = Math.Max(0f, Math.Min(1f, vectorWeight));
+
+            if (minScore.HasValue)
+                _scoreThreshold = minScore.Value;
+
+            return this;
+        }
+
+        /// <summary>
+        /// Registers a re-ranker to refine search results after initial retrieval.
+        /// When set, the retrieval results are passed through the re-ranker before context building.
+        /// </summary>
+        public RagBuilder WithReranker(IReranker reranker)
+        {
+            _reranker = reranker ?? throw new ArgumentNullException(nameof(reranker));
+            return this;
+        }
+
+        #endregion
+
         #region Prompt Template
 
         /// <summary>
@@ -520,10 +575,25 @@ namespace Mythosia.AI.Rag
             if (!string.IsNullOrWhiteSpace(_defaultNamespace))
                 options.DefaultNamespace = _defaultNamespace;
 
-            // 2. Create pipeline
-            var pipeline = new RagPipeline(embeddingProvider, vectorStore, textSplitter, contextBuilder, options);
+            // 2. Build retrieval strategy
+            IRetrievalStrategy? retrievalStrategy = null;
+            Bm25Index? bm25Index = null;
 
-            // 3. Load and index all documents (single-file priority + per-source routing)
+            if (_useHybridSearch)
+            {
+                // BM25 fallback index for stores that do not support native hybrid search.
+                // Native-supporting stores will ignore this via HybridRetrievalStrategy delegation.
+                bm25Index = new Bm25Index();
+                retrievalStrategy = new HybridRetrievalStrategy(vectorStore, _vectorWeight, bm25Index);
+            }
+            // else: null → RagPipeline defaults to VectorRetrievalStrategy
+
+            // 3. Create pipeline
+            var pipeline = new RagPipeline(
+                embeddingProvider, vectorStore, textSplitter, contextBuilder,
+                retrievalStrategy, _reranker, options);
+
+            // 4. Load and index all documents (single-file priority + per-source routing)
             var processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var orderedSources = _documentSources
                 .Select((source, index) => new { source, index })
@@ -559,6 +629,17 @@ namespace Mythosia.AI.Rag
 
                 if (source.Kind == DocumentSourceKind.SingleFile)
                     TrackProcessedPaths(docsToIndex, processedPaths);
+            }
+
+            // 5. Populate BM25 index from indexed records (for InMemory hybrid)
+            if (bm25Index != null && vectorStore is InMemoryVectorStore inMemoryStore)
+            {
+                var allRecords = await inMemoryStore.ListAllRecordsAsync(
+                    options.DefaultNamespace, cancellationToken);
+                foreach (var record in allRecords)
+                {
+                    bm25Index.Index(record.Id, record.Content);
+                }
             }
 
             return new RagStore(pipeline, vectorStore, _queryRewriter, _queryRewriterEnabled);

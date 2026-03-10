@@ -30,7 +30,12 @@ namespace Mythosia.AI.Samples.ChatUi
         string? PromptTemplate,
         bool? QueryRewriterEnabled,
         string? RewriterModelOverride,
-        string? RewriterApiKey);
+        string? RewriterApiKey,
+        bool? HybridSearchEnabled,
+        float? HybridSearchVectorWeight,
+        bool? RerankEnabled,
+        string? RerankProvider,
+        string? RerankApiKey);
     internal record WhyMissingRequest(string? Query, string? ExpectedText);
     internal record QueryScoresRequest(string? Query, string? ExpectedText);
     internal record VectorStoreConfigRequest(

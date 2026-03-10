@@ -72,6 +72,79 @@ That's it. Documents are automatically loaded, chunked, embedded, and indexed on
 )
 ```
 
+## Hybrid Search (v3.2.0)
+
+Combine dense vector similarity with BM25 keyword matching using **Reciprocal Rank Fusion (RRF)**. Documents that rank highly in both keyword and semantic search are boosted to the top.
+
+```csharp
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .UseHybridSearch()            // Enable hybrid search (default weight: 0.5)
+)
+```
+
+Adjust the balance between vector and keyword search:
+
+```csharp
+.UseHybridSearch(vectorWeight: 0.7f)  // 70% vector, 30% keyword
+```
+
+### How It Works
+
+| Store Type | Behavior |
+|---|---|
+| **InMemoryVectorStore** | Application-level BM25 index + vector search, merged via RRF |
+| **PostgresStore** | Native parallel `tsvector` full-text + `pgvector` similarity, merged via RRF |
+| **QdrantStore** | Native sparse-dense prefetch + Qdrant's built-in RRF fusion |
+
+The strategy is selected automatically based on the store — no configuration needed.
+
+To revert to pure vector search:
+
+```csharp
+.UseVectorSearch()  // Explicit pure vector mode (same as default)
+```
+
+## Re-ranking (v3.2.0)
+
+Re-rank search results after retrieval for improved relevance. Works with both pure vector and hybrid search.
+
+### Cohere Reranker
+
+```csharp
+using Mythosia.AI.Rag.Reranking;
+
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .WithReranker(new CohereReranker(cohereApiKey))
+)
+```
+
+### LLM-based Reranker
+
+Use any existing `AIService` to score and reorder results:
+
+```csharp
+using Mythosia.AI.Rag.Reranking;
+
+var scorer = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
+
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .WithReranker(new LlmReranker(scorer))
+)
+```
+
+### Combined: Hybrid Search + Re-ranking
+
+```csharp
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .UseHybridSearch(vectorWeight: 0.6f)
+    .WithReranker(new CohereReranker(cohereApiKey))
+)
+```
+
 ## Embedding Providers
 
 ```csharp

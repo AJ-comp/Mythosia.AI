@@ -62,70 +62,174 @@ function openRagDiagnosePopup(ragInfo) {
 
   const refs = ragInfo.references || [];
   const diagnostics = ragInfo.diagnostics || {};
-  const appliedNamespace = diagnostics.appliedNamespace || 'default';
-  const appliedTopK = diagnostics.appliedTopK ?? '-';
-  const appliedMinScore = diagnostics.appliedMinScore ?? 'none';
+  const appliedTopK = diagnostics.appliedTopK ?? 5;
+  const appliedMinScore = diagnostics.appliedMinScore;
   const elapsedMs = diagnostics.elapsedMs ?? '-';
-  const scoreRows = refs.map((r, i) => {
+  const searchMode = ragInfo.searchMode || 'vector';
+  const hybridWeight = ragInfo.hybridWeight;
+  const vectorStoreProvider = ragInfo.vectorStoreProvider || 'inmemory';
+
+  // ── Step 1: Query ──
+  const step1Html = `
+    <div class="pipe-step">
+      <div class="pipe-step-header">
+        <span class="pipe-step-num">1</span>
+        <span class="pipe-step-title">Query</span>
+      </div>
+      <div class="pipe-step-body">
+        <div class="pipe-kv"><span class="pipe-label">User Query</span><span class="pipe-value pipe-value--mono">${escapeHtml(ragInfo.originalQuery || '')}</span></div>
+      </div>
+    </div>`;
+
+  // ── Step 2: Query Rewrite ──
+  const hasRewrite = !!ragInfo.rewrittenQuery;
+  const step2Html = `
+    <div class="pipe-step ${hasRewrite ? '' : 'pipe-step--skipped'}">
+      <div class="pipe-step-header">
+        <span class="pipe-step-num">2</span>
+        <span class="pipe-step-title">Query Rewrite</span>
+        ${hasRewrite ? '<span class="pipe-badge pipe-badge--on">Active</span>' : '<span class="pipe-badge pipe-badge--off">Skipped</span>'}
+      </div>
+      <div class="pipe-step-body">
+        ${hasRewrite
+          ? `<div class="pipe-kv"><span class="pipe-label">Rewritten Query</span><span class="pipe-value pipe-value--mono">${escapeHtml(ragInfo.rewrittenQuery)}</span></div>
+             ${ragInfo.rewriterModel ? `<div class="pipe-kv"><span class="pipe-label">Model</span><span class="pipe-value">${escapeHtml(ragInfo.rewriterModel)}</span></div>` : ''}`
+          : `<div class="pipe-muted">Query rewriting was not applied. The original query was used directly.</div>`}
+      </div>
+    </div>`;
+
+  // ── Step 3: Retrieval / Search ──
+  const searchModeLabel = searchMode === 'hybrid' ? 'Hybrid (Vector + BM25)' : 'Vector Only';
+  const providerLabels = { inmemory: 'InMemory', postgres: 'PostgreSQL (pgvector)', qdrant: 'Qdrant', pinecone: 'Pinecone' };
+  const providerLabel = providerLabels[vectorStoreProvider] || vectorStoreProvider;
+
+  const allScoreRows = refs.map((r, i) => {
+    const score = (r.score != null) ? r.score.toFixed(4) : 'N/A';
+    const barWidth = Math.max(0, Math.min(100, (r.score || 0) * 100));
+    const preview = truncate(r.content || '', 100);
+    const fullContent = r.content || '';
+    const needsExpand = fullContent.length > 100;
+    return `<tr class="pipe-score-row" data-idx="${i}">
+      <td class="pipe-rank">#${i + 1}</td>
+      <td class="pipe-score-cell">
+        <div class="pipe-score-bar" style="width:${barWidth}%"></div>
+        <span>${score}</span>
+      </td>
+      <td class="pipe-preview">${escapeHtml(preview)}${needsExpand ? ' <span class="pipe-expand-hint">▸</span>' : ''}</td>
+    </tr>
+    <tr class="pipe-detail-row" data-detail-idx="${i}" style="display:none">
+      <td colspan="3"><div class="pipe-detail-content">${escapeHtml(fullContent)}</div></td>
+    </tr>`;
+  }).join('');
+
+  const scoresTable = refs.length
+    ? `<div class="pipe-scores-wrap">
+        <table class="pipe-scores-table">
+          <thead><tr><th>Rank</th><th>Score</th><th>Content</th></tr></thead>
+          <tbody>${allScoreRows}</tbody>
+        </table>
+       </div>`
+    : '<div class="pipe-muted">No results returned from the vector store.</div>';
+
+  const step3Html = `
+    <div class="pipe-step">
+      <div class="pipe-step-header">
+        <span class="pipe-step-num">3</span>
+        <span class="pipe-step-title">Retrieval</span>
+        <span class="pipe-badge pipe-badge--on">${escapeHtml(searchModeLabel)}</span>
+      </div>
+      <div class="pipe-step-body">
+        <div class="pipe-kv-row">
+          <div class="pipe-kv"><span class="pipe-label">Vector Store</span><span class="pipe-value">${escapeHtml(providerLabel)}</span></div>
+          <div class="pipe-kv"><span class="pipe-label">Search Mode</span><span class="pipe-value">${escapeHtml(searchModeLabel)}</span></div>
+          ${searchMode === 'hybrid' && hybridWeight != null ? `<div class="pipe-kv"><span class="pipe-label">Vector Weight</span><span class="pipe-value">${hybridWeight.toFixed(2)}</span></div>` : ''}
+          <div class="pipe-kv"><span class="pipe-label">Elapsed</span><span class="pipe-value">${escapeHtml(String(elapsedMs))} ms</span></div>
+        </div>
+        <div class="pipe-sub-title">All Retrieved Chunks (${refs.length})</div>
+        ${scoresTable}
+      </div>
+    </div>`;
+
+  // ── Step 4: Filtering (TopK / MinScore) ──
+  const passedRefs = refs.filter((r, i) => {
+    const inTopK = (i + 1) <= appliedTopK;
+    const passesMin = appliedMinScore == null || (r.score != null && r.score >= appliedMinScore);
+    return inTopK && passesMin;
+  });
+
+  const filteredRows = passedRefs.map((r, i) => {
     const score = (r.score != null) ? r.score.toFixed(4) : 'N/A';
     const barWidth = Math.max(0, Math.min(100, (r.score || 0) * 100));
     const preview = truncate(r.content || '', 120);
     return `<tr>
-      <td class="rag-popup-rank">#${i + 1}</td>
-      <td class="rag-popup-score-cell">
-        <div class="rag-popup-score-bar" style="width:${barWidth}%"></div>
+      <td class="pipe-rank">#${i + 1}</td>
+      <td class="pipe-score-cell">
+        <div class="pipe-score-bar" style="width:${barWidth}%"></div>
         <span>${score}</span>
       </td>
-      <td class="rag-popup-preview">${escapeHtml(preview)}</td>
+      <td class="pipe-preview">${escapeHtml(preview)}</td>
     </tr>`;
   }).join('');
 
-  const scoresHtml = refs.length
-    ? `<div class="rag-popup-scores-wrap">
-        <table class="rag-popup-scores-table">
+  const filteredTable = passedRefs.length
+    ? `<div class="pipe-scores-wrap pipe-scores-wrap--short">
+        <table class="pipe-scores-table">
           <thead><tr><th>Rank</th><th>Score</th><th>Content</th></tr></thead>
-          <tbody>${scoreRows}</tbody>
+          <tbody>${filteredRows}</tbody>
         </table>
        </div>`
-    : '<p class="rag-popup-empty">No references retrieved.</p>';
+    : '<div class="pipe-muted">No chunks passed the filtering criteria.</div>';
+
+  const step4Html = `
+    <div class="pipe-step">
+      <div class="pipe-step-header">
+        <span class="pipe-step-num">4</span>
+        <span class="pipe-step-title">Filtering</span>
+        <span class="pipe-badge pipe-badge--info">${passedRefs.length} / ${refs.length} chunks</span>
+      </div>
+      <div class="pipe-step-body">
+        <div class="pipe-kv-row">
+          <div class="pipe-kv"><span class="pipe-label">Top K</span><span class="pipe-value">${escapeHtml(String(appliedTopK))}</span></div>
+          <div class="pipe-kv"><span class="pipe-label">Min Score</span><span class="pipe-value">${appliedMinScore != null ? appliedMinScore : 'None'}</span></div>
+        </div>
+        <div class="pipe-sub-title">Final Context Chunks (${passedRefs.length})</div>
+        ${filteredTable}
+      </div>
+    </div>`;
+
+  // ── Step 5: Final Prompt ──
+  const step5Html = `
+    <div class="pipe-step">
+      <div class="pipe-step-header">
+        <span class="pipe-step-num">5</span>
+        <span class="pipe-step-title">Final Prompt to LLM</span>
+      </div>
+      <div class="pipe-step-body">
+        <div class="pipe-prompt-wrap">
+          <pre class="pipe-prompt"><code>${escapeHtml(ragInfo.augmentedPrompt || '(no augmented prompt)')}</code></pre>
+          <button class="pipe-copy-btn" title="Copy prompt">Copy</button>
+        </div>
+      </div>
+    </div>`;
 
   overlay.innerHTML = `
-    <div class="modal-card rag-popup-card">
+    <div class="modal-card pipe-modal-card">
       <div class="modal-header">
-        <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>RAG Diagnose</h3>
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          RAG Pipeline Diagnostics
+        </h3>
         <button class="btn-icon rag-popup-close" title="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      <div class="modal-body rag-popup-body">
-        <div class="rag-popup-section">
-          <div class="rag-popup-section-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-            Query Scores
-          </div>
-          <div class="rag-popup-meta">
-            <span>Original Query: <strong>"${escapeHtml(truncate(ragInfo.originalQuery || '', 60))}"</strong></span>
-            ${ragInfo.rewrittenQuery ? `<span class="rag-rewritten-row" title="Click to expand">Rewritten Query: <strong>"${escapeHtml(truncate(ragInfo.rewrittenQuery, 60))}"</strong>${ragInfo.rewriterModel ? ` <em class="rag-rewriter-model">(${escapeHtml(ragInfo.rewriterModel)})</em>` : ''}</span>
-            <div class="rag-rewritten-full hidden"><pre class="rag-rewritten-pre">${escapeHtml(ragInfo.rewrittenQuery)}</pre></div>` : ''}
-            <span>References: <strong>${refs.length}</strong></span>
-          </div>
-          <div class="rag-popup-meta rag-popup-meta--diag">
-            <span>Namespace: <strong>${escapeHtml(String(appliedNamespace))}</strong></span>
-            <span>TopK: <strong>${escapeHtml(String(appliedTopK))}</strong></span>
-            <span>MinScore: <strong>${escapeHtml(String(appliedMinScore))}</strong></span>
-            <span>Elapsed: <strong>${escapeHtml(String(elapsedMs))} ms</strong></span>
-          </div>
-          ${scoresHtml}
-        </div>
-        <div class="rag-popup-section">
-          <div class="rag-popup-section-title">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><polyline points="14 2 14 8 20 8"/></svg>
-            Final Augmented Prompt
-          </div>
-          <div class="rag-popup-prompt-wrap">
-            <pre class="rag-popup-prompt"><code>${escapeHtml(ragInfo.augmentedPrompt || '(no augmented prompt)')}</code></pre>
-            <button class="rag-popup-copy-btn" title="Copy prompt">Copy</button>
-          </div>
+      <div class="modal-body pipe-modal-body">
+        <div class="pipe-timeline">
+          ${step1Html}
+          ${step2Html}
+          ${step3Html}
+          ${step4Html}
+          ${step5Html}
         </div>
       </div>
     </div>`;
@@ -138,17 +242,21 @@ function openRagDiagnosePopup(ragInfo) {
     if (e.target === overlay) overlay.remove();
   });
 
-  // Expand rewritten query on click
-  const rewrittenRow = overlay.querySelector('.rag-rewritten-row');
-  const rewrittenFull = overlay.querySelector('.rag-rewritten-full');
-  if (rewrittenRow && rewrittenFull) {
-    rewrittenRow.addEventListener('click', () => {
-      rewrittenFull.classList.toggle('hidden');
+  // Expand/collapse score rows
+  overlay.querySelectorAll('.pipe-score-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const idx = row.dataset.idx;
+      const detail = overlay.querySelector(`.pipe-detail-row[data-detail-idx="${idx}"]`);
+      if (!detail) return;
+      const isOpen = detail.style.display !== 'none';
+      detail.style.display = isOpen ? 'none' : 'table-row';
+      const hint = row.querySelector('.pipe-expand-hint');
+      if (hint) hint.textContent = isOpen ? '▸' : '▾';
     });
-  }
+  });
 
   // Copy handler
-  const copyBtn = overlay.querySelector('.rag-popup-copy-btn');
+  const copyBtn = overlay.querySelector('.pipe-copy-btn');
   copyBtn?.addEventListener('click', () => {
     navigator.clipboard.writeText(ragInfo.augmentedPrompt || '').then(() => {
       copyBtn.textContent = 'Copied!';

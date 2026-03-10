@@ -1,4 +1,5 @@
 using Mythosia.AI.Loaders;
+using Mythosia.AI.Rag.Retrieval;
 using Mythosia.AI.Services.Base;
 using Mythosia.VectorDb;
 using System;
@@ -21,6 +22,8 @@ namespace Mythosia.AI.Rag
         private readonly IVectorStore _vectorStore;
         private readonly ITextSplitter _textSplitter;
         private IContextBuilder _contextBuilder;
+        private IRetrievalStrategy _retrievalStrategy;
+        private readonly IReranker? _reranker;
 
         /// <summary>
         /// Pipeline configuration options.
@@ -40,11 +43,28 @@ namespace Mythosia.AI.Rag
             ITextSplitter textSplitter,
             IContextBuilder contextBuilder,
             RagPipelineOptions? options = null)
+            : this(embeddingProvider, vectorStore, textSplitter, contextBuilder, null, null, options)
+        {
+        }
+
+        /// <summary>
+        /// Creates a new RAG pipeline with the specified components including retrieval strategy and reranker.
+        /// </summary>
+        public RagPipeline(
+            IEmbeddingProvider embeddingProvider,
+            IVectorStore vectorStore,
+            ITextSplitter textSplitter,
+            IContextBuilder contextBuilder,
+            IRetrievalStrategy? retrievalStrategy,
+            IReranker? reranker,
+            RagPipelineOptions? options = null)
         {
             _embeddingProvider = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
             _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
             _textSplitter = textSplitter ?? throw new ArgumentNullException(nameof(textSplitter));
             _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+            _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(vectorStore);
+            _reranker = reranker;
             Options = options ?? new RagPipelineOptions();
         }
 
@@ -54,6 +74,14 @@ namespace Mythosia.AI.Rag
         public void SetContextBuilder(IContextBuilder contextBuilder)
         {
             _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+        }
+
+        /// <summary>
+        /// Updates the retrieval strategy at runtime (e.g., switching between vector-only and hybrid search).
+        /// </summary>
+        public void SetRetrievalStrategy(IRetrievalStrategy? retrievalStrategy)
+        {
+            _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(_vectorStore);
         }
 
         #region Indexing Pipeline: load → split → embed → store
@@ -240,10 +268,14 @@ namespace Mythosia.AI.Rag
                 effectiveFilter.MinScore = Options.MinScore;
             }
 
-            // 3. Search
-            var searchResults = await _vectorStore.SearchAsync(queryVector, k, effectiveFilter, cancellationToken);
+            // 3. Search (via retrieval strategy)
+            var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, query, k, effectiveFilter, cancellationToken);
 
-            // 4. Build context
+            // 4. Re-rank if configured
+            if (_reranker != null)
+                searchResults = await _reranker.RerankAsync(query, searchResults, k, cancellationToken);
+
+            // 5. Build context
             var context = _contextBuilder.BuildContext(query, searchResults);
 
             return new RagQueryResult(query, context, searchResults);

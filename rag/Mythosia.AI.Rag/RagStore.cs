@@ -1,4 +1,6 @@
+using Mythosia.AI.Rag.Retrieval;
 using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,6 +90,33 @@ namespace Mythosia.AI.Rag
                 contextBuilder = new TemplateContextBuilder(promptTemplate);
             }
             ragPipeline.SetContextBuilder(contextBuilder);
+
+            return true;
+        }
+
+        /// <summary>
+        /// Switches the retrieval strategy at runtime between vector-only and hybrid search
+        /// without rebuilding the entire pipeline or re-indexing documents.
+        /// Returns false if the underlying pipeline does not support runtime updates.
+        /// </summary>
+        /// <param name="useHybridSearch">True to enable hybrid (vector + BM25) search, false for vector-only.</param>
+        /// <param name="vectorWeight">Weight for vector similarity [0, 1] when hybrid is enabled. 0.5 = equal weight.</param>
+        public bool UpdateRetrievalStrategy(bool useHybridSearch, float vectorWeight = 0.5f)
+        {
+            var ragPipeline = Pipeline as RagPipeline;
+            if (ragPipeline == null)
+                return false;
+
+            if (useHybridSearch)
+            {
+                var bm25Index = new Bm25Index();
+                ragPipeline.SetRetrievalStrategy(
+                    new HybridRetrievalStrategy(VectorStore, vectorWeight, bm25Index));
+            }
+            else
+            {
+                ragPipeline.SetRetrievalStrategy(null);
+            }
 
             return true;
         }

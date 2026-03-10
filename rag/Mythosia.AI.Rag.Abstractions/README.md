@@ -16,6 +16,8 @@ This package defines the contracts that all RAG components implement — you onl
 | `ITextSplitter` | Document → chunks (`Split(RagDocument)`) |
 | `IContextBuilder` | Search results → LLM prompt (`BuildContext(query, results)`) |
 | `IQueryRewriter` | Rewrites follow-up queries into standalone queries using conversation history |
+| `IRetrievalStrategy` | Abstracts retrieval logic — pure vector or hybrid (BM25 + vector + RRF) |
+| `IReranker` | Re-ranks search results post-retrieval for improved relevance |
 
 ## Models
 

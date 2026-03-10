@@ -5,12 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>3.1.0</Version>
+    <Version>3.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder interfaces and shared models.</Description>
-    <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter</PackageTags>
+    <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, and IReranker interfaces and shared models.</Description>
+    <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v3.2.0: Add IRetrievalStrategy and IReranker interfaces for hybrid search and re-ranking support.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

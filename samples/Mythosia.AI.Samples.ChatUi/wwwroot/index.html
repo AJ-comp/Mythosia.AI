@@ -273,68 +273,150 @@
   <div id="rag-settings-modal" class="modal-overlay hidden">
     <div class="modal-card rag-settings-card">
       <div class="modal-header">
-        <h3>RAG Pipeline Settings</h3>
+        <h3>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          RAG Pipeline Settings
+        </h3>
         <button id="rag-settings-close" class="btn-icon" title="Close">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="modal-body rag-settings-body">
-        <div class="rag-settings-section">
-          <div class="rag-settings-section-header">
-            <span>Query Pipeline</span>
-            <span class="rag-settings-section-hint">Used when asking questions</span>
-          </div>
-          <div class="rag-grid">
-            <div class="rag-field">
-              <label>Top K</label>
-              <input id="rag-topk" type="number" value="5" min="1" max="50" />
+        <div class="rag-settings-grid">
+          <!-- ── Left Column: Retrieval ── -->
+          <div class="rag-settings-col">
+            <div class="rag-settings-section">
+              <div class="rag-settings-section-header">
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                  Retrieval
+                </span>
+                <span class="rag-settings-section-hint">Search parameters</span>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Top K</label>
+                  <input id="rag-topk" type="number" value="5" min="1" max="50" />
+                </div>
+                <div class="rag-field">
+                  <label>Min score</label>
+                  <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.2" placeholder="0.0" />
+                </div>
+              </div>
             </div>
-            <div class="rag-field">
-              <label>Min score</label>
-              <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.2" placeholder="0.0" />
-              <div class="rag-hint">Score is cosine similarity (higher is better).</div>
+
+            <div class="rag-settings-section">
+              <div class="rag-settings-section-header">
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2"/></svg>
+                  Hybrid Search
+                </span>
+                <label class="rag-settings-section-toggle">
+                  <input id="rag-hybrid-search" type="checkbox" checked />
+                  <span class="rag-toggle-switch"></span>
+                </label>
+              </div>
+              <div id="rag-hybrid-options" class="rag-settings-sub-options">
+                <div class="rag-field">
+                  <label>Vector weight <span id="rag-hybrid-weight-val" class="rag-range-val">0.50</span></label>
+                  <input id="rag-hybrid-weight" type="range" min="0" max="1" step="0.05" value="0.5" />
+                  <div class="rag-range-labels">
+                    <span>Keyword</span>
+                    <span>Balanced</span>
+                    <span>Semantic</span>
+                  </div>
+                  <div class="rag-hint">Balance between BM25 keyword matching and vector similarity.</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rag-settings-section">
+              <div class="rag-settings-section-header">
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+                  Re-ranking
+                </span>
+                <label class="rag-settings-section-toggle">
+                  <input id="rag-rerank-enabled" type="checkbox" />
+                  <span class="rag-toggle-switch"></span>
+                </label>
+              </div>
+              <div id="rag-rerank-options" class="rag-settings-sub-options hidden">
+                <div class="rag-field">
+                  <label>Provider</label>
+                  <select id="rag-rerank-provider">
+                    <option value="cohere">Cohere (rerank-v3.5)</option>
+                  </select>
+                </div>
+                <div class="rag-field">
+                  <label>API Key</label>
+                  <input id="rag-rerank-apikey" type="password" placeholder="Enter Cohere API key" autocomplete="off" />
+                  <div class="rag-hint">Required for Cohere re-ranking service.</div>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="rag-field rag-field-wide">
-            <label>Prompt template</label>
-            <textarea id="rag-prompt-template" rows="4" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
-            <div class="rag-hint">Leave empty to use the default context builder. Use {context} and {question}.</div>
-          </div>
-          <div class="rag-field rag-field-wide">
-            <label class="rag-toggle-label">
-              <input id="rag-query-rewriter" type="checkbox" checked />
-              <span>Query Rewriter (Multi-Turn)</span>
-            </label>
-            <div class="rag-hint">Rewrites follow-up queries into standalone queries using conversation history before RAG search.</div>
-          </div>
-          <div id="rag-rewriter-override-row" class="rag-field rag-field-wide rag-rewriter-sub">
-            <label class="rag-toggle-label">
-              <input id="rag-rewriter-override" type="checkbox" />
-              <span>Use cheaper model for rewriting</span>
-            </label>
-            <div id="rag-rewriter-model-row" class="rag-rewriter-model-row hidden">
-              <select id="rag-rewriter-model">
-                <optgroup label="OpenAI">
-                  <option value="Gpt4oMini">GPT-4o Mini</option>
-                  <option value="Gpt4_1Mini">GPT-4.1 Mini</option>
-                  <option value="Gpt4_1Nano">GPT-4.1 Nano</option>
-                  <option value="Gpt5Mini">GPT-5 Mini</option>
-                  <option value="Gpt5Nano">GPT-5 Nano</option>
-                </optgroup>
-                <optgroup label="Anthropic">
-                  <option value="ClaudeHaiku4_5_251001">Claude Haiku 4.5</option>
-                </optgroup>
-                <optgroup label="Google">
-                  <option value="Gemini2_5FlashLite">Gemini 2.5 Flash Lite</option>
-                </optgroup>
-                <optgroup label="xAI">
-                  <option value="Grok3Mini">Grok 3 Mini</option>
-                </optgroup>
-                <optgroup label="DeepSeek">
-                  <option value="DeepSeekChat">DeepSeek Chat</option>
-                </optgroup>
-              </select>
-              <div class="rag-hint">Select a cost-effective model for query rewriting. Requires an API key for the selected provider.</div>
+
+          <!-- ── Right Column: Processing ── -->
+          <div class="rag-settings-col">
+            <div class="rag-settings-section">
+              <div class="rag-settings-section-header">
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Query Rewriter
+                </span>
+                <label class="rag-settings-section-toggle">
+                  <input id="rag-query-rewriter" type="checkbox" checked />
+                  <span class="rag-toggle-switch"></span>
+                </label>
+              </div>
+              <div id="rag-rewriter-options" class="rag-settings-sub-options">
+                <div class="rag-hint" style="margin-top:0">Rewrites follow-up queries into standalone queries using conversation history.</div>
+                <div id="rag-rewriter-override-row" class="rag-field rag-rewriter-sub">
+                  <label class="rag-toggle-label">
+                    <input id="rag-rewriter-override" type="checkbox" />
+                    <span>Use cheaper model for rewriting</span>
+                  </label>
+                  <div id="rag-rewriter-model-row" class="rag-rewriter-model-row hidden">
+                    <select id="rag-rewriter-model">
+                      <optgroup label="OpenAI">
+                        <option value="Gpt4oMini">GPT-4o Mini</option>
+                        <option value="Gpt4_1Mini">GPT-4.1 Mini</option>
+                        <option value="Gpt4_1Nano">GPT-4.1 Nano</option>
+                        <option value="Gpt5Mini">GPT-5 Mini</option>
+                        <option value="Gpt5Nano">GPT-5 Nano</option>
+                      </optgroup>
+                      <optgroup label="Anthropic">
+                        <option value="ClaudeHaiku4_5_251001">Claude Haiku 4.5</option>
+                      </optgroup>
+                      <optgroup label="Google">
+                        <option value="Gemini2_5FlashLite">Gemini 2.5 Flash Lite</option>
+                      </optgroup>
+                      <optgroup label="xAI">
+                        <option value="Grok3Mini">Grok 3 Mini</option>
+                      </optgroup>
+                      <optgroup label="DeepSeek">
+                        <option value="DeepSeekChat">DeepSeek Chat</option>
+                      </optgroup>
+                    </select>
+                    <div class="rag-hint">Requires an API key for the selected provider.</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="rag-settings-section">
+              <div class="rag-settings-section-header">
+                <span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Prompt Template
+                </span>
+                <span class="rag-settings-section-hint">Custom context format</span>
+              </div>
+              <div class="rag-field">
+                <textarea id="rag-prompt-template" rows="5" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
+                <div class="rag-hint">Leave empty for default. Use {context} and {question} placeholders.</div>
+              </div>
             </div>
           </div>
         </div>
