@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Mythosia.AI.Loaders;
 using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
@@ -78,7 +75,13 @@ public sealed class RagReferenceState
             if (Store == null)
                 return false;
 
-            var updated = Store.UpdateQuerySettings(settings.TopK, settings.MinScore, settings.PromptTemplate);
+            var updated = Store.UpdateOptions(opt =>
+            {
+                if (settings.TopK > 0) opt.TopK = settings.TopK;
+                opt.MinScore = settings.MinScore;
+                opt.PromptTemplate = settings.PromptTemplate;
+                if (settings.RetrievalMultiplier > 0) opt.RetrievalMultiplier = settings.RetrievalMultiplier;
+            });
 
             // Switch retrieval strategy at runtime when hybrid search is toggled
             Store.UpdateRetrievalStrategy(settings.HybridSearchEnabled, settings.HybridSearchVectorWeight);
@@ -180,7 +183,8 @@ public record RagPipelineSettings(
     float HybridSearchVectorWeight = 0.5f,
     bool RerankEnabled = false,
     string RerankProvider = "cohere",
-    string? RerankApiKey = null);
+    string? RerankApiKey = null,
+    int RetrievalMultiplier = 3);
 
 public record RagReferenceHistoryEntry(
     Guid Id,

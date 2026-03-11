@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>3.2.0</Version>
+    <Version>4.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Includes RagPipeline, text splitters, context builder, OpenAI embedding provider, hybrid search (BM25 + Vector + RRF), and re-ranking (Cohere, LLM-based).</Description>
+    <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Includes RagPipeline, text splitters, context builder, OpenAI embedding provider, hybrid search (BM25 + Vector + RRF), re-ranking (Cohere, LLM-based), and auto-multiplier retrieval.</Description>
     <PackageTags>AI;RAG;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v3.2.0: Hybrid Search and Re-ranking. UseHybridSearch() combines BM25 keyword search with vector similarity via Reciprocal Rank Fusion (RRF). WithReranker() supports Cohere API and LLM-based re-ranking. Backward compatible — existing code works without changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.0: Breaking — SetContextBuilder, UpdateQuerySettings, UpdateRetrievalMultiplier replaced by UpdateOptions(Action). Auto-multiplier retrieval for re-ranking. PromptTemplate moved to RagPipelineOptions with lazy caching.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

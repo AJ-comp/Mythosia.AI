@@ -1,5 +1,42 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v4.0.0
+
+### Breaking Changes
+
+- **`RagPipeline.SetContextBuilder()` removed** — context builder is now resolved automatically from `RagPipelineOptions.PromptTemplate` at query time with internal caching.
+- **`RagStore.UpdateQuerySettings()` removed** — replaced by `RagStore.UpdateOptions(Action<RagPipelineOptions>)`.
+- **`RagStore.UpdateRetrievalMultiplier()` removed** — use `UpdateOptions` instead.
+
+### Migration Guide
+
+```csharp
+// Before (v3.x)
+store.UpdateQuerySettings(topK: 8, minScore: 0.4, promptTemplate: "...");
+store.UpdateRetrievalMultiplier(3);
+
+// After (v4.0)
+store.UpdateOptions(opt =>
+{
+    opt.TopK = 8;
+    opt.MinScore = 0.4;
+    opt.PromptTemplate = "...";
+    opt.RetrievalMultiplier = 3;
+});
+```
+
+### Added
+
+- **Auto-multiplier for re-ranking** — when a reranker is configured, the retrieval stage automatically fetches `TopK × RetrievalMultiplier` candidates, then the reranker selects the best `TopK` from that wider pool. No API changes needed; single `TopK` keeps the API simple.
+- **`RagStore.UpdateOptions(Action<RagPipelineOptions>)`** — single method to update all pipeline options at runtime. New options added to `RagPipelineOptions` are automatically available without modifying `RagStore`.
+- **`PromptTemplate` in `RagPipelineOptions`** — `RagPipeline` lazily resolves `ContextBuilder` from `Options.PromptTemplate` with caching, replacing the explicit `SetContextBuilder()` pattern.
+
+### Changed
+
+- `RagBuilder.WithPromptTemplate()` now sets `RagPipelineOptions.PromptTemplate` instead of creating a `TemplateContextBuilder` at build time.
+
+---
+
 ## v3.2.0
 
 ### Added

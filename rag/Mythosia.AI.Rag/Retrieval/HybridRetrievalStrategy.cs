@@ -63,10 +63,21 @@ namespace Mythosia.AI.Rag.Retrieval
 
             var expandedTopK = topK * 2;
 
-            var vectorResults = await _vectorStore.SearchAsync(denseVector, expandedTopK, filter, cancellationToken);
+            // Strip MinScore before vector search so RRF fusion operates on the full candidate set.
+            // MinScore is applied after the merge to the final RRF-normalized scores.
+            var searchFilter = WithoutMinScore(filter);
+            var vectorResults = await _vectorStore.SearchAsync(denseVector, expandedTopK, searchFilter, cancellationToken);
             var bm25Results = _bm25Index.Search(query, expandedTopK);
 
-            return RrfMerge(vectorResults, bm25Results, topK);
+            var merged = RrfMerge(vectorResults, bm25Results, topK);
+
+            // Apply MinScore filter to the final RRF-normalized scores
+            if (filter?.MinScore.HasValue == true)
+            {
+                merged = merged.Where(r => r.Score >= filter.MinScore.Value).ToList();
+            }
+
+            return merged;
         }
 
         /// <summary>
@@ -105,16 +116,20 @@ namespace Mythosia.AI.Rag.Retrieval
                     scores[id] = (rrfScore, null, bm25Results[i]);
             }
 
-            // Sort by RRF score and take topK
+            // Normalize RRF scores to [0, 1]: max raw RRF = 1/(k+1), so multiply by (k+1).
+            double normalizer = RrfK + 1;
+
             var merged = scores
                 .OrderByDescending(kvp => kvp.Value.rrfScore)
                 .Take(topK)
                 .Select(kvp =>
                 {
+                    var normalizedScore = kvp.Value.rrfScore * normalizer;
+
                     // Prefer vector result (has full VectorRecord with embedding)
                     if (kvp.Value.vectorResult != null)
                     {
-                        return new VectorSearchResult(kvp.Value.vectorResult.Record, kvp.Value.rrfScore);
+                        return new VectorSearchResult(kvp.Value.vectorResult.Record, normalizedScore);
                     }
 
                     // BM25-only result — construct a minimal record
@@ -124,11 +139,25 @@ namespace Mythosia.AI.Rag.Retrieval
                         Id = bm25.Id,
                         Content = bm25.Content
                     };
-                    return new VectorSearchResult(record, kvp.Value.rrfScore);
+                    return new VectorSearchResult(record, normalizedScore);
                 })
                 .ToList();
 
             return merged;
+        }
+
+        private static VectorFilter? WithoutMinScore(VectorFilter? filter)
+        {
+            if (filter == null || !filter.MinScore.HasValue)
+                return filter;
+
+            return new VectorFilter
+            {
+                Namespace = filter.Namespace,
+                Scope = filter.Scope,
+                MetadataMatch = filter.MetadataMatch,
+                MinScore = null
+            };
         }
     }
 }

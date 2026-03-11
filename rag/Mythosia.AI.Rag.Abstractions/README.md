@@ -26,8 +26,8 @@ This package defines the contracts that all RAG components implement — you onl
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
 | `RagProcessedQuery` | Pipeline output: original query, rewritten query, augmented prompt, references, `HasReferences` flag, and `Diagnostics` |
 | `ConversationTurn` | Lightweight DTO representing a single conversation turn (role + content) for `IQueryRewriter` |
-| `RagQueryDiagnostics` | Applied retrieval metadata (`AppliedNamespace`, `AppliedTopK`, `AppliedMinScore`, `ElapsedMs`) |
-| `RagPipelineOptions` | Configuration: TopK, MinScore, DefaultCollection |
+| `RagQueryDiagnostics` | Applied retrieval metadata (`AppliedNamespace`, `AppliedTopK`, `RetrievalK`, `AppliedMinScore`, `ElapsedMs`) |
+| `RagPipelineOptions` | Configuration: TopK, MinScore, RetrievalMultiplier, PromptTemplate, DefaultNamespace |
 | `RagQueryOptions` | Per-request overrides: TopK, MinScore, Namespace |
 | `VectorRecord` | Stored vector with ID, content, embedding, metadata, namespace |
 | `VectorSearchResult` | Search result with record and similarity score |

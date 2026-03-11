@@ -8,10 +8,13 @@
   - `RetrieveAsync(IVectorStore, float[], string, int, VectorFilter?, CancellationToken)` — returns ranked `VectorSearchResult` list.
 - `IReranker` interface — re-ranks search results post-retrieval for improved relevance.
   - `RerankAsync(string query, IReadOnlyList<VectorSearchResult>, int topN, CancellationToken)` — returns reordered results.
+- `RagPipelineOptions.RetrievalMultiplier` (default `3`) — multiplier applied to `TopK` when a reranker is configured. The retrieval stage fetches `TopK × RetrievalMultiplier` candidates, then the reranker selects the best `TopK` from that wider pool.
+- `RagPipelineOptions.PromptTemplate` — optional prompt template with `{context}` and `{question}` placeholders. When set, overrides the default context builder at query time.
+- `RagQueryDiagnostics.RetrievalK` — the number of candidates actually fetched from the vector store. When a reranker is configured this is `TopK × RetrievalMultiplier`; otherwise it equals `AppliedTopK`.
 
 ### Compatibility
 
-- Fully backward compatible with v3.1.0. No breaking changes — new interfaces are additive only.
+- Fully backward compatible with v3.1.0. No breaking changes — new interfaces and properties are additive only.
 
 ---
 

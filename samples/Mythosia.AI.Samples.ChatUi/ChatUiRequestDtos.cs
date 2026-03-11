@@ -35,7 +35,8 @@ namespace Mythosia.AI.Samples.ChatUi
         float? HybridSearchVectorWeight,
         bool? RerankEnabled,
         string? RerankProvider,
-        string? RerankApiKey);
+        string? RerankApiKey,
+        int? RetrievalMultiplier);
     internal record WhyMissingRequest(string? Query, string? ExpectedText);
     internal record QueryScoresRequest(string? Query, string? ExpectedText);
     internal record VectorStoreConfigRequest(

@@ -21,7 +21,9 @@ namespace Mythosia.AI.Rag
         private readonly IEmbeddingProvider _embeddingProvider;
         private readonly IVectorStore _vectorStore;
         private readonly ITextSplitter _textSplitter;
-        private IContextBuilder _contextBuilder;
+        private readonly IContextBuilder _defaultContextBuilder;
+        private IContextBuilder _resolvedContextBuilder;
+        private string? _cachedPromptTemplate;
         private IRetrievalStrategy _retrievalStrategy;
         private readonly IReranker? _reranker;
 
@@ -62,18 +64,28 @@ namespace Mythosia.AI.Rag
             _embeddingProvider = embeddingProvider ?? throw new ArgumentNullException(nameof(embeddingProvider));
             _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
             _textSplitter = textSplitter ?? throw new ArgumentNullException(nameof(textSplitter));
-            _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+            _defaultContextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+            _resolvedContextBuilder = _defaultContextBuilder;
             _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(vectorStore);
             _reranker = reranker;
             Options = options ?? new RagPipelineOptions();
         }
 
         /// <summary>
-        /// Updates the context builder used to assemble prompts at query time.
+        /// Resolves the appropriate context builder based on <see cref="RagPipelineOptions.PromptTemplate"/>.
+        /// Uses the default context builder when no template is set; caches to avoid unnecessary allocations.
         /// </summary>
-        public void SetContextBuilder(IContextBuilder contextBuilder)
+        private IContextBuilder ResolveContextBuilder()
         {
-            _contextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
+            var template = Options.PromptTemplate;
+            if (template != _cachedPromptTemplate)
+            {
+                _cachedPromptTemplate = template;
+                _resolvedContextBuilder = string.IsNullOrWhiteSpace(template)
+                    ? _defaultContextBuilder
+                    : new TemplateContextBuilder(template);
+            }
+            return _resolvedContextBuilder;
         }
 
         /// <summary>
@@ -252,6 +264,7 @@ namespace Mythosia.AI.Rag
         {
             var ns = queryOptions?.Namespace ?? Options.DefaultNamespace;
             var k = queryOptions?.TopK ?? Options.TopK;
+            var retrievalK = _reranker != null ? k * Math.Max(1, Options.RetrievalMultiplier) : k;
 
             // 1. Embed query
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
@@ -268,15 +281,15 @@ namespace Mythosia.AI.Rag
                 effectiveFilter.MinScore = Options.MinScore;
             }
 
-            // 3. Search (via retrieval strategy)
-            var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, query, k, effectiveFilter, cancellationToken);
+            // 3. Search (via retrieval strategy) — fetch wider pool when reranker is present
+            var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, query, retrievalK, effectiveFilter, cancellationToken);
 
-            // 4. Re-rank if configured
+            // 4. Re-rank if configured — trim back to original k
             if (_reranker != null)
                 searchResults = await _reranker.RerankAsync(query, searchResults, k, cancellationToken);
 
             // 5. Build context
-            var context = _contextBuilder.BuildContext(query, searchResults);
+            var context = ResolveContextBuilder().BuildContext(query, searchResults);
 
             return new RagQueryResult(query, context, searchResults);
         }
@@ -333,6 +346,7 @@ namespace Mythosia.AI.Rag
             var appliedNamespace = options?.Namespace ?? Options.DefaultNamespace;
             var appliedTopK = options?.TopK ?? Options.TopK;
             var appliedMinScore = options?.MinScore ?? Options.MinScore;
+            var retrievalK = _reranker != null ? appliedTopK * Math.Max(1, Options.RetrievalMultiplier) : appliedTopK;
 
             var stopwatch = Stopwatch.StartNew();
             var result = await QueryAsync(query, options, cancellationToken: cancellationToken);
@@ -352,6 +366,7 @@ namespace Mythosia.AI.Rag
                 {
                     AppliedNamespace = appliedNamespace,
                     AppliedTopK = appliedTopK,
+                    RetrievalK = retrievalK,
                     AppliedMinScore = appliedMinScore,
                     ElapsedMs = stopwatch.ElapsedMilliseconds
                 });

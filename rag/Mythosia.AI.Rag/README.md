@@ -76,6 +76,15 @@ That's it. Documents are automatically loaded, chunked, embedded, and indexed on
 
 Combine dense vector similarity with BM25 keyword matching using **Reciprocal Rank Fusion (RRF)**. Documents that rank highly in both keyword and semantic search are boosted to the top.
 
+For stores that support native hybrid storage/search, the recommended model is:
+
+- store both dense and sparse/keyword-searchable data at write time
+- choose retrieval mode at query time
+  - `SearchAsync` for vector-only retrieval
+  - `HybridSearchAsync` for hybrid retrieval
+
+If a store does not support native hybrid retrieval, the RAG layer falls back to application-level fusion automatically.
+
 ```csharp
 .WithRag(rag => rag
     .AddDocument("docs.txt")
@@ -92,10 +101,11 @@ Adjust the balance between vector and keyword search:
 ### How It Works
 
 | Store Type | Behavior |
-|---|---|
+| --- | --- |
 | **InMemoryVectorStore** | Application-level BM25 index + vector search, merged via RRF |
 | **PostgresStore** | Native parallel `tsvector` full-text + `pgvector` similarity, merged via RRF |
 | **QdrantStore** | Native sparse-dense prefetch + Qdrant's built-in RRF fusion |
+| **PineconeStore** | Native dense + sparse server-side fusion on `dotproduct` indexes |
 
 The strategy is selected automatically based on the store — no configuration needed.
 
@@ -108,6 +118,19 @@ To revert to pure vector search:
 ## Re-ranking (v3.2.0)
 
 Re-rank search results after retrieval for improved relevance. Works with both pure vector and hybrid search.
+
+When a reranker is configured, the pipeline automatically fetches a wider candidate pool (`TopK × RetrievalMultiplier`) and then the reranker selects the best `TopK` results. This ensures the reranker has enough diversity to work with.
+
+```csharp
+// Default: retrieves TopK × 3 candidates, reranks down to TopK
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .WithReranker(new CohereReranker(cohereApiKey))
+)
+
+// Custom multiplier via RagStore.UpdateOptions
+store.UpdateOptions(opt => opt.RetrievalMultiplier = 5);
+```
 
 ### Cohere Reranker
 
@@ -261,6 +284,28 @@ var resp1 = await claude.GetCompletionAsync("What is the refund policy?");
 var resp2 = await gpt.GetCompletionAsync("How long does shipping take?");
 ```
 
+### Runtime Options Update
+
+Update pipeline options at runtime without rebuilding the index:
+
+```csharp
+ragStore.UpdateOptions(opt =>
+{
+    opt.TopK = 8;
+    opt.MinScore = 0.4;
+    opt.RetrievalMultiplier = 3;
+    opt.PromptTemplate = @"
+[Reference Documents]
+{context}
+
+[Question]
+{question}
+
+Answer based only on the provided documents.
+";
+});
+```
+
 ## Disable RAG Per-Request
 
 ```csharp
@@ -284,7 +329,7 @@ if (result.HasReferences)
 {
     Console.WriteLine(result.AugmentedPrompt);  // Context + query
     Console.WriteLine(result.References.Count); // Number of matched chunks
-    Console.WriteLine($"TopK={result.Diagnostics.AppliedTopK}, MinScore={result.Diagnostics.AppliedMinScore}, Namespace={result.Diagnostics.AppliedNamespace}, Elapsed={result.Diagnostics.ElapsedMs}ms");
+    Console.WriteLine($"TopK={result.Diagnostics.AppliedTopK}, RetrievalK={result.Diagnostics.RetrievalK}, MinScore={result.Diagnostics.AppliedMinScore}, Namespace={result.Diagnostics.AppliedNamespace}, Elapsed={result.Diagnostics.ElapsedMs}ms");
     foreach (var r in result.References)
     {
         Console.WriteLine($"Score: {r.Score:F4} | {r.Record.Content}");

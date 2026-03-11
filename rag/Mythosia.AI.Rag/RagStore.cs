@@ -67,30 +67,28 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
-        /// Updates query-time settings (TopK, MinScore, Prompt Template) without rebuilding the index.
-        /// Returns false if the underlying pipeline does not support updates.
+        /// Updates pipeline options at runtime without rebuilding the index.
         /// </summary>
-        public bool UpdateQuerySettings(int topK, double? minScore, string? promptTemplate)
+        /// <example>
+        /// <code>
+        /// store.UpdateOptions(opt =>
+        /// {
+        ///     opt.TopK = 8;
+        ///     opt.MinScore = 0.4;
+        ///     opt.RetrievalMultiplier = 3;
+        ///     opt.PromptTemplate = "Based on:\n{context}\n\nQuestion: {question}";
+        /// });
+        /// </code>
+        /// </example>
+        public bool UpdateOptions(Action<RagPipelineOptions> configure)
         {
+            if (configure == null) throw new ArgumentNullException(nameof(configure));
+
             var ragPipeline = Pipeline as RagPipeline;
             if (ragPipeline == null)
                 return false;
 
-            if (topK > 0)
-                ragPipeline.Options.TopK = topK;
-            ragPipeline.Options.MinScore = minScore;
-
-            IContextBuilder contextBuilder;
-            if (string.IsNullOrWhiteSpace(promptTemplate))
-            {
-                contextBuilder = new DefaultContextBuilder();
-            }
-            else
-            {
-                contextBuilder = new TemplateContextBuilder(promptTemplate);
-            }
-            ragPipeline.SetContextBuilder(contextBuilder);
-
+            configure(ragPipeline.Options);
             return true;
         }
 

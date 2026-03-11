@@ -322,7 +322,7 @@ html, body {
   max-height: 88vh;
 }
 .rag-settings-card {
-  width: min(1100px, 94vw);
+  width: min(720px, 94vw);
   max-height: 88vh;
 }
 .rag-settings-grid {
@@ -2485,6 +2485,31 @@ pre:hover .code-copy-btn { opacity: 1; }
   border-radius: var(--radius);
   padding: 14px 16px;
   margin-bottom: 12px;
+}
+
+/* ── Pipeline Settings Sub-blocks (within a step) ──────── */
+.pipe-settings-split {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pipe-settings-block {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: var(--bg-card);
+}
+.pipe-settings-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.pipe-settings-block-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: .3px;
 }
 
 /* ── Pipeline Badges ───────────────────────────────────── */

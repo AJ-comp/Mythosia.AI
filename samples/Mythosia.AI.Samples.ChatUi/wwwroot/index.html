@@ -282,94 +282,19 @@
         </button>
       </div>
       <div class="modal-body rag-settings-body">
-        <div class="rag-settings-grid">
-          <!-- ── Left Column: Retrieval ── -->
-          <div class="rag-settings-col">
-            <div class="rag-settings-section">
-              <div class="rag-settings-section-header">
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-                  Retrieval
-                </span>
-                <span class="rag-settings-section-hint">Search parameters</span>
-              </div>
-              <div class="rag-grid">
-                <div class="rag-field">
-                  <label>Top K</label>
-                  <input id="rag-topk" type="number" value="5" min="1" max="50" />
-                </div>
-                <div class="rag-field">
-                  <label>Min score</label>
-                  <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.2" placeholder="0.0" />
-                </div>
-              </div>
-            </div>
+        <div class="pipe-timeline">
 
-            <div class="rag-settings-section">
-              <div class="rag-settings-section-header">
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2"/></svg>
-                  Hybrid Search
-                </span>
-                <label class="rag-settings-section-toggle">
-                  <input id="rag-hybrid-search" type="checkbox" checked />
-                  <span class="rag-toggle-switch"></span>
-                </label>
-              </div>
-              <div id="rag-hybrid-options" class="rag-settings-sub-options">
-                <div class="rag-field">
-                  <label>Vector weight <span id="rag-hybrid-weight-val" class="rag-range-val">0.50</span></label>
-                  <input id="rag-hybrid-weight" type="range" min="0" max="1" step="0.05" value="0.5" />
-                  <div class="rag-range-labels">
-                    <span>Keyword</span>
-                    <span>Balanced</span>
-                    <span>Semantic</span>
-                  </div>
-                  <div class="rag-hint">Balance between BM25 keyword matching and vector similarity.</div>
-                </div>
-              </div>
+          <!-- ① Query Rewrite -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">1</span>
+              <span class="pipe-step-title">Query Rewrite</span>
+              <label class="rag-settings-section-toggle">
+                <input id="rag-query-rewriter" type="checkbox" checked />
+                <span class="rag-toggle-switch"></span>
+              </label>
             </div>
-
-            <div class="rag-settings-section">
-              <div class="rag-settings-section-header">
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
-                  Re-ranking
-                </span>
-                <label class="rag-settings-section-toggle">
-                  <input id="rag-rerank-enabled" type="checkbox" />
-                  <span class="rag-toggle-switch"></span>
-                </label>
-              </div>
-              <div id="rag-rerank-options" class="rag-settings-sub-options hidden">
-                <div class="rag-field">
-                  <label>Provider</label>
-                  <select id="rag-rerank-provider">
-                    <option value="cohere">Cohere (rerank-v3.5)</option>
-                  </select>
-                </div>
-                <div class="rag-field">
-                  <label>API Key</label>
-                  <input id="rag-rerank-apikey" type="password" placeholder="Enter Cohere API key" autocomplete="off" />
-                  <div class="rag-hint">Required for Cohere re-ranking service.</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- ── Right Column: Processing ── -->
-          <div class="rag-settings-col">
-            <div class="rag-settings-section">
-              <div class="rag-settings-section-header">
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                  Query Rewriter
-                </span>
-                <label class="rag-settings-section-toggle">
-                  <input id="rag-query-rewriter" type="checkbox" checked />
-                  <span class="rag-toggle-switch"></span>
-                </label>
-              </div>
+            <div class="pipe-step-body">
               <div id="rag-rewriter-options" class="rag-settings-sub-options">
                 <div class="rag-hint" style="margin-top:0">Rewrites follow-up queries into standalone queries using conversation history.</div>
                 <div id="rag-rewriter-override-row" class="rag-field rag-rewriter-sub">
@@ -404,25 +329,115 @@
                 </div>
               </div>
             </div>
+          </div>
 
-            <div class="rag-settings-section">
-              <div class="rag-settings-section-header">
-                <span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  Prompt Template
-                </span>
-                <span class="rag-settings-section-hint">Custom context format</span>
+          <!-- ② Retrieval -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">2</span>
+              <span class="pipe-step-title">Retrieval</span>
+            </div>
+            <div class="pipe-step-body">
+              <div class="pipe-settings-split">
+                <!-- Hybrid Search -->
+                <div class="pipe-settings-block">
+                  <div class="pipe-settings-block-header">
+                    <span class="pipe-settings-block-title">Hybrid Search</span>
+                    <label class="rag-settings-section-toggle">
+                      <input id="rag-hybrid-search" type="checkbox" checked />
+                      <span class="rag-toggle-switch"></span>
+                    </label>
+                  </div>
+                  <div id="rag-hybrid-options" class="rag-settings-sub-options">
+                    <div class="rag-field">
+                      <label>Vector weight <span id="rag-hybrid-weight-val" class="rag-range-val">0.50</span></label>
+                      <input id="rag-hybrid-weight" type="range" min="0" max="1" step="0.05" value="0.5" />
+                      <div class="rag-range-labels">
+                        <span>Keyword</span>
+                        <span>Balanced</span>
+                        <span>Semantic</span>
+                      </div>
+                      <div class="rag-hint">Balance between BM25 keyword matching and vector similarity.</div>
+                    </div>
+                  </div>
+                </div>
               </div>
+            </div>
+          </div>
+
+          <!-- ③ Re-ranking -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">3</span>
+              <span class="pipe-step-title">Re-ranking</span>
+              <label class="rag-settings-section-toggle">
+                <input id="rag-rerank-enabled" type="checkbox" />
+                <span class="rag-toggle-switch"></span>
+              </label>
+            </div>
+            <div class="pipe-step-body">
+              <div id="rag-rerank-options" class="rag-settings-sub-options hidden">
+                <div class="rag-field">
+                  <label>Provider</label>
+                  <select id="rag-rerank-provider">
+                    <option value="cohere">Cohere (rerank-v3.5)</option>
+                  </select>
+                </div>
+                <div class="rag-field">
+                  <label>API Key</label>
+                  <input id="rag-rerank-apikey" type="password" placeholder="Enter Cohere API key" autocomplete="off" />
+                  <div class="rag-hint">Required for Cohere re-ranking service.</div>
+                </div>
+                <div class="rag-field">
+                  <label>Retrieval multiplier</label>
+                  <input id="rag-retrieval-multiplier" type="number" value="3" min="1" max="10" />
+                  <div class="rag-hint">Fetches TopK × this many candidates, then re-ranks down to TopK.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ④ Filtering -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">4</span>
+              <span class="pipe-step-title">Filtering</span>
+              <span class="pipe-badge pipe-badge--info">TopK &amp; MinScore</span>
+            </div>
+            <div class="pipe-step-body">
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label>Top K</label>
+                  <input id="rag-topk" type="number" value="8" min="1" max="50" />
+                </div>
+                <div class="rag-field">
+                  <label>Min score</label>
+                  <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.4" placeholder="0.0" />
+                </div>
+              </div>
+              <div class="rag-hint">Results below the min score or beyond Top K are excluded before building the prompt.</div>
+            </div>
+          </div>
+
+          <!-- ⑤ Prompt Template -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">5</span>
+              <span class="pipe-step-title">Prompt Template</span>
+              <span class="pipe-badge pipe-badge--info">Context format</span>
+            </div>
+            <div class="pipe-step-body">
               <div class="rag-field">
-                <textarea id="rag-prompt-template" rows="5" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
+                <textarea id="rag-prompt-template" rows="4" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
                 <div class="rag-hint">Leave empty for default. Use {context} and {question} placeholders.</div>
               </div>
             </div>
           </div>
+
         </div>
       </div>
       <div class="modal-footer rag-settings-footer">
-        <span id="rag-settings-status" class="rag-settings-status">Changes apply on the next indexing run.</span>
+        <span id="rag-settings-status" class="rag-settings-status"></span>
         <button id="rag-settings-save" class="btn btn-primary btn-sm">Save Settings</button>
       </div>
     </div>
@@ -526,15 +541,15 @@
                 </button>
                 <div id="rag-embedding-menu" class="rag-select-menu hidden" role="listbox" aria-label="Embedding provider">
                   <button class="rag-select-option" type="button" data-value="ollama" role="option">
-                    <span class="rag-select-option-label">Ollama (qwen3-embedding:4b)</span>
-                  </button>
+                        <span class="rag-select-option-label">Ollama</span>
+                      </button>
                   <button class="rag-select-option" type="button" data-value="openai" role="option">
                     <span class="rag-select-option-label">OpenAI</span>
                       <span class="rag-badge">Recommended</span>
                   </button>
                 </div>
                 <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
-                  <option value="ollama">Ollama (qwen3-embedding:4b)</option>
+                  <option value="ollama">Ollama</option>
                   <option value="openai" selected>OpenAI</option>
                 </select>
               </div>
@@ -568,9 +583,40 @@
                 </select>
               </div>
             </div>
+            <div id="rag-ollama-model-row" class="rag-field rag-field-wide hidden">
+              <label>Ollama model</label>
+              <div class="rag-select" id="rag-ollama-model-select">
+                <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="rag-select-label">qwen3-embedding:4b</span>
+                  <span class="rag-badge rag-badge-inline">Recommended</span>
+                  <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="rag-select-menu hidden" role="listbox" aria-label="Ollama embedding model">
+                  <button class="rag-select-option" type="button" data-value="qwen3-embedding:0.6b" role="option">
+                    <span class="rag-select-option-label">qwen3-embedding:0.6b</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="qwen3-embedding:4b" role="option">
+                    <span class="rag-select-option-label">qwen3-embedding:4b</span>
+                    <span class="rag-badge">Recommended</span>
+                  </button>
+                  <button class="rag-select-option" type="button" data-value="qwen3-embedding:8b" role="option">
+                    <span class="rag-select-option-label">qwen3-embedding:8b</span>
+                  </button>
+                </div>
+                <select id="rag-ollama-model" class="rag-select-native" aria-hidden="true">
+                  <option value="qwen3-embedding:0.6b">qwen3-embedding:0.6b</option>
+                  <option value="qwen3-embedding:4b" selected>qwen3-embedding:4b</option>
+                  <option value="qwen3-embedding:8b">qwen3-embedding:8b</option>
+                </select>
+              </div>
+            </div>
             <div id="rag-embedding-base-row" class="rag-field rag-field-wide hidden">
               <label>Ollama base URL</label>
-              <input id="rag-embedding-base-url" type="text" value="http://localhost:11434" />
+              <div class="rag-inline-input">
+                <input id="rag-embedding-base-url" type="text" value="http://localhost:11434" />
+                <button id="rag-ollama-test" class="btn btn-primary btn-sm">Test</button>
+              </div>
+              <div id="rag-ollama-status" class="rag-hint">Enter the Ollama base URL and click Test.</div>
             </div>
             <div id="rag-openai-key" class="rag-field rag-field-wide hidden">
               <label>OpenAI API key</label>

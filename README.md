@@ -56,7 +56,7 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v3.2.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v4.0.0</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
@@ -64,7 +64,7 @@ graph TD
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>ChatGPT · Claude · Gemini<br/>Grok · DeepSeek · Sonar<br/><i>netstandard2.1 · v4.7.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>ChatGPT · Claude · Gemini<br/>Grok · DeepSeek · Sonar<br/><i>netstandard2.1 · v4.7.1</i>"]
     end
 
     subgraph "📄 Document Loaders"
@@ -76,7 +76,7 @@ graph TD
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v2.1.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v1.0.0</i>"]
         Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.2.0</i>"]
-        Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v1.1.0</i>"]
+        Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v2.0.0</i>"]
     end
 
     subgraph "🧱 Foundation Abstractions"

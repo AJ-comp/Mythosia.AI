@@ -65,6 +65,10 @@ export const ragEmbeddingMenu = $('#rag-embedding-menu');
 export const ragEmbeddingValue = $('#rag-embedding-value');
 export const ragEmbeddingValueBadge = $('#rag-embedding-value-badge');
 export const ragEmbeddingHint = $('#rag-embedding-hint');
+export const ragOllamaModelRow = $('#rag-ollama-model-row');
+export const ragOllamaModel = $('#rag-ollama-model');
+export const ragOllamaTest = $('#rag-ollama-test');
+export const ragOllamaStatus = $('#rag-ollama-status');
 export const ragOpenAiModelRow = $('#rag-openai-model-row');
 export const ragOpenAiModel = $('#rag-openai-model');
 export const ragOpenAiKey = $('#rag-openai-key');
@@ -92,6 +96,7 @@ export const ragRerankEnabled       = $('#rag-rerank-enabled');
 export const ragRerankOptions       = $('#rag-rerank-options');
 export const ragRerankProvider      = $('#rag-rerank-provider');
 export const ragRerankApiKey        = $('#rag-rerank-apikey');
+export const ragRetrievalMultiplier = $('#rag-retrieval-multiplier');
 
 // RAG Vector Store
 export const ragVectorStoreProvider = $('#rag-vectorstore-provider');

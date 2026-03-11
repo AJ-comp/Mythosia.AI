@@ -561,15 +561,14 @@ namespace Mythosia.AI.Rag
             IContextBuilder contextBuilder;
             if (_contextBuilder != null)
                 contextBuilder = _contextBuilder;
-            else if (_promptTemplate != null)
-                contextBuilder = new TemplateContextBuilder(_promptTemplate);
             else
                 contextBuilder = new DefaultContextBuilder();
 
             var options = new RagPipelineOptions
             {
                 TopK = _topK,
-                MinScore = _scoreThreshold
+                MinScore = _scoreThreshold,
+                PromptTemplate = _promptTemplate
             };
 
             if (!string.IsNullOrWhiteSpace(_defaultNamespace))

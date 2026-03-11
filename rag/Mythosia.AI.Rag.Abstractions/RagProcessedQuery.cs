@@ -19,6 +19,13 @@ namespace Mythosia.AI.Rag
         public int AppliedTopK { get; set; }
 
         /// <summary>
+        /// The number of candidates actually fetched from the vector store.
+        /// When a reranker is configured this is TopK × RetrievalMultiplier;
+        /// otherwise it equals <see cref="AppliedTopK"/>.
+        /// </summary>
+        public int RetrievalK { get; set; }
+
+        /// <summary>
         /// The MinScore value that was actually applied during retrieval.
         /// </summary>
         public double? AppliedMinScore { get; set; }

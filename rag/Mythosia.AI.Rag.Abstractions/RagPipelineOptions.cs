@@ -26,6 +26,21 @@ namespace Mythosia.AI.Rag
         public double? MinScore { get; set; }
 
         /// <summary>
+        /// Multiplier applied to <see cref="TopK"/> when a reranker is configured.
+        /// The retrieval stage fetches TopK × RetrievalMultiplier candidates,
+        /// then the reranker selects the best TopK from that wider pool.
+        /// Ignored when no reranker is present. Default is 3.
+        /// </summary>
+        public int RetrievalMultiplier { get; set; } = 3;
+
+        /// <summary>
+        /// Optional prompt template with {context} and {question} placeholders.
+        /// When set, overrides the default context builder at query time.
+        /// When null or whitespace, the default context builder is used.
+        /// </summary>
+        public string? PromptTemplate { get; set; }
+
+        /// <summary>
         /// Maximum number of texts to embed in a single batch call.
         /// </summary>
         public int EmbeddingBatchSize { get; set; } = 100;
