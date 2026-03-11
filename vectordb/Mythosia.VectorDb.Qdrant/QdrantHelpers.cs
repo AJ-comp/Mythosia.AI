@@ -130,32 +130,29 @@ namespace Mythosia.VectorDb.Qdrant
         }
 
         /// <summary>
-        /// Converts a <see cref="VectorRecord"/> to a Qdrant <see cref="PointStruct"/>,
-        /// optionally including a sparse vector built from the record's content.
+        /// Converts a <see cref="VectorRecord"/> to a Qdrant <see cref="PointStruct"/>.
+        /// Always includes both dense and sparse vectors.
         /// </summary>
-        internal static PointStruct ToPointStruct(VectorRecord record, bool includeSparseVector)
+        internal static PointStruct ToPointStruct(VectorRecord record)
         {
-            var hasDenseVector = record.Vector != null && record.Vector.Length > 0;
-
             var point = new PointStruct
             {
                 Id = CreatePointId(record.Namespace, record.Id),
                 Vectors = record.Vector ?? Array.Empty<float>(),
             };
 
-            if (includeSparseVector && !string.IsNullOrEmpty(record.Content))
+            var namedVectors = new NamedVectors();
+
+            if (record.Vector != null && record.Vector.Length > 0)
+            {
+                var denseProto = new DenseVector();
+                denseProto.Data.AddRange(record.Vector);
+                namedVectors.Vectors.Add(QdrantOptions.DenseVectorName, new Vector { Dense = denseProto });
+            }
+
+            if (!string.IsNullOrEmpty(record.Content))
             {
                 var (indices, values) = BuildSparseVector(record.Content);
-
-                var namedVectors = new NamedVectors();
-
-                if (hasDenseVector)
-                {
-                    var denseProto = new DenseVector();
-                    denseProto.Data.AddRange(record.Vector);
-                    namedVectors.Vectors.Add(QdrantOptions.DenseVectorName, new Vector { Dense = denseProto });
-                }
-
                 if (indices.Length > 0)
                 {
                     var sparseProto = new SparseVector();
@@ -163,19 +160,10 @@ namespace Mythosia.VectorDb.Qdrant
                     sparseProto.Values.AddRange(values);
                     namedVectors.Vectors.Add(QdrantOptions.SparseVectorName, new Vector { Sparse = sparseProto });
                 }
-
-                if (namedVectors.Vectors.Count > 0)
-                    point.Vectors = new Vectors { Vectors_ = namedVectors };
             }
-            else if (hasDenseVector)
-            {
-                var denseProto = new DenseVector();
-                denseProto.Data.AddRange(record.Vector);
 
-                var namedVectors = new NamedVectors();
-                namedVectors.Vectors.Add(QdrantOptions.DenseVectorName, new Vector { Dense = denseProto });
+            if (namedVectors.Vectors.Count > 0)
                 point.Vectors = new Vectors { Vectors_ = namedVectors };
-            }
 
             point.Payload[PayloadKeyId] = record.Id;
             point.Payload[PayloadKeyContent] = record.Content ?? string.Empty;

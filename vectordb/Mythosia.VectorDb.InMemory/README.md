@@ -112,6 +112,8 @@ var results = bm25.Search("machine learning", topK: 5);
 // results[0].Id == "doc1", results[0].Score > 0
 ```
 
+When hybrid search is used, fused RRF scores are normalized to the `[0, 1]` range so `VectorFilter.MinScore` is applied consistently to the final merged score.
+
 ## Limitations
 
 - Data is **not persisted** — lost when the process exits

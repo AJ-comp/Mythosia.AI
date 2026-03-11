@@ -3,23 +3,83 @@
 PostgreSQL ([pgvector](https://github.com/pgvector/pgvector)) implementation of `IVectorStore`.  
 Single-table design with namespace column for logical isolation.
 
-## Migration from v10.0.0
+## Migration
 
-If upgrading from v10.0.0, run the following SQL migration **before** deploying:
+Run the following migration **before** deploying if your Postgres table was created by any earlier version of `Mythosia.VectorDb.Postgres`.
+
+This normalizes the table to the current schema and is safe to run on already-updated tables.
+
+If you configured custom names via `PostgresOptions.SchemaName` or `PostgresOptions.TableName`, replace every occurrence of `"public"."vectors"` in the SQL below to match your actual schema and table name.
 
 ```sql
--- 1. Rename columns (order matters: rename 'namespace' first to avoid conflict)
-ALTER TABLE "public"."vectors" RENAME COLUMN namespace TO scope;
-ALTER TABLE "public"."vectors" RENAME COLUMN collection TO namespace;
+-- Legacy rename step for older schemas that still use `collection`
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'vectors'
+          AND column_name = 'collection'
+    ) AND EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'vectors'
+          AND column_name = 'namespace'
+    ) THEN
+        EXECUTE 'ALTER TABLE "public"."vectors" RENAME COLUMN namespace TO scope';
+        EXECUTE 'ALTER TABLE "public"."vectors" RENAME COLUMN collection TO namespace';
+    END IF;
+END $$;
 
--- 2. Recreate composite index
+-- Recreate index/primary key if the legacy schema was renamed above
 DROP INDEX IF EXISTS idx_vectors_collection_ns;
-CREATE INDEX idx_vectors_ns_scope ON "public"."vectors" (namespace, scope);
+CREATE INDEX IF NOT EXISTS idx_vectors_ns_scope ON "public"."vectors" (namespace, scope);
 
--- 3. Recreate primary key
-ALTER TABLE "public"."vectors" DROP CONSTRAINT vectors_pkey;
-ALTER TABLE "public"."vectors" ADD PRIMARY KEY (namespace, id);
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        WHERE n.nspname = 'public'
+          AND t.relname = 'vectors'
+          AND c.conname = 'vectors_pkey'
+    ) THEN
+        EXECUTE 'ALTER TABLE "public"."vectors" DROP CONSTRAINT vectors_pkey';
+    END IF;
+EXCEPTION
+    WHEN undefined_table THEN NULL;
+END $$;
+
+ALTER TABLE "public"."vectors"
+    ADD PRIMARY KEY (namespace, id);
+
+-- Current v10.2.0 hybrid-search schema
+ALTER TABLE "public"."vectors"
+    ADD COLUMN IF NOT EXISTS content_tsv tsvector;
+
+UPDATE "public"."vectors"
+SET content_tsv = to_tsvector('simple', coalesce(content, ''));
+
+ALTER TABLE "public"."vectors"
+    ALTER COLUMN content_tsv SET NOT NULL;
+
+COMMENT ON COLUMN "public"."vectors".content IS
+    'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
+
+CREATE INDEX IF NOT EXISTS idx_vectors_content_tsv
+    ON "public"."vectors" USING gin (content_tsv);
 ```
+
+Notes:
+
+- The `collection` -> `namespace` rename block only affects old legacy schemas.
+- The `content_tsv` migration is the current **breaking schema change** because hybrid search now depends on a persisted `content_tsv` column instead of recalculating `to_tsvector(content)` at query time.
+- If you are creating a new deployment from scratch, you do not need this migration; the current schema below is sufficient.
+- The sample SQL assumes the default `SchemaName = "public"` and `TableName = "vectors"`.
 
 ## Prerequisites
 
@@ -63,7 +123,8 @@ erDiagram
         text namespace PK "NOT NULL — logical namespace"
         text id PK "NOT NULL — unique record ID within namespace"
         text scope "NULL — optional sub-namespace isolation"
-        text content "NULL — original text content"
+        text content "NULL — original text content, optional when only content_tsv may be stored"
+        tsvector content_tsv "NOT NULL — persisted full-text search vector for hybrid search"
         jsonb metadata "NOT NULL DEFAULT '{}' — arbitrary key-value pairs"
         vector embedding "NOT NULL — vector(dimension) for similarity search"
         timestamptz created_at "NOT NULL DEFAULT now()"
@@ -80,6 +141,7 @@ erDiagram
 | PK | btree | `(namespace, id)` | Primary key / upsert conflict |
 | `idx_*_embedding` | hnsw / ivfflat | `embedding vector_*_ops` | ANN similarity search (distance strategy dependent) |
 | `idx_*_metadata` | gin | `metadata` | jsonb containment filter (`@>`) |
+| `idx_*_content_tsv` | gin | `content_tsv` | Full-text search index for hybrid lexical retrieval |
 | `idx_*_ns_scope` | btree | `(namespace, scope)` | Scope-scoped queries |
 
 ## Schema
@@ -94,6 +156,7 @@ CREATE TABLE IF NOT EXISTS "public"."vectors" (
     id          text        NOT NULL,
     scope       text        NULL,
     content     text        NULL,
+    content_tsv tsvector    NOT NULL,
     metadata    jsonb       NOT NULL DEFAULT '{}'::jsonb,
     embedding   vector(1536) NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
@@ -101,9 +164,24 @@ CREATE TABLE IF NOT EXISTS "public"."vectors" (
     PRIMARY KEY (namespace, id)
 );
 
+ALTER TABLE "public"."vectors"
+    ADD COLUMN IF NOT EXISTS content_tsv tsvector;
+
+UPDATE "public"."vectors"
+SET content_tsv = to_tsvector('simple', coalesce(content, ''));
+
+ALTER TABLE "public"."vectors"
+    ALTER COLUMN content_tsv SET NOT NULL;
+
+COMMENT ON COLUMN "public"."vectors".content IS
+    'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_vectors_metadata
     ON "public"."vectors" USING gin (metadata);
+
+CREATE INDEX IF NOT EXISTS idx_vectors_content_tsv
+    ON "public"."vectors" USING gin (content_tsv);
 
 CREATE INDEX IF NOT EXISTS idx_vectors_ns_scope
     ON "public"."vectors" (namespace, scope);
@@ -114,6 +192,7 @@ CREATE INDEX IF NOT EXISTS idx_vectors_embedding
 ```
 
 Notes:
+
 - The vector index SQL changes by `Index` type (`HnswIndexOptions` / `IvfFlatIndexOptions` / `NoIndexOptions`).
 - The operator class changes by `DistanceStrategy`:
   - `Cosine` -> `vector_cosine_ops`
@@ -137,6 +216,7 @@ CREATE TABLE public.vectors (
     id          text        NOT NULL,
     scope       text        NULL,
     content     text        NULL,
+    content_tsv tsvector    NOT NULL,
     metadata    jsonb       NOT NULL DEFAULT '{}'::jsonb,
     embedding   vector(1536) NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
@@ -144,9 +224,15 @@ CREATE TABLE public.vectors (
     PRIMARY KEY (namespace, id)
 );
 
+COMMENT ON COLUMN public.vectors.content IS
+    'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
+
 -- 3. Indexes
 CREATE INDEX idx_vectors_metadata
     ON public.vectors USING gin (metadata);
+
+CREATE INDEX idx_vectors_content_tsv
+    ON public.vectors USING gin (content_tsv);
 
 CREATE INDEX idx_vectors_ns_scope
     ON public.vectors (namespace, scope);
@@ -167,7 +253,7 @@ ANALYZE public.vectors;
 ## Options
 
 | Option | Default | Description |
-|---|---|---|
+| --- | --- | --- |
 | `ConnectionString` | *(required)* | PostgreSQL connection string |
 | `Dimension` | *(required)* | Embedding vector dimension (e.g., 1536 for OpenAI) |
 | `SchemaName` | `"public"` | Database schema |
@@ -189,13 +275,14 @@ ANALYZE public.vectors;
 - `IvfFlatIndexOptions.Lists`: start around `sqrt(total_rows)` and tune from there.
 
 Use runtime options matching your index settings:
+
 - `Index = new HnswIndexOptions(...)` -> `HnswSearchRuntimeOptions`
 - `Index = new IvfFlatIndexOptions(...)` -> `IvfFlatSearchRuntimeOptions`
 
 Recommended starting points:
 
 | Goal | `IvfFlatSearchRuntimeOptions.Probes` | `HnswSearchRuntimeOptions.EfSearch` |
-|---|---:|---:|
+| --- | ---: | ---: |
 | Fast | 4 | 16 |
 | Balanced | 10 | 40 |
 | HighRecall | 32 | 120 |
@@ -216,9 +303,9 @@ These are practical ranges, not strict hard limits. Final values should be chose
 
 ## Hybrid Search (v10.2.0)
 
-`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called via `UseHybridSearch()`, it runs **parallel queries** — `tsvector/tsquery` full-text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)**.
+`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called via `UseHybridSearch()`, it runs **parallel queries** — persisted `content_tsv` full-text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)**.
 
-No schema changes or extra configuration required. PostgreSQL's built-in `to_tsvector`/`to_tsquery` is used for keyword matching.
+As of `v10.2.0`, hybrid search uses a persisted `content_tsv` column plus a GIN index instead of recomputing `to_tsvector(content)` on every query.
 
 ```csharp
 var store = await RagStore.BuildAsync(config => config
@@ -235,11 +322,7 @@ var store = await RagStore.BuildAsync(config => config
 );
 ```
 
-For optimal full-text search performance, consider adding a GIN index on `to_tsvector('simple', content)`:
-
-```sql
-CREATE INDEX idx_vectors_fts ON public.vectors USING gin (to_tsvector('simple', content));
-```
+`content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval.
 
 ## RAG Integration
 

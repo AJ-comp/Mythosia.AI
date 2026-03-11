@@ -19,7 +19,7 @@
 ### Behavior Changes
 
 - Collections are treated as hybrid-capable by default.
-- `EnableHybridSearch` is now a legacy compatibility option and no longer changes storage behavior.
+- `EnableHybridSearch` option has been removed. Collections are always hybrid-capable.
 - Migration tooling prints explicit warnings, progress stages, and clear success / no-op output.
 
 ### Migrating from v1.0.0

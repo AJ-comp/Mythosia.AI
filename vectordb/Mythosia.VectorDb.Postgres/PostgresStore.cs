@@ -224,37 +224,101 @@ LIMIT @topK";
 
         var ns = filter?.Namespace ?? DefaultNamespace;
         var distanceOperator = GetDistanceOperator();
-        var scoreExpression = GetScoreExpression();
         var expandedTopK = topK * 2;
+        const int rrfK = 60;
+        const float vectorWeight = 0.5f;
+        const float keywordWeight = 0.5f;
 
         var (whereClause, filterParams) = filter != null
-            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression)
+            ? BuildFilterWhere(filter, includeMinScore: false, string.Empty)
+            : ("", new List<NpgsqlParameter>());
+
+        var (bm25WhereClause, bm25FilterParams) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
             : ("", new List<NpgsqlParameter>());
 
         using var conn = await OpenConnectionAsync(cancellationToken);
         await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
-        var vectorResults = new List<VectorSearchResult>();
-        var bm25Results = new List<(string id, string content, float[] vector, Dictionary<string, string> metadata, string? resultNamespace, string? scope, double bm25Score)>();
-
-        // 1. Vector search
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
             cmd.CommandText = $@"
-SELECT id, namespace, scope, content, metadata, embedding::text,
-       {scoreExpression} AS score
-FROM {_qualifiedTable}
-WHERE namespace = @ns{whereClause}
-ORDER BY embedding {distanceOperator} @q::vector
-LIMIT @topK";
+WITH vector_candidates AS (
+    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding
+    FROM {_qualifiedTable}
+    WHERE namespace = @ns{whereClause}
+    ORDER BY embedding {distanceOperator} @q::vector
+    LIMIT @candidateTopK
+),
+vector_results AS (
+    SELECT id, namespace, scope, content, metadata, embedding,
+           ROW_NUMBER() OVER () AS rank_idx
+    FROM vector_candidates
+),
+text_candidates AS (
+    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
+           ts_rank(content_tsv, plainto_tsquery('simple', @query)) AS bm25_score
+    FROM {_qualifiedTable}
+    WHERE namespace = @ns{bm25WhereClause}
+      AND plainto_tsquery('simple', @query) <> ''::tsquery
+      AND content_tsv @@ plainto_tsquery('simple', @query)
+    ORDER BY bm25_score DESC
+    LIMIT @candidateTopK
+),
+text_results AS (
+    SELECT id, namespace, scope, content, metadata, embedding,
+           ROW_NUMBER() OVER (ORDER BY bm25_score DESC) AS rank_idx
+    FROM text_candidates
+),
+rrf_scores AS (
+    SELECT id, namespace,
+           @vectorWeight * (1.0 / (@rrfK + rank_idx)) AS rrf_score
+    FROM vector_results
+    UNION ALL
+    SELECT id, namespace,
+           @keywordWeight * (1.0 / (@rrfK + rank_idx)) AS rrf_score
+    FROM text_results
+),
+final_scores AS (
+    SELECT id, namespace, SUM(rrf_score) * (@rrfK + 1) AS score
+    FROM rrf_scores
+    GROUP BY id, namespace
+    ORDER BY score DESC
+    LIMIT @topK
+),
+base_records AS (
+    SELECT id, namespace, scope, content, metadata, embedding FROM vector_results
+    UNION
+    SELECT id, namespace, scope, content, metadata, embedding FROM text_results
+)
+SELECT br.id, br.namespace, br.scope, br.content, br.metadata, br.embedding,
+       fs.score
+FROM final_scores fs
+JOIN base_records br
+  ON br.namespace = fs.namespace
+ AND br.id = fs.id
+ORDER BY fs.score DESC";
 
             cmd.Parameters.AddWithValue("@ns", ns);
             cmd.Parameters.AddWithValue("@q", VectorToString(denseVector));
-            cmd.Parameters.AddWithValue("@topK", expandedTopK);
+            cmd.Parameters.AddWithValue("@query", query);
+            cmd.Parameters.AddWithValue("@candidateTopK", expandedTopK);
+            cmd.Parameters.AddWithValue("@topK", topK);
+            cmd.Parameters.AddWithValue("@rrfK", rrfK);
+            cmd.Parameters.AddWithValue("@vectorWeight", vectorWeight);
+            cmd.Parameters.AddWithValue("@keywordWeight", keywordWeight);
 
             foreach (var p in filterParams)
                 cmd.Parameters.Add(p);
+
+            foreach (var p in bm25FilterParams)
+            {
+                if (!cmd.Parameters.Contains(p.ParameterName))
+                    cmd.Parameters.Add(p);
+            }
+
+            var results = new List<VectorSearchResult>();
 
             using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
             {
@@ -262,100 +326,14 @@ LIMIT @topK";
                 {
                     var record = ReadRecord(reader);
                     var score = reader.GetDouble(reader.GetOrdinal("score"));
-                    vectorResults.Add(new VectorSearchResult(record, score));
+                    results.Add(new VectorSearchResult(record, score));
                 }
             }
+
+            await tx.CommitAsync(cancellationToken);
+
+            return results;
         }
-
-        // 2. Full-text search (BM25-like via ts_rank)
-        var (bm25WhereClause, bm25FilterParams) = filter != null
-            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
-            : ("", new List<NpgsqlParameter>());
-
-        using (var cmd = conn.CreateCommand())
-        {
-            cmd.Transaction = tx;
-            cmd.CommandText = $@"
-SELECT id, namespace, scope, content, metadata, embedding::text,
-       ts_rank(to_tsvector('simple', coalesce(content, '')), plainto_tsquery('simple', @query)) AS bm25_score
-FROM {_qualifiedTable}
-WHERE namespace = @ns2{bm25WhereClause}
-  AND plainto_tsquery('simple', @query) <> ''::tsquery
-  AND to_tsvector('simple', coalesce(content, '')) @@ plainto_tsquery('simple', @query)
-ORDER BY bm25_score DESC
-LIMIT @topK2";
-
-            cmd.Parameters.AddWithValue("@ns2", ns);
-            cmd.Parameters.AddWithValue("@query", query);
-            cmd.Parameters.AddWithValue("@topK2", expandedTopK);
-
-            foreach (var p in bm25FilterParams)
-                cmd.Parameters.Add(p);
-
-            using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
-            {
-                while (await reader.ReadAsync(cancellationToken))
-                {
-                    var record = ReadRecord(reader);
-                    var bm25Score = reader.GetDouble(reader.GetOrdinal("bm25_score"));
-                    bm25Results.Add((record.Id, record.Content, record.Vector, record.Metadata, record.Namespace, record.Scope, bm25Score));
-                }
-            }
-        }
-
-        await tx.CommitAsync(cancellationToken);
-
-        // 3. RRF merge
-        return RrfMerge(vectorResults, bm25Results, topK, vectorWeight: 0.5f);
-    }
-
-    private static IReadOnlyList<VectorSearchResult> RrfMerge(
-        List<VectorSearchResult> vectorResults,
-        List<(string id, string content, float[] vector, Dictionary<string, string> metadata, string? resultNamespace, string? scope, double bm25Score)> bm25Results,
-        int topK,
-        float vectorWeight)
-    {
-        const int rrfK = 60;
-        float keywordWeight = 1f - vectorWeight;
-
-        var scores = new Dictionary<string, (double rrfScore, VectorSearchResult? vectorResult)>(StringComparer.Ordinal);
-
-        for (int i = 0; i < vectorResults.Count; i++)
-        {
-            var id = vectorResults[i].Record.Id;
-            var rrfScore = vectorWeight * (1.0 / (rrfK + i + 1));
-            scores[id] = (rrfScore, vectorResults[i]);
-        }
-
-        for (int i = 0; i < bm25Results.Count; i++)
-        {
-            var item = bm25Results[i];
-            var rrfScore = keywordWeight * (1.0 / (rrfK + i + 1));
-
-            if (scores.TryGetValue(item.id, out var existing))
-            {
-                scores[item.id] = (existing.rrfScore + rrfScore, existing.vectorResult);
-            }
-            else
-            {
-                var record = new VectorRecord
-                {
-                    Id = item.id,
-                    Content = item.content,
-                    Vector = item.vector,
-                    Metadata = item.metadata,
-                    Namespace = item.resultNamespace,
-                    Scope = item.scope
-                };
-                scores[item.id] = (rrfScore, new VectorSearchResult(record, 0));
-            }
-        }
-
-        return scores
-            .OrderByDescending(kvp => kvp.Value.rrfScore)
-            .Take(topK)
-            .Select(kvp => new VectorSearchResult(kvp.Value.vectorResult!.Record, kvp.Value.rrfScore))
-            .ToList();
     }
 
     #endregion
@@ -402,6 +380,7 @@ CREATE TABLE IF NOT EXISTS {_qualifiedTable} (
     id          text        NOT NULL,
     scope       text        NULL,
     content     text        NULL,
+    content_tsv tsvector    NOT NULL,
     metadata    jsonb       NOT NULL DEFAULT '{{}}'::jsonb,
     embedding   vector({_options.Dimension}) NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
@@ -409,8 +388,22 @@ CREATE TABLE IF NOT EXISTS {_qualifiedTable} (
     PRIMARY KEY (namespace, id)
 );
 
+ALTER TABLE {_qualifiedTable}
+    ADD COLUMN IF NOT EXISTS content_tsv tsvector;
+
+UPDATE {_qualifiedTable}
+SET content_tsv = to_tsvector('simple', coalesce(content, ''));
+
+ALTER TABLE {_qualifiedTable}
+    ALTER COLUMN content_tsv SET NOT NULL;
+
+COMMENT ON COLUMN {_qualifiedTable}.content IS 'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
+
 CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_metadata
     ON {_qualifiedTable} USING gin (metadata);
+
+CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_content_tsv
+    ON {_qualifiedTable} USING gin (content_tsv);
 
 CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_ns_scope
     ON {_qualifiedTable} (namespace, scope);
@@ -484,11 +477,12 @@ WHERE table_schema = @schema AND table_name = @table";
     private string BuildUpsertSql()
     {
         return $@"
-INSERT INTO {_qualifiedTable} (namespace, id, scope, content, metadata, embedding)
-VALUES (@ns, @id, @scope, @content, @metadata, @embedding::vector)
+INSERT INTO {_qualifiedTable} (namespace, id, scope, content, content_tsv, metadata, embedding)
+VALUES (@ns, @id, @scope, @content, to_tsvector('simple', coalesce(@content, '')), @metadata, @embedding::vector)
 ON CONFLICT (namespace, id) DO UPDATE SET
     scope      = EXCLUDED.scope,
     content    = EXCLUDED.content,
+    content_tsv = EXCLUDED.content_tsv,
     metadata   = EXCLUDED.metadata,
     embedding  = EXCLUDED.embedding,
     updated_at = now()";

@@ -83,7 +83,6 @@ var results = await store.InNamespace("documents")
 | `Dimension` | *(required)* | Embedding vector dimension |
 | `DistanceStrategy` | `Cosine` | `Cosine`, `Euclidean`, or `DotProduct` |
 | `AutoCreateCollection` | `true` | Auto-create the collection on first use |
-| `EnableHybridSearch` | `true` | Legacy compatibility option (ignored). Collections are always created hybrid-capable and upserts always include sparse vectors. |
 
 ## Hybrid Search (v2.0.0)
 

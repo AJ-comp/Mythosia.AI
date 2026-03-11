@@ -158,7 +158,14 @@ namespace Mythosia.VectorDb.InMemory
                 .ToList();
 
             var merged = RrfMerge(vectorResults, bm25Results, store, topK);
-            return ApplyMinScoreFilter(merged, filter?.MinScore);
+
+            // Apply MinScore filter to the final RRF-normalized scores
+            if (filter?.MinScore.HasValue == true)
+            {
+                merged = merged.Where(r => r.Score >= filter.MinScore.Value).ToList();
+            }
+
+            return merged;
         }
 
         #endregion
@@ -265,31 +272,26 @@ namespace Mythosia.VectorDb.InMemory
                     scores[id] = (rrf, null, bm25Results[i]);
             }
 
+            // Normalize RRF scores to [0, 1]: max raw RRF = 1/(k+1), so multiply by (k+1).
+            double normalizer = RrfK + 1;
+
             return scores
                 .OrderByDescending(kvp => kvp.Value.score)
                 .Take(topK)
                 .Select(kvp =>
                 {
+                    var normalizedScore = kvp.Value.score * normalizer;
+
                     if (kvp.Value.vectorResult != null)
-                        return new VectorSearchResult(kvp.Value.vectorResult.Record, kvp.Value.score);
+                        return new VectorSearchResult(kvp.Value.vectorResult.Record, normalizedScore);
 
                     var bm25 = kvp.Value.bm25Result!;
                     if (namespaceStore.TryGetValue(bm25.Id, out var record))
-                        return new VectorSearchResult(record, kvp.Value.score);
+                        return new VectorSearchResult(record, normalizedScore);
 
-                    return new VectorSearchResult(new VectorRecord { Id = bm25.Id, Content = bm25.Content }, kvp.Value.score);
+                    return new VectorSearchResult(new VectorRecord { Id = bm25.Id, Content = bm25.Content }, normalizedScore);
                 })
                 .ToList();
-        }
-
-        private static IReadOnlyList<VectorSearchResult> ApplyMinScoreFilter(
-            IReadOnlyList<VectorSearchResult> results,
-            double? minScore)
-        {
-            if (!minScore.HasValue)
-                return results;
-
-            return results.Where(r => r.Score >= minScore.Value).ToList();
         }
 
         private static bool MatchesFilter(VectorRecord record, VectorFilter filter)

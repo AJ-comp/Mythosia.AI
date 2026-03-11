@@ -10,5 +10,10 @@ Initial release.
 - **Metadata filtering** — supports AND filtering for metadata key-value pairs.
 - **MinScore filtering** — applies `VectorFilter.MinScore` on returned Pinecone matches.
 - **Single and batch upsert** — batch upsert auto-chunks by `UpsertBatchSize`.
+- **Hybrid-capable storage model** — upserts store dense vectors together with BM25-derived sparse values so retrieval mode can be chosen at query time.
+- **Native hybrid search** — `HybridSearchAsync` sends dense and sparse query components together and uses Pinecone server-side fusion.
+- **Automatic index provisioning** — optional control-plane based index creation via `PineconeOptions.AutoCreateIndex` with `IndexName`, `Dimension`, `Cloud`, `Region`, and `ControlPlaneHost`.
+- **Dotproduct metric guidance** — hybrid-search related failures now surface guidance that the Pinecone index metric must be `dotproduct`.
+- **Sparse upserts** — supports upserting sparse vectors directly.
 - **Delete by Id / filter / namespace-wide delete-all** — maps to Pinecone delete operations.
 - **Client injection** — accepts externally managed `HttpClient` for advanced scenarios.

@@ -219,7 +219,7 @@ namespace Mythosia.VectorDb.Qdrant
                 var batch = points.Result
                     .Where(p => !QdrantHelpers.IsSchemaMarker(p))
                     .Select(QdrantHelpers.ToVectorRecord)
-                    .Select(r => QdrantHelpers.ToPointStruct(r, includeSparseVector: true))
+                    .Select(r => QdrantHelpers.ToPointStruct(r))
                     .ToList();
 
                 if (batch.Count > 0)
@@ -582,7 +582,6 @@ namespace Mythosia.VectorDb.Qdrant
                 Dimension = options.Dimension,
                 DistanceStrategy = options.DistanceStrategy,
                 AutoCreateCollection = options.AutoCreateCollection,
-                EnableHybridSearch = options.EnableHybridSearch,
                 HybridFusionStrategy = options.HybridFusionStrategy,
                 AdditionalPayloadIndexes = options.AdditionalPayloadIndexes?.ToList() ?? new List<QdrantIndexOption>()
             };

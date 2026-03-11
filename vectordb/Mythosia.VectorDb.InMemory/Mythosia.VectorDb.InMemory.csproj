@@ -8,10 +8,10 @@
     <Version>2.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, upsert/delete operations, and Bm25Index for keyword search.</Description>
-    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25</PackageTags>
+    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, upsert/delete operations, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
+    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.1.0: Add Bm25Index for in-memory BM25 keyword search, used by HybridRetrievalStrategy for non-hybrid-capable stores.</PackageReleaseNotes>
+    <PackageReleaseNotes>v2.1.0: Add Bm25Index for in-memory BM25 keyword search, normalize hybrid RRF scores to [0,1], and apply MinScore to final merged hybrid scores.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

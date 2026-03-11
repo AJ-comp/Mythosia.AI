@@ -58,14 +58,6 @@ namespace Mythosia.VectorDb.Qdrant
         public bool AutoCreateCollection { get; set; } = true;
 
         /// <summary>
-        /// Legacy compatibility option.
-        /// Collections are always provisioned as hybrid-capable (dense + sparse) and
-        /// upserts always include sparse vectors regardless of this value.
-        /// Default: true.
-        /// </summary>
-        public bool EnableHybridSearch { get; set; } = true;
-
-        /// <summary>
         /// Native server-side fusion strategy for hybrid search queries.
         /// Default: <see cref="QdrantHybridFusionStrategy.Rrf"/>.
         /// </summary>

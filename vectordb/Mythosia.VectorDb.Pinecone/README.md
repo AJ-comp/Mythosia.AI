@@ -37,6 +37,15 @@ var results = await store.InNamespace("documents")
     .SearchAsync(queryVector, topK: 5);
 ```
 
+`PineconeStore` follows the same hybrid-capable storage model as `QdrantStore`:
+
+- upserts always store dense vectors and sparse BM25-derived values together
+- retrieval mode is chosen at query time
+  - `SearchAsync` for vector-only retrieval
+  - `HybridSearchAsync` for native dense + sparse retrieval
+
+For native hybrid search, the Pinecone index metric must be `dotproduct`.
+
 ## Options
 
 | Property | Default | Description |
@@ -46,6 +55,23 @@ var results = await store.InNamespace("documents")
 | `DefaultNamespace` | `null` | Namespace used when record/filter namespace is null |
 | `UpsertBatchSize` | `100` | Max vectors per upsert request |
 | `RequestTimeoutSeconds` | `100` | Timeout when store owns `HttpClient` |
+| `AutoCreateIndex` | `false` | Auto-create the index through the Pinecone Control Plane API |
+| `IndexName` | `null` | Required when `AutoCreateIndex = true` |
+| `Dimension` | `0` | Required when `AutoCreateIndex = true` |
+| `Cloud` | `null` | Required when `AutoCreateIndex = true` |
+| `Region` | `null` | Required when `AutoCreateIndex = true` |
+| `ControlPlaneHost` | `https://api.pinecone.io` | Pinecone Control Plane API base URL |
+
+When `AutoCreateIndex = true`, the index is created with `dotproduct` metric automatically.
+
+## Hybrid Search
+
+```csharp
+var hybridResults = await store.InNamespace("documents")
+    .HybridSearchAsync(queryVector, "hello world", topK: 5);
+```
+
+`SearchAsync` remains pure dense retrieval. `HybridSearchAsync` sends both dense and sparse query components and lets Pinecone perform server-side fusion.
 
 ## Scope & Metadata Filtering
 

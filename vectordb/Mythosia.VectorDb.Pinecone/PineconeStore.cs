@@ -24,6 +24,8 @@ namespace Mythosia.VectorDb.Pinecone
         private readonly PineconeOptions _options;
         private readonly HttpClient _httpClient;
         private readonly bool _ownsHttpClient;
+        private readonly SemaphoreSlim _indexLock = new SemaphoreSlim(1, 1);
+        private volatile bool _indexEnsured;
 
         private const string MetadataKeyContent = "_content";
         private const string MetadataKeyScope = "_scope";
@@ -49,9 +51,12 @@ namespace Mythosia.VectorDb.Pinecone
 
             _httpClient = new HttpClient
             {
-                BaseAddress = NormalizeIndexHost(options.IndexHost),
                 Timeout = TimeSpan.FromSeconds(options.RequestTimeoutSeconds)
             };
+
+            if (!string.IsNullOrWhiteSpace(options.IndexHost))
+                _httpClient.BaseAddress = NormalizeIndexHost(options.IndexHost);
+
             _ownsHttpClient = true;
         }
 
@@ -64,7 +69,7 @@ namespace Mythosia.VectorDb.Pinecone
             _options = options;
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
 
-            if (_httpClient.BaseAddress == null)
+            if (_httpClient.BaseAddress == null && !string.IsNullOrWhiteSpace(options.IndexHost))
                 _httpClient.BaseAddress = NormalizeIndexHost(options.IndexHost);
 
             _ownsHttpClient = false;
@@ -82,13 +87,15 @@ namespace Mythosia.VectorDb.Pinecone
         {
             if (records == null) throw new ArgumentNullException(nameof(records));
 
+            await EnsureIndexAsync(cancellationToken);
+
             var materialized = records.ToList();
             if (materialized.Count == 0)
                 return;
 
             foreach (var nsGroup in materialized.GroupBy(r => ResolveNamespace(r.Namespace), StringComparer.Ordinal))
             {
-                var vectors = nsGroup.Select(ToUpsertVector).ToList();
+                var vectors = nsGroup.Select(r => ToUpsertVector(r)).ToList();
 
                 for (var i = 0; i < vectors.Count; i += _options.UpsertBatchSize)
                 {
@@ -113,6 +120,8 @@ namespace Mythosia.VectorDb.Pinecone
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("id must not be empty.", nameof(id));
 
+            await EnsureIndexAsync(cancellationToken);
+
             var ns = ResolveNamespace(filter?.Namespace);
             var path = BuildFetchPath(id, ns);
             var response = await SendAsync<FetchResponse>(HttpMethod.Get, path, null, cancellationToken);
@@ -131,6 +140,8 @@ namespace Mythosia.VectorDb.Pinecone
         {
             if (string.IsNullOrWhiteSpace(id))
                 throw new ArgumentException("id must not be empty.", nameof(id));
+
+            await EnsureIndexAsync(cancellationToken);
 
             // When additional filters are present, ensure the target matches first.
             if (filter != null && (filter.Scope != null || filter.MetadataMatch != null))
@@ -152,6 +163,8 @@ namespace Mythosia.VectorDb.Pinecone
         public async Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default)
         {
             if (filter == null) throw new ArgumentNullException(nameof(filter));
+
+            await EnsureIndexAsync(cancellationToken);
 
             var metadataFilter = BuildMetadataFilter(filter);
             var request = new DeleteRequest
@@ -184,6 +197,8 @@ namespace Mythosia.VectorDb.Pinecone
             if (queryVector == null) throw new ArgumentNullException(nameof(queryVector));
             if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK), "topK must be greater than 0.");
 
+            await EnsureIndexAsync(cancellationToken);
+
             var request = new QueryRequest
             {
                 Namespace = ResolveNamespace(filter?.Namespace),
@@ -210,6 +225,197 @@ namespace Mythosia.VectorDb.Pinecone
             }
 
             return results;
+        }
+
+        #endregion
+
+        #region IVectorStore - Hybrid Search
+
+        /// <summary>
+        /// Performs a native hybrid search using Pinecone's server-side dense + sparse fusion.
+        /// Dense vector search and sparse (BM25-based) vector search are combined by Pinecone internally.
+        /// Requires the index to use <c>dotproduct</c> metric.
+        /// </summary>
+        public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            int topK,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (denseVector == null) throw new ArgumentNullException(nameof(denseVector));
+            if (string.IsNullOrWhiteSpace(query)) throw new ArgumentException("query must not be empty.", nameof(query));
+            if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK), "topK must be greater than 0.");
+
+            await EnsureIndexAsync(cancellationToken);
+
+            // Build sparse vector from query using BM25 tokenizer
+            var (sparseIndices, sparseValues) = PineconeHelpers.BuildSparseVector(query);
+
+            var request = new QueryRequest
+            {
+                Namespace = ResolveNamespace(filter?.Namespace),
+                Vector = denseVector,
+                TopK = topK,
+                IncludeMetadata = true,
+                IncludeValues = true,
+                Filter = BuildMetadataFilter(filter)
+            };
+
+            if (sparseIndices.Length > 0)
+            {
+                request.SparseVector = new SparseValuesDto
+                {
+                    Indices = sparseIndices,
+                    Values = sparseValues
+                };
+            }
+
+            var response = await SendAsync<QueryResponse>(HttpMethod.Post, "query", request, cancellationToken);
+            var matches = response.Matches ?? new List<QueryMatch>();
+
+            var minScore = filter?.MinScore;
+            var results = new List<VectorSearchResult>(matches.Count);
+
+            foreach (var match in matches)
+            {
+                if (minScore.HasValue && match.Score < minScore.Value)
+                    continue;
+
+                var record = ToVectorRecord(match, request.Namespace);
+                results.Add(new VectorSearchResult(record, match.Score));
+            }
+
+            return results;
+        }
+
+        #endregion
+
+        #region Helpers - Index Management
+
+        private async Task EnsureIndexAsync(CancellationToken cancellationToken)
+        {
+            if (_indexEnsured)
+                return;
+
+            if (!_options.AutoCreateIndex)
+            {
+                _indexEnsured = true;
+                return;
+            }
+
+            await _indexLock.WaitAsync(cancellationToken);
+            try
+            {
+                if (_indexEnsured)
+                    return;
+
+                var host = await GetOrCreateIndexHostAsync(cancellationToken);
+
+                if (_httpClient.BaseAddress == null)
+                    _httpClient.BaseAddress = NormalizeIndexHost(host);
+
+                _indexEnsured = true;
+            }
+            finally
+            {
+                _indexLock.Release();
+            }
+        }
+
+        private async Task<string> GetOrCreateIndexHostAsync(CancellationToken cancellationToken)
+        {
+            var controlPlaneBase = _options.ControlPlaneHost.TrimEnd('/');
+            var indexName = _options.IndexName!;
+            var describeUrl = $"{controlPlaneBase}/indexes/{Uri.EscapeDataString(indexName)}";
+
+            // Try to describe existing index
+            var existing = await SendControlPlaneAsync<DescribeIndexResponse>(
+                HttpMethod.Get, describeUrl, null, cancellationToken, throwOnNotFound: false);
+
+            if (existing != null && !string.IsNullOrWhiteSpace(existing.Host))
+            {
+                if (existing.Status?.Ready == true)
+                    return existing.Host!;
+
+                // Index exists but not ready yet — poll
+                return await PollUntilReadyAsync(describeUrl, cancellationToken);
+            }
+
+            // Create index with dotproduct metric (required for hybrid search)
+            var createPayload = new CreateIndexRequest
+            {
+                Name = indexName,
+                Dimension = _options.Dimension,
+                Metric = "dotproduct",
+                Spec = new IndexSpec
+                {
+                    Serverless = new ServerlessSpec
+                    {
+                        Cloud = _options.Cloud!,
+                        Region = _options.Region!
+                    }
+                }
+            };
+
+            await SendControlPlaneAsync<object>(
+                HttpMethod.Post, $"{controlPlaneBase}/indexes", createPayload, cancellationToken);
+
+            return await PollUntilReadyAsync(describeUrl, cancellationToken);
+        }
+
+        private async Task<string> PollUntilReadyAsync(string describeUrl, CancellationToken cancellationToken)
+        {
+            for (int attempt = 0; attempt < 60; attempt++)
+            {
+                await Task.Delay(2000, cancellationToken);
+
+                var poll = await SendControlPlaneAsync<DescribeIndexResponse>(
+                    HttpMethod.Get, describeUrl, null, cancellationToken);
+
+                if (poll != null &&
+                    !string.IsNullOrWhiteSpace(poll.Host) &&
+                    poll.Status?.Ready == true)
+                {
+                    return poll.Host!;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Pinecone index '{_options.IndexName}' did not become ready within 2 minutes.");
+        }
+
+        private async Task<TResponse?> SendControlPlaneAsync<TResponse>(
+            HttpMethod method,
+            string absoluteUrl,
+            object? payload,
+            CancellationToken cancellationToken,
+            bool throwOnNotFound = true) where TResponse : class
+        {
+            using var request = new HttpRequestMessage(method, new Uri(absoluteUrl));
+            request.Headers.TryAddWithoutValidation("Api-Key", _options.ApiKey);
+            request.Headers.TryAddWithoutValidation("Accept", "application/json");
+
+            if (payload != null)
+            {
+                var json = JsonSerializer.Serialize(payload, RequestJsonOptions);
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+            }
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound && !throwOnNotFound)
+                return null;
+
+            if (!response.IsSuccessStatusCode)
+                throw new InvalidOperationException(
+                    $"Pinecone control plane request failed ({(int)response.StatusCode}): {body}");
+
+            if (string.IsNullOrWhiteSpace(body))
+                return null;
+
+            return JsonSerializer.Deserialize<TResponse>(body, JsonOptions);
         }
 
         #endregion
@@ -245,7 +451,9 @@ namespace Mythosia.VectorDb.Pinecone
             var body = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException($"Pinecone request failed ({(int)response.StatusCode}): {body}");
+                throw new InvalidOperationException(
+                    $"Pinecone request failed ({(int)response.StatusCode}): {body}. " +
+                    "If you are using hybrid search (sparse vectors), ensure the index metric is 'dotproduct'.");
 
             if (typeof(TResponse) == typeof(object) || string.IsNullOrWhiteSpace(body))
                 return (TResponse)(object)new object();
@@ -317,12 +525,27 @@ namespace Mythosia.VectorDb.Pinecone
             if (record.Scope != null)
                 metadata[MetadataKeyScope] = record.Scope;
 
-            return new UpsertVector
+            var upsertVector = new UpsertVector
             {
                 Id = record.Id,
                 Values = record.Vector ?? Array.Empty<float>(),
                 Metadata = metadata
             };
+
+            if (!string.IsNullOrEmpty(record.Content))
+            {
+                var (indices, values) = PineconeHelpers.BuildSparseVector(record.Content);
+                if (indices.Length > 0)
+                {
+                    upsertVector.SparseValues = new SparseValuesDto
+                    {
+                        Indices = indices,
+                        Values = values
+                    };
+                }
+            }
+
+            return upsertVector;
         }
 
         private static VectorRecord ToVectorRecord(QueryMatch match, string? @namespace)
@@ -478,6 +701,8 @@ namespace Mythosia.VectorDb.Pinecone
 
         public void Dispose()
         {
+            _indexLock.Dispose();
+
             if (_ownsHttpClient)
                 _httpClient.Dispose();
         }
@@ -496,13 +721,21 @@ namespace Mythosia.VectorDb.Pinecone
         {
             public string Id { get; set; } = string.Empty;
             public float[] Values { get; set; } = Array.Empty<float>();
+            public SparseValuesDto? SparseValues { get; set; }
             public Dictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>(StringComparer.Ordinal);
+        }
+
+        private sealed class SparseValuesDto
+        {
+            public uint[] Indices { get; set; } = Array.Empty<uint>();
+            public float[] Values { get; set; } = Array.Empty<float>();
         }
 
         private sealed class QueryRequest
         {
             public string? Namespace { get; set; }
             public float[] Vector { get; set; } = Array.Empty<float>();
+            public SparseValuesDto? SparseVector { get; set; }
             public int TopK { get; set; }
             public bool IncludeMetadata { get; set; }
             public bool IncludeValues { get; set; }
@@ -540,6 +773,38 @@ namespace Mythosia.VectorDb.Pinecone
             public List<string>? Ids { get; set; }
             public bool? DeleteAll { get; set; }
             public object? Filter { get; set; }
+        }
+
+        // Control Plane DTOs
+
+        private sealed class CreateIndexRequest
+        {
+            public string Name { get; set; } = string.Empty;
+            public int Dimension { get; set; }
+            public string Metric { get; set; } = "dotproduct";
+            public IndexSpec? Spec { get; set; }
+        }
+
+        private sealed class IndexSpec
+        {
+            public ServerlessSpec? Serverless { get; set; }
+        }
+
+        private sealed class ServerlessSpec
+        {
+            public string Cloud { get; set; } = string.Empty;
+            public string Region { get; set; } = string.Empty;
+        }
+
+        private sealed class DescribeIndexResponse
+        {
+            public string? Host { get; set; }
+            public IndexStatus? Status { get; set; }
+        }
+
+        private sealed class IndexStatus
+        {
+            public bool Ready { get; set; }
         }
 
         #endregion

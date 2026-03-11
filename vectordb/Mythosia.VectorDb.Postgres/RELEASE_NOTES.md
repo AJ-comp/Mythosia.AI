@@ -5,17 +5,24 @@
 ### Added
 
 - `PostgresStore` supports native hybrid search via `IVectorStore.HybridSearchAsync`.
-  - `HybridSearchAsync` runs **parallel queries** — PostgreSQL `to_tsvector`/`to_tsquery` full-text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)** with `k=60`.
+  - `HybridSearchAsync` runs **parallel queries** — PostgreSQL full-text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)** with `k=60`.
   - Uses `ts_rank` for keyword scoring and distance-strategy-aware similarity scoring.
   - Supports all existing filters: namespace, scope, metadata, and min-score.
-- Recommended GIN index for optimal full-text performance:
-  ```sql
-  CREATE INDEX idx_vectors_fts ON public.vectors USING gin (to_tsvector('simple', content));
-  ```
+- **Persisted `content_tsv` column** for full-text search — hybrid search now reads from the pre-computed `content_tsv` (`tsvector`) column instead of recalculating `to_tsvector(content)` on every query.
+  - `content` remains **nullable** to support deployments that prohibit original text storage; `content_tsv` is required for lexical retrieval.
+  - Recommended GIN index:
+    ```sql
+    CREATE INDEX idx_vectors_fts ON public.vectors USING gin (content_tsv);
+    ```
+
+### Breaking Changes — Schema
+
+- New required column `content_tsv tsvector` added to the `vectors` table.
+- Existing tables must be migrated before upgrading (see migration SQL below).
 
 ### Compatibility
 
-- Fully backward compatible with v10.1.0. No breaking changes, no schema changes required.
+- **Breaking schema change** from v10.1.0 — the `content_tsv` column must exist before using hybrid search.
 - Existing `SearchAsync` behavior unchanged. `HybridSearchAsync` is only invoked when `UseHybridSearch()` is configured in the RAG pipeline.
 
 ---

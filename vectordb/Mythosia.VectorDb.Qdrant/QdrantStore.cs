@@ -58,7 +58,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            var point = QdrantHelpers.ToPointStruct(record, includeSparseVector: true);
+            var point = QdrantHelpers.ToPointStruct(record);
             await _client.UpsertAsync(_options.CollectionName, new[] { point }, cancellationToken: cancellationToken);
         }
 
@@ -66,7 +66,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            var points = records.Select(r => QdrantHelpers.ToPointStruct(r, includeSparseVector: true)).ToList();
+            var points = records.Select(r => QdrantHelpers.ToPointStruct(r)).ToList();
             if (points.Count > 0)
                 await _client.UpsertAsync(_options.CollectionName, points, cancellationToken: cancellationToken);
         }

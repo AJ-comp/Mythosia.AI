@@ -11,6 +11,11 @@
   - Supports IDF (inverse document frequency) and term-frequency scoring with document length normalization (k1=1.2, b=0.75).
 - Used automatically by `HybridRetrievalStrategy` when `UseHybridSearch()` is called with `InMemoryVectorStore` (store without native `IVectorStore.HybridSearchAsync` support).
 
+### Changed
+
+- Hybrid RRF scores returned by `InMemoryVectorStore` are normalized to the `[0, 1]` range before results are returned.
+- `VectorFilter.MinScore` is now applied to the final merged hybrid score, making threshold filtering consistent for hybrid search.
+
 ### Compatibility
 
 - Fully backward compatible with v2.0.0. No breaking changes — `InMemoryVectorStore` API unchanged.
