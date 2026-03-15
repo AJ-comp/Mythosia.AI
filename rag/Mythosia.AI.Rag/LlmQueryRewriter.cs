@@ -1,3 +1,4 @@
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,10 +17,21 @@ namespace Mythosia.AI.Rag
         private readonly AIService _aiService;
 
         private const string DefaultSystemPrompt =
-            "Given the conversation history below, rewrite the follow-up question " +
-            "as a standalone question that contains all necessary context for search. " +
-            "Return ONLY the rewritten question, nothing else. " +
-            "If the question is already standalone, return it unchanged.";
+            "You are a query rewriter with a search gate. Decide whether the follow-up question " +
+            "needs document search, and if so, whether it needs rewriting.\n\n" +
+            "RULES (follow strictly):\n" +
+            "1. If the question is a greeting, chitchat, or does NOT need document search " +
+            "(e.g. \"hi\", \"hello\", \"thanks\", general conversation), return exactly: [PASS]\n" +
+            "2. If the question is a NEW standalone topic that DOES need document search, " +
+            "return the question EXACTLY as-is.\n" +
+            "3. ONLY rewrite when the question contains pronouns (it, that, this, they) or " +
+            "phrases (tell me more, explain further, what about) that clearly reference " +
+            "the conversation history AND needs document search.\n" +
+            "4. If the user explicitly asks to search, look up, find, or retrieve information " +
+            "(e.g. \"search for...\", \"find me...\", \"look up...\"), NEVER return [PASS]. " +
+            "Always treat it as needing document search.\n" +
+            "5. Return ONLY one of: [PASS], the original question, or the rewritten question. " +
+            "No explanation, no prefix, no quotes.";
 
         /// <summary>
         /// Creates a query rewriter that uses the specified AIService for rewriting.
@@ -30,53 +42,53 @@ namespace Mythosia.AI.Rag
             _aiService = aiService ?? throw new System.ArgumentNullException(nameof(aiService));
         }
 
+        private const string PassToken = "[PASS]";
+
         /// <inheritdoc/>
-        public async Task<string> RewriteAsync(
+        public async Task<QueryRewriteResult> RewriteAsync(
             string query,
-            IReadOnlyList<ConversationTurn> conversationHistory,
+            IReadOnlyList<ConversationTurn>? conversationHistory,
             CancellationToken cancellationToken = default)
         {
-            if (conversationHistory == null || conversationHistory.Count == 0)
-                return query;
-
             var prompt = BuildPrompt(query, conversationHistory);
+            var rewritten = await _aiService.GetCompletionAsync(prompt, RequestProfiles.QueryRewrite);
 
-            var backupStateless = _aiService.StatelessMode;
-            var backupFunctions = _aiService.FunctionsDisabled;
-            _aiService.StatelessMode = true;
-            _aiService.FunctionsDisabled = true;
-            try
-            {
-                var rewritten = await _aiService.GetCompletionAsync(prompt);
-                return string.IsNullOrWhiteSpace(rewritten) ? query : rewritten.Trim();
-            }
-            finally
-            {
-                _aiService.StatelessMode = backupStateless;
-                _aiService.FunctionsDisabled = backupFunctions;
-            }
+            if (string.IsNullOrWhiteSpace(rewritten))
+                return QueryRewriteResult.Search(query);
+
+            var trimmed = rewritten.Trim();
+
+            if (trimmed.Contains(PassToken, System.StringComparison.OrdinalIgnoreCase))
+                return QueryRewriteResult.Pass(query);
+
+            return QueryRewriteResult.Search(trimmed);
         }
 
-        private string BuildPrompt(string query, IReadOnlyList<ConversationTurn> history)
+        private string BuildPrompt(string query, IReadOnlyList<ConversationTurn>? history)
         {
             var sb = new StringBuilder();
             sb.AppendLine(DefaultSystemPrompt);
             sb.AppendLine();
-            sb.AppendLine("--- Conversation History ---");
 
-            // Take only the last few turns to keep the prompt small
-            var recentHistory = history.Count > 10
-                ? history.Skip(history.Count - 10).ToList()
-                : history;
-
-            foreach (var turn in recentHistory)
+            if (history != null && history.Count > 0)
             {
-                sb.AppendLine($"{turn.Role}: {turn.Content}");
+                sb.AppendLine("--- Conversation History ---");
+
+                // Take only the last few turns to keep the prompt small
+                var recentHistory = history.Count > 10
+                    ? history.Skip(history.Count - 10).ToList()
+                    : history;
+
+                foreach (var turn in recentHistory)
+                {
+                    sb.AppendLine($"{turn.Role}: {turn.Content}");
+                }
+
+                sb.AppendLine();
             }
 
-            sb.AppendLine();
-            sb.AppendLine($"Follow-up question: {query}");
-            sb.AppendLine("Standalone question:");
+            sb.AppendLine($"Question: {query}");
+            sb.AppendLine("Output:");
 
             return sb.ToString();
         }

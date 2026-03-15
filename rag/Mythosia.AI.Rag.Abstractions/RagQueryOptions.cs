@@ -1,24 +1,56 @@
+using System;
+using System.Threading.Tasks;
+
 namespace Mythosia.AI.Rag
 {
     /// <summary>
-    /// Per-request query overrides for RAG retrieval.
-    /// Values not provided fall back to <see cref="RagPipelineOptions"/> defaults.
+    /// RAG pipeline stages that can be reported for progress diagnostics.
+    /// </summary>
+    public enum RagProgressStage
+    {
+        QueryRewrite,
+        Embedding,
+        Filtering,
+        Retrieval,
+        Reranking,
+        ContextBuild
+    }
+
+    /// <summary>
+    /// Public request model for per-query RAG overrides.
     /// </summary>
     public sealed class RagQueryOptions
     {
         /// <summary>
-        /// Override for the number of top results to retrieve.
+        /// Override for final selection policy applied after retrieval and optional re-ranking.
         /// </summary>
-        public int? TopK { get; set; }
+        public RagFilter FinalFilter { get; set; } = new RagFilter();
 
         /// <summary>
-        /// Override for minimum similarity score threshold.
+        /// Override for how retrieval candidate settings are derived from <see cref="FinalFilter"/>.
         /// </summary>
-        public double? MinScore { get; set; }
+        public RagRetrievalDerivation RetrievalDerivation { get; set; } = new RagRetrievalDerivation();
 
         /// <summary>
         /// Override for target namespace used during search.
         /// </summary>
-        public string? Namespace { get; set; }
+        public string Namespace { get; set; } = "default";
+
+        /// <summary>
+        /// Optional async progress callback invoked when the RAG pipeline
+        /// enters each processing stage.
+        /// </summary>
+        public Func<RagProgressStage, Task>? ProgressAsync { get; set; }
+
+        public RagRetrievalFilter GetRetrievalFilter(bool hasReranker)
+        {
+            var divider = RetrievalDerivation.MinScoreDivider <= 0d ? 1d : RetrievalDerivation.MinScoreDivider;
+
+            return hasReranker
+                ? new RagRetrievalFilter(
+                    FinalFilter.TopK * Math.Max(1, RetrievalDerivation.TopKMultiplier),
+                    FinalFilter.MinScore.HasValue ? FinalFilter.MinScore.Value / divider : (double?)null)
+                : new RagRetrievalFilter(FinalFilter.TopK, FinalFilter.MinScore);
+        }
     }
 }

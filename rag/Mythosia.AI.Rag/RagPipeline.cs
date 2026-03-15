@@ -164,7 +164,7 @@ namespace Mythosia.AI.Rag
             CancellationToken cancellationToken)
         {
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            var ns = @namespace ?? Options.DefaultNamespace;
+            var ns = @namespace ?? Options.DefaultQuery.Namespace;
 
             foreach (var document in documents)
             {
@@ -179,7 +179,7 @@ namespace Mythosia.AI.Rag
             string? @namespace,
             CancellationToken cancellationToken)
         {
-            var ns = @namespace ?? Options.DefaultNamespace;
+            var ns = @namespace ?? Options.DefaultQuery.Namespace;
             var effectiveSplitter = textSplitter ?? _textSplitter;
             await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken);
         }
@@ -244,8 +244,17 @@ namespace Mythosia.AI.Rag
             {
                 queryOptions = new RagQueryOptions
                 {
-                    Namespace = @namespace,
-                    TopK = topK
+                    Namespace = @namespace ?? Options.DefaultQuery.Namespace,
+                    FinalFilter = new RagFilter
+                    {
+                        TopK = topK ?? Options.DefaultQuery.FinalFilter.TopK,
+                        MinScore = Options.DefaultQuery.FinalFilter.MinScore
+                    },
+                    RetrievalDerivation = new RagRetrievalDerivation
+                    {
+                        TopKMultiplier = Options.DefaultQuery.RetrievalDerivation.TopKMultiplier,
+                        MinScoreDivider = Options.DefaultQuery.RetrievalDerivation.MinScoreDivider
+                    }
                 };
             }
 
@@ -262,36 +271,56 @@ namespace Mythosia.AI.Rag
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = queryOptions?.Namespace ?? Options.DefaultNamespace;
-            var k = queryOptions?.TopK ?? Options.TopK;
-            var retrievalK = _reranker != null ? k * Math.Max(1, Options.RetrievalMultiplier) : k;
+            var effectiveOptions = queryOptions ?? Options.DefaultQuery;
+
+            var ns = effectiveOptions.Namespace;
+            var k = effectiveOptions.FinalFilter.TopK;
+            var finalMinScore = effectiveOptions.FinalFilter.MinScore;
+            var retrievalFilter = effectiveOptions.GetRetrievalFilter(_reranker != null);
+            var retrievalMinScore = retrievalFilter.MinScore;
+            var retrievalK = retrievalFilter.TopK;
+
+            async Task ReportAsync(RagProgressStage stage)
+            {
+                if (effectiveOptions.ProgressAsync != null)
+                    await effectiveOptions.ProgressAsync(stage);
+            }
 
             // 1. Embed query
+            await ReportAsync(RagProgressStage.Embedding);
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
 
-            // 2. Apply namespace and MinScore filter
+            // 2. Apply namespace and retrieval score filter
+            await ReportAsync(RagProgressStage.Filtering);
             var effectiveFilter = filter ?? new VectorFilter();
             effectiveFilter.Namespace = ns;
-            if (queryOptions?.MinScore.HasValue == true)
-            {
-                effectiveFilter.MinScore = queryOptions.MinScore;
-            }
-            else if (Options.MinScore.HasValue)
-            {
-                effectiveFilter.MinScore = Options.MinScore;
-            }
+            effectiveFilter.MinScore = retrievalMinScore;
 
             // 3. Search (via retrieval strategy) — fetch wider pool when reranker is present
+            await ReportAsync(RagProgressStage.Retrieval);
             var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, query, retrievalK, effectiveFilter, cancellationToken);
+            var retrievalCandidates = searchResults.ToList();
 
             // 4. Re-rank if configured — trim back to original k
             if (_reranker != null)
+            {
+                await ReportAsync(RagProgressStage.Reranking);
                 searchResults = await _reranker.RerankAsync(query, searchResults, k, cancellationToken);
+            }
+
+            if (finalMinScore.HasValue)
+            {
+                searchResults = searchResults
+                    .Where(r => r.Score >= finalMinScore.Value)
+                    .Take(k)
+                    .ToList();
+            }
 
             // 5. Build context
+            await ReportAsync(RagProgressStage.ContextBuild);
             var context = ResolveContextBuilder().BuildContext(query, searchResults);
 
-            return new RagQueryResult(query, context, searchResults);
+            return new RagQueryResult(query, context, searchResults, retrievalCandidates);
         }
 
         /// <summary>
@@ -328,7 +357,7 @@ namespace Mythosia.AI.Rag
         #region IRagPipeline Implementation
 
         /// <summary>
-        /// Implements IRagPipeline: embed query → search → build context → return augmented prompt.
+        /// Implements IRagPipeline: embed query → search → build context → return request message content.
         /// </summary>
         public async Task<RagProcessedQuery> ProcessAsync(string query, CancellationToken cancellationToken = default)
         {
@@ -343,10 +372,14 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
-            var appliedNamespace = options?.Namespace ?? Options.DefaultNamespace;
-            var appliedTopK = options?.TopK ?? Options.TopK;
-            var appliedMinScore = options?.MinScore ?? Options.MinScore;
-            var retrievalK = _reranker != null ? appliedTopK * Math.Max(1, Options.RetrievalMultiplier) : appliedTopK;
+            var effectiveOptions = options ?? Options.DefaultQuery;
+
+            var retrievalFilter = effectiveOptions.GetRetrievalFilter(_reranker != null);
+            var appliedNamespace = effectiveOptions.Namespace;
+            var appliedTopK = effectiveOptions.FinalFilter.TopK;
+            var appliedFinalMinScore = effectiveOptions.FinalFilter.MinScore;
+            var appliedRetrievalMinScore = retrievalFilter.MinScore;
+            var retrievalK = retrievalFilter.TopK;
 
             var stopwatch = Stopwatch.StartNew();
             var result = await QueryAsync(query, options, cancellationToken: cancellationToken);
@@ -354,20 +387,22 @@ namespace Mythosia.AI.Rag
 
             // When no references are found, return the original query as-is
             // instead of a context-less template that confuses the LLM.
-            var augmentedPrompt = result.SearchResults.Count > 0
+            var requestMessageContent = result.SearchResults.Count > 0
                 ? result.Context
                 : query;
 
             return new RagProcessedQuery(
                 query,
-                augmentedPrompt,
+                requestMessageContent,
                 result.SearchResults,
+                result.RetrievalCandidates,
                 new RagQueryDiagnostics
                 {
                     AppliedNamespace = appliedNamespace,
-                    AppliedTopK = appliedTopK,
-                    RetrievalK = retrievalK,
-                    AppliedMinScore = appliedMinScore,
+                    FinalTopK = appliedTopK,
+                    RetrievalTopK = retrievalK,
+                    AppliedFinalMinScore = appliedFinalMinScore,
+                    AppliedRetrievalMinScore = appliedRetrievalMinScore,
                     ElapsedMs = stopwatch.ElapsedMilliseconds
                 });
         }
@@ -384,7 +419,7 @@ namespace Mythosia.AI.Rag
             string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = @namespace ?? Options.DefaultNamespace;
+            var ns = @namespace ?? Options.DefaultQuery.Namespace;
             var filter = VectorFilter.ByMetadata("document_id", documentId);
             filter.Namespace = ns;
             await _vectorStore.DeleteByFilterAsync(filter, cancellationToken);
@@ -413,11 +448,22 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public IReadOnlyList<VectorSearchResult> SearchResults { get; }
 
-        public RagQueryResult(string query, string context, IReadOnlyList<VectorSearchResult> searchResults)
+        /// <summary>
+        /// The raw retrieval candidates returned before re-ranking was applied.
+        /// When no reranker is configured this matches <see cref="SearchResults"/>.
+        /// </summary>
+        public IReadOnlyList<VectorSearchResult> RetrievalCandidates { get; }
+
+        public RagQueryResult(
+            string query,
+            string context,
+            IReadOnlyList<VectorSearchResult> searchResults,
+            IReadOnlyList<VectorSearchResult> retrievalCandidates)
         {
             Query = query;
             Context = context;
             SearchResults = searchResults;
+            RetrievalCandidates = retrievalCandidates;
         }
     }
 }

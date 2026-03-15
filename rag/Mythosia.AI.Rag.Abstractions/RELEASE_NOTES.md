@@ -1,5 +1,49 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v4.0.0
+
+### Breaking Changes
+
+- `IQueryRewriter.RewriteAsync` now returns `Task<QueryRewriteResult>` instead of `Task<string>`. All implementations must update their return type.
+- `RagProcessedQuery.AugmentedPrompt` renamed to `RequestMessageContent` to clarify that the value is transient request-only content not meant for conversation history persistence.
+- `RagProcessedQuery` constructor now requires an additional `IReadOnlyList<VectorSearchResult> retrievalCandidates` parameter.
+- `RagPipelineOptions.TopK`, `MinScore`, `DefaultNamespace`, `RetrievalMultiplier` removed. Replaced by `DefaultQuery` property of type `RagQueryOptions`.
+- `RagQueryOptions` restructured — `int? TopK`, `double? MinScore`, `string? Namespace` replaced by `RagFilter FinalFilter`, `RagRetrievalDerivation RetrievalDerivation`, `string Namespace`.
+- `RagQueryDiagnostics.AppliedTopK` renamed to `FinalTopK`; `RetrievalK` renamed to `RetrievalTopK`; `AppliedMinScore` renamed to `AppliedFinalMinScore`.
+
+### Added
+
+- `QueryRewriteResult` — result of a query rewrite operation including a search gate decision (`NeedsSearch`). Factory methods `Pass()` and `Search()` for convenience.
+- `RagFilter` — final selection policy (`TopK`, `MinScore`).
+- `RagRetrievalDerivation` — controls how retrieval candidates are derived from `RagFilter` (`TopKMultiplier`, `MinScoreDivider`).
+- `RagRetrievalFilter` — immutable computed retrieval filter (`TopK`, `MinScore`).
+- `RagProgressStage` enum — pipeline stages for progress reporting (`QueryRewrite`, `Embedding`, `Filtering`, `Retrieval`, `Reranking`, `ContextBuild`).
+- `RagQueryOptions.ProgressAsync` — optional async callback invoked when the pipeline enters each stage.
+- `RagQueryOptions.GetRetrievalFilter(bool hasReranker)` — computes retrieval-stage TopK/MinScore from `FinalFilter` and `RetrievalDerivation`.
+- `RagProcessedQuery.RetrievalCandidates` — raw retrieval candidates before re-ranking.
+- `RagProcessedQuery.SearchSkipped` — indicates the search gate bypassed the RAG pipeline entirely.
+- `RagProcessedQuery.RewriteResult` — raw `QueryRewriteResult` from the query rewriter.
+- `RagQueryDiagnostics.AppliedRetrievalMinScore` — retrieval-stage score threshold.
+- `RagQueryDiagnostics.RewriteElapsedMs` — time spent on query rewriting.
+
+### Migration Guide
+
+| v3.x | v4.0.0 |
+| --- | --- |
+| `IQueryRewriter.RewriteAsync` → `Task<string>` | → `Task<QueryRewriteResult>` |
+| `RagProcessedQuery.AugmentedPrompt` | → `RequestMessageContent` |
+| `RagPipelineOptions.TopK` | → `DefaultQuery.FinalFilter.TopK` |
+| `RagPipelineOptions.MinScore` | → `DefaultQuery.FinalFilter.MinScore` |
+| `RagPipelineOptions.DefaultNamespace` | → `DefaultQuery.Namespace` |
+| `RagPipelineOptions.RetrievalMultiplier` | → `DefaultQuery.RetrievalDerivation.TopKMultiplier` |
+| `RagQueryOptions.TopK` | → `FinalFilter.TopK` |
+| `RagQueryOptions.MinScore` | → `FinalFilter.MinScore` |
+| `RagQueryDiagnostics.AppliedTopK` | → `FinalTopK` |
+| `RagQueryDiagnostics.RetrievalK` | → `RetrievalTopK` |
+| `RagQueryDiagnostics.AppliedMinScore` | → `AppliedFinalMinScore` |
+
+---
+
 ## v3.2.0
 
 ### Added

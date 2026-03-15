@@ -6,32 +6,14 @@ namespace Mythosia.AI.Rag
     public class RagPipelineOptions
     {
         /// <summary>
-        /// Default namespace used when none is specified.
-        /// </summary>
-        public string DefaultNamespace { get; set; } = "default";
-
-        /// <summary>
         /// Default scope for vector records.
         /// </summary>
         public string? DefaultScope { get; set; }
 
         /// <summary>
-        /// Number of top results to retrieve during search. Default is 5.
+        /// Default query policy applied when a per-request query policy is not supplied.
         /// </summary>
-        public int TopK { get; set; } = 5;
-
-        /// <summary>
-        /// Minimum similarity score threshold. Results below this are discarded.
-        /// </summary>
-        public double? MinScore { get; set; }
-
-        /// <summary>
-        /// Multiplier applied to <see cref="TopK"/> when a reranker is configured.
-        /// The retrieval stage fetches TopK × RetrievalMultiplier candidates,
-        /// then the reranker selects the best TopK from that wider pool.
-        /// Ignored when no reranker is present. Default is 3.
-        /// </summary>
-        public int RetrievalMultiplier { get; set; } = 3;
+        public RagQueryOptions DefaultQuery { get; set; } = new RagQueryOptions();
 
         /// <summary>
         /// Optional prompt template with {context} and {question} placeholders.

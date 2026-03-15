@@ -60,14 +60,22 @@ namespace Mythosia.AI.Rag
         private IQueryRewriter? _queryRewriter;
         private bool _queryRewriterEnabled;
 
+        /// <summary>
+        /// Whether WithQueryRewriter() was called (with or without a custom implementation).
+        /// Used by <see cref="RagEnabledService"/> to auto-create a LlmQueryRewriter.
+        /// </summary>
+        internal bool QueryRewriterEnabled => _queryRewriterEnabled;
+
         private bool _useHybridSearch;
         private float _vectorWeight = 0.5f;
         private IReranker? _reranker;
 
-        private int _topK = 3;
+        private int _finalTopK = 3;
         private int _chunkSize = 300;
         private int _chunkOverlap = 30;
-        private double? _scoreThreshold;
+        private double? _finalMinScore;
+        private int _retrievalMultiplier = 3;
+        private double _retrievalMinScoreDivider = 3d;
         private string? _promptTemplate;
         private string? _defaultNamespace;
 
@@ -314,7 +322,7 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public RagBuilder WithTopK(int topK)
         {
-            _topK = topK;
+            _finalTopK = topK;
             return this;
         }
 
@@ -341,7 +349,27 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public RagBuilder WithScoreThreshold(double threshold)
         {
-            _scoreThreshold = threshold;
+            _finalMinScore = threshold;
+            return this;
+        }
+
+        public RagBuilder WithRetrievalMinScore(double threshold)
+        {
+            if (threshold <= 0d)
+            {
+                _retrievalMinScoreDivider = 1d;
+                return this;
+            }
+
+            _retrievalMinScoreDivider = _finalMinScore.HasValue && _finalMinScore.Value > 0d
+                ? _finalMinScore.Value / threshold
+                : _retrievalMinScoreDivider;
+            return this;
+        }
+
+        public RagBuilder WithRetrievalMultiplier(int multiplier)
+        {
+            _retrievalMultiplier = Math.Max(1, multiplier);
             return this;
         }
 
@@ -449,7 +477,7 @@ namespace Mythosia.AI.Rag
             _vectorWeight = Math.Max(0f, Math.Min(1f, vectorWeight));
 
             if (minScore.HasValue)
-                _scoreThreshold = minScore.Value;
+                _finalMinScore = minScore.Value;
 
             return this;
         }
@@ -566,13 +594,22 @@ namespace Mythosia.AI.Rag
 
             var options = new RagPipelineOptions
             {
-                TopK = _topK,
-                MinScore = _scoreThreshold,
+                DefaultQuery = new RagQueryOptions
+                {
+                    Namespace = !string.IsNullOrWhiteSpace(_defaultNamespace) ? _defaultNamespace : "default",
+                    FinalFilter = new RagFilter
+                    {
+                        TopK = _finalTopK,
+                        MinScore = _finalMinScore
+                    },
+                    RetrievalDerivation = new RagRetrievalDerivation
+                    {
+                        TopKMultiplier = _retrievalMultiplier,
+                        MinScoreDivider = _retrievalMinScoreDivider <= 0d ? 1d : _retrievalMinScoreDivider
+                    }
+                },
                 PromptTemplate = _promptTemplate
             };
-
-            if (!string.IsNullOrWhiteSpace(_defaultNamespace))
-                options.DefaultNamespace = _defaultNamespace;
 
             // 2. Build retrieval strategy
             IRetrievalStrategy? retrievalStrategy = null;
@@ -634,14 +671,14 @@ namespace Mythosia.AI.Rag
             if (bm25Index != null && vectorStore is InMemoryVectorStore inMemoryStore)
             {
                 var allRecords = await inMemoryStore.ListAllRecordsAsync(
-                    options.DefaultNamespace, cancellationToken);
+                    options.DefaultQuery.Namespace, cancellationToken);
                 foreach (var record in allRecords)
                 {
                     bm25Index.Index(record.Id, record.Content);
                 }
             }
 
-            return new RagStore(pipeline, vectorStore, _queryRewriter, _queryRewriterEnabled);
+            return new RagStore(pipeline, vectorStore, _queryRewriter);
         }
 
         #endregion

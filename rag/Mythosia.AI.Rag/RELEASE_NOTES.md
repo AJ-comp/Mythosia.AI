@@ -1,5 +1,77 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v5.0.0
+
+### Breaking Changes (requires Abstractions v4.0.0)
+
+- **`RagPipelineOptions.TopK`, `MinScore`, `DefaultNamespace`, `RetrievalMultiplier` removed** — replaced by `DefaultQuery` property of type `RagQueryOptions`, which contains `FinalFilter`, `RetrievalDerivation`, and `Namespace`.
+- **`RagProcessedQuery.AugmentedPrompt` renamed to `RequestMessageContent`** — clarifies the value is transient request-only content.
+- **`RagProcessedQuery` constructor** now requires an additional `IReadOnlyList<VectorSearchResult> retrievalCandidates` parameter.
+- **`RagQueryDiagnostics` property renames** — `AppliedTopK` → `FinalTopK`, `RetrievalK` → `RetrievalTopK`, `AppliedMinScore` → `AppliedFinalMinScore`.
+- **`LlmQueryRewriter.RewriteAsync` returns `QueryRewriteResult`** instead of `Task<string>` — includes search gate decision (`NeedsSearch`).
+- **`RagQueryOptions` restructured** — `int? TopK`, `double? MinScore`, `string? Namespace` replaced by `RagFilter FinalFilter`, `RagRetrievalDerivation RetrievalDerivation`, `string Namespace`.
+- **`RagQueryResult` constructor** now requires `retrievalCandidates` parameter (internal but affects custom pipeline implementations).
+
+### Added
+
+- **`VllmEmbeddingProvider`** — vLLM-compatible OpenAI-style embedding provider (`/v1/embeddings`). Configurable model, dimensions, and base URL.
+- **`VllmReranker`** — vLLM-compatible reranker (`/v1/rerank`). Supports Qwen3-Reranker and other vLLM-served models.
+- **`RagStore.QueryAsync` with conversation history** — new overloads accepting `IReadOnlyList<ConversationTurn>?` for integrated query rewriting + search gate in a single call.
+- **`RagStore.SetQueryRewriter(IQueryRewriter?)`** — set or clear the query rewriter at runtime without rebuilding.
+- **Search gate in `LlmQueryRewriter`** — returns `[PASS]` for greetings/chitchat/non-search queries, skipping the RAG pipeline entirely (`RagProcessedQuery.SearchSkipped = true`).
+- **Progress reporting** — `RagQueryOptions.ProgressAsync` callback invoked when the pipeline enters each `RagProgressStage` (`QueryRewrite`, `Embedding`, `Filtering`, `Retrieval`, `Reranking`, `ContextBuild`).
+- **Final MinScore filtering** — after re-ranking, results below `FinalFilter.MinScore` are discarded before context building.
+- **`RagBuilder.WithRetrievalMultiplier(int)`** — configure retrieval candidate multiplier at build time.
+- **`RagBuilder.WithRetrievalMinScore(double)`** — configure retrieval-stage score threshold at build time.
+- **`RagProcessedQuery.RetrievalCandidates`** — raw retrieval candidates before re-ranking.
+- **`RagProcessedQuery.SearchSkipped`** — indicates the search gate bypassed the RAG pipeline.
+- **`RagProcessedQuery.RewriteResult`** — raw `QueryRewriteResult` from the query rewriter.
+- **`RagQueryDiagnostics.AppliedRetrievalMinScore`** — retrieval-stage score threshold.
+- **`RagQueryDiagnostics.RewriteElapsedMs`** — time spent on query rewriting.
+
+### Changed
+
+- `RagStore` constructor simplified — `queryRewriterEnabled` parameter removed; rewriter is now managed via `SetQueryRewriter()`.
+- `RagBuilder` now builds `RagQueryOptions` with `FinalFilter`/`RetrievalDerivation` structure instead of flat properties.
+- `MarkdownTextSplitter` — removed unused `IsAtomicBlock` private method.
+
+### Migration Guide
+
+```csharp
+// Before (v4.0)
+store.UpdateOptions(opt =>
+{
+    opt.TopK = 8;
+    opt.MinScore = 0.4;
+    opt.RetrievalMultiplier = 3;
+    opt.PromptTemplate = "...";
+});
+
+// After (v5.0)
+store.UpdateOptions(opt =>
+{
+    opt.DefaultQuery.FinalFilter.TopK = 8;
+    opt.DefaultQuery.FinalFilter.MinScore = 0.4;
+    opt.DefaultQuery.RetrievalDerivation.TopKMultiplier = 3;
+    opt.PromptTemplate = "...";
+});
+```
+
+```csharp
+// Before (v4.0)
+var result = await ragStore.QueryAsync("query", new RagQueryOptions { TopK = 15, MinScore = 0.2 });
+Console.WriteLine(result.AugmentedPrompt);
+Console.WriteLine(result.Diagnostics.AppliedTopK);
+
+// After (v5.0)
+var result = await ragStore.QueryAsync("query",
+    new RagQueryOptions { FinalFilter = new RagFilter { TopK = 15, MinScore = 0.2 } });
+Console.WriteLine(result.RequestMessageContent);
+Console.WriteLine(result.Diagnostics.FinalTopK);
+```
+
+---
+
 ## v4.0.0
 
 ### Breaking Changes

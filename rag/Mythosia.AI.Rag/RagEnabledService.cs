@@ -1,4 +1,4 @@
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
 using System;
@@ -49,7 +49,7 @@ namespace Mythosia.AI.Rag
         #region Core Methods
 
         /// <summary>
-        /// Processes the query through RAG pipeline, then sends the augmented prompt to the LLM.
+        /// Processes the query through RAG pipeline, then sends the request message content to the LLM.
         /// </summary>
         public async Task<string> GetCompletionAsync(string query)
         {
@@ -58,7 +58,7 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Processes the query through RAG pipeline with per-request query overrides,
-        /// then sends the augmented prompt to the LLM.
+        /// then sends the request message content to the LLM.
         /// </summary>
         public async Task<string> GetCompletionAsync(
             string query,
@@ -66,7 +66,9 @@ namespace Mythosia.AI.Rag
             CancellationToken cancellationToken = default)
         {
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
-            return await _innerService.GetCompletionAsync(processed.AugmentedPrompt);
+            return await _innerService.GetCompletionAsync(
+                new Message(ActorRole.User, query),
+                BuildRequestContext(processed));
         }
 
         /// <summary>
@@ -88,7 +90,7 @@ namespace Mythosia.AI.Rag
         {
             var query = message.Content ?? message.GetDisplayText();
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
-            return await _innerService.GetCompletionAsync(processed.AugmentedPrompt);
+            return await _innerService.GetCompletionAsync(message, BuildRequestContext(processed));
         }
 
         /// <summary>
@@ -114,7 +116,10 @@ namespace Mythosia.AI.Rag
         {
             var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
 
-            await foreach (var chunk in _innerService.StreamAsync(processed.AugmentedPrompt, cancellationToken))
+            await foreach (var chunk in _innerService.StreamAsync(
+                new Message(ActorRole.User, prompt),
+                BuildRequestContext(processed),
+                cancellationToken))
             {
                 yield return chunk;
             }
@@ -144,9 +149,21 @@ namespace Mythosia.AI.Rag
         {
             var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
 
-            await foreach (var chunk in _innerService.StreamOnceAsync(processed.AugmentedPrompt, cancellationToken))
+            var originalMode = _innerService.StatelessMode;
+            _innerService.StatelessMode = true;
+            try
             {
-                yield return chunk;
+                await foreach (var chunk in _innerService.StreamAsync(
+                    new Message(ActorRole.User, prompt),
+                    BuildRequestContext(processed),
+                    cancellationToken))
+                {
+                    yield return chunk;
+                }
+            }
+            finally
+            {
+                _innerService.StatelessMode = originalMode;
             }
         }
 
@@ -188,22 +205,42 @@ namespace Mythosia.AI.Rag
 
             string searchQuery = query;
             string? rewrittenQuery = null;
+            bool searchSkipped = false;
+            QueryRewriteResult? rewriteResult = null;
 
             if (_queryRewriter != null)
             {
                 var history = GetConversationHistory();
-                if (history.Count > 0)
+                var result = await _queryRewriter.RewriteAsync(query, history, cancellationToken);
+                rewriteResult = result;
+
+                if (!result.NeedsSearch)
                 {
-                    var rewritten = await _queryRewriter.RewriteAsync(query, history, cancellationToken);
-                    if (!string.IsNullOrWhiteSpace(rewritten) && rewritten != query)
-                    {
-                        rewrittenQuery = rewritten;
-                        searchQuery = rewritten;
-                    }
+                    searchSkipped = true;
+                }
+                else if (result.Query != query)
+                {
+                    rewrittenQuery = result.Query;
+                    searchQuery = result.Query;
                 }
             }
 
-            var processed = await store.Pipeline.ProcessAsync(searchQuery, options, cancellationToken);
+            RagProcessedQuery processed;
+            if (searchSkipped)
+            {
+                processed = new RagProcessedQuery(
+                    query, query,
+                    Array.Empty<VectorDb.VectorSearchResult>(),
+                    Array.Empty<VectorDb.VectorSearchResult>(),
+                    new RagQueryDiagnostics());
+                processed.SearchSkipped = true;
+            }
+            else
+            {
+                processed = await store.Pipeline.ProcessAsync(searchQuery, options, cancellationToken);
+            }
+
+            processed.RewriteResult = rewriteResult;
             processed.RewrittenQuery = rewrittenQuery;
 
             // Keep the original query in OriginalQuery (not the rewritten one)
@@ -225,6 +262,14 @@ namespace Mythosia.AI.Rag
                     m.Role == ActorRole.User ? "user" : "assistant",
                     m.Content ?? string.Empty))
                 .ToList();
+        }
+
+        private static AIRequestContext BuildRequestContext(RagProcessedQuery processed)
+        {
+            return new AIRequestContext
+            {
+                RequestMessageOverride = new Message(ActorRole.User, processed.RequestMessageContent)
+            };
         }
 
         #endregion
@@ -261,14 +306,16 @@ namespace Mythosia.AI.Rag
 
             if (_ragStore.QueryRewriter != null)
             {
-                // Custom IQueryRewriter was provided
+                // Custom IQueryRewriter was provided via builder
                 _queryRewriter = _ragStore.QueryRewriter;
             }
-            else if (_ragStore.QueryRewriterEnabled)
+            else if (_builder != null && _builder.QueryRewriterEnabled)
             {
                 // WithQueryRewriter() was called without a custom implementation;
                 // use the inner AIService as the LLM for rewriting.
-                _queryRewriter = new LlmQueryRewriter(_innerService);
+                var rewriter = new LlmQueryRewriter(_innerService);
+                _queryRewriter = rewriter;
+                _ragStore.SetQueryRewriter(rewriter);
             }
         }
 

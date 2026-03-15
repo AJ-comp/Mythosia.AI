@@ -112,7 +112,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             string? @namespace,
             CancellationToken cancellationToken)
         {
-            var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
+            var ns = @namespace ?? _pipeline.Options.DefaultQuery.Namespace;
             if (_diagnosticsStore == null)
                 throw new InvalidOperationException(
                     "FindChunksContainingAsync requires a vector store implementing IRagDiagnosticsStore. " +
@@ -155,9 +155,9 @@ namespace Mythosia.AI.Rag.Diagnostics
             string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
-            var topK = _pipeline.Options.TopK;
-            var minScore = _pipeline.Options.MinScore;
+            var ns = @namespace ?? _pipeline.Options.DefaultQuery.Namespace;
+            var topK = _pipeline.Options.DefaultQuery.FinalFilter.TopK;
+            var minScore = _pipeline.Options.DefaultQuery.FinalFilter.MinScore;
 
             // Step 1: Embed query
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);

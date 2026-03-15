@@ -2,6 +2,8 @@ using Mythosia.AI.Rag.Retrieval;
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,30 +27,20 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// The query rewriter for multi-turn conversations, or null if disabled.
         /// </summary>
-        internal IQueryRewriter? QueryRewriter { get; }
+        internal IQueryRewriter? QueryRewriter { get; private set; }
 
-        /// <summary>
-        /// Whether query rewriting was enabled via WithQueryRewriter() without a custom implementation.
-        /// When true and QueryRewriter is null, RagEnabledService creates a LlmQueryRewriter using the inner AIService.
-        /// </summary>
-        internal bool QueryRewriterEnabled { get; }
-
-        internal RagStore(IRagPipeline pipeline, IVectorStore vectorStore)
-            : this(pipeline, vectorStore, null, false)
-        {
-        }
-
-        internal RagStore(IRagPipeline pipeline, IVectorStore vectorStore, IQueryRewriter? queryRewriter, bool queryRewriterEnabled)
+        internal RagStore(IRagPipeline pipeline, IVectorStore vectorStore, IQueryRewriter? queryRewriter = null)
         {
             Pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
             VectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
             QueryRewriter = queryRewriter;
-            QueryRewriterEnabled = queryRewriterEnabled;
         }
+
+        #region Query
 
         /// <summary>
         /// Processes a query through the RAG pipeline: embed → search → build context.
-        /// Returns the augmented prompt and references without calling an LLM.
+        /// Returns the request message content and references without calling an LLM.
         /// </summary>
         public Task<RagProcessedQuery> QueryAsync(string query, CancellationToken cancellationToken = default)
         {
@@ -65,6 +57,105 @@ namespace Mythosia.AI.Rag
         {
             return Pipeline.ProcessAsync(query, options, cancellationToken);
         }
+
+        #endregion
+
+        #region Query with Rewriting
+
+        /// <summary>
+        /// Processes a query through the RAG pipeline with automatic query rewriting
+        /// for multi-turn conversations. If a <see cref="QueryRewriter"/> is configured
+        /// and conversation history is provided, the query is rewritten into a standalone
+        /// form before vector search.
+        /// </summary>
+        /// <param name="query">The current user query.</param>
+        /// <param name="conversationHistory">Previous conversation turns for context, or null to skip rewriting.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public Task<RagProcessedQuery> QueryAsync(
+            string query,
+            IReadOnlyList<ConversationTurn>? conversationHistory,
+            CancellationToken cancellationToken = default)
+        {
+            return QueryAsync(query, conversationHistory, options: null, cancellationToken);
+        }
+
+        /// <summary>
+        /// Processes a query through the RAG pipeline with automatic query rewriting
+        /// and per-request query overrides.
+        /// </summary>
+        public async Task<RagProcessedQuery> QueryAsync(
+            string query,
+            IReadOnlyList<ConversationTurn>? conversationHistory,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
+            string searchQuery = query;
+            string? rewrittenQuery = null;
+            bool searchSkipped = false;
+            QueryRewriteResult? rewriteResult = null;
+
+            long rewriteElapsedMs = 0;
+            if (QueryRewriter != null)
+            {
+                if (options?.ProgressAsync != null)
+                    await options.ProgressAsync(RagProgressStage.QueryRewrite);
+
+                var sw = Stopwatch.StartNew();
+                var result = await QueryRewriter.RewriteAsync(query, conversationHistory, cancellationToken);
+                rewriteElapsedMs = sw.ElapsedMilliseconds;
+                rewriteResult = result;
+
+                if (!result.NeedsSearch)
+                {
+                    searchSkipped = true;
+                }
+                else if (result.Query != query)
+                {
+                    rewrittenQuery = result.Query;
+                    searchQuery = result.Query;
+                }
+            }
+
+            RagProcessedQuery processed;
+            if (searchSkipped)
+            {
+                processed = new RagProcessedQuery(
+                    query, query,
+                    System.Array.Empty<VectorSearchResult>(),
+                    System.Array.Empty<VectorSearchResult>(),
+                    new RagQueryDiagnostics());
+                processed.SearchSkipped = true;
+            }
+            else
+            {
+                processed = await Pipeline.ProcessAsync(searchQuery, options, cancellationToken);
+            }
+
+            processed.RewriteResult = rewriteResult;
+
+            if (rewrittenQuery != null)
+            {
+                processed.RewrittenQuery = rewrittenQuery;
+                processed.OriginalQuery = query;
+            }
+
+            processed.Diagnostics.RewriteElapsedMs = rewriteElapsedMs;
+
+            return processed;
+        }
+
+        /// <summary>
+        /// Sets or clears the query rewriter at runtime.
+        /// Pass null to disable query rewriting.
+        /// </summary>
+        public void SetQueryRewriter(IQueryRewriter? queryRewriter)
+        {
+            QueryRewriter = queryRewriter;
+        }
+
+        #endregion
+
+        #region Runtime Configuration
 
         /// <summary>
         /// Updates pipeline options at runtime without rebuilding the index.
@@ -119,6 +210,10 @@ namespace Mythosia.AI.Rag
             return true;
         }
 
+        #endregion
+
+        #region Build
+
         /// <summary>
         /// Builds a RagStore by loading, splitting, embedding, and indexing all configured documents.
         /// The resulting store can be shared across multiple AIService instances.
@@ -142,5 +237,7 @@ namespace Mythosia.AI.Rag
             configure(builder);
             return await builder.BuildAsync(cancellationToken);
         }
+
+        #endregion
     }
 }

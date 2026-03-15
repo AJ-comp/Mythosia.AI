@@ -1,4 +1,4 @@
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
@@ -20,11 +20,17 @@ internal class MockAIService : AIService
         AddNewChat();
     }
 
-    public override AIProvider Provider => AIProvider.OpenAI;
+    public override string Provider => nameof(AIProvider.OpenAI);
 
     public override Task<string> GetCompletionAsync(Message message)
     {
         LastReceivedPrompt = message.Content;
+        return Task.FromResult(CompletionResponse);
+    }
+
+    public override Task<string> GetCompletionAsync(Message message, AIRequestContext context)
+    {
+        LastReceivedPrompt = context?.RequestMessageOverride?.Content ?? message.Content;
         return Task.FromResult(CompletionResponse);
     }
 

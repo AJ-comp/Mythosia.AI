@@ -582,11 +582,6 @@ namespace Mythosia.AI.Rag.Splitters
             return trimmed.Length > 0 && trimmed[0] == '|';
         }
 
-        private static bool IsAtomicBlock(string text)
-        {
-            return IsCodeFenceBlock(text) || IsTableBlock(text);
-        }
-
         private static bool IsCodeFenceBlock(string text)
         {
             var trimmed = text.TrimStart();

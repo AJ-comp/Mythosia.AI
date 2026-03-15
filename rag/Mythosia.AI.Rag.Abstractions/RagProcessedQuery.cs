@@ -14,31 +14,41 @@ namespace Mythosia.AI.Rag
         public string AppliedNamespace { get; set; } = string.Empty;
 
         /// <summary>
-        /// The TopK value that was actually applied during retrieval.
+        /// The final TopK target retained after retrieval and optional re-ranking.
         /// </summary>
-        public int AppliedTopK { get; set; }
+        public int FinalTopK { get; set; }
 
         /// <summary>
-        /// The number of candidates actually fetched from the vector store.
-        /// When a reranker is configured this is TopK × RetrievalMultiplier;
-        /// otherwise it equals <see cref="AppliedTopK"/>.
+        /// The TopK value actually sent to the retrieval strategy.
+        /// When a reranker is configured this is typically FinalTopK × RetrievalMultiplier;
+        /// otherwise it equals <see cref="FinalTopK"/>.
         /// </summary>
-        public int RetrievalK { get; set; }
+        public int RetrievalTopK { get; set; }
 
         /// <summary>
-        /// The MinScore value that was actually applied during retrieval.
+        /// The final score threshold that was applied after retrieval and optional re-ranking.
         /// </summary>
-        public double? AppliedMinScore { get; set; }
+        public double? AppliedFinalMinScore { get; set; }
+
+        /// <summary>
+        /// The retrieval score threshold that was applied before final selection.
+        /// </summary>
+        public double? AppliedRetrievalMinScore { get; set; }
 
         /// <summary>
         /// End-to-end processing time for retrieval/context assembly in milliseconds.
         /// </summary>
         public long ElapsedMs { get; set; }
+
+        /// <summary>
+        /// Time spent on query rewriting in milliseconds. Zero when rewriting was skipped.
+        /// </summary>
+        public long RewriteElapsedMs { get; set; }
     }
 
     /// <summary>
-    /// The output of IRagPipeline.ProcessAsync — contains the augmented prompt ready for the LLM,
-    /// along with the original query and retrieved references.
+    /// The output of IRagPipeline.ProcessAsync — contains the transient request message content
+    /// ready for the LLM, along with the original query and retrieved references.
     /// </summary>
     public class RagProcessedQuery
     {
@@ -54,9 +64,11 @@ namespace Mythosia.AI.Rag
         public string? RewrittenQuery { get; set; }
 
         /// <summary>
-        /// The fully assembled prompt (context + query) to send to the LLM.
+        /// The request-only user input assembled from retrieval context and the query.
+        /// This value is intended for transient LLM request transport and should not be
+        /// persisted back into conversation history.
         /// </summary>
-        public string AugmentedPrompt { get; set; } = string.Empty;
+        public string RequestMessageContent { get; set; } = string.Empty;
 
         /// <summary>
         /// The retrieved search results used to build the context.
@@ -64,10 +76,27 @@ namespace Mythosia.AI.Rag
         public IReadOnlyList<VectorSearchResult> References { get; set; } = System.Array.Empty<VectorSearchResult>();
 
         /// <summary>
+        /// The raw retrieval candidates returned before re-ranking was applied.
+        /// When no reranker is configured this matches <see cref="References"/>.
+        /// </summary>
+        public IReadOnlyList<VectorSearchResult> RetrievalCandidates { get; set; } = System.Array.Empty<VectorSearchResult>();
+
+        /// <summary>
         /// Whether the query returned any references from the vector store.
-        /// When false, <see cref="AugmentedPrompt"/> contains the original query unchanged.
+        /// When false, <see cref="RequestMessageContent"/> contains the original query unchanged.
         /// </summary>
         public bool HasReferences => References.Count > 0;
+
+        /// <summary>
+        /// Whether the search gate determined that document search was not needed for this query.
+        /// When true, the RAG pipeline was skipped entirely (no embedding, no vector search).
+        /// </summary>
+        public bool SearchSkipped { get; set; }
+
+        /// <summary>
+        /// The raw result from the query rewriter, or null if no rewriter was invoked.
+        /// </summary>
+        public QueryRewriteResult? RewriteResult { get; set; }
 
         /// <summary>
         /// Processing diagnostics for this query.
@@ -76,13 +105,15 @@ namespace Mythosia.AI.Rag
 
         public RagProcessedQuery(
             string originalQuery,
-            string augmentedPrompt,
+            string requestMessageContent,
             IReadOnlyList<VectorSearchResult> references,
+            IReadOnlyList<VectorSearchResult> retrievalCandidates,
             RagQueryDiagnostics diagnostics)
         {
             OriginalQuery = originalQuery;
-            AugmentedPrompt = augmentedPrompt;
+            RequestMessageContent = requestMessageContent;
             References = references;
+            RetrievalCandidates = retrievalCandidates;
             Diagnostics = diagnostics ?? new RagQueryDiagnostics();
         }
     }

@@ -5,18 +5,18 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>3.2.0</Version>
+    <Version>4.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, and IReranker interfaces and shared models.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking</PackageTags>
-    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v3.3.0: Add RagPipelineOptions.RetrievalMultiplier, PromptTemplate, and RagQueryDiagnostics.RetrievalK for auto-multiplier re-ranking support. Fully backward compatible.</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
+    <PackageReleaseNotes>v4.0.0: Unify query options into RagQueryOptions with RagFilter/RagRetrievalDerivation, add search gate via QueryRewriteResult, rename AugmentedPrompt to RequestMessageContent. Breaking changes — see RELEASE_NOTES.md.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Mythosia.AI.Loaders.Abstractions\Mythosia.AI.Loaders.Abstractions.csproj" />
+    <ProjectReference Include="..\..\loaders\Mythosia.AI.Loaders.Abstractions\Mythosia.AI.Loaders.Abstractions.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
   </ItemGroup>
 

@@ -7,10 +7,10 @@ public class RagEnabledServiceTests
 {
     /// <summary>
     /// Tests WithRag(Action&lt;RagBuilder&gt;) + GetCompletionAsync end-to-end.
-    /// Verifies that the prompt sent to the LLM contains the RAG-augmented context.
+    /// Verifies that the request message content sent to the LLM contains the RAG context.
     /// </summary>
     [TestMethod]
-    public async Task WithRag_GetCompletionAsync_SendsAugmentedPromptToLLM()
+    public async Task WithRag_GetCompletionAsync_SendsRequestMessageContentToLLM()
     {
         // Arrange
         var mockService = new MockAIService();
@@ -30,9 +30,9 @@ public class RagEnabledServiceTests
         Assert.AreEqual("14일 이내에 환불 가능합니다.", response);
         Assert.IsNotNull(mockService.LastReceivedPrompt, "LLM should have received a prompt");
         Assert.IsTrue(mockService.LastReceivedPrompt!.Contains("환불 정책이 어떻게 되나요?"),
-            "Augmented prompt should contain the original query");
+            "Request message content should contain the original query");
         Assert.IsTrue(mockService.LastReceivedPrompt.Length > "환불 정책이 어떻게 되나요?".Length,
-            "Augmented prompt should be longer than the original query (context was added)");
+            "Request message content should be longer than the original query (context was added)");
 
         Console.WriteLine($"=== Prompt sent to LLM ===\n{mockService.LastReceivedPrompt}");
     }
@@ -59,7 +59,7 @@ public class RagEnabledServiceTests
         var resp1 = await rag1.GetCompletionAsync("가격이 얼마?");
         var resp2 = await rag2.GetCompletionAsync("가격이 얼마?");
 
-        // Assert: Both services received augmented prompts
+        // Assert: Both services received request message content
         Assert.AreEqual("서비스1 응답", resp1);
         Assert.AreEqual("서비스2 응답", resp2);
         Assert.IsNotNull(service1.LastReceivedPrompt);
@@ -91,7 +91,7 @@ public class RagEnabledServiceTests
     }
 
     /// <summary>
-    /// Tests RetrieveAsync returns augmented prompt + references without calling LLM.
+    /// Tests RetrieveAsync returns request message content + references without calling LLM.
     /// </summary>
     [TestMethod]
     public async Task RetrieveAsync_ReturnsContextWithoutCallingLLM()
@@ -109,21 +109,21 @@ public class RagEnabledServiceTests
         // Assert
         Assert.IsNotNull(result);
         Assert.AreEqual("서울 인구?", result.OriginalQuery);
-        Assert.IsTrue(result.AugmentedPrompt.Length > 0);
+        Assert.IsTrue(result.RequestMessageContent.Length > 0);
         Assert.IsTrue(result.References.Count > 0);
 
         // LLM should NOT have been called
         Assert.IsNull(mockService.LastReceivedPrompt, "RetrieveAsync should not call LLM");
 
-        Console.WriteLine($"Augmented prompt:\n{result.AugmentedPrompt}");
+        Console.WriteLine($"Request message content:\n{result.RequestMessageContent}");
         Console.WriteLine($"References: {result.References.Count}");
     }
 
     /// <summary>
-    /// Tests StreamAsync sends augmented prompt to LLM streaming.
+    /// Tests StreamAsync sends request message content to LLM streaming.
     /// </summary>
     [TestMethod]
-    public async Task StreamAsync_SendsAugmentedPromptToLLM()
+    public async Task StreamAsync_SendsRequestMessageContentToLLM()
     {
         // Arrange
         var mockService = new MockAIService();

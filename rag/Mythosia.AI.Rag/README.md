@@ -5,6 +5,8 @@
 `Mythosia.AI.Rag` provides **RAG (Retrieval-Augmented Generation)** as an optional extension for `Mythosia.AI`.  
 Install this package to add `.WithRag()` to any `AIService` — no changes to the AI core required.
 
+> **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v4.x`** — all interfaces (`IRagPipeline`, `IQueryRewriter`, `IRetrievalStrategy`, `IReranker`, etc.) and models (`RagQueryOptions`, `RagFilter`, `QueryRewriteResult`, etc.) are from Abstractions v4.0.0+.
+
 ## Installation
 
 ```bash
@@ -72,7 +74,7 @@ That's it. Documents are automatically loaded, chunked, embedded, and indexed on
 )
 ```
 
-## Hybrid Search (v3.2.0)
+## Hybrid Search
 
 Combine dense vector similarity with BM25 keyword matching using **Reciprocal Rank Fusion (RRF)**. Documents that rank highly in both keyword and semantic search are boosted to the top.
 
@@ -115,11 +117,11 @@ To revert to pure vector search:
 .UseVectorSearch()  // Explicit pure vector mode (same as default)
 ```
 
-## Re-ranking (v3.2.0)
+## Re-ranking
 
 Re-rank search results after retrieval for improved relevance. Works with both pure vector and hybrid search.
 
-When a reranker is configured, the pipeline automatically fetches a wider candidate pool (`TopK × RetrievalMultiplier`) and then the reranker selects the best `TopK` results. This ensures the reranker has enough diversity to work with.
+When a reranker is configured, the pipeline automatically fetches a wider candidate pool (`TopK × TopKMultiplier`) and then the reranker selects the best `TopK` results. This ensures the reranker has enough diversity to work with.
 
 ```csharp
 // Default: retrieves TopK × 3 candidates, reranks down to TopK
@@ -129,7 +131,7 @@ When a reranker is configured, the pipeline automatically fetches a wider candid
 )
 
 // Custom multiplier via RagStore.UpdateOptions
-store.UpdateOptions(opt => opt.RetrievalMultiplier = 5);
+store.UpdateOptions(opt => opt.DefaultQuery.RetrievalDerivation.TopKMultiplier = 5);
 ```
 
 ### Cohere Reranker
@@ -158,6 +160,21 @@ var scorer = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
 )
 ```
 
+### vLLM Reranker
+
+Use a vLLM-served reranker model (e.g., Qwen3-Reranker):
+
+```csharp
+using Mythosia.AI.Rag.Reranking;
+
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .WithReranker(new VllmReranker(
+        model: "Qwen/Qwen3-Reranker-0.6B",
+        baseUrl: "http://localhost:8003"))
+)
+```
+
 ### Combined: Hybrid Search + Re-ranking
 
 ```csharp
@@ -176,6 +193,13 @@ var scorer = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
 
 // OpenAI embedding API
 .UseOpenAIEmbedding(apiKey, model: "text-embedding-3-small", dimensions: 1536)
+
+// vLLM-served embedding model
+.UseEmbedding(new VllmEmbeddingProvider(
+    httpClient,
+    model: "Qwen/Qwen3-Embedding-0.6B",
+    dimensions: 1024,
+    baseUrl: "http://localhost:8002"))
 
 // Custom provider
 .UseEmbedding(new MyCustomEmbeddingProvider())
@@ -291,9 +315,9 @@ Update pipeline options at runtime without rebuilding the index:
 ```csharp
 ragStore.UpdateOptions(opt =>
 {
-    opt.TopK = 8;
-    opt.MinScore = 0.4;
-    opt.RetrievalMultiplier = 3;
+    opt.DefaultQuery.FinalFilter.TopK = 8;
+    opt.DefaultQuery.FinalFilter.MinScore = 0.4;
+    opt.DefaultQuery.RetrievalDerivation.TopKMultiplier = 3;
     opt.PromptTemplate = @"
 [Reference Documents]
 {context}
@@ -320,16 +344,16 @@ var withoutRag = await ragService.WithoutRag().GetCompletionAsync("general quest
 
 ## Retrieve Without LLM Call
 
-Inspect the augmented prompt and references before sending to the LLM:
+Inspect the request message content and references before sending to the LLM:
 
 ```csharp
 var result = await ragService.RetrieveAsync("What is the refund policy?");
 
 if (result.HasReferences)
 {
-    Console.WriteLine(result.AugmentedPrompt);  // Context + query
-    Console.WriteLine(result.References.Count); // Number of matched chunks
-    Console.WriteLine($"TopK={result.Diagnostics.AppliedTopK}, RetrievalK={result.Diagnostics.RetrievalK}, MinScore={result.Diagnostics.AppliedMinScore}, Namespace={result.Diagnostics.AppliedNamespace}, Elapsed={result.Diagnostics.ElapsedMs}ms");
+    Console.WriteLine(result.RequestMessageContent);  // Context + query
+    Console.WriteLine(result.References.Count);        // Number of matched chunks
+    Console.WriteLine($"FinalTopK={result.Diagnostics.FinalTopK}, RetrievalTopK={result.Diagnostics.RetrievalTopK}, FinalMinScore={result.Diagnostics.AppliedFinalMinScore}, Namespace={result.Diagnostics.AppliedNamespace}, Elapsed={result.Diagnostics.ElapsedMs}ms");
     foreach (var r in result.References)
     {
         Console.WriteLine($"Score: {r.Score:F4} | {r.Record.Content}");
@@ -337,8 +361,8 @@ if (result.HasReferences)
 }
 else
 {
-    // No references found — AugmentedPrompt contains the original query unchanged
-    Console.WriteLine(result.AugmentedPrompt);
+    // No references found — RequestMessageContent contains the original query unchanged
+    Console.WriteLine(result.RequestMessageContent);
 }
 ```
 
@@ -357,8 +381,27 @@ var normal = await ragStore.QueryAsync("refund policy?");
 
 var highRecall = await ragStore.QueryAsync(
     "refund policy?",
-    new RagQueryOptions { TopK = 15, MinScore = 0.2 }
+    new RagQueryOptions
+    {
+        FinalFilter = new RagFilter { TopK = 15, MinScore = 0.2 }
+    }
 );
+```
+
+## Progress Reporting
+
+Track pipeline stage progress with an async callback:
+
+```csharp
+var result = await ragStore.QueryAsync("refund policy?",
+    new RagQueryOptions
+    {
+        ProgressAsync = stage =>
+        {
+            Console.WriteLine($"Stage: {stage}");
+            return Task.CompletedTask;
+        }
+    });
 ```
 
 ## Architecture

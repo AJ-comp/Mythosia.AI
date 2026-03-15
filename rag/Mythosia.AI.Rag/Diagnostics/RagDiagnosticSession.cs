@@ -61,8 +61,8 @@ namespace Mythosia.AI.Rag.Diagnostics
         {
             var steps = new List<AnalysisStep>();
             var suggestions = new List<string>();
-            var topK = _pipeline.Options.TopK;
-            var minScore = _pipeline.Options.MinScore;
+            var topK = _pipeline.Options.DefaultQuery.FinalFilter.TopK;
+            var minScore = _pipeline.Options.DefaultQuery.FinalFilter.MinScore;
 
             // ── Step 1: Was the text ever indexed? ──
             bool canSearchChunks = _pipeline.VectorStore is IRagDiagnosticsStore;
@@ -192,7 +192,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             CancellationToken cancellationToken = default)
         {
             var items = new List<HealthCheckItem>();
-            var ns = @namespace ?? _pipeline.Options.DefaultNamespace;
+            var ns = @namespace ?? _pipeline.Options.DefaultQuery.Namespace;
 
             var diagnosticsStore = _pipeline.VectorStore as IRagDiagnosticsStore;
             if (diagnosticsStore == null)

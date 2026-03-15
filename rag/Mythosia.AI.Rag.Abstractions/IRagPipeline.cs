@@ -11,11 +11,11 @@ namespace Mythosia.AI.Rag
     public interface IRagPipeline
     {
         /// <summary>
-        /// Processes the user query: embed → search → build context → return augmented prompt.
+        /// Processes the user query: embed → search → build context → return request message content.
         /// </summary>
         /// <param name="query">The original user query.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>The processed query with augmented prompt and references.</returns>
+        /// <returns>The processed query with request message content and references.</returns>
         Task<RagProcessedQuery> ProcessAsync(string query, CancellationToken cancellationToken = default);
 
         /// <summary>
@@ -24,7 +24,7 @@ namespace Mythosia.AI.Rag
         /// <param name="query">The original user query.</param>
         /// <param name="options">Per-request query overrides (TopK, MinScore, Namespace).</param>
         /// <param name="cancellationToken">Cancellation token.</param>
-        /// <returns>The processed query with augmented prompt and references.</returns>
+        /// <returns>The processed query with request message content and references.</returns>
         Task<RagProcessedQuery> ProcessAsync(string query, RagQueryOptions? options, CancellationToken cancellationToken = default);
     }
 }

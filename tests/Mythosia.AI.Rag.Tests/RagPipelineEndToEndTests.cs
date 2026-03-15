@@ -22,7 +22,7 @@ public class RagPipelineEndToEndTests
         var splitter = new CharacterTextSplitter(chunkSize: 200, chunkOverlap: 30, separator: "\n");
         var contextBuilder = new DefaultContextBuilder();
         var pipeline = new RagPipeline(embedding, vectorStore, splitter, contextBuilder,
-            new RagPipelineOptions { TopK = 3 });
+            new RagPipelineOptions { DefaultQuery = new RagQueryOptions { FinalFilter = new RagFilter { TopK = 3 } } });
 
         // Act: Index a document
         var doc = new RagDocument
@@ -67,10 +67,10 @@ public class RagPipelineEndToEndTests
     }
 
     /// <summary>
-    /// Tests that IRagPipeline.ProcessAsync returns an augmented prompt with context.
+    /// Tests that IRagPipeline.ProcessAsync returns request message content with context.
     /// </summary>
     [TestMethod]
-    public async Task ProcessAsync_ReturnsAugmentedPrompt()
+    public async Task ProcessAsync_ReturnsRequestMessageContent()
     {
         // Arrange
         var embedding = new LocalEmbeddingProvider(dimensions: 512);
@@ -94,15 +94,16 @@ public class RagPipelineEndToEndTests
         // Assert
         Assert.IsNotNull(processed);
         Assert.AreEqual("가격이 얼마인가요?", processed.OriginalQuery);
-        Assert.IsFalse(string.IsNullOrWhiteSpace(processed.AugmentedPrompt));
-        Assert.IsTrue(processed.AugmentedPrompt.Contains("가격이 얼마인가요?"),
-            "Augmented prompt should contain the original query");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(processed.RequestMessageContent));
+        Assert.IsTrue(processed.RequestMessageContent.Contains("가격이 얼마인가요?"),
+            "Request message content should contain the original query");
         Assert.AreEqual("default", processed.Diagnostics.AppliedNamespace);
-        Assert.AreEqual(5, processed.Diagnostics.AppliedTopK);
-        Assert.IsNull(processed.Diagnostics.AppliedMinScore);
+        Assert.AreEqual(5, processed.Diagnostics.FinalTopK);
+        Assert.IsNull(processed.Diagnostics.AppliedFinalMinScore);
+        Assert.IsNull(processed.Diagnostics.AppliedRetrievalMinScore);
         Assert.IsTrue(processed.Diagnostics.ElapsedMs >= 0);
 
-        Console.WriteLine($"Augmented Prompt:\n{processed.AugmentedPrompt}");
+        Console.WriteLine($"Request message content:\n{processed.RequestMessageContent}");
     }
 
     [TestMethod]
@@ -113,7 +114,7 @@ public class RagPipelineEndToEndTests
         var splitter = new CharacterTextSplitter(chunkSize: 100, chunkOverlap: 20);
         var contextBuilder = new DefaultContextBuilder();
         var pipeline = new RagPipeline(embedding, vectorStore, splitter, contextBuilder,
-            new RagPipelineOptions { TopK = 3, MinScore = 0.4, DefaultNamespace = "base" });
+            new RagPipelineOptions { DefaultQuery = new RagQueryOptions { Namespace = "base", FinalFilter = new RagFilter { TopK = 3, MinScore = 0.4 } } });
 
         await pipeline.IndexDocumentAsync(new RagDocument
         {
@@ -126,13 +127,17 @@ public class RagPipelineEndToEndTests
         var processed = await ragPipeline.ProcessAsync("환불 정책", new RagQueryOptions
         {
             Namespace = "policy",
-            TopK = 5,
-            MinScore = 0.2
+            FinalFilter = new RagFilter
+            {
+                TopK = 5,
+                MinScore = 0.2
+            }
         });
 
         Assert.AreEqual("policy", processed.Diagnostics.AppliedNamespace);
-        Assert.AreEqual(5, processed.Diagnostics.AppliedTopK);
-        Assert.AreEqual(0.2, processed.Diagnostics.AppliedMinScore);
+        Assert.AreEqual(5, processed.Diagnostics.FinalTopK);
+        Assert.AreEqual(0.2, processed.Diagnostics.AppliedFinalMinScore);
+        Assert.AreEqual(0.2, processed.Diagnostics.AppliedRetrievalMinScore);
         Assert.IsTrue(processed.Diagnostics.ElapsedMs >= 0);
     }
 
@@ -159,7 +164,7 @@ public class RagPipelineEndToEndTests
         // Assert
         Assert.IsNotNull(processed);
         Assert.IsTrue(processed.References.Count > 0, "Should have references");
-        Assert.IsTrue(processed.AugmentedPrompt.Length > 0, "Should have augmented prompt");
+        Assert.IsTrue(processed.RequestMessageContent.Length > 0, "Should have request message content");
 
         Console.WriteLine($"Query: {processed.OriginalQuery}");
         Console.WriteLine($"References: {processed.References.Count}");
@@ -167,7 +172,7 @@ public class RagPipelineEndToEndTests
         {
             Console.WriteLine($"  Score={r.Score:F4} | {r.Record.Content}");
         }
-        Console.WriteLine($"\nAugmented Prompt:\n{processed.AugmentedPrompt}");
+        Console.WriteLine($"\nRequest message content:\n{processed.RequestMessageContent}");
     }
 
     /// <summary>
@@ -184,12 +189,12 @@ public class RagPipelineEndToEndTests
 
         var processed = await store.QueryAsync("파이썬이 뭐야?");
 
-        Assert.IsTrue(processed.AugmentedPrompt.Contains("[참고]"));
-        Assert.IsTrue(processed.AugmentedPrompt.Contains("[질문]"));
-        Assert.IsTrue(processed.AugmentedPrompt.Contains("파이썬이 뭐야?"));
-        Assert.IsTrue(processed.AugmentedPrompt.Contains("반드시 문서를 근거로 답변하세요."));
+        Assert.IsTrue(processed.RequestMessageContent.Contains("[참고]"));
+        Assert.IsTrue(processed.RequestMessageContent.Contains("[질문]"));
+        Assert.IsTrue(processed.RequestMessageContent.Contains("파이썬이 뭐야?"));
+        Assert.IsTrue(processed.RequestMessageContent.Contains("반드시 문서를 근거로 답변하세요."));
 
-        Console.WriteLine(processed.AugmentedPrompt);
+        Console.WriteLine(processed.RequestMessageContent);
     }
 
     /// <summary>
@@ -230,7 +235,7 @@ public class RagPipelineEndToEndTests
         var splitter = new CharacterTextSplitter(500, 50);
         var contextBuilder = new DefaultContextBuilder();
         var pipeline = new RagPipeline(embedding, vectorStore, splitter, contextBuilder,
-            new RagPipelineOptions { TopK = 5 });
+            new RagPipelineOptions { DefaultQuery = new RagQueryOptions { FinalFilter = new RagFilter { TopK = 5 } } });
 
         // Index documents on different topics
         await pipeline.IndexDocumentAsync(new RagDocument
