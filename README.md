@@ -88,10 +88,10 @@ graph TD
     end
 
     %% Orchestration → dependencies
-    Rag --> RagAbs
     Rag --> AI
     Rag --> Office
     Rag --> Pdf
+    Rag --> RagAbs
     Rag --> InMem
 
     %% Provider packages → core

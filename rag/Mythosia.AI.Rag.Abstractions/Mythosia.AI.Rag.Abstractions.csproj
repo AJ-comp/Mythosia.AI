@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.0.0</Version>
+    <Version>4.0.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, and IReranker interfaces and shared models.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
-    <PackageReleaseNotes>v4.0.0: Unify query options into RagQueryOptions with RagFilter/RagRetrievalDerivation, add search gate via QueryRewriteResult, rename AugmentedPrompt to RequestMessageContent. Breaking changes — see RELEASE_NOTES.md.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.1: Fix incorrect NuGet dependency versions (VectorDb.Abstractions and Loaders.Abstractions were incorrectly pinned to 4.0.0 due to a pack script bug). No code changes.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

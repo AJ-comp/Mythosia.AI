@@ -112,8 +112,7 @@ foreach ($project in $projects) {
     Write-Host "Packing..."
     dotnet pack $project.FullName `
         -c Release `
-        --output $artifactsDir `
-        -p:PackageVersion=$version
+        --output $artifactsDir
 
     if ($LASTEXITCODE -ne 0) {
         throw "dotnet pack failed for $($project.FullName)"

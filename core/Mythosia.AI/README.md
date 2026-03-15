@@ -51,60 +51,6 @@ var service = new ClaudeService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
 
-## New in v5.0.0
-
-### `AIModels` Catalog
-
-Model selection is now documented around provider-grouped string constants via `AIModels`.
-
-```csharp
-service.ChangeModel(AIModels.OpenAI.Gpt5_4);
-service.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
-service.ChangeModel(AIModels.Google.Gemini3FlashPreview);
-```
-
-### `AIRequestProfile`
-
-Apply one-shot runtime overrides per request without mutating long-lived service configuration.
-
-```csharp
-var response = await service.GetCompletionAsync(
-    "Rewrite this query for retrieval.",
-    RequestProfiles.QueryRewrite);
-```
-
-### `AIRequestContext`
-
-Use request-scoped prompt injection when you need to pass derived prompt data only for the current call without polluting the real conversation history.
-
-This is especially useful in a query rewriter flow where:
-
-- the original user question should remain in chat history
-- the rewritten retrieval-friendly question should be sent only for the current request
-- the rewritten text should not be stored as if the user actually typed it
-
-```csharp
-var rewrittenQuery = await service.GetCompletionAsync(
-    "Rewrite this question for retrieval.",
-    RequestProfiles.QueryRewrite);
-
-var response = await service.GetCompletionAsync(
-    originalUserQuestion,
-    new AIRequestContext
-    {
-        RequestMessageOverride = new Message(ActorRole.User, rewrittenQuery)
-    });
-```
-
-### Static Quick Helpers
-
-For simple stateless usage, use `AIService` static helpers.
-
-```csharp
-var answer = await AIService.QuickAskAsync(apiKey, "Summarize this text.");
-var vision = await AIService.QuickAskWithImageAsync(apiKey, "Describe this image.", imagePath);
-```
-
 ## Quick Start
 
 ```csharp
@@ -120,6 +66,25 @@ var response = await claudeService.GetCompletionAsync("Hello!");
 var geminiService = new GeminiService(apiKey, httpClient);
 geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
 var response = await geminiService.GetCompletionAsync("Hello!");
+```
+
+## `AIModels` Catalog
+
+Model selection is now documented around provider-grouped string constants via `AIModels`.
+
+```csharp
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
+service.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
+service.ChangeModel(AIModels.Google.Gemini3FlashPreview);
+```
+
+## Static Quick Helpers
+
+For simple stateless usage, use `AIService` static helpers.
+
+```csharp
+var answer = await AIService.QuickAskAsync(apiKey, "Summarize this text.");
+var vision = await AIService.QuickAskWithImageAsync(apiKey, "Describe this image.", imagePath);
 ```
 
 ## GPT-5 Family Configuration
@@ -227,6 +192,39 @@ await foreach (var content in grokService.StreamAsync(message, new StreamOptions
     else if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
 }
+```
+
+## `AIRequestProfile`
+
+Apply one-shot runtime overrides per request without mutating long-lived service configuration.
+
+```csharp
+var response = await service.GetCompletionAsync(
+    "Rewrite this query for retrieval.",
+    RequestProfiles.QueryRewrite);
+```
+
+## `AIRequestContext`
+
+Use request-scoped prompt injection when you need to pass derived prompt data only for the current call without polluting the real conversation history.
+
+This is especially useful in a query rewriter flow where:
+
+- the original user question should remain in chat history
+- the rewritten retrieval-friendly question should be sent only for the current request
+- the rewritten text should not be stored as if the user actually typed it
+
+```csharp
+var rewrittenQuery = await service.GetCompletionAsync(
+    "Rewrite this question for retrieval.",
+    RequestProfiles.QueryRewrite);
+
+var response = await service.GetCompletionAsync(
+    originalUserQuestion,
+    new AIRequestContext
+    {
+        RequestMessageOverride = new Message(ActorRole.User, rewrittenQuery)
+    });
 ```
 
 ## Function Calling
