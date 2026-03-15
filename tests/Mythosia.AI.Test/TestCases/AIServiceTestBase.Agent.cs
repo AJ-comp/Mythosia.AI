@@ -1,5 +1,5 @@
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using System.Text.Json;
 
 namespace Mythosia.AI.Tests;

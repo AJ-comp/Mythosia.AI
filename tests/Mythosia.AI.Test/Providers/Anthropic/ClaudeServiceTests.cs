@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models.Enums;
+﻿using Mythosia.AI.Models;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Tests;
@@ -11,7 +11,7 @@ namespace Mythosia.AI.Tests.Anthropic;
 public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
-    protected abstract AIModel ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
+    protected abstract string ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]  // 상속 동작 추가
     public static async Task ClassInit(TestContext context)
@@ -82,7 +82,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 
         return true;
     }
-    protected override AIModel? GetAlternativeModel() => AIModel.ClaudeSonnet4_250514;
+    protected override string? GetAlternativeModel() => AIModels.Anthropic.ClaudeSonnet4_250514;
 
     /// <summary>
     /// ThinkingBudget이 MaxTokens 이상일 때 자동 조정 테스트
@@ -159,8 +159,8 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
         {
             var models = new[]
             {
-               AIModel.ClaudeHaiku4_5_251001,
-               AIModel.ClaudeSonnet4_250514
+               AIModels.Anthropic.ClaudeHaiku4_5_251001,
+               AIModels.Anthropic.ClaudeSonnet4_250514
            };
 
             foreach (var model in models)
@@ -168,7 +168,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
                 try
                 {
                     AI.ChangeModel(model);
-                    Console.WriteLine($"\n[Testing Model] {model.ToDescription()}");
+                    Console.WriteLine($"\n[Testing Model] {model}");
 
                     var response = await AI.GetCompletionAsync($"Hello from {model}!");
                     Assert.IsNotNull(response);
@@ -227,47 +227,47 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 [TestClass]
 public class Claude_Opus4_6 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_6;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_6;
 }
 
 [TestClass]
 public class Claude_Sonnet4_6 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_6;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_6;
 }
 
 [TestClass]
 public class Claude_Opus4_1 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_1_250805;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_1_250805;
 }
 
 [TestClass]
 public class Claude_Opus4 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_250514;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_250514;
 }
 
 [TestClass]
 public class Claude_Opus4_5 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeOpus4_5_251101;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_5_251101;
 }
 
 [TestClass]
 public class Claude_Sonnet4_5 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_5_250929;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_5_250929;
 }
 
 [TestClass]
 public class Claude_Sonnet4 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeSonnet4_250514;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_250514;
 }
 
 [TestClass]
 public class Claude_Haiku4_5 : ClaudeServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.ClaudeHaiku4_5_251001;
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeHaiku4_5_251001;
 }

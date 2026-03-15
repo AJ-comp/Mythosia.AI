@@ -1,6 +1,5 @@
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
-using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
@@ -36,7 +35,7 @@ public class SummaryConversationPolicyTests
                 _responses.Enqueue(r);
         }
 
-        public override AIProvider Provider => AIProvider.OpenAI;
+        public override string Provider => nameof(AIProvider.OpenAI);
 
         public override Task<string> GetCompletionAsync(Message message)
         {

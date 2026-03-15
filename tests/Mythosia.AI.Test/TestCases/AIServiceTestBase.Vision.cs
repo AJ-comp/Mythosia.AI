@@ -1,6 +1,6 @@
 ﻿using Mythosia.AI.Builders;
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.OpenAI;
 
 namespace Mythosia.AI.Tests;

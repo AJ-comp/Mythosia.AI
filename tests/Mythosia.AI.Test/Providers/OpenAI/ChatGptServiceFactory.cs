@@ -1,4 +1,4 @@
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.Azure;
@@ -13,7 +13,7 @@ public static class ChatGptServiceFactory
     private static string? _apiKey;
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public static AIService Create(AIModel model)
+    public static AIService Create(string model)
     {
         EnsureApiKey().GetAwaiter().GetResult();
         var service = new ChatGptService(_apiKey!, new HttpClient());

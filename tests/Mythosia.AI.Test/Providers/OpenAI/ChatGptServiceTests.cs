@@ -1,5 +1,5 @@
 ﻿using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.OpenAI;
@@ -13,7 +13,7 @@ namespace Mythosia.AI.Tests.OpenAI;
 public abstract class ChatGptServiceTestsBase : AIServiceTestBase
 {
     private static string? openAiKey;
-    protected abstract AIModel ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
+    protected abstract string ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]  // 상속 동작 추가
     public static async Task ClassInit(TestContext context)
@@ -44,10 +44,10 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
         // All GPT-5 variants support multimodal (text + image input)
         if (curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase))
             return true;
-        if (curModel == AIModel.Gpt4o.ToDescription() ||
-            curModel == AIModel.Gpt4oMini.ToDescription() ||
-            curModel == AIModel.Gpt4o241120.ToDescription() ||
-            curModel == AIModel.Gpt4o240806.ToDescription())
+        if (curModel == AIModels.OpenAI.Gpt4o ||
+            curModel == AIModels.OpenAI.Gpt4oMini ||
+            curModel == AIModels.OpenAI.Gpt4o241120 ||
+            curModel == AIModels.OpenAI.Gpt4o240806)
             return true;
         return false;
     }
@@ -61,7 +61,7 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
         var curModel = AI.Model;
         return curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
     }
-    protected override AIModel? GetAlternativeModel() => AIModel.Gpt4oMini;
+    protected override string? GetAlternativeModel() => AIModels.OpenAI.Gpt4oMini;
 
     #region GPT-Specific Tests
     /// <summary>
@@ -108,32 +108,32 @@ public abstract class ChatGptServiceTestsBase : AIServiceTestBase
 [TestClass]
 public class Gpt4o : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt4o;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt4o;
 }
 
 [TestClass]
 public class Gpt4oMini : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt4oMini;
-    protected override AIModel? GetAlternativeModel() => AIModel.Gpt4o;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt4oMini;
+    protected override string? GetAlternativeModel() => AIModels.OpenAI.Gpt4o;
 }
 
 [TestClass]
 public class Gpt4o240806 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt4o240806;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt4o240806;
 }
 
 [TestClass]
 public class Gpt4o241120 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt4o241120;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt4o241120;
 }
 
 [TestClass]
 public class Gpt5 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5;
     protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Low);
 
     [TestCategory("ServiceSpecific")]
@@ -193,43 +193,43 @@ public class Gpt5 : ChatGptServiceTestsBase
 [TestClass]
 public class Gpt5Mini : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5Mini;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5Mini;
 }
 
 [TestClass]
 public class Gpt5Nano : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5Nano;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5Nano;
 }
 
 [TestClass]
 public class Gpt5_1 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_1;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_1;
 }
 
 [TestClass]
 public class Gpt5_2 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_2;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_2;
 }
 
 [TestClass]
 public class Gpt5_2Pro : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_2Pro;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_2Pro;
 }
 
 [TestClass]
 public class Gpt5_2Codex : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_2Codex;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_2Codex;
 }
 
 [TestClass]
 public class Gpt5_3Codex : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_3Codex;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_3Codex;
     protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.Low);
 
     [TestCategory("ServiceSpecific")]
@@ -263,19 +263,19 @@ public class Gpt5_3Codex : ChatGptServiceTestsBase
 [TestClass]
 public class Gpt5_4 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_4;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_4;
     protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Low);
 }
 
 [TestClass]
 public class Gpt5_4Pro : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gpt5_4Pro;
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_4Pro;
     protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
 }
 
 [TestClass]
 public class O3 : ChatGptServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.o3;
+    protected override string ModelToTest => AIModels.OpenAI.O3;
 }

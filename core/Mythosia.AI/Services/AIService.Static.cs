@@ -1,0 +1,68 @@
+﻿using Mythosia.AI.Models;
+using Mythosia.AI.Services.Anthropic;
+using Mythosia.AI.Services.DeepSeek;
+using Mythosia.AI.Services.Google;
+using Mythosia.AI.Services.OpenAI;
+using Mythosia.AI.Services.Perplexity;
+using Mythosia.AI.Services.xAI;
+using System;
+using System.Net.Http;
+using System.Threading.Tasks;
+
+namespace Mythosia.AI.Services.Base
+{
+    public abstract partial class AIService
+    {
+        #region Static Quick Methods
+
+        public static async Task<string> QuickAskAsync(string apiKey, string prompt, string model = AIModels.OpenAI.Gpt4oMini)
+        {
+            using var httpClient = new HttpClient();
+            var service = CreateService(model, apiKey, httpClient);
+            service.StatelessMode = true;
+            return await service.GetCompletionAsync(prompt);
+        }
+
+        public static async Task<string> QuickAskWithImageAsync(
+            string apiKey,
+            string prompt,
+            string imagePath,
+            string model = AIModels.OpenAI.Gpt4Vision)
+        {
+            using var httpClient = new HttpClient();
+            var service = CreateService(model, apiKey, httpClient);
+            service.StatelessMode = true;
+            return await service.GetCompletionWithImageAsync(prompt, imagePath);
+        }
+
+        private static AIService CreateService(string model, string apiKey, HttpClient httpClient)
+        {
+            var provider = GetProviderFromModel(model);
+            return provider switch
+            {
+                nameof(AIProvider.OpenAI) => new ChatGptService(apiKey, httpClient),
+                nameof(AIProvider.Anthropic) => new ClaudeService(apiKey, httpClient),
+                nameof(AIProvider.Google) => new GeminiService(apiKey, httpClient),
+                nameof(AIProvider.DeepSeek) => new DeepSeekService(apiKey, httpClient),
+                nameof(AIProvider.xAI) => new GrokService(apiKey, httpClient),
+                nameof(AIProvider.Perplexity) => new SonarService(apiKey, httpClient),
+                _ => throw new NotSupportedException($"Provider {provider} not supported")
+            };
+        }
+
+        private static string GetProviderFromModel(string model)
+        {
+            var modelName = model.ToString();
+            if (modelName.StartsWith("Claude")) return nameof(AIProvider.Anthropic);
+            if (modelName.StartsWith("Gpt") || modelName.StartsWith("GPT") || modelName.StartsWith("o3")) return nameof(AIProvider.OpenAI);
+            if (modelName.StartsWith("Grok")) return nameof(AIProvider.xAI);
+            if (modelName.StartsWith("Gemini")) return nameof(AIProvider.Google);
+            if (modelName.StartsWith("DeepSeek")) return nameof(AIProvider.DeepSeek);
+            if (modelName.StartsWith("Perplexity")) return nameof(AIProvider.Perplexity);
+
+            throw new ArgumentException($"Cannot determine provider for model {model}");
+        }
+
+        #endregion
+    }
+}

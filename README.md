@@ -3,18 +3,19 @@
 [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI)
 [![NuGet Downloads](https://img.shields.io/nuget/dt/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI)
 
-Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, DeepSeek, Perplexity, xAI) and RAG extensions.
+Unified .NET AI library with modular provider packages, document loaders, and RAG extensions.
 
 ## Supported Providers
 
-| Provider | Models |
-| --- | --- |
-| **OpenAI** | GPT-5.2 / 5.2 Codex / 5.1 / 5, GPT-4.1, GPT-4o, o3 |
-| **Anthropic** | Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5 / 4, Haiku 4.5 |
-| **Google** | Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite |
-| **xAI** | Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini |
-| **DeepSeek** | Chat, Reasoner |
-| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning |
+| Provider | Package | Models |
+| --- | --- | --- |
+| **OpenAI** | `Mythosia.AI` | GPT-5.2 / 5.2 Codex / 5.1 / 5, GPT-4.1, GPT-4o, o3 |
+| **Anthropic** | `Mythosia.AI` | Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5 / 4, Haiku 4.5 |
+| **Google** | `Mythosia.AI` | Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite |
+| **xAI** | `Mythosia.AI` | Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini |
+| **DeepSeek** | `Mythosia.AI` | Chat, Reasoner |
+| **Perplexity** | `Mythosia.AI` | Sonar, Sonar Pro, Sonar Reasoning |
+| **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
 
 ## Packages
 
@@ -22,7 +23,8 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI](Mythosia.AI/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI) | Core library — multi-provider AI service with streaming, function calling, and multimodal support |
+| [Mythosia.AI](core/Mythosia.AI/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI) | Core library — built-in providers, streaming, function calling, and multimodal support |
+| [Mythosia.AI.Providers.Alibaba](core/Mythosia.AI.Providers.Alibaba/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Providers.Alibaba.svg)](https://www.nuget.org/packages/Mythosia.AI.Providers.Alibaba) | Alibaba / Qwen provider package built on top of `Mythosia.AI` |
 
 ### RAG
 
@@ -35,9 +37,9 @@ Unified .NET AI library with multi-provider support (OpenAI, Anthropic, Google, 
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI.Loaders.Abstractions](Mythosia.AI.Loaders.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Abstractions) | Document loader interfaces and models |
-| [Mythosia.AI.Loaders.Office](Mythosia.AI.Loaders.Office/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Office.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Office) | OpenXml parsers for Word / Excel / PowerPoint |
-| [Mythosia.AI.Loaders.Pdf](Mythosia.AI.Loaders.Pdf/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Pdf.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Pdf) | PDF parser via PdfPig |
+| [Mythosia.AI.Loaders.Abstractions](loaders/Mythosia.AI.Loaders.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Abstractions) | Document loader interfaces and models |
+| [Mythosia.AI.Loaders.Office](loaders/Mythosia.AI.Loaders.Office/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Office.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Office) | OpenXml parsers for Word / Excel / PowerPoint |
+| [Mythosia.AI.Loaders.Pdf](loaders/Mythosia.AI.Loaders.Pdf/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Loaders.Pdf.svg)](https://www.nuget.org/packages/Mythosia.AI.Loaders.Pdf) | PDF parser via PdfPig |
 
 ### Vector Stores
 
@@ -64,7 +66,8 @@ graph TD
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>ChatGPT · Claude · Gemini<br/>Grok · DeepSeek · Sonar<br/><i>netstandard2.1 · v4.7.1</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v4.7.1</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v4.7.1</i>"]
     end
 
     subgraph "📄 Document Loaders"
@@ -91,6 +94,9 @@ graph TD
     Rag --> Pdf
     Rag --> InMem
 
+    %% Provider packages → core
+    Alibaba --> AI
+
     %% Composite → Foundation
     RagAbs --> LoaderAbs
     RagAbs --> VdbAbs
@@ -116,7 +122,7 @@ Run **`Mythosia.AI.Samples.ChatUi`** to try it locally:
 
 ```bash
 # from repo root
-dotnet run --project Mythosia.AI.Samples.ChatUi
+dotnet run --project samples/Mythosia.AI.Samples.ChatUi
 ```
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
@@ -247,12 +253,15 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 ## Repository Structure
 
 ```text
-Mythosia.AI/                          # Core AI service library
+core/
+  Mythosia.AI/                        # Core AI service library
+  Mythosia.AI.Providers.Alibaba/      # Alibaba / Qwen provider package
+loaders/
+  Mythosia.AI.Loaders.Abstractions/   # Document loader contracts
+  Mythosia.AI.Loaders.Office/         # Office document loaders (Word/Excel/PowerPoint)
+  Mythosia.AI.Loaders.Pdf/            # PDF document loader
 rag/Mythosia.AI.Rag/                  # RAG fluent API and pipeline
 rag/Mythosia.AI.Rag.Abstractions/     # RAG interfaces and models
-Mythosia.AI.Loaders.Abstractions/     # Document loader contracts
-Mythosia.AI.Loaders.Office/           # Office document loaders (Word/Excel/PowerPoint)
-Mythosia.AI.Loaders.Pdf/              # PDF document loader
 vectordb/
   Mythosia.VectorDb.Abstractions/     # Vector store contracts
   Mythosia.VectorDb.InMemory/         # In-memory vector store
@@ -278,10 +287,10 @@ dotnet add package System.Linq.Async
 ## Documentation
 
 - [Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)
-- [Mythosia.AI README](Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
+- [Mythosia.AI README](core/Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
 - [Mythosia.AI.Rag README](rag/Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
-- Loaders Guide: [EN](Mythosia.AI.Loaders.Abstractions/docs/en/loaders.md) · [KO](Mythosia.AI.Loaders.Abstractions/docs/ko/loaders.md) · [JA](Mythosia.AI.Loaders.Abstractions/docs/ja/loaders.md) · [ZH](Mythosia.AI.Loaders.Abstractions/docs/zh/loaders.md)
-- [Release Notes](Mythosia.AI/RELEASE_NOTES.md)
+- Loaders Guide: [EN](loaders/Mythosia.AI.Loaders.Abstractions/docs/en/loaders.md) · [KO](loaders/Mythosia.AI.Loaders.Abstractions/docs/ko/loaders.md) · [JA](loaders/Mythosia.AI.Loaders.Abstractions/docs/ja/loaders.md) · [ZH](loaders/Mythosia.AI.Loaders.Abstractions/docs/zh/loaders.md)
+- [Release Notes](core/Mythosia.AI/RELEASE_NOTES.md)
 
 ## License
 

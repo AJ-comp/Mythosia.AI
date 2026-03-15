@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models.Enums;
+﻿using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 
@@ -406,7 +406,7 @@ public abstract partial class AIServiceTestBase
                 // Vision 지원 모델로 변경
                 if (AI is Mythosia.AI.Services.OpenAI.ChatGptService && AI.Model.Contains("mini"))
                 {
-                    AI.ChangeModel(AIModel.Gpt4oLatest);
+                    AI.ChangeModel(AIModels.OpenAI.Gpt4oLatest);
                 }
 
                 var options = new StreamOptions

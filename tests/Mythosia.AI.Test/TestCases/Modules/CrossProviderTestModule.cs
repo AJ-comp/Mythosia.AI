@@ -1,6 +1,6 @@
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
@@ -39,7 +39,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
             string apiKey = await secretFetcher.GetKeyValueAsync();
             var newService = new ClaudeService(apiKey, new HttpClient()).CopyFrom(AI);
-            newService.ChangeModel(AIModel.ClaudeSonnet4_250514);
+            newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_250514);
             Assert.AreEqual(messageCountBefore, newService.ActivateChat.Messages.Count);
 
             try
@@ -78,7 +78,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
             string openAiKey = await secretFetcher.GetKeyValueAsync();
             var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-            chatGptService.ChangeModel(AIModel.Gpt4oMini);
+            chatGptService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
             Assert.AreEqual(messageCountBefore, chatGptService.ActivateChat.Messages.Count);
 
             try
@@ -116,7 +116,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
             string openAiKey = await secretFetcher.GetKeyValueAsync();
             var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-            chatGptService.ChangeModel(AIModel.o3);
+            chatGptService.ChangeModel(AIModels.OpenAI.O3);
             Assert.AreEqual(messageCountBefore, chatGptService.ActivateChat.Messages.Count);
 
             try
@@ -152,7 +152,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 2] Switching to Claude ==========");
             var claudeKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret").GetKeyValueAsync();
             var claudeService = new ClaudeService(claudeKey, new HttpClient()).CopyFrom(AI);
-            claudeService.ChangeModel(AIModel.ClaudeHaiku4_5_251001);
+            claudeService.ChangeModel(AIModels.Anthropic.ClaudeHaiku4_5_251001);
             Assert.AreEqual(totalMessagesPhase1, claudeService.ActivateChat.Messages.Count);
             var response2 = await claudeService.GetCompletionAsync("Now also get the stock price for MSFT");
             Console.WriteLine($"[Phase 2 Claude Response] {response2}");
@@ -163,7 +163,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 3] Switching to ChatGPT ==========");
             var openAiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret").GetKeyValueAsync();
             var gptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(claudeService);
-            gptService.ChangeModel(AIModel.Gpt4oMini);
+            gptService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
             Assert.AreEqual(totalMessagesPhase2, gptService.ActivateChat.Messages.Count);
             var response3 = await gptService.GetCompletionAsync("What were the stock prices we looked up? Summarize them.");
             Console.WriteLine($"[Phase 3 GPT Response] {response3}");
@@ -172,7 +172,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 4] Switching to Gemini 2.5 ==========");
             var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret").GetKeyValueAsync();
             var geminiService = new GeminiService(geminiKey, new HttpClient()).CopyFrom(gptService);
-            geminiService.ChangeModel(AIModel.Gemini2_5Flash);
+            geminiService.ChangeModel(AIModels.Google.Gemini2_5Flash);
             var response4 = await geminiService.GetCompletionAsync("Based on the prices, which stock is more expensive?");
             Console.WriteLine($"[Phase 4 Gemini Response] {response4}");
             Assert.IsNotNull(response4);
@@ -196,7 +196,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 2] Switch to Claude with Functions DISABLED ==========");
             var claudeKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret").GetKeyValueAsync();
             var claudeService = new ClaudeService(claudeKey, new HttpClient()).CopyFrom(AI);
-            claudeService.ChangeModel(AIModel.ClaudeHaiku4_5_251001);
+            claudeService.ChangeModel(AIModels.Anthropic.ClaudeHaiku4_5_251001);
             claudeService.FunctionsDisabled = true;
             try { var r = await claudeService.GetCompletionAsync("What did you tell me about the time?"); Console.WriteLine($"[Phase 2 Claude] {r}"); }
             catch (Exception ex) { Console.WriteLine($"Claude FAILED: {ex.Message}"); if (ex is AIServiceException aiEx && aiEx.ErrorDetails != null) Console.WriteLine($"   ErrorDetails: {aiEx.ErrorDetails}"); failures.Add($"Claude: {ex.Message}"); }
@@ -204,14 +204,14 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 3] Switch to ChatGPT Legacy with Functions DISABLED ==========");
             var openAiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret").GetKeyValueAsync();
             var gptLegacyService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-            gptLegacyService.ChangeModel(AIModel.Gpt4oMini);
+            gptLegacyService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
             gptLegacyService.FunctionsDisabled = true;
             try { var r = await gptLegacyService.GetCompletionAsync("What did you tell me about the time?"); Console.WriteLine($"[Phase 3 GPT Legacy] {r}"); }
             catch (Exception ex) { Console.WriteLine($"ChatGPT Legacy FAILED: {ex.Message}"); failures.Add($"ChatGPT Legacy: {ex.Message}"); }
 
             Console.WriteLine($"\n========== [Phase 4] Switch to ChatGPT New API with Functions DISABLED ==========");
             var gptNewService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
-            gptNewService.ChangeModel(AIModel.Gpt5Mini);
+            gptNewService.ChangeModel(AIModels.OpenAI.Gpt5Mini);
             gptNewService.FunctionsDisabled = true;
             try { var r = await gptNewService.GetCompletionAsync("What did you tell me about the time?"); Console.WriteLine($"[Phase 4 GPT New API] {r}"); }
             catch (Exception ex) { Console.WriteLine($"ChatGPT New API FAILED: {ex.Message}"); failures.Add($"ChatGPT New API: {ex.Message}"); }
@@ -219,7 +219,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 5] Switch to Gemini with Functions DISABLED ==========");
             var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret").GetKeyValueAsync();
             var geminiService = new GeminiService(geminiKey, new HttpClient()).CopyFrom(AI);
-            geminiService.ChangeModel(AIModel.Gemini2_5Flash);
+            geminiService.ChangeModel(AIModels.Google.Gemini2_5Flash);
             geminiService.FunctionsDisabled = true;
             try { var r = await geminiService.GetCompletionAsync("What did you tell me about the time?"); Console.WriteLine($"[Phase 5 Gemini] {r}"); }
             catch (Exception ex) { Console.WriteLine($"Gemini FAILED: {ex.Message}"); failures.Add($"Gemini: {ex.Message}"); }
@@ -244,7 +244,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             Console.WriteLine($"\n========== [Phase 2] Switch to Gemini 3 Flash ==========");
             var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret").GetKeyValueAsync();
             var geminiService = new GeminiService(geminiKey, new HttpClient()).CopyFrom(AI);
-            geminiService.ChangeModel(AIModel.Gemini3FlashPreview);
+            geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
             try
             {
                 var response2 = await geminiService.GetCompletionAsync("Based on the weather info, should I bring an umbrella?");

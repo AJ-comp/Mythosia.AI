@@ -1,7 +1,7 @@
 using Mythosia.AI.Attributes;
 using Mythosia.AI.Builders;
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System.Diagnostics;

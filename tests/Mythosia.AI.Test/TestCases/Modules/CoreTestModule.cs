@@ -1,6 +1,6 @@
 using Mythosia.AI.Builders;
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -232,7 +232,7 @@ public abstract class CoreTestModule : TestModuleBase
             var altModel = GetAlternativeModel();
             if (altModel != null)
             {
-                AI.StartNewConversation(altModel.Value);
+                AI.StartNewConversation(altModel);
                 var response = await AI.GetCompletionAsync("What number was I talking about?");
                 Assert.IsFalse(response.Contains("42"));
             }

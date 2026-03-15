@@ -1,4 +1,4 @@
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -16,7 +16,7 @@ public abstract class TestModuleBase
     protected string TestImagePath { get; private set; } = null!;
 
     protected abstract AIService CreateAIService();
-    protected virtual AIModel? GetAlternativeModel() => null;
+    protected virtual string? GetAlternativeModel() => null;
     protected virtual void SetupReasoningEffort() { }
 
     // Feature support flags — 기본값은 OpenAI 기준. 필요시 override.

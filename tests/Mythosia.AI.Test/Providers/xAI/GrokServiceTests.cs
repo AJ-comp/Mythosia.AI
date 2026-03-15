@@ -1,5 +1,5 @@
 using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.xAI;
 using Mythosia.AI.Tests;
@@ -12,7 +12,7 @@ namespace Mythosia.AI.Tests.xAI;
 public abstract class GrokServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
-    protected abstract AIModel ModelToTest { get; }
+    protected abstract string ModelToTest { get; }
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
     public static async Task ClassInit(TestContext context)
@@ -34,12 +34,12 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
     }
 
     protected override bool SupportsMultimodal() =>
-        ModelToTest == AIModel.Grok4 || ModelToTest == AIModel.Grok4_1Fast;
+        ModelToTest == AIModels.xAI.Grok4 || ModelToTest == AIModels.xAI.Grok4_1Fast;
     protected override bool SupportsFunctionCalling() => true;
     protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsAudio() => false;
     protected override bool SupportsWebSearch() => false;
-    protected override AIModel? GetAlternativeModel() => AIModel.Grok3Mini;
+    protected override string? GetAlternativeModel() => AIModels.xAI.Grok3Mini;
 
     protected override bool SupportsReasoning()
     {
@@ -73,7 +73,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 
             // Mini 모델로 전환
             grokService.UseMiniModel();
-            Assert.AreEqual(AIModel.Grok3Mini.ToDescription(), grokService.Model);
+            Assert.AreEqual(AIModels.xAI.Grok3Mini, grokService.Model);
 
             var miniResponse = await grokService.GetCompletionAsync(
                 "What is 2 + 2? Answer in one word."
@@ -83,7 +83,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 
             // Grok 4 모델로 전환
             grokService.UseGrok4Model();
-            Assert.AreEqual(AIModel.Grok4.ToDescription(), grokService.Model);
+            Assert.AreEqual(AIModels.xAI.Grok4, grokService.Model);
 
             var g4Response = await grokService.GetCompletionAsync(
                 "Explain quantum computing in one sentence."
@@ -93,7 +93,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 
             // Grok 4.1 Fast 모델로 전환
             grokService.UseGrok4FastModel();
-            Assert.AreEqual(AIModel.Grok4_1Fast.ToDescription(), grokService.Model);
+            Assert.AreEqual(AIModels.xAI.Grok4_1Fast, grokService.Model);
 
             var fastResponse = await grokService.GetCompletionAsync(
                 "What is the speed of light?"
@@ -321,25 +321,25 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 [TestClass]
 public class xAI_Grok4_Tests : GrokServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Grok4;
+    protected override string ModelToTest => AIModels.xAI.Grok4;
 }
 
 [TestClass]
 public class xAI_Grok4_1Fast_Tests : GrokServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Grok4_1Fast;
+    protected override string ModelToTest => AIModels.xAI.Grok4_1Fast;
 }
 
 [TestClass]
 public class xAI_Grok3_Tests : GrokServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Grok3;
-    protected override AIModel? GetAlternativeModel() => AIModel.Grok3Mini;
+    protected override string ModelToTest => AIModels.xAI.Grok3;
+    protected override string? GetAlternativeModel() => AIModels.xAI.Grok3Mini;
 }
 
 [TestClass]
 public class xAI_Grok3Mini_Tests : GrokServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Grok3Mini;
-    protected override AIModel? GetAlternativeModel() => AIModel.Grok3;
+    protected override string ModelToTest => AIModels.xAI.Grok3Mini;
+    protected override string? GetAlternativeModel() => AIModels.xAI.Grok3;
 }

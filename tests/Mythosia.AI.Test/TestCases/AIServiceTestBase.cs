@@ -1,5 +1,5 @@
 ﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -36,7 +36,7 @@ public abstract partial class AIServiceTestBase
     protected virtual bool SupportsWebSearch() => false;
     protected virtual bool SupportsReasoning() => false;
     protected virtual bool SupportsStructuredOutput() => true;
-    protected virtual AIModel? GetAlternativeModel() => null;
+    protected virtual string? GetAlternativeModel() => null;
 
     /// <summary>
     /// Called before reasoning tests to set a minimum reasoning effort level.

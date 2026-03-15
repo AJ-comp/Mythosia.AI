@@ -1,0 +1,102 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mythosia.AI.Test" />
+  </ItemGroup>
+
+
+	<PropertyGroup>
+		<PackageId>Mythosia.AI</PackageId>
+		<IsPackable>true</IsPackable>
+		<Company>Mythosia</Company>
+		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<Authors>JJW</Authors>
+		<Description>
+## What's New in v5.0.0
+
+### AIModels String Catalog
+- Provider-organized `AIModels` constants for direct string-based model selection
+- Supports exact provider model IDs and dated variants without enum-style usage in application code
+
+### Request-Scoped Runtime Control
+- Added `AIRequestProfile` for one-shot per-call overrides such as `Stateless`, `DisableFunctions`, `DisableReasoning`, `Temperature`, and `MaxTokens`
+- Added built-in presets via `RequestProfiles.QueryRewrite` and `RequestProfiles.Summarization`
+
+### Request-Scoped Prompt Composition
+- Added `AIRequestContext` with `SystemMessagePrefix`, `SystemMessageSuffix`, `RequestMessageOverride`, and `AdditionalMessages`
+
+### Static Stateless Helpers
+- Added `AIService.QuickAskAsync(...)`
+- Added `AIService.QuickAskWithImageAsync(...)`
+
+## Supported Models
+
+### OpenAI
+- GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-5 Chat Latest
+- GPT-5.1
+- GPT-5.2, GPT-5.2 Pro, GPT-5.2 Codex
+- GPT-5.3 Codex
+- GPT-5.4, GPT-5.4 Pro
+- o3, o3-pro
+- GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
+- GPT-4o, GPT-4o Mini, GPT-4 Vision
+
+### Anthropic Claude
+- Claude Opus 4.6, Opus 4.5, Opus 4.1, Opus 4
+- Claude Sonnet 4.6, Sonnet 4.5, Sonnet 4
+- Claude Haiku 4.5
+
+### xAI Grok
+- Grok 4, Grok 4.1 Fast
+- Grok 3, Grok 3 Mini
+
+### Google Gemini
+- Gemini 2.5 Pro, Flash, Flash-Lite
+- Gemini 3 Pro Preview, Flash Preview
+
+### DeepSeek
+- DeepSeek Chat, DeepSeek Reasoner
+
+### Perplexity
+- Sonar, Sonar Pro, Sonar Reasoning
+
+## Documentation
+- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
+- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
+- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
+- GitHub: https://github.com/AJ-comp/Mythosia.AI
+		</Description>
+		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageReleaseNotes>v5.0.0: Added AIModels string model catalog, AIRequestProfile per-request runtime overrides, AIRequestContext request-scoped prompt injection, and AIService.QuickAskAsync / QuickAskWithImageAsync stateless helpers.</PackageReleaseNotes>
+		<Version>5.0.0</Version>
+	</PropertyGroup>
+
+
+	<ItemGroup>
+		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="NJsonSchema" Version="11.5.2" />
+        <PackageReference Include="System.Threading.Channels" Version="10.0.3" />
+        <PackageReference Include="TiktokenSharp" Version="1.2.1" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <PackageReference Include="Mythosia" Version="1.4.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="README.md">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	</ItemGroup>
+
+</Project>
+

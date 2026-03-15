@@ -72,7 +72,7 @@ public abstract partial class AIServiceTestBase
             var altModel = GetAlternativeModel();
             if (altModel != null)
             {
-                AI.StartNewConversation(altModel.Value);
+                AI.StartNewConversation(altModel);
                 var response = await AI.GetCompletionAsync("What number was I talking about?");
                 Assert.IsFalse(response.Contains("42"));
             }

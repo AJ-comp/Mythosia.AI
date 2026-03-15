@@ -1,6 +1,6 @@
 #if false
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Tests.Modules;
@@ -17,7 +17,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5
     [TestClass]
     public class ReasoningSpecific : TestModuleBase
     {
-        protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModel.Gpt5);
+        protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5);
         protected override bool SupportsReasoning() => true;
 
         /// <summary>
@@ -93,7 +93,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_3Codex
     [TestClass]
     public class ReasoningSpecific : TestModuleBase
     {
-        protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModel.Gpt5_3Codex);
+        protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_3Codex);
         protected override bool SupportsReasoning() => true;
 
         /// <summary>

@@ -1,5 +1,6 @@
 ﻿using Mythosia.AI.Exceptions;
 using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.Google;
@@ -12,7 +13,7 @@ namespace Mythosia.AI.Tests.Google;
 public abstract class GeminiServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
-    protected abstract AIModel ModelToTest { get; }
+    protected abstract string ModelToTest { get; }
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]
     public static async Task ClassInit(TestContext context)
@@ -40,7 +41,7 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
     protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning() => true;
-    protected override AIModel? GetAlternativeModel() => AIModel.Gemini2_5Flash;
+    protected override string? GetAlternativeModel() => AIModels.Google.Gemini2_5Flash;
 
     protected override void SetupReasoningEffort()
     {
@@ -288,29 +289,29 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
 [TestClass]
 public class Gemini_2_5Pro_Tests : GeminiServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gemini2_5Pro;
+    protected override string ModelToTest => AIModels.Google.Gemini2_5Pro;
 }
 
 [TestClass]
 public class Gemini_2_5Flash_Tests : GeminiServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gemini2_5Flash;
+    protected override string ModelToTest => AIModels.Google.Gemini2_5Flash;
 }
 
 [TestClass]
 public class Gemini_2_5FlashLite_Tests : GeminiServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gemini2_5FlashLite;
+    protected override string ModelToTest => AIModels.Google.Gemini2_5FlashLite;
 }
 
 [TestClass]
 public class Gemini_3FlashPreview_Tests : GeminiServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gemini3FlashPreview;
+    protected override string ModelToTest => AIModels.Google.Gemini3FlashPreview;
 }
 
 [TestClass]
 public class Gemini_3ProPreview_Tests : GeminiServiceTestsBase
 {
-    protected override AIModel ModelToTest => AIModel.Gemini3ProPreview;
+    protected override string ModelToTest => AIModels.Google.Gemini3ProPreview;
 }

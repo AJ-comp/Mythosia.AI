@@ -1,5 +1,5 @@
 ﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.DeepSeek;
 using Mythosia.AI.Tests;
@@ -24,9 +24,9 @@ public class DeepSeekServiceTests : AIServiceTestBase
         return false; // DeepSeek은 현재 텍스트만 지원
     }
 
-    protected override AIModel? GetAlternativeModel()
+    protected override string? GetAlternativeModel()
     {
-        return AIModel.DeepSeekReasoner;
+        return AIModels.DeepSeek.Reasoner;
     }
 
     /// <summary>

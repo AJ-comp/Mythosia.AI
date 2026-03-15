@@ -1,5 +1,5 @@
 ﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.Perplexity;
 using Mythosia.AI.Tests;
@@ -26,9 +26,9 @@ public class SonarServiceTests : AIServiceTestBase
         return false; // Sonar는 텍스트만 지원
     }
 
-    protected override AIModel? GetAlternativeModel()
+    protected override string? GetAlternativeModel()
     {
-        return AIModel.PerplexitySonarPro;
+        return AIModels.Perplexity.SonarPro;
     }
 
     /// <summary>
