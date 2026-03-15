@@ -9,7 +9,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\rag\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
-    <ProjectReference Include="..\..\Mythosia.AI\Mythosia.AI.csproj" />
+    <ProjectReference Include="..\..\core\Mythosia.AI\Mythosia.AI.csproj" />
+    <ProjectReference Include="..\..\core\Mythosia.AI.Providers.Alibaba\Mythosia.AI.Providers.Alibaba.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Pinecone\Mythosia.VectorDb.Pinecone.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Postgres\Mythosia.VectorDb.Postgres.csproj" />

@@ -7,6 +7,8 @@ import { chatMessages, chatForm, chatInput, btnSend, btnClear } from './dom.js';
 import { app, autoScroll, updateSidebarDisabled } from './state.js';
 import { refreshState } from './state-panel.js';
 import { addViewCodeButton } from './code-modal.js';
+import { getPipelineSettingsForRequest } from './rag-pipeline.js';
+import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
 
 // ── Chat form event listeners ────────────────────────────────
 export function initChat() {
@@ -63,7 +65,11 @@ async function sendMessage() {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text })
+      body: JSON.stringify({
+        message: text,
+        ragSettings: getPipelineSettingsForRequest(),
+        vectorStore: getVectorStoreConfigForRequest()
+      })
     });
 
     const contentType = res.headers.get('Content-Type') || '';
@@ -91,6 +97,7 @@ async function sendMessage() {
     let gotText = false;
     let fcCardEl = null;
     let ragInfo = null;
+    let ragProgressEl = null;
 
     // Summarizing indicator
     let summaryIndicator = null;
@@ -128,6 +135,17 @@ async function sendMessage() {
           }
           else if (parsed.type === 'rag_info') {
             ragInfo = parsed;
+          }
+          else if (parsed.type === 'rag_progress') {
+            if (!ragProgressEl) ragProgressEl = createRagProgressBubble(responseContainer);
+            updateRagProgressBubble(ragProgressEl, parsed.stage, parsed.elapsedMs);
+          }
+          else if (parsed.type === 'rag_progress_end') {
+            if (ragProgressEl) completeRagProgressBubble(ragProgressEl, parsed.elapsedMs);
+          }
+          else if (parsed.type === 'rag_progress_error') {
+            if (!ragProgressEl) ragProgressEl = createRagProgressBubble(responseContainer);
+            failRagProgressBubble(ragProgressEl, parsed.error, parsed.elapsedMs);
           }
           else if (parsed.type === 'function_call') {
             if (thinkingEl) collapseThinking(thinkingEl);
@@ -297,6 +315,59 @@ function collapseThinking(el) {
   if (arrow) arrow.classList.remove('open');
   const hdr = el.querySelector('.thinking-header');
   if (hdr) hdr.classList.add('done');
+}
+
+// ── RAG Progress Bubble ───────────────────────────────────
+const ragStageLabels = {
+  QueryRewrite: '쿼리 리라이터(재작성) 중... ',
+  Embedding: '임베딩 생성 중...',
+  Filtering: '필터 적용 중...',
+  Retrieval: '리트리벌/검색 중...',
+  Reranking: '리랭킹 중...',
+  ContextBuild: '컨텍스트 구성 중...'
+};
+
+function createRagProgressBubble(target) {
+  const div = document.createElement('div');
+  div.className = 'msg-rag-progress';
+  div.innerHTML = `
+    <div class="rag-progress-header">
+      <span class="rag-progress-icon"></span>
+      <span class="rag-progress-title">RAG</span>
+      <span class="rag-progress-time"></span>
+    </div>
+    <div class="rag-progress-content"></div>`;
+  (target || chatMessages).appendChild(div);
+  autoScroll();
+  return div;
+}
+
+function updateRagProgressBubble(el, stage, elapsedMs) {
+  if (!el) return;
+  el.classList.remove('done', 'error');
+  const label = ragStageLabels[stage] || `${stage || 'Processing'}...`;
+  const content = el.querySelector('.rag-progress-content');
+  const time = el.querySelector('.rag-progress-time');
+  if (content) content.textContent = label;
+  if (time) time.textContent = elapsedMs != null ? `${elapsedMs}ms` : '';
+}
+
+function completeRagProgressBubble(el, elapsedMs) {
+  if (!el) return;
+  el.classList.add('done');
+  const content = el.querySelector('.rag-progress-content');
+  const time = el.querySelector('.rag-progress-time');
+  if (content) content.textContent = 'RAG 완료';
+  if (time) time.textContent = elapsedMs != null ? `${elapsedMs}ms` : '';
+}
+
+function failRagProgressBubble(el, error, elapsedMs) {
+  if (!el) return;
+  el.classList.add('error');
+  const content = el.querySelector('.rag-progress-content');
+  const time = el.querySelector('.rag-progress-time');
+  if (content) content.textContent = error || 'RAG 처리 실패';
+  if (time) time.textContent = elapsedMs != null ? `${elapsedMs}ms` : '';
 }
 
 // ── Function Call Card ───────────────────────────────────────

@@ -9,6 +9,7 @@ import {
   ragChunkOverlap,
   ragChunker,
   ragEmbeddingBaseUrl,
+  ragVllmBaseUrl,
   ragRun,
   ragStatus,
   ragTrace,
@@ -31,9 +32,11 @@ import {
 } from './dom.js';
 import { escapeHtml } from './utils.js';
 import { providerKeys } from './state.js';
-import { ragState, setSelectValue, markReferenceStale, setViewCodeEnabled, updateRunState } from './rag-shared.js';
+import { ragState, setSelectValue, markReferenceStale, setStatusState, setViewCodeEnabled, updateRunState } from './rag-shared.js';
 import { getSelectedEmbeddingProvider, getEmbeddingDefaults } from './rag-embedding.js';
-import { renderTrace as doRenderTrace, renderLoading, renderError } from './rag-trace.js';
+import { getPipelineSettingsForRequest } from './rag-pipeline.js';
+import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
+import { renderTrace as doRenderTrace, renderLoadingDetails, renderError } from './rag-trace.js';
 import { setDiagnoseEnabled } from './rag-diagnostics.js';
 
 // ── File List ────────────────────────────────────────────────
@@ -71,35 +74,93 @@ export async function runReference() {
 
   setViewCodeEnabled(false);
 
-  const provider = getSelectedEmbeddingProvider();
-  const openAiKey = providerKeys?.OpenAI;
-  if (provider === 'openai' && !openAiKey) {
-    ragStatus.textContent = 'OpenAI API key is required.';
-    ragTrace.innerHTML = renderError('OpenAI API key is required.');
+  let settings;
+  let provider;
+  let embeddingModel;
+  let embeddingDimensions;
+  let chunker;
+  let topK;
+  let finalMinScore;
+  let retrievalMultiplier;
+  let promptTemplate;
+  let embeddingBaseUrl;
+
+  try {
+    settings = getPipelineSettingsForRequest();
+    if (!settings) {
+      throw new Error('RAG pipeline settings are required.');
+    }
+    provider = settings.embeddingProvider.toLowerCase();
+    ({ model: embeddingModel, dims: embeddingDimensions } = getEmbeddingDefaults(provider));
+    chunker = settings.chunker;
+    topK = settings.finalFilter?.topK;
+    finalMinScore = settings.finalFilter?.minScore ?? ragMinScore?.value ?? '';
+    retrievalMultiplier = settings.retrievalDerivation?.topKMultiplier;
+    promptTemplate = settings.promptTemplate ?? ragPromptTemplate?.value ?? '';
+    embeddingBaseUrl = settings.embeddingBaseUrl ?? '';
+
+    if (!chunker) throw new Error('Chunker is required.');
+    if (!topK) throw new Error('TopK is required.');
+    if (provider === 'openai' && !providerKeys?.OpenAI) {
+      throw new Error('OpenAI API key is required.');
+    }
+  } catch (err) {
+    const message = err.message || 'Invalid RAG pipeline settings.';
+    ragStatus.textContent = message;
+    setStatusState(ragStatus, 'error');
+    ragTrace.innerHTML = renderError(message);
     updateRunState(files);
     return;
   }
 
   ragRun.disabled = true;
-  ragStatus.textContent = 'Indexing documents...';
-  ragTrace.innerHTML = renderLoading();
+  ragStatus.textContent = `Embedding ${files.length} file${files.length > 1 ? 's' : ''} with ${provider.toUpperCase()}...`;
+  setStatusState(ragStatus, null);
 
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
-  if (ragChunkSize) formData.append('chunkSize', ragChunkSize.value || '300');
-  if (ragChunkOverlap) formData.append('chunkOverlap', ragChunkOverlap.value || '30');
-  if (ragChunker) formData.append('chunker', ragChunker.value || 'character');
+  const chunkSize = settings.chunkSize ?? ragChunkSize?.value;
+  const chunkOverlap = settings.chunkOverlap ?? ragChunkOverlap?.value;
+
+  formData.append('chunkSize', String(chunkSize));
+  formData.append('chunkOverlap', String(chunkOverlap));
+  formData.append('chunker', String(chunker));
   formData.append('embeddingProvider', provider);
-  const embDefaults = getEmbeddingDefaults(provider);
-  formData.append('embeddingModel', embDefaults.model);
-  formData.append('embeddingDimensions', String(embDefaults.dims));
-  if (ragEmbeddingBaseUrl) formData.append('embeddingBaseUrl', ragEmbeddingBaseUrl.value || '');
-  if (ragTopK) formData.append('topK', ragTopK.value || '');
-  if (ragMinScore) formData.append('minScore', ragMinScore.value || '');
-  if (ragPromptTemplate) formData.append('promptTemplate', ragPromptTemplate.value || '');
-  if (provider === 'openai' && openAiKey) {
-    formData.append('openaiApiKey', openAiKey);
+  formData.append('embeddingModel', String(embeddingModel));
+  formData.append('embeddingDimensions', String(embeddingDimensions));
+  formData.append('embeddingBaseUrl', String(embeddingBaseUrl));
+  formData.append('finalFilterTopK', String(topK));
+  formData.append('finalFilterMinScore', String(finalMinScore));
+  formData.append('retrievalDerivationMinScoreDivider', String(settings.retrievalDerivation?.minScoreDivider ?? ''));
+  formData.append('promptTemplate', String(promptTemplate));
+  formData.append('queryRewriterEnabled', String(settings.queryRewriterEnabled ?? ''));
+  formData.append('rewriterModelOverride', settings.rewriterModelOverride ?? '');
+  formData.append('rewriterApiKey', settings.rewriterApiKey ?? '');
+  formData.append('hybridSearchEnabled', String(settings.hybridSearchEnabled ?? ''));
+  formData.append('hybridSearchVectorWeight', String(settings.hybridSearchVectorWeight ?? ''));
+  formData.append('rerankEnabled', String(settings.rerankEnabled ?? ''));
+  formData.append('rerankProvider', settings.rerankProvider ?? '');
+  formData.append('rerankModel', settings.rerankModel ?? '');
+  formData.append('rerankBaseUrl', settings.rerankBaseUrl ?? '');
+  formData.append('rerankApiKey', settings.rerankApiKey ?? '');
+  formData.append('retrievalDerivationTopKMultiplier', String(retrievalMultiplier ?? ''));
+  if (provider === 'openai' && providerKeys?.OpenAI) {
+    formData.append('openaiApiKey', providerKeys.OpenAI);
   }
+
+  const vectorStore = getVectorStoreConfigForRequest();
+  ragTrace.innerHTML = renderLoadingDetails({
+    files: files.map((file) => file.name),
+    provider,
+    embeddingModel,
+    chunker,
+    vectorStore: vectorStore.provider
+  });
+  Object.entries(vectorStore).forEach(([key, value]) => {
+    if (key === 'openAiApiKey') return;
+    if (value === undefined || value === null) return;
+    formData.append(key, String(value));
+  });
 
   try {
     const res = await fetch('/api/rag/reference', { method: 'POST', body: formData });
@@ -108,12 +169,14 @@ export async function runReference() {
     if (!res.ok) {
       const message = payload?.error || 'Failed to build RAG reference.';
       ragStatus.textContent = message;
+      setStatusState(ragStatus, 'error');
       ragTrace.innerHTML = renderError(message);
       ragRun.disabled = false;
       return;
     }
 
     ragStatus.textContent = `Ready · ${payload.summary.documentCount} docs · ${payload.summary.chunkCount} chunks`;
+    setStatusState(ragStatus, 'success');
     doRenderTrace(ragTrace, payload);
     setViewCodeEnabled(true);
     setDiagnoseEnabled(true);
@@ -121,6 +184,7 @@ export async function runReference() {
     refreshReferenceHistory();
   } catch (err) {
     ragStatus.textContent = 'Network error.';
+    setStatusState(ragStatus, 'error');
     ragTrace.innerHTML = renderError(err.message || 'Network error');
     showRagStatusError(err);
   } finally {
@@ -136,12 +200,14 @@ export async function refreshRagStatus(settingsOverride) {
     return;
   }
 
+  const localSettings = getPipelineSettingsForRequest();
+
   try {
     const res = await fetch('/api/rag/status');
     const payload = await res.json().catch(() => null);
     if (!res.ok) throw new Error(payload?.error || 'Failed to load RAG status.');
 
-    applyRagStatus(payload?.settings || {}, payload?.hasIndex);
+    applyRagStatus(localSettings || payload?.settings || {}, payload?.hasIndex);
     setDiagnoseEnabled(!!payload?.hasIndex);
   } catch (err) {
     showRagStatusError(err);
@@ -150,9 +216,9 @@ export async function refreshRagStatus(settingsOverride) {
 
 function applyRagStatus(settings, hasIndex) {
   if (!ragChatStatus) return;
-  const provider = (settings.embeddingProvider || 'local').toUpperCase();
-  const topK = settings.topK ?? 0;
-  const minScore = settings.minScore ?? '-';
+  const provider = settings.embeddingProvider ? settings.embeddingProvider.toUpperCase() : 'UNSET';
+  const topK = settings.finalFilter?.topK ?? 'UNSET';
+  const minScore = settings.finalFilter?.minScore ?? 'UNSET';
   const chunker = settings.chunker ? settings.chunker.toUpperCase() : 'N/A';
   const statusLabel = hasIndex ? 'RAG: READY' : 'RAG: NOT INDEXED';
 
@@ -163,20 +229,20 @@ function applyRagStatus(settings, hasIndex) {
 
 export function updateVectorDbStatus() {
   if (!vectordbChatStatus) return;
-  const provider = ragVectorStoreProvider?.value || 'inmemory';
+  const provider = ragVectorStoreProvider?.value?.trim();
   if (provider === 'postgres' && ragState.pgConnected) {
-    const schema = ragPgSchema?.value || 'public';
-    const table = ragPgTable?.value || 'vectors';
+    const schema = ragPgSchema?.value?.trim() || 'UNSET';
+    const table = ragPgTable?.value?.trim() || 'UNSET';
     vectordbChatStatus.textContent = `VectorDB: PostgreSQL · ${schema}.${table}`;
     vectordbChatStatus.classList.add('active');
   } else if (provider === 'qdrant' && ragState.qdrantConnected) {
-    const host = ragQdrantHost?.value || 'localhost';
-    const col = ragQdrantCollection?.value || 'default';
+    const host = ragQdrantHost?.value?.trim() || 'UNSET';
+    const col = ragQdrantCollection?.value?.trim() || 'UNSET';
     vectordbChatStatus.textContent = `VectorDB: Qdrant · ${host} · collection=${col}`;
     vectordbChatStatus.classList.add('active');
   } else if (provider === 'pinecone' && ragState.pineconeConnected) {
-    const host = ragPineconeIndexHost?.value || '';
-    const ns = ragPineconeNamespace?.value || 'default';
+    const host = ragPineconeIndexHost?.value?.trim() || 'UNSET';
+    const ns = ragPineconeNamespace?.value?.trim() || 'UNSET';
     vectordbChatStatus.textContent = `VectorDB: Pinecone · ${host} · namespace=${ns}`;
     vectordbChatStatus.classList.add('active');
   } else {
@@ -238,8 +304,8 @@ export async function refreshReferenceHistory() {
 
 function buildHistoryConfigLine(config) {
   if (!config) return '';
-  const topK = config.topK ?? '-';
-  const minScore = config.minScore ?? '-';
+  const topK = config.finalFilter?.topK ?? '-';
+  const minScore = config.finalFilter?.minScore ?? '-';
   const chunkSize = config.chunkSize ?? '-';
   const overlap = config.chunkOverlap ?? '-';
   const chunker = config.chunker ? config.chunker.toString().toUpperCase() : 'N/A';

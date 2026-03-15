@@ -39,6 +39,9 @@ async function applySettings() {
     if (info.type === 'grok_always') {
       // Grok4: always reasoning, nothing to send
       body.reasoningEnabled = null;
+    } else if (info.type === 'qwen_thinking') {
+      // Qwen3: simple on/off, send type so backend knows
+      body.reasoningType = info.type;
     } else {
       const sel = reasoningLvls.querySelector('input[name="reasoning-level"]:checked');
       body.reasoningLevel = sel ? sel.value : info.levels[0];
@@ -66,6 +69,11 @@ export function updateReasoningUI() {
       setReasoning.disabled = true;
       reasoningOpts.classList.remove('hidden');
       reasoningLvls.innerHTML = '<span class="reasoning-always-label">Always On — reasoning is built-in</span>';
+    } else if (info.type === 'qwen_thinking') {
+      // Qwen3: simple on/off toggle, no levels
+      setReasoning.disabled = false;
+      reasoningOpts.classList.remove('hidden');
+      reasoningLvls.innerHTML = '<span class="reasoning-always-label">Enable extended thinking</span>';
     } else {
       setReasoning.disabled = false;
       reasoningLvls.innerHTML = '';

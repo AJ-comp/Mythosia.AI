@@ -18,6 +18,9 @@ import {
   ragEmbeddingBaseUrl,
   ragOllamaModel,
   ragOllamaTest,
+  ragVllmBaseUrl,
+  ragVllmModel,
+  ragVllmTest,
   ragOpenAiModel,
   ragOpenAiKeyInput,
   ragOpenAiKeySave,
@@ -31,6 +34,12 @@ import {
   ragHybridSearch,
   ragHybridWeight,
   ragRerankEnabled,
+  ragRerankProvider,
+  ragRerankVllmModel,
+  ragRerankVllmBaseUrl,
+  ragRerankVllmTest,
+  ragRetrievalMultiplier,
+  ragMinScoreDivider,
   ragVectorStoreProvider,
   ragPgHost,
   ragPgPort,
@@ -49,9 +58,9 @@ import {
   ragPineconeDisconnect
 } from './dom.js';
 import { ragState, markReferenceStale, setViewCodeEnabled } from './rag-shared.js';
-import { updateEmbeddingUI, testOllamaConnection, saveInlineOpenAiKey } from './rag-embedding.js';
+import { updateEmbeddingUI, testOllamaConnection, testVllmConnection, saveInlineOpenAiKey } from './rag-embedding.js';
 import { updateFileList, runReference, refreshRagStatus, refreshReferenceHistory, openRagCodeModal } from './rag-run.js';
-import { loadPipelineSettings, savePipelineSettings, updateRewriterUI, updateRewriterOverrideUI, updateHybridUI, updateHybridWeightDisplay, updateRerankUI } from './rag-pipeline.js';
+import { loadPipelineSettings, savePipelineSettings, testVllmRerankConnection, updateRewriterUI, updateRewriterOverrideUI, updateHybridUI, updateHybridWeightDisplay, updateRerankUI, updateRerankCandidateTopKDisplay, updateRerankDerivedMinScoreDisplay, updateRetrievalParamsDisplay } from './rag-pipeline.js';
 import { updateVectorStoreUI, loadVectorStoreConfig, updatePgConnectState, updateQdrantConnectState, connectPostgres, disconnectPostgres, connectQdrant, disconnectQdrant, updatePineconeConnectState, connectPinecone, disconnectPinecone } from './rag-vector-store.js';
 
 export function initRagReference() {
@@ -73,6 +82,13 @@ export function initRagReference() {
   ragHybridSearch?.addEventListener('change', updateHybridUI);
   ragHybridWeight?.addEventListener('input', updateHybridWeightDisplay);
   ragRerankEnabled?.addEventListener('change', updateRerankUI);
+  ragRerankProvider?.addEventListener('change', () => {
+    updateRerankUI();
+    markReferenceStale();
+  });
+  ragRerankVllmModel?.addEventListener('change', markReferenceStale);
+  ragRerankVllmBaseUrl?.addEventListener('input', markReferenceStale);
+  ragRerankVllmTest?.addEventListener('click', testVllmRerankConnection);
 
   // ── Embedding controls ─────────────────────────────────────
   ragFiles.addEventListener('change', updateFileList);
@@ -88,11 +104,40 @@ export function initRagReference() {
     updateEmbeddingUI();
     markReferenceStale();
   });
+  ragVllmModel?.addEventListener('change', () => {
+    updateEmbeddingUI();
+    markReferenceStale();
+  });
   ragOllamaTest?.addEventListener('click', testOllamaConnection);
+  ragVllmTest?.addEventListener('click', testVllmConnection);
   ragEmbeddingBaseUrl?.addEventListener('input', markReferenceStale);
-  ragTopK?.addEventListener('input', markReferenceStale);
-  ragMinScore?.addEventListener('input', markReferenceStale);
+  ragVllmBaseUrl?.addEventListener('input', markReferenceStale);
+  ragTopK?.addEventListener('input', () => {
+    updateRerankCandidateTopKDisplay();
+    updateRetrievalParamsDisplay();
+    markReferenceStale();
+  });
+  ragMinScore?.addEventListener('input', () => {
+    updateRerankDerivedMinScoreDisplay();
+    updateRetrievalParamsDisplay();
+    markReferenceStale();
+  });
   ragPromptTemplate?.addEventListener('input', markReferenceStale);
+  ragRerankEnabled?.addEventListener('change', () => {
+    updateRerankCandidateTopKDisplay();
+    updateRerankDerivedMinScoreDisplay();
+    updateRetrievalParamsDisplay();
+  });
+  ragRetrievalMultiplier?.addEventListener('input', () => {
+    updateRerankCandidateTopKDisplay();
+    updateRetrievalParamsDisplay();
+    markReferenceStale();
+  });
+  ragMinScoreDivider?.addEventListener('input', () => {
+    updateRerankDerivedMinScoreDisplay();
+    updateRetrievalParamsDisplay();
+    markReferenceStale();
+  });
   ragRun.addEventListener('click', runReference);
   ragViewCode?.addEventListener('click', openRagCodeModal);
   ragChunkSize?.addEventListener('input', markReferenceStale);

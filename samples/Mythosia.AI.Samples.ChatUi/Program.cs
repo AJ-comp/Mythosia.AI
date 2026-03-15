@@ -1,24 +1,10 @@
-using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
-using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
-using Mythosia.AI.Loaders;
-using Mythosia.AI.Loaders.Office.Excel;
-using Mythosia.AI.Loaders.Office.PowerPoint;
-using Mythosia.AI.Loaders.Office.Word;
-using Mythosia.AI.Loaders.Pdf;
+using Mythosia.AI.Providers.Alibaba;
 using Mythosia.AI.Rag;
-using Mythosia.AI.Rag.Diagnostics;
-using Mythosia.AI.Rag.Embeddings;
-using Mythosia.AI.Rag.Loaders;
-using Mythosia.AI.Rag.Splitters;
-using Mythosia.VectorDb.InMemory;
-using Mythosia.VectorDb;
-using Mythosia.VectorDb.Pinecone;
-using Mythosia.VectorDb.Postgres;
-using Mythosia.VectorDb.Qdrant;
+using Mythosia.AI.Samples.ChatUi;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.DeepSeek;
@@ -26,15 +12,10 @@ using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Services.Perplexity;
 using Mythosia.AI.Services.xAI;
-using Mythosia.AI.Samples.ChatUi;
+using System.Diagnostics;
+using System.Text.Json;
 using static Mythosia.AI.Samples.ChatUi.ChatUiModelHelpers;
 using static Mythosia.AI.Samples.ChatUi.ChatUiUtilityHelpers;
-using Microsoft.AspNetCore.Http;
-using System.ComponentModel;
-using System.Net.Http;
-using System.Reflection;
-using System.Text.Json;
-using System.Text.RegularExpressions;
 
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
@@ -63,18 +44,19 @@ var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) }
 app.MapGet("/api/models", () => Results.Ok(BuildModelCatalogue()));
 
 // ── POST /api/configure ─────────────────────────────────────────
-app.MapPost("/api/configure", (ConfigureRequest req) =>
+app.MapPost("/api/configure", async (ConfigureRequest req) =>
 {
-    if (string.IsNullOrWhiteSpace(req.ApiKey) || string.IsNullOrWhiteSpace(req.Model))
-        return Results.BadRequest(new { error = "apiKey and model are required" });
+    if (string.IsNullOrWhiteSpace(req.Model))
+        return Results.BadRequest(new { error = "model is required" });
 
-    if (!Enum.TryParse<AIModel>(req.Model, out var aiModel))
-        return Results.BadRequest(new { error = $"Unknown model: {req.Model}" });
+    var selectedModel = ChatUiModelHelpers.FindModelValueByName(req.Model) ?? req.Model.Trim();
 
-    var provider = GetProviderForModel(aiModel);
-    var desc = aiModel.GetType()
-        .GetField(aiModel.ToString())!
-        .GetCustomAttribute<DescriptionAttribute>()?.Description ?? aiModel.ToString();
+    var provider = GetProviderForModel(selectedModel);
+
+    if (provider != "Alibaba" && string.IsNullOrWhiteSpace(req.ApiKey))
+        return Results.BadRequest(new { error = "apiKey is required" });
+
+    var desc = selectedModel;
 
     try
     {
@@ -88,9 +70,18 @@ app.MapPost("/api/configure", (ConfigureRequest req) =>
             "DeepSeek" => new DeepSeekService(req.ApiKey, httpClient),
             "xAI" => new GrokService(req.ApiKey, httpClient),
             "Perplexity" => new SonarService(req.ApiKey, httpClient),
+            "Alibaba" => string.IsNullOrWhiteSpace(req.BaseUrl)
+                ? new QwenService(req.ApiKey, httpClient)
+                : new QwenService(req.BaseUrl, ParsePlatform(req.Platform), httpClient),
             _ => throw new NotSupportedException($"Provider {provider} not supported")
         };
-        currentService.ChangeModel(aiModel);
+        if (currentService is QwenService qwenService)
+        {
+            qwenService.ModelIdOverride = string.IsNullOrWhiteSpace(req.ModelIdOverride)
+                ? null
+                : req.ModelIdOverride.Trim();
+        }
+        currentService.ChangeModel(selectedModel);
         streamIncludeReasoning = true;
 
         // Carry over conversation history and settings from previous service
@@ -142,6 +133,102 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
     ctx.Response.Headers["X-Accel-Buffering"] = "no";
     ctx.Response.Headers["Connection"] = "keep-alive";
 
+    var baseRagSettings = ragState.GetSettings();
+    var requestRagSettings = req.RagSettings;
+    if (requestRagSettings == null)
+    {
+        ctx.Response.StatusCode = 400;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { error = "RAG settings are required for chat requests." });
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(requestRagSettings.EmbeddingProvider))
+    {
+        ctx.Response.StatusCode = 400;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { error = "Embedding provider is required for chat requests." });
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(requestRagSettings.EmbeddingModel))
+    {
+        ctx.Response.StatusCode = 400;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { error = "Embedding model is required for chat requests." });
+        return;
+    }
+
+    if (requestRagSettings.EmbeddingDimensions is not > 0)
+    {
+        ctx.Response.StatusCode = 400;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { error = "Embedding dimensions must be a positive integer for chat requests." });
+        return;
+    }
+
+    var effectiveRagSettings = new RagPipelineSettings(
+        ChunkSize: requestRagSettings.ChunkSize is > 0 ? requestRagSettings.ChunkSize.Value : baseRagSettings.ChunkSize,
+        ChunkOverlap: requestRagSettings.ChunkOverlap is >= 0 ? requestRagSettings.ChunkOverlap.Value : baseRagSettings.ChunkOverlap,
+        Chunker: string.IsNullOrWhiteSpace(requestRagSettings.Chunker) ? baseRagSettings.Chunker : requestRagSettings.Chunker.Trim().ToLowerInvariant(),
+        EmbeddingProvider: requestRagSettings.EmbeddingProvider.Trim().ToLowerInvariant(),
+        EmbeddingModel: requestRagSettings.EmbeddingModel.Trim(),
+        EmbeddingDimensions: requestRagSettings.EmbeddingDimensions.Value,
+        EmbeddingBaseUrl: string.IsNullOrWhiteSpace(requestRagSettings.EmbeddingBaseUrl) ? string.Empty : requestRagSettings.EmbeddingBaseUrl.Trim(),
+        FinalFilter: new RagFilter
+        {
+            TopK = requestRagSettings.FinalFilter?.TopK > 0 ? requestRagSettings.FinalFilter.TopK : baseRagSettings.FinalFilter.TopK,
+            MinScore = requestRagSettings.FinalFilter?.MinScore ?? baseRagSettings.FinalFilter.MinScore
+        },
+        RetrievalDerivation: new RagRetrievalDerivation
+        {
+            TopKMultiplier = requestRagSettings.RetrievalDerivation?.TopKMultiplier > 0 ? requestRagSettings.RetrievalDerivation.TopKMultiplier : baseRagSettings.RetrievalDerivation.TopKMultiplier,
+            MinScoreDivider = requestRagSettings.RetrievalDerivation?.MinScoreDivider > 0d ? requestRagSettings.RetrievalDerivation.MinScoreDivider : baseRagSettings.RetrievalDerivation.MinScoreDivider
+        },
+        PromptTemplate: requestRagSettings.PromptTemplate ?? baseRagSettings.PromptTemplate,
+        QueryRewriterEnabled: requestRagSettings.QueryRewriterEnabled ?? baseRagSettings.QueryRewriterEnabled,
+        RewriterModelOverride: requestRagSettings.RewriterModelOverride ?? baseRagSettings.RewriterModelOverride,
+        HybridSearchEnabled: requestRagSettings.HybridSearchEnabled ?? baseRagSettings.HybridSearchEnabled,
+        HybridSearchVectorWeight: requestRagSettings.HybridSearchVectorWeight ?? baseRagSettings.HybridSearchVectorWeight,
+        RerankEnabled: requestRagSettings.RerankEnabled ?? baseRagSettings.RerankEnabled,
+        RerankProvider: string.IsNullOrWhiteSpace(requestRagSettings.RerankProvider) ? baseRagSettings.RerankProvider : requestRagSettings.RerankProvider.Trim().ToLowerInvariant(),
+        RerankModel: string.IsNullOrWhiteSpace(requestRagSettings.RerankModel) ? baseRagSettings.RerankModel : requestRagSettings.RerankModel.Trim(),
+        RerankBaseUrl: string.IsNullOrWhiteSpace(requestRagSettings.RerankBaseUrl) ? baseRagSettings.RerankBaseUrl : requestRagSettings.RerankBaseUrl.Trim(),
+        RerankApiKey: requestRagSettings.RerankApiKey ?? baseRagSettings.RerankApiKey);
+
+    if (requestRagSettings?.RewriterApiKey != null)
+        ragEndpointState.RewriterApiKey = string.IsNullOrWhiteSpace(requestRagSettings.RewriterApiKey)
+            ? null
+            : requestRagSettings.RewriterApiKey;
+
+    if (requestRagSettings != null)
+    {
+        ragState.UpdateSettings(effectiveRagSettings);
+        ragState.TryApplyQuerySettings(effectiveRagSettings);
+    }
+
+    var vectorStoreProvider = string.IsNullOrWhiteSpace(req.VectorStore?.Provider)
+        ? "inmemory"
+        : req.VectorStore!.Provider!.Trim().ToLowerInvariant();
+
+    try
+    {
+        var externalStoreWarning = await ChatUiRagCoreEndpoints.EnsureExternalStoreMatchesSettingsAsync(
+            ragState,
+            embeddingHttpClient,
+            effectiveRagSettings,
+            req.VectorStore);
+        if (!string.IsNullOrWhiteSpace(externalStoreWarning))
+            Console.WriteLine($"[RAG] External store refresh warning: {externalStoreWarning}");
+    }
+    catch (Exception syncEx)
+    {
+        ctx.Response.StatusCode = 400;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { error = syncEx.Message });
+        return;
+    }
+
     try
     {
         // Trigger summary policy before streaming (not called automatically in StreamAsync)
@@ -185,76 +272,52 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         string? rewriterModelName = null;
         if (ragState.Store != null)
         {
+            var ragSw = Stopwatch.StartNew();
+            var ragOptions = new RagQueryOptions
+            {
+                FinalFilter = effectiveRagSettings.FinalFilter,
+                RetrievalDerivation = effectiveRagSettings.RetrievalDerivation,
+                ProgressAsync = async stage =>
+                {
+                    var progressPayload = JsonSerializer.Serialize(new
+                    {
+                        type = "rag_progress",
+                        stage = stage.ToString(),
+                        elapsedMs = ragSw.ElapsedMilliseconds
+                    });
+                    await ctx.Response.WriteAsync($"data: {progressPayload}\n\n", ctx.RequestAborted);
+                    await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+                }
+            };
             try
             {
-                var ragQuery = req.Message;
-                string? rewrittenQuery = null;
-
-                // Query Rewriting for multi-turn conversations
-                var ragSettings = ragState.GetSettings();
-                if (ragSettings.QueryRewriterEnabled && currentService != null)
+                var ragSettings = effectiveRagSettings;
+                var activeService = currentService;
+                if (ragSettings.QueryRewriterEnabled && activeService != null)
                 {
-                    var messages = currentService.ActivateChat.Messages;
-                    if (messages.Count > 0)
-                    {
-                        var history = messages
-                            .Where(m => m.Role == ActorRole.User || m.Role == ActorRole.Assistant)
-                            .Select(m => new ConversationTurn(
-                                m.Role == ActorRole.User ? "user" : "assistant",
-                                m.Content ?? string.Empty))
-                            .ToList();
+                    var rewriterService = ragEndpointState.GetOrCreateRewriterService(
+                        ragSettings.RewriterModelOverride, activeService);
 
-                        if (history.Count > 0)
-                        {
-                            AIService rewriterService = currentService;
-
-                            // Use override model if configured
-                            if (!string.IsNullOrWhiteSpace(ragSettings.RewriterModelOverride)
-                                && !string.IsNullOrWhiteSpace(ragEndpointState.RewriterApiKey)
-                                && Enum.TryParse<AIModel>(ragSettings.RewriterModelOverride, out var overrideModel))
-                            {
-                                var apiKey = ragEndpointState.RewriterApiKey;
-                                if (!string.IsNullOrWhiteSpace(apiKey))
-                                {
-                                    var overrideProvider = GetProviderForModel(overrideModel);
-                                    var overrideHttpClient = new HttpClient();
-                                    rewriterService = overrideProvider switch
-                                    {
-                                        "OpenAI" => new ChatGptService(apiKey, overrideHttpClient),
-                                        "Anthropic" => new ClaudeService(apiKey, overrideHttpClient),
-                                        "Google" => new GeminiService(apiKey, overrideHttpClient),
-                                        "DeepSeek" => new DeepSeekService(apiKey, overrideHttpClient),
-                                        "xAI" => new GrokService(apiKey, overrideHttpClient),
-                                        "Perplexity" => new SonarService(apiKey, overrideHttpClient),
-                                        _ => currentService
-                                    };
-                                    rewriterService.ChangeModel(overrideModel);
-                                }
-                            }
-
-                            rewriterModelName = rewriterService.Model;
-
-                            var rewriter = new LlmQueryRewriter(rewriterService);
-                            var rewritten = await rewriter.RewriteAsync(ragQuery, history, ctx.RequestAborted);
-                            if (!string.IsNullOrWhiteSpace(rewritten) && rewritten != ragQuery)
-                            {
-                                rewrittenQuery = rewritten;
-                                ragQuery = rewritten;
-                            }
-                        }
-                    }
+                    rewriterModelName = rewriterService.Model;
+                    ragState.Store.SetQueryRewriter(new LlmQueryRewriter(rewriterService));
+                }
+                else
+                {
+                    ragState.Store.SetQueryRewriter(null);
                 }
 
-                ragProcessed = await ragState.Store.QueryAsync(ragQuery, ctx.RequestAborted);
+                var ragService = activeService!.WithRag(ragState.Store);
+                ragProcessed = await ragService.RetrieveAsync(req.Message, ragOptions, ctx.RequestAborted);
 
-                // Preserve rewritten query info
-                if (rewrittenQuery != null)
+                var ragEndPayload = JsonSerializer.Serialize(new
                 {
-                    ragProcessed.RewrittenQuery = rewrittenQuery;
-                    ragProcessed.OriginalQuery = req.Message;
-                }
+                    type = "rag_progress_end",
+                    elapsedMs = ragSw.ElapsedMilliseconds
+                });
+                await ctx.Response.WriteAsync($"data: {ragEndPayload}\n\n", ctx.RequestAborted);
+                await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
 
-                // The library sets AugmentedPrompt = OriginalQuery when no references are found,
+                // The library sets RequestMessageContent = OriginalQuery when no references are found,
                 // so the LLM receives a clean query. We still null-out ragProcessed to skip
                 // sending unnecessary RAG diagnostics to the frontend.
                 if (ragProcessed is { HasReferences: false })
@@ -266,13 +329,42 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             catch (Exception ragEx)
             {
                 // RAG query failed — fall back to original message and notify frontend
+                var progressErrorPayload = JsonSerializer.Serialize(new
+                {
+                    type = "rag_progress_error",
+                    error = HumanizeRagError(ragEx.Message),
+                    elapsedMs = ragSw.ElapsedMilliseconds
+                });
+                await ctx.Response.WriteAsync($"data: {progressErrorPayload}\n\n", ctx.RequestAborted);
+                await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+
+                var ragSettings2Err = effectiveRagSettings;
                 var ragErrorPayload = JsonSerializer.Serialize(new
                 {
                     type = "rag_info",
-                    error = ragEx.Message,
+                    error = HumanizeRagError(ragEx.Message),
                     augmentedPrompt = (string?)null,
                     originalQuery = req.Message,
-                    references = Array.Empty<object>()
+                    references = Array.Empty<object>(),
+                    vectorStoreProvider,
+                    searchMode = ragSettings2Err.HybridSearchEnabled ? "hybrid" : "vector",
+                    reranking = new
+                    {
+                        enabled = ragSettings2Err.RerankEnabled,
+                        provider = ragSettings2Err.RerankEnabled ? ragSettings2Err.RerankProvider : null,
+                        model = ragSettings2Err.RerankEnabled ? ragSettings2Err.RerankModel : null,
+                        retrievalMultiplier = ragSettings2Err.RerankEnabled ? ragSettings2Err.RetrievalDerivation.TopKMultiplier : (int?)null
+                    },
+                    diagnostics = new
+                    {
+                        finalTopK = ragSettings2Err.FinalFilter.TopK,
+                        retrievalTopK = ragSettings2Err.RerankEnabled
+                            ? ragSettings2Err.FinalFilter.TopK * Math.Max(1, ragSettings2Err.RetrievalDerivation.TopKMultiplier)
+                            : ragSettings2Err.FinalFilter.TopK,
+                        appliedFinalMinScore = ragSettings2Err.FinalFilter.MinScore,
+                        appliedRetrievalMinScore = ragSettings2Err.FinalFilter.MinScore.HasValue ? ragSettings2Err.FinalFilter.MinScore.Value / Math.Max(1d, ragSettings2Err.RetrievalDerivation.MinScoreDivider) : (double?)null,
+                        elapsedMs = ragSw.ElapsedMilliseconds
+                    }
                 });
                 await ctx.Response.WriteAsync($"data: {ragErrorPayload}\n\n", ctx.RequestAborted);
                 await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
@@ -282,26 +374,50 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         // Send RAG info event so the frontend can show per-message diagnostics
         if (ragProcessed != null)
         {
-            var ragSettings2 = ragState.GetSettings();
+            var ragSettings2 = effectiveRagSettings;
             var ragInfoPayload = JsonSerializer.Serialize(new
             {
                 type = "rag_info",
-                augmentedPrompt = ragProcessed.AugmentedPrompt,
+                augmentedPrompt = ragProcessed.RequestMessageContent,
                 originalQuery = ragProcessed.OriginalQuery,
                 rewrittenQuery = ragProcessed.RewrittenQuery,
+                searchSkipped = ragProcessed.SearchSkipped,
+                rewriteResult = ragProcessed.RewriteResult != null ? new
+                {
+                    query = ragProcessed.RewriteResult.Query,
+                    needsSearch = ragProcessed.RewriteResult.NeedsSearch
+                } : null,
                 rewriterModel = rewriterModelName,
                 searchMode = ragSettings2.HybridSearchEnabled ? "hybrid" : "vector",
                 hybridWeight = ragSettings2.HybridSearchEnabled ? ragSettings2.HybridSearchVectorWeight : (float?)null,
-                vectorStoreProvider = ragEndpointState.VectorStoreProvider,
+                vectorStoreProvider,
+                reranking = new
+                {
+                    enabled = ragSettings2.RerankEnabled,
+                    provider = ragSettings2.RerankEnabled ? ragSettings2.RerankProvider : null,
+                    model = ragSettings2.RerankEnabled ? ragSettings2.RerankModel : null,
+                    retrievalMultiplier = ragSettings2.RerankEnabled ? ragSettings2.RetrievalDerivation.TopKMultiplier : (int?)null
+                },
                 diagnostics = new
                 {
                     appliedNamespace = ragProcessed.Diagnostics.AppliedNamespace,
-                    appliedTopK = ragProcessed.Diagnostics.AppliedTopK,
-                    appliedMinScore = ragProcessed.Diagnostics.AppliedMinScore,
-                    elapsedMs = ragProcessed.Diagnostics.ElapsedMs
+                    finalTopK = ragProcessed.Diagnostics.FinalTopK,
+                    retrievalTopK = ragProcessed.Diagnostics.RetrievalTopK,
+                    appliedFinalMinScore = ragProcessed.Diagnostics.AppliedFinalMinScore,
+                    appliedRetrievalMinScore = ragProcessed.Diagnostics.AppliedRetrievalMinScore,
+                    elapsedMs = ragProcessed.Diagnostics.ElapsedMs,
+                    rewriteElapsedMs = ragProcessed.Diagnostics.RewriteElapsedMs
                 },
+                retrievalResults = ragProcessed.RetrievalCandidates.Select(r => new
+                {
+                    id = r.Record.Id,
+                    score = r.Score,
+                    content = r.Record.Content,
+                    metadata = r.Record.Metadata
+                }),
                 references = ragProcessed.References.Select(r => new
                 {
+                    id = r.Record.Id,
                     score = r.Score,
                     content = r.Record.Content,
                     metadata = r.Record.Metadata
@@ -311,8 +427,8 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
         }
 
-        var messageContent = ragProcessed?.AugmentedPrompt ?? req.Message;
-        var message = new Message(ActorRole.User, messageContent);
+        var message = new Message(ActorRole.User, req.Message);
+        AIRequestContext? requestContext = null;
         if (ragProcessed != null)
         {
             message.Metadata = new Dictionary<string, object>
@@ -320,6 +436,11 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 ["rag"] = true,
                 ["rag_original_query"] = req.Message,
                 ["rag_reference_count"] = ragProcessed.References.Count
+            };
+
+            requestContext = new AIRequestContext
+            {
+                RequestMessageOverride = new Message(ActorRole.User, ragProcessed.RequestMessageContent)
             };
         }
         var options = new StreamOptions
@@ -330,7 +451,11 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             TextOnly = false
         };
 
-        await foreach (var sc in currentService.StreamAsync(message, options, ctx.RequestAborted))
+        var stream = requestContext == null
+            ? currentService.StreamAsync(message, options, ctx.RequestAborted)
+            : currentService.StreamAsync(message, options, requestContext, ctx.RequestAborted);
+
+        await foreach (var sc in stream)
         {
             string? type = sc.Type switch
             {
@@ -367,7 +492,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 var content = sc.Content
                     ?? sc.Metadata?.GetValueOrDefault("error")?.ToString()
                     ?? "(unknown error)";
-                if (type != "error" && sc.Content == null) continue;
+                if (type != "error" && string.IsNullOrEmpty(sc.Content)) continue;
                 payloadObj = new { type, content };
             }
 
@@ -415,7 +540,12 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     if (req.ReasoningEnabled.HasValue) streamIncludeReasoning = req.ReasoningEnabled.Value;
 
     // Apply reasoning settings
-    if (req.ReasoningEnabled == true && req.ReasoningLevel != null && req.ReasoningType != null)
+    if (req.ReasoningEnabled == true && req.ReasoningType == "qwen_thinking"
+        && currentService is QwenService qwenOn)
+    {
+        qwenOn.ThinkingMode = Mythosia.AI.Providers.Alibaba.QwenThinking.On;
+    }
+    else if (req.ReasoningEnabled == true && req.ReasoningLevel != null && req.ReasoningType != null)
     {
         if (currentService is ChatGptService gpt)
         {
@@ -503,18 +633,24 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
             geminiOff.ThinkingLevel = GeminiThinkingLevel.Auto;
             geminiOff.ThinkingBudget = -1;
         }
+        else if (currentService is QwenService qwenOff)
+        {
+            qwenOff.ThinkingMode = Mythosia.AI.Providers.Alibaba.QwenThinking.Off;
+        }
     }
 
     return Results.Ok(new { status = "updated" });
 });
 
 // ── GET /api/state ──────────────────────────────────────────────
-app.MapGet("/api/state", () =>
+app.MapGet("/api/state", async () =>
 {
     if (currentService == null)
         return Results.Ok(new { configured = false });
 
     var svc = currentService;
+
+    var conversationTokenCount = await svc.GetInputTokenCountAsync();
 
     // Messages
     var messages = svc.ActivateChat.Messages.Select(m => new
@@ -605,6 +741,7 @@ app.MapGet("/api/state", () =>
         activeChatId = svc.ActivateChat.Id,
         systemMessage = svc.ActivateChat.SystemMessage,
         messageCount = svc.ActivateChat.Messages.Count,
+        conversationTokenCount,
         sentMessageCount = Math.Min(svc.ActivateChat.Messages.Count, (int)svc.MaxMessageCount),
         chatBlockCount = svc.ChatRequests.Count,
 
@@ -717,6 +854,14 @@ app.MapPost("/api/functions/toggle-preset", (TogglePresetRequest req) =>
 app.MapChatUiRagCoreEndpoints(ragState, ragEndpointState, embeddingHttpClient);
 
 app.MapChatUiRagDiagnosticsEndpoints(ragState);
+
+// ── Helper ──────────────────────────────────────────────────────
+static Mythosia.AI.Providers.Alibaba.EndpointPlatform ParsePlatform(string? value) => value?.ToLowerInvariant() switch
+{
+    "ollama" => Mythosia.AI.Providers.Alibaba.EndpointPlatform.Ollama,
+    "vllm" => Mythosia.AI.Providers.Alibaba.EndpointPlatform.Vllm,
+    _ => Mythosia.AI.Providers.Alibaba.EndpointPlatform.Vllm,
+};
 
 // ── Fallback to index.html ──────────────────────────────────────
 app.MapFallbackToFile("index.html");

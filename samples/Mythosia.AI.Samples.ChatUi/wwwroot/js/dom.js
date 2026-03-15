@@ -12,6 +12,7 @@ export const sidebarLeft    = $('#sidebar-left');
 // Chat area
 export const chatStatus     = $('#chat-status');
 export const ragChatStatus  = $('#rag-chat-status');
+export const ragEmbeddingStatus = $('#rag-embedding-status');
 export const vectordbChatStatus = $('#vectordb-chat-status');
 export const chatMessages   = $('#chat-messages');
 export const chatForm       = $('#chat-form');
@@ -24,6 +25,12 @@ export const btnRagSettings = $('#btn-rag-settings');
 // Right panel
 export const stateContainer = $('#state-container');
 export const btnRefresh     = $('#btn-refresh-state');
+
+// State message JSON modal
+export const stateMessageJsonModal = $('#state-message-json-modal');
+export const stateMessageJsonContent = $('#state-message-json-content');
+export const stateMessageJsonClose = $('#state-message-json-close');
+export const stateMessageJsonCopy = $('#state-message-json-copy');
 
 // Code Modal
 export const codeModal        = $('#code-modal');
@@ -43,12 +50,27 @@ export const modalCancel      = $('#modal-cancel');
 export const modalClose       = $('#modal-close');
 export const modalRemoveKey   = $('#modal-remove-key');
 
+// Alibaba Settings Modal
+export const alibabaModal        = $('#alibaba-settings-modal');
+export const alibabaModalClose   = $('#alibaba-modal-close');
+export const alibabaTabs         = $$('.alibaba-tab');
+export const alibabaPanels       = $$('.alibaba-panel');
+export const alibabaBaseUrl      = $('#alibaba-base-url');
+export const alibabaPlatform     = $('#alibaba-platform');
+export const alibabaModelOverrideEnabled = $('#alibaba-model-override-enabled');
+export const alibabaModelOverrideFields = $('#alibaba-model-override-fields');
+export const alibabaModelOverride = $('#alibaba-model-override');
+export const alibabaSave         = $('#alibaba-save');
+export const alibabaRemove       = $('#alibaba-remove');
+export const alibabaStatus       = $('#alibaba-status');
+
 // RAG Reference Modal
 export const ragModal        = $('#rag-modal');
 export const ragModalClose   = $('#rag-modal-close');
 export const ragSettingsModal = $('#rag-settings-modal');
 export const ragSettingsClose = $('#rag-settings-close');
 export const ragSettingsSave  = $('#rag-settings-save');
+export const ragSettingsAlert = $('#rag-settings-alert');
 export const ragSettingsStatus = $('#rag-settings-status');
 export const ragFiles        = $('#rag-files');
 export const ragFileList     = $('#rag-file-list');
@@ -59,6 +81,8 @@ export const ragChunker      = $('#rag-chunker');
 export const ragEmbeddingProvider = $('#rag-embedding-provider');
 export const ragEmbeddingBaseRow = $('#rag-embedding-base-row');
 export const ragEmbeddingBaseUrl = $('#rag-embedding-base-url');
+export const ragVllmBaseRow = $('#rag-vllm-base-row');
+export const ragVllmBaseUrl = $('#rag-vllm-base-url');
 export const ragEmbeddingSelect = $('#rag-embedding-select');
 export const ragEmbeddingTrigger = $('#rag-embedding-trigger');
 export const ragEmbeddingMenu = $('#rag-embedding-menu');
@@ -67,10 +91,17 @@ export const ragEmbeddingValueBadge = $('#rag-embedding-value-badge');
 export const ragEmbeddingHint = $('#rag-embedding-hint');
 export const ragOllamaModelRow = $('#rag-ollama-model-row');
 export const ragOllamaModel = $('#rag-ollama-model');
+export const ragOllamaDimensions = $('#rag-ollama-dimensions');
 export const ragOllamaTest = $('#rag-ollama-test');
 export const ragOllamaStatus = $('#rag-ollama-status');
+export const ragVllmModelRow = $('#rag-vllm-model-row');
+export const ragVllmModel = $('#rag-vllm-model');
+export const ragVllmDimensions = $('#rag-vllm-dimensions');
+export const ragVllmTest = $('#rag-vllm-test');
+export const ragVllmStatus = $('#rag-vllm-status');
 export const ragOpenAiModelRow = $('#rag-openai-model-row');
 export const ragOpenAiModel = $('#rag-openai-model');
+export const ragOpenAiDimensions = $('#rag-openai-dimensions');
 export const ragOpenAiKey = $('#rag-openai-key');
 export const ragOpenAiKeyInput = $('#rag-openai-key-input');
 export const ragOpenAiKeySave = $('#rag-openai-key-save');
@@ -95,8 +126,20 @@ export const ragHybridWeightVal     = $('#rag-hybrid-weight-val');
 export const ragRerankEnabled       = $('#rag-rerank-enabled');
 export const ragRerankOptions       = $('#rag-rerank-options');
 export const ragRerankProvider      = $('#rag-rerank-provider');
+export const ragRerankVllmModelRow  = $('#rag-rerank-vllm-model-row');
+export const ragRerankVllmModel     = $('#rag-rerank-vllm-model');
+export const ragRerankVllmBaseUrlRow = $('#rag-rerank-vllm-baseurl-row');
+export const ragRerankVllmBaseUrl   = $('#rag-rerank-vllm-baseurl');
+export const ragRerankVllmTest      = $('#rag-rerank-vllm-test');
+export const ragRerankVllmStatus    = $('#rag-rerank-vllm-status');
+export const ragRerankApiKeyRow     = $('#rag-rerank-apikey-row');
 export const ragRerankApiKey        = $('#rag-rerank-apikey');
 export const ragRetrievalMultiplier = $('#rag-retrieval-multiplier');
+export const ragRerankCandidateTopK = $('#rag-rerank-candidate-topk');
+export const ragMinScoreDivider     = $('#rag-min-score-divider');
+export const ragRerankDerivedMinScore = $('#rag-rerank-derived-min-score');
+export const ragRetrievalTopK       = $('#rag-retrieval-topk');
+export const ragRetrievalMinScore   = $('#rag-retrieval-min-score');
 
 // RAG Vector Store
 export const ragVectorStoreProvider = $('#rag-vectorstore-provider');

@@ -1,21 +1,12 @@
+using Mythosia.AI.Loaders;
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
-using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Reranking;
-using Mythosia.AI.Rag.Splitters;
-using Mythosia.AI.Loaders;
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 using Mythosia.VectorDb.Pinecone;
 using Mythosia.VectorDb.Postgres;
 using Mythosia.VectorDb.Qdrant;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
 using static Mythosia.AI.Samples.ChatUi.ChatUiUtilityHelpers;
 
 namespace Mythosia.AI.Samples.ChatUi;
@@ -24,358 +15,97 @@ internal static class ChatUiRagCoreEndpoints
 {
     public static void MapChatUiRagCoreEndpoints(this WebApplication app, RagReferenceState ragState, ChatUiRagEndpointState state, HttpClient embeddingHttpClient)
     {
-        app.MapGet("/api/rag/pipeline-settings", () =>
-        {
-            return Results.Ok(ragState.GetSettings());
-        });
-
-        app.MapPost("/api/rag/pipeline-settings", (RagPipelineSettingsRequest req) =>
-        {
-            var current = ragState.GetSettings();
-            var settings = new RagPipelineSettings(
-                ChunkSize: req.ChunkSize is > 0 ? req.ChunkSize.Value : current.ChunkSize,
-                ChunkOverlap: req.ChunkOverlap is >= 0 ? req.ChunkOverlap.Value : current.ChunkOverlap,
-                Chunker: string.IsNullOrWhiteSpace(req.Chunker) ? current.Chunker : req.Chunker.Trim().ToLowerInvariant(),
-                EmbeddingProvider: string.IsNullOrWhiteSpace(req.EmbeddingProvider) ? current.EmbeddingProvider : req.EmbeddingProvider.Trim().ToLowerInvariant(),
-                EmbeddingModel: string.IsNullOrWhiteSpace(req.EmbeddingModel) ? current.EmbeddingModel : req.EmbeddingModel.Trim(),
-                EmbeddingDimensions: req.EmbeddingDimensions is > 0 ? req.EmbeddingDimensions.Value : current.EmbeddingDimensions,
-                EmbeddingBaseUrl: string.IsNullOrWhiteSpace(req.EmbeddingBaseUrl) ? current.EmbeddingBaseUrl : req.EmbeddingBaseUrl.Trim(),
-                TopK: req.TopK is > 0 ? req.TopK.Value : current.TopK,
-                MinScore: req.MinScore ?? current.MinScore,
-                PromptTemplate: req.PromptTemplate ?? current.PromptTemplate,
-                QueryRewriterEnabled: req.QueryRewriterEnabled ?? current.QueryRewriterEnabled,
-                RewriterModelOverride: req.RewriterModelOverride,
-                HybridSearchEnabled: req.HybridSearchEnabled ?? current.HybridSearchEnabled,
-                HybridSearchVectorWeight: req.HybridSearchVectorWeight ?? current.HybridSearchVectorWeight,
-                RerankEnabled: req.RerankEnabled ?? current.RerankEnabled,
-                RerankProvider: string.IsNullOrWhiteSpace(req.RerankProvider) ? current.RerankProvider : req.RerankProvider.Trim().ToLowerInvariant(),
-                RerankApiKey: req.RerankApiKey ?? current.RerankApiKey,
-                RetrievalMultiplier: req.RetrievalMultiplier is > 0 ? req.RetrievalMultiplier.Value : current.RetrievalMultiplier);
-
-            if (req.RewriterApiKey != null)
-                state.RewriterApiKey = string.IsNullOrWhiteSpace(req.RewriterApiKey) ? null : req.RewriterApiKey;
-
-            ragState.UpdateSettings(settings);
-            ragState.TryApplyQuerySettings(settings);
-            return Results.Ok(settings);
-        });
-
         app.MapGet("/api/rag/vector-store", () =>
         {
             return Results.Ok(new
             {
-                provider = state.VectorStoreProvider,
-                connectionString = state.PgConnectionString,
-                tableName = state.PgTableName,
-                schemaName = state.PgSchemaName,
-                dimension = state.PgDimension,
-                ensureSchema = state.PgEnsureSchema,
-                qdrantHost = state.QdrantHost,
-                qdrantPort = state.QdrantPort,
-                qdrantApiKey = (string?)null,
-                qdrantUseTls = state.QdrantUseTls,
-                qdrantDimension = state.QdrantDimension,
-                qdrantCollectionName = state.QdrantCollectionName,
-                pineconeIndexHost = state.PineconeIndexHost,
-                pineconeApiKey = (string?)null,
-                pineconeNamespace = state.PineconeNamespace
+                provider = "inmemory"
             });
         });
 
         app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req) =>
         {
-            var provider = (req.Provider ?? "inmemory").Trim().ToLowerInvariant();
-
-            if (provider == "postgres")
+            VectorStoreBuildResult buildResult;
+            try
             {
-                if (string.IsNullOrWhiteSpace(req.ConnectionString))
-                    return Results.BadRequest(new { error = "ConnectionString is required for PostgreSQL." });
-
-                state.PgConnectionString = req.ConnectionString.Trim();
-                state.PgTableName = string.IsNullOrWhiteSpace(req.TableName) ? "vectors" : req.TableName.Trim();
-                state.PgSchemaName = string.IsNullOrWhiteSpace(req.SchemaName) ? "public" : req.SchemaName.Trim();
-                state.PgDimension = req.Dimension is > 0 ? req.Dimension.Value : 1536;
-                state.PgEnsureSchema = req.EnsureSchema ?? true;
-
-                if (!string.IsNullOrWhiteSpace(req.OpenAiApiKey))
-                    state.RagEmbeddingOpenAiKey = req.OpenAiApiKey.Trim();
-
-                try
-                {
-                    var oldStore = state.VectorStore;
-                    state.VectorStore = new PostgresStore(new PostgresOptions
-                    {
-                        ConnectionString = state.PgConnectionString,
-                        Dimension = state.PgDimension,
-                        TableName = state.PgTableName,
-                        SchemaName = state.PgSchemaName,
-                        EnsureSchema = state.PgEnsureSchema
-                    });
-                    state.VectorStoreProvider = "postgres";
-
-                    if (oldStore is IDisposable disposable)
-                        disposable.Dispose();
-
-                    string? autoConnectWarning = null;
-                    try
-                    {
-                        var settings = ragState.GetSettings();
-                        var embeddingKey = !string.IsNullOrWhiteSpace(state.RagEmbeddingOpenAiKey) ? state.RagEmbeddingOpenAiKey : null;
-                        var epKey = settings.EmbeddingProvider?.ToLowerInvariant() ?? "openai";
-
-                        if (epKey != "ollama" && embeddingKey == null)
-                        {
-                            autoConnectWarning = "No API key provided for the embedding provider. "
-                                + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
-                        }
-                        else
-                        {
-                            var store = await RagStore.BuildAsync(builder =>
-                            {
-                                builder
-                                    .UseStore(state.VectorStore)
-                                    .WithTopK(settings.TopK);
-
-                                if (epKey == "ollama")
-                                {
-                                    builder.UseEmbedding(new OllamaEmbeddingProvider(
-                                        embeddingHttpClient,
-                                        settings.EmbeddingModel ?? "qwen3-embedding:4b",
-                                        settings.EmbeddingDimensions,
-                                        settings.EmbeddingBaseUrl));
-                                }
-                                else
-                                {
-                                    builder.UseEmbedding(new OpenAIEmbeddingProvider(
-                                        embeddingKey!, embeddingHttpClient,
-                                        settings.EmbeddingModel ?? "text-embedding-3-small",
-                                        settings.EmbeddingDimensions));
-                                }
-
-                                if (settings.MinScore.HasValue)
-                                    builder.WithScoreThreshold(settings.MinScore.Value);
-                                if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
-                                    builder.WithPromptTemplate(settings.PromptTemplate);
-
-                                ApplyHybridAndReranker(builder, settings);
-                            });
-                            ragState.SetExternalStore(store);
-                        }
-                    }
-                    catch
-                    {
-                        // Auto-connect is best-effort; vector store connection is still valid
-                    }
-
-                    return Results.Ok(new { provider = state.VectorStoreProvider, status = "connected", warning = autoConnectWarning, tableName = state.PgTableName, schemaName = state.PgSchemaName, dimension = state.PgDimension });
-                }
-                catch (Exception ex)
-                {
-                    return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
-                }
+                buildResult = BuildVectorStore(req);
             }
-            else if (provider == "qdrant")
+            catch (ArgumentException ex)
             {
-                var rawHost = (req.QdrantHost ?? "").Trim();
-                if (rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                    rawHost = rawHost.Substring("https://".Length);
-                else if (rawHost.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
-                    rawHost = rawHost.Substring("http://".Length);
-                var slashIdx = rawHost.IndexOf('/');
-                if (slashIdx >= 0) rawHost = rawHost.Substring(0, slashIdx);
-                state.QdrantHost = string.IsNullOrWhiteSpace(rawHost) ? "localhost" : rawHost;
-                state.QdrantPort = req.QdrantPort is > 0 ? req.QdrantPort.Value : 6334;
-                state.QdrantApiKey = string.IsNullOrWhiteSpace(req.QdrantApiKey) ? null : req.QdrantApiKey.Trim();
-                state.QdrantUseTls = req.QdrantUseTls ?? false;
-                state.QdrantDimension = req.Dimension is > 0 ? req.Dimension.Value : 1536;
-                state.QdrantCollectionName = string.IsNullOrWhiteSpace(req.QdrantCollectionName) ? "default" : req.QdrantCollectionName.Trim();
-
-                if (!string.IsNullOrWhiteSpace(req.OpenAiApiKey))
-                    state.RagEmbeddingOpenAiKey = req.OpenAiApiKey.Trim();
-
-                try
-                {
-                    var oldStore = state.VectorStore;
-                    state.VectorStore = new QdrantStore(new QdrantOptions
-                    {
-                        Host = state.QdrantHost,
-                        Port = state.QdrantPort,
-                        ApiKey = state.QdrantApiKey,
-                        UseTls = state.QdrantUseTls,
-                        Dimension = state.QdrantDimension,
-                        CollectionName = state.QdrantCollectionName
-                    });
-                    state.VectorStoreProvider = "qdrant";
-
-                    if (oldStore is IDisposable disposable)
-                        disposable.Dispose();
-
-                    string? autoConnectWarning = null;
-                    try
-                    {
-                        var settings = ragState.GetSettings();
-                        var embeddingKey = !string.IsNullOrWhiteSpace(state.RagEmbeddingOpenAiKey) ? state.RagEmbeddingOpenAiKey : null;
-                        var epKey = settings.EmbeddingProvider?.ToLowerInvariant() ?? "openai";
-
-                        if (epKey != "ollama" && embeddingKey == null)
-                        {
-                            autoConnectWarning = "No API key provided for the embedding provider. "
-                                + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
-                        }
-                        else
-                        {
-                            var store = await RagStore.BuildAsync(builder =>
-                            {
-                                builder
-                                    .UseStore(state.VectorStore)
-                                    .WithTopK(settings.TopK)
-                                    .WithNamespace(state.QdrantCollectionName);
-
-                                if (epKey == "ollama")
-                                {
-                                    builder.UseEmbedding(new OllamaEmbeddingProvider(
-                                        embeddingHttpClient,
-                                        settings.EmbeddingModel ?? "qwen3-embedding:4b",
-                                        settings.EmbeddingDimensions,
-                                        settings.EmbeddingBaseUrl));
-                                }
-                                else
-                                {
-                                    builder.UseEmbedding(new OpenAIEmbeddingProvider(
-                                        embeddingKey!, embeddingHttpClient,
-                                        settings.EmbeddingModel ?? "text-embedding-3-small",
-                                        settings.EmbeddingDimensions));
-                                }
-
-                                if (settings.MinScore.HasValue)
-                                    builder.WithScoreThreshold(settings.MinScore.Value);
-                                if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
-                                    builder.WithPromptTemplate(settings.PromptTemplate);
-
-                                ApplyHybridAndReranker(builder, settings);
-                            });
-                            ragState.SetExternalStore(store);
-                        }
-                    }
-                    catch
-                    {
-                        // Auto-connect is best-effort; vector store connection is still valid
-                    }
-
-                    return Results.Ok(new { provider = state.VectorStoreProvider, status = "connected", warning = autoConnectWarning, host = state.QdrantHost, port = state.QdrantPort, dimension = state.QdrantDimension, collectionName = state.QdrantCollectionName });
-                }
-                catch (Exception ex)
-                {
-                    return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
-                }
+                return Results.BadRequest(new { error = ex.Message });
             }
-            else if (provider == "pinecone")
+            catch (Exception ex)
             {
-                state.PineconeIndexHost = (req.PineconeIndexHost ?? "").Trim();
-                state.PineconeApiKey = string.IsNullOrWhiteSpace(req.PineconeApiKey) ? null : req.PineconeApiKey.Trim();
-                state.PineconeNamespace = string.IsNullOrWhiteSpace(req.PineconeNamespace) ? "default" : req.PineconeNamespace.Trim();
-
-                if (string.IsNullOrWhiteSpace(state.PineconeIndexHost))
-                    return Results.BadRequest(new { error = "PineconeIndexHost is required for Pinecone." });
-
-                if (string.IsNullOrWhiteSpace(state.PineconeApiKey))
-                    return Results.BadRequest(new { error = "PineconeApiKey is required for Pinecone." });
-
-                if (!string.IsNullOrWhiteSpace(req.OpenAiApiKey))
-                    state.RagEmbeddingOpenAiKey = req.OpenAiApiKey.Trim();
-
-                try
-                {
-                    var oldStore = state.VectorStore;
-                    state.VectorStore = new PineconeStore(new PineconeOptions
-                    {
-                        IndexHost = state.PineconeIndexHost,
-                        ApiKey = state.PineconeApiKey,
-                        DefaultNamespace = state.PineconeNamespace
-                    });
-                    state.VectorStoreProvider = "pinecone";
-
-                    if (oldStore is IDisposable disposable)
-                        disposable.Dispose();
-
-                    string? autoConnectWarning = null;
-                    try
-                    {
-                        var settings = ragState.GetSettings();
-                        var embeddingKey = !string.IsNullOrWhiteSpace(state.RagEmbeddingOpenAiKey) ? state.RagEmbeddingOpenAiKey : null;
-                        var epKey = settings.EmbeddingProvider?.ToLowerInvariant() ?? "openai";
-
-                        if (epKey != "ollama" && embeddingKey == null)
-                        {
-                            autoConnectWarning = "No API key provided for the embedding provider. "
-                                + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
-                        }
-                        else
-                        {
-                            var store = await RagStore.BuildAsync(builder =>
-                            {
-                                builder
-                                    .UseStore(state.VectorStore)
-                                    .WithTopK(settings.TopK)
-                                    .WithNamespace(state.PineconeNamespace);
-
-                                if (epKey == "ollama")
-                                {
-                                    builder.UseEmbedding(new OllamaEmbeddingProvider(
-                                        embeddingHttpClient,
-                                        settings.EmbeddingModel ?? "qwen3-embedding:4b",
-                                        settings.EmbeddingDimensions,
-                                        settings.EmbeddingBaseUrl));
-                                }
-                                else
-                                {
-                                    builder.UseEmbedding(new OpenAIEmbeddingProvider(
-                                        embeddingKey!, embeddingHttpClient,
-                                        settings.EmbeddingModel ?? "text-embedding-3-small",
-                                        settings.EmbeddingDimensions));
-                                }
-
-                                if (settings.MinScore.HasValue)
-                                    builder.WithScoreThreshold(settings.MinScore.Value);
-                                if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
-                                    builder.WithPromptTemplate(settings.PromptTemplate);
-
-                                ApplyHybridAndReranker(builder, settings);
-                            });
-                            ragState.SetExternalStore(store);
-                        }
-                    }
-                    catch
-                    {
-                        // Auto-connect is best-effort; vector store connection is still valid
-                    }
-
-                    return Results.Ok(new { provider = state.VectorStoreProvider, status = "connected", warning = autoConnectWarning, indexHost = state.PineconeIndexHost, @namespace = state.PineconeNamespace });
-                }
-                catch (Exception ex)
-                {
-                    return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
-                }
+                return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
             }
-            else
+
+            if (buildResult.Provider == "inmemory")
             {
-                var oldStore = state.VectorStore;
-                state.VectorStore = new InMemoryVectorStore();
-                state.VectorStoreProvider = "inmemory";
-
-                if (oldStore is IDisposable disposable)
-                    disposable.Dispose();
-
                 ragState.ClearStore();
-
-                return Results.Ok(new { provider = state.VectorStoreProvider, status = "switched" });
+                return Results.Ok(new { provider = "inmemory", status = "switched" });
             }
+
+            string? autoConnectWarning;
+            try
+            {
+                autoConnectWarning = await TryAutoConnectRagStoreAsync(
+                    ragState,
+                    embeddingHttpClient,
+                    buildResult.Store,
+                    req.OpenAiApiKey,
+                    buildResult.Namespace);
+            }
+            catch (Exception ex)
+            {
+                if (buildResult.Store is IDisposable disposable)
+                    disposable.Dispose();
+                return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
+            }
+
+            if (autoConnectWarning != null && buildResult.Store is IDisposable warnDisposable)
+                warnDisposable.Dispose();
+
+            return buildResult.Provider switch
+            {
+                "postgres" => Results.Ok(new
+                {
+                    provider = buildResult.Provider,
+                    status = "connected",
+                    warning = autoConnectWarning,
+                    tableName = buildResult.TableName,
+                    schemaName = buildResult.SchemaName,
+                    dimension = buildResult.Dimension
+                }),
+                "qdrant" => Results.Ok(new
+                {
+                    provider = buildResult.Provider,
+                    status = "connected",
+                    warning = autoConnectWarning,
+                    host = buildResult.Host,
+                    port = buildResult.Port,
+                    dimension = buildResult.Dimension,
+                    collectionName = buildResult.CollectionName
+                }),
+                "pinecone" => Results.Ok(new
+                {
+                    provider = buildResult.Provider,
+                    status = "connected",
+                    warning = autoConnectWarning,
+                    indexHost = buildResult.IndexHost,
+                    @namespace = buildResult.Namespace
+                }),
+                _ => Results.Ok(new { provider = buildResult.Provider, status = "connected", warning = autoConnectWarning })
+            };
         });
 
         app.MapPost("/api/rag/ollama-test", async (OllamaTestRequest req) =>
         {
-            var baseUrl = (string.IsNullOrWhiteSpace(req.BaseUrl) ? "http://localhost:11434" : req.BaseUrl.Trim()).TrimEnd('/');
-            var model = string.IsNullOrWhiteSpace(req.Model) ? "qwen3-embedding:4b" : req.Model.Trim();
+            var baseUrl = NormalizeOptionalValue(req.BaseUrl);
+            var model = NormalizeOptionalValue(req.Model);
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(model))
+                return Results.BadRequest(new { error = "Ollama baseUrl and model are required." });
+
+            baseUrl = baseUrl.TrimEnd('/');
 
             try
             {
@@ -415,6 +145,78 @@ internal static class ChatUiRagCoreEndpoints
             }
         });
 
+        app.MapPost("/api/rag/vllm-test", async (VllmTestRequest req) =>
+        {
+            var baseUrl = NormalizeOptionalValue(req.BaseUrl);
+            var model = NormalizeOptionalValue(req.Model);
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(model))
+                return Results.BadRequest(new { error = "vLLM baseUrl and model are required." });
+
+            baseUrl = baseUrl.TrimEnd('/');
+
+            try
+            {
+                var healthRes = await embeddingHttpClient.GetAsync($"{baseUrl}/health");
+                if (!healthRes.IsSuccessStatusCode)
+                    return Results.BadRequest(new { error = $"vLLM is not reachable at {baseUrl} (HTTP {(int)healthRes.StatusCode})." });
+
+                var provider = new VllmEmbeddingProvider(embeddingHttpClient, model, 0, baseUrl);
+                await provider.GetEmbeddingAsync("connection test");
+
+                return Results.Ok(new { status = "ok", baseUrl, model, modelFound = true });
+            }
+            catch (HttpRequestException ex)
+            {
+                return Results.BadRequest(new { error = $"Cannot reach vLLM at {baseUrl}: {ex.Message}" });
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"vLLM connection test failed: {ex.Message}" });
+            }
+        });
+
+        app.MapPost("/api/rag/vllm-rerank-test", async (VllmRerankTestRequest req) =>
+        {
+            var baseUrl = NormalizeOptionalValue(req.BaseUrl);
+            var model = NormalizeOptionalValue(req.Model);
+            if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(model))
+                return Results.BadRequest(new { error = "vLLM rerank baseUrl and model are required." });
+
+            baseUrl = baseUrl.TrimEnd('/');
+            var apiKey = string.IsNullOrWhiteSpace(req.ApiKey) ? null : req.ApiKey.Trim();
+
+            try
+            {
+                var healthRes = await embeddingHttpClient.GetAsync($"{baseUrl}/health");
+                if (!healthRes.IsSuccessStatusCode)
+                    return Results.BadRequest(new { error = $"vLLM reranker is not reachable at {baseUrl} (HTTP {(int)healthRes.StatusCode})." });
+
+                var reranker = new VllmReranker(
+                    httpClient: embeddingHttpClient,
+                    model: model,
+                    baseUrl: baseUrl,
+                    apiKey: apiKey);
+
+                var sampleResults = new List<VectorSearchResult>
+                {
+                    new(new VectorRecord { Content = "First test passage" }, 0.5),
+                    new(new VectorRecord { Content = "Second test passage" }, 0.4)
+                };
+
+                await reranker.RerankAsync("test query", sampleResults, 1);
+
+                return Results.Ok(new { status = "ok", baseUrl, model, modelFound = true });
+            }
+            catch (HttpRequestException ex)
+            {
+                return Results.BadRequest(new { error = $"Cannot reach vLLM reranker at {baseUrl}: {ex.Message}" });
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"vLLM rerank connection test failed: {ex.Message}" });
+            }
+        });
+
         app.MapGet("/api/rag/status", () =>
         {
             var settings = ragState.GetSettings();
@@ -424,7 +226,7 @@ internal static class ChatUiRagCoreEndpoints
                 hasIndex,
                 lastUpdated = ragState.LastUpdated,
                 settings,
-                vectorStoreProvider = state.VectorStoreProvider
+                vectorStoreProvider = "inmemory"
             });
         });
 
@@ -438,46 +240,153 @@ internal static class ChatUiRagCoreEndpoints
                 return Results.BadRequest(new { error = "At least one file is required." });
 
             var settings = ragState.GetSettings();
-            var chunkSize = ParsePositiveInt(form["chunkSize"], settings.ChunkSize);
-            var chunkOverlap = ParsePositiveInt(form["chunkOverlap"], settings.ChunkOverlap);
-            var chunkerKey = NormalizeRagKey(form["chunker"], settings.Chunker);
-            var embeddingProviderKey = NormalizeRagKey(form["embeddingProvider"], settings.EmbeddingProvider);
-            var embeddingModel = string.IsNullOrWhiteSpace(form["embeddingModel"])
-                ? settings.EmbeddingModel
-                : form["embeddingModel"].ToString().Trim();
-            var embeddingDimensions = ParsePositiveInt(form["embeddingDimensions"], settings.EmbeddingDimensions);
-            var embeddingBaseUrl = string.IsNullOrWhiteSpace(form["embeddingBaseUrl"])
-                ? settings.EmbeddingBaseUrl
-                : form["embeddingBaseUrl"].ToString().Trim();
-            var topK = ParsePositiveInt(form["topK"], settings.TopK);
-            var minScore = ParseOptionalDouble(form["minScore"]) ?? settings.MinScore;
+            var chunkSize = ParseOptionalPositiveInt(form["chunkSize"]);
+            if (chunkSize is not > 0)
+                return Results.BadRequest(new { error = "Chunk size is required." });
+            var chunkOverlap = ParseOptionalNonNegativeInt(form["chunkOverlap"]);
+            if (chunkOverlap is null)
+                return Results.BadRequest(new { error = "Chunk overlap must be zero or a positive integer." });
+            var chunkerKey = RequireNormalizedRagKey(form["chunker"], "Chunker is required.");
+            var embeddingProviderKey = RequireNormalizedRagKey(form["embeddingProvider"], "Embedding provider is required.");
+            var embeddingModel = NormalizeOptionalValue(form["embeddingModel"]);
+            if (string.IsNullOrWhiteSpace(embeddingModel))
+                return Results.BadRequest(new { error = "Embedding model is required." });
+            var embeddingDimensions = ParseOptionalPositiveInt(form["embeddingDimensions"]);
+            var embeddingBaseUrl = NormalizeOptionalValue(form["embeddingBaseUrl"]) ?? string.Empty;
+            var topK = ParseOptionalPositiveInt(form["finalFilterTopK"]);
+            if (topK is not > 0)
+                return Results.BadRequest(new { error = "TopK is required." });
+            var minScore = ParseOptionalDouble(form["finalFilterMinScore"]);
+            var retrievalMinScoreDivider = ParseOptionalDouble(form["retrievalDerivationMinScoreDivider"]);
             var promptTemplate = string.IsNullOrWhiteSpace(form["promptTemplate"])
-                ? settings.PromptTemplate
+                ? null
                 : form["promptTemplate"].ToString();
+            var queryRewriterEnabled = ParseOptionalBool(form["queryRewriterEnabled"]);
+            var rewriterModelOverride = string.IsNullOrWhiteSpace(form["rewriterModelOverride"])
+                ? null
+                : form["rewriterModelOverride"].ToString().Trim();
+            var hybridSearchEnabled = ParseOptionalBool(form["hybridSearchEnabled"]);
+            var hybridSearchVectorWeight = ParseOptionalFloat(form["hybridSearchVectorWeight"]);
+            var rerankEnabled = ParseOptionalBool(form["rerankEnabled"]);
+            var rerankProvider = string.IsNullOrWhiteSpace(form["rerankProvider"])
+                ? ""
+                : form["rerankProvider"].ToString().Trim().ToLowerInvariant();
+            var rerankModel = NormalizeOptionalValue(form["rerankModel"]);
+            var rerankBaseUrl = NormalizeOptionalValue(form["rerankBaseUrl"]);
+            var rerankApiKey = string.IsNullOrWhiteSpace(form["rerankApiKey"])
+                ? null
+                : form["rerankApiKey"].ToString().Trim();
+            var retrievalMultiplier = ParseOptionalPositiveInt(form["retrievalDerivationTopKMultiplier"]);
             var openAiApiKey = form["openaiApiKey"].ToString();
             if (!string.IsNullOrWhiteSpace(openAiApiKey))
-                state.RagEmbeddingOpenAiKey = openAiApiKey.Trim();
+                openAiApiKey = openAiApiKey.Trim();
+            var rewriterApiKey = form["rewriterApiKey"].ToString();
+            if (!string.IsNullOrWhiteSpace(rewriterApiKey))
+                state.RewriterApiKey = rewriterApiKey.Trim();
+
+            if (embeddingDimensions is not > 0)
+                return Results.BadRequest(new { error = "Embedding dimensions must be a positive integer." });
+            if (retrievalMultiplier is not > 0)
+                return Results.BadRequest(new { error = "Retrieval multiplier is required." });
+            if (queryRewriterEnabled is null)
+                return Results.BadRequest(new { error = "Query rewriter enabled flag is required." });
+            if (hybridSearchEnabled is null)
+                return Results.BadRequest(new { error = "Hybrid search enabled flag is required." });
+            if (hybridSearchVectorWeight is null)
+                return Results.BadRequest(new { error = "Hybrid search vector weight is required." });
+            if (rerankEnabled is null)
+                return Results.BadRequest(new { error = "Rerank enabled flag is required." });
+
+            var chunkSizeValue = chunkSize.Value;
+            var chunkOverlapValue = chunkOverlap.Value;
+            var embeddingDimensionsValue = embeddingDimensions.Value;
+            var topKValue = topK.Value;
+            var retrievalMultiplierValue = retrievalMultiplier.Value;
+            var queryRewriterEnabledValue = queryRewriterEnabled.Value;
+            var hybridSearchEnabledValue = hybridSearchEnabled.Value;
+            var hybridSearchVectorWeightValue = hybridSearchVectorWeight.Value;
+            var rerankEnabledValue = rerankEnabled.Value;
+
+            if (rerankEnabledValue && string.Equals(rerankProvider, "vllm", StringComparison.OrdinalIgnoreCase))
+            {
+                if (string.IsNullOrWhiteSpace(rerankModel))
+                    return Results.BadRequest(new { error = "vLLM rerank model is required when re-ranking is enabled." });
+                if (string.IsNullOrWhiteSpace(rerankBaseUrl))
+                    return Results.BadRequest(new { error = "vLLM rerank base URL is required when re-ranking is enabled." });
+            }
+            if (rerankEnabledValue && string.IsNullOrWhiteSpace(rerankProvider))
+                return Results.BadRequest(new { error = "Rerank provider is required when re-ranking is enabled." });
+
+            var requestSettings = new RagPipelineSettings(
+                ChunkSize: chunkSizeValue,
+                ChunkOverlap: chunkOverlapValue,
+                Chunker: chunkerKey,
+                EmbeddingProvider: embeddingProviderKey,
+                EmbeddingModel: embeddingModel,
+                EmbeddingDimensions: embeddingDimensionsValue,
+                EmbeddingBaseUrl: embeddingBaseUrl,
+                FinalFilter: new RagFilter
+                {
+                    TopK = topKValue,
+                    MinScore = minScore
+                },
+                RetrievalDerivation: new RagRetrievalDerivation
+                {
+                    TopKMultiplier = retrievalMultiplierValue,
+                    MinScoreDivider = retrievalMinScoreDivider.HasValue && retrievalMinScoreDivider.Value > 0d
+                        ? retrievalMinScoreDivider.Value
+                        : 3d
+                },
+                PromptTemplate: promptTemplate,
+                QueryRewriterEnabled: queryRewriterEnabledValue,
+                RewriterModelOverride: rewriterModelOverride,
+                HybridSearchEnabled: hybridSearchEnabledValue,
+                HybridSearchVectorWeight: hybridSearchVectorWeightValue,
+                RerankEnabled: rerankEnabledValue,
+                RerankProvider: rerankProvider,
+                RerankModel: rerankModel ?? string.Empty,
+                RerankBaseUrl: rerankBaseUrl ?? string.Empty,
+                RerankApiKey: rerankApiKey);
+
+            var vectorStoreRequest = ParseVectorStoreConfig(form);
+            VectorStoreBuildResult vectorStoreResult;
+            try
+            {
+                vectorStoreResult = BuildVectorStore(vectorStoreRequest);
+            }
+            catch (ArgumentException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
+            }
 
             var documents = new List<RagDocument>();
             var chunks = new List<RagChunk>();
             var records = new List<VectorRecord>();
 
-            var splitter = new TrackingTextSplitter(BuildTextSplitter(chunkerKey, chunkSize, chunkOverlap), chunks);
-            var resolvedEmbeddingModel = string.IsNullOrWhiteSpace(embeddingModel)
-                ? embeddingProviderKey == "ollama" ? "qwen3-embedding:4b" : "text-embedding-3-small"
-                : embeddingModel;
+            var splitter = new TrackingTextSplitter(BuildTextSplitter(chunkerKey, chunkSizeValue, chunkOverlapValue), chunks);
             IEmbeddingProvider embeddingProvider = embeddingProviderKey?.Equals("ollama", StringComparison.OrdinalIgnoreCase) == true
                 ? new OllamaEmbeddingProvider(
                     embeddingHttpClient,
-                    resolvedEmbeddingModel,
-                    embeddingDimensions,
+                    embeddingModel,
+                    embeddingDimensionsValue,
                     embeddingBaseUrl)
-                : BuildOpenAiEmbeddingProvider(openAiApiKey, embeddingHttpClient, resolvedEmbeddingModel, embeddingDimensions);
-            var trackingStore = new TrackingVectorStore(state.VectorStore, records);
+                : embeddingProviderKey?.Equals("vllm", StringComparison.OrdinalIgnoreCase) == true
+                    ? new VllmEmbeddingProvider(
+                        embeddingHttpClient,
+                        embeddingModel,
+                        embeddingDimensionsValue,
+                        embeddingBaseUrl)
+                    : BuildOpenAiEmbeddingProvider(openAiApiKey, embeddingHttpClient, embeddingModel, embeddingDimensionsValue);
+            var trackingStore = new TrackingVectorStore(vectorStoreResult.Store, records);
 
             var tempRoot = Path.Combine(Path.GetTempPath(), "mythosia-rag", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempRoot);
             var savedFiles = new List<(string path, string displayName)>();
+            var shouldDisposeStore = true;
 
             try
             {
@@ -502,22 +411,24 @@ internal static class ChatUiRagCoreEndpoints
                 {
                     builder
                         .WithTextSplitter(splitter)
-                        .WithTopK(topK)
+                        .WithTopK(topKValue)
                         .UseEmbedding(embeddingProvider)
                         .UseStore(trackingStore);
 
-                    if (state.VectorStoreProvider == "qdrant")
-                        builder.WithNamespace(state.QdrantCollectionName);
-                    else if (state.VectorStoreProvider == "pinecone")
-                        builder.WithNamespace(state.PineconeNamespace);
+                    if (!string.IsNullOrWhiteSpace(vectorStoreResult.Namespace))
+                        builder.WithNamespace(vectorStoreResult.Namespace);
 
-                    if (minScore.HasValue)
-                        builder.WithScoreThreshold(minScore.Value);
+                    if (requestSettings.FinalFilter.MinScore.HasValue)
+                        builder.WithScoreThreshold(requestSettings.FinalFilter.MinScore.Value);
+                    builder.WithRetrievalMultiplier(requestSettings.RetrievalDerivation.TopKMultiplier);
+                    if (requestSettings.FinalFilter.MinScore.HasValue)
+                        builder.WithRetrievalMinScore(
+                            requestSettings.FinalFilter.MinScore.Value / Math.Max(1d, requestSettings.RetrievalDerivation.MinScoreDivider));
 
                     if (!string.IsNullOrWhiteSpace(promptTemplate))
                         builder.WithPromptTemplate(promptTemplate);
 
-                    ApplyHybridAndReranker(builder, settings);
+                    ApplyHybridAndReranker(builder, requestSettings);
 
                     foreach (var entry in savedFiles)
                     {
@@ -532,17 +443,20 @@ internal static class ChatUiRagCoreEndpoints
                 var trace = RagReferenceTraceBuilder.Build(documents, chunks, records, embeddingProvider.Dimensions);
                 var config = new RagReferenceConfig(
                     savedFiles.Select(entry => entry.displayName).ToList(),
-                    chunkSize,
-                    chunkOverlap,
-                    NormalizeRagKey(chunkerKey, "character"),
-                    NormalizeRagKey(embeddingProviderKey, "local"),
-                    resolvedEmbeddingModel,
-                    embeddingDimensions,
+                    chunkSizeValue,
+                    chunkOverlapValue,
+                    chunkerKey!,
+                    embeddingProviderKey!,
+                    embeddingModel!,
+                    embeddingDimensionsValue,
                     embeddingBaseUrl,
-                    topK,
-                    minScore,
+                    requestSettings.FinalFilter,
+                    requestSettings.RetrievalDerivation,
                     promptTemplate);
                 ragState.Update(store, trace, config);
+                ragState.UpdateSettings(requestSettings);
+                ragState.TryApplyQuerySettings(requestSettings);
+                shouldDisposeStore = false;
                 return Results.Ok(trace);
             }
             catch (Exception ex)
@@ -551,6 +465,9 @@ internal static class ChatUiRagCoreEndpoints
             }
             finally
             {
+                if (shouldDisposeStore && vectorStoreResult.Store is IDisposable disposable)
+                    disposable.Dispose();
+
                 try
                 {
                     if (Directory.Exists(tempRoot))
@@ -565,17 +482,341 @@ internal static class ChatUiRagCoreEndpoints
     }
 
     private record OllamaTestRequest(string? BaseUrl, string? Model);
+    private record VllmTestRequest(string? BaseUrl, string? Model);
+    private record VllmRerankTestRequest(string? BaseUrl, string? Model, string? ApiKey);
+
+    private sealed record VectorStoreBuildResult(
+        string Provider,
+        IVectorStore Store,
+        string? Namespace = null,
+        string? TableName = null,
+        string? SchemaName = null,
+        int? Dimension = null,
+        string? Host = null,
+        int? Port = null,
+        string? CollectionName = null,
+        string? IndexHost = null);
+
+    internal static async Task<string?> EnsureExternalStoreMatchesSettingsAsync(
+        RagReferenceState ragState,
+        HttpClient embeddingHttpClient,
+        RagPipelineSettings settings,
+        VectorStoreConfigRequest? vectorStoreRequest)
+    {
+        if (vectorStoreRequest == null)
+            return null;
+
+        var provider = NormalizeOptionalValue(vectorStoreRequest.Provider)?.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(provider) || provider == "inmemory")
+            return null;
+
+        ragState.UpdateSettings(settings);
+
+        var buildResult = BuildVectorStore(vectorStoreRequest);
+        var warning = await TryAutoConnectRagStoreAsync(
+            ragState,
+            embeddingHttpClient,
+            buildResult.Store,
+            vectorStoreRequest.OpenAiApiKey,
+            buildResult.Namespace);
+
+        if (warning != null && buildResult.Store is IDisposable disposable)
+            disposable.Dispose();
+
+        return warning;
+    }
+
+    private static VectorStoreConfigRequest ParseVectorStoreConfig(IFormCollection form)
+    {
+        string? GetValue(string key) => NormalizeOptionalValue(form[key].ToString());
+
+        return new VectorStoreConfigRequest(
+            Provider: GetValue("provider"),
+            ConnectionString: GetValue("connectionString"),
+            TableName: GetValue("tableName"),
+            SchemaName: GetValue("schemaName"),
+            Dimension: ParseOptionalPositiveInt(form["dimension"]),
+            EnsureSchema: ParseOptionalBool(form["ensureSchema"]),
+            OpenAiApiKey: null,
+            QdrantHost: GetValue("qdrantHost"),
+            QdrantPort: ParseOptionalPositiveInt(form["qdrantPort"]),
+            QdrantApiKey: GetValue("qdrantApiKey"),
+            QdrantUseTls: ParseOptionalBool(form["qdrantUseTls"]),
+            QdrantCollectionName: GetValue("qdrantCollectionName"),
+            PineconeIndexHost: GetValue("pineconeIndexHost"),
+            PineconeApiKey: GetValue("pineconeApiKey"),
+            PineconeNamespace: GetValue("pineconeNamespace"));
+    }
+
+    private static VectorStoreBuildResult BuildVectorStore(VectorStoreConfigRequest req)
+    {
+        var provider = NormalizeOptionalValue(req.Provider)?.ToLowerInvariant() ?? "inmemory";
+
+        if (provider == "postgres")
+        {
+            var connectionString = NormalizeOptionalValue(req.ConnectionString);
+            if (string.IsNullOrWhiteSpace(connectionString))
+                throw new ArgumentException("ConnectionString is required for PostgreSQL.");
+
+            var tableName = NormalizeOptionalValue(req.TableName);
+            var schemaName = NormalizeOptionalValue(req.SchemaName);
+            if (string.IsNullOrWhiteSpace(tableName))
+                throw new ArgumentException("TableName is required for PostgreSQL.");
+            if (string.IsNullOrWhiteSpace(schemaName))
+                throw new ArgumentException("SchemaName is required for PostgreSQL.");
+            if (req.Dimension is not > 0)
+                throw new ArgumentException("Dimension is required for PostgreSQL.");
+            var dimension = req.Dimension.Value;
+            if (req.EnsureSchema is null)
+                throw new ArgumentException("EnsureSchema is required for PostgreSQL.");
+            var ensureSchema = req.EnsureSchema.Value;
+
+            var store = new PostgresStore(new PostgresOptions
+            {
+                ConnectionString = connectionString,
+                Dimension = dimension,
+                TableName = tableName,
+                SchemaName = schemaName,
+                EnsureSchema = ensureSchema
+            });
+
+            return new VectorStoreBuildResult(
+                Provider: "postgres",
+                Store: store,
+                TableName: tableName,
+                SchemaName: schemaName,
+                Dimension: dimension);
+        }
+
+        if (provider == "qdrant")
+        {
+            var host = NormalizeHost(req.QdrantHost);
+            if (string.IsNullOrWhiteSpace(host))
+                throw new ArgumentException("QdrantHost is required for Qdrant.");
+            if (req.QdrantPort is not > 0)
+                throw new ArgumentException("QdrantPort is required for Qdrant.");
+            var port = req.QdrantPort.Value;
+            if (req.Dimension is not > 0)
+                throw new ArgumentException("Dimension is required for Qdrant.");
+            var dimension = req.Dimension.Value;
+            var collectionName = NormalizeOptionalValue(req.QdrantCollectionName);
+            if (string.IsNullOrWhiteSpace(collectionName))
+                throw new ArgumentException("QdrantCollectionName is required for Qdrant.");
+            if (req.QdrantUseTls is null)
+                throw new ArgumentException("QdrantUseTls is required for Qdrant.");
+
+            var store = new QdrantStore(new QdrantOptions
+            {
+                Host = host,
+                Port = port,
+                ApiKey = NormalizeOptionalValue(req.QdrantApiKey),
+                UseTls = req.QdrantUseTls.Value,
+                Dimension = dimension,
+                CollectionName = collectionName
+            });
+
+            return new VectorStoreBuildResult(
+                Provider: "qdrant",
+                Store: store,
+                Namespace: collectionName,
+                Host: host,
+                Port: port,
+                Dimension: dimension,
+                CollectionName: collectionName);
+        }
+
+        if (provider == "pinecone")
+        {
+            var indexHost = NormalizeOptionalValue(req.PineconeIndexHost);
+            var apiKey = NormalizeOptionalValue(req.PineconeApiKey);
+            if (string.IsNullOrWhiteSpace(indexHost))
+                throw new ArgumentException("PineconeIndexHost is required for Pinecone.");
+            if (string.IsNullOrWhiteSpace(apiKey))
+                throw new ArgumentException("PineconeApiKey is required for Pinecone.");
+
+            var @namespace = NormalizeOptionalValue(req.PineconeNamespace);
+            if (string.IsNullOrWhiteSpace(@namespace))
+                throw new ArgumentException("PineconeNamespace is required for Pinecone.");
+
+            var store = new PineconeStore(new PineconeOptions
+            {
+                IndexHost = indexHost,
+                ApiKey = apiKey,
+                DefaultNamespace = @namespace
+            });
+
+            return new VectorStoreBuildResult(
+                Provider: "pinecone",
+                Store: store,
+                Namespace: @namespace,
+                IndexHost: indexHost);
+        }
+
+        return new VectorStoreBuildResult("inmemory", new InMemoryVectorStore());
+    }
+
+    private static string NormalizeHost(string? host)
+    {
+        var rawHost = NormalizeOptionalValue(host) ?? string.Empty;
+        if (rawHost.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            rawHost = rawHost.Substring("https://".Length);
+        else if (rawHost.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            rawHost = rawHost.Substring("http://".Length);
+        var slashIdx = rawHost.IndexOf('/');
+        if (slashIdx >= 0)
+            rawHost = rawHost.Substring(0, slashIdx);
+        return rawHost.Trim();
+    }
+
+    private static string RequireNormalizedRagKey(string? value, string errorMessage)
+    {
+        var normalized = NormalizeOptionalValue(value)?.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            throw new ArgumentException(errorMessage);
+        return normalized;
+    }
+
+    private static string? NormalizeOptionalValue(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// Builds a RagStore backed by the provided <see cref="IVectorStore"/>
+    /// and sets it on <paramref name="ragState"/>.  Returns a warning string when the
+    /// pipeline could not be wired up (e.g. missing embedding key) or when the build
+    /// itself fails.  On failure the previous ragState.Store is cleared so that
+    /// subsequent queries do NOT silently fall back to a stale InMemory store.
+    /// </summary>
+    private static async Task<string?> TryAutoConnectRagStoreAsync(
+        RagReferenceState ragState,
+        HttpClient embeddingHttpClient,
+        IVectorStore vectorStore,
+        string? openAiApiKey,
+        string? @namespace)
+    {
+        var settings = ragState.GetSettings();
+        var embeddingKey = !string.IsNullOrWhiteSpace(openAiApiKey)
+            ? openAiApiKey.Trim()
+            : null;
+        var epKey = NormalizeOptionalValue(settings.EmbeddingProvider)?.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(epKey))
+        {
+            ragState.ClearStore();
+            return "Embedding provider is required before connecting an external vector store.";
+        }
+        if (settings.EmbeddingDimensions <= 0)
+        {
+            ragState.ClearStore();
+            return "Embedding dimensions are required before connecting an external vector store.";
+        }
+        if (string.IsNullOrWhiteSpace(settings.EmbeddingModel))
+        {
+            ragState.ClearStore();
+            return "Embedding model is required before connecting an external vector store.";
+        }
+
+        if (epKey != "ollama" && embeddingKey == null)
+        {
+            // No embedding key → can't query. Clear stale store so queries don't
+            // silently use an old InMemory-backed RagStore.
+            ragState.ClearStore();
+            return "No API key provided for the embedding provider. "
+                + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
+        }
+
+        try
+        {
+            var store = await RagStore.BuildAsync(builder =>
+            {
+                builder
+                    .UseStore(vectorStore)
+                    .WithTopK(settings.FinalFilter.TopK);
+
+                builder.WithRetrievalMultiplier(settings.RetrievalDerivation.TopKMultiplier);
+
+                if (!string.IsNullOrWhiteSpace(@namespace))
+                    builder.WithNamespace(@namespace);
+
+                if (epKey == "ollama")
+                {
+                    builder.UseEmbedding(new OllamaEmbeddingProvider(
+                        embeddingHttpClient,
+                        settings.EmbeddingModel,
+                        settings.EmbeddingDimensions,
+                        settings.EmbeddingBaseUrl));
+                }
+                else if (epKey == "vllm")
+                {
+                    builder.UseEmbedding(new VllmEmbeddingProvider(
+                        embeddingHttpClient,
+                        settings.EmbeddingModel,
+                        settings.EmbeddingDimensions,
+                        settings.EmbeddingBaseUrl));
+                }
+                else
+                {
+                    builder.UseEmbedding(new OpenAIEmbeddingProvider(
+                        embeddingKey!, embeddingHttpClient,
+                        settings.EmbeddingModel,
+                        settings.EmbeddingDimensions));
+                }
+
+                if (settings.FinalFilter.MinScore.HasValue)
+                    builder.WithScoreThreshold(settings.FinalFilter.MinScore.Value);
+                if (settings.FinalFilter.MinScore.HasValue)
+                    builder.WithRetrievalMinScore(
+                        settings.FinalFilter.MinScore.Value / Math.Max(1d, settings.RetrievalDerivation.MinScoreDivider));
+                if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
+                    builder.WithPromptTemplate(settings.PromptTemplate);
+
+                ApplyHybridAndReranker(builder, settings);
+            });
+            ragState.SetExternalStore(store);
+            return null; // success — no warning
+        }
+        catch (Exception ex)
+        {
+            // Build failed — clear stale store so queries don't use an old InMemory store
+            ragState.ClearStore();
+            return $"Vector store connected but RAG pipeline setup failed: {HumanizeRagError(ex.Message)}";
+        }
+    }
 
     private static void ApplyHybridAndReranker(RagBuilder builder, RagPipelineSettings settings)
     {
         if (settings.HybridSearchEnabled)
             builder.UseHybridSearch(settings.HybridSearchVectorWeight);
 
-        if (settings.RerankEnabled && !string.IsNullOrWhiteSpace(settings.RerankApiKey))
+        if (settings.RerankEnabled)
         {
-            var provider = settings.RerankProvider?.ToLowerInvariant() ?? "cohere";
+            var provider = NormalizeOptionalValue(settings.RerankProvider)?.ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(provider))
+                throw new InvalidOperationException("Rerank provider is required when reranking is enabled.");
             if (provider == "cohere")
-                builder.WithReranker(new CohereReranker(settings.RerankApiKey));
+            {
+                if (!string.IsNullOrWhiteSpace(settings.RerankApiKey))
+                    builder.WithReranker(new CohereReranker(settings.RerankApiKey, model: settings.RerankModel));
+            }
+            else if (provider == "vllm")
+            {
+                if (string.IsNullOrWhiteSpace(settings.RerankModel))
+                    throw new InvalidOperationException("vLLM rerank model is required.");
+                if (string.IsNullOrWhiteSpace(settings.RerankBaseUrl))
+                    throw new InvalidOperationException("vLLM rerank base URL is required.");
+                builder.WithReranker(new VllmReranker(
+                    httpClient: new HttpClient(),
+                    model: settings.RerankModel,
+                    baseUrl: settings.RerankBaseUrl,
+                    apiKey: settings.RerankApiKey));
+            }
         }
     }
+
+    private static bool? ParseOptionalBool(string? value)
+        => bool.TryParse(value, out var parsed) ? parsed : null;
+
+    private static int? ParseOptionalPositiveInt(string? value)
+        => int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;
+
+    private static float? ParseOptionalFloat(string? value)
+        => float.TryParse(value, out var parsed) ? parsed : null;
 }

@@ -8,9 +8,10 @@ import {
   modelListEl, settingsArea, chatStatus, chatMessages, functionsArea
 } from './dom.js';
 import {
-  app, providerKeys, enableChatInput, disableChatInput, autoScroll
+  app, providerKeys, alibabaSettings, enableChatInput, disableChatInput, autoScroll
 } from './state.js';
 import { openKeyModal } from './apikey-modal.js';
+import { openAlibabaSettingsModal } from './alibaba-settings.js';
 import { updateReasoningUI } from './settings.js';
 import { startStatePolling, stopStatePolling, refreshState } from './state-panel.js';
 import { refreshFunctions } from './functions-panel.js';
@@ -41,11 +42,19 @@ function renderModelList(groups) {
 
     const keyBtn = document.createElement('button');
     keyBtn.className = 'provider-key-btn' + (providerKeys[g.provider] ? ' has-key' : '');
-    keyBtn.textContent = providerKeys[g.provider] ? 'Key \u2713' : 'API Key';
-    keyBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      openKeyModal(g.provider);
-    });
+    if (g.provider === 'Alibaba') {
+      keyBtn.textContent = providerKeys[g.provider] ? 'Settings \u2713' : 'Settings';
+      keyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openAlibabaSettingsModal();
+      });
+    } else {
+      keyBtn.textContent = providerKeys[g.provider] ? 'Key \u2713' : 'API Key';
+      keyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openKeyModal(g.provider);
+      });
+    }
     label.appendChild(keyBtn);
     groupEl.appendChild(label);
 
@@ -86,7 +95,11 @@ export function refreshProviderGroup(provider) {
   const keyBtn = group.querySelector('.provider-key-btn');
   if (keyBtn) {
     keyBtn.classList.toggle('has-key', hasKey);
-    keyBtn.textContent = hasKey ? 'Key \u2713' : 'API Key';
+    if (provider === 'Alibaba') {
+      keyBtn.textContent = hasKey ? 'Settings \u2713' : 'Settings';
+    } else {
+      keyBtn.textContent = hasKey ? 'Key \u2713' : 'API Key';
+    }
   }
 }
 
@@ -140,14 +153,26 @@ async function connectToModel(modelName, provider, desc) {
   if (!modelName || !apiKey) return;
 
   try {
+    const body = {
+      apiKey: provider === 'Alibaba' ? null : apiKey,
+      model: modelName,
+      systemMessage: setSystem.value || null
+    };
+    if (provider === 'Alibaba' && alibabaSettings.baseUrl) {
+      if (!alibabaSettings.platform) {
+        throw new Error('Alibaba custom endpoint platform is required.');
+      }
+      body.baseUrl = alibabaSettings.baseUrl;
+      body.platform = alibabaSettings.platform;
+      if (alibabaSettings.modelOverrideEnabled && alibabaSettings.modelIdOverride) {
+        body.modelIdOverride = alibabaSettings.modelIdOverride;
+      }
+    }
+
     const res = await fetch('/api/configure', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        apiKey: apiKey,
-        model: modelName,
-        systemMessage: setSystem.value || null
-      })
+      body: JSON.stringify(body)
     });
 
     const data = await res.json();

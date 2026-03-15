@@ -1,7 +1,7 @@
 namespace Mythosia.AI.Samples.ChatUi
 {
-    internal record ConfigureRequest(string? ApiKey, string? Model, string? SystemMessage);
-    internal record ChatRequest(string? Message);
+    internal record ConfigureRequest(string? ApiKey, string? Model, string? SystemMessage, string? BaseUrl, string? Platform, string? ModelIdOverride);
+    internal record ChatRequest(string? Message, RagPipelineSettingsRequest? RagSettings, VectorStoreConfigRequest? VectorStore);
     internal record SettingsRequest(
         float? Temperature,
         float? TopP,
@@ -25,8 +25,8 @@ namespace Mythosia.AI.Samples.ChatUi
         string? EmbeddingModel,
         int? EmbeddingDimensions,
         string? EmbeddingBaseUrl,
-        int? TopK,
-        double? MinScore,
+        Mythosia.AI.Rag.RagFilter? FinalFilter,
+        Mythosia.AI.Rag.RagRetrievalDerivation? RetrievalDerivation,
         string? PromptTemplate,
         bool? QueryRewriterEnabled,
         string? RewriterModelOverride,
@@ -35,8 +35,9 @@ namespace Mythosia.AI.Samples.ChatUi
         float? HybridSearchVectorWeight,
         bool? RerankEnabled,
         string? RerankProvider,
-        string? RerankApiKey,
-        int? RetrievalMultiplier);
+        string? RerankModel,
+        string? RerankBaseUrl,
+        string? RerankApiKey);
     internal record WhyMissingRequest(string? Query, string? ExpectedText);
     internal record QueryScoresRequest(string? Query, string? ExpectedText);
     internal record VectorStoreConfigRequest(

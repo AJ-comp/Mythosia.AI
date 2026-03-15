@@ -22,8 +22,8 @@ Documentation
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v5.0.0: Added expanded AlibabaModels coverage for Qwen 3 / 3.5 models, Qwen 3.5-specific thinking request handling, and AIRequestProfile.DisableReasoning integration for request-scoped reasoning control.</PackageReleaseNotes>
-    <Version>5.0.0</Version>
+    <PackageReleaseNotes>v1.0.0: Added expanded AlibabaModels coverage for Qwen 3 / 3.5 models, Qwen 3.5-specific thinking request handling, and AIRequestProfile.DisableReasoning integration for request-scoped reasoning control.</PackageReleaseNotes>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

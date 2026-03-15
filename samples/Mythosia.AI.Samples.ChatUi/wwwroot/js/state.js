@@ -18,7 +18,14 @@ export const app = {
 
 // ── Provider API Keys ────────────────────────────────────────
 export const STORAGE_KEY = 'mythosia_ai_keys';
+export const ALIBABA_STORAGE_KEY = 'mythosia_alibaba_settings';
 export const providerKeys = {};
+export const alibabaSettings = {
+  baseUrl: '',
+  platform: '',
+  modelIdOverride: '',
+  modelOverrideEnabled: false
+};
 
 export function saveKeysToStorage() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(providerKeys)); } catch(_) {}
@@ -29,6 +36,27 @@ export function loadKeysFromStorage() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) Object.assign(providerKeys, JSON.parse(raw));
   } catch(_) {}
+  try {
+    const raw = localStorage.getItem(ALIBABA_STORAGE_KEY);
+    if (raw) {
+      Object.assign(alibabaSettings, JSON.parse(raw));
+      if (!('modelIdOverride' in alibabaSettings)) alibabaSettings.modelIdOverride = '';
+      if (!('modelOverrideEnabled' in alibabaSettings)) alibabaSettings.modelOverrideEnabled = false;
+      if (!('platform' in alibabaSettings)) alibabaSettings.platform = '';
+      if (alibabaSettings.baseUrl) {
+        providerKeys['Alibaba'] = '__custom_endpoint__';
+      }
+    }
+  } catch(_) {}
+}
+
+export function saveAlibabaSettings() {
+  try { localStorage.setItem(ALIBABA_STORAGE_KEY, JSON.stringify(alibabaSettings)); } catch(_) {}
+  if (alibabaSettings.baseUrl) {
+    providerKeys['Alibaba'] = '__custom_endpoint__';
+  } else {
+    delete providerKeys['Alibaba'];
+  }
 }
 
 // ── Auto-scroll ──────────────────────────────────────────────

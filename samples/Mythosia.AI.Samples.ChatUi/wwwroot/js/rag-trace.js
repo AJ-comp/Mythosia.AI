@@ -113,7 +113,125 @@ export function renderTrace(ragTrace, trace) {
 }
 
 export function renderLoading() {
-  return '<div class="rag-empty">Processing…</div>';
+  return `
+    <div class="rag-loading-card">
+      <div class="rag-loading-card__header">
+        <div>
+          <div class="rag-loading-card__eyebrow">Reference Build</div>
+          <div class="rag-loading-card__title">Preparing indexing pipeline…</div>
+        </div>
+        <div class="rag-loading-card__spinner" aria-hidden="true"></div>
+      </div>
+      <div class="rag-loading-card__body">
+        <div class="rag-loading-card__meta">Initializing document processing.</div>
+        <div class="rag-loading-steps">
+          <div class="rag-loading-step is-active">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Preparing request</div>
+              <div class="rag-loading-step__meta">Collecting files and pipeline settings</div>
+            </div>
+          </div>
+          <div class="rag-loading-step">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Parsing documents</div>
+              <div class="rag-loading-step__meta">Reading uploaded content and extracting text</div>
+            </div>
+          </div>
+          <div class="rag-loading-step">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Chunking content</div>
+              <div class="rag-loading-step__meta">Splitting documents into retrieval-ready chunks</div>
+            </div>
+          </div>
+          <div class="rag-loading-step">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Generating embeddings</div>
+              <div class="rag-loading-step__meta">Calling the embedding model for vector generation</div>
+            </div>
+          </div>
+          <div class="rag-loading-step">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Writing vector records</div>
+              <div class="rag-loading-step__meta">Persisting chunks and embeddings to the vector store</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+export function renderLoadingDetails(context) {
+  const files = Array.isArray(context?.files) ? context.files : [];
+  const primaryFile = files[0] || 'Untitled document';
+  const extraFileCount = Math.max(0, files.length - 1);
+  const sourceLabel = extraFileCount > 0
+    ? `${primaryFile} +${extraFileCount} more`
+    : primaryFile;
+  const provider = context?.provider ? context.provider.toUpperCase() : 'UNSET';
+  const model = context?.embeddingModel || 'UNSET';
+  const chunker = context?.chunker || 'UNSET';
+  const vectorStore = context?.vectorStore || 'UNSET';
+
+  return `
+    <div class="rag-loading-card">
+      <div class="rag-loading-card__header">
+        <div>
+          <div class="rag-loading-card__eyebrow">Reference Build</div>
+          <div class="rag-loading-card__title">Embedding documents for retrieval</div>
+        </div>
+        <div class="rag-loading-card__spinner" aria-hidden="true"></div>
+      </div>
+      <div class="rag-loading-card__body">
+        <div class="rag-loading-card__meta">Processing <strong>${escapeHtml(sourceLabel)}</strong> with <strong>${escapeHtml(provider)}</strong> · <strong>${escapeHtml(model)}</strong></div>
+        <div class="rag-loading-card__chips">
+          <span class="rag-loading-chip">Chunking · ${escapeHtml(chunker)}</span>
+          <span class="rag-loading-chip">Vector store · ${escapeHtml(vectorStore)}</span>
+          <span class="rag-loading-chip">Files · ${files.length}</span>
+        </div>
+        <div class="rag-loading-steps">
+          <div class="rag-loading-step is-active">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Loading input files</div>
+              <div class="rag-loading-step__meta">Opening uploaded documents and preparing parser input</div>
+            </div>
+          </div>
+          <div class="rag-loading-step is-pending">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Extracting document text</div>
+              <div class="rag-loading-step__meta">Reading content from PDF, Office, Markdown, or text sources</div>
+            </div>
+          </div>
+          <div class="rag-loading-step is-pending">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Chunking for retrieval</div>
+              <div class="rag-loading-step__meta">Applying ${escapeHtml(chunker)} chunking and overlap settings</div>
+            </div>
+          </div>
+          <div class="rag-loading-step is-pending">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Generating embeddings</div>
+              <div class="rag-loading-step__meta">Sending chunks to ${escapeHtml(model)} for vector generation</div>
+            </div>
+          </div>
+          <div class="rag-loading-step is-pending">
+            <span class="rag-loading-step__dot"></span>
+            <div>
+              <div class="rag-loading-step__title">Persisting indexed records</div>
+              <div class="rag-loading-step__meta">Writing embeddings and metadata into ${escapeHtml(vectorStore)}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 export function renderError(message) {

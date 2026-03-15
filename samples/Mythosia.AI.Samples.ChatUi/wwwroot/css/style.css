@@ -2573,6 +2573,19 @@ pre:hover .code-copy-btn { opacity: 1; }
   line-height: 1.5;
   white-space: pre-wrap;
 }
+.pipe-error-banner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  color: #f87171;
+  font-size: 13px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.pipe-error-banner strong {
+  color: #ef4444;
+}
 .pipe-muted {
   font-size: 12px;
   color: var(--text-muted);
@@ -3320,6 +3333,99 @@ pre:hover .code-copy-btn { opacity: 1; }
   color: var(--text-muted);
   padding: 20px 0;
   text-align: center;
+}
+
+/* ── Alibaba Settings Modal ──────────────────────────────── */
+.alibaba-settings-card {
+  width: min(520px, 92vw);
+}
+.alibaba-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
+.alibaba-tab {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.alibaba-tab:hover:not(:disabled) { color: var(--text-secondary); }
+.alibaba-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.alibaba-tab:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+.alibaba-modal-body {
+  min-height: 180px;
+}
+.alibaba-panel { display: none; }
+.alibaba-panel.active { display: block; }
+.alibaba-panel-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+.alibaba-form {
+  margin-bottom: 12px;
+}
+.alibaba-form label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+.alibaba-form input[type="text"],
+.alibaba-form .modal-input-wrap input {
+  width: 100%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  outline: none;
+  transition: border-color .15s;
+  box-sizing: border-box;
+}
+.alibaba-form input[type="text"]:focus,
+.alibaba-form .modal-input-wrap input:focus {
+  border-color: var(--accent);
+}
+.alibaba-coming-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+.alibaba-coming-soon-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+.alibaba-coming-soon p {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.alibaba-coming-soon-sub {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  opacity: .7;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────── */

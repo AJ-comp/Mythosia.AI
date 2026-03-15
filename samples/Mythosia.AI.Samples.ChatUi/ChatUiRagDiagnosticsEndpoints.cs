@@ -1,8 +1,5 @@
-using Mythosia.AI.Rag.Diagnostics;
 using Mythosia.AI.Rag;
-using Microsoft.AspNetCore.Builder;
-using System;
-using System.Linq;
+using Mythosia.AI.Rag.Diagnostics;
 using static Mythosia.AI.Samples.ChatUi.ChatUiUtilityHelpers;
 
 namespace Mythosia.AI.Samples.ChatUi

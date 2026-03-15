@@ -77,10 +77,11 @@ public sealed class RagReferenceState
 
             var updated = Store.UpdateOptions(opt =>
             {
-                if (settings.TopK > 0) opt.TopK = settings.TopK;
-                opt.MinScore = settings.MinScore;
+                if (settings.FinalFilter.TopK > 0) opt.DefaultQuery.FinalFilter.TopK = settings.FinalFilter.TopK;
+                opt.DefaultQuery.FinalFilter.MinScore = settings.FinalFilter.MinScore;
+                if (settings.RetrievalDerivation.TopKMultiplier > 0) opt.DefaultQuery.RetrievalDerivation.TopKMultiplier = settings.RetrievalDerivation.TopKMultiplier;
+                if (settings.RetrievalDerivation.MinScoreDivider > 0d) opt.DefaultQuery.RetrievalDerivation.MinScoreDivider = settings.RetrievalDerivation.MinScoreDivider;
                 opt.PromptTemplate = settings.PromptTemplate;
-                if (settings.RetrievalMultiplier > 0) opt.RetrievalMultiplier = settings.RetrievalMultiplier;
             });
 
             // Switch retrieval strategy at runtime when hybrid search is toggled
@@ -90,8 +91,8 @@ public sealed class RagReferenceState
             {
                 LastConfig = LastConfig with
                 {
-                    TopK = settings.TopK,
-                    MinScore = settings.MinScore,
+                    FinalFilter = settings.FinalFilter,
+                    RetrievalDerivation = settings.RetrievalDerivation,
                     PromptTemplate = settings.PromptTemplate
                 };
             }
@@ -162,29 +163,55 @@ public record RagReferenceConfig(
     string EmbeddingModel,
     int EmbeddingDimensions,
     string EmbeddingBaseUrl,
-    int TopK,
-    double? MinScore,
+    RagFilter FinalFilter,
+    RagRetrievalDerivation RetrievalDerivation,
     string? PromptTemplate);
 
 public record RagPipelineSettings(
     int ChunkSize = 300,
     int ChunkOverlap = 30,
     string Chunker = "recursive",
-    string EmbeddingProvider = "openai",
-    string EmbeddingModel = "text-embedding-3-small",
-    int EmbeddingDimensions = 1536,
-    string EmbeddingBaseUrl = "http://localhost:11434",
-    int TopK = 5,
-    double? MinScore = 0.2,
+    string EmbeddingProvider = "",
+    string EmbeddingModel = "",
+    int EmbeddingDimensions = 0,
+    string EmbeddingBaseUrl = "",
+    RagFilter FinalFilter = null!,
+    RagRetrievalDerivation RetrievalDerivation = null!,
     string? PromptTemplate = null,
     bool QueryRewriterEnabled = true,
     string? RewriterModelOverride = null,
     bool HybridSearchEnabled = true,
     float HybridSearchVectorWeight = 0.5f,
     bool RerankEnabled = false,
-    string RerankProvider = "cohere",
-    string? RerankApiKey = null,
-    int RetrievalMultiplier = 3);
+    string RerankProvider = "",
+    string RerankModel = "",
+    string RerankBaseUrl = "",
+    string? RerankApiKey = null)
+{
+    public RagPipelineSettings()
+        : this(
+            ChunkSize: 300,
+            ChunkOverlap: 30,
+            Chunker: "recursive",
+            EmbeddingProvider: "",
+            EmbeddingModel: "",
+            EmbeddingDimensions: 0,
+            EmbeddingBaseUrl: "",
+            FinalFilter: new RagFilter { TopK = 5, MinScore = 0.2 },
+            RetrievalDerivation: new RagRetrievalDerivation(),
+            PromptTemplate: null,
+            QueryRewriterEnabled: true,
+            RewriterModelOverride: null,
+            HybridSearchEnabled: true,
+            HybridSearchVectorWeight: 0.5f,
+            RerankEnabled: false,
+            RerankProvider: "",
+            RerankModel: "",
+            RerankBaseUrl: "",
+            RerankApiKey: null)
+    {
+    }
+}
 
 public record RagReferenceHistoryEntry(
     Guid Id,

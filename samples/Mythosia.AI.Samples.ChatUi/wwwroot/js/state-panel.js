@@ -3,7 +3,14 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { escapeHtml, truncate } from './utils.js';
-import { stateContainer, btnRefresh } from './dom.js';
+import {
+  stateContainer,
+  btnRefresh,
+  stateMessageJsonModal,
+  stateMessageJsonContent,
+  stateMessageJsonClose,
+  stateMessageJsonCopy
+} from './dom.js';
 import { app } from './state.js';
 import { updateSummaryUI } from './settings.js';
 
@@ -20,8 +27,23 @@ export function stopStatePolling() {
   }
 }
 
+let currentStateMessageJson = '';
+
 export function initStatePanel() {
   btnRefresh.addEventListener('click', refreshState);
+  stateContainer.addEventListener('click', handleStateContainerClick);
+  stateMessageJsonClose.addEventListener('click', closeStateMessageJsonModal);
+  stateMessageJsonModal.addEventListener('click', (e) => {
+    if (e.target === stateMessageJsonModal) closeStateMessageJsonModal();
+  });
+  stateMessageJsonCopy.addEventListener('click', () => {
+    navigator.clipboard.writeText(currentStateMessageJson).then(() => {
+      stateMessageJsonCopy.textContent = 'Copied!';
+      setTimeout(() => {
+        stateMessageJsonCopy.textContent = 'Copy';
+      }, 1500);
+    });
+  });
 }
 
 // ── Fetch & Render ───────────────────────────────────────────
@@ -120,12 +142,16 @@ function renderState(s) {
     row('System Message', s.systemMessage || '(empty)'),
     row('Chat Blocks', s.chatBlockCount),
     row('Total Messages', s.messageCount),
+    row('Conversation Tokens', typeof s.conversationTokenCount === 'number' ? s.conversationTokenCount.toLocaleString() : '(unavailable)'),
     row('Sent to API', `${s.sentMessageCount ?? s.messageCount} / ${s.maxMessageCount} (window)`),
   ]);
 
   const totalMsg = s.messages?.length ?? 0;
   const windowStart = Math.max(0, totalMsg - (s.maxMessageCount ?? totalMsg));
-  html += `<div class="state-section"><div class="state-section-title">Messages (${totalMsg})</div>`;
+  const tokenSuffix = typeof s.conversationTokenCount === 'number'
+    ? ` · ${s.conversationTokenCount.toLocaleString()} tokens`
+    : '';
+  html += `<div class="state-section"><div class="state-section-title">Messages (${totalMsg}${tokenSuffix})</div>`;
   if (s.messages && s.messages.length > 0) {
     s.messages.forEach((m, idx) => {
       if (idx === windowStart && windowStart > 0) {
@@ -133,7 +159,7 @@ function renderState(s) {
       }
       const roleClass = m.role.toLowerCase();
       const windowClass = idx < windowStart ? ' outside-window' : ' in-window';
-      html += `<div class="state-msg${windowClass}">
+      html += `<div class="state-msg${windowClass}" data-message-json="${escapeHtml(encodeMessageJson(m))}">
         <div class="state-msg-header">
           <span class="state-msg-role ${roleClass}">${m.role}</span>
           <span class="state-msg-time">${m.timestamp}</span>
@@ -146,6 +172,14 @@ function renderState(s) {
         });
         html += `</div>`;
       }
+      html += `<div class="state-msg-actions">
+        <button class="state-msg-json-btn" type="button" title="View message JSON" aria-label="View message JSON">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 18l-6-6 6-6"/>
+            <path d="M15 6l6 6-6 6"/>
+          </svg>
+        </button>
+      </div>`;
       html += `</div>`;
     });
   } else {
@@ -168,4 +202,41 @@ function row(key, val, type) {
     val = val ? 'true' : 'false';
   }
   return `<div class="state-row"><span class="state-key">${key}</span><span class="${cls}">${val ?? ''}</span></div>`;
+}
+
+function handleStateContainerClick(e) {
+  const btn = e.target.closest('.state-msg-json-btn');
+  if (!btn) return;
+
+  const card = btn.closest('.state-msg');
+  const encoded = card?.dataset.messageJson;
+  if (!encoded) return;
+
+  openStateMessageJsonModal(decodeMessageJson(encoded));
+}
+
+function openStateMessageJsonModal(jsonText) {
+  currentStateMessageJson = jsonText;
+  stateMessageJsonModal.classList.remove('hidden');
+  stateMessageJsonContent.textContent = jsonText;
+  stateMessageJsonCopy.textContent = 'Copy';
+  if (window.hljs) {
+    window.hljs.highlightElement(stateMessageJsonContent);
+  }
+}
+
+function closeStateMessageJsonModal() {
+  stateMessageJsonModal.classList.add('hidden');
+  stateMessageJsonContent.textContent = '';
+  currentStateMessageJson = '';
+}
+
+function encodeMessageJson(message) {
+  return JSON.stringify(message, null, 2);
+}
+
+function decodeMessageJson(value) {
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
 }

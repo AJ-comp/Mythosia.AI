@@ -1,6 +1,6 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
-## 🚀 v5.0.0 - Package Documentation, Qwen 3.5 Request Handling, and Request Profile Integration
+## 🚀 v1.0.0 - Package Documentation, Qwen 3.5 Request Handling, and Request Profile Integration
 
 ### **NuGet Packaging Metadata and Package Docs**
 
@@ -52,6 +52,6 @@ var answer = await service.GetCompletionAsync(
 
 ### ✅ Compatibility
 
-- Package version advanced to `v5.0.0`
+- Package version advanced to `v1.0.0`
 - Compatible with `Mythosia.AI` v5.0.0
 - No breaking changes

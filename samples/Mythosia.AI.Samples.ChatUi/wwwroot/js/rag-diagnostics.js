@@ -96,7 +96,7 @@ function renderHealthCheck(data) {
 
   return `
     <div class="diag-summary">
-      <span>Collection: <strong>${escapeHtml(data.collection || 'default')}</strong></span>
+      <span>Collection: <strong>${escapeHtml(data.collection || 'UNSET')}</strong></span>
       <span>Chunks: <strong>${data.totalChunks}</strong></span>
       ${data.hasWarnings ? '<span class="diag-badge diag-badge--warn">Issues Found</span>' : '<span class="diag-badge diag-badge--pass">Healthy</span>'}
     </div>

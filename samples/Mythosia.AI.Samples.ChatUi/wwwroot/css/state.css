@@ -1,0 +1,177 @@
+/* ═══════════════════════════════════════════════════════════════
+   State Panel (Right Sidebar)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── State Panel (Right) ─────────────────────────────────── */
+.state-container {
+  padding: 12px;
+  flex: 1;
+  overflow-y: auto;
+  font-size: 12px;
+}
+
+.state-section {
+  margin-bottom: 14px;
+}
+.state-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--accent);
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(124,58,237,.15);
+  margin-bottom: 8px;
+}
+
+.state-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  gap: 8px;
+}
+.state-key {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.state-val {
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
+  word-break: break-all;
+}
+.state-val.bool-true  { color: var(--success); }
+.state-val.bool-false { color: var(--danger); }
+
+/* State messages list */
+.state-msg {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  font-size: 11px;
+}
+.state-msg-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.state-msg-role {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: .4px;
+}
+.state-msg-role.user      { color: var(--accent); }
+.state-msg-role.assistant { color: var(--success); }
+.state-msg-role.function  { color: var(--warning); }
+.state-msg-role.system    { color: var(--text-muted); }
+.state-msg-time {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.state-msg-content {
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+  line-height: 1.4;
+}
+.state-msg-meta {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.state-msg-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.state-msg-json-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgba(124,58,237,.2);
+  border-radius: 999px;
+  background: rgba(124,58,237,.08);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.state-msg-json-btn:hover {
+  background: rgba(124,58,237,.14);
+  border-color: rgba(124,58,237,.42);
+  transform: translateY(-1px);
+}
+.state-msg-json-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Messages inside the sending window — accent left border */
+.state-msg.in-window {
+  border-left: 2px solid var(--accent);
+  background: rgba(124,58,237,.05);
+}
+
+/* Messages outside the sending window — dimmed */
+.state-msg.outside-window {
+  opacity: .35;
+  border-left: 2px solid transparent;
+}
+
+/* Separator between outside and in-window messages */
+.state-window-separator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--accent);
+}
+.state-window-separator::before,
+.state-window-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--accent);
+  opacity: .3;
+}
+
+/* Function cards in state */
+.state-func {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+.state-func-name {
+  font-weight: 600;
+  color: var(--warning);
+  font-size: 12px;
+  font-family: var(--font-mono);
+}
+.state-func-desc {
+  color: var(--text-secondary);
+  font-size: 11px;
+  margin-top: 2px;
+}
+.state-func-params {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}

@@ -1,20 +1,14 @@
-using Mythosia.AI;
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Loaders;
 using Mythosia.AI.Loaders.Office.Excel;
 using Mythosia.AI.Loaders.Office.PowerPoint;
 using Mythosia.AI.Loaders.Office.Word;
 using Mythosia.AI.Loaders.Pdf;
-using Mythosia.AI.Models;
-using Mythosia.AI.Models.Streaming;
-using Mythosia.AI.Extensions;
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.AI.Services.Base;
-using Mythosia.AI.Services.OpenAI;
-using System;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -48,14 +42,15 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine("using Mythosia.AI.Services.DeepSeek;");
             sb.AppendLine("using Mythosia.AI.Services.xAI;");
             sb.AppendLine("using Mythosia.AI.Services.Perplexity;");
-            sb.AppendLine("using Mythosia.AI.Models.Enums;");
+            sb.AppendLine("using Mythosia.AI.Models;");
             sb.AppendLine("using Mythosia.AI.Models.Messages;");
             sb.AppendLine("using Mythosia.AI.Models.Streaming;");
             sb.AppendLine("using System.Net.Http;");
             sb.AppendLine();
             sb.AppendLine($"var httpClient = new HttpClient();");
             sb.AppendLine($"var service = new {serviceClass}(\"{escapedApiKey}\", httpClient);");
-            sb.AppendLine($"service.ChangeModel(AIModel.{modelEnum});");
+            var modelValue = ChatUiModelHelpers.FindModelValueByName(modelEnum) ?? modelEnum;
+            sb.AppendLine($"service.ChangeModel(\"{EscapeSnippetString(modelValue)}\");");
 
             if (!string.IsNullOrWhiteSpace(escapedSystem))
                 sb.AppendLine($"service.SystemMessage = \"{escapedSystem}\";");
@@ -149,16 +144,19 @@ namespace Mythosia.AI.Samples.ChatUi
 
             sb.AppendLine($"        .WithTextSplitter({BuildRagTextSplitterSnippet(config)})");
 
-            switch (NormalizeRagKey(config.EmbeddingProvider, "openai"))
+            switch (string.IsNullOrWhiteSpace(config.EmbeddingProvider) ? null : config.EmbeddingProvider.Trim().ToLowerInvariant())
             {
                 case "ollama":
-                    sb.AppendLine("        // Requires Ollama running on http://localhost:11434.");
-                    sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(new HttpClient(), model: \"qwen3-embedding:4b\", dimensions: {config.EmbeddingDimensions}))");
+                    sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
+                    break;
+                case "vllm":
+                    sb.AppendLine($"        .UseEmbedding(new VllmEmbeddingProvider(new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
+                    break;
+                case "openai":
+                    sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions})");
                     break;
                 default:
-                    sb.AppendLine("        // OpenAI API key required for embeddings.");
-                    sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"text-embedding-3-small\", dimensions: {config.EmbeddingDimensions})");
-                    break;
+                    throw new InvalidOperationException("Embedding provider is required to generate the code snippet.");
             }
 
             sb.AppendLine("        .UseInMemoryStore()" );
@@ -185,6 +183,9 @@ namespace Mythosia.AI.Samples.ChatUi
 
         public static int ParsePositiveInt(string? value, int fallback)
             => int.TryParse(value, out var parsed) && parsed > 0 ? parsed : fallback;
+
+        public static int? ParseOptionalNonNegativeInt(string? value)
+            => int.TryParse(value, out var parsed) && parsed >= 0 ? parsed : null;
 
         public static string NormalizeRagKey(string? value, string fallback)
             => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim().ToLowerInvariant();
@@ -301,6 +302,42 @@ namespace Mythosia.AI.Samples.ChatUi
                         return JsonSerializer.Serialize(new { error = ex.Message, url });
                     }
                 });
+        }
+
+        /// <summary>
+        /// Translates raw RAG/vector-store exceptions into user-friendly messages.
+        /// Returns null if no special translation applies.
+        /// </summary>
+        public static string HumanizeRagError(string rawMessage, int configuredDimension = 0)
+        {
+            if (string.IsNullOrWhiteSpace(rawMessage))
+                return rawMessage;
+
+            // Qdrant dimension mismatch: "expected dim: 2560, got 1536"
+            var dimMatch = Regex.Match(rawMessage, @"expected dim:\s*(\d+),\s*got\s*(\d+)", RegexOptions.IgnoreCase);
+            if (dimMatch.Success)
+            {
+                var expected = dimMatch.Groups[1].Value;
+                var actual = dimMatch.Groups[2].Value;
+                return $"Vector dimension mismatch — the collection expects {expected}-dim vectors "
+                    + $"but the current embedding model produces {actual}-dim vectors. "
+                    + $"Either change the embedding model/dimensions to {expected}, "
+                    + $"or recreate the collection with {actual} dimensions.";
+            }
+
+            // pgvector dimension mismatch: "expected 2560 dimensions, not 1536"
+            var pgDimMatch = Regex.Match(rawMessage, @"expected\s+(\d+)\s+dimensions?,\s*not\s+(\d+)", RegexOptions.IgnoreCase);
+            if (pgDimMatch.Success)
+            {
+                var expected = pgDimMatch.Groups[1].Value;
+                var actual = pgDimMatch.Groups[2].Value;
+                return $"Vector dimension mismatch — the table expects {expected}-dim vectors "
+                    + $"but the current embedding model produces {actual}-dim vectors. "
+                    + $"Either change the embedding model/dimensions to {expected}, "
+                    + $"or recreate the table with {actual} dimensions.";
+            }
+
+            return rawMessage;
         }
 
         public static string StripHtml(string html)

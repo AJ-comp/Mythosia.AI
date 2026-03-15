@@ -6,6 +6,7 @@ import { chatMessages } from './dom.js';
 import { app, loadKeysFromStorage, isNearBottom } from './state.js';
 import { loadModels, refreshProviderGroup, deselectModel } from './models.js';
 import { initApiKeyModal } from './apikey-modal.js';
+import { initAlibabaSettings } from './alibaba-settings.js';
 import { initChat } from './chat.js';
 import { initSettings } from './settings.js';
 import { initStatePanel } from './state-panel.js';
@@ -27,6 +28,7 @@ loadKeysFromStorage();
 
 // ── Initialize all modules ───────────────────────────────────
 initApiKeyModal(refreshProviderGroup, deselectModel);
+initAlibabaSettings(refreshProviderGroup, deselectModel);
 initChat();
 initSettings();
 initStatePanel();
