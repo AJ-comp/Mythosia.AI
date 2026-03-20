@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Core abstractions for vector storage: IVectorStore, VectorRecord, VectorFilter, VectorSearchResult, HybridSearchAsync, Bm25Tokenizer. Framework-agnostic contracts consumed by RAG pipelines, custom vector DB adapters, and more.</Description>
+    <Description>Core abstractions for vector storage: IVectorStore, VectorRecord, VectorFilter, VectorSearchResult, HybridSearchAsync, VerifyConnectionAsync, Bm25Tokenizer. Framework-agnostic contracts consumed by RAG pipelines, custom vector DB adapters, and more.</Description>
     <PackageTags>VectorDB;VectorStore;Abstractions;Embedding;CosineSimilarity;HybridSearch;BM25</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.1.0: Add native hybrid search support in vector abstractions and Bm25Tokenizer for BM25 keyword indexing.</PackageReleaseNotes>
+    <PackageReleaseNotes>v2.2.0: Add VerifyConnectionAsync default interface method to IVectorStore for connection health checks.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

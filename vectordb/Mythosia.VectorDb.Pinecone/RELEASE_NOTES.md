@@ -1,5 +1,19 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v1.1.0
+
+### Added
+
+- `VerifyConnectionAsync` — sends a `GET /describe_index_stats` request to verify HTTP connectivity to the Pinecone index.
+  - Allows callers to verify connectivity before issuing queries or claiming "connected" in UI.
+  - Implements the `IVectorStore.VerifyConnectionAsync` contract introduced in Abstractions v2.2.0.
+
+### Compatibility
+
+- Fully backward compatible with v1.0.0. No breaking changes.
+
+---
+
 ## v1.0.0
 
 Initial release.

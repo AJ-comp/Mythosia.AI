@@ -381,6 +381,15 @@ namespace Mythosia.VectorDb.Qdrant
 
         #endregion
 
+        #region Connection Verification
+
+        public async Task VerifyConnectionAsync(CancellationToken cancellationToken = default)
+        {
+            await _client.ListCollectionsAsync(cancellationToken);
+        }
+
+        #endregion
+
         #region IDisposable
 
         public void Dispose()

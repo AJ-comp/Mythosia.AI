@@ -1,5 +1,19 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## v2.1.0
+
+### Added
+
+- `VerifyConnectionAsync` — sends a lightweight gRPC `ListCollections` call to verify connectivity to the Qdrant server.
+  - Allows callers to verify connectivity before issuing queries or claiming "connected" in UI.
+  - Implements the `IVectorStore.VerifyConnectionAsync` contract introduced in Abstractions v2.2.0.
+
+### Compatibility
+
+- Fully backward compatible with v2.0.0. No breaking changes.
+
+---
+
 ## v2.0.0
 
 ### Added

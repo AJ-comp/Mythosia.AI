@@ -46,6 +46,41 @@ public class PostgresOptions
     public VectorIndexOptions Index { get; set; } = new HnswIndexOptions();
 
     /// <summary>
+    /// PostgreSQL text search configuration used for <c>to_tsvector</c> / <c>plainto_tsquery</c>
+    /// in hybrid search. Default: <c>"simple"</c>.
+    /// Only used when <see cref="TextSearchMode"/> is <see cref="TextSearchMode.TsVector"/>.
+    /// <para>
+    /// The <c>simple</c> configuration performs whitespace-based tokenization without
+    /// morphological analysis. This works well for English but may produce poor recall
+    /// for agglutinative languages such as Korean, Japanese, or Finnish where particles
+    /// and inflections are attached to words.
+    /// </para>
+    /// <para>
+    /// To improve hybrid search quality for such languages, install a language-specific
+    /// text search configuration (e.g. <c>pg_mecab</c> for Korean/Japanese) and set this
+    /// property accordingly, or use <see cref="TextSearchMode.Trigram"/> instead.
+    /// </para>
+    /// </summary>
+    public string TextSearchConfig { get; set; } = "simple";
+
+    /// <summary>
+    /// Text search mode for the keyword leg of hybrid search.
+    /// Default: <see cref="TextSearchMode.TsVector"/>.
+    /// <para>
+    /// <see cref="TextSearchMode.TsVector"/>: PostgreSQL full-text search
+    /// (<c>tsvector / tsquery</c>). Suitable for European languages with good
+    /// built-in text search configurations.
+    /// </para>
+    /// <para>
+    /// <see cref="TextSearchMode.Trigram"/>: <c>pg_trgm word_similarity</c> matching.
+    /// Better for CJK languages (Korean, Japanese, Chinese) where PostgreSQL
+    /// lacks built-in morphological analysis. Requires the <c>pg_trgm</c>
+    /// extension (standard PostgreSQL contrib module, available on most managed services).
+    /// </para>
+    /// </summary>
+    public TextSearchMode TextSearchMode { get; set; } = TextSearchMode.TsVector;
+
+    /// <summary>
     /// When true (default), index creation failures throw and fail fast.
     /// When false, index creation failures are downgraded to warnings and startup continues.
     /// </summary>
@@ -70,6 +105,9 @@ public class PostgresOptions
 
         if (!Enum.IsDefined(typeof(DistanceStrategy), DistanceStrategy))
             throw new ArgumentException("DistanceStrategy is invalid.", nameof(DistanceStrategy));
+
+        if (string.IsNullOrWhiteSpace(TextSearchConfig))
+            throw new ArgumentException("TextSearchConfig must not be empty.", nameof(TextSearchConfig));
 
         if (Index is null)
             throw new ArgumentException("Index must not be null.", nameof(Index));

@@ -1,5 +1,20 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v2.2.0
+
+### Added
+
+- `VerifyConnectionAsync(CancellationToken)` default interface method on `IVectorStore`.
+  - Verifies that the store can reach its backend (database, API, etc.) and throws on failure.
+  - In-memory stores succeed immediately via the default implementation (`Task.CompletedTask`).
+  - Concrete stores (`PostgresStore`, `QdrantStore`, `PineconeStore`) override this to perform actual connectivity checks.
+
+### Compatibility
+
+- Fully backward compatible with v2.1.0. No breaking changes — default interface method, existing implementations continue to work.
+
+---
+
 ## v2.1.0
 
 ### Added

@@ -96,6 +96,28 @@ Each stored vector uses reserved metadata keys:
 | `_scope` | Scope for 2nd-tier isolation (omitted if null) |
 | `<custom>` | User metadata entries from `VectorRecord.Metadata` |
 
+## Connection Verification
+
+Call `VerifyConnectionAsync` to test HTTP connectivity to the Pinecone index before running queries:
+
+```csharp
+var store = new PineconeStore(new PineconeOptions
+{
+    IndexHost = "https://my-index-xxxx.svc.us-east1-gcp.pinecone.io",
+    ApiKey = "YOUR_PINECONE_API_KEY"
+});
+
+try
+{
+    await store.VerifyConnectionAsync();
+    Console.WriteLine("Connected!");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Connection failed: {ex.Message}");
+}
+```
+
 ## API Key Note
 
 Set your Pinecone API key securely (for example, environment variables or secret manager). Do not hardcode secrets in source code.

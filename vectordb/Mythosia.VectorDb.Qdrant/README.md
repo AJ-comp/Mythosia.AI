@@ -163,6 +163,30 @@ Records are stored as Qdrant points with the following payload keys:
 
 Point IDs are deterministic UUIDs derived from `namespace + record Id` (when namespace is set) or just `record Id` (when null) via MD5 hash. This ensures the same record Id in different namespaces produces distinct points within the shared collection. The original string ID is preserved in the `_id` payload field.
 
+## Connection Verification
+
+Call `VerifyConnectionAsync` to test gRPC connectivity before running queries:
+
+```csharp
+var store = new QdrantStore(new QdrantOptions
+{
+    Host = "localhost",
+    Port = 6334,
+    CollectionName = "my_vectors",
+    Dimension = 1536
+});
+
+try
+{
+    await store.VerifyConnectionAsync();
+    Console.WriteLine("Connected!");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Connection failed: {ex.Message}");
+}
+```
+
 ## License
 
 See repository root for license information.

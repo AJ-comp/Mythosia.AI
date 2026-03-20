@@ -77,5 +77,12 @@ namespace Mythosia.VectorDb
         /// Deletes all records matching the specified filter.
         /// </summary>
         Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Verifies that the store can reach its backend (e.g. database, API).
+        /// Throws on failure. In-memory stores succeed immediately.
+        /// </summary>
+        Task VerifyConnectionAsync(CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

@@ -697,6 +697,15 @@ namespace Mythosia.VectorDb.Pinecone
 
         #endregion
 
+        #region Connection Verification
+
+        public async Task VerifyConnectionAsync(CancellationToken cancellationToken = default)
+        {
+            await SendAsync<object>(HttpMethod.Get, "describe_index_stats", null, cancellationToken);
+        }
+
+        #endregion
+
         #region IDisposable
 
         public void Dispose()

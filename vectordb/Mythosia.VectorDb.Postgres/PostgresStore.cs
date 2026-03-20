@@ -240,6 +240,16 @@ LIMIT @topK";
         using var conn = await OpenConnectionAsync(cancellationToken);
         await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
+        if (_options.TextSearchMode == TextSearchMode.Trigram)
+        {
+            using (var thresholdCmd = conn.CreateCommand())
+            {
+                thresholdCmd.Transaction = tx;
+                thresholdCmd.CommandText = "SET LOCAL pg_trgm.word_similarity_threshold = 0.1";
+                await thresholdCmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+        }
+
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -256,19 +266,10 @@ vector_results AS (
            ROW_NUMBER() OVER () AS rank_idx
     FROM vector_candidates
 ),
-text_candidates AS (
-    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
-           ts_rank(content_tsv, plainto_tsquery('simple', @query)) AS bm25_score
-    FROM {_qualifiedTable}
-    WHERE namespace = @ns{bm25WhereClause}
-      AND plainto_tsquery('simple', @query) <> ''::tsquery
-      AND content_tsv @@ plainto_tsquery('simple', @query)
-    ORDER BY bm25_score DESC
-    LIMIT @candidateTopK
-),
+{BuildTextCandidatesCte(bm25WhereClause)},
 text_results AS (
     SELECT id, namespace, scope, content, metadata, embedding,
-           ROW_NUMBER() OVER (ORDER BY bm25_score DESC) AS rank_idx
+           ROW_NUMBER() OVER (ORDER BY text_score DESC) AS rank_idx
     FROM text_candidates
 ),
 rrf_scores AS (
@@ -392,7 +393,7 @@ ALTER TABLE {_qualifiedTable}
     ADD COLUMN IF NOT EXISTS content_tsv tsvector;
 
 UPDATE {_qualifiedTable}
-SET content_tsv = to_tsvector('simple', coalesce(content, ''));
+SET content_tsv = to_tsvector('{_options.TextSearchConfig}', coalesce(content, ''));
 
 ALTER TABLE {_qualifiedTable}
     ALTER COLUMN content_tsv SET NOT NULL;
@@ -413,6 +414,7 @@ CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_ns_scope
         await cmd.ExecuteNonQueryAsync(cancellationToken);
 
         await TryCreateVectorIndexAsync(conn, cancellationToken);
+        await TryCreateTrigramIndexAsync(conn, cancellationToken);
     }
 
     private async Task TryCreateVectorIndexAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
@@ -443,6 +445,27 @@ CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_embedding
         }
     }
 
+    private async Task TryCreateTrigramIndexAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        if (_options.TextSearchMode != TextSearchMode.Trigram)
+            return;
+
+        try
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $@"
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_content_trgm
+    ON {_qualifiedTable} USING gin (content gin_trgm_ops);";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch when (!_options.FailFastOnIndexCreationFailure)
+        {
+            // pg_trgm extension may not be available on all PostgreSQL installations.
+        }
+    }
+
     private async Task VerifySchemaExistsAsync(CancellationToken cancellationToken)
     {
         using var conn = await OpenConnectionAsync(cancellationToken);
@@ -465,6 +488,15 @@ WHERE table_schema = @schema AND table_name = @table";
 
     #endregion
 
+    #region Connection Verification
+
+    public async Task VerifyConnectionAsync(CancellationToken cancellationToken = default)
+    {
+        using var conn = await OpenConnectionAsync(cancellationToken);
+    }
+
+    #endregion
+
     #region Private Helpers
 
     private async Task<NpgsqlConnection> OpenConnectionAsync(CancellationToken cancellationToken)
@@ -478,7 +510,7 @@ WHERE table_schema = @schema AND table_name = @table";
     {
         return $@"
 INSERT INTO {_qualifiedTable} (namespace, id, scope, content, content_tsv, metadata, embedding)
-VALUES (@ns, @id, @scope, @content, to_tsvector('simple', coalesce(@content, '')), @metadata, @embedding::vector)
+VALUES (@ns, @id, @scope, @content, to_tsvector('{_options.TextSearchConfig}', coalesce(@content, '')), @metadata, @embedding::vector)
 ON CONFLICT (namespace, id) DO UPDATE SET
     scope      = EXCLUDED.scope,
     content    = EXCLUDED.content,
@@ -526,6 +558,38 @@ ON CONFLICT (namespace, id) DO UPDATE SET
         }
 
         return (sb.ToString(), parameters);
+    }
+
+    /// <summary>
+    /// Builds the <c>text_candidates</c> CTE for hybrid search based on <see cref="TextSearchMode"/>.
+    /// </summary>
+    private string BuildTextCandidatesCte(string filterWhereClause)
+    {
+        if (_options.TextSearchMode == TextSearchMode.Trigram)
+        {
+            return $@"text_candidates AS (
+    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
+           word_similarity(@query, content) AS text_score
+    FROM {_qualifiedTable}
+    WHERE namespace = @ns{filterWhereClause}
+      AND content IS NOT NULL
+      AND length(@query) > 0
+      AND @query <% content
+    ORDER BY @query <%> content
+    LIMIT @candidateTopK
+)";
+        }
+
+        return $@"text_candidates AS (
+    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
+           ts_rank(content_tsv, plainto_tsquery('{_options.TextSearchConfig}', @query)) AS text_score
+    FROM {_qualifiedTable}
+    WHERE namespace = @ns{filterWhereClause}
+      AND plainto_tsquery('{_options.TextSearchConfig}', @query) <> ''::tsquery
+      AND content_tsv @@ plainto_tsquery('{_options.TextSearchConfig}', @query)
+    ORDER BY text_score DESC
+    LIMIT @candidateTopK
+)";
     }
 
     private static VectorRecord ReadRecord(NpgsqlDataReader reader)

@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Postgres</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>10.2.1</Version>
+    <Version>10.3.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, persisted content_tsv full-text indexing for hybrid search, typed index settings (HNSW/IVFFlat/NoIndex), and schema provisioning support.</Description>
-    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch</PackageTags>
+    <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, persisted content_tsv full-text indexing for hybrid search, pg_trgm trigram-based word_similarity for CJK languages, typed index settings (HNSW/IVFFlat/NoIndex), connection verification, and schema provisioning support.</Description>
+    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v10.2.1: Fix incorrect NuGet dependency version (VectorDb.Abstractions was incorrectly pinned to >= 10.2.0 due to a pack script bug). No code changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.3.0: Add VerifyConnectionAsync; Add TextSearchMode (TsVector/Trigram) for configurable hybrid text search ? pg_trgm word_similarity support for CJK languages; Add TextSearchConfig option.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

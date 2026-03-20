@@ -90,6 +90,14 @@ Notes:
 CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
+- (Optional, for `TextSearchMode.Trigram`) pg_trgm extension:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+```
+
+> `pg_trgm` is a standard PostgreSQL contrib module, available on most managed services (Azure, Supabase, RDS, etc.). When `EnsureSchema = true` and `TextSearchMode = Trigram`, the extension is created automatically.
+
 ## Quick Start
 
 ```csharp
@@ -141,7 +149,8 @@ erDiagram
 | PK | btree | `(namespace, id)` | Primary key / upsert conflict |
 | `idx_*_embedding` | hnsw / ivfflat | `embedding vector_*_ops` | ANN similarity search (distance strategy dependent) |
 | `idx_*_metadata` | gin | `metadata` | jsonb containment filter (`@>`) |
-| `idx_*_content_tsv` | gin | `content_tsv` | Full-text search index for hybrid lexical retrieval |
+| `idx_*_content_tsv` | gin | `content_tsv` | Full-text search index for hybrid lexical retrieval (`TsVector` mode) |
+| `idx_*_content_trgm` | gin | `content gin_trgm_ops` | Trigram similarity index for hybrid search (`Trigram` mode, auto-created when configured) |
 | `idx_*_ns_scope` | btree | `(namespace, scope)` | Scope-scoped queries |
 
 ## Schema
@@ -248,6 +257,11 @@ CREATE INDEX idx_vectors_embedding
 
 -- 5. Analyze for query planner (recommended)
 ANALYZE public.vectors;
+
+-- 6. (Optional, for TextSearchMode.Trigram) Trigram index
+-- CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- CREATE INDEX idx_vectors_content_trgm
+--     ON public.vectors USING gin (content gin_trgm_ops);
 ```
 
 ## Options
@@ -267,6 +281,8 @@ ANALYZE public.vectors;
 | `IvfFlatIndexOptions.Lists` | `100` | Number of IVF lists for the ivfflat index |
 | `IvfFlatIndexOptions.Probes` | `10` | IVFFlat runtime `probes` default |
 | `FailFastOnIndexCreationFailure` | `true` | Throw when vector index creation fails (recommended for production) |
+| `TextSearchMode` | `TsVector` | Text search strategy for hybrid search (`TsVector` or `Trigram`) |
+| `TextSearchConfig` | `"simple"` | PostgreSQL text search configuration for `to_tsvector` / `plainto_tsquery` (only used in `TsVector` mode) |
 
 ## Runtime Tuning Guide (DX)
 
@@ -301,28 +317,42 @@ These are practical ranges, not strict hard limits. Final values should be chose
   - `Euclidean`: `1 / (1 + (embedding <-> @q::vector)) >= @minScore`
   - `InnerProduct`: `-(embedding <#> @q::vector) >= @minScore`
 
-## Hybrid Search (v10.2.0)
+## Hybrid Search
 
-`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called via `UseHybridSearch()`, it runs **parallel queries** — persisted `content_tsv` full-text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)**.
+`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called via `UseHybridSearch()`, it runs **parallel queries** — text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)**.
 
-As of `v10.2.0`, hybrid search uses a persisted `content_tsv` column plus a GIN index instead of recomputing `to_tsvector(content)` on every query.
+### TextSearchMode.TsVector (default)
+
+Uses PostgreSQL `tsvector / tsquery` full-text search with a persisted `content_tsv` column plus GIN index. Works well for European languages with good built-in text search configurations.
 
 ```csharp
-var store = await RagStore.BuildAsync(config => config
-    .AddDocument("docs.txt")
-    .UseOpenAIEmbedding(apiKey)
-    .UseVectorStore(new PostgresStore(new PostgresOptions
-    {
-        ConnectionString = connString,
-        Dimension = 1536,
-        EnsureSchema = true
-    }))
-    .UseHybridSearch()        // Enables tsvector + pgvector hybrid search
-    .WithTopK(5)
-);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connString,
+    Dimension = 1536,
+    EnsureSchema = true,
+    // TextSearchMode = TextSearchMode.TsVector  (default)
+});
 ```
 
-`content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval.
+### TextSearchMode.Trigram
+
+Uses `pg_trgm` extension with `word_similarity` matching. Better for **CJK languages** (Korean, Japanese, Chinese) and agglutinative languages where PostgreSQL lacks built-in morphological analysis.
+
+```csharp
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connString,
+    Dimension = 1536,
+    EnsureSchema = true,
+    TextSearchMode = TextSearchMode.Trigram  // pg_trgm word_similarity
+});
+```
+
+> **Why Trigram for Korean/CJK?**  
+> PostgreSQL’s `simple` text search config tokenizes by whitespace only. Korean particles (조사/어미) attach to words, so `"opm에"` ≠ `"opm은"` — no match. Trigram splits text into 3-character grams and uses substring similarity, bypassing morphological analysis entirely.
+
+`content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval in `TsVector` mode.
 
 ## RAG Integration
 
@@ -339,6 +369,28 @@ var store = await RagStore.BuildAsync(config => config
     }))
     .WithTopK(5)
 );
+```
+
+## Connection Verification
+
+Call `VerifyConnectionAsync` to test TCP connectivity and authentication before running queries:
+
+```csharp
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connString,
+    Dimension = 1536
+});
+
+try
+{
+    await store.VerifyConnectionAsync();
+    Console.WriteLine("Connected!");
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"Connection failed: {ex.Message}");
+}
 ```
 
 ## Performance Tips

@@ -19,3 +19,7 @@
 
 ## Versioning Guidelines
 - v10.x 버전 넘버링은 .NET 10 (net10.0) 타겟 프로젝트에만 사용한다. .NET Standard 2.1 프로젝트는 1.x.x 등 일반적인 시맨틱 버전을 사용한다.
+- 패키지 버전 업데이트 시 시맨틱 버저닝을 반드시 적용한다: 버그 수정 → patch(x.x.+1), 기능 확장 → minor(x.+1.0), 브레이킹 체인지 → major(+1.0.0). 코드 변경 내역에 따라 버전을 반드시 함께 올려야 한다.
+
+## Commit Message Guidelines
+- Commit messages must always be written in English.
