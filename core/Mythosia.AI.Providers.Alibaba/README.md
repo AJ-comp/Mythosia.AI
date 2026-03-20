@@ -4,7 +4,7 @@
 
 `Mythosia.AI.Providers.Alibaba` adds Alibaba Cloud / Qwen provider support for `Mythosia.AI` through `QwenService`.
 
-It is intended for projects that want to keep using the common `AIService` abstraction while calling Qwen-compatible chat completion endpoints through `vLLM` or `Ollama`.
+It is intended for projects that want to keep using the common `AIService` abstraction while calling Qwen-compatible chat completion endpoints through `DashScope`, `vLLM`, or `Ollama`.
 
 ## Features
 
@@ -13,7 +13,7 @@ It is intended for projects that want to keep using the common `AIService` abstr
 - Function calling support
 - Shared `Mythosia.AI` conversation and message abstractions
 - Optional thinking-mode control for supported Qwen models
-- Compatible endpoint handling for `vLLM` and `Ollama`
+- Compatible endpoint handling for `DashScope`, `vLLM`, and `Ollama`
 
 ## Installation
 
@@ -33,12 +33,15 @@ service.ChangeModel(AlibabaModels.Qwen3_5_397B);
 
 ## Thinking Mode Behavior
 
-`QwenService` applies Qwen 3.5-specific request formatting for thinking mode.
+`QwenService` applies platform-specific thinking request formatting for Qwen 3-family models.
 
-- `vLLM` and DashScope-style endpoints use `chat_template_kwargs.enable_thinking`
-- `Ollama` keeps using reasoning parameters for supported deployments
+| Platform | Thinking On | Thinking Off |
+|---|---|---|
+| DashScope | `enable_thinking = true` | `enable_thinking = false` |
+| vLLM | `chat_template_kwargs.enable_thinking = true` | `chat_template_kwargs.enable_thinking = false` |
+| Ollama | `reasoning.effort = "high"` | _(파라미터 생략)_ |
 
-This lets the same `ThinkingMode` property map correctly across different Qwen 3.5 endpoint styles.
+Thinking off 시 DashScope / vLLM에는 명시적으로 `enable_thinking = false`가 전송되어 서버 기본값에 의한 의도치 않은 thinking 활성화를 방지합니다.
 
 ## Request-Scoped Reasoning Control
 
@@ -170,6 +173,7 @@ var result = await service.GetCompletionAsync("What's the weather in Seoul?");
 
 ## Notes
 
+- Use `EndpointPlatform.DashScope` for Alibaba Cloud DashScope endpoints (default)
 - Use `EndpointPlatform.Vllm` for OpenAI-compatible `vLLM` endpoints
 - Use `EndpointPlatform.Ollama` for local Ollama servers
 - Model selection can be changed with provider model constants or `ModelIdOverride`

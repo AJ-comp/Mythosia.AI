@@ -1,5 +1,32 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## 🐛 v1.0.1 - Thinking Request Handling Fix
+
+### **DashScope Qwen 3.5 파라미터 포맷 수정**
+
+DashScope 엔드포인트에서 Qwen 3.5 thinking 파라미터가 `chat_template_kwargs.enable_thinking`으로 잘못 전송되던 문제를 수정했습니다. DashScope는 top-level `enable_thinking` 파라미터를 사용합니다.
+
+### **vLLM / DashScope 요청 경로 분리**
+
+vLLM과 DashScope가 동일한 `chat_template_kwargs` 경로를 공유하던 문제를 수정했습니다.
+
+| Platform | Thinking On | Thinking Off |
+|---|---|---|
+| DashScope | `enable_thinking = true` | `enable_thinking = false` |
+| vLLM | `chat_template_kwargs.enable_thinking = true` | `chat_template_kwargs.enable_thinking = false` |
+| Ollama | `reasoning.effort = "high"` | _(파라미터 생략)_ |
+
+### **Qwen3 모델 thinking-off 명시 전송**
+
+Qwen3 thinking-capable 모델에서 `ThinkingMode`가 off일 때 DashScope / vLLM에 `enable_thinking = false`를 명시적으로 전송하도록 수정했습니다. 이전에는 파라미터가 생략되어 서버 기본값으로 thinking이 의도치 않게 활성화될 수 있었습니다.
+
+### ✅ Compatibility
+
+- Compatible with `Mythosia.AI` v5.0.0
+- No breaking changes
+
+---
+
 ## 🚀 v1.0.0 - Package Documentation, Qwen 3.5 Request Handling, and Request Profile Integration
 
 ### **NuGet Packaging Metadata and Package Docs**

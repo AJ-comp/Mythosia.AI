@@ -1,4 +1,4 @@
-using Mythosia.AI.Models.Messages;
+﻿using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Protocols;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -25,9 +25,9 @@ namespace Mythosia.AI.Providers.Alibaba
                 return CreateQwen35RequestParams(messages, systemMsg, modelId);
 
             var p = CreateBaseRequestParams(messages, systemMsg, modelId);
-            if (ThinkingMode == Mythosia.AI.Providers.Alibaba.QwenThinking.On)
+            if (ThinkingMode == QwenThinking.On)
             {
-                if (_endpointPlatform == Mythosia.AI.Providers.Alibaba.EndpointPlatform.Ollama)
+                if (_endpointPlatform == EndpointPlatform.Ollama)
                 {
                     p.ExtraParameters = new Dictionary<string, object>
                     {
@@ -42,6 +42,13 @@ namespace Mythosia.AI.Providers.Alibaba
                     };
                 }
             }
+            else if (_endpointPlatform != EndpointPlatform.Ollama && IsQwen3ThinkingCapable(modelId))
+            {
+                p.ExtraParameters = new Dictionary<string, object>
+                {
+                    ["enable_thinking"] = false
+                };
+            }
 
             return p;
         }
@@ -49,24 +56,48 @@ namespace Mythosia.AI.Providers.Alibaba
         private ProtocolRequestParams CreateQwen35RequestParams(IEnumerable<Message> messages, string systemMsg, string modelId)
         {
             var p = CreateBaseRequestParams(messages, systemMsg, modelId);
-            if (_endpointPlatform == Mythosia.AI.Providers.Alibaba.EndpointPlatform.Ollama)
+            if (ThinkingMode == QwenThinking.On)
             {
-                if (ThinkingMode == Mythosia.AI.Providers.Alibaba.QwenThinking.On)
+                if (_endpointPlatform == EndpointPlatform.Ollama)
                 {
                     p.ExtraParameters = new Dictionary<string, object>
                     {
                         ["reasoning"] = new Dictionary<string, object> { ["effort"] = "high" }
                     };
                 }
+                else if (_endpointPlatform == EndpointPlatform.Vllm)
+                {
+                    p.ExtraParameters = new Dictionary<string, object>
+                    {
+                        ["chat_template_kwargs"] = new Dictionary<string, object>
+                        {
+                            ["enable_thinking"] = true
+                        }
+                    };
+                }
+                else
+                {
+                    p.ExtraParameters = new Dictionary<string, object>
+                    {
+                        ["enable_thinking"] = true
+                    };
+                }
             }
-            else
+            else if (_endpointPlatform == EndpointPlatform.Vllm)
             {
                 p.ExtraParameters = new Dictionary<string, object>
                 {
                     ["chat_template_kwargs"] = new Dictionary<string, object>
                     {
-                        ["enable_thinking"] = ThinkingMode == Mythosia.AI.Providers.Alibaba.QwenThinking.On
+                        ["enable_thinking"] = false
                     }
+                };
+            }
+            else if (_endpointPlatform != EndpointPlatform.Ollama)
+            {
+                p.ExtraParameters = new Dictionary<string, object>
+                {
+                    ["enable_thinking"] = false
                 };
             }
 
@@ -92,5 +123,8 @@ namespace Mythosia.AI.Providers.Alibaba
 
         private static bool IsQwen35(string modelId)
             => modelId.Contains("qwen3.5", System.StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsQwen3ThinkingCapable(string modelId)
+            => modelId.Contains("qwen3", System.StringComparison.OrdinalIgnoreCase);
     }
 }
