@@ -254,6 +254,11 @@ namespace Mythosia.AI.Rag
                     {
                         TopKMultiplier = Options.DefaultQuery.RetrievalDerivation.TopKMultiplier,
                         MinScoreDivider = Options.DefaultQuery.RetrievalDerivation.MinScoreDivider
+                    },
+                    FinalSelection = new RagFinalSelectionOptions
+                    {
+                        Mode = Options.DefaultQuery.FinalSelection.Mode,
+                        RetrievalWeight = Options.DefaultQuery.FinalSelection.RetrievalWeight
                     }
                 };
             }
@@ -267,6 +272,21 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
             string query,
+            RagQueryOptions? queryOptions,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            return await QueryAsync(query, textSearchQuery: null, queryOptions, filter, cancellationToken);
+        }
+
+        /// <summary>
+        /// Performs a RAG query with a separate text search query for the keyword leg of hybrid search.
+        /// When <paramref name="textSearchQuery"/> is set, it is used for the text/BM25 search
+        /// while the original <paramref name="query"/> is used for embedding (semantic search).
+        /// </summary>
+        internal async Task<RagQueryResult> QueryAsync(
+            string query,
+            string? textSearchQuery,
             RagQueryOptions? queryOptions,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
@@ -286,7 +306,7 @@ namespace Mythosia.AI.Rag
                     await effectiveOptions.ProgressAsync(stage);
             }
 
-            // 1. Embed query
+            // 1. Embed query (always uses the full semantic query)
             await ReportAsync(RagProgressStage.Embedding);
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
 
@@ -297,17 +317,26 @@ namespace Mythosia.AI.Rag
             effectiveFilter.MinScore = retrievalMinScore;
 
             // 3. Search (via retrieval strategy) — fetch wider pool when reranker is present
+            //    textSearchQuery overrides the text leg when keywords are available from query rewriter
             await ReportAsync(RagProgressStage.Retrieval);
-            var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, query, retrievalK, effectiveFilter, cancellationToken);
+            var retrievalTextQuery = textSearchQuery;
+            var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, retrievalTextQuery, retrievalK, effectiveFilter, cancellationToken);
             var retrievalCandidates = searchResults.ToList();
 
-            // 4. Re-rank if configured — trim back to original k
+            // 4. Re-rank if configured — reranker only re-scores, pipeline handles trimming
+            IReadOnlyList<VectorSearchResult>? rerankedCandidates = null;
             if (_reranker != null)
             {
                 await ReportAsync(RagProgressStage.Reranking);
-                searchResults = await _reranker.RerankAsync(query, searchResults, k, cancellationToken);
+                searchResults = await _reranker.RerankAsync(query, searchResults, cancellationToken);
+                rerankedCandidates = searchResults.ToList();
+                searchResults = ApplyFinalSelectionPolicy(
+                    effectiveOptions.FinalSelection,
+                    retrievalCandidates,
+                    rerankedCandidates);
             }
 
+            // 5. Final filter: apply minScore and topK
             if (finalMinScore.HasValue)
             {
                 searchResults = searchResults
@@ -315,16 +344,84 @@ namespace Mythosia.AI.Rag
                     .Take(k)
                     .ToList();
             }
+            else
+            {
+                searchResults = searchResults
+                    .Take(k)
+                    .ToList();
+            }
 
-            // 5. Build context
+            // 6. Build context
             await ReportAsync(RagProgressStage.ContextBuild);
             var context = ResolveContextBuilder().BuildContext(query, searchResults);
 
-            return new RagQueryResult(query, context, searchResults, retrievalCandidates);
+            return new RagQueryResult(query, context, searchResults, retrievalCandidates, rerankedCandidates);
         }
 
         /// <summary>
-        /// Performs a full RAG query and calls the LLM: embed query → search → context build → LLM call.
+        /// Applies the configured final selection policy after reranking.
+        /// </summary>
+        private static IReadOnlyList<VectorSearchResult> ApplyFinalSelectionPolicy(
+            RagFinalSelectionOptions? finalSelection,
+            IReadOnlyList<VectorSearchResult> retrievalCandidates,
+            IReadOnlyList<VectorSearchResult> rerankedCandidates)
+        {
+            if (finalSelection == null || finalSelection.Mode != RagFinalSelectionMode.WeightedBlend)
+                return rerankedCandidates;
+
+            var retrievalWeight = finalSelection.GetClampedRetrievalWeight();
+            var rerankWeight = 1d - retrievalWeight;
+
+            var retrievalById = retrievalCandidates
+                .GroupBy(r => r.Record.Id, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+            var rerankedById = rerankedCandidates
+                .GroupBy(r => r.Record.Id, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+
+            var orderedRecords = new List<VectorRecord>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var candidate in retrievalCandidates)
+            {
+                if (seen.Add(candidate.Record.Id))
+                    orderedRecords.Add(candidate.Record);
+            }
+
+            foreach (var candidate in rerankedCandidates)
+            {
+                if (seen.Add(candidate.Record.Id))
+                    orderedRecords.Add(candidate.Record);
+            }
+
+            return orderedRecords
+                .Select(record =>
+                {
+                    var retrievalScore = retrievalById.TryGetValue(record.Id, out var retrieval)
+                        ? retrieval.Score
+                        : 0d;
+                    var rerankScore = rerankedById.TryGetValue(record.Id, out var reranked)
+                        ? reranked.Score
+                        : 0d;
+                    var finalScore = (retrievalWeight * retrievalScore) + (rerankWeight * rerankScore);
+
+                    return new
+                    {
+                        Result = new VectorSearchResult(record, finalScore),
+                        RetrievalScore = retrievalScore,
+                        RerankScore = rerankScore
+                    };
+                })
+                .OrderByDescending(x => x.Result.Score)
+                .ThenByDescending(x => x.RerankScore)
+                .ThenByDescending(x => x.RetrievalScore)
+                .Select(x => x.Result)
+                .ToList();
+        }
+
+        /// <summary>
+        /// Performs a full RAG query and calls the LLM: embed query ??search ??context build ??LLM call.
         /// </summary>
         public async Task<string> QueryAndGenerateAsync(
             AIService aiService,
@@ -372,6 +469,18 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            return await ProcessAsync(query, textSearchQuery: null, options, cancellationToken);
+        }
+
+        /// <summary>
+        /// Processes a query with a separate text search query for the keyword leg of hybrid search.
+        /// </summary>
+        internal async Task<RagProcessedQuery> ProcessAsync(
+            string query,
+            string? textSearchQuery,
+            RagQueryOptions? options,
+            CancellationToken cancellationToken = default)
+        {
             var effectiveOptions = options ?? Options.DefaultQuery;
 
             var retrievalFilter = effectiveOptions.GetRetrievalFilter(_reranker != null);
@@ -382,7 +491,7 @@ namespace Mythosia.AI.Rag
             var retrievalK = retrievalFilter.TopK;
 
             var stopwatch = Stopwatch.StartNew();
-            var result = await QueryAsync(query, options, cancellationToken: cancellationToken);
+            var result = await QueryAsync(query, textSearchQuery, options, cancellationToken: cancellationToken);
             stopwatch.Stop();
 
             // When no references are found, return the original query as-is
@@ -404,7 +513,10 @@ namespace Mythosia.AI.Rag
                     AppliedFinalMinScore = appliedFinalMinScore,
                     AppliedRetrievalMinScore = appliedRetrievalMinScore,
                     ElapsedMs = stopwatch.ElapsedMilliseconds
-                });
+                })
+            {
+                RerankedCandidates = result.RerankedCandidates
+            };
         }
 
         #endregion
@@ -444,7 +556,7 @@ namespace Mythosia.AI.Rag
         public string Context { get; }
 
         /// <summary>
-        /// The raw search results from the vector store.
+        /// The final search results after all pipeline stages (reranking + topK + minScore).
         /// </summary>
         public IReadOnlyList<VectorSearchResult> SearchResults { get; }
 
@@ -454,16 +566,24 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public IReadOnlyList<VectorSearchResult> RetrievalCandidates { get; }
 
+        /// <summary>
+        /// All results after re-ranking (re-scored and reordered) but before final selection (topK + minScore).
+        /// When no reranker is configured this is null.
+        /// </summary>
+        public IReadOnlyList<VectorSearchResult>? RerankedCandidates { get; }
+
         public RagQueryResult(
             string query,
             string context,
             IReadOnlyList<VectorSearchResult> searchResults,
-            IReadOnlyList<VectorSearchResult> retrievalCandidates)
+            IReadOnlyList<VectorSearchResult> retrievalCandidates,
+            IReadOnlyList<VectorSearchResult>? rerankedCandidates = null)
         {
             Query = query;
             Context = context;
             SearchResults = searchResults;
             RetrievalCandidates = retrievalCandidates;
+            RerankedCandidates = rerankedCandidates;
         }
     }
 }

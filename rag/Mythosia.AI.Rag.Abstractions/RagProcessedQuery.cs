@@ -58,10 +58,18 @@ namespace Mythosia.AI.Rag
         public string OriginalQuery { get; set; } = string.Empty;
 
         /// <summary>
-        /// The rewritten query produced by <see cref="IQueryRewriter"/>, or null if no rewriting occurred.
-        /// When set, this standalone query was used for vector search instead of <see cref="OriginalQuery"/>.
+        /// The rewritten semantic query produced by <see cref="IQueryRewriter"/>, or null if no rewriting occurred.
+        /// When set, this standalone query was used for embedding/vector retrieval instead of <see cref="OriginalQuery"/>.
         /// </summary>
         public string? RewrittenQuery { get; set; }
+
+        /// <summary>
+        /// Retrieval-oriented keywords extracted by the query rewriter for the text/keyword search leg of hybrid search.
+        /// When set, hybrid search uses these shaped terms instead of the raw query,
+        /// helping lexical retrieval handle language-particle and formatting mismatches.
+        /// Null when no keyword shaping was produced or no rewriter was invoked.
+        /// </summary>
+        public IReadOnlyList<string>? SearchKeywords { get; set; }
 
         /// <summary>
         /// The request-only user input assembled from retrieval context and the query.
@@ -82,6 +90,12 @@ namespace Mythosia.AI.Rag
         public IReadOnlyList<VectorSearchResult> RetrievalCandidates { get; set; } = System.Array.Empty<VectorSearchResult>();
 
         /// <summary>
+        /// All results after re-ranking (re-scored and reordered) but before final selection (topK + minScore).
+        /// When no reranker is configured this is null.
+        /// </summary>
+        public IReadOnlyList<VectorSearchResult>? RerankedCandidates { get; set; }
+
+        /// <summary>
         /// Whether the query returned any references from the vector store.
         /// When false, <see cref="RequestMessageContent"/> contains the original query unchanged.
         /// </summary>
@@ -95,6 +109,7 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// The raw result from the query rewriter, or null if no rewriter was invoked.
+        /// This can include a rewritten semantic query, retrieval-oriented keywords, and the search gate decision.
         /// </summary>
         public QueryRewriteResult? RewriteResult { get; set; }
 

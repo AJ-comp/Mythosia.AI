@@ -1,6 +1,25 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
-## v4.0.0
+## v5.0.0
+
+### Breaking Changes
+
+- **`IReranker.RerankAsync` removed `topK` parameter** — the reranker now returns all results re-scored and reordered. TopK trimming is the pipeline's responsibility, enabling weighted-blend final selection.
+- **`IRetrievalStrategy.RetrieveAsync` `query` parameter now nullable (`string?`)** — when `null`, keyword search is skipped and only dense vector search is performed.
+
+### Added
+
+- **`RagFinalSelectionOptions`** — configures how the pipeline selects final references after optional re-ranking (`RerankerOnly` or `WeightedBlend` mode).
+- **`RagFinalSelectionMode` enum** — `RerankerOnly` (default, backward compatible) and `WeightedBlend` (blends retrieval + reranker scores).
+- **`RagQueryOptions.FinalSelection`** — per-request final selection policy override.
+- **`QueryRewriteResult.Keywords`** — optional retrieval-oriented search terms extracted for text/keyword search leg of hybrid search.
+- **`QueryRewriteResult.Search(string query, IReadOnlyList<string>? keywords)`** — new factory method with keyword support.
+- **`RagProcessedQuery.SearchKeywords`** — retrieval-oriented keywords extracted by the query rewriter for hybrid search.
+- **`RagProcessedQuery.RerankedCandidates`** — all results after re-ranking but before final selection (topK + minScore). Null when no reranker is configured.
+
+---
+
+## v4.0.1
 
 ### Breaking Changes
 

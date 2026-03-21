@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.0.1</Version>
+    <Version>5.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, and IReranker interfaces and shared models.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
-    <PackageReleaseNotes>v4.0.1: Fix incorrect NuGet dependency versions (VectorDb.Abstractions and Loaders.Abstractions were incorrectly pinned to 4.0.0 due to a pack script bug). No code changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v5.0.0: IReranker.RerankAsync removed topK parameter (pipeline responsibility). IRetrievalStrategy.RetrieveAsync query parameter now nullable. Added RagFinalSelectionOptions, QueryRewriteResult.Keywords, RagProcessedQuery.SearchKeywords/RerankedCandidates.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

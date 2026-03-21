@@ -59,16 +59,26 @@ namespace Mythosia.AI.Rag
         private IContextBuilder? _contextBuilder;
         private IQueryRewriter? _queryRewriter;
         private bool _queryRewriterEnabled;
+        private uint _queryRewriteMaxTokens = 250;
 
         /// <summary>
         /// Whether WithQueryRewriter() was called (with or without a custom implementation).
-        /// Used by <see cref="RagEnabledService"/> to auto-create a LlmQueryRewriter.
+        /// Used by <see cref="RagEnabledService"/> to auto-create a <see cref="LlmQueryRewriter"/>
+        /// for rewriting queries into retrieval-ready form.
         /// </summary>
         internal bool QueryRewriterEnabled => _queryRewriterEnabled;
+
+        /// <summary>
+        /// Maximum tokens for the LLM query rewriter response.
+        /// Applies to both rewritten semantic queries and retrieval-oriented keyword shaping.
+        /// </summary>
+        internal uint QueryRewriteMaxTokens => _queryRewriteMaxTokens;
 
         private bool _useHybridSearch;
         private float _vectorWeight = 0.5f;
         private IReranker? _reranker;
+        private RagFinalSelectionMode _finalSelectionMode = RagFinalSelectionMode.RerankerOnly;
+        private double _finalSelectionRetrievalWeight = RagFinalSelectionOptions.DefaultRetrievalWeight;
 
         private int _finalTopK = 3;
         private int _chunkSize = 300;
@@ -492,6 +502,19 @@ namespace Mythosia.AI.Rag
             return this;
         }
 
+        /// <summary>
+        /// Configures how final references are selected after optional re-ranking.
+        /// By default the pipeline preserves the current reranker-only behavior.
+        /// </summary>
+        public RagBuilder WithFinalSelectionPolicy(
+            RagFinalSelectionMode mode,
+            double retrievalWeight = RagFinalSelectionOptions.DefaultRetrievalWeight)
+        {
+            _finalSelectionMode = mode;
+            _finalSelectionRetrievalWeight = Math.Max(0d, Math.Min(1d, retrievalWeight));
+            return this;
+        }
+
         #endregion
 
         #region Prompt Template
@@ -550,7 +573,8 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Enables automatic query rewriting for multi-turn conversations.
         /// When enabled, follow-up queries like "tell me more about that" are rewritten
-        /// into standalone queries using the conversation history before vector search.
+        /// into retrieval-ready form using the conversation history, and the
+        /// rewriter may also derive keyword terms for hybrid/text search.
         /// The inner AIService is used as the LLM for rewriting.
         /// </summary>
         public RagBuilder WithQueryRewriter()
@@ -563,7 +587,20 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
+        /// Enables query rewriting with a custom max token limit for the LLM response.
+        /// </summary>
+        /// <param name="maxTokens">Maximum tokens for the rewriter LLM response.</param>
+        public RagBuilder WithQueryRewriter(uint maxTokens)
+        {
+            _queryRewriter = null;
+            _queryRewriterEnabled = true;
+            _queryRewriteMaxTokens = maxTokens;
+            return this;
+        }
+
+        /// <summary>
         /// Enables query rewriting with a custom <see cref="IQueryRewriter"/> implementation.
+        /// Custom rewriters may both rewrite semantic queries and shape retrieval keywords.
         /// </summary>
         public RagBuilder WithQueryRewriter(IQueryRewriter queryRewriter)
         {
@@ -606,6 +643,11 @@ namespace Mythosia.AI.Rag
                     {
                         TopKMultiplier = _retrievalMultiplier,
                         MinScoreDivider = _retrievalMinScoreDivider <= 0d ? 1d : _retrievalMinScoreDivider
+                    },
+                    FinalSelection = new RagFinalSelectionOptions
+                    {
+                        Mode = _finalSelectionMode,
+                        RetrievalWeight = _finalSelectionRetrievalWeight
                     }
                 },
                 PromptTemplate = _promptTemplate

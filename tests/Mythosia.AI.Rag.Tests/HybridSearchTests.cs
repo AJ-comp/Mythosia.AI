@@ -747,11 +747,11 @@ internal class ReversingReranker : IReranker
     public bool WasCalled { get; private set; }
 
     public Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
-        string query, IReadOnlyList<VectorSearchResult> results, int topK,
+        string query, IReadOnlyList<VectorSearchResult> results,
         CancellationToken cancellationToken = default)
     {
         WasCalled = true;
-        var reversed = results.Reverse().Take(topK).ToList();
+        var reversed = results.Reverse().ToList();
         // Reassign scores in descending order
         for (int i = 0; i < reversed.Count; i++)
             reversed[i] = new VectorSearchResult(reversed[i].Record, 1.0 - (i * 0.1));

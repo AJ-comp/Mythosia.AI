@@ -175,6 +175,18 @@ using Mythosia.AI.Rag.Reranking;
 )
 ```
 
+### Final Selection Policy
+
+By default, the pipeline trusts the reranker's scores for final result selection (`RerankerOnly`). Use `WithFinalSelectionPolicy` to blend retrieval and reranker scores instead:
+
+```csharp
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .WithReranker(new CohereReranker(cohereApiKey))
+    .WithFinalSelectionPolicy(RagFinalSelectionMode.WeightedBlend, retrievalWeight: 0.65)
+)
+```
+
 ### Combined: Hybrid Search + Re-ranking
 
 ```csharp
@@ -233,13 +245,13 @@ Use `{context}` and `{question}` placeholders. If no template is specified, a de
 
 ## Multi-Turn Conversations (Query Rewriting)
 
-By default, follow-up questions like *"Tell me more about that"* fail in RAG because the search query lacks context from previous turns. `WithQueryRewriter()` solves this by automatically rewriting follow-up queries into standalone queries before vector search.
+By default, follow-up questions like *"Tell me more about that"* fail in RAG because the search query lacks context from previous turns. `WithQueryRewriter()` solves this by automatically rewriting follow-up queries into retrieval-ready form before vector search, and can also derive keyword terms for hybrid/text retrieval.
 
 ```csharp
 var service = new ChatGptService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
-        .WithQueryRewriter()   // Enables automatic query rewriting
+        .WithQueryRewriter()   // Enables automatic query rewriting and retrieval keyword derivation
     );
 
 // Turn 1: "Do you know about OPM?" → RAG finds OPM documents ✓
@@ -249,7 +261,7 @@ var r1 = await service.GetCompletionAsync("Do you know about OPM?");
 var r2 = await service.GetCompletionAsync("Tell me more about that");
 ```
 
-Use a cheaper/smaller LLM for rewriting to reduce cost:
+Use a cheaper/smaller LLM for rewriting and retrieval keyword derivation to reduce cost:
 
 ```csharp
 var rewriterService = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);

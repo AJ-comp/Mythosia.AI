@@ -20,12 +20,12 @@ namespace Mythosia.AI.Rag.Retrieval
 
         public Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
             float[] denseVector,
-            string query,
+            string? lexicalQuery,
             int topK,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            // Pure vector search — ignores the text query
+            // Pure vector search ignores the lexical query.
             return _vectorStore.SearchAsync(denseVector, topK, filter, cancellationToken);
         }
     }

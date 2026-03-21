@@ -1,6 +1,66 @@
 # Mythosia.AI.Rag - Release Notes
 
-## v5.0.0
+## v6.0.0
+
+### Breaking Changes (requires Abstractions v5.0.0)
+
+- **`IReranker.RerankAsync` removed `topK` parameter** — all reranker implementations (`CohereReranker`, `LlmReranker`, `VllmReranker`) now return all results re-scored and reordered. TopK trimming is handled by the pipeline after final selection.
+- **`IRetrievalStrategy.RetrieveAsync` `query` parameter now nullable** — `HybridRetrievalStrategy` falls back to dense-only search when the lexical query is null/empty.
+- **`OllamaEmbeddingProvider` / `VllmEmbeddingProvider` strict dimension validation** — `dimensions` is now `readonly` with constructor validation (`> 0`). Dimension mismatch with server response throws `InvalidOperationException` instead of silently auto-correcting.
+
+### Added
+
+- **Weighted-blend final selection** — `RagBuilder.WithFinalSelectionPolicy(RagFinalSelectionMode.WeightedBlend, retrievalWeight)` blends retrieval and reranker scores for final ranking instead of relying on reranker scores alone.
+- **Retrieval keyword extraction in `LlmQueryRewriter`** — when `extractKeywords: true` (default), the rewriter outputs a `KEYWORDS:` line with shaped search terms for the text/keyword leg of hybrid search. Helps lexical retrieval handle language-particle and formatting mismatches.
+- **`LlmQueryRewriter` configurable `maxTokens`** — control the LLM response token limit for query rewriting (default 250).
+- **`RagBuilder.WithQueryRewriter(uint maxTokens)`** — new overload to configure max tokens without providing a custom rewriter.
+- **`RagPipeline` reranked candidates tracking** — `RagProcessedQuery.RerankedCandidates` exposes all results after re-ranking but before final selection.
+- **`RagStore` / `RagEnabledService` keyword-derived text search** — when the rewriter produces keywords, they are joined and passed as the lexical query for hybrid search, separate from the semantic query used for embedding.
+- **`VllmEmbeddingProvider` sends `dimensions` parameter** in the request body to the server.
+
+### Changed
+
+- `LlmQueryRewriter` now builds an inline `AIRequestProfile` with explicit `Temperature`, `MaxTokens`, and `DisableReasoning` settings instead of using `RequestProfiles.QueryRewrite`.
+- `CohereReranker` / `VllmReranker` `top_n` now set to `results.Count` (returns all results to the pipeline for final selection).
+- `LlmReranker` no longer applies `.Take(topK)` after scoring.
+- `HybridRetrievalStrategy` skips BM25 entirely and falls back to dense vector search when lexical query is null or empty.
+
+### Migration Guide
+
+```csharp
+// Before (v5.x) — custom IReranker implementation
+public Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
+    string query, IReadOnlyList<VectorSearchResult> results,
+    int topK, CancellationToken ct = default)
+
+// After (v6.0) — remove topK parameter, return all results
+public Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
+    string query, IReadOnlyList<VectorSearchResult> results,
+    CancellationToken ct = default)
+```
+
+```csharp
+// Before (v5.x) — custom IRetrievalStrategy implementation
+public Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
+    float[] denseVector, string query, int topK, ...)
+
+// After (v6.0) — query is now nullable
+public Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
+    float[] denseVector, string? query, int topK, ...)
+```
+
+```csharp
+// New: Weighted-blend final selection
+.WithRag(rag => rag
+    .AddDocument("docs.txt")
+    .WithReranker(new CohereReranker(apiKey))
+    .WithFinalSelectionPolicy(RagFinalSelectionMode.WeightedBlend, retrievalWeight: 0.65)
+)
+```
+
+---
+
+## v5.0.1
 
 ### Breaking Changes (requires Abstractions v4.0.0)
 

@@ -25,7 +25,8 @@ namespace Mythosia.AI.Rag
         internal IVectorStore VectorStore { get; }
 
         /// <summary>
-        /// The query rewriter for multi-turn conversations, or null if disabled.
+        /// The query rewriter used to rewrite queries into retrieval-ready form for
+        /// multi-turn conversations, or null if disabled.
         /// </summary>
         internal IQueryRewriter? QueryRewriter { get; private set; }
 
@@ -65,8 +66,8 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Processes a query through the RAG pipeline with automatic query rewriting
         /// for multi-turn conversations. If a <see cref="QueryRewriter"/> is configured
-        /// and conversation history is provided, the query is rewritten into a standalone
-        /// form before vector search.
+        /// and conversation history is provided, the query is rewritten into retrieval-ready
+        /// form before search, and retrieval-oriented keywords may also be derived.
         /// </summary>
         /// <param name="query">The current user query.</param>
         /// <param name="conversationHistory">Previous conversation turns for context, or null to skip rewriting.</param>
@@ -116,6 +117,12 @@ namespace Mythosia.AI.Rag
                 }
             }
 
+            // Build text search query from extracted keywords when available
+            var keywords = rewriteResult?.Keywords;
+            var textSearchQuery = keywords != null && keywords.Count > 0
+                ? string.Join(" ", keywords)
+                : null;
+
             RagProcessedQuery processed;
             if (searchSkipped)
             {
@@ -126,12 +133,17 @@ namespace Mythosia.AI.Rag
                     new RagQueryDiagnostics());
                 processed.SearchSkipped = true;
             }
+            else if (textSearchQuery != null && Pipeline is RagPipeline concretePipeline)
+            {
+                processed = await concretePipeline.ProcessAsync(searchQuery, textSearchQuery, options, cancellationToken);
+            }
             else
             {
                 processed = await Pipeline.ProcessAsync(searchQuery, options, cancellationToken);
             }
 
             processed.RewriteResult = rewriteResult;
+            processed.SearchKeywords = rewriteResult?.Keywords;
 
             if (rewrittenQuery != null)
             {
@@ -146,7 +158,7 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Sets or clears the query rewriter at runtime.
-        /// Pass null to disable query rewriting.
+        /// Pass null to disable query rewriting and retrieval keyword derivation.
         /// </summary>
         public void SetQueryRewriter(IQueryRewriter? queryRewriter)
         {

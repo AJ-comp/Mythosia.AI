@@ -35,7 +35,6 @@ namespace Mythosia.AI.Rag.Reranking
         public async Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
             string query,
             IReadOnlyList<VectorSearchResult> results,
-            int topK,
             CancellationToken cancellationToken = default)
         {
             if (results.Count == 0)
@@ -50,7 +49,7 @@ namespace Mythosia.AI.Rag.Reranking
                 model = _model,
                 query,
                 documents,
-                top_n = Math.Min(topK, results.Count),
+                top_n = results.Count,
                 return_documents = false
             };
 
@@ -71,13 +70,12 @@ namespace Mythosia.AI.Rag.Reranking
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
-            return ParseRerankResponse(responseJson, results, topK);
+            return ParseRerankResponse(responseJson, results);
         }
 
         private static IReadOnlyList<VectorSearchResult> ParseRerankResponse(
             string responseJson,
-            IReadOnlyList<VectorSearchResult> results,
-            int topK)
+            IReadOnlyList<VectorSearchResult> results)
         {
             using var doc = JsonDocument.Parse(responseJson);
             if (!doc.RootElement.TryGetProperty("results", out var resultsArray))
@@ -97,7 +95,7 @@ namespace Mythosia.AI.Rag.Reranking
                     rerankedResults.Add(new VectorSearchResult(results[index].Record, relevanceScore));
             }
 
-            return rerankedResults.Take(Math.Min(topK, rerankedResults.Count)).ToList();
+            return rerankedResults;
         }
     }
 }

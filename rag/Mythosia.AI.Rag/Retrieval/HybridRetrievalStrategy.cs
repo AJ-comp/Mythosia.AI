@@ -38,16 +38,23 @@ namespace Mythosia.AI.Rag.Retrieval
 
         public async Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
             float[] denseVector,
-            string query,
+            string? lexicalQuery,
             int topK,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
+            // When no lexical query is provided (keywords were null), skip BM25 entirely
+            // and fall back to dense-only search even in hybrid mode.
+            if (string.IsNullOrEmpty(lexicalQuery))
+            {
+                return await _vectorStore.SearchAsync(denseVector, topK, filter, cancellationToken);
+            }
+
             // Native hybrid delegation via IVectorStore contract (if implemented by store)
             try
             {
                 return await _vectorStore.HybridSearchAsync(
-                    denseVector, query, topK, filter, cancellationToken);
+                    denseVector, lexicalQuery, topK, filter, cancellationToken);
             }
             catch (NotSupportedException)
             {
@@ -67,7 +74,7 @@ namespace Mythosia.AI.Rag.Retrieval
             // MinScore is applied after the merge to the final RRF-normalized scores.
             var searchFilter = WithoutMinScore(filter);
             var vectorResults = await _vectorStore.SearchAsync(denseVector, expandedTopK, searchFilter, cancellationToken);
-            var bm25Results = _bm25Index.Search(query, expandedTopK);
+            var bm25Results = _bm25Index.Search(lexicalQuery, expandedTopK);
 
             var merged = RrfMerge(vectorResults, bm25Results, topK);
 

@@ -17,14 +17,14 @@ namespace Mythosia.AI.Rag
         /// Retrieves the most relevant documents for the given query.
         /// </summary>
         /// <param name="denseVector">The dense embedding vector for the query.</param>
-        /// <param name="query">The original text query (used for keyword-based retrieval).</param>
+        /// <param name="query">The text query for keyword-based retrieval. When <c>null</c>, keyword search is skipped and only dense vector search is performed.</param>
         /// <param name="topK">Maximum number of results to return.</param>
         /// <param name="filter">Optional filter criteria.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Results ordered by relevance score (descending).</returns>
         Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
             float[] denseVector,
-            string query,
+            string? query,
             int topK,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default);

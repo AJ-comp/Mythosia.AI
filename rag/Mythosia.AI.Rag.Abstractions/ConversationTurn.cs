@@ -2,8 +2,9 @@ namespace Mythosia.AI.Rag
 {
     /// <summary>
     /// A lightweight representation of a single conversation turn (user or assistant).
-    /// Used by <see cref="IQueryRewriter"/> to provide conversation context without
-    /// depending on Mythosia.AI's Message class.
+    /// Used by <see cref="IQueryRewriter"/> to provide conversation context for
+    /// rewriting queries into retrieval-ready form without depending on
+    /// Mythosia.AI's Message class.
     /// </summary>
     public class ConversationTurn
     {

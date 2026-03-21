@@ -225,6 +225,12 @@ namespace Mythosia.AI.Rag
                 }
             }
 
+            // Build text search query from extracted keywords when available
+            var keywords = rewriteResult?.Keywords;
+            var textSearchQuery = keywords != null && keywords.Count > 0
+                ? string.Join(" ", keywords)
+                : null;
+
             RagProcessedQuery processed;
             if (searchSkipped)
             {
@@ -235,6 +241,10 @@ namespace Mythosia.AI.Rag
                     new RagQueryDiagnostics());
                 processed.SearchSkipped = true;
             }
+            else if (textSearchQuery != null && store.Pipeline is RagPipeline concretePipeline)
+            {
+                processed = await concretePipeline.ProcessAsync(searchQuery, textSearchQuery, options, cancellationToken);
+            }
             else
             {
                 processed = await store.Pipeline.ProcessAsync(searchQuery, options, cancellationToken);
@@ -242,6 +252,7 @@ namespace Mythosia.AI.Rag
 
             processed.RewriteResult = rewriteResult;
             processed.RewrittenQuery = rewrittenQuery;
+            processed.SearchKeywords = rewriteResult?.Keywords;
 
             // Keep the original query in OriginalQuery (not the rewritten one)
             if (rewrittenQuery != null)
@@ -313,7 +324,7 @@ namespace Mythosia.AI.Rag
             {
                 // WithQueryRewriter() was called without a custom implementation;
                 // use the inner AIService as the LLM for rewriting.
-                var rewriter = new LlmQueryRewriter(_innerService);
+                var rewriter = new LlmQueryRewriter(_innerService, _builder.QueryRewriteMaxTokens);
                 _queryRewriter = rewriter;
                 _ragStore.SetQueryRewriter(rewriter);
             }

@@ -46,7 +46,6 @@ namespace Mythosia.AI.Rag.Reranking
         public async Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
             string query,
             IReadOnlyList<VectorSearchResult> results,
-            int topK,
             CancellationToken cancellationToken = default)
         {
             if (results.Count == 0)
@@ -60,7 +59,7 @@ namespace Mythosia.AI.Rag.Reranking
                 model = _model,
                 query = query,
                 documents = documents,
-                top_n = Math.Min(topK, results.Count),
+                top_n = results.Count,
                 return_documents = false
             };
 

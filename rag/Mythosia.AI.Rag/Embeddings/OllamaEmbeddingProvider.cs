@@ -17,7 +17,7 @@ namespace Mythosia.AI.Rag.Embeddings
         private readonly HttpClient _httpClient;
         private readonly string _model;
         private readonly string _baseUrl;
-        private int _dimensions;
+        private readonly int _dimensions;
 
         /// <inheritdoc />
         public int Dimensions => _dimensions;
@@ -37,7 +37,7 @@ namespace Mythosia.AI.Rag.Embeddings
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _model = model;
-            _dimensions = dimensions;
+            _dimensions = dimensions > 0 ? dimensions : throw new ArgumentOutOfRangeException(nameof(dimensions), dimensions, "Dimensions must be a positive integer.");
             _baseUrl = baseUrl?.TrimEnd('/') ?? throw new ArgumentNullException(nameof(baseUrl));
         }
 
@@ -133,8 +133,14 @@ namespace Mythosia.AI.Rag.Embeddings
                 return;
 
             var actualDimensions = vectors[0].Length;
-            if (_dimensions <= 0 || _dimensions != actualDimensions)
-                _dimensions = actualDimensions;
+            if (_dimensions != actualDimensions)
+            {
+                throw new InvalidOperationException(
+                    $"Embedding dimension mismatch: requested {_dimensions} but the server returned {actualDimensions}. " +
+                    $"The Ollama server may not support the 'dimensions' parameter for this model. " +
+                    $"Set dimensions to {actualDimensions} to match the model output, " +
+                    $"or use a model that supports Matryoshka embeddings.");
+            }
         }
     }
 }

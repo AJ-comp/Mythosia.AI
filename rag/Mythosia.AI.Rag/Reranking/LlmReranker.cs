@@ -33,7 +33,6 @@ namespace Mythosia.AI.Rag.Reranking
         public async Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
             string query,
             IReadOnlyList<VectorSearchResult> results,
-            int topK,
             CancellationToken cancellationToken = default)
         {
             if (results.Count == 0)
@@ -65,11 +64,9 @@ namespace Mythosia.AI.Rag.Reranking
             // Parse scores
             var scores = ParseScores(response, results.Count);
 
-            // Pair results with scores, sort by score descending, take topK
             var scored = results
                 .Select((r, i) => new { Result = r, Score = i < scores.Count ? scores[i] : 0.0 })
                 .OrderByDescending(x => x.Score)
-                .Take(topK)
                 .Select(x => new VectorSearchResult(x.Result.Record, x.Score / 10.0))
                 .ToList();
 

@@ -37,6 +37,12 @@ namespace Mythosia.AI.Rag
         public string Namespace { get; set; } = "default";
 
         /// <summary>
+        /// Controls how final references are selected after optional re-ranking.
+        /// Defaults to reranker-only selection for backward compatibility.
+        /// </summary>
+        public RagFinalSelectionOptions FinalSelection { get; set; } = new RagFinalSelectionOptions();
+
+        /// <summary>
         /// Optional async progress callback invoked when the RAG pipeline
         /// enters each processing stage.
         /// </summary>
