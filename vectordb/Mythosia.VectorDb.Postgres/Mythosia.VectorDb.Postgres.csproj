@@ -11,7 +11,7 @@
     <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, persisted content_tsv full-text indexing for hybrid search, pg_trgm trigram-based word_similarity for CJK languages, typed index settings (HNSW/IVFFlat/NoIndex), connection verification, and schema provisioning support.</Description>
     <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v10.3.0: Add VerifyConnectionAsync; Add TextSearchMode (TsVector/Trigram) for configurable hybrid text search ? pg_trgm word_similarity support for CJK languages; Add TextSearchConfig option.</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.3.0: Add VerifyConnectionAsync; Add TextSearchMode (TsVector/Trigram) for configurable hybrid text search ? pg_trgm word_similarity support for CJK languages; Add TextSearchConfig option; TsVector mode now uses OR-based to_tsquery for standard BM25 behavior; Add script boundary normalization for mixed-script tokenization (Latin°ÍHangul/CJK).</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

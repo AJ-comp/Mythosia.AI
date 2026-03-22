@@ -29,8 +29,6 @@ namespace Mythosia.AI.Samples.ChatUi
         Mythosia.AI.Rag.RagRetrievalDerivation? RetrievalDerivation,
         string? PromptTemplate,
         bool? QueryRewriterEnabled,
-        int? QueryRewriteMaxTokens,
-        bool? ExtractKeywords,
         string? RewriterModelOverride,
         string? RewriterApiKey,
         bool? HybridSearchEnabled,
@@ -39,9 +37,7 @@ namespace Mythosia.AI.Samples.ChatUi
         string? RerankProvider,
         string? RerankModel,
         string? RerankBaseUrl,
-        string? RerankApiKey,
-        FinalSelectionRequest? FinalSelection = null);
-    internal record FinalSelectionRequest(string? Mode, double? RetrievalWeight);
+        string? RerankApiKey);
     internal record WhyMissingRequest(string? Query, string? ExpectedText);
     internal record QueryScoresRequest(string? Query, string? ExpectedText);
     internal record VectorStoreConfigRequest(
@@ -59,9 +55,5 @@ namespace Mythosia.AI.Samples.ChatUi
         string? QdrantCollectionName = null,
         string? PineconeIndexHost = null,
         string? PineconeApiKey = null,
-        string? PineconeNamespace = null,
-        string? EmbeddingProvider = null,
-        string? EmbeddingModel = null,
-        int? EmbeddingDimensions = null,
-        string? EmbeddingBaseUrl = null);
+        string? PineconeNamespace = null);
 }

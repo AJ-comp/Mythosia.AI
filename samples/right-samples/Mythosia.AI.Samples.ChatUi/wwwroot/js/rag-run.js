@@ -28,21 +28,12 @@ import {
   ragPineconeNamespace,
   codeModal,
   codeModalContent,
-  codeCopyAll,
-  ragModal,
-  ragEmbedProgress,
-  ragEmbedProgressContent,
-  ragEmbedResultModal,
-  ragEmbedResultTrace,
-  ragTracePanel,
-  ragTraceBackdrop,
-  ragTracePanelTitle,
-  ragTracePanelContent
+  codeCopyAll
 } from './dom.js';
 import { escapeHtml } from './utils.js';
 import { providerKeys } from './state.js';
 import { ragState, setSelectValue, markReferenceStale, setStatusState, setViewCodeEnabled, updateRunState } from './rag-shared.js';
-import { getSelectedEmbeddingProvider } from './rag-embedding.js';
+import { getSelectedEmbeddingProvider, getEmbeddingDefaults } from './rag-embedding.js';
 import { getPipelineSettingsForRequest } from './rag-pipeline.js';
 import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
 import { renderTrace as doRenderTrace, renderLoadingDetails, renderError } from './rag-trace.js';
@@ -93,7 +84,6 @@ export async function runReference() {
   let retrievalMultiplier;
   let promptTemplate;
   let embeddingBaseUrl;
-  let vectorStore;
 
   try {
     settings = getPipelineSettingsForRequest();
@@ -101,20 +91,13 @@ export async function runReference() {
       throw new Error('RAG pipeline settings are required.');
     }
     provider = settings.embeddingProvider.toLowerCase();
-    embeddingModel = settings.embeddingModel;
-    embeddingDimensions = settings.embeddingDimensions;
+    ({ model: embeddingModel, dims: embeddingDimensions } = getEmbeddingDefaults(provider));
     chunker = settings.chunker;
     topK = settings.finalFilter?.topK;
     finalMinScore = settings.finalFilter?.minScore ?? ragMinScore?.value ?? '';
     retrievalMultiplier = settings.retrievalDerivation?.topKMultiplier;
     promptTemplate = settings.promptTemplate ?? ragPromptTemplate?.value ?? '';
     embeddingBaseUrl = settings.embeddingBaseUrl ?? '';
-
-    // Active DB's dimension is the source of truth for embedding
-    vectorStore = getVectorStoreConfigForRequest();
-    if (vectorStore.dimension != null) {
-      embeddingDimensions = vectorStore.dimension;
-    }
 
     if (!chunker) throw new Error('Chunker is required.');
     if (!topK) throw new Error('TopK is required.');
@@ -133,18 +116,6 @@ export async function runReference() {
   ragRun.disabled = true;
   ragStatus.textContent = `Embedding ${files.length} file${files.length > 1 ? 's' : ''} with ${provider.toUpperCase()}...`;
   setStatusState(ragStatus, null);
-
-  // Show progress overlay inside Document Reference modal
-  if (ragEmbedProgress && ragEmbedProgressContent) {
-    ragEmbedProgressContent.innerHTML = renderLoadingDetails({
-      files: files.map((file) => file.name),
-      provider,
-      embeddingModel,
-      chunker,
-      vectorStore: vectorStore.provider
-    });
-    ragEmbedProgress.classList.remove('hidden');
-  }
 
   const formData = new FormData();
   files.forEach((file) => formData.append('files', file));
@@ -177,6 +148,7 @@ export async function runReference() {
     formData.append('openaiApiKey', providerKeys.OpenAI);
   }
 
+  const vectorStore = getVectorStoreConfigForRequest();
   ragTrace.innerHTML = renderLoadingDetails({
     files: files.map((file) => file.name),
     provider,
@@ -195,7 +167,6 @@ export async function runReference() {
     const payload = await res.json().catch(() => null);
 
     if (!res.ok) {
-      if (ragEmbedProgress) ragEmbedProgress.classList.add('hidden');
       const message = payload?.error || 'Failed to build RAG reference.';
       ragStatus.textContent = message;
       setStatusState(ragStatus, 'error');
@@ -206,23 +177,12 @@ export async function runReference() {
 
     ragStatus.textContent = `Ready · ${payload.summary.documentCount} docs · ${payload.summary.chunkCount} chunks`;
     setStatusState(ragStatus, 'success');
-    ragTrace.innerHTML = '<div class="rag-empty">Select a recent reference to view the trace.</div>';
+    doRenderTrace(ragTrace, payload);
     setViewCodeEnabled(true);
     setDiagnoseEnabled(true);
     refreshRagStatus();
     refreshReferenceHistory();
-
-    // Hide progress overlay and close Document Reference modal
-    if (ragEmbedProgress) ragEmbedProgress.classList.add('hidden');
-    if (ragModal) ragModal.classList.add('hidden');
-
-    // Open Embedding Result modal with the trace
-    if (ragEmbedResultModal && ragEmbedResultTrace) {
-      doRenderTrace(ragEmbedResultTrace, payload);
-      ragEmbedResultModal.classList.remove('hidden');
-    }
   } catch (err) {
-    if (ragEmbedProgress) ragEmbedProgress.classList.add('hidden');
     ragStatus.textContent = 'Network error.';
     setStatusState(ragStatus, 'error');
     ragTrace.innerHTML = renderError(err.message || 'Network error');
@@ -326,7 +286,7 @@ export async function refreshReferenceHistory() {
       const config = entry.config || {};
       const configLine = buildHistoryConfigLine(config);
       return `
-        <div class="rag-history-item" data-id="${entry.id}" title="Click to view embedding trace">
+        <div class="rag-history-item">
           <div class="rag-history-title-row">
             <span class="rag-history-sources">${escapeHtml(sources)}</span>
             <span class="rag-history-time">${escapeHtml(createdAt)}</span>
@@ -337,17 +297,6 @@ export async function refreshReferenceHistory() {
       `;
     })
     .join('');
-
-    // Attach click delegation for history items
-    ragHistoryList.querySelectorAll('.rag-history-item[data-id]').forEach((item) => {
-      item.addEventListener('click', () => {
-        const id = item.dataset.id;
-        const title = item.querySelector('.rag-history-sources')?.textContent || 'Embedding Trace';
-        ragHistoryList.querySelectorAll('.rag-history-item').forEach((el) => el.classList.remove('active'));
-        item.classList.add('active');
-        openHistoryTrace(id, title);
-      });
-    });
   } catch (err) {
     ragHistoryList.innerHTML = `<div class="rag-empty">${escapeHtml(err.message || 'Failed to load history.')}</div>`;
   }
@@ -365,31 +314,6 @@ function buildHistoryConfigLine(config) {
   const template = config.promptTemplate ? 'Template' : 'Default prompt';
 
   return `TopK ${topK} · MinScore ${minScore} · Chunk ${chunkSize}/${overlap} · ${chunker} · ${embed}:${model} · ${template}`;
-}
-
-// ── History Trace Slide Panel ─────────────────────────────────
-async function openHistoryTrace(id, title) {
-  if (!ragTracePanel || !ragTracePanelContent) return;
-  if (ragTracePanelTitle) ragTracePanelTitle.textContent = title || 'Embedding Trace';
-  ragTracePanelContent.innerHTML = '<div class="rag-empty">Loading trace…</div>';
-  ragTracePanel.classList.add('open');
-  ragTraceBackdrop?.classList.add('open');
-
-  try {
-    const res = await fetch(`/api/rag/reference-history/${id}/trace`);
-    const payload = await res.json().catch(() => null);
-    if (!res.ok) {
-      throw new Error(payload?.error || 'Failed to load trace.');
-    }
-    doRenderTrace(ragTracePanelContent, payload);
-  } catch (err) {
-    ragTracePanelContent.innerHTML = renderError(err.message || 'Failed to load trace.');
-  }
-}
-
-export function closeTracePanel() {
-  ragTracePanel?.classList.remove('open');
-  ragTraceBackdrop?.classList.remove('open');
 }
 
 // ── Code Modal ───────────────────────────────────────────────

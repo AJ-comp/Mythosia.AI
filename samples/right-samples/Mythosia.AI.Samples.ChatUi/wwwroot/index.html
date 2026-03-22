@@ -370,11 +370,10 @@
     </div>
   </div>
 
-  <!-- ═══ RAG Pipeline Settings Slide Panel ═══ -->
-  <div id="rag-settings-backdrop" class="rag-slide-backdrop"></div>
-  <aside id="rag-settings-modal" class="rag-slide-panel">
-    <div class="rag-slide-panel-inner">
-      <div class="rag-slide-panel-header">
+  <!-- ═══ RAG Pipeline Settings Modal ═══ -->
+  <div id="rag-settings-modal" class="modal-overlay hidden">
+    <div class="modal-card rag-settings-card">
+      <div class="modal-header">
         <h3>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
           RAG Pipeline Settings
@@ -384,7 +383,7 @@
         </button>
       </div>
       <div id="rag-settings-alert" class="rag-settings-alert hidden"></div>
-      <div class="rag-slide-panel-body">
+      <div class="modal-body rag-settings-body">
         <div class="pipe-timeline">
 
           <!-- ① Query Rewrite -->
@@ -400,18 +399,6 @@
             <div class="pipe-step-body">
               <div id="rag-rewriter-options" class="rag-settings-sub-options">
                 <div class="rag-hint" style="margin-top:0">Rewrites follow-up queries into standalone queries before embedding.</div>
-                <div class="rag-field rag-rewriter-sub">
-                  <label>Max Tokens</label>
-                  <input id="rag-rewriter-max-tokens" type="number" min="32" max="2048" value="250" step="1" />
-                  <div class="rag-hint">Maximum tokens for the rewriter LLM response.</div>
-                </div>
-                <div class="rag-field rag-rewriter-sub">
-                  <label class="rag-toggle-label">
-                    <input id="rag-extract-keywords" type="checkbox" checked />
-                    <span>Extract keywords for BM25/hybrid search</span>
-                  </label>
-                  <div class="rag-hint">When enabled, the rewriter also extracts retrieval-oriented keywords for the text search leg of hybrid search.</div>
-                </div>
                 <div id="rag-rewriter-override-row" class="rag-field rag-rewriter-sub">
                   <label class="rag-toggle-label">
                     <input id="rag-rewriter-override" type="checkbox" />
@@ -512,7 +499,7 @@
                     </select>
                   </div>
                   <div class="rag-model-dimensions">
-                    <input id="rag-openai-dimensions" type="number" value="1536" min="1" />
+                    <input id="rag-openai-dimensions" type="text" value="1536" readonly disabled />
                   </div>
                 </div>
               </div>
@@ -544,7 +531,7 @@
                     </select>
                   </div>
                   <div class="rag-model-dimensions">
-                    <input id="rag-ollama-dimensions" type="number" value="2560" min="1" />
+                    <input id="rag-ollama-dimensions" type="text" value="2560" readonly disabled />
                   </div>
                 </div>
               </div>
@@ -576,7 +563,7 @@
                     </select>
                   </div>
                   <div class="rag-model-dimensions">
-                    <input id="rag-vllm-dimensions" type="number" value="1024" min="1" />
+                    <input id="rag-vllm-dimensions" type="text" value="1024" readonly disabled />
                   </div>
                 </div>
               </div>
@@ -703,7 +690,6 @@
                       <button id="rag-pg-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
                       <span id="rag-pg-status" class="rag-hint"></span>
                     </div>
-                    <div id="rag-pg-warnings" class="rag-schema-warnings hidden"></div>
                   </div>
                   <div id="rag-qdrant-config" class="hidden" style="margin-top:8px">
                     <div class="rag-grid">
@@ -741,7 +727,6 @@
                       <button id="rag-qdrant-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
                       <span id="rag-qdrant-status" class="rag-hint"></span>
                     </div>
-                    <div id="rag-qdrant-warnings" class="rag-schema-warnings hidden"></div>
                   </div>
                   <div id="rag-pinecone-config" class="hidden" style="margin-top:8px">
                     <div class="rag-field rag-field-wide">
@@ -763,11 +748,9 @@
                       <button id="rag-pinecone-disconnect" class="btn btn-ghost btn-sm hidden">Disconnect</button>
                       <span id="rag-pinecone-status" class="rag-hint"></span>
                     </div>
-                    <div id="rag-pinecone-warnings" class="rag-schema-warnings hidden"></div>
                   </div>
                 </div>
-                <!-- Hybrid Search + Retrieval params (side-by-side) -->
-                <div class="pipe-settings-row">
+                <!-- Hybrid Search -->
                 <div class="pipe-settings-block">
                   <div class="pipe-settings-block-header">
                     <span class="pipe-settings-block-title">Hybrid Search</span>
@@ -805,7 +788,6 @@
                     </div>
                   </div>
                   <div class="rag-hint">Auto-calculated from Filtering (TopK, MinScore) and Re-ranking settings (multiplier, divider).</div>
-                </div>
                 </div>
               </div>
             </div>
@@ -849,95 +831,75 @@
                   <input id="rag-rerank-apikey" type="password" placeholder="Enter Cohere API key" autocomplete="off" />
                   <div class="rag-hint">Required for Cohere re-ranking service.</div>
                 </div>
-                <div class="rag-grid">
-                  <div class="rag-field">
-                    <label>Retrieval multiplier</label>
-                    <div class="rag-model-row">
-                      <input id="rag-retrieval-multiplier" class="rag-model-row-select" type="number" value="3" min="1" max="10" />
-                      <div class="rag-model-dimensions rag-model-dimensions-wide">
-                        <input id="rag-rerank-candidate-topk" type="text" value="24" readonly disabled />
-                      </div>
+                <div class="rag-field">
+                  <label>Retrieval multiplier</label>
+                  <div class="rag-model-row">
+                    <input id="rag-retrieval-multiplier" class="rag-model-row-select" type="number" value="3" min="1" max="10" />
+                    <div class="rag-model-dimensions rag-model-dimensions-wide">
+                      <input id="rag-rerank-candidate-topk" type="text" value="24" readonly disabled />
                     </div>
-                    <div class="rag-hint">Fetches TopK × this many candidates, then re-ranks down to TopK.</div>
                   </div>
-                  <div class="rag-field">
-                    <label>Min score divider</label>
-                    <div class="rag-model-row">
-                      <input id="rag-min-score-divider" class="rag-model-row-select" type="number" value="3" min="1" max="10" />
-                      <div class="rag-model-dimensions rag-model-dimensions-wide">
-                        <input id="rag-rerank-derived-min-score" type="text" value="" readonly disabled />
-                      </div>
+                  <div class="rag-hint">Fetches TopK × this many candidates, then re-ranks down to TopK.</div>
+                </div>
+                <div class="rag-field">
+                  <label>Min score divider</label>
+                  <div class="rag-model-row">
+                    <input id="rag-min-score-divider" class="rag-model-row-select" type="number" value="3" min="1" max="10" />
+                    <div class="rag-model-dimensions rag-model-dimensions-wide">
+                      <input id="rag-rerank-derived-min-score" type="text" value="" readonly disabled />
                     </div>
-                    <div class="rag-hint">Retrieval min score = MinScore ÷ this divider, allowing a looser filter before re-ranking.</div>
                   </div>
+                  <div class="rag-hint">Retrieval min score = MinScore ÷ this divider, allowing a looser filter before re-ranking.</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- ⑤ Filtering + ⑥ Prompt Template (side-by-side) -->
-          <div class="pipe-step-pair">
-            <div class="pipe-step">
-              <div class="pipe-step-header">
-                <span class="pipe-step-num">5</span>
-                <span class="pipe-step-title">Filtering</span>
-                <span class="pipe-badge pipe-badge--info">TopK &amp; MinScore</span>
-              </div>
-              <div class="pipe-step-body">
-                <div class="rag-grid">
-                  <div class="rag-field">
-                    <label>Top K</label>
-                    <input id="rag-topk" type="number" value="8" min="1" max="50" />
-                  </div>
-                  <div class="rag-field">
-                    <label>Min score</label>
-                    <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.4" placeholder="0.0" />
-                  </div>
-                </div>
-                <div class="rag-hint">Results below the min score or beyond Top K are excluded before building the prompt.</div>
-                <div class="rag-field rag-field-wide" style="margin-top:8px">
-                  <label>Final selection mode</label>
-                  <select id="rag-final-selection-mode">
-                    <option value="RerankerOnly" selected>Reranker scores only</option>
-                    <option value="WeightedBlend">Weighted blend (Retrieval + Reranker)</option>
-                  </select>
-                  <div class="rag-hint">How final references are chosen after re-ranking. Weighted blend combines retrieval and reranker scores.</div>
-                </div>
-                <div id="rag-final-selection-weight-row" class="rag-field rag-field-wide hidden">
-                  <label>Retrieval weight <span id="rag-final-selection-weight-val" class="rag-range-val">0.65</span></label>
-                  <input id="rag-final-selection-weight" type="range" min="0" max="1" step="0.05" value="0.65" />
-                  <div class="rag-range-labels">
-                    <span>Reranker</span>
-                    <span>Balanced</span>
-                    <span>Retrieval</span>
-                  </div>
-                  <div class="rag-hint">Balance between retrieval and reranker scores. Higher values trust initial retrieval more.</div>
-                </div>
-              </div>
+          <!-- ⑤ Filtering -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">5</span>
+              <span class="pipe-step-title">Filtering</span>
+              <span class="pipe-badge pipe-badge--info">TopK &amp; MinScore</span>
             </div>
-            <div class="pipe-step">
-              <div class="pipe-step-header">
-                <span class="pipe-step-num">6</span>
-                <span class="pipe-step-title">Prompt Template</span>
-                <span class="pipe-badge pipe-badge--info">Context format</span>
-              </div>
-              <div class="pipe-step-body">
+            <div class="pipe-step-body">
+              <div class="rag-grid">
                 <div class="rag-field">
-                  <textarea id="rag-prompt-template" rows="4" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
-                  <div class="rag-hint">Leave empty for default. Use {context} and {question} placeholders.</div>
+                  <label>Top K</label>
+                  <input id="rag-topk" type="number" value="8" min="1" max="50" />
                 </div>
+                <div class="rag-field">
+                  <label>Min score</label>
+                  <input id="rag-min-score" type="number" min="0" max="1" step="0.01" value="0.4" placeholder="0.0" />
+                </div>
+              </div>
+              <div class="rag-hint">Results below the min score or beyond Top K are excluded before building the prompt.</div>
+            </div>
+          </div>
+
+          <!-- ⑥ Prompt Template -->
+          <div class="pipe-step">
+            <div class="pipe-step-header">
+              <span class="pipe-step-num">6</span>
+              <span class="pipe-step-title">Prompt Template</span>
+              <span class="pipe-badge pipe-badge--info">Context format</span>
+            </div>
+            <div class="pipe-step-body">
+              <div class="rag-field">
+                <textarea id="rag-prompt-template" rows="4" placeholder="[Reference]\n{context}\n\nQuestion: {question}"></textarea>
+                <div class="rag-hint">Leave empty for default. Use {context} and {question} placeholders.</div>
               </div>
             </div>
           </div>
 
         </div>
       </div>
-      <div class="rag-slide-panel-footer">
+      <div class="modal-footer rag-settings-footer">
         <span id="rag-settings-status" class="rag-settings-status"></span>
         <button id="rag-settings-save" class="btn btn-primary btn-sm">Save Settings</button>
       </div>
     </div>
-  </aside>
+  </div>
 
   <!-- ═══ RAG Reference Modal ═══ -->
   <div id="rag-modal" class="modal-overlay hidden">
@@ -956,10 +918,6 @@
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-      </div>
-      <!-- Embedding progress overlay (shown during Run Reference) -->
-      <div id="rag-embed-progress" class="rag-embed-progress hidden">
-        <div id="rag-embed-progress-content" class="rag-embed-progress-content"></div>
       </div>
       <div class="modal-body rag-modal-body">
         <!-- ── LEFT: Documents + History + Run ── -->
@@ -983,7 +941,7 @@
         </div>
         <!-- ── CENTER: Analysis Results ── -->
         <div id="rag-trace" class="rag-trace">
-          <div class="rag-empty">Upload documents and run reference, or select a recent reference to view the trace.</div>
+          <div class="rag-empty">Upload documents to see the indexing trace.</div>
         </div>
         <!-- ── RIGHT: Indexing Settings ── -->
         <div class="rag-settings-panel">
@@ -1033,52 +991,6 @@
             <div class="rag-hint" style="margin-top:4px">Vector store settings are configured in RAG Pipeline Settings → Retrieval.</div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ History Trace Detail Slide Panel ═══ -->
-  <div id="rag-trace-backdrop" class="rag-slide-backdrop"></div>
-  <aside id="rag-trace-panel" class="rag-slide-panel rag-trace-slide-panel">
-    <div class="rag-slide-panel-inner">
-      <div class="rag-slide-panel-header">
-        <h3>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <span id="rag-trace-panel-title">Embedding Trace</span>
-        </h3>
-        <button id="rag-trace-panel-close" class="btn-icon" title="Close">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="rag-slide-panel-body">
-        <div id="rag-trace-panel-content" class="rag-trace"></div>
-      </div>
-    </div>
-  </aside>
-
-  <!-- ═══ Embedding Result Modal ═══ -->
-  <div id="rag-embed-result-modal" class="modal-overlay hidden">
-    <div class="modal-card rag-embed-result-card">
-      <div class="modal-header">
-        <h3>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          Embedding Complete
-        </h3>
-        <div class="rag-header-actions">
-          <button id="rag-result-view-code" class="btn btn-secondary btn-sm rag-view-code-btn">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px">
-              <polyline points="16 18 22 12 16 6"/>
-              <polyline points="8 6 2 12 8 18"/>
-            </svg>
-            View Code
-          </button>
-          <button id="rag-embed-result-close" class="btn-icon" title="Close">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="modal-body rag-embed-result-body">
-        <div id="rag-embed-result-trace" class="rag-trace"></div>
       </div>
     </div>
   </div>

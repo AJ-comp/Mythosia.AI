@@ -32,9 +32,4 @@
 @media (max-width: 860px) {
   .app { grid-template-columns: 1fr; }
   .sidebar { display: none; }
-  .rag-slide-panel { width: 100vw; }
-  .pipe-step-pair,
-  .pipe-settings-row {
-    grid-template-columns: 1fr;
-  }
 }

@@ -18,7 +18,6 @@ import {
   ragPgConnect,
   ragPgDisconnect,
   ragPgStatus,
-  ragPgWarnings,
   ragQdrantConfig,
   ragQdrantHost,
   ragQdrantPort,
@@ -29,60 +28,17 @@ import {
   ragQdrantConnect,
   ragQdrantDisconnect,
   ragQdrantStatus,
-  ragQdrantWarnings,
   ragPineconeConfig,
   ragPineconeIndexHost,
   ragPineconeApiKey,
   ragPineconeNamespace,
   ragPineconeConnect,
   ragPineconeDisconnect,
-  ragPineconeStatus,
-  ragPineconeWarnings,
-  ragEmbeddingBaseUrl,
-  ragVllmBaseUrl
+  ragPineconeStatus
 } from './dom.js';
 import { providerKeys } from './state.js';
 import { ragState, setSelectValue, markReferenceStale, setStatusState, updateRunState } from './rag-shared.js';
 import { refreshRagStatus, updateVectorDbStatus } from './rag-run.js';
-import { getSelectedEmbeddingProvider, getEmbeddingDefaults, getSelectedEmbeddingDimensions } from './rag-embedding.js';
-
-// ── Embedding Snapshot Helper ────────────────────────────────
-function getEmbeddingSnapshot() {
-  try {
-    const provider = getSelectedEmbeddingProvider();
-    const { model } = getEmbeddingDefaults(provider);
-    const dimensions = getSelectedEmbeddingDimensions();
-    const baseUrl = provider === 'vllm'
-      ? ragVllmBaseUrl?.value?.trim() || ''
-      : ragEmbeddingBaseUrl?.value?.trim() || '';
-    return { embeddingProvider: provider, embeddingModel: model, embeddingDimensions: dimensions, embeddingBaseUrl: baseUrl };
-  } catch {
-    return {};
-  }
-}
-
-// ── Schema Warning Helpers ───────────────────────────────────
-function renderSchemaWarnings(container, warnings) {
-  if (!container) return;
-  container.innerHTML = '';
-  if (!warnings || warnings.length === 0) {
-    container.classList.add('hidden');
-    return;
-  }
-  for (const msg of warnings) {
-    const item = document.createElement('div');
-    item.className = 'rag-schema-warning-item';
-    item.textContent = msg;
-    container.appendChild(item);
-  }
-  container.classList.remove('hidden');
-}
-
-function clearSchemaWarnings(container) {
-  if (!container) return;
-  container.innerHTML = '';
-  container.classList.add('hidden');
-}
 
 // ── Active Provider Persistence ──────────────────────────────
 const ACTIVE_PROVIDER_KEY = 'rag_active_provider';
@@ -120,19 +76,16 @@ export async function switchToInMemory() {
     ragPgStatus.textContent = '';
     setStatusState(ragPgStatus, null);
   }
-  clearSchemaWarnings(ragPgWarnings);
   if (ragQdrantConnect) ragQdrantConnect.textContent = 'Connect';
   if (ragQdrantStatus) {
     ragQdrantStatus.textContent = '';
     setStatusState(ragQdrantStatus, null);
   }
-  clearSchemaWarnings(ragQdrantWarnings);
   if (ragPineconeConnect) ragPineconeConnect.textContent = 'Connect';
   if (ragPineconeStatus) {
     ragPineconeStatus.textContent = '';
     setStatusState(ragPineconeStatus, null);
   }
-  clearSchemaWarnings(ragPineconeWarnings);
   updateVectorDbStatus();
   updateRunState();
   refreshRagStatus();
@@ -376,7 +329,6 @@ export async function connectPostgres() {
     ragPgStatus.textContent = 'Connecting...';
     setStatusState(ragPgStatus, null);
   }
-  clearSchemaWarnings(ragPgWarnings);
 
   const dimension = parseInt(ragPgDimension?.value, 10);
   const tableName = ragPgTable?.value?.trim();
@@ -405,8 +357,7 @@ export async function connectPostgres() {
     schemaName,
     dimension,
     ensureSchema: !!ragPgEnsureSchema?.checked,
-    openAiApiKey: providerKeys?.OpenAI || null,
-    ...getEmbeddingSnapshot()
+    openAiApiKey: providerKeys?.OpenAI || null
   };
   const storagePayload = {
     ...payload,
@@ -429,15 +380,13 @@ export async function connectPostgres() {
     ragState.pgConnected = true;
     savePgToStorage(storagePayload);
     saveLastActiveProvider('postgres');
-    const hasSchemaWarnings = data.schemaWarnings && data.schemaWarnings.length > 0;
     const statusMsg = data.warning
       ? `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension}) ⚠️ ${data.warning}`
       : `Connected · ${data.schemaName}.${data.tableName} (dim=${data.dimension})`;
     if (ragPgStatus) {
       ragPgStatus.textContent = statusMsg;
-      setStatusState(ragPgStatus, (data.warning || hasSchemaWarnings) ? 'warning' : 'success');
+      setStatusState(ragPgStatus, data.warning ? 'warning' : 'success');
     }
-    renderSchemaWarnings(ragPgWarnings, data.schemaWarnings);
     if (ragPgConnect) ragPgConnect.textContent = 'Reconnect';
     updatePgDisconnectVisibility();
     updateRunState();
@@ -447,7 +396,6 @@ export async function connectPostgres() {
     ragState.pgConnected = false;
     updatePgDisconnectVisibility();
     updateVectorDbStatus();
-    clearSchemaWarnings(ragPgWarnings);
     if (ragPgStatus) {
       ragPgStatus.textContent = err.message || 'Connection failed.';
       setStatusState(ragPgStatus, 'error');
@@ -480,7 +428,6 @@ export async function disconnectPostgres() {
       ragPgStatus.textContent = '';
       setStatusState(ragPgStatus, null);
     }
-    clearSchemaWarnings(ragPgWarnings);
     updateVectorStoreUI();
     updatePgDisconnectVisibility();
     refreshRagStatus();
@@ -544,7 +491,6 @@ export async function connectQdrant() {
     ragQdrantStatus.textContent = 'Connecting...';
     setStatusState(ragQdrantStatus, null);
   }
-  clearSchemaWarnings(ragQdrantWarnings);
 
   const rawHost = ragQdrantHost?.value?.trim();
   const port = parseInt(ragQdrantPort?.value, 10);
@@ -595,8 +541,7 @@ export async function connectQdrant() {
     qdrantUseTls: !!ragQdrantUseTls?.checked,
     dimension,
     qdrantCollectionName: collectionName,
-    openAiApiKey: providerKeys?.OpenAI || null,
-    ...getEmbeddingSnapshot()
+    openAiApiKey: providerKeys?.OpenAI || null
   };
   const storagePayload = {
     provider: 'qdrant',
@@ -620,15 +565,13 @@ export async function connectQdrant() {
     ragState.qdrantConnected = true;
     saveQdrantToStorage(storagePayload);
     saveLastActiveProvider('qdrant');
-    const hasSchemaWarnings = data.schemaWarnings && data.schemaWarnings.length > 0;
     const statusMsg = data.warning
       ? `Connected · ${data.host}:${data.port} (dim=${data.dimension}) ⚠️ ${data.warning}`
       : `Connected · ${data.host}:${data.port} (dim=${data.dimension})`;
     if (ragQdrantStatus) {
       ragQdrantStatus.textContent = statusMsg;
-      setStatusState(ragQdrantStatus, (data.warning || hasSchemaWarnings) ? 'warning' : 'success');
+      setStatusState(ragQdrantStatus, data.warning ? 'warning' : 'success');
     }
-    renderSchemaWarnings(ragQdrantWarnings, data.schemaWarnings);
     if (ragQdrantConnect) ragQdrantConnect.textContent = 'Reconnect';
     updateQdrantDisconnectVisibility();
     updateRunState();
@@ -638,7 +581,6 @@ export async function connectQdrant() {
     ragState.qdrantConnected = false;
     updateQdrantDisconnectVisibility();
     updateVectorDbStatus();
-    clearSchemaWarnings(ragQdrantWarnings);
     if (ragQdrantStatus) {
       ragQdrantStatus.textContent = err.message || 'Connection failed.';
       setStatusState(ragQdrantStatus, 'error');
@@ -671,7 +613,6 @@ export async function disconnectQdrant() {
       ragQdrantStatus.textContent = '';
       setStatusState(ragQdrantStatus, null);
     }
-    clearSchemaWarnings(ragQdrantWarnings);
     updateVectorStoreUI();
     updateQdrantDisconnectVisibility();
     refreshRagStatus();
@@ -731,7 +672,6 @@ export async function connectPinecone() {
     ragPineconeStatus.textContent = 'Connecting...';
     setStatusState(ragPineconeStatus, null);
   }
-  clearSchemaWarnings(ragPineconeWarnings);
 
   const pineconeIndexHost = ragPineconeIndexHost?.value?.trim();
   const pineconeApiKey = ragPineconeApiKey?.value?.trim();
@@ -750,8 +690,7 @@ export async function connectPinecone() {
     pineconeIndexHost,
     pineconeApiKey,
     pineconeNamespace,
-    openAiApiKey: providerKeys?.OpenAI || null,
-    ...getEmbeddingSnapshot()
+    openAiApiKey: providerKeys?.OpenAI || null
   };
   const storagePayload = {
     provider: 'pinecone',
@@ -773,15 +712,13 @@ export async function connectPinecone() {
     savePineconeToStorage(storagePayload);
     saveLastActiveProvider('pinecone');
     const connectedNs = data?.namespace ?? payload.pineconeNamespace;
-    const hasSchemaWarnings = data?.schemaWarnings && data.schemaWarnings.length > 0;
     const statusMsg = data?.warning
       ? `Connected · ${payload.pineconeIndexHost} · ns=${connectedNs} ⚠️ ${data.warning}`
       : `Connected · ${payload.pineconeIndexHost} · ns=${connectedNs}`;
     if (ragPineconeStatus) {
       ragPineconeStatus.textContent = statusMsg;
-      setStatusState(ragPineconeStatus, (data?.warning || hasSchemaWarnings) ? 'warning' : 'success');
+      setStatusState(ragPineconeStatus, data?.warning ? 'warning' : 'success');
     }
-    renderSchemaWarnings(ragPineconeWarnings, data?.schemaWarnings);
     if (ragPineconeConnect) ragPineconeConnect.textContent = 'Reconnect';
     updatePineconeDisconnectVisibility();
     updateRunState();
@@ -791,7 +728,6 @@ export async function connectPinecone() {
     ragState.pineconeConnected = false;
     updatePineconeDisconnectVisibility();
     updateVectorDbStatus();
-    clearSchemaWarnings(ragPineconeWarnings);
     if (ragPineconeStatus) {
       ragPineconeStatus.textContent = err.message || 'Connection failed.';
       setStatusState(ragPineconeStatus, 'error');
@@ -824,7 +760,6 @@ export async function disconnectPinecone() {
       ragPineconeStatus.textContent = '';
       setStatusState(ragPineconeStatus, null);
     }
-    clearSchemaWarnings(ragPineconeWarnings);
     updateVectorStoreUI();
     updatePineconeDisconnectVisibility();
     refreshRagStatus();

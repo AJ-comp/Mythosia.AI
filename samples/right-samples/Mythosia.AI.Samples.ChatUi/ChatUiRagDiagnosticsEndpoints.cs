@@ -32,14 +32,6 @@ namespace Mythosia.AI.Samples.ChatUi
                 return Results.Ok(new { history });
             });
 
-            app.MapGet("/api/rag/reference-history/{id:guid}/trace", (Guid id) =>
-            {
-                var trace = ragState.GetHistoryTrace(id);
-                if (trace == null)
-                    return Results.NotFound(new { error = "History entry not found." });
-                return Results.Ok(trace);
-            });
-
             app.MapGet("/api/rag/diagnose/health-check", async (CancellationToken ct) =>
             {
                 if (ragState.Store == null)

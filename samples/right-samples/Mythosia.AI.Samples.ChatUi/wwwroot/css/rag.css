@@ -7,134 +7,9 @@
   width: min(1520px, 96vw);
   max-height: 88vh;
 }
-/* ── RAG Pipeline Slide Panel ─────────────────────────────── */
-.rag-slide-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.25);
-  backdrop-filter: blur(6px);
-  z-index: 1000;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-}
-.rag-slide-backdrop.open {
-  opacity: 1;
-  pointer-events: auto;
-}
-.rag-slide-panel {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(780px, 92vw);
-  z-index: 1001;
-  transform: translateX(100%);
-  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-  pointer-events: none;
-}
-.rag-slide-panel.open {
-  transform: translateX(0);
-  pointer-events: auto;
-}
-.rag-slide-panel-inner {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--bg-secondary);
-  border-left: 1px solid var(--border-light);
-  box-shadow: -8px 0 40px rgba(0,0,0,.10);
-}
-.rag-slide-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.rag-slide-panel-header h3 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.rag-slide-panel-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.rag-slide-panel-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 14px 20px;
-  border-top: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-/* ── Accordion collapse for pipeline steps in slide panel ── */
-.rag-slide-panel .pipe-step-header {
-  cursor: pointer;
-  user-select: none;
-}
-.rag-slide-panel .pipe-step-header::after {
-  content: '';
-  display: block;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid var(--text-muted);
-  border-bottom: 2px solid var(--text-muted);
-  transform: rotate(45deg);
-  transition: transform 0.25s ease;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-.rag-slide-panel .pipe-step.collapsed .pipe-step-header::after {
-  transform: rotate(-45deg);
-}
-.rag-slide-panel .pipe-step-body {
-  overflow: hidden;
-  max-height: 2000px;
-  opacity: 1;
-  transition: max-height 0.35s ease, opacity 0.25s ease, margin 0.25s ease, padding 0.25s ease;
-}
-.rag-slide-panel .pipe-step.collapsed .pipe-step-body {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  margin-bottom: 0;
-  border-color: transparent;
-}
-
-/* ── 2-column grid for compact steps (⑤ + ⑥) ──────────── */
-.pipe-step-pair {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 20px;
-  overflow: visible;
-}
-.pipe-step-pair .pipe-step {
-  padding-bottom: 0;
-  padding-left: 44px;
-  overflow: visible;
-}
-.pipe-step-pair .pipe-step::before {
-  display: none;
-}
-/* Hide connector from the step just before the pair */
-.rag-slide-panel .pipe-step:has(+ .pipe-step-pair)::before {
-  display: none;
-}
-/* ── Side-by-side sub-blocks within a step ──────────────── */
-.pipe-settings-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+.rag-settings-card {
+  width: min(720px, 94vw);
+  max-height: 88vh;
 }
 .rag-settings-grid {
   display: grid;
@@ -265,77 +140,13 @@ input[type="range"]::-moz-range-thumb {
   min-height: 420px;
   overflow: hidden;
 }
-
-/* ── Embedding Progress Overlay (inside rag-modal) ──────── */
-.rag-embed-progress {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  background: var(--bg-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-lg);
-}
-.rag-embed-progress.hidden { display: none; }
-.rag-embed-progress-content {
-  width: 100%;
-  max-width: 600px;
-  padding: 32px;
-}
-.rag-modal-card { position: relative; }
-
-/* ── Embedding Result Modal ─────────────────────────────── */
-#rag-embed-result-modal {
-  z-index: 1050;
-}
-.rag-embed-result-card {
-  width: min(1200px, 94vw);
-  max-height: 88vh;
-}
-.rag-embed-result-body {
-  padding: 18px;
-  height: 72vh;
-  min-height: 420px;
-  overflow-y: auto;
-}
-.rag-embed-result-body .rag-trace {
-  height: 100%;
-  overflow-y: auto;
-}
-
-#rag-embed-result-modal .rag-view-code-btn {
-  display: inline-flex;
-}
-
-/* ── History Trace Slide Panel ──────────────────────────── */
-.rag-trace-slide-panel {
-  width: min(960px, 92vw);
-  z-index: 1060;
-}
-#rag-trace-backdrop {
-  z-index: 1055;
-}
-.rag-trace-slide-panel .rag-slide-panel-body {
-  padding: 18px;
-}
-.rag-trace-slide-panel .rag-trace {
-  height: 100%;
-  overflow-y: auto;
-}
-
-/* ── Clickable history items ────────────────────────────── */
-.rag-history-item {
-  cursor: pointer;
-}
-.rag-history-item.active {
-  border-color: var(--accent);
-  background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(56, 189, 248, 0.06));
-}
 .rag-settings-body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  padding: 18px;
+  max-height: 70vh;
+  overflow-y: auto;
 }
 .rag-settings-section {
   border: 1px solid var(--border);
@@ -373,7 +184,6 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 10px;
   font-size: 12px;
   line-height: 1.45;
-  flex-shrink: 0;
 }
 .rag-settings-alert.hidden {
   display: none;
@@ -493,32 +303,6 @@ input[type="range"]::-moz-range-thumb {
   color: var(--warning);
   background: rgba(245, 158, 11, 0.12);
   border: 1px solid rgba(245, 158, 11, 0.25);
-}
-.rag-schema-warnings {
-  margin-top: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.rag-schema-warnings.hidden {
-  display: none;
-}
-.rag-schema-warning-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  font-size: 0.82rem;
-  line-height: 1.35;
-  color: #92600a;
-  background: rgba(245, 158, 11, 0.10);
-  border: 1px solid rgba(245, 158, 11, 0.30);
-}
-.rag-schema-warning-item::before {
-  content: "⚠";
-  flex-shrink: 0;
-  font-size: 0.9rem;
 }
 .rag-file-list {
   margin-top: 10px;

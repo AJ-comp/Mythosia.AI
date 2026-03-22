@@ -68,7 +68,6 @@ export const alibabaStatus       = $('#alibaba-status');
 export const ragModal        = $('#rag-modal');
 export const ragModalClose   = $('#rag-modal-close');
 export const ragSettingsModal = $('#rag-settings-modal');
-export const ragSettingsBackdrop = $('#rag-settings-backdrop');
 export const ragSettingsClose = $('#rag-settings-close');
 export const ragSettingsSave  = $('#rag-settings-save');
 export const ragSettingsAlert = $('#rag-settings-alert');
@@ -115,8 +114,6 @@ export const ragTopK         = $('#rag-topk');
 export const ragMinScore     = $('#rag-min-score');
 export const ragPromptTemplate = $('#rag-prompt-template');
 export const ragQueryRewriter  = $('#rag-query-rewriter');
-export const ragRewriterMaxTokens   = $('#rag-rewriter-max-tokens');
-export const ragExtractKeywords     = $('#rag-extract-keywords');
 export const ragRewriterOverride    = $('#rag-rewriter-override');
 export const ragRewriterOverrideRow = $('#rag-rewriter-override-row');
 export const ragRewriterModelRow    = $('#rag-rewriter-model-row');
@@ -143,10 +140,6 @@ export const ragMinScoreDivider     = $('#rag-min-score-divider');
 export const ragRerankDerivedMinScore = $('#rag-rerank-derived-min-score');
 export const ragRetrievalTopK       = $('#rag-retrieval-topk');
 export const ragRetrievalMinScore   = $('#rag-retrieval-min-score');
-export const ragFinalSelectionMode  = $('#rag-final-selection-mode');
-export const ragFinalSelectionWeightRow = $('#rag-final-selection-weight-row');
-export const ragFinalSelectionWeight = $('#rag-final-selection-weight');
-export const ragFinalSelectionWeightVal = $('#rag-final-selection-weight-val');
 
 // RAG Vector Store
 export const ragVectorStoreProvider = $('#rag-vectorstore-provider');
@@ -164,7 +157,6 @@ export const ragPgEnsureSchema = $('#rag-pg-ensure-schema');
 export const ragPgConnect    = $('#rag-pg-connect');
 export const ragPgDisconnect = $('#rag-pg-disconnect');
 export const ragPgStatus     = $('#rag-pg-status');
-export const ragPgWarnings   = $('#rag-pg-warnings');
 export const ragQdrantConfig    = $('#rag-qdrant-config');
 export const ragQdrantHost      = $('#rag-qdrant-host');
 export const ragQdrantPort      = $('#rag-qdrant-port');
@@ -175,7 +167,6 @@ export const ragQdrantUseTls    = $('#rag-qdrant-usetls');
 export const ragQdrantConnect   = $('#rag-qdrant-connect');
 export const ragQdrantDisconnect = $('#rag-qdrant-disconnect');
 export const ragQdrantStatus    = $('#rag-qdrant-status');
-export const ragQdrantWarnings  = $('#rag-qdrant-warnings');
 export const ragPineconeConfig     = $('#rag-pinecone-config');
 export const ragPineconeIndexHost  = $('#rag-pinecone-index-host');
 export const ragPineconeApiKey     = $('#rag-pinecone-apikey');
@@ -183,22 +174,6 @@ export const ragPineconeNamespace  = $('#rag-pinecone-namespace');
 export const ragPineconeConnect    = $('#rag-pinecone-connect');
 export const ragPineconeDisconnect = $('#rag-pinecone-disconnect');
 export const ragPineconeStatus     = $('#rag-pinecone-status');
-export const ragPineconeWarnings   = $('#rag-pinecone-warnings');
-
-// RAG Embedding Progress & Result
-export const ragEmbedProgress        = $('#rag-embed-progress');
-export const ragEmbedProgressContent = $('#rag-embed-progress-content');
-export const ragEmbedResultModal     = $('#rag-embed-result-modal');
-export const ragEmbedResultClose     = $('#rag-embed-result-close');
-export const ragEmbedResultTrace     = $('#rag-embed-result-trace');
-export const ragResultViewCode       = $('#rag-result-view-code');
-
-// RAG History Trace Slide Panel
-export const ragTracePanel           = $('#rag-trace-panel');
-export const ragTraceBackdrop        = $('#rag-trace-backdrop');
-export const ragTracePanelClose      = $('#rag-trace-panel-close');
-export const ragTracePanelTitle      = $('#rag-trace-panel-title');
-export const ragTracePanelContent    = $('#rag-trace-panel-content');
 
 // RAG Diagnostics Modal
 export const btnRagDiagnose   = $('#btn-rag-diagnose');

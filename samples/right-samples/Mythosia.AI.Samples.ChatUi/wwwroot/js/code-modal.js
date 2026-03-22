@@ -246,7 +246,6 @@ function openRagDiagnosePopup(ragInfo) {
   overlay.className = 'modal-overlay msg-rag-modal-overlay';
 
   const retrievalResults = ragInfo.retrievalResults || [];
-  const rerankedCandidates = ragInfo.rerankedCandidates || null;
   const refs = ragInfo.references || [];
   const diagnostics = ragInfo.diagnostics || {};
   const finalTopK = diagnostics.finalTopK ?? 'UNSET';
@@ -294,7 +293,6 @@ function openRagDiagnosePopup(ragInfo) {
       <div class="pipe-kv"><span class="pipe-label">Decision</span><span class="pipe-value" style="color:#e67e22;font-weight:600">Search not needed — RAG pipeline skipped</span></div>
       <div class="pipe-kv"><span class="pipe-label">Returned Query</span><span class="pipe-value pipe-value--mono">${escapeHtml(rewriteResult.query)}</span></div>
       <div class="pipe-kv"><span class="pipe-label">NeedsSearch</span><span class="pipe-value pipe-value--mono">false</span></div>
-      ${rewriteResult.keywords?.length ? `<div class="pipe-kv"><span class="pipe-label">Keywords</span><span class="pipe-value pipe-value--mono">${rewriteResult.keywords.map(k => escapeHtml(k)).join(', ')}</span></div>` : ''}
       ${ragInfo.rewriterModel ? `<div class="pipe-kv"><span class="pipe-label">Model</span><span class="pipe-value">${escapeHtml(ragInfo.rewriterModel)}</span></div>` : ''}
       ${diagnostics.rewriteElapsedMs != null ? `<div class="pipe-kv"><span class="pipe-label">Elapsed</span><span class="pipe-value">${diagnostics.rewriteElapsedMs.toLocaleString()} ms</span></div>` : ''}`;
   } else if (hasRewrite) {
@@ -302,7 +300,6 @@ function openRagDiagnosePopup(ragInfo) {
     step2Body = `
       <div class="pipe-kv"><span class="pipe-label">Rewritten Query</span><span class="pipe-value pipe-value--mono">${escapeHtml(ragInfo.rewrittenQuery)}</span></div>
       ${hasRewriter ? `<div class="pipe-kv"><span class="pipe-label">NeedsSearch</span><span class="pipe-value pipe-value--mono">true</span></div>` : ''}
-      ${rewriteResult?.keywords?.length ? `<div class="pipe-kv"><span class="pipe-label">Keywords</span><span class="pipe-value pipe-value--mono">${rewriteResult.keywords.map(k => escapeHtml(k)).join(', ')}</span></div>` : ''}
       ${ragInfo.rewriterModel ? `<div class="pipe-kv"><span class="pipe-label">Model</span><span class="pipe-value">${escapeHtml(ragInfo.rewriterModel)}</span></div>` : ''}
       ${diagnostics.rewriteElapsedMs != null ? `<div class="pipe-kv"><span class="pipe-label">Elapsed</span><span class="pipe-value">${diagnostics.rewriteElapsedMs.toLocaleString()} ms</span></div>` : ''}`;
   } else if (hasRewriter) {
@@ -311,7 +308,6 @@ function openRagDiagnosePopup(ragInfo) {
       <div class="pipe-kv"><span class="pipe-label">Decision</span><span class="pipe-value">Query kept as-is (search proceeds with original query)</span></div>
       <div class="pipe-kv"><span class="pipe-label">Returned Query</span><span class="pipe-value pipe-value--mono">${escapeHtml(rewriteResult.query)}</span></div>
       <div class="pipe-kv"><span class="pipe-label">NeedsSearch</span><span class="pipe-value pipe-value--mono">true</span></div>
-      ${rewriteResult.keywords?.length ? `<div class="pipe-kv"><span class="pipe-label">Keywords</span><span class="pipe-value pipe-value--mono">${rewriteResult.keywords.map(k => escapeHtml(k)).join(', ')}</span></div>` : ''}
       ${ragInfo.rewriterModel ? `<div class="pipe-kv"><span class="pipe-label">Model</span><span class="pipe-value">${escapeHtml(ragInfo.rewriterModel)}</span></div>` : ''}
       ${diagnostics.rewriteElapsedMs != null ? `<div class="pipe-kv"><span class="pipe-label">Elapsed</span><span class="pipe-value">${diagnostics.rewriteElapsedMs.toLocaleString()} ms</span></div>` : ''}`;
   } else {
@@ -330,20 +326,12 @@ function openRagDiagnosePopup(ragInfo) {
     </div>`;
 
   // ── Step 3: Retrieval / Search ──
-  const searchModeLabel = searchMode === 'hybrid'
-    ? 'Hybrid (Vector + BM25)'
-    : searchMode === 'hybrid_dense_fallback'
-      ? 'Dense Only (no keywords)'
-      : 'Vector Only';
+  const searchModeLabel = searchMode === 'hybrid' ? 'Hybrid (Vector + BM25)' : 'Vector Only';
   const providerLabels = { inmemory: 'InMemory', postgres: 'PostgreSQL (pgvector)', qdrant: 'Qdrant', pinecone: 'Pinecone' };
   const providerLabel = providerLabels[vectorStoreProvider] || vectorStoreProvider;
   const retrievalRankById = new Map(retrievalResults.map((r, index) => [r.id ?? `retrieval-${index}`, index + 1]));
-
-  // When rerankedCandidates is available, use it for Step 4 (all re-scored results before pipeline trimming)
-  // Otherwise fall back to refs (final results) for backward compatibility
-  const rerankSource = rerankedCandidates || refs;
-  const allRerankedResults = rerankSource.map((r, index) => {
-    const key = r.id ?? `reranked-${index}`;
+  const rerankedResults = refs.map((r, index) => {
+    const key = r.id ?? `reference-${index}`;
     const previousRank = retrievalRankById.get(key) ?? null;
     return {
       ...r,
@@ -352,29 +340,15 @@ function openRagDiagnosePopup(ragInfo) {
       rankDelta: previousRank == null ? null : previousRank - (index + 1)
     };
   });
-
-  // When WeightedBlend is active, compute blended scores for all candidates
-  // so that both kept and dropped items show the correct final score.
-  const finalSelectionMode = reranking.finalSelectionMode || 'RerankerOnly';
-  const finalSelectionWeight = reranking.finalSelectionRetrievalWeight ?? 0.65;
-  let allBlendedResults = allRerankedResults;
-  if (finalSelectionMode === 'WeightedBlend' && rerankEnabled) {
-    const retrievalScoreById = new Map(retrievalResults.map(r => [r.id, r.score ?? 0]));
-    const clampedWeight = Math.max(0, Math.min(1, finalSelectionWeight));
-    const rerankWeight = 1 - clampedWeight;
-    allBlendedResults = allRerankedResults.map(r => {
-      const retrievalScore = retrievalScoreById.get(r.id) ?? 0;
-      const rerankScore = r.score ?? 0;
-      return { ...r, score: (clampedWeight * retrievalScore) + (rerankWeight * rerankScore) };
-    })
-    .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
-    .map((r, index) => ({ ...r, currentRank: index + 1 }));
-  }
-
-  // Items selected by final selection (topK + minScore)
-  const finalSelectedIds = new Set(refs.map(r => r.id ?? `ref-${r.content}`));
-  const keptByFinalSelection = allBlendedResults.filter(r => finalSelectedIds.has(r.id ?? `ref-${r.content}`));
-  const droppedByFinalSelection = allBlendedResults.filter(r => !finalSelectedIds.has(r.id ?? `ref-${r.content}`));
+  const rerankedIds = new Set(rerankedResults.map(r => r.id ?? `${r.currentRank}-${r.content}`));
+  const droppedCandidates = retrievalResults
+    .filter((r, index) => !rerankedIds.has(r.id ?? `${index + 1}-${r.content}`))
+    .map((r, index) => ({
+      ...r,
+      currentRank: (retrievalRankById.get(r.id ?? `retrieval-${index}`) ?? index + 1),
+      previousRank: retrievalRankById.get(r.id ?? `retrieval-${index}`) ?? index + 1,
+      rankDelta: -(retrievalRankById.get(r.id ?? `retrieval-${index}`) ?? index + 1)
+    }));
 
   const scoresTable = retrievalResults.length
     ? renderPaginatedRetrievalTable(retrievalResults)
@@ -392,7 +366,6 @@ function openRagDiagnosePopup(ragInfo) {
           <div class="pipe-kv"><span class="pipe-label">Vector Store</span><span class="pipe-value">${escapeHtml(providerLabel)}</span></div>
           <div class="pipe-kv"><span class="pipe-label">Search Mode</span><span class="pipe-value">${escapeHtml(searchModeLabel)}</span></div>
           ${searchMode === 'hybrid' && hybridWeight != null ? `<div class="pipe-kv"><span class="pipe-label">Vector Weight</span><span class="pipe-value">${hybridWeight.toFixed(2)}</span></div>` : ''}
-          ${searchMode === 'hybrid_dense_fallback' ? `<div class="pipe-kv"><span class="pipe-label">Fallback Reason</span><span class="pipe-value">No keywords extracted by query rewriter</span></div>` : ''}
           <div class="pipe-kv"><span class="pipe-label">Elapsed</span><span class="pipe-value">${escapeHtml(String(elapsedMs))} ms</span></div>
         </div>
         <div class="pipe-kv-row">
@@ -407,10 +380,18 @@ function openRagDiagnosePopup(ragInfo) {
     </div>`;
 
   // ── Step 4: Re-ranking ──
+  const passedRefs = refs.filter((r, i) => {
+    const inTopK = (i + 1) <= finalTopK;
+    const passesMin = finalMinScore == null || (r.score != null && r.score >= finalMinScore);
+    return inTopK && passesMin;
+  });
   const rerankProviderLabel = providerLabels[rerankProvider] || rerankProvider;
-  const rerankAllTable = allRerankedResults.length
-    ? renderPaginatedRerankComparisonTable(allRerankedResults, 'rerank-all')
+  const rerankSelectedTable = rerankedResults.length
+    ? renderPaginatedRerankComparisonTable(rerankedResults, 'rerank-selected')
     : '<div class="pipe-muted">No reranked results are available.</div>';
+  const rerankDroppedTable = droppedCandidates.length
+    ? renderPaginatedRerankComparisonTable(droppedCandidates, 'rerank-dropped')
+    : '<div class="pipe-muted">No candidates were dropped during re-ranking.</div>';
 
   const step4Html = `
     <div class="pipe-step ${rerankEnabled ? '' : 'pipe-step--skipped'}">
@@ -427,51 +408,41 @@ function openRagDiagnosePopup(ragInfo) {
                ${retrievalMultiplier != null ? `<div class="pipe-kv"><span class="pipe-label">Multiplier</span><span class="pipe-value">${escapeHtml(String(retrievalMultiplier))}</span></div>` : ''}
              </div>
              <div class="pipe-kv-row">
-               <div class="pipe-kv"><span class="pipe-label">Input Candidates</span><span class="pipe-value">${escapeHtml(String(retrievalResults.length))} chunks</span></div>
-               <div class="pipe-kv"><span class="pipe-label">Output (Re-scored)</span><span class="pipe-value">${escapeHtml(String(allRerankedResults.length))} chunks</span></div>
+               <div class="pipe-kv"><span class="pipe-label">Pre-Rerank Input Candidates</span><span class="pipe-value">${escapeHtml(String(retrievalTopK))} chunks</span></div>
+               <div class="pipe-kv"><span class="pipe-label">Final Top K After Re-ranking</span><span class="pipe-value">${escapeHtml(String(finalTopK))} chunks</span></div>
+               <div class="pipe-kv"><span class="pipe-label">Dropped by Re-ranking</span><span class="pipe-value">${escapeHtml(String(droppedCandidates.length))} chunks</span></div>
              </div>
-             <div class="pipe-muted">The reranker re-scored and reordered all ${escapeHtml(String(retrievalResults.length))} retrieval candidates by relevance. No candidates are dropped at this step — trimming is done in the next Final Selection step.</div>`
+             <div class="pipe-muted">The retriever first fetched ${escapeHtml(String(retrievalTopK))} candidates. Then the reranker reordered those candidates and kept the best ${escapeHtml(String(finalTopK))} results for the next step.</div>`
           : `<div class="pipe-muted">Re-ranking was not applied. Retrieved results moved directly to the final selection step.</div>`}
         ${rerankEnabled
-          ? `<div class="pipe-sub-title">All Re-scored Results (${allRerankedResults.length})</div>
-             ${rerankAllTable}`
+          ? `<div class="pipe-sub-title">Reranked Results Kept for the Next Step (${rerankedResults.length})</div>
+             ${rerankSelectedTable}
+             <div class="pipe-sub-title">Candidates Dropped During Re-ranking (${droppedCandidates.length})</div>
+             ${rerankDroppedTable}`
           : ''}
       </div>
     </div>`;
 
   // ── Step 5: Final Selection (TopK / MinScore) ──
-  const passedRefs = refs.filter((r, i) => {
-    const inTopK = (i + 1) <= finalTopK;
-    const passesMin = finalMinScore == null || (r.score != null && r.score >= finalMinScore);
-    return inTopK && passesMin;
-  });
   const filteredTable = passedRefs.length
     ? renderPaginatedFilteringTable(passedRefs)
     : '<div class="pipe-muted">No chunks passed the final selection criteria.</div>';
-  const droppedTable = (rerankEnabled && droppedByFinalSelection.length)
-    ? renderPaginatedRerankComparisonTable(droppedByFinalSelection, 'final-dropped')
-    : '';
 
   const step5Html = `
     <div class="pipe-step">
       <div class="pipe-step-header">
         <span class="pipe-step-num">5</span>
         <span class="pipe-step-title">Final Selection</span>
-        <span class="pipe-badge pipe-badge--info">${passedRefs.length} / ${allBlendedResults.length} chunks</span>
+        <span class="pipe-badge pipe-badge--info">${passedRefs.length} / ${refs.length} chunks</span>
       </div>
       <div class="pipe-step-body">
         <div class="pipe-kv-row">
           <div class="pipe-kv"><span class="pipe-label">Final Top K</span><span class="pipe-value">${escapeHtml(String(finalTopK))}</span></div>
-          <div class="pipe-kv"><span class="pipe-label">Final Min Score</span><span class="pipe-value">${finalMinScore != null ? finalMinScore : 'None'}</span></div>
-          ${rerankEnabled ? `<div class="pipe-kv"><span class="pipe-label">Dropped</span><span class="pipe-value">${escapeHtml(String(droppedByFinalSelection.length))} chunks</span></div>` : ''}
+          <div class="pipe-kv"><span class="pipe-label">Final Min Score Check</span><span class="pipe-value">${finalMinScore != null ? finalMinScore : 'None'}</span></div>
         </div>
-        ${finalSelectionMode === 'WeightedBlend' && rerankEnabled
-          ? `<div class="pipe-kv-row"><div class="pipe-kv"><span class="pipe-label">Selection Mode</span><span class="pipe-value">Weighted Blend (retrieval ${(finalSelectionWeight * 100).toFixed(0)}% · reranker ${((1 - finalSelectionWeight) * 100).toFixed(0)}%)</span></div></div>`
-          : ''}
-        <div class="pipe-muted">TopK and MinScore filters are applied here to select the final chunks sent to the prompt.</div>
+        <div class="pipe-muted">Only the chunks that survived all earlier steps are shown here. These are the chunks that were finally used to build the prompt context.</div>
         <div class="pipe-sub-title">Final Context Chunks Actually Sent to the Prompt (${passedRefs.length})</div>
         ${filteredTable}
-        ${droppedTable ? `<div class="pipe-sub-title">Candidates Dropped by Final Selection (${droppedByFinalSelection.length})</div>${droppedTable}` : ''}
       </div>
     </div>`;
   // ── Step 6: Final Prompt ──

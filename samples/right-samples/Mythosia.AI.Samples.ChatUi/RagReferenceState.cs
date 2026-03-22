@@ -34,8 +34,7 @@ public sealed class RagReferenceState
                 updatedAt,
                 trace.Summary,
                 config.Sources.ToList(),
-                config,
-                trace));
+                config));
             if (_history.Count > MaxHistory)
                 _history.RemoveRange(MaxHistory, _history.Count - MaxHistory);
         }
@@ -82,11 +81,6 @@ public sealed class RagReferenceState
                 opt.DefaultQuery.FinalFilter.MinScore = settings.FinalFilter.MinScore;
                 if (settings.RetrievalDerivation.TopKMultiplier > 0) opt.DefaultQuery.RetrievalDerivation.TopKMultiplier = settings.RetrievalDerivation.TopKMultiplier;
                 if (settings.RetrievalDerivation.MinScoreDivider > 0d) opt.DefaultQuery.RetrievalDerivation.MinScoreDivider = settings.RetrievalDerivation.MinScoreDivider;
-                opt.DefaultQuery.FinalSelection = new RagFinalSelectionOptions
-                {
-                    Mode = settings.FinalSelectionMode,
-                    RetrievalWeight = settings.FinalSelectionRetrievalWeight
-                };
                 opt.PromptTemplate = settings.PromptTemplate;
             });
 
@@ -144,14 +138,6 @@ public sealed class RagReferenceState
             return _history.ToList();
         }
     }
-
-    public RagReferenceTrace? GetHistoryTrace(Guid id)
-    {
-        lock (_lock)
-        {
-            return _history.FirstOrDefault(e => e.Id == id)?.Trace;
-        }
-    }
 }
 
 public record RagReferenceTrace(
@@ -193,8 +179,6 @@ public record RagPipelineSettings(
     RagRetrievalDerivation RetrievalDerivation = null!,
     string? PromptTemplate = null,
     bool QueryRewriterEnabled = true,
-    int QueryRewriteMaxTokens = 250,
-    bool ExtractKeywords = true,
     string? RewriterModelOverride = null,
     bool HybridSearchEnabled = true,
     float HybridSearchVectorWeight = 0.5f,
@@ -202,9 +186,7 @@ public record RagPipelineSettings(
     string RerankProvider = "",
     string RerankModel = "",
     string RerankBaseUrl = "",
-    string? RerankApiKey = null,
-    RagFinalSelectionMode FinalSelectionMode = RagFinalSelectionMode.RerankerOnly,
-    double FinalSelectionRetrievalWeight = RagFinalSelectionOptions.DefaultRetrievalWeight)
+    string? RerankApiKey = null)
 {
     public RagPipelineSettings()
         : this(
@@ -219,8 +201,6 @@ public record RagPipelineSettings(
             RetrievalDerivation: new RagRetrievalDerivation(),
             PromptTemplate: null,
             QueryRewriterEnabled: true,
-            QueryRewriteMaxTokens: 250,
-            ExtractKeywords: true,
             RewriterModelOverride: null,
             HybridSearchEnabled: true,
             HybridSearchVectorWeight: 0.5f,
@@ -228,9 +208,7 @@ public record RagPipelineSettings(
             RerankProvider: "",
             RerankModel: "",
             RerankBaseUrl: "",
-            RerankApiKey: null,
-            FinalSelectionMode: RagFinalSelectionMode.RerankerOnly,
-            FinalSelectionRetrievalWeight: RagFinalSelectionOptions.DefaultRetrievalWeight)
+            RerankApiKey: null)
     {
     }
 }
@@ -240,8 +218,7 @@ public record RagReferenceHistoryEntry(
     DateTimeOffset CreatedAt,
     RagReferenceSummary Summary,
     IReadOnlyList<string> Sources,
-    RagReferenceConfig Config,
-    RagReferenceTrace Trace);
+    RagReferenceConfig Config);
 
 public record RagReferenceDocument(
     string Id,

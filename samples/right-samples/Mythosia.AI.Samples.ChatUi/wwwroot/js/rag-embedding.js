@@ -83,23 +83,7 @@ export function getEmbeddingDefaults(provider) {
   throw new Error(`Unsupported embedding provider: ${p}`);
 }
 
-export function getSelectedEmbeddingDimensions() {
-  const provider = getSelectedEmbeddingProvider();
-  let input;
-  if (provider === 'ollama') input = ragOllamaDimensions;
-  else if (provider === 'vllm') input = ragVllmDimensions;
-  else if (provider === 'openai') input = ragOpenAiDimensions;
-  const val = parseInt(input?.value, 10);
-  return Number.isFinite(val) && val > 0 ? val : getEmbeddingDefaults(provider).dims;
-}
-
-export function setEmbeddingDimensions(provider, dims) {
-  if (provider === 'ollama' && ragOllamaDimensions) ragOllamaDimensions.value = dims;
-  else if (provider === 'vllm' && ragVllmDimensions) ragVllmDimensions.value = dims;
-  else if (provider === 'openai' && ragOpenAiDimensions) ragOpenAiDimensions.value = dims;
-}
-
-export function updateEmbeddingUI(resetDimensions = false) {
+export function updateEmbeddingUI() {
   const provider = getSelectedEmbeddingProvider();
   const hasOpenAiKey = !!providerKeys?.OpenAI;
   const providerLabel = provider ? provider.toUpperCase() : 'N/A';
@@ -167,30 +151,11 @@ export function updateEmbeddingUI(resetDimensions = false) {
     }
   }
 
-  // Auto-sync embedding dimension fields with the selected model defaults.
-  // When resetDimensions is true (model/provider change), reset the current
-  // provider's dimension to its model default.  Otherwise, only populate empty fields
-  // so that user-customised values (e.g. Matryoshka 2000) are preserved across UI refreshes.
-  if (resetDimensions) {
-    try {
-      const defaults = getEmbeddingDefaults(provider);
-      if (provider === 'openai' && ragOpenAiDimensions) ragOpenAiDimensions.value = defaults.dims;
-      if (provider === 'ollama' && ragOllamaDimensions) ragOllamaDimensions.value = defaults.dims;
-      if (provider === 'vllm' && ragVllmDimensions) ragVllmDimensions.value = defaults.dims;
-    } catch { /* model not yet selected */ }
-  }
-  try {
-    if (ragOpenAiDimensions && !ragOpenAiDimensions.value?.trim()) ragOpenAiDimensions.value = getEmbeddingDefaults('openai').dims;
-  } catch { /* ignore */ }
-  try {
-    if (ragOllamaDimensions && !ragOllamaDimensions.value?.trim()) ragOllamaDimensions.value = getEmbeddingDefaults('ollama').dims;
-  } catch { /* ignore */ }
-  try {
-    if (ragVllmDimensions && !ragVllmDimensions.value?.trim()) ragVllmDimensions.value = getEmbeddingDefaults('vllm').dims;
-  } catch { /* ignore */ }
-
-  // Set vector store dimension defaults (only if empty)
+  // Auto-sync vector store dimension fields with the selected embedding model
   const embDims = getEmbeddingDefaults(provider).dims;
+  if (ragOpenAiDimensions) ragOpenAiDimensions.value = getEmbeddingDefaults('openai').dims;
+  if (ragOllamaDimensions) ragOllamaDimensions.value = getEmbeddingDefaults('ollama').dims;
+  if (ragVllmDimensions) ragVllmDimensions.value = getEmbeddingDefaults('vllm').dims;
   if (ragPgDimension && !ragPgDimension.value?.trim()) ragPgDimension.value = String(embDims);
   if (ragQdrantDimension && !ragQdrantDimension.value?.trim()) ragQdrantDimension.value = String(embDims);
 
@@ -263,7 +228,6 @@ export async function testVllmConnection() {
 
   const baseUrl = ragVllmBaseUrl?.value?.trim();
   const model = ragVllmModel?.value?.trim();
-  const dimensions = parseInt(ragVllmDimensions?.value, 10) || 0;
   if (!baseUrl || !model) {
     if (ragVllmStatus) {
       ragVllmStatus.textContent = 'vLLM base URL and model are required.';
@@ -277,7 +241,7 @@ export async function testVllmConnection() {
     const res = await fetch('/api/rag/vllm-test', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ baseUrl, model, dimensions })
+      body: JSON.stringify({ baseUrl, model })
     });
     const data = await res.json().catch(() => null);
 

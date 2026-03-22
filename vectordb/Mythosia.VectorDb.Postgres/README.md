@@ -62,7 +62,11 @@ ALTER TABLE "public"."vectors"
     ADD COLUMN IF NOT EXISTS content_tsv tsvector;
 
 UPDATE "public"."vectors"
-SET content_tsv = to_tsvector('simple', coalesce(content, ''));
+SET content_tsv = to_tsvector('simple',
+    regexp_replace(
+        regexp_replace(coalesce(content, ''),
+            '([a-zA-Z0-9])([^\u0001-\u007F\s])', E'\\1 \\2', 'g'),
+        '([^\u0001-\u007F\s])([a-zA-Z0-9])', E'\\1 \\2', 'g'));
 
 ALTER TABLE "public"."vectors"
     ALTER COLUMN content_tsv SET NOT NULL;
@@ -177,7 +181,11 @@ ALTER TABLE "public"."vectors"
     ADD COLUMN IF NOT EXISTS content_tsv tsvector;
 
 UPDATE "public"."vectors"
-SET content_tsv = to_tsvector('simple', coalesce(content, ''));
+SET content_tsv = to_tsvector('simple',
+    regexp_replace(
+        regexp_replace(coalesce(content, ''),
+            '([a-zA-Z0-9])([^\u0001-\u007F\s])', E'\\1 \\2', 'g'),
+        '([^\u0001-\u007F\s])([a-zA-Z0-9])', E'\\1 \\2', 'g'));
 
 ALTER TABLE "public"."vectors"
     ALTER COLUMN content_tsv SET NOT NULL;
@@ -282,7 +290,7 @@ ANALYZE public.vectors;
 | `IvfFlatIndexOptions.Probes` | `10` | IVFFlat runtime `probes` default |
 | `FailFastOnIndexCreationFailure` | `true` | Throw when vector index creation fails (recommended for production) |
 | `TextSearchMode` | `TsVector` | Text search strategy for hybrid search (`TsVector` or `Trigram`) |
-| `TextSearchConfig` | `"simple"` | PostgreSQL text search configuration for `to_tsvector` / `plainto_tsquery` (only used in `TsVector` mode) |
+| `TextSearchConfig` | `"simple"` | PostgreSQL text search configuration for `to_tsvector` / `to_tsquery` (only used in `TsVector` mode) |
 
 ## Runtime Tuning Guide (DX)
 

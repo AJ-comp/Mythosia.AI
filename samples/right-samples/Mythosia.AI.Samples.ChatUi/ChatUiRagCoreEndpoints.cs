@@ -45,34 +45,6 @@ internal static class ChatUiRagCoreEndpoints
                 return Results.Ok(new { provider = "inmemory", status = "switched" });
             }
 
-            // Verify the store can actually reach its backend before claiming "connected".
-            try
-            {
-                await VerifyStoreConnectionAsync(buildResult, req);
-            }
-            catch (Exception ex)
-            {
-                if (buildResult.Store is IDisposable connDisposable)
-                    connDisposable.Dispose();
-                return Results.BadRequest(new { error = $"Connection failed: {ex.Message}" });
-            }
-
-            // Schema / collection validation — non-fatal warnings
-            List<string> schemaWarnings;
-            try
-            {
-                schemaWarnings = await ValidateStoreSchemaAsync(buildResult, req);
-            }
-            catch
-            {
-                schemaWarnings = new List<string>();
-            }
-
-            // Merge embedding settings from the request into ragState so that
-            // TryAutoConnectRagStoreAsync can build the RAG pipeline even when
-            // the user hasn't run an embed yet.
-            MergeEmbeddingSettings(ragState, req);
-
             string? autoConnectWarning;
             try
             {
@@ -100,7 +72,6 @@ internal static class ChatUiRagCoreEndpoints
                     provider = buildResult.Provider,
                     status = "connected",
                     warning = autoConnectWarning,
-                    schemaWarnings,
                     tableName = buildResult.TableName,
                     schemaName = buildResult.SchemaName,
                     dimension = buildResult.Dimension
@@ -110,7 +81,6 @@ internal static class ChatUiRagCoreEndpoints
                     provider = buildResult.Provider,
                     status = "connected",
                     warning = autoConnectWarning,
-                    schemaWarnings,
                     host = buildResult.Host,
                     port = buildResult.Port,
                     dimension = buildResult.Dimension,
@@ -121,11 +91,10 @@ internal static class ChatUiRagCoreEndpoints
                     provider = buildResult.Provider,
                     status = "connected",
                     warning = autoConnectWarning,
-                    schemaWarnings,
                     indexHost = buildResult.IndexHost,
                     @namespace = buildResult.Namespace
                 }),
-                _ => Results.Ok(new { provider = buildResult.Provider, status = "connected", warning = autoConnectWarning, schemaWarnings })
+                _ => Results.Ok(new { provider = buildResult.Provider, status = "connected", warning = autoConnectWarning })
             };
         });
 
@@ -184,7 +153,6 @@ internal static class ChatUiRagCoreEndpoints
                 return Results.BadRequest(new { error = "vLLM baseUrl and model are required." });
 
             baseUrl = baseUrl.TrimEnd('/');
-            var dimensions = req.Dimensions is > 0 ? req.Dimensions.Value : 1024;
 
             try
             {
@@ -192,10 +160,10 @@ internal static class ChatUiRagCoreEndpoints
                 if (!healthRes.IsSuccessStatusCode)
                     return Results.BadRequest(new { error = $"vLLM is not reachable at {baseUrl} (HTTP {(int)healthRes.StatusCode})." });
 
-                var provider = new VllmEmbeddingProvider(embeddingHttpClient, model, dimensions, baseUrl);
+                var provider = new VllmEmbeddingProvider(embeddingHttpClient, model, 0, baseUrl);
                 await provider.GetEmbeddingAsync("connection test");
 
-                return Results.Ok(new { status = "ok", baseUrl, model, dimensions, modelFound = true });
+                return Results.Ok(new { status = "ok", baseUrl, model, modelFound = true });
             }
             catch (HttpRequestException ex)
             {
@@ -235,7 +203,7 @@ internal static class ChatUiRagCoreEndpoints
                     new(new VectorRecord { Content = "Second test passage" }, 0.4)
                 };
 
-                await reranker.RerankAsync("test query", sampleResults);
+                await reranker.RerankAsync("test query", sampleResults, 1);
 
                 return Results.Ok(new { status = "ok", baseUrl, model, modelFound = true });
             }
@@ -294,7 +262,6 @@ internal static class ChatUiRagCoreEndpoints
                 ? null
                 : form["promptTemplate"].ToString();
             var queryRewriterEnabled = ParseOptionalBool(form["queryRewriterEnabled"]);
-            var extractKeywords = ParseOptionalBool(form["extractKeywords"]) ?? true;
             var rewriterModelOverride = string.IsNullOrWhiteSpace(form["rewriterModelOverride"])
                 ? null
                 : form["rewriterModelOverride"].ToString().Trim();
@@ -372,7 +339,6 @@ internal static class ChatUiRagCoreEndpoints
                 },
                 PromptTemplate: promptTemplate,
                 QueryRewriterEnabled: queryRewriterEnabledValue,
-                ExtractKeywords: extractKeywords,
                 RewriterModelOverride: rewriterModelOverride,
                 HybridSearchEnabled: hybridSearchEnabledValue,
                 HybridSearchVectorWeight: hybridSearchVectorWeightValue,
@@ -516,7 +482,7 @@ internal static class ChatUiRagCoreEndpoints
     }
 
     private record OllamaTestRequest(string? BaseUrl, string? Model);
-    private record VllmTestRequest(string? BaseUrl, string? Model, int? Dimensions);
+    private record VllmTestRequest(string? BaseUrl, string? Model);
     private record VllmRerankTestRequest(string? BaseUrl, string? Model, string? ApiKey);
 
     private sealed record VectorStoreBuildResult(
@@ -580,135 +546,6 @@ internal static class ChatUiRagCoreEndpoints
             PineconeIndexHost: GetValue("pineconeIndexHost"),
             PineconeApiKey: GetValue("pineconeApiKey"),
             PineconeNamespace: GetValue("pineconeNamespace"));
-    }
-
-    private static async Task VerifyStoreConnectionAsync(VectorStoreBuildResult buildResult, VectorStoreConfigRequest req)
-    {
-        await buildResult.Store.VerifyConnectionAsync();
-    }
-
-    private static void MergeEmbeddingSettings(RagReferenceState ragState, VectorStoreConfigRequest req)
-    {
-        var ep = NormalizeOptionalValue(req.EmbeddingProvider);
-        if (string.IsNullOrWhiteSpace(ep)) return;
-
-        var model = NormalizeOptionalValue(req.EmbeddingModel);
-        var dims = req.EmbeddingDimensions is > 0 ? req.EmbeddingDimensions.Value : 0;
-        var baseUrl = NormalizeOptionalValue(req.EmbeddingBaseUrl) ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(model) || dims <= 0) return;
-
-        var current = ragState.GetSettings();
-        if (current.EmbeddingProvider == ep
-            && current.EmbeddingModel == model
-            && current.EmbeddingDimensions == dims
-            && current.EmbeddingBaseUrl == baseUrl)
-            return;
-
-        ragState.UpdateSettings(current with
-        {
-            EmbeddingProvider = ep,
-            EmbeddingModel = model,
-            EmbeddingDimensions = dims,
-            EmbeddingBaseUrl = baseUrl
-        });
-    }
-
-    private static async Task<List<string>> ValidateStoreSchemaAsync(VectorStoreBuildResult buildResult, VectorStoreConfigRequest req)
-    {
-        var warnings = new List<string>();
-        var embeddingDimensions = req.EmbeddingDimensions;
-
-        // Cross-check: vector store dimension vs embedding model dimension
-        if (buildResult.Dimension.HasValue && embeddingDimensions is > 0
-            && buildResult.Dimension.Value != embeddingDimensions.Value)
-        {
-            warnings.Add($"Dimension mismatch: the vector store is configured with dimension {buildResult.Dimension.Value}, but the embedding model produces {embeddingDimensions.Value}-dimensional vectors. Queries will fail at runtime.");
-        }
-
-        if (buildResult.Provider == "postgres")
-        {
-            var connectionString = NormalizeOptionalValue(req.ConnectionString);
-            if (string.IsNullOrWhiteSpace(connectionString)) return warnings;
-
-            using var conn = new Npgsql.NpgsqlConnection(connectionString);
-            await conn.OpenAsync();
-
-            // Check table existence
-            using var existsCmd = conn.CreateCommand();
-            existsCmd.CommandText = @"
-SELECT 1
-FROM information_schema.tables
-WHERE table_schema = @schema AND table_name = @table";
-            existsCmd.Parameters.AddWithValue("@schema", buildResult.SchemaName ?? "public");
-            existsCmd.Parameters.AddWithValue("@table", buildResult.TableName ?? "vectors");
-
-            var exists = await existsCmd.ExecuteScalarAsync();
-            if (exists == null)
-            {
-                if (req.EnsureSchema == true)
-                    warnings.Add($"Table \"{buildResult.SchemaName}\".\"{buildResult.TableName}\" does not exist yet. It will be auto-created on first embed (EnsureSchema is on).");
-                else
-                    warnings.Add($"Table \"{buildResult.SchemaName}\".\"{buildResult.TableName}\" does not exist. Enable EnsureSchema or create the table manually.");
-            }
-            else if (buildResult.Dimension.HasValue || embeddingDimensions is > 0)
-            {
-                // Check vector column dimension
-                using var dimCmd = conn.CreateCommand();
-                dimCmd.CommandText = @"
-SELECT a.atttypmod
-FROM pg_attribute a
-JOIN pg_class c ON a.attrelid = c.oid
-JOIN pg_namespace n ON c.relnamespace = n.oid
-WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND a.atttypmod > 0";
-                dimCmd.Parameters.AddWithValue("@schema", buildResult.SchemaName ?? "public");
-                dimCmd.Parameters.AddWithValue("@table", buildResult.TableName ?? "vectors");
-
-                var dimResult = await dimCmd.ExecuteScalarAsync();
-                if (dimResult is int existingDim)
-                {
-                    if (buildResult.Dimension.HasValue && existingDim != buildResult.Dimension.Value)
-                        warnings.Add($"Dimension mismatch: table \"{buildResult.SchemaName}\".\"{buildResult.TableName}\" has vector dimension {existingDim}, but you specified {buildResult.Dimension.Value}.");
-                    if (embeddingDimensions is > 0 && existingDim != embeddingDimensions.Value)
-                        warnings.Add($"Dimension mismatch: table \"{buildResult.SchemaName}\".\"{buildResult.TableName}\" has vector dimension {existingDim}, but the embedding model produces {embeddingDimensions.Value}-dimensional vectors. Queries will fail at runtime.");
-                }
-            }
-        }
-        else if (buildResult.Provider == "qdrant")
-        {
-            var host = NormalizeHost(req.QdrantHost);
-            if (string.IsNullOrWhiteSpace(host)) return warnings;
-            var port = req.QdrantPort ?? 6334;
-            var useTls = req.QdrantUseTls ?? false;
-            var collectionName = NormalizeOptionalValue(req.QdrantCollectionName);
-            if (string.IsNullOrWhiteSpace(collectionName)) return warnings;
-
-            using var client = new Qdrant.Client.QdrantClient(host, port, useTls, NormalizeOptionalValue(req.QdrantApiKey));
-            var collections = await client.ListCollectionsAsync();
-            var found = collections.Any(c => c == collectionName);
-            if (!found)
-            {
-                warnings.Add($"Collection \"{collectionName}\" does not exist yet. It will be auto-created on first embed.");
-            }
-            else if (buildResult.Dimension.HasValue || embeddingDimensions is > 0)
-            {
-                try
-                {
-                    var info = await client.GetCollectionInfoAsync(collectionName);
-                    var existingDim = info.Config.Params.VectorsConfig?.Params?.Size;
-                    if (existingDim.HasValue)
-                    {
-                        if (buildResult.Dimension.HasValue && existingDim.Value != (ulong)buildResult.Dimension.Value)
-                            warnings.Add($"Dimension mismatch: collection \"{collectionName}\" has vector dimension {existingDim.Value}, but you specified {buildResult.Dimension.Value}.");
-                        if (embeddingDimensions is > 0 && existingDim.Value != (ulong)embeddingDimensions.Value)
-                            warnings.Add($"Dimension mismatch: collection \"{collectionName}\" has vector dimension {existingDim.Value}, but the embedding model produces {embeddingDimensions.Value}-dimensional vectors. Queries will fail at runtime.");
-                    }
-                }
-                catch { /* unable to read collection info — skip */ }
-            }
-        }
-
-        return warnings;
     }
 
     private static VectorStoreBuildResult BuildVectorStore(VectorStoreConfigRequest req)
@@ -877,7 +714,7 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
             return "Embedding model is required before connecting an external vector store.";
         }
 
-        if (epKey != "ollama" && epKey != "vllm" && embeddingKey == null)
+        if (epKey != "ollama" && embeddingKey == null)
         {
             // No embedding key → can't query. Clear stale store so queries don't
             // silently use an old InMemory-backed RagStore.
@@ -948,8 +785,6 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
     {
         if (settings.HybridSearchEnabled)
             builder.UseHybridSearch(settings.HybridSearchVectorWeight);
-
-        builder.WithFinalSelectionPolicy(settings.FinalSelectionMode, settings.FinalSelectionRetrievalWeight);
 
         if (settings.RerankEnabled)
         {

@@ -187,8 +187,6 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         },
         PromptTemplate: requestRagSettings.PromptTemplate ?? baseRagSettings.PromptTemplate,
         QueryRewriterEnabled: requestRagSettings.QueryRewriterEnabled ?? baseRagSettings.QueryRewriterEnabled,
-        QueryRewriteMaxTokens: requestRagSettings.QueryRewriteMaxTokens is > 0 ? requestRagSettings.QueryRewriteMaxTokens.Value : baseRagSettings.QueryRewriteMaxTokens,
-        ExtractKeywords: requestRagSettings.ExtractKeywords ?? baseRagSettings.ExtractKeywords,
         RewriterModelOverride: requestRagSettings.RewriterModelOverride ?? baseRagSettings.RewriterModelOverride,
         HybridSearchEnabled: requestRagSettings.HybridSearchEnabled ?? baseRagSettings.HybridSearchEnabled,
         HybridSearchVectorWeight: requestRagSettings.HybridSearchVectorWeight ?? baseRagSettings.HybridSearchVectorWeight,
@@ -196,9 +194,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         RerankProvider: string.IsNullOrWhiteSpace(requestRagSettings.RerankProvider) ? baseRagSettings.RerankProvider : requestRagSettings.RerankProvider.Trim().ToLowerInvariant(),
         RerankModel: string.IsNullOrWhiteSpace(requestRagSettings.RerankModel) ? baseRagSettings.RerankModel : requestRagSettings.RerankModel.Trim(),
         RerankBaseUrl: string.IsNullOrWhiteSpace(requestRagSettings.RerankBaseUrl) ? baseRagSettings.RerankBaseUrl : requestRagSettings.RerankBaseUrl.Trim(),
-        RerankApiKey: requestRagSettings.RerankApiKey ?? baseRagSettings.RerankApiKey,
-        FinalSelectionMode: ParseFinalSelectionMode(requestRagSettings.FinalSelection?.Mode) ?? baseRagSettings.FinalSelectionMode,
-        FinalSelectionRetrievalWeight: requestRagSettings.FinalSelection?.RetrievalWeight ?? baseRagSettings.FinalSelectionRetrievalWeight);
+        RerankApiKey: requestRagSettings.RerankApiKey ?? baseRagSettings.RerankApiKey);
 
     if (requestRagSettings?.RewriterApiKey != null)
         ragEndpointState.RewriterApiKey = string.IsNullOrWhiteSpace(requestRagSettings.RewriterApiKey)
@@ -281,11 +277,6 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             {
                 FinalFilter = effectiveRagSettings.FinalFilter,
                 RetrievalDerivation = effectiveRagSettings.RetrievalDerivation,
-                FinalSelection = new RagFinalSelectionOptions
-                {
-                    Mode = effectiveRagSettings.FinalSelectionMode,
-                    RetrievalWeight = effectiveRagSettings.FinalSelectionRetrievalWeight
-                },
                 ProgressAsync = async stage =>
                 {
                     var progressPayload = JsonSerializer.Serialize(new
@@ -308,8 +299,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                         ragSettings.RewriterModelOverride, activeService);
 
                     rewriterModelName = rewriterService.Model;
-                    var rewriteMaxTokens = (uint)Math.Max(1, ragSettings.QueryRewriteMaxTokens);
-                    ragState.Store.SetQueryRewriter(new LlmQueryRewriter(rewriterService, rewriteMaxTokens, ragSettings.ExtractKeywords));
+                    ragState.Store.SetQueryRewriter(new LlmQueryRewriter(rewriterService));
                 }
                 else
                 {
@@ -395,14 +385,10 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 rewriteResult = ragProcessed.RewriteResult != null ? new
                 {
                     query = ragProcessed.RewriteResult.Query,
-                    needsSearch = ragProcessed.RewriteResult.NeedsSearch,
-                    keywords = ragProcessed.RewriteResult.Keywords
+                    needsSearch = ragProcessed.RewriteResult.NeedsSearch
                 } : null,
-                searchKeywords = ragProcessed.SearchKeywords,
                 rewriterModel = rewriterModelName,
-                searchMode = ragSettings2.HybridSearchEnabled
-                    ? (ragProcessed.SearchKeywords != null && ragProcessed.SearchKeywords.Count > 0 ? "hybrid" : "hybrid_dense_fallback")
-                    : "vector",
+                searchMode = ragSettings2.HybridSearchEnabled ? "hybrid" : "vector",
                 hybridWeight = ragSettings2.HybridSearchEnabled ? ragSettings2.HybridSearchVectorWeight : (float?)null,
                 vectorStoreProvider,
                 reranking = new
@@ -410,9 +396,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                     enabled = ragSettings2.RerankEnabled,
                     provider = ragSettings2.RerankEnabled ? ragSettings2.RerankProvider : null,
                     model = ragSettings2.RerankEnabled ? ragSettings2.RerankModel : null,
-                    retrievalMultiplier = ragSettings2.RerankEnabled ? ragSettings2.RetrievalDerivation.TopKMultiplier : (int?)null,
-                    finalSelectionMode = ragSettings2.FinalSelectionMode.ToString(),
-                    finalSelectionRetrievalWeight = ragSettings2.FinalSelectionRetrievalWeight
+                    retrievalMultiplier = ragSettings2.RerankEnabled ? ragSettings2.RetrievalDerivation.TopKMultiplier : (int?)null
                 },
                 diagnostics = new
                 {
@@ -425,13 +409,6 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                     rewriteElapsedMs = ragProcessed.Diagnostics.RewriteElapsedMs
                 },
                 retrievalResults = ragProcessed.RetrievalCandidates.Select(r => new
-                {
-                    id = r.Record.Id,
-                    score = r.Score,
-                    content = r.Record.Content,
-                    metadata = r.Record.Metadata
-                }),
-                rerankedCandidates = ragProcessed.RerankedCandidates?.Select(r => new
                 {
                     id = r.Record.Id,
                     score = r.Score,
@@ -884,13 +861,6 @@ static Mythosia.AI.Providers.Alibaba.EndpointPlatform ParsePlatform(string? valu
     "ollama" => Mythosia.AI.Providers.Alibaba.EndpointPlatform.Ollama,
     "vllm" => Mythosia.AI.Providers.Alibaba.EndpointPlatform.Vllm,
     _ => Mythosia.AI.Providers.Alibaba.EndpointPlatform.Vllm,
-};
-
-static Mythosia.AI.Rag.RagFinalSelectionMode? ParseFinalSelectionMode(string? value) => value switch
-{
-    "RerankerOnly" => Mythosia.AI.Rag.RagFinalSelectionMode.RerankerOnly,
-    "WeightedBlend" => Mythosia.AI.Rag.RagFinalSelectionMode.WeightedBlend,
-    _ => null,
 };
 
 // ── Fallback to index.html ──────────────────────────────────────

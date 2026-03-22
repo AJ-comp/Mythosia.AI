@@ -393,7 +393,11 @@ ALTER TABLE {_qualifiedTable}
     ADD COLUMN IF NOT EXISTS content_tsv tsvector;
 
 UPDATE {_qualifiedTable}
-SET content_tsv = to_tsvector('{_options.TextSearchConfig}', coalesce(content, ''));
+SET content_tsv = to_tsvector('{_options.TextSearchConfig}',
+    regexp_replace(
+        regexp_replace(coalesce(content, ''),
+            '([a-zA-Z0-9])([^\u0001-\u007F\s])', E'\\1 \\2', 'g'),
+        '([^\u0001-\u007F\s])([a-zA-Z0-9])', E'\\1 \\2', 'g'));
 
 ALTER TABLE {_qualifiedTable}
     ALTER COLUMN content_tsv SET NOT NULL;
@@ -510,7 +514,7 @@ WHERE table_schema = @schema AND table_name = @table";
     {
         return $@"
 INSERT INTO {_qualifiedTable} (namespace, id, scope, content, content_tsv, metadata, embedding)
-VALUES (@ns, @id, @scope, @content, to_tsvector('{_options.TextSearchConfig}', coalesce(@content, '')), @metadata, @embedding::vector)
+VALUES (@ns, @id, @scope, @content, to_tsvector('{_options.TextSearchConfig}', coalesce(@content_normalized, '')), @metadata, @embedding::vector)
 ON CONFLICT (namespace, id) DO UPDATE SET
     scope      = EXCLUDED.scope,
     content    = EXCLUDED.content,
@@ -526,6 +530,7 @@ ON CONFLICT (namespace, id) DO UPDATE SET
         parameters.AddWithValue("@id", record.Id);
         parameters.AddWithValue("@scope", (object?)record.Scope ?? DBNull.Value);
         parameters.AddWithValue("@content", (object?)record.Content ?? DBNull.Value);
+        parameters.AddWithValue("@content_normalized", (object?)NormalizeScriptBoundaries(record.Content) ?? DBNull.Value);
         parameters.Add(CreateJsonbParameter("@metadata", record.Metadata));
         parameters.AddWithValue("@embedding", VectorToString(record.Vector));
     }
@@ -580,13 +585,22 @@ ON CONFLICT (namespace, id) DO UPDATE SET
 )";
         }
 
+        // Use OR-based tsquery instead of plainto_tsquery's default AND.
+        // plainto_tsquery('simple', 'OPM 이벤트 코드') → 'opm' & '이벤트' & '코드' (AND — too restrictive)
+        // This approach → 'opm' | '이벤트' | '코드' (OR — standard BM25 behavior)
+        // Documents matching more terms still rank higher via ts_rank scoring.
+        var cfg = _options.TextSearchConfig;
         return $@"text_candidates AS (
     SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
-           ts_rank(content_tsv, plainto_tsquery('{_options.TextSearchConfig}', @query)) AS text_score
+           ts_rank(content_tsv, to_tsquery('{cfg}',
+               regexp_replace(regexp_replace(trim(@query), '[^\w\s]', '', 'g'), '\s+', ' | ', 'g')
+           )) AS text_score
     FROM {_qualifiedTable}
     WHERE namespace = @ns{filterWhereClause}
-      AND plainto_tsquery('{_options.TextSearchConfig}', @query) <> ''::tsquery
-      AND content_tsv @@ plainto_tsquery('{_options.TextSearchConfig}', @query)
+      AND length(trim(@query)) > 0
+      AND content_tsv @@ to_tsquery('{cfg}',
+              regexp_replace(regexp_replace(trim(@query), '[^\w\s]', '', 'g'), '\s+', ' | ', 'g')
+          )
     ORDER BY text_score DESC
     LIMIT @candidateTopK
 )";
@@ -660,6 +674,82 @@ ON CONFLICT (namespace, id) DO UPDATE SET
             result[i] = float.Parse(parts[i].Trim(), CultureInfo.InvariantCulture);
         }
         return result;
+    }
+
+    /// <summary>
+    /// Inserts a space at every script boundary so that PostgreSQL's
+    /// <c>to_tsvector</c> tokenises mixed-script words correctly.
+    /// <para>Examples: "event테이블에" → "event 테이블에", "データ테이블" → "データ 테이블"</para>
+    /// </summary>
+    internal static string NormalizeScriptBoundaries(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return text!;
+
+        var sb = new StringBuilder(text.Length + 16);
+        var prevScript = ScriptKind.Common;
+
+        for (int i = 0; i < text.Length; i++)
+        {
+            var ch = text[i];
+            var script = ClassifyScript(ch);
+
+            if (script != ScriptKind.Common
+                && prevScript != ScriptKind.Common
+                && script != prevScript)
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(ch);
+
+            if (script != ScriptKind.Common)
+                prevScript = script;
+        }
+
+        return sb.ToString();
+    }
+
+    private enum ScriptKind : byte
+    {
+        Common,     // whitespace, punctuation, symbols, digits
+        Latin,
+        Hangul,
+        CJK,
+        Hiragana,
+        Katakana,
+    }
+
+    private static ScriptKind ClassifyScript(char ch)
+    {
+        if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z'))
+            return ScriptKind.Latin;
+
+        // Hangul Syllables (가-힣), Jamo (ㄱ-ㅎ, ㅏ-ㅣ), Compatibility Jamo
+        if ((ch >= 0xAC00 && ch <= 0xD7AF)
+            || (ch >= 0x3130 && ch <= 0x318F)
+            || (ch >= 0x1100 && ch <= 0x11FF))
+            return ScriptKind.Hangul;
+
+        // CJK Unified Ideographs + Extension A + Compatibility
+        if ((ch >= 0x4E00 && ch <= 0x9FFF)
+            || (ch >= 0x3400 && ch <= 0x4DBF)
+            || (ch >= 0xF900 && ch <= 0xFAFF))
+            return ScriptKind.CJK;
+
+        // Hiragana
+        if (ch >= 0x3040 && ch <= 0x309F)
+            return ScriptKind.Hiragana;
+
+        // Katakana + Katakana Phonetic Extensions
+        if ((ch >= 0x30A0 && ch <= 0x30FF)
+            || (ch >= 0x31F0 && ch <= 0x31FF))
+            return ScriptKind.Katakana;
+
+        // Latin Extended (accented characters: é, ñ, ü, etc.)
+        if ((ch >= 0x00C0 && ch <= 0x024F))
+            return ScriptKind.Latin;
+
+        return ScriptKind.Common;
     }
 
     private static NpgsqlParameter CreateJsonbParameter(string name, object value)

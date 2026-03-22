@@ -17,8 +17,6 @@ import {
   ragMinScore,
   ragPromptTemplate,
   ragQueryRewriter,
-  ragRewriterMaxTokens,
-  ragExtractKeywords,
   ragRewriterOverride,
   ragRewriterModelRow,
   ragRewriterModel,
@@ -44,10 +42,6 @@ import {
   ragRerankDerivedMinScore,
   ragRetrievalTopK,
   ragRetrievalMinScore,
-  ragFinalSelectionMode,
-  ragFinalSelectionWeightRow,
-  ragFinalSelectionWeight,
-  ragFinalSelectionWeightVal,
   ragSettingsSave,
   ragSettingsStatus,
   ragVectorStoreProvider,
@@ -56,7 +50,7 @@ import {
 } from './dom.js';
 import { providerKeys } from './state.js';
 import { ragState, toInt, toFloatOrNull, setSelectValue, setStatusState } from './rag-shared.js';
-import { getEmbeddingDefaults, getSelectedEmbeddingDimensions, setEmbeddingDimensions, updateEmbeddingUI } from './rag-embedding.js';
+import { getEmbeddingDefaults, updateEmbeddingUI } from './rag-embedding.js';
 import { refreshRagStatus, showRagStatusError } from './rag-run.js';
 
 const PIPELINE_SETTINGS_KEY = 'rag_pipeline_settings';
@@ -102,8 +96,6 @@ export function applyPipelineSettings(settings) {
   if (ragMinScore && finalFilter.minScore != null) ragMinScore.value = finalFilter.minScore;
   if (ragPromptTemplate) ragPromptTemplate.value = settings.promptTemplate ?? '';
   if (ragQueryRewriter && typeof settings.queryRewriterEnabled === 'boolean') ragQueryRewriter.checked = settings.queryRewriterEnabled;
-  if (ragRewriterMaxTokens && settings.queryRewriteMaxTokens) ragRewriterMaxTokens.value = settings.queryRewriteMaxTokens;
-  if (ragExtractKeywords && typeof settings.extractKeywords === 'boolean') ragExtractKeywords.checked = settings.extractKeywords;
   if (ragRewriterOverride) ragRewriterOverride.checked = !!settings.rewriterModelOverride;
   if (ragRewriterModel && settings.rewriterModelOverride) ragRewriterModel.value = settings.rewriterModelOverride;
   if (ragHybridSearch && typeof settings.hybridSearchEnabled === 'boolean') ragHybridSearch.checked = settings.hybridSearchEnabled;
@@ -116,25 +108,14 @@ export function applyPipelineSettings(settings) {
   if (ragRetrievalMultiplier && retrievalDerivation.topKMultiplier) ragRetrievalMultiplier.value = retrievalDerivation.topKMultiplier;
   if (ragMinScoreDivider && retrievalDerivation.minScoreDivider) ragMinScoreDivider.value = retrievalDerivation.minScoreDivider;
 
-  const finalSelection = settings.finalSelection || {};
-  if (ragFinalSelectionMode && finalSelection.mode) ragFinalSelectionMode.value = finalSelection.mode;
-  if (ragFinalSelectionWeight && finalSelection.retrievalWeight != null) ragFinalSelectionWeight.value = finalSelection.retrievalWeight;
-
   updateRewriterUI();
   updateHybridUI();
   updateHybridWeightDisplay();
   updateRerankUI();
-  updateFinalSelectionUI();
-  updateFinalSelectionWeightDisplay();
   updateRerankCandidateTopKDisplay();
   updateRerankDerivedMinScoreDisplay();
   updateRetrievalParamsDisplay();
   updateEmbeddingUI();
-
-  // Restore saved custom embedding dimensions (after updateEmbeddingUI sets defaults)
-  if (settings.embeddingDimensions && settings.embeddingProvider) {
-    setEmbeddingDimensions(settings.embeddingProvider, settings.embeddingDimensions);
-  }
 }
 
 export function buildPipelineSettingsPayload() {
@@ -143,8 +124,7 @@ export function buildPipelineSettingsPayload() {
     throw new Error('Embedding provider is required.');
   }
 
-  const { model: embeddingModel } = getEmbeddingDefaults(provider);
-  const embeddingDimensions = getSelectedEmbeddingDimensions();
+  const { model: embeddingModel, dims: embeddingDimensions } = getEmbeddingDefaults(provider);
   const embeddingBaseUrl = provider === 'vllm'
     ? ragVllmBaseUrl?.value?.trim()
     : ragEmbeddingBaseUrl?.value?.trim();
@@ -204,8 +184,6 @@ export function buildPipelineSettingsPayload() {
     },
     promptTemplate: ragPromptTemplate?.value?.trim() || null,
     queryRewriterEnabled: !!ragQueryRewriter?.checked,
-    queryRewriteMaxTokens: toInt(ragRewriterMaxTokens?.value) || 250,
-    extractKeywords: ragExtractKeywords?.checked ?? true,
     rewriterModelOverride: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? ragRewriterModel.value : null,
     rewriterApiKey: (ragRewriterOverride?.checked && ragRewriterModel?.value) ? getApiKeyForRewriterModel(ragRewriterModel.value) : null,
     hybridSearchEnabled: !!ragHybridSearch?.checked,
@@ -214,11 +192,7 @@ export function buildPipelineSettingsPayload() {
     rerankProvider,
     rerankModel,
     rerankBaseUrl,
-    rerankApiKey: ragRerankApiKey?.value?.trim() || null,
-    finalSelection: {
-      mode: ragFinalSelectionMode?.value || 'RerankerOnly',
-      retrievalWeight: ragFinalSelectionWeight ? parseFloat(ragFinalSelectionWeight.value) : 0.65
-    }
+    rerankApiKey: ragRerankApiKey?.value?.trim() || null
   };
 }
 
@@ -294,20 +268,6 @@ export function updateHybridUI() {
 export function updateHybridWeightDisplay() {
   if (ragHybridWeightVal && ragHybridWeight) {
     ragHybridWeightVal.textContent = parseFloat(ragHybridWeight.value).toFixed(2);
-  }
-}
-
-// ── Final Selection UI ───────────────────────────────────────
-export function updateFinalSelectionUI() {
-  const isBlend = ragFinalSelectionMode?.value === 'WeightedBlend';
-  if (ragFinalSelectionWeightRow) {
-    ragFinalSelectionWeightRow.classList.toggle('hidden', !isBlend);
-  }
-}
-
-export function updateFinalSelectionWeightDisplay() {
-  if (ragFinalSelectionWeightVal && ragFinalSelectionWeight) {
-    ragFinalSelectionWeightVal.textContent = parseFloat(ragFinalSelectionWeight.value).toFixed(2);
   }
 }
 
