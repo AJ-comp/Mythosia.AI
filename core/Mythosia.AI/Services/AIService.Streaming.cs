@@ -1,5 +1,6 @@
 ﻿using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
@@ -107,43 +108,93 @@ namespace Mythosia.AI.Services.Base
         }
 
         /// <summary>
-        /// Core streaming implementation with full control
-        /// Virtual method that can be overridden by implementations
+        /// Core streaming implementation using Template Method pattern.
+        /// Manages the round loop, StatelessMode, and conversation summary policy.
+        /// Providers override <see cref="StreamRoundAsync"/> to handle a single round.
+        /// Providers that do not support function calling rounds (e.g., DeepSeek, Sonar)
+        /// may override this method directly.
         /// </summary>
         public virtual async IAsyncEnumerable<StreamingContent> StreamAsync(
             Message message,
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            // Default implementation using callback-based streaming
+            var policy = CurrentPolicy ?? DefaultPolicy;
+            CurrentPolicy = null;
+
+            bool useFunctions = options.IncludeFunctionCalls &&
+                               ShouldUseFunctions &&
+                               !FunctionsDisabled;
+
+            ChatBlock originalChat = null;
+            if (StatelessMode)
+            {
+                originalChat = ActivateChat;
+                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
+            }
+
+            try
+            {
+                Stream = true;
+                ActivateChat.Messages.Add(message);
+
+                for (int round = 0; round < policy.MaxRounds; round++)
+                {
+                    await ApplySummaryPolicyIfNeededAsync();
+
+                    bool hasFunctionResult = false;
+                    await foreach (var content in StreamRoundAsync(
+                        options, useFunctions, policy, cancellationToken))
+                    {
+                        if (content.Type == StreamingContentType.FunctionResult)
+                            hasFunctionResult = true;
+
+                        yield return content;
+                    }
+
+                    if (!hasFunctionResult)
+                        yield break;
+                }
+            }
+            finally
+            {
+                if (originalChat != null)
+                    ActivateChat = originalChat;
+            }
+        }
+
+        /// <summary>
+        /// Executes a single streaming round: sends an HTTP request, reads the SSE stream,
+        /// yields chunks, and handles function execution if detected.
+        /// Yield a <see cref="StreamingContentType.FunctionResult"/> to signal the template
+        /// to continue to the next round; otherwise the stream ends.
+        /// </summary>
+        protected virtual async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
+            StreamOptions options,
+            bool useFunctions,
+            FunctionCallingPolicy policy,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            // Default implementation using callback-based streaming (for providers without round support)
             var channel = Channel.CreateUnbounded<StreamingContent>(new UnboundedChannelOptions
             {
                 SingleReader = true,
                 SingleWriter = true
             });
 
-            // Start the streaming task
             var streamingTask = Task.Run(async () =>
             {
                 try
                 {
-                    await StreamCompletionAsync(message, async content =>
+                    // Build a temporary message from the last user message
+                    var lastMessage = ActivateChat.Messages[ActivateChat.Messages.Count - 1];
+                    await StreamCompletionAsync(lastMessage, async content =>
                     {
-                        var streamingContent = new StreamingContent
+                        await channel.Writer.WriteAsync(new StreamingContent
                         {
                             Type = StreamingContentType.Text,
                             Content = content
-                        };
-
-                        if (options.IncludeMetadata)
-                        {
-                            streamingContent.Metadata = new Dictionary<string, object>
-                            {
-                                ["timestamp"] = DateTime.UtcNow
-                            };
-                        }
-
-                        await channel.Writer.WriteAsync(streamingContent, cancellationToken);
+                        }, cancellationToken);
                     });
                 }
                 catch (Exception ex)
@@ -161,13 +212,11 @@ namespace Mythosia.AI.Services.Base
                 }
             }, cancellationToken);
 
-            // Read from the channel
             await foreach (var content in channel.Reader.ReadAllAsync(cancellationToken))
             {
                 yield return content;
             }
 
-            // Ensure the streaming task completes
             try
             {
                 await streamingTask;

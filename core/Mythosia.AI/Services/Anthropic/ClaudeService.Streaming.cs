@@ -20,215 +20,185 @@ namespace Mythosia.AI.Services.Anthropic
     {
         #region Streaming Implementation
 
-        public override async IAsyncEnumerable<StreamingContent> StreamAsync(
-            Message message,
+        protected override async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
             StreamOptions options,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            bool useFunctions,
+            FunctionCallingPolicy policy,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
-            bool useFunctions = options.IncludeFunctionCalls &&
-                               ShouldUseFunctions &&
-                               !FunctionsDisabled;
+            if (policy.EnableLogging)
+                Console.WriteLine($"[Claude Stream Round]");
 
-            ChatBlock originalChat = null;
-            if (StatelessMode)
+            var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
             {
-                originalChat = ActivateChat;
-                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
+                var error = await response.Content.ReadAsStringAsync();
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Error,
+                    Content = $"API error ({(int)response.StatusCode}): {error}",
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["error"] = error,
+                        ["status_code"] = (int)response.StatusCode
+                    }
+                };
+                yield break;
             }
 
-            try
+            // ── Phase 1: Read stream and yield text/thinking chunks in real-time ──
+            var textBuffer = new StringBuilder();
+            var thinkingBuffer = new StringBuilder();
+            var collectedToolUses = new List<FunctionCall>();
+            var currentToolUse = new ToolUseData();
+            bool functionEventSent = false;
+            string currentModel = null;
+
+            using (var stream = await response.Content.ReadAsStreamAsync())
+            using (var reader = new StreamReader(stream))
             {
-                Stream = true;
-                ActivateChat.Messages.Add(message);
-
-                for (int round = 0; round < policy.MaxRounds; round++)
+                string line;
+                while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
                 {
-                    if (policy.EnableLogging)
-                        Console.WriteLine($"[Claude Stream Round {round + 1}/{policy.MaxRounds}]");
+                    if (!line.StartsWith(SseDataPrefix) && !line.StartsWith(SseEventPrefix))
+                        continue;
 
-                    var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
-                    var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-                    if (!response.IsSuccessStatusCode)
+                    if (line.StartsWith(SseEventPrefix))
                     {
-                        var error = await response.Content.ReadAsStringAsync();
+                        var eventType = line.Substring(SseEventPrefix.Length).Trim();
+                        currentToolUse.CurrentEventType = eventType;
+                        continue;
+                    }
+
+                    var jsonData = line.Substring(SseDataPrefix.Length).Trim();
+                    if (string.IsNullOrEmpty(jsonData))
+                        continue;
+
+                    var parseResult = TryParseClaudeStreamChunk(jsonData, currentToolUse, options, policy);
+                    if (parseResult == null) continue;
+
+                    if (currentModel == null && parseResult.Model != null)
+                        currentModel = parseResult.Model;
+
+                    // Tool use started
+                    if (parseResult.ToolUseStarted && !functionEventSent && options.IncludeFunctionCalls)
+                    {
+                        functionEventSent = true;
                         yield return new StreamingContent
                         {
-                            Type = StreamingContentType.Error,
-                            Content = $"API error ({(int)response.StatusCode}): {error}",
+                            Type = StreamingContentType.FunctionCall,
                             Metadata = new Dictionary<string, object>
                             {
-                                ["error"] = error,
-                                ["status_code"] = (int)response.StatusCode
+                                ["function_name"] = currentToolUse.Name ?? "unknown",
+                                ["tool_use_id"] = currentToolUse.Id ?? "",
+                                ["status"] = "started"
                             }
                         };
-                        yield break;
-                    }
 
-                    // ── Phase 1: Read stream and yield text/thinking chunks in real-time ──
-                    var textBuffer = new StringBuilder();
-                    var thinkingBuffer = new StringBuilder();
-                    var collectedToolUses = new List<FunctionCall>();
-                    var currentToolUse = new ToolUseData();
-                    bool functionEventSent = false;
-                    string currentModel = null;
-
-                    using (var stream = await response.Content.ReadAsStreamAsync())
-                    using (var reader = new StreamReader(stream))
-                    {
-                        string line;
-                        while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
-                        {
-                            if (!line.StartsWith(SseDataPrefix) && !line.StartsWith(SseEventPrefix))
-                                continue;
-
-                            if (line.StartsWith(SseEventPrefix))
-                            {
-                                var eventType = line.Substring(SseEventPrefix.Length).Trim();
-                                currentToolUse.CurrentEventType = eventType;
-                                continue;
-                            }
-
-                            var jsonData = line.Substring(SseDataPrefix.Length).Trim();
-                            if (string.IsNullOrEmpty(jsonData))
-                                continue;
-
-                            var parseResult = TryParseClaudeStreamChunk(jsonData, currentToolUse, options, policy);
-                            if (parseResult == null) continue;
-
-                            if (currentModel == null && parseResult.Model != null)
-                                currentModel = parseResult.Model;
-
-                            // Tool use started
-                            if (parseResult.ToolUseStarted && !functionEventSent && options.IncludeFunctionCalls)
-                            {
-                                functionEventSent = true;
-                                yield return new StreamingContent
-                                {
-                                    Type = StreamingContentType.FunctionCall,
-                                    Metadata = new Dictionary<string, object>
-                                    {
-                                        ["function_name"] = currentToolUse.Name ?? "unknown",
-                                        ["tool_use_id"] = currentToolUse.Id ?? "",
-                                        ["status"] = "started"
-                                    }
-                                };
-
-                                if (policy.EnableLogging)
-                                    Console.WriteLine($"  → Tool use detected: {currentToolUse.Name}");
-                            }
-
-                            // Thinking content — yield immediately
-                            if (!string.IsNullOrEmpty(parseResult.ThinkingContent) && options.IncludeReasoning)
-                            {
-                                thinkingBuffer.Append(parseResult.ThinkingContent);
-                                yield return new StreamingContent
-                                {
-                                    Type = StreamingContentType.Reasoning,
-                                    Content = parseResult.ThinkingContent,
-                                    Metadata = options.IncludeMetadata ? new Dictionary<string, object>
-                                    {
-                                        ["model"] = currentModel ?? Model
-                                    } : null
-                                };
-                            }
-
-                            // Text content — yield immediately
-                            if (!string.IsNullOrEmpty(parseResult.TextContent))
-                            {
-                                textBuffer.Append(parseResult.TextContent);
-                                yield return new StreamingContent
-                                {
-                                    Type = StreamingContentType.Text,
-                                    Content = parseResult.TextContent,
-                                    Metadata = options.IncludeMetadata ? new Dictionary<string, object>
-                                    {
-                                        ["model"] = currentModel ?? Model
-                                    } : null
-                                };
-                            }
-
-                            // Tool use completed — collect for post-processing
-                            if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
-                            {
-                                collectedToolUses.Add(CollectCompletedToolUse(currentToolUse));
-                                currentToolUse = new ToolUseData();
-                            }
-
-                            // Message complete
-                            if (parseResult.MessageComplete)
-                            {
-                                if (options.IncludeMetadata)
-                                {
-                                    yield return new StreamingContent
-                                    {
-                                        Type = StreamingContentType.Completion,
-                                        Metadata = new Dictionary<string, object>
-                                        {
-                                            ["total_length"] = textBuffer.Length,
-                                            ["model"] = currentModel ?? Model
-                                        }
-                                    };
-                                }
-                                break;
-                            }
-                        }
-                    }
-
-                    // ── Phase 2: Post-processing (function execution) ──
-                    if (collectedToolUses.Count > 0)
-                    {
                         if (policy.EnableLogging)
-                            Console.WriteLine($"  → Processing {collectedToolUses.Count} tool use(s)");
+                            Console.WriteLine($"  → Tool use detected: {currentToolUse.Name}");
+                    }
 
-                        // Execute functions and capture results for streaming events
-                        var functionResults = new Dictionary<string, string>();
-                        for (int i = 0; i < collectedToolUses.Count; i++)
+                    // Thinking content — yield immediately
+                    if (!string.IsNullOrEmpty(parseResult.ThinkingContent) && options.IncludeReasoning)
+                    {
+                        thinkingBuffer.Append(parseResult.ThinkingContent);
+                        yield return new StreamingContent
                         {
-                            var call = collectedToolUses[i];
-                            var content = (i == 0) ? (textBuffer.ToString() ?? ".") : ".";
+                            Type = StreamingContentType.Reasoning,
+                            Content = parseResult.ThinkingContent,
+                            Metadata = options.IncludeMetadata ? new Dictionary<string, object>
+                            {
+                                ["model"] = currentModel ?? Model
+                            } : null
+                        };
+                    }
 
-                            if (policy.EnableLogging)
-                                Console.WriteLine($"  Executing function: {call.Name}");
-
-                            ActivateChat.Messages.Add(CreateFunctionCallMessage(call, content));
-                            var result = await ExecuteFunctionAndAddResultAsync(call);
-                            functionResults[call.Id ?? call.Name] = result;
-                        }
-
-                        foreach (var toolUse in collectedToolUses)
+                    // Text content — yield immediately
+                    if (!string.IsNullOrEmpty(parseResult.TextContent))
+                    {
+                        textBuffer.Append(parseResult.TextContent);
+                        yield return new StreamingContent
                         {
-                            var result = functionResults.GetValueOrDefault(toolUse.Id ?? toolUse.Name, "");
+                            Type = StreamingContentType.Text,
+                            Content = parseResult.TextContent,
+                            Metadata = options.IncludeMetadata ? new Dictionary<string, object>
+                            {
+                                ["model"] = currentModel ?? Model
+                            } : null
+                        };
+                    }
+
+                    // Tool use completed — collect for post-processing
+                    if (currentToolUse.IsComplete && !string.IsNullOrEmpty(currentToolUse.Name))
+                    {
+                        collectedToolUses.Add(CollectCompletedToolUse(currentToolUse));
+                        currentToolUse = new ToolUseData();
+                    }
+
+                    // Message complete
+                    if (parseResult.MessageComplete)
+                    {
+                        if (options.IncludeMetadata)
+                        {
                             yield return new StreamingContent
                             {
-                                Type = StreamingContentType.FunctionResult,
+                                Type = StreamingContentType.Completion,
                                 Metadata = new Dictionary<string, object>
                                 {
-                                    ["function_name"] = toolUse.Name,
-                                    ["function_arguments"] = toolUse.Arguments != null
-                                        ? JsonSerializer.Serialize(toolUse.Arguments)
-                                        : "{}",
-                                    ["status"] = "completed",
-                                    ["result"] = result
+                                    ["total_length"] = textBuffer.Length,
+                                    ["model"] = currentModel ?? Model
                                 }
                             };
                         }
-
-                        continue; // next round
+                        break;
                     }
-                    else if (textBuffer.Length > 0)
-                    {
-                        ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
-                    }
-
-                    yield break; // text-only response complete
                 }
             }
-            finally
+
+            // ── Phase 2: Post-processing (function execution) ──
+            if (collectedToolUses.Count > 0)
             {
-                if (originalChat != null)
-                    ActivateChat = originalChat;
+                if (policy.EnableLogging)
+                    Console.WriteLine($"  → Processing {collectedToolUses.Count} tool use(s)");
+
+                var functionResults = new Dictionary<string, string>();
+                for (int i = 0; i < collectedToolUses.Count; i++)
+                {
+                    var call = collectedToolUses[i];
+                    var content = (i == 0) ? (textBuffer.ToString() ?? ".") : ".";
+
+                    if (policy.EnableLogging)
+                        Console.WriteLine($"  Executing function: {call.Name}");
+
+                    ActivateChat.Messages.Add(CreateFunctionCallMessage(call, content));
+                    var result = await ExecuteFunctionAndAddResultAsync(call);
+                    functionResults[call.Id ?? call.Name] = result;
+                }
+
+                foreach (var toolUse in collectedToolUses)
+                {
+                    var result = functionResults.GetValueOrDefault(toolUse.Id ?? toolUse.Name, "");
+                    yield return new StreamingContent
+                    {
+                        Type = StreamingContentType.FunctionResult,
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["function_name"] = toolUse.Name,
+                            ["function_arguments"] = toolUse.Arguments != null
+                                ? JsonSerializer.Serialize(toolUse.Arguments)
+                                : "{}",
+                            ["status"] = "completed",
+                            ["result"] = result
+                        }
+                    };
+                }
+            }
+            else if (textBuffer.Length > 0)
+            {
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
             }
         }
 

@@ -10,6 +10,7 @@ import {
   ragSettingsModal,
   ragSettingsBackdrop,
   ragSettingsClose,
+  ragSettingsExportPdf,
   ragSettingsSave,
   ragFiles,
   ragChunkSize,
@@ -69,7 +70,7 @@ import {
 import { ragState, markReferenceStale, setViewCodeEnabled } from './rag-shared.js';
 import { updateEmbeddingUI, testOllamaConnection, testVllmConnection, saveInlineOpenAiKey } from './rag-embedding.js';
 import { updateFileList, runReference, refreshRagStatus, refreshReferenceHistory, openRagCodeModal, closeTracePanel } from './rag-run.js';
-import { loadPipelineSettings, savePipelineSettings, testVllmRerankConnection, updateRewriterUI, updateRewriterOverrideUI, updateHybridUI, updateHybridWeightDisplay, updateRerankUI, updateFinalSelectionUI, updateFinalSelectionWeightDisplay, updateRerankCandidateTopKDisplay, updateRerankDerivedMinScoreDisplay, updateRetrievalParamsDisplay } from './rag-pipeline.js';
+import { loadPipelineSettings, savePipelineSettings, exportPipelineSettingsPdf, testVllmRerankConnection, updateRewriterUI, updateRewriterOverrideUI, updateHybridUI, updateHybridWeightDisplay, updateRerankUI, updateFinalSelectionUI, updateFinalSelectionWeightDisplay, updateRerankCandidateTopKDisplay, updateRerankDerivedMinScoreDisplay, updateRetrievalParamsDisplay } from './rag-pipeline.js';
 import { updateVectorStoreUI, loadVectorStoreConfig, updatePgConnectState, updateQdrantConnectState, connectPostgres, disconnectPostgres, connectQdrant, disconnectQdrant, updatePineconeConnectState, connectPinecone, disconnectPinecone } from './rag-vector-store.js';
 
 export function initRagReference() {
@@ -85,6 +86,7 @@ export function initRagReference() {
   ragSettingsClose?.addEventListener('click', () => closeSettingsModal());
   ragSettingsBackdrop?.addEventListener('click', () => closeSettingsModal());
   ragSettingsSave?.addEventListener('click', savePipelineSettings);
+  ragSettingsExportPdf?.addEventListener('click', exportPipelineSettingsPdf);
 
   // ── Embedding Result modal controls ─────────────────────────
   ragEmbedResultClose?.addEventListener('click', () => closeEmbedResultModal());

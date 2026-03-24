@@ -1,5 +1,24 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v5.0.1 - GPT-5.4 Mini/Nano & Streaming Reliability
+
+### **GPT-5.4 Mini & Nano Support** 🤖
+
+Added `AIModels.OpenAI.Gpt5_4Mini` (`gpt-5.4-mini`) and `AIModels.OpenAI.Gpt5_4Nano` (`gpt-5.4-nano`) model constants.
+
+### **Internal Streaming Refactor** 🔧
+
+- Refactored `StreamAsync` into a Template Method pattern: the base class now owns the round loop, `StatelessMode` handling, and `ApplySummaryPolicyIfNeededAsync()` invocation. Providers override `StreamRoundAsync` for single-round logic.
+- Fixed Gemini streaming to support multi-round function chaining (previously used recursion, now iterative).
+- Fixed `Stream` flag not being restored after `ApplySummaryPolicyIfNeededAsync()` triggers during streaming loops, by adding `Stream` backup/restore to `ApplyRequestProfile`.
+
+### ✅ Compatibility
+
+- Fully backward compatible with v5.0.0
+- No breaking changes to public API
+
+---
+
 ## 🚀 v5.0.0 - Request Profiles, Request Contexts, and AIModels Catalog
 
 ### **Model Catalog Shift to `AIModels` String Constants** 🔤

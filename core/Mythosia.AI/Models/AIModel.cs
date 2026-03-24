@@ -17,6 +17,8 @@
             public const string Gpt5_2Codex = "gpt-5.2-codex";
             public const string Gpt5_3Codex = "gpt-5.3-codex";
             public const string Gpt5_4 = "gpt-5.4";
+            public const string Gpt5_4Mini = "gpt-5.4-mini";
+            public const string Gpt5_4Nano = "gpt-5.4-nano";
             public const string Gpt5_4Pro = "gpt-5.4-pro";
             public const string O3Pro = "o3-pro";
             public const string O3 = "o3";

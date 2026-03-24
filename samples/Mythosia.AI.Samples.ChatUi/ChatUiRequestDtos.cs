@@ -44,6 +44,7 @@ namespace Mythosia.AI.Samples.ChatUi
     internal record FinalSelectionRequest(string? Mode, double? RetrievalWeight);
     internal record WhyMissingRequest(string? Query, string? ExpectedText);
     internal record QueryScoresRequest(string? Query, string? ExpectedText);
+    internal record ExternalChatRequest(string? Message, RagPipelineSettingsRequest? RagSettings, VectorStoreConfigRequest? VectorStore);
     internal record VectorStoreConfigRequest(
         string? Provider,
         string? ConnectionString,

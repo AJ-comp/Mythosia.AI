@@ -6,7 +6,7 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 
 ### Supported Providers
 
-- **OpenAI** — GPT-5.4 / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Codex / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
+- **OpenAI** — GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Codex / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
 - **Anthropic** — Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5 / 4, Haiku 4.5
 - **Google** — Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite
 - **DeepSeek** — Chat and Reasoner models

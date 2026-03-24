@@ -100,36 +100,21 @@ namespace Mythosia.AI.Services.Google
             }
         }
 
-        public override async IAsyncEnumerable<StreamingContent> StreamAsync(
-            Message message,
+        protected override async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
             StreamOptions options,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+            bool useFunctions,
+            FunctionCallingPolicy policy,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            bool useFunctions = options.IncludeFunctionCalls &&
-                               ShouldUseFunctions &&
-                               !FunctionsDisabled;
+            if (policy.EnableLogging)
+                Console.WriteLine($"[Gemini Stream Round]");
 
-            if (StatelessMode)
-            {
-                await foreach (var content in ProcessStatelessStreamAsync(
-                    message, options, useFunctions, cancellationToken))
-                {
-                    yield return content;
-                }
-                yield break;
-            }
-
-            Stream = true;
-            ActivateChat.Messages.Add(message);
-
-            var request = useFunctions ?
-                CreateFunctionMessageRequest(options.IncludeReasoning) :
-                CreateMessageRequest(options.IncludeReasoning);
+            var request = useFunctions
+                ? CreateFunctionMessageRequest(options.IncludeReasoning)
+                : CreateMessageRequest(options.IncludeReasoning);
 
             var response = await HttpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
+                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -137,69 +122,58 @@ namespace Mythosia.AI.Services.Google
                 yield break;
             }
 
-            await foreach (var content in ProcessGeminiStream(
-                response, options, useFunctions, cancellationToken))
+            // Read stream and yield chunks in real-time
+            var textBuffer = new StringBuilder();
+            var functionCallData = new FunctionCallData();
+
+            await foreach (var content in ReadGeminiStreamChunks(
+                response, options, functionCallData, cancellationToken))
             {
+                if (content.Type == StreamingContentType.Text)
+                    textBuffer.Append(content.Content);
+
                 yield return content;
             }
-        }
 
-        private async IAsyncEnumerable<StreamingContent> ProcessStatelessStreamAsync(
-            Message message,
-            StreamOptions options,
-            bool useFunctions,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            Stream = true;
-            var tempChat = new ChatBlock
+            // Execute function if detected — yield FunctionResult to signal next round
+            if (functionCallData.IsComplete && functionCallData.Name != null && useFunctions)
             {
-                SystemMessage = ActivateChat.SystemMessage
-            };
-            tempChat.Messages.Add(message);
+                var funcId = Guid.NewGuid().ToString();
+                var argsJson = functionCallData.Arguments.ToString();
 
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
+                if (policy.EnableLogging)
+                    Console.WriteLine($"  Executing function: {functionCallData.Name}");
 
-            try
-            {
-                var request = useFunctions ?
-                    CreateFunctionMessageRequest(options.IncludeReasoning) :
-                    CreateMessageRequest(options.IncludeReasoning);
+                AddStreamFunctionCallMessage(funcId, functionCallData, argsJson);
 
-                var response = await HttpClient.SendAsync(
-                    request,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
+                var functionResult = await ExecuteFunctionCallAsync(
+                    functionCallData, options, cancellationToken);
+                yield return functionResult;
 
-                if (!response.IsSuccessStatusCode)
-                {
-                    yield return CreateErrorContent(response);
-                    yield break;
-                }
-
-                await foreach (var content in ProcessGeminiStream(
-                    response, options, useFunctions, cancellationToken))
-                {
-                    yield return content;
-                }
+                AddStreamFunctionResultMessage(funcId, functionCallData,
+                    functionResult.Metadata?["result"]?.ToString() ?? "");
             }
-            finally
+            else if (textBuffer.Length > 0)
             {
-                ActivateChat = backup;
+                // Text-only response — save assistant message
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
             }
         }
 
-        private async IAsyncEnumerable<StreamingContent> ProcessGeminiStream(
+        // StatelessMode is now handled directly in StreamAsync via ChatBlock backup/restore.
+
+        /// <summary>
+        /// Reads a single Gemini SSE stream and yields parsed chunks.
+        /// Does not execute functions — the caller handles function execution in the round loop.
+        /// </summary>
+        private async IAsyncEnumerable<StreamingContent> ReadGeminiStreamChunks(
             HttpResponseMessage response,
             StreamOptions options,
-            bool functionsEnabled,
+            FunctionCallData functionCallData,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
-
-            var textBuffer = new StringBuilder();
-            var functionCallData = new FunctionCallData();
 
             while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
@@ -210,7 +184,7 @@ namespace Mythosia.AI.Services.Google
                 if (jsonData == SseDoneSignal)
                 {
                     if (options.IncludeMetadata)
-                        yield return CreateCompletionContent(textBuffer.Length);
+                        yield return CreateCompletionContent(0);
                     break;
                 }
 
@@ -231,20 +205,12 @@ namespace Mythosia.AI.Services.Google
                 {
                     yield return parsedContent;
 
-                    if (functionsEnabled && functionCallData.IsComplete && functionCallData.Name != null)
-                    {
-                        await foreach (var content in HandleStreamFunctionCall(
-                            functionCallData, options, functionsEnabled, cancellationToken))
-                        {
-                            yield return content;
-                        }
+                    // Function call detected — stop reading stream, let the round loop handle execution
+                    if (functionCallData.IsComplete && functionCallData.Name != null)
                         yield break;
-                    }
                 }
                 else if (parsedContent.Type == StreamingContentType.Text)
                 {
-                    textBuffer.Append(parsedContent.Content);
-
                     if (!options.TextOnly || parsedContent.Content != null)
                         yield return parsedContent;
                 }
@@ -257,43 +223,6 @@ namespace Mythosia.AI.Services.Google
                 {
                     yield return parsedContent;
                 }
-            }
-
-            if (textBuffer.Length > 0)
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
-        }
-
-        private async IAsyncEnumerable<StreamingContent> HandleStreamFunctionCall(
-            FunctionCallData functionCallData,
-            StreamOptions options,
-            bool functionsEnabled,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            var argsJson = functionCallData.Arguments.ToString();
-            var streamFuncId = Guid.NewGuid().ToString();
-
-            AddStreamFunctionCallMessage(streamFuncId, functionCallData, argsJson);
-
-            var functionResult = await ExecuteFunctionCallAsync(functionCallData, options, cancellationToken);
-            yield return functionResult;
-
-            AddStreamFunctionResultMessage(streamFuncId, functionCallData,
-                functionResult.Metadata?["result"]?.ToString() ?? "");
-
-            Stream = true;
-            var followUpRequest = CreateFunctionMessageRequest(options.IncludeReasoning);
-            var followUpResponse = await HttpClient.SendAsync(
-                followUpRequest,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
-            if (!followUpResponse.IsSuccessStatusCode)
-                yield break;
-
-            await foreach (var responseContent in ProcessGeminiStream(
-                followUpResponse, options, functionsEnabled, cancellationToken))
-            {
-                yield return responseContent;
             }
         }
 

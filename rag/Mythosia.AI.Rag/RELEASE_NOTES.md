@@ -1,5 +1,14 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v6.0.1
+
+### Mythosia.AI v5.0.1 Compatibility
+
+- Compatible with `Mythosia.AI` v5.0.1 — inherits streaming Template Method refactor and `Stream` flag restoration fix during conversation summary.
+- No functional changes to RAG pipeline.
+
+---
+
 ## v6.0.0
 
 ### Breaking Changes (requires Abstractions v5.0.0)

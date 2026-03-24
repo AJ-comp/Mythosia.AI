@@ -70,6 +70,7 @@ export const ragModalClose   = $('#rag-modal-close');
 export const ragSettingsModal = $('#rag-settings-modal');
 export const ragSettingsBackdrop = $('#rag-settings-backdrop');
 export const ragSettingsClose = $('#rag-settings-close');
+export const ragSettingsExportPdf = $('#rag-settings-export-pdf');
 export const ragSettingsSave  = $('#rag-settings-save');
 export const ragSettingsAlert = $('#rag-settings-alert');
 export const ragSettingsStatus = $('#rag-settings-status');

@@ -14,7 +14,9 @@
 		<PackageId>Mythosia.AI</PackageId>
 		<IsPackable>true</IsPackable>
 		<Company>Mythosia</Company>
-		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; ChatGpt; Claude; DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Gpt5.4Mini; Gpt5.4Nano; ChatGpt;
+		Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; Claude;
+		DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
 ## What's New in v5.0.0
@@ -41,7 +43,7 @@
 - GPT-5.1
 - GPT-5.2, GPT-5.2 Pro, GPT-5.2 Codex
 - GPT-5.3 Codex
-- GPT-5.4, GPT-5.4 Pro
+- GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano, GPT-5.4 Pro
 - o3, o3-pro
 - GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
 - GPT-4o, GPT-4o Mini, GPT-4 Vision
@@ -71,10 +73,10 @@
 - Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
 - GitHub: https://github.com/AJ-comp/Mythosia.AI
 		</Description>
-		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/Mythosia.AI</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v5.0.0: Added AIModels string model catalog, AIRequestProfile per-request runtime overrides, AIRequestContext request-scoped prompt injection, and AIService.QuickAskAsync / QuickAskWithImageAsync stateless helpers.</PackageReleaseNotes>
-		<Version>5.0.0</Version>
+		<PackageReleaseNotes>v5.0.1: Added GPT-5.4 Mini and GPT-5.4 Nano model constants. Internal streaming refactor (Template Method pattern) and bug fixes.</PackageReleaseNotes>
+		<Version>5.0.1</Version>
 	</PropertyGroup>
 
 

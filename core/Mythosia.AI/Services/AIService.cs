@@ -345,6 +345,7 @@ namespace Mythosia.AI.Services.Base
             if (profile == null)
                 return delegate { };
 
+            var backupStream = Stream;
             var backupStatelessMode = StatelessMode;
             var backupFunctionsDisabled = FunctionsDisabled;
             var backupTemperature = Temperature;
@@ -366,6 +367,7 @@ namespace Mythosia.AI.Services.Base
             return () =>
             {
                 restoreProvider();
+                Stream = backupStream;
                 StatelessMode = backupStatelessMode;
                 FunctionsDisabled = backupFunctionsDisabled;
                 Temperature = backupTemperature;

@@ -22,8 +22,8 @@ Documentation
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.1: Fixed DashScope Qwen 3.5 thinking parameter format, separated vLLM/DashScope request paths, and added explicit thinking-off for Qwen3-family models.</PackageReleaseNotes>
-    <Version>1.0.1</Version>
+    <PackageReleaseNotes>v1.0.2: Compatible with Mythosia.AI v5.0.1 — inherits Template Method streaming refactor and Stream flag restoration fix.</PackageReleaseNotes>
+    <Version>1.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,5 +1,18 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## 🔧 v1.0.2 - Mythosia.AI v5.0.1 Compatibility
+
+### **Streaming Architecture Alignment**
+
+- Aligned with Mythosia.AI v5.0.1 Template Method streaming refactor: `QwenService` now overrides `StreamRoundAsync` instead of `StreamAsync`, inheriting base class round-loop management, `StatelessMode` handling, and automatic conversation summary policy.
+
+### ✅ Compatibility
+
+- Compatible with `Mythosia.AI` v5.0.1
+- No breaking changes
+
+---
+
 ## 🐛 v1.0.1 - Thinking Request Handling Fix
 
 ### **DashScope Qwen 3.5 파라미터 포맷 수정**

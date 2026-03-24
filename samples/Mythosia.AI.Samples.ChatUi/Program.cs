@@ -878,6 +878,13 @@ app.MapChatUiRagCoreEndpoints(ragState, ragEndpointState, embeddingHttpClient);
 
 app.MapChatUiRagDiagnosticsEndpoints(ragState);
 
+app.MapExternalTestEndpoints(
+    () => currentService,
+    () => currentProvider,
+    ragState,
+    ragEndpointState,
+    embeddingHttpClient);
+
 // ── Helper ──────────────────────────────────────────────────────
 static Mythosia.AI.Providers.Alibaba.EndpointPlatform ParsePlatform(string? value) => value?.ToLowerInvariant() switch
 {

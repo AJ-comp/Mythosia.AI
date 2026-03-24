@@ -517,3 +517,222 @@ function getApiKeyForRewriterModel(modelEnum) {
   if (!provider) return null;
   return providerKeys?.[provider] || null;
 }
+
+// ── Pipeline Settings PDF Export ─────────────────────────────
+export async function exportPipelineSettingsPdf() {
+  if (typeof window.html2canvas !== 'function' || !window.jspdf?.jsPDF) {
+    alert('PDF libraries not loaded. Check your network connection.');
+    return;
+  }
+
+  const btn = document.getElementById('rag-settings-export-pdf');
+  if (!btn) return;
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="pipe-pdf-spinner"></span> Generating...';
+
+  let settings;
+  try {
+    settings = buildPipelineSettingsPayload();
+  } catch (err) {
+    alert('Failed to read settings: ' + err.message);
+    btn.disabled = false;
+    btn.innerHTML = originalText;
+    return;
+  }
+
+  // Read vector store settings from DOM directly (no import needed)
+  const vsProvider = ragVectorStoreProvider?.value?.trim() || 'inmemory';
+  const vsLabels = { inmemory: 'InMemory', postgres: 'PostgreSQL (pgvector)', qdrant: 'Qdrant', pinecone: 'Pinecone' };
+  const vsLabel = vsLabels[vsProvider] || vsProvider;
+  const pgDim = ragPgDimension?.value || '-';
+  const qdrantDim = ragQdrantDimension?.value || '-';
+
+  const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const now = new Date();
+  const ff = settings.finalFilter || {};
+  const rd = settings.retrievalDerivation || {};
+  const fs = settings.finalSelection || {};
+
+  // Derived values
+  const rerankEnabled = !!settings.rerankEnabled;
+  const candidateTopK = ff.topK && rd.topKMultiplier ? ff.topK * rd.topKMultiplier : '-';
+  const derivedMinScore = ff.minScore != null && rd.minScoreDivider
+    ? (ff.minScore / rd.minScoreDivider).toFixed(4) : '-';
+  const effectiveTopK = rerankEnabled ? candidateTopK : (ff.topK || '-');
+  const effectiveMinScore = rerankEnabled ? derivedMinScore : (ff.minScore ?? 'None');
+
+  function kvRow(label, value, note) {
+    return `<tr><td>${esc(label)}</td><td>${esc(String(value ?? '-'))}${note ? ` <span style="color:#94a3b8;font-size:11px">${esc(note)}</span>` : ''}</td></tr>`;
+  }
+
+  function sectionHeader(num, title, badge) {
+    const badgeHtml = badge ? ` <span class="badge ${badge.cls}">${esc(badge.text)}</span>` : '';
+    return `<h2><span class="ch">${num}</span> ${esc(title)}${badgeHtml}</h2>`;
+  }
+
+  const reportHtml = `
+    <div class="rpt">
+      <style>
+        .rpt { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; line-height: 1.5; padding: 40px; width: 800px; }
+        .rpt h1 { font-size: 22px; font-weight: 700; color: #4f46e5; margin: 0 0 4px; }
+        .rpt .rpt-sub { font-size: 12px; color: #94a3b8; margin-bottom: 28px; }
+        .rpt h2 { font-size: 15px; font-weight: 700; color: #1e293b; margin: 24px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
+        .rpt h2 .ch { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #4f46e5; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+        .rpt h2 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-left: 4px; }
+        .rpt h2 .b-on { background: #dbeafe; color: #2563eb; }
+        .rpt h2 .b-off { background: #f1f5f9; color: #94a3b8; }
+        .rpt table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0 12px; }
+        .rpt td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        .rpt td:first-child { font-weight: 600; color: #64748b; width: 200px; white-space: nowrap; }
+        .rpt td:last-child { color: #1e293b; }
+        .rpt tr:nth-child(even) { background: #f8fafc; }
+        .rpt .note { font-size: 11px; color: #94a3b8; font-style: italic; margin: 4px 0 10px; }
+        .rpt .derived-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin: 10px 0 14px; }
+        .rpt .derived-box h3 { font-size: 13px; font-weight: 700; color: #16a34a; margin: 0 0 8px; }
+        .rpt .derived-box table { margin: 0; }
+        .rpt .derived-box td:first-child { color: #15803d; }
+        .rpt .prompt-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; font-family: 'Consolas','Courier New',monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all; line-height: 1.6; color: #475569; }
+        .rpt hr { border: none; border-top: 1px solid #e2e8f0; margin: 16px 0; }
+      </style>
+
+      <h1>RAG Pipeline Settings Report</h1>
+      <div class="rpt-sub">Generated: ${now.toLocaleString('ko-KR')} &nbsp;|&nbsp; Mythosia.AI</div>
+
+      <!-- 1. Chunking -->
+      ${sectionHeader(1, 'Chunking')}
+      <table>
+        ${kvRow('Chunker', settings.chunker?.toUpperCase())}
+        ${kvRow('Chunk Size', settings.chunkSize, 'characters')}
+        ${kvRow('Chunk Overlap', settings.chunkOverlap, 'characters')}
+      </table>
+
+      <!-- 2. Embedding -->
+      ${sectionHeader(2, 'Embedding')}
+      <table>
+        ${kvRow('Provider', settings.embeddingProvider?.toUpperCase())}
+        ${kvRow('Model', settings.embeddingModel)}
+        ${kvRow('Dimensions', settings.embeddingDimensions)}
+        ${settings.embeddingBaseUrl ? kvRow('Base URL', settings.embeddingBaseUrl) : ''}
+      </table>
+
+      <!-- 3. Query Rewrite -->
+      ${sectionHeader(3, 'Query Rewrite', { text: settings.queryRewriterEnabled ? 'Enabled' : 'Disabled', cls: settings.queryRewriterEnabled ? 'b-on' : 'b-off' })}
+      <table>
+        ${kvRow('Enabled', settings.queryRewriterEnabled ? 'Yes' : 'No')}
+        ${settings.queryRewriterEnabled ? kvRow('Max Tokens', settings.queryRewriteMaxTokens) : ''}
+        ${settings.queryRewriterEnabled ? kvRow('Extract Keywords', settings.extractKeywords ? 'Yes' : 'No') : ''}
+        ${settings.rewriterModelOverride ? kvRow('Model Override', settings.rewriterModelOverride) : ''}
+      </table>
+
+      <!-- 4. Hybrid Search -->
+      ${sectionHeader(4, 'Hybrid Search', { text: settings.hybridSearchEnabled ? 'Enabled' : 'Disabled', cls: settings.hybridSearchEnabled ? 'b-on' : 'b-off' })}
+      <table>
+        ${kvRow('Enabled', settings.hybridSearchEnabled ? 'Yes' : 'No')}
+        ${settings.hybridSearchEnabled ? kvRow('Vector Weight', settings.hybridSearchVectorWeight?.toFixed(2), `(BM25 Weight: ${(1 - (settings.hybridSearchVectorWeight || 0)).toFixed(2)})`) : ''}
+      </table>
+
+      <!-- 5. Vector Store -->
+      ${sectionHeader(5, 'Vector Store')}
+      <table>
+        ${kvRow('Provider', vsLabel)}
+        ${vsProvider === 'postgres' ? kvRow('Dimension', pgDim) : ''}
+        ${vsProvider === 'qdrant' ? kvRow('Dimension', qdrantDim) : ''}
+      </table>
+
+      <!-- 6. Retrieval & Filtering -->
+      ${sectionHeader(6, 'Retrieval & Filtering')}
+      <table>
+        ${kvRow('Final Top K', ff.topK)}
+        ${kvRow('Final Min Score', ff.minScore ?? 'None')}
+      </table>
+
+      <!-- 7. Re-ranking -->
+      ${sectionHeader(7, 'Re-ranking', { text: rerankEnabled ? 'Enabled' : 'Disabled', cls: rerankEnabled ? 'b-on' : 'b-off' })}
+      <table>
+        ${kvRow('Enabled', rerankEnabled ? 'Yes' : 'No')}
+        ${rerankEnabled ? kvRow('Provider', settings.rerankProvider) : ''}
+        ${rerankEnabled && settings.rerankModel ? kvRow('Model', settings.rerankModel) : ''}
+        ${rerankEnabled && settings.rerankBaseUrl ? kvRow('Base URL', settings.rerankBaseUrl) : ''}
+        ${rerankEnabled ? kvRow('Top K Multiplier', rd.topKMultiplier) : ''}
+        ${rerankEnabled ? kvRow('Min Score Divider', rd.minScoreDivider) : ''}
+      </table>
+
+      <!-- 8. Final Selection -->
+      ${sectionHeader(8, 'Final Selection')}
+      <table>
+        ${kvRow('Mode', fs.mode || 'RerankerOnly')}
+        ${fs.mode === 'WeightedBlend' ? kvRow('Retrieval Weight', fs.retrievalWeight?.toFixed(2), `(Reranker: ${(1 - (fs.retrievalWeight || 0)).toFixed(2)})`) : ''}
+      </table>
+
+      <!-- Derived Parameters -->
+      <div class="derived-box">
+        <h3>Effective Retrieval Parameters</h3>
+        <p class="note">These are the actual values used at search time, after applying multiplier/divider when re-ranking is enabled.</p>
+        <table>
+          ${kvRow('Retrieval Top K', effectiveTopK, rerankEnabled ? `(${ff.topK} x ${rd.topKMultiplier})` : '')}
+          ${kvRow('Retrieval Min Score', effectiveMinScore, rerankEnabled && ff.minScore != null ? `(${ff.minScore} / ${rd.minScoreDivider})` : '')}
+        </table>
+      </div>
+
+      <!-- 9. Prompt Template -->
+      ${sectionHeader(9, 'Prompt Template')}
+      ${settings.promptTemplate
+        ? `<div class="prompt-box">${esc(settings.promptTemplate)}</div>`
+        : '<p class="note">Using default prompt template.</p>'}
+    </div>`;
+
+  // ── Render off-screen and capture ──
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:#fff;';
+  container.innerHTML = reportHtml;
+  document.body.appendChild(container);
+  const rptEl = container.querySelector('.rpt');
+
+  try {
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const canvas = await window.html2canvas(rptEl, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false,
+      width: rptEl.scrollWidth, height: rptEl.scrollHeight
+    });
+
+    const imgW = canvas.width, imgH = canvas.height;
+    if (!imgW || !imgH) throw new Error('Canvas is empty.');
+
+    const { jsPDF } = window.jspdf;
+    const pw = 210, ph = 297, m = 10;
+    const cw = pw - m * 2;
+    const ch = (imgH * cw) / imgW;
+    const pch = ph - m * 2;
+    const pages = Math.ceil(ch / pch);
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    for (let i = 0; i < pages; i++) {
+      if (i > 0) pdf.addPage();
+      const sy = (i * pch / ch) * imgH;
+      const sh = Math.min((pch / ch) * imgH, imgH - sy);
+      const pc = document.createElement('canvas');
+      pc.width = imgW;
+      pc.height = Math.ceil(sh);
+      const ctx = pc.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, pc.width, pc.height);
+      ctx.drawImage(canvas, 0, Math.floor(sy), imgW, Math.ceil(sh), 0, 0, imgW, Math.ceil(sh));
+      pdf.addImage(pc.toDataURL('image/png'), 'PNG', m, m, cw, (Math.ceil(sh) * cw) / imgW);
+    }
+
+    const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    pdf.save(`RAG_Pipeline_Settings_${ts}.pdf`);
+
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
+    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+  } catch (err) {
+    console.error('Settings PDF export failed:', err);
+    btn.innerHTML = 'Export Failed';
+    alert('PDF export failed: ' + (err.message || err));
+    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+  } finally {
+    container.remove();
+  }
+}

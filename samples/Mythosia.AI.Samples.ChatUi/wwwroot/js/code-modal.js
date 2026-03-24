@@ -496,9 +496,15 @@ function openRagDiagnosePopup(ragInfo) {
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           RAG Pipeline Diagnostics
         </h3>
-        <button class="btn-icon rag-popup-close" title="Close">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
+        <div class="pipe-header-actions">
+          <button class="btn-secondary pipe-export-pdf-btn" title="Export as PDF">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 18 15 15"/></svg>
+            Export PDF
+          </button>
+          <button class="btn-icon rag-popup-close" title="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
       </div>
       <div class="modal-body pipe-modal-body">
         ${errorBannerHtml}
@@ -532,6 +538,282 @@ function openRagDiagnosePopup(ragInfo) {
       setTimeout(() => copyBtn.textContent = 'Copy', 1500);
     });
   });
+
+  // PDF export handler
+  const pdfBtn = overlay.querySelector('.pipe-export-pdf-btn');
+  pdfBtn?.addEventListener('click', () => exportPipelinePdf(overlay, ragInfo));
+}
+
+// ── PDF Export ────────────────────────────────────────────────
+async function exportPipelinePdf(overlay, ragInfo) {
+  const btn = overlay.querySelector('.pipe-export-pdf-btn');
+  if (!btn) return;
+
+  if (typeof window.html2canvas !== 'function' || !window.jspdf?.jsPDF) {
+    alert('PDF libraries not loaded. Check your network connection.');
+    return;
+  }
+
+  const originalText = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="pipe-pdf-spinner"></span> Generating...';
+
+  // ── Extract data from ragInfo ──
+  const retrievalResults = ragInfo.retrievalResults || [];
+  const rerankedCandidates = ragInfo.rerankedCandidates || null;
+  const refs = ragInfo.references || [];
+  const diagnostics = ragInfo.diagnostics || {};
+  const finalTopK = diagnostics.finalTopK ?? '-';
+  const retrievalTopK = diagnostics.retrievalTopK ?? finalTopK;
+  const retrievalMinScore = diagnostics.appliedRetrievalMinScore;
+  const finalMinScore = diagnostics.appliedFinalMinScore;
+  const elapsedMs = diagnostics.elapsedMs ?? '-';
+  const searchMode = ragInfo.searchMode || '-';
+  const hybridWeight = ragInfo.hybridWeight;
+  const vectorStoreProvider = ragInfo.vectorStoreProvider || '-';
+  const reranking = ragInfo.reranking || {};
+  const rerankEnabled = !!reranking.enabled;
+  const rewriteResult = ragInfo.rewriteResult || null;
+  const providerLabels = { inmemory: 'InMemory', postgres: 'PostgreSQL (pgvector)', qdrant: 'Qdrant', pinecone: 'Pinecone' };
+  const searchModeLabels = { hybrid: 'Hybrid (Vector + BM25)', hybrid_dense_fallback: 'Dense Only (no keywords)', vector: 'Vector Only' };
+
+  const finalSelectionMode = reranking.finalSelectionMode || 'RerankerOnly';
+  const finalSelectionWeight = reranking.finalSelectionRetrievalWeight ?? 0.65;
+
+  // Build reranked list with rank deltas
+  const retrievalRankById = new Map(retrievalResults.map((r, i) => [r.id ?? `r-${i}`, i + 1]));
+  const rerankSource = rerankedCandidates || refs;
+  let allReranked = rerankSource.map((r, i) => {
+    const prev = retrievalRankById.get(r.id ?? `r-${i}`) ?? null;
+    return { ...r, currentRank: i + 1, previousRank: prev, rankDelta: prev == null ? null : prev - (i + 1) };
+  });
+
+  // WeightedBlend scoring
+  if (finalSelectionMode === 'WeightedBlend' && rerankEnabled) {
+    const retScoreById = new Map(retrievalResults.map(r => [r.id, r.score ?? 0]));
+    const w = Math.max(0, Math.min(1, finalSelectionWeight));
+    allReranked = allReranked.map(r => ({ ...r, score: w * (retScoreById.get(r.id) ?? 0) + (1 - w) * (r.score ?? 0) }))
+      .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+      .map((r, i) => ({ ...r, currentRank: i + 1 }));
+  }
+  const finalIds = new Set(refs.map(r => r.id ?? r.content));
+  const keptResults = allReranked.filter(r => finalIds.has(r.id ?? r.content));
+  const droppedResults = allReranked.filter(r => !finalIds.has(r.id ?? r.content));
+
+  // ── Build report HTML ──
+  const esc = (s) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const trunc = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n) + '...' : s; };
+  const now = new Date();
+
+  function scoreBar(score) {
+    const pct = Math.max(0, Math.min(100, (score || 0) * 100));
+    return `<div style="display:flex;align-items:center;gap:6px">
+      <div style="width:80px;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden">
+        <div style="width:${pct}%;height:100%;background:${pct > 70 ? '#10b981' : pct > 40 ? '#f59e0b' : '#ef4444'};border-radius:4px"></div>
+      </div>
+      <span>${(score ?? 0).toFixed(4)}</span>
+    </div>`;
+  }
+
+  function rankDeltaBadge(delta) {
+    if (delta == null) return '<span style="color:#8b5cf6">New</span>';
+    if (delta === 0) return '<span style="color:#6b7280">-</span>';
+    if (delta > 0) return `<span style="color:#10b981">+${delta}</span>`;
+    return `<span style="color:#ef4444">${delta}</span>`;
+  }
+
+  function resultTable(items, showRankDelta) {
+    if (!items.length) return '<p style="color:#9ca3af;font-style:italic">No results.</p>';
+    const hdrs = showRankDelta
+      ? '<th>Rank</th><th>Score</th><th>Change</th><th>Content</th>'
+      : '<th>Rank</th><th>Score</th><th>Content</th>';
+    const rows = items.map(r => {
+      const cols = showRankDelta
+        ? `<td>#${r.currentRank ?? r.rank ?? '-'}</td><td>${scoreBar(r.score)}</td><td>${rankDeltaBadge(r.rankDelta)}</td><td>${esc(trunc(r.content, 120))}</td>`
+        : `<td>#${r.currentRank ?? r.rank ?? '-'}</td><td>${scoreBar(r.score)}</td><td>${esc(trunc(r.content, 140))}</td>`;
+      return `<tr>${cols}</tr>`;
+    }).join('');
+    return `<table><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  // Query Rewrite status
+  let rewriteStatus, rewriteBody;
+  const hasRewrite = !!ragInfo.rewrittenQuery;
+  const hasRewriter = rewriteResult != null;
+  const gateSkipped = hasRewriter && rewriteResult.needsSearch === false;
+  if (gateSkipped) {
+    rewriteStatus = 'Search Gate: PASS (RAG skipped)';
+    rewriteBody = `<tr><td>Decision</td><td>Search not needed</td></tr>`;
+  } else if (hasRewrite) {
+    rewriteStatus = 'Rewritten';
+    rewriteBody = `<tr><td>Rewritten Query</td><td>${esc(ragInfo.rewrittenQuery)}</td></tr>`;
+  } else if (hasRewriter) {
+    rewriteStatus = 'Unchanged';
+    rewriteBody = `<tr><td>Decision</td><td>Query kept as-is</td></tr>`;
+  } else {
+    rewriteStatus = 'Skipped';
+    rewriteBody = `<tr><td colspan="2" style="color:#9ca3af">Query rewriter not configured</td></tr>`;
+  }
+  if (hasRewriter) {
+    rewriteBody += `<tr><td>Returned Query</td><td>${esc(rewriteResult.query)}</td></tr>`;
+    rewriteBody += `<tr><td>NeedsSearch</td><td>${rewriteResult.needsSearch ?? '-'}</td></tr>`;
+    if (rewriteResult.keywords?.length) rewriteBody += `<tr><td>Keywords</td><td>${rewriteResult.keywords.map(esc).join(', ')}</td></tr>`;
+  }
+  if (ragInfo.rewriterModel) rewriteBody += `<tr><td>Model</td><td>${esc(ragInfo.rewriterModel)}</td></tr>`;
+  if (diagnostics.rewriteElapsedMs != null) rewriteBody += `<tr><td>Elapsed</td><td>${diagnostics.rewriteElapsedMs.toLocaleString()} ms</td></tr>`;
+
+  const reportHtml = `
+    <div class="rpt">
+      <style>
+        .rpt { font-family: 'Inter', 'Segoe UI', sans-serif; color: #1e293b; line-height: 1.5; padding: 40px; width: 900px; }
+        .rpt h1 { font-size: 22px; font-weight: 700; color: #4f46e5; margin: 0 0 4px; }
+        .rpt .rpt-sub { font-size: 12px; color: #94a3b8; margin-bottom: 24px; }
+        .rpt .rpt-query-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; font-size: 15px; margin-bottom: 28px; }
+        .rpt h2 { font-size: 16px; font-weight: 700; color: #1e293b; margin: 28px 0 6px; padding-bottom: 6px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 8px; }
+        .rpt h2 .ch { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: #4f46e5; color: #fff; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+        .rpt h2 .badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
+        .rpt h2 .badge-on { background: #dbeafe; color: #2563eb; }
+        .rpt h2 .badge-off { background: #f1f5f9; color: #94a3b8; }
+        .rpt h2 .badge-info { background: #ede9fe; color: #7c3aed; }
+        .rpt .kv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px 20px; margin: 10px 0 14px; }
+        .rpt .kv-grid dt { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 1px; }
+        .rpt .kv-grid dd { font-size: 13px; color: #1e293b; margin: 0; font-weight: 500; }
+        .rpt table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0 6px; }
+        .rpt thead th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; padding: 6px 8px; border-bottom: 2px solid #e2e8f0; }
+        .rpt tbody td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+        .rpt tbody tr:nth-child(even) { background: #f8fafc; }
+        .rpt .note { font-size: 11px; color: #94a3b8; font-style: italic; margin: 6px 0 14px; }
+        .rpt .kv-table { width: auto; margin: 10px 0; }
+        .rpt .kv-table td:first-child { font-size: 11px; font-weight: 600; color: #64748b; padding-right: 20px; white-space: nowrap; width: 140px; }
+        .rpt .kv-table td:last-child { font-size: 13px; color: #1e293b; }
+        .rpt .prompt-box { background: #1e293b; color: #e2e8f0; font-family: 'Consolas','Courier New',monospace; font-size: 11px; padding: 14px 16px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; margin: 10px 0; line-height: 1.6; }
+        .rpt .section-label { font-size: 12px; font-weight: 600; color: #475569; margin: 14px 0 4px; }
+        .rpt hr { border: none; border-top: 1px solid #e2e8f0; margin: 20px 0; }
+      </style>
+
+      <h1>RAG Pipeline Diagnostics Report</h1>
+      <div class="rpt-sub">Generated: ${now.toLocaleString('ko-KR')} &nbsp;|&nbsp; Mythosia.AI</div>
+
+      <div class="rpt-query-box">${esc(ragInfo.originalQuery || '(no query)')}</div>
+
+      ${ragInfo.error ? `<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:#dc2626;font-size:13px;margin-bottom:20px"><strong>Error:</strong> ${esc(ragInfo.error)}</div>` : ''}
+
+      <!-- Ch1: Query -->
+      <h2><span class="ch">1</span> Query</h2>
+      <dl class="kv-grid">
+        <div><dt>User Query</dt><dd>${esc(ragInfo.originalQuery || '-')}</dd></div>
+      </dl>
+
+      <!-- Ch2: Query Rewrite -->
+      <h2><span class="ch">2</span> Query Rewrite <span class="badge ${gateSkipped || !hasRewriter ? 'badge-off' : 'badge-on'}">${esc(rewriteStatus)}</span></h2>
+      <table class="kv-table"><tbody>${rewriteBody}</tbody></table>
+
+      <!-- Ch3: Retrieval -->
+      <h2><span class="ch">3</span> Retrieval <span class="badge badge-on">${esc(searchModeLabels[searchMode] || searchMode)}</span></h2>
+      <dl class="kv-grid">
+        <div><dt>Vector Store</dt><dd>${esc(providerLabels[vectorStoreProvider] || vectorStoreProvider)}</dd></div>
+        <div><dt>Search Mode</dt><dd>${esc(searchModeLabels[searchMode] || searchMode)}</dd></div>
+        ${searchMode === 'hybrid' && hybridWeight != null ? `<div><dt>Vector Weight</dt><dd>${hybridWeight.toFixed(2)}</dd></div>` : ''}
+        <div><dt>Elapsed</dt><dd>${Number(elapsedMs).toLocaleString()} ms</dd></div>
+        <div><dt>Retrieval Top K</dt><dd>${retrievalTopK}</dd></div>
+        <div><dt>Search-Time Min Score</dt><dd>${retrievalMinScore ?? 'None'}</dd></div>
+        <div><dt>Candidate Pool</dt><dd>${retrievalResults.length} chunks</dd></div>
+      </dl>
+      <p class="note">Top K used during retrieval. When re-ranking is enabled, this reflects the multiplier-expanded retrieval size.</p>
+      <div class="section-label">Retrieved Candidate Chunks (${retrievalResults.length})</div>
+      ${resultTable(retrievalResults.map((r, i) => ({ ...r, currentRank: i + 1 })), false)}
+
+      <!-- Ch4: Re-ranking -->
+      <h2><span class="ch">4</span> Re-ranking <span class="badge ${rerankEnabled ? 'badge-on' : 'badge-off'}">${rerankEnabled ? 'Active' : 'Skipped'}</span></h2>
+      ${rerankEnabled ? `
+        <dl class="kv-grid">
+          <div><dt>Provider</dt><dd>${esc(reranking.provider || '-')}</dd></div>
+          ${reranking.model ? `<div><dt>Model</dt><dd>${esc(reranking.model)}</dd></div>` : ''}
+          ${reranking.retrievalMultiplier != null ? `<div><dt>Multiplier</dt><dd>${reranking.retrievalMultiplier}</dd></div>` : ''}
+          <div><dt>Input Candidates</dt><dd>${retrievalResults.length} chunks</dd></div>
+          <div><dt>Output (Re-scored)</dt><dd>${allReranked.length} chunks</dd></div>
+        </dl>
+        <p class="note">All candidates re-scored by relevance. No candidates are dropped here — trimming is done in Final Selection.</p>
+        <div class="section-label">All Re-scored Results (${allReranked.length})</div>
+        ${resultTable(allReranked, true)}
+      ` : '<p class="note">Re-ranking was not applied. Results moved directly to final selection.</p>'}
+
+      <!-- Ch5: Final Selection -->
+      <h2><span class="ch">5</span> Final Selection <span class="badge badge-info">${keptResults.length} / ${allReranked.length || retrievalResults.length} chunks</span></h2>
+      <dl class="kv-grid">
+        <div><dt>Final Top K</dt><dd>${finalTopK}</dd></div>
+        <div><dt>Final Min Score</dt><dd>${finalMinScore ?? 'None'}</dd></div>
+        ${rerankEnabled ? `<div><dt>Dropped</dt><dd>${droppedResults.length} chunks</dd></div>` : ''}
+        ${finalSelectionMode === 'WeightedBlend' && rerankEnabled ? `<div><dt>Selection Mode</dt><dd>Weighted Blend (retrieval ${(finalSelectionWeight * 100).toFixed(0)}% / reranker ${((1 - finalSelectionWeight) * 100).toFixed(0)}%)</dd></div>` : ''}
+      </dl>
+      <div class="section-label">Final Context Chunks Sent to Prompt (${keptResults.length})</div>
+      ${resultTable(keptResults, rerankEnabled)}
+      ${droppedResults.length ? `<div class="section-label">Dropped Candidates (${droppedResults.length})</div>${resultTable(droppedResults, true)}` : ''}
+
+      <!-- Ch6: Final Prompt -->
+      <h2><span class="ch">6</span> Final Prompt to LLM</h2>
+      <div class="prompt-box">${esc(ragInfo.augmentedPrompt || '(no augmented prompt)')}</div>
+    </div>`;
+
+  // ── Render off-screen and capture ──
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;background:#fff;';
+  container.innerHTML = reportHtml;
+  document.body.appendChild(container);
+  const rptEl = container.querySelector('.rpt');
+
+  try {
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+    const canvas = await window.html2canvas(rptEl, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: rptEl.scrollWidth,
+      height: rptEl.scrollHeight
+    });
+
+    const imgW = canvas.width;
+    const imgH = canvas.height;
+    if (!imgW || !imgH) throw new Error('Canvas is empty.');
+
+    const { jsPDF } = window.jspdf;
+    const pw = 210, ph = 297, m = 10;
+    const cw = pw - m * 2;
+    const ch = (imgH * cw) / imgW;
+    const pch = ph - m * 2;
+    const pages = Math.ceil(ch / pch);
+
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    for (let i = 0; i < pages; i++) {
+      if (i > 0) pdf.addPage();
+      const sy = (i * pch / ch) * imgH;
+      const sh = Math.min((pch / ch) * imgH, imgH - sy);
+      const pc = document.createElement('canvas');
+      pc.width = imgW;
+      pc.height = Math.ceil(sh);
+      const ctx = pc.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, pc.width, pc.height);
+      ctx.drawImage(canvas, 0, Math.floor(sy), imgW, Math.ceil(sh), 0, 0, imgW, Math.ceil(sh));
+      pdf.addImage(pc.toDataURL('image/png'), 'PNG', m, m, cw, (Math.ceil(sh) * cw) / imgW);
+    }
+
+    const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const q = (ragInfo.originalQuery || 'query').slice(0, 30).replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    pdf.save(`RAG_Pipeline_Report_${q}_${ts}.pdf`);
+
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Saved!';
+    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+  } catch (err) {
+    console.error('PDF export failed:', err);
+    btn.innerHTML = 'Export Failed';
+    alert('PDF export failed: ' + (err.message || err));
+    setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 2000);
+  } finally {
+    container.remove();
+  }
 }
 
 export function initCodeModal() {

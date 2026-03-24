@@ -5,6 +5,7 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -486,6 +487,187 @@ public abstract partial class AIServiceTestBase
                 }
             },
             "Function Chaining"
+        );
+    }
+
+    /// <summary>
+    /// Function Chaining via StreamAsync 테스트 — 스트리밍에서도 멀티라운드 툴 호출이 동작하는지 검증
+    /// </summary>
+    [TestCategory("FunctionCalling"), TestMethod]
+    public async Task FunctionChainingStreamTest()
+    {
+        await RunIfSupported(
+            () => SupportsFunctionCalling(),
+            async () =>
+            {
+                // First function: get user ID
+                AI.WithFunction<string>(
+                    "get_user_id",
+                    "Get user ID from username. Always call this first to resolve a username to an ID.",
+                    ("username", "Username", true),
+                    username => "user_123"
+                );
+
+                // Second function: get user details (requires ID from first function)
+                AI.WithFunction<string>(
+                    "get_user_details",
+                    "Get user details from user ID. Requires the ID returned by get_user_id.",
+                    ("user_id", "User ID", true),
+                    userId => JsonSerializer.Serialize(new
+                    {
+                        id = userId,
+                        name = "Test User",
+                        email = "test@example.com"
+                    })
+                );
+
+                var eventLog = new List<(StreamingContentType type, string detail)>();
+                var textBuffer = new StringBuilder();
+                int textChunkCount = 0;
+
+                var options = StreamOptions.WithFunctions;
+                var message = new Message(ActorRole.User,
+                    "Get the details for username 'john_doe'. First call get_user_id, then call get_user_details with the returned ID.");
+
+                await foreach (var content in AI.StreamAsync(message, options))
+                {
+                    switch (content.Type)
+                    {
+                        case StreamingContentType.Text:
+                            textChunkCount++;
+                            textBuffer.Append(content.Content);
+                            Console.Write(content.Content);
+                            break;
+                        case StreamingContentType.FunctionCall:
+                            var fcName = content.Metadata?["function_name"]?.ToString() ?? "?";
+                            eventLog.Add((content.Type, fcName));
+                            Console.WriteLine($"\n  [FunctionCall] {fcName}");
+                            break;
+                        case StreamingContentType.FunctionResult:
+                            var frName = content.Metadata?["function_name"]?.ToString() ?? "?";
+                            eventLog.Add((content.Type, frName));
+                            Console.WriteLine($"  [FunctionResult] {frName}: {content.Metadata?["result"]?.ToString()?.Truncate(80)}");
+                            break;
+                    }
+                }
+
+                Console.WriteLine($"\n[Final Text] {textBuffer}");
+
+                // Verify: at least 2 function results (chaining)
+                var functionResultEvents = eventLog
+                    .Where(e => e.type == StreamingContentType.FunctionResult)
+                    .ToList();
+
+                Console.WriteLine($"[FunctionResult Count] {functionResultEvents.Count}");
+                foreach (var e in functionResultEvents)
+                    Console.WriteLine($"  - {e.detail}");
+
+                Assert.IsTrue(functionResultEvents.Count >= 2,
+                    $"Expected at least 2 function results (chaining), but got {functionResultEvents.Count}");
+
+                // Verify conversation history has function messages
+                var functionMessages = AI.ActivateChat.Messages
+                    .Where(m => m.Role == ActorRole.Function)
+                    .ToList();
+
+                Assert.IsTrue(functionMessages.Count >= 2,
+                    $"Expected at least 2 function messages in history, but got {functionMessages.Count}");
+
+                // Verify streaming: text should arrive in multiple chunks (not a single block)
+                Console.WriteLine($"[Text Chunk Count] {textChunkCount}");
+                Assert.IsTrue(textChunkCount > 1,
+                    $"Expected multiple text chunks (streaming), but got {textChunkCount}. Response may not be streaming.");
+
+                // Verify final assistant message exists
+                var lastMessage = AI.ActivateChat.Messages.LastOrDefault();
+                Assert.AreEqual(ActorRole.Assistant, lastMessage?.Role,
+                    "Last message should be an assistant response");
+            },
+            "Function Chaining Stream"
+        );
+    }
+
+    /// <summary>
+    /// 스트리밍 멀티라운드 중 ConversationPolicy 요약이 트리거된 후에도
+    /// Stream 플래그가 정상 복원되어 스트리밍이 계속되는지 검증
+    /// </summary>
+    [TestCategory("FunctionCalling"), TestMethod]
+    public async Task FunctionChainingStreamWithSummaryPolicyTest()
+    {
+        await RunIfSupported(
+            () => SupportsFunctionCalling(),
+            async () =>
+            {
+                // Low trigger so summary fires after round 0
+                AI.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 3, keepRecentCount: 2);
+
+                AI.WithFunction<string>(
+                    "get_user_id",
+                    "Get user ID from username. Always call this first to resolve a username to an ID.",
+                    ("username", "Username", true),
+                    username => "user_123"
+                );
+
+                AI.WithFunction<string>(
+                    "get_user_details",
+                    "Get user details from user ID. Requires the ID returned by get_user_id.",
+                    ("user_id", "User ID", true),
+                    userId => JsonSerializer.Serialize(new
+                    {
+                        id = userId,
+                        name = "Test User",
+                        email = "test@example.com"
+                    })
+                );
+
+                var textChunkCount = 0;
+                var functionResultCount = 0;
+
+                var options = StreamOptions.WithFunctions;
+                var message = new Message(ActorRole.User,
+                    "Get the details for username 'john_doe'. First call get_user_id, then call get_user_details with the returned ID.");
+
+                await foreach (var content in AI.StreamAsync(message, options))
+                {
+                    switch (content.Type)
+                    {
+                        case StreamingContentType.Text:
+                            textChunkCount++;
+                            Console.Write(content.Content);
+                            break;
+                        case StreamingContentType.FunctionResult:
+                            functionResultCount++;
+                            Console.WriteLine($"\n  [FunctionResult] {content.Metadata?["function_name"]}");
+                            break;
+                    }
+                }
+
+                var messageCountAfter = AI.ActivateChat.Messages.Count;
+
+                Console.WriteLine($"\n[Text Chunks] {textChunkCount}");
+                Console.WriteLine($"[FunctionResults] {functionResultCount}");
+                Console.WriteLine($"[Messages After] {messageCountAfter}");
+                Console.WriteLine($"[Summary] {AI.ConversationPolicy?.CurrentSummary?.Truncate(100)}");
+
+                // Verify summary was actually triggered
+                Assert.IsNotNull(AI.ConversationPolicy?.CurrentSummary,
+                    "ConversationPolicy.CurrentSummary should not be null — summary should have been triggered");
+
+                // Without summary: 1 user + 2*(assistant+function) + 1 assistant = 6 messages
+                // With summary (keepRecentCount=2): trim to 2, then last round adds 1 assistant = 3
+                Assert.IsTrue(messageCountAfter <= 4,
+                    $"Expected messages trimmed by summary (keepRecentCount=2), but got {messageCountAfter}. " +
+                    $"Without summary it would be ~6, so trimming didn't work.");
+
+                // Verify chaining still worked after summary
+                Assert.IsTrue(functionResultCount >= 2,
+                    $"Expected at least 2 function results (chaining after summary), but got {functionResultCount}");
+
+                // Verify streaming continued after summary (Stream flag was restored)
+                Assert.IsTrue(textChunkCount > 1,
+                    $"Expected multiple text chunks (streaming after summary), but got {textChunkCount}");
+            },
+            "Function Chaining Stream with Summary Policy"
         );
     }
 
