@@ -1,5 +1,14 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v1.2.0
+
+### Compatibility
+
+- Compatible with `Mythosia.VectorDb.Abstractions` v2.3.0.
+- `ReplaceByFilterAsync` is available via the default interface method (sequential `DeleteByFilterAsync` → `UpsertBatchAsync`). Pinecone does not support server-side transactions, so sequential execution is the best available behavior.
+
+---
+
 ## v1.1.0
 
 ### Added

@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Postgres</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>10.3.0</Version>
+    <Version>10.4.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, persisted content_tsv full-text indexing for hybrid search, pg_trgm trigram-based word_similarity for CJK languages, typed index settings (HNSW/IVFFlat/NoIndex), connection verification, and schema provisioning support.</Description>
     <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v10.3.0: Add VerifyConnectionAsync; Add TextSearchMode (TsVector/Trigram) for configurable hybrid text search ? pg_trgm word_similarity support for CJK languages; Add TextSearchConfig option; TsVector mode now uses OR-based to_tsquery for standard BM25 behavior; Add script boundary normalization for mixed-script tokenization (Latin¡êHangul/CJK).</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.4.0: Add transactional ReplaceByFilterAsync override â€” wraps DELETE + INSERT in a single PostgreSQL transaction for atomic vector replacement with zero query gap.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

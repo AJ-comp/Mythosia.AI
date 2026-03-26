@@ -163,6 +163,15 @@ Records are stored as Qdrant points with the following payload keys:
 
 Point IDs are deterministic UUIDs derived from `namespace + record Id` (when namespace is set) or just `record Id` (when null) via MD5 hash. This ensures the same record Id in different namespaces produces distinct points within the shared collection. The original string ID is preserved in the `_id` payload field.
 
+## Vector Replacement
+
+`ReplaceByFilterAsync` is available via the `IVectorStore` default interface method. It performs sequential `DeleteByFilterAsync` → `UpsertBatchAsync`. Qdrant does not support server-side transactions, so sequential execution is the best available behavior:
+
+```csharp
+var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
+await store.InNamespace("documents").ReplaceByFilterAsync(filter, newRecords);
+```
+
 ## Connection Verification
 
 Call `VerifyConnectionAsync` to test gRPC connectivity before running queries:

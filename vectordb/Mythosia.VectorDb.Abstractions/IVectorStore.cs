@@ -79,6 +79,20 @@ namespace Mythosia.VectorDb
         Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Atomically replaces all records matching the filter with new records.
+        /// Deletes existing records by filter, then inserts the new records — both within a single transaction
+        /// where supported (e.g. PostgreSQL). On failure, the transaction rolls back and existing data remains intact.
+        /// </summary>
+        /// <param name="filter">Filter identifying the records to delete before inserting.</param>
+        /// <param name="records">The new records to insert after deletion.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        async Task ReplaceByFilterAsync(VectorFilter filter, IReadOnlyList<VectorRecord> records, CancellationToken cancellationToken = default)
+        {
+            await DeleteByFilterAsync(filter, cancellationToken);
+            await UpsertBatchAsync(records, cancellationToken);
+        }
+
+        /// <summary>
         /// Verifies that the store can reach its backend (e.g. database, API).
         /// Throws on failure. In-memory stores succeed immediately.
         /// </summary>

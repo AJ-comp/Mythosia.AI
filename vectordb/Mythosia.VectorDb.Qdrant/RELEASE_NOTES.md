@@ -1,5 +1,14 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## v2.2.0
+
+### Compatibility
+
+- Compatible with `Mythosia.VectorDb.Abstractions` v2.3.0.
+- `ReplaceByFilterAsync` is available via the default interface method (sequential `DeleteByFilterAsync` → `UpsertBatchAsync`). Qdrant does not support server-side transactions, so sequential execution is the best available behavior.
+
+---
+
 ## v2.1.0
 
 ### Added

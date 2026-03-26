@@ -1,5 +1,20 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v2.3.0
+
+### Added
+
+- **`ReplaceByFilterAsync(VectorFilter, IReadOnlyList<VectorRecord>, CancellationToken)`** — default interface method on `IVectorStore` that atomically replaces vectors matching a filter with new records.
+  - Enables transactional DELETE + INSERT for scenarios like re-embedding a modified file without a query gap.
+  - Default implementation calls `DeleteByFilterAsync` → `UpsertBatchAsync` sequentially (non-transactional).
+  - Concrete stores (e.g. `PostgresStore`) override this to wrap both operations in a single database transaction.
+
+### Compatibility
+
+- Fully backward compatible with v2.2.0. No breaking changes — default interface method, existing `IVectorStore` implementations continue to work without modification.
+
+---
+
 ## v2.2.0
 
 ### Added

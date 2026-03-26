@@ -96,6 +96,15 @@ Each stored vector uses reserved metadata keys:
 | `_scope` | Scope for 2nd-tier isolation (omitted if null) |
 | `<custom>` | User metadata entries from `VectorRecord.Metadata` |
 
+## Vector Replacement
+
+`ReplaceByFilterAsync` is available via the `IVectorStore` default interface method. It performs sequential `DeleteByFilterAsync` → `UpsertBatchAsync`. Pinecone does not support server-side transactions, so sequential execution is the best available behavior:
+
+```csharp
+var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
+await store.InNamespace("documents").ReplaceByFilterAsync(filter, newRecords);
+```
+
 ## Connection Verification
 
 Call `VerifyConnectionAsync` to test HTTP connectivity to the Pinecone index before running queries:

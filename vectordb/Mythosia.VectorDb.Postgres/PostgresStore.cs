@@ -74,6 +74,48 @@ public class PostgresStore : IVectorStore, IDisposable
 
     #endregion
 
+    #region IVectorStore — Replace
+
+    public async Task ReplaceByFilterAsync(VectorFilter filter, IReadOnlyList<VectorRecord> records, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaIfNeededAsync(cancellationToken);
+
+        using var conn = await OpenConnectionAsync(cancellationToken);
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+
+        // DELETE by filter
+        var ns = filter.Namespace ?? DefaultNamespace;
+        var (whereClause, filterParams) = BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty);
+
+        using (var deleteCmd = conn.CreateCommand())
+        {
+            deleteCmd.Transaction = tx;
+            deleteCmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE namespace = @ns{whereClause}";
+            deleteCmd.Parameters.AddWithValue("@ns", ns);
+            foreach (var p in filterParams)
+                deleteCmd.Parameters.Add(p);
+            await deleteCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // INSERT new records
+        if (records.Count > 0)
+        {
+            using var batch = new NpgsqlBatch(conn) { Transaction = tx };
+            foreach (var record in records)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var cmd = new NpgsqlBatchCommand(BuildUpsertSql());
+                AddUpsertParameters(cmd.Parameters, record);
+                batch.BatchCommands.Add(cmd);
+            }
+            await batch.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+    }
+
+    #endregion
+
     #region IVectorStore — Get / Delete
 
     public async Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)

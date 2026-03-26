@@ -1,5 +1,20 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
+## v10.4.0
+
+### Added
+
+- **`ReplaceByFilterAsync` transactional override** — wraps DELETE + INSERT in a single PostgreSQL transaction, eliminating the query gap that occurs when re-embedding modified files.
+  - Heavy work (document loading, embedding generation) happens outside the transaction.
+  - Transaction scope covers only the DB I/O (DELETE by filter → INSERT new records), minimizing lock duration.
+  - On failure, the transaction rolls back and existing vectors remain intact.
+
+### Compatibility
+
+- Fully backward compatible with v10.3.0. No breaking changes — overrides the default interface method from Abstractions v2.3.0.
+
+---
+
 ## v10.3.0
 
 ### Added

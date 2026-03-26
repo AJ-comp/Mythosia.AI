@@ -362,6 +362,29 @@ var store = new PostgresStore(new PostgresOptions
 
 `content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval in `TsVector` mode.
 
+## Atomic Vector Replacement
+
+`ReplaceByFilterAsync` wraps DELETE + INSERT in a single PostgreSQL transaction, eliminating the query gap that occurs during re-embedding:
+
+```csharp
+// Delete all vectors matching the filter, then insert new ones — atomically
+var filter = VectorFilter.ByMetadata("full_path", "/docs/policy.md");
+filter.Namespace = "default";
+
+await store.ReplaceByFilterAsync(filter, newRecords);
+```
+
+**How it works:**
+
+```
+BEGIN TRANSACTION
+  DELETE FROM vectors WHERE metadata->>'full_path' = '/docs/policy.md'
+  INSERT INTO vectors (...) VALUES (...), (...), ...
+COMMIT
+```
+
+If the INSERT fails, the DELETE is rolled back and existing data remains intact. Queries always see either the old data or the new data, never an empty result.
+
 ## RAG Integration
 
 ```csharp

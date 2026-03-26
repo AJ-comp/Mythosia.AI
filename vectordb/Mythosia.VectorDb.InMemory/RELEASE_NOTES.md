@@ -1,5 +1,14 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v2.2.0
+
+### Compatibility
+
+- Compatible with `Mythosia.VectorDb.Abstractions` v2.3.0.
+- `ReplaceByFilterAsync` is available via the default interface method (sequential `DeleteByFilterAsync` → `UpsertBatchAsync`). No override needed for in-memory usage.
+
+---
+
 ## v2.1.0
 
 ### Added

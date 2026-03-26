@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with native namespace partitioning, metadata-based scope filtering, and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.1.0: Add VerifyConnectionAsync ? verifies HTTP connectivity to the Pinecone index before claiming connected.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.2.0: Compatible with Abstractions v2.3.0. ReplaceByFilterAsync available via default interface method (sequential DeleteByFilterAsync then UpsertBatchAsync).</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
