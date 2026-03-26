@@ -331,7 +331,6 @@ public abstract class StreamingTestModule : TestModuleBase
 
             var customOptions = new StreamOptions()
                 .WithMetadata(true)
-                .WithTokenInfo(true)
                 .WithFunctionCalls(false)
                 .AsTextOnly(false);
 

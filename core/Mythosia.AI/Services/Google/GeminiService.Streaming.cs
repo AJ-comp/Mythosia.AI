@@ -183,8 +183,21 @@ namespace Mythosia.AI.Services.Google
 
                 if (jsonData == SseDoneSignal)
                 {
-                    if (options.IncludeMetadata)
-                        yield return CreateCompletionContent(0);
+                    if (!options.TextOnly)
+                    {
+                        var completionContent = new StreamingContent
+                        {
+                            Type = StreamingContentType.Completion
+                        };
+                        if (options.IncludeMetadata)
+                        {
+                            completionContent.Metadata = new Dictionary<string, object>
+                            {
+                                ["total_length"] = 0
+                            };
+                        }
+                        yield return completionContent;
+                    }
                     break;
                 }
 
@@ -344,19 +357,6 @@ namespace Mythosia.AI.Services.Google
 
                 yield return jsonData;
             }
-        }
-
-        private static StreamingContent CreateCompletionContent(int totalLength)
-        {
-            return new StreamingContent
-            {
-                Type = StreamingContentType.Completion,
-                Content = null,
-                Metadata = new Dictionary<string, object>
-                {
-                    ["total_length"] = totalLength
-                }
-            };
         }
 
         private static StreamingContent CreateErrorContent(HttpResponseMessage response)

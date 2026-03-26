@@ -14,7 +14,7 @@ using TiktokenSharp;
 
 namespace Mythosia.AI.Providers.Alibaba
 {
-    public partial class QwenService : AIService
+    public partial class QwenService : OpenAICompatibleService
     {
         public override string Provider => AlibabaProvider.Name;
 

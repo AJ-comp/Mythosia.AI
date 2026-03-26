@@ -235,6 +235,7 @@ namespace Mythosia.AI.Services.Perplexity
 
             var textBuffer = new StringBuilder();
             string? currentModel = null;
+            TokenUsage? lastUsage = null;
 
             while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
@@ -245,18 +246,23 @@ namespace Mythosia.AI.Services.Perplexity
                 var jsonData = line.Substring("data:".Length).Trim();
                 if (jsonData == "[DONE]")
                 {
-                    if (options.IncludeMetadata)
+                    if (!options.TextOnly)
                     {
-                        yield return new StreamingContent
+                        var completionContent = new StreamingContent
                         {
-                            Type = StreamingContentType.Completion,
-                            Content = null,
-                            Metadata = new Dictionary<string, object>
+                            Type = StreamingContentType.Completion
+                        };
+                        if (options.IncludeMetadata)
+                        {
+                            completionContent.Metadata = new Dictionary<string, object>
                             {
                                 ["total_length"] = textBuffer.Length,
                                 ["model"] = currentModel ?? Model
-                            }
-                        };
+                            };
+                        }
+                        if (lastUsage != null)
+                            completionContent.Usage = lastUsage;
+                        yield return completionContent;
                     }
                     break;
                 }
@@ -273,6 +279,9 @@ namespace Mythosia.AI.Services.Perplexity
 
                 if (parsedContent != null)
                 {
+                    if (parsedContent.Usage != null)
+                        lastUsage = parsedContent.Usage;
+
                     if (parsedContent.Type == StreamingContentType.Text)
                     {
                         textBuffer.Append(parsedContent.Content);

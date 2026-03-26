@@ -109,13 +109,20 @@ namespace Mythosia.AI.Models
         /// Determines whether the current conversation should be summarized.
         /// Returns true if any configured trigger threshold is exceeded (OR condition).
         /// </summary>
-        public bool ShouldSummarize(IList<Message> messages)
+        /// <param name="messages">Current conversation messages.</param>
+        /// <param name="lastKnownInputTokens">
+        /// Actual input token count from the last API response.
+        /// When positive, used instead of local estimation for accurate trigger decisions.
+        /// </param>
+        public bool ShouldSummarize(IList<Message> messages, int lastKnownInputTokens = 0)
         {
             if (messages == null || messages.Count == 0) return false;
 
             if (TriggerTokens.HasValue)
             {
-                var totalTokens = messages.Sum(m => (long)m.EstimateTokens());
+                var totalTokens = lastKnownInputTokens > 0
+                    ? (long)lastKnownInputTokens
+                    : messages.Sum(m => (long)m.EstimateTokens());
                 if (totalTokens > TriggerTokens.Value) return true;
             }
 

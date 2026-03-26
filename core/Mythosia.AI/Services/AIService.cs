@@ -149,6 +149,19 @@ namespace Mythosia.AI.Services.Base
         }
 
         /// <summary>
+        /// Ensures the message list starts with a User message.
+        /// Some APIs (Gemini, Claude) require conversations to begin with a user turn.
+        /// If the first message is not from a user, a synthetic context message is prepended.
+        /// </summary>
+        protected static void EnsureUserFirstMessage(List<Message> messages)
+        {
+            if (messages.Count == 0) return;
+            if (messages[0].Role == ActorRole.User) return;
+
+            messages.Insert(0, new Message(ActorRole.User, "(Continuing from previous conversation context)"));
+        }
+
+        /// <summary>
         /// Gets messages for non-function path, converting function-related messages to plain text.
         /// Original messages in ChatBlock are never modified.
         /// </summary>

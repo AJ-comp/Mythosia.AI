@@ -15,6 +15,13 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         public SummaryConversationPolicy? ConversationPolicy { get; set; }
 
+        /// <summary>
+        /// Last known input token count from the API.
+        /// Used by SummaryConversationPolicy for accurate trigger decisions
+        /// instead of local estimation.
+        /// </summary>
+        internal int LastKnownInputTokens { get; set; }
+
         private bool _isSummarizing = false;
 
         /// <summary>
@@ -49,7 +56,7 @@ namespace Mythosia.AI.Services.Base
             if (_isSummarizing) return;
             if (ConversationPolicy == null) return;
             if (StatelessMode) return;
-            if (!ConversationPolicy.ShouldSummarize(ActivateChat.Messages)) return;
+            if (!ConversationPolicy.ShouldSummarize(ActivateChat.Messages, LastKnownInputTokens)) return;
 
             var (messagesToSummarize, keepFromIndex) = ConversationPolicy.GetMessagesToSummarize(ActivateChat.Messages);
 

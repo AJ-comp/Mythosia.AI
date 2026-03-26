@@ -22,6 +22,11 @@ namespace Mythosia.AI.Models.Streaming
         public Dictionary<string, object>? Metadata { get; set; }
 
         /// <summary>
+        /// Token usage information (always populated when the provider returns usage data)
+        /// </summary>
+        public TokenUsage? Usage { get; set; }
+
+        /// <summary>
         /// For internal use - accumulating function call data
         /// </summary>
         internal FunctionCallData? FunctionCallData { get; set; }

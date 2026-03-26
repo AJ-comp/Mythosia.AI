@@ -196,6 +196,13 @@ namespace Mythosia.AI.Services.OpenAI
             if (Stream)
             {
                 requestBody["stream"] = true;
+                if (!IsNewApiModel(Model))
+                {
+                    requestBody["stream_options"] = new Dictionary<string, object>
+                    {
+                        ["include_usage"] = true
+                    };
+                }
             }
         }
 
@@ -254,6 +261,14 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["functions"] = functionsArray;
             requestBody["temperature"] = Temperature;
             requestBody["stream"] = Stream;
+
+            if (Stream)
+            {
+                requestBody["stream_options"] = new Dictionary<string, object>
+                {
+                    ["include_usage"] = true
+                };
+            }
 
             // Function call mode
             requestBody["function_call"] = FunctionCallMode == FunctionCallMode.None

@@ -24,7 +24,6 @@ public abstract partial class AIServiceTestBase
             var options = new StreamOptions
             {
                 IncludeMetadata = true,
-                IncludeTokenInfo = true,
                 TextOnly = false
             };
 
@@ -387,6 +386,65 @@ public abstract partial class AIServiceTestBase
     }
 
     /// <summary>
+    /// TokenUsage 통일 검증 테스트 — Completion 이벤트의 Usage 프로퍼티에 토큰 정보가 채워지는지 확인
+    /// </summary>
+    [TestCategory("StreamingMetadata")]
+    [TestMethod]
+    public async Task StreamingTokenUsageTest()
+    {
+        try
+        {
+            if (AI is not Mythosia.AI.Services.Base.AIService aiService)
+            {
+                Assert.Inconclusive("Metadata streaming requires AIService base class");
+                return;
+            }
+
+            var options = new StreamOptions
+            {
+                IncludeMetadata = true,
+                TextOnly = false
+            };
+
+            TokenUsage? capturedUsage = null;
+            var textBuffer = new System.Text.StringBuilder();
+
+            await foreach (var content in aiService.StreamAsync("What is 1+1?", options))
+            {
+                if (content.Usage != null)
+                {
+                    capturedUsage = content.Usage;
+                    Console.WriteLine($"[TokenUsage] InputTokens={content.Usage.InputTokens}, OutputTokens={content.Usage.OutputTokens}, TotalTokens={content.Usage.TotalTokens}");
+                }
+
+                if (content.Type == StreamingContentType.Text && content.Content != null)
+                {
+                    textBuffer.Append(content.Content);
+                }
+            }
+
+            // 텍스트 응답은 반드시 있어야 함
+            Assert.IsTrue(textBuffer.Length > 0, "No text content received");
+            Console.WriteLine($"[Response] {textBuffer}");
+
+            // TokenUsage가 반드시 채워져야 함
+            Assert.IsNotNull(capturedUsage, "TokenUsage was not populated.");
+            Assert.IsTrue(capturedUsage.InputTokens > 0, $"InputTokens should be > 0, got {capturedUsage.InputTokens}");
+            Assert.IsTrue(capturedUsage.OutputTokens > 0, $"OutputTokens should be > 0, got {capturedUsage.OutputTokens}");
+            Assert.IsTrue(capturedUsage.TotalTokens > 0, $"TotalTokens should be > 0, got {capturedUsage.TotalTokens}");
+            Assert.IsTrue(capturedUsage.TotalTokens >= capturedUsage.InputTokens + capturedUsage.OutputTokens,
+                $"TotalTokens ({capturedUsage.TotalTokens}) should be >= InputTokens ({capturedUsage.InputTokens}) + OutputTokens ({capturedUsage.OutputTokens})");
+
+            Console.WriteLine("[PASS] TokenUsage is correctly populated");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[TokenUsage Test Error] {ex.Message}");
+            Assert.Fail(ex.Message);
+        }
+    }
+
+    /// <summary>
     /// 이미지와 함께 스트리밍 시 메타데이터 테스트
     /// </summary>
     [TestCategory("StreamingMetadata")]
@@ -411,8 +469,7 @@ public abstract partial class AIServiceTestBase
 
                 var options = new StreamOptions
                 {
-                    IncludeMetadata = true,
-                    IncludeTokenInfo = true
+                    IncludeMetadata = true
                 };
 
                 var message = Mythosia.AI.Builders.MessageBuilder.Create()
@@ -434,15 +491,13 @@ public abstract partial class AIServiceTestBase
                             metadataTypes[key]++;
                         }
 
-                        if (content.Metadata.TryGetValue("input_tokens", out var inputTokens))
-                        {
-                            Console.WriteLine($"[Token Info] Input tokens: {inputTokens}");
-                        }
+                    }
 
-                        if (content.Metadata.TryGetValue("output_tokens", out var outputTokens))
-                        {
-                            Console.WriteLine($"[Token Info] Output tokens: {outputTokens}");
-                        }
+                    if (content.Usage != null)
+                    {
+                        Console.WriteLine($"[Token Info] Input tokens: {content.Usage.InputTokens}");
+                        Console.WriteLine($"[Token Info] Output tokens: {content.Usage.OutputTokens}");
+                        Console.WriteLine($"[Token Info] Total tokens: {content.Usage.TotalTokens}");
                     }
 
                     if (content.Type == StreamingContentType.Text && content.Content != null)

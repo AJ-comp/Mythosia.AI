@@ -18,11 +18,6 @@ namespace Mythosia.AI.Models.Streaming
         public bool IncludeFunctionCalls { get; set; } = true;
 
         /// <summary>
-        /// Include token count information when available (default: false)
-        /// </summary>
-        public bool IncludeTokenInfo { get; set; } = false;
-
-        /// <summary>
         /// Include reasoning/thinking content from reasoning models like GPT-5, o3 (default: false)
         /// </summary>
         public bool IncludeReasoning { get; set; } = false;
@@ -49,7 +44,7 @@ namespace Mythosia.AI.Models.Streaming
         {
             IncludeMetadata = true,
             IncludeFunctionCalls = true,
-            IncludeTokenInfo = true,
+
             IncludeReasoning = true
         };
 
@@ -75,7 +70,7 @@ namespace Mythosia.AI.Models.Streaming
         {
             IncludeMetadata = false,
             IncludeFunctionCalls = false,
-            IncludeTokenInfo = false,
+
             TextOnly = true
         };
 
@@ -88,7 +83,7 @@ namespace Mythosia.AI.Models.Streaming
             {
                 IncludeMetadata = this.IncludeMetadata,
                 IncludeFunctionCalls = this.IncludeFunctionCalls,
-                IncludeTokenInfo = this.IncludeTokenInfo,
+
                 IncludeReasoning = this.IncludeReasoning,
                 TextOnly = this.TextOnly
             };
@@ -115,15 +110,6 @@ namespace Mythosia.AI.Models.Streaming
         /// <summary>
         /// Builder pattern for fluent configuration
         /// </summary>
-        public StreamOptions WithTokenInfo(bool include = true)
-        {
-            IncludeTokenInfo = include;
-            return this;
-        }
-
-        /// <summary>
-        /// Builder pattern for fluent configuration
-        /// </summary>
         public StreamOptions WithReasoning(bool include = true)
         {
             IncludeReasoning = include;
@@ -141,7 +127,6 @@ namespace Mythosia.AI.Models.Streaming
                 // When text only, disable other features for efficiency
                 IncludeMetadata = false;
                 IncludeFunctionCalls = false;
-                IncludeTokenInfo = false;
                 IncludeReasoning = false;
             }
             return this;

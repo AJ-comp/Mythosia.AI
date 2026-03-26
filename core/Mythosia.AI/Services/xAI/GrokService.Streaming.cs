@@ -1,205 +1,17 @@
-using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
-using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
-using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Net.Http;
-using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.xAI
 {
     public partial class GrokService
     {
-        #region Streaming Implementation
+        #region Stream Chunk Parsing
 
-        public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+        protected override OpenAIStreamChunk ParseStreamChunk(string jsonData, StreamOptions options)
         {
-            await foreach (var content in StreamAsync(message, StreamOptions.TextOnlyOptions))
-            {
-                if (content.Type == StreamingContentType.Text && content.Content != null)
-                    await messageReceivedAsync(content.Content);
-            }
-        }
-
-        protected override async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
-            StreamOptions options,
-            bool useFunctions,
-            FunctionCallingPolicy policy,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            // 1. Create and send HTTP request
-            var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
-            var response = await HttpClient.SendAsync(
-                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var error = await response.Content.ReadAsStringAsync();
-                yield return new StreamingContent
-                {
-                    Type = StreamingContentType.Error,
-                    Content = $"API error ({(int)response.StatusCode}): {error}",
-                    Metadata = new Dictionary<string, object> { ["error"] = error }
-                };
-                yield break;
-            }
-
-            // 2. Read stream and yield chunks in real-time
-            var streamData = new GrokStreamData();
-            bool functionCallEventSent = false;
-
-            using (var stream = await response.Content.ReadAsStreamAsync())
-            using (var reader = new StreamReader(stream))
-            {
-                while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
-                {
-                    var line = await reader.ReadLineAsync();
-                    if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                        continue;
-
-                    var jsonData = line.Substring("data:".Length).Trim();
-                    if (jsonData == "[DONE]")
-                    {
-                        if (options.IncludeMetadata && streamData.HasContent)
-                        {
-                            yield return new StreamingContent
-                            {
-                                Type = StreamingContentType.Completion,
-                                Metadata = new Dictionary<string, object>
-                                {
-                                    ["total_length"] = streamData.TextBuffer.Length,
-                                    ["model"] = streamData.Model ?? Model
-                                }
-                            };
-                        }
-                        break;
-                    }
-
-                    GrokStreamChunk chunk;
-                    try
-                    {
-                        chunk = ParseGrokStreamChunkEx(jsonData, options);
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-
-                    // Reasoning — yield immediately
-                    if (chunk.ReasoningText != null && options.IncludeReasoning)
-                    {
-                        streamData.ReasoningBuffer.Append(chunk.ReasoningText);
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.Reasoning,
-                            Content = chunk.ReasoningText,
-                            Metadata = chunk.Metadata
-                        };
-                    }
-
-                    // Text — yield immediately
-                    if (chunk.Text != null)
-                    {
-                        streamData.TextBuffer.Append(chunk.Text);
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.Text,
-                            Content = chunk.Text,
-                            Metadata = chunk.Metadata
-                        };
-                    }
-
-                    // Function call — collect for post-processing
-                    if (chunk.FunctionCall != null)
-                    {
-                        streamData.UpdateFunctionCall(chunk.FunctionCall);
-
-                        if (!functionCallEventSent && options.IncludeFunctionCalls && streamData.FunctionCall?.Name != null)
-                        {
-                            functionCallEventSent = true;
-                            yield return new StreamingContent
-                            {
-                                Type = StreamingContentType.FunctionCall,
-                                Metadata = new Dictionary<string, object>
-                                {
-                                    ["function_name"] = streamData.FunctionCall.Name,
-                                    ["status"] = "started"
-                                }
-                            };
-                        }
-                    }
-
-                    if (chunk.Model != null)
-                        streamData.Model = chunk.Model;
-                }
-            }
-
-            // 3. Save assistant message
-            if (streamData.HasContent || streamData.FunctionCall != null)
-            {
-                var assistantMsg = new Message(ActorRole.Assistant, streamData.TextContent);
-
-                if (streamData.FunctionCall != null)
-                {
-                    assistantMsg.Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
-                        [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
-                        [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(streamData.FunctionCall.Arguments)
-                    };
-                }
-
-                ActivateChat.Messages.Add(assistantMsg);
-            }
-
-            // 4. Execute function if detected — yield FunctionResult to signal next round
-            if (streamData.FunctionCall != null && useFunctions)
-            {
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {streamData.FunctionCall.Name}");
-
-                var functionResult = await ProcessFunctionCallAsync(
-                    streamData.FunctionCall.Name,
-                    streamData.FunctionCall.Arguments);
-
-                var resultMetadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_result",
-                    [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name
-                };
-
-                ActivateChat.Messages.Add(new Message(ActorRole.Function, functionResult)
-                {
-                    Metadata = resultMetadata
-                });
-
-                yield return new StreamingContent
-                {
-                    Type = StreamingContentType.FunctionResult,
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["function_name"] = streamData.FunctionCall.Name,
-                        ["status"] = "completed",
-                        ["result"] = functionResult
-                    }
-                };
-            }
-        }
-
-        private GrokStreamChunk ParseGrokStreamChunkEx(string jsonData, StreamOptions options)
-        {
-            var chunk = new GrokStreamChunk();
+            var chunk = new OpenAIStreamChunk();
 
             using var doc = JsonDocument.Parse(jsonData);
             var root = doc.RootElement;
@@ -213,6 +25,9 @@ namespace Mythosia.AI.Services.xAI
                     chunk.Metadata["model"] = chunk.Model!;
                 }
             }
+
+            if (root.TryGetProperty("usage", out var usage))
+                chunk.Usage = ParseOpenAICompatibleUsage(usage);
 
             if (!root.TryGetProperty("choices", out var choices) ||
                 choices.GetArrayLength() == 0)
@@ -235,7 +50,7 @@ namespace Mythosia.AI.Services.xAI
             if (delta.TryGetProperty("reasoning_content", out var reasoningElem) &&
                 reasoningElem.ValueKind == JsonValueKind.String)
             {
-                chunk.ReasoningText = reasoningElem.GetString();
+                chunk.Reasoning = reasoningElem.GetString();
             }
 
             // Tool calls (OpenAI-compatible format)
@@ -273,74 +88,6 @@ namespace Mythosia.AI.Services.xAI
             }
 
             return chunk;
-        }
-
-        #endregion
-
-        #region Helper Classes
-
-        private class GrokStreamRoundResult
-        {
-            public List<StreamingContent> Contents { get; } = new List<StreamingContent>();
-            public bool ContinueToNextRound { get; set; }
-        }
-
-        private class GrokStreamData
-        {
-            public List<StreamingContent> Contents { get; } = new List<StreamingContent>();
-            public StringBuilder TextBuffer { get; } = new StringBuilder();
-            public StringBuilder ReasoningBuffer { get; } = new StringBuilder();
-            public StringBuilder FunctionArgsBuffer { get; } = new StringBuilder();
-            public FunctionCall? FunctionCall { get; set; }
-            public string? Model { get; set; }
-            public bool HasContent => TextBuffer.Length > 0;
-            public string TextContent => TextBuffer.ToString();
-
-            public void UpdateFunctionCall(FunctionCall fc)
-            {
-                if (fc == null) return;
-
-                if (!string.IsNullOrEmpty(fc.Name))
-                {
-                    FunctionCall = fc;
-                    FunctionArgsBuffer.Clear();
-                }
-
-                if (fc.Arguments?.ContainsKey("_partial") == true)
-                {
-                    FunctionArgsBuffer.Append(fc.Arguments["_partial"]);
-
-                    var fullArgs = FunctionArgsBuffer.ToString();
-                    if (fullArgs.StartsWith("{") && fullArgs.EndsWith("}"))
-                    {
-                        try
-                        {
-                            if (FunctionCall != null)
-                                FunctionCall.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(fullArgs);
-                        }
-                        catch { }
-                    }
-                }
-                else if (fc.Arguments != null)
-                {
-                    if (FunctionCall == null) FunctionCall = fc;
-                    else FunctionCall.Arguments = fc.Arguments;
-                }
-
-                if (FunctionCall != null && string.IsNullOrEmpty(FunctionCall.Id))
-                {
-                    FunctionCall.Id = $"call_{Guid.NewGuid().ToString().Substring(0, 20)}";
-                }
-            }
-        }
-
-        private class GrokStreamChunk
-        {
-            public string? Text { get; set; }
-            public string? ReasoningText { get; set; }
-            public FunctionCall? FunctionCall { get; set; }
-            public string? Model { get; set; }
-            public Dictionary<string, object>? Metadata { get; set; }
         }
 
         #endregion

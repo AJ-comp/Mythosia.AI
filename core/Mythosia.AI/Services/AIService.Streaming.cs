@@ -138,10 +138,14 @@ namespace Mythosia.AI.Services.Base
                 Stream = true;
                 ActivateChat.Messages.Add(message);
 
+                int accInputTokens = 0;
+                int accOutputTokens = 0;
+                int accCachedInputTokens = 0;
+                int accCacheCreationTokens = 0;
+                int accReasoningTokens = 0;
+
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
-                    await ApplySummaryPolicyIfNeededAsync();
-
                     bool hasFunctionResult = false;
                     await foreach (var content in StreamRoundAsync(
                         options, useFunctions, policy, cancellationToken))
@@ -149,11 +153,66 @@ namespace Mythosia.AI.Services.Base
                         if (content.Type == StreamingContentType.FunctionResult)
                             hasFunctionResult = true;
 
+                        // Accumulate token usage from Completion events
+                        if (content.Type == StreamingContentType.Completion)
+                        {
+                            if (content.Usage != null)
+                            {
+                                accInputTokens += content.Usage.InputTokens;
+                                accOutputTokens += content.Usage.OutputTokens;
+                                accCachedInputTokens += content.Usage.CachedInputTokens;
+                                accCacheCreationTokens += content.Usage.CacheCreationTokens;
+                                accReasoningTokens += content.Usage.ReasoningTokens;
+
+                                // Update last known input tokens for summary trigger.
+                                // Each round's InputTokens represents the full conversation context,
+                                // so the latest value is the most accurate measure.
+                                LastKnownInputTokens = content.Usage.InputTokens;
+                            }
+
+                            // Only yield Completion on the final round (no more function calls)
+                            continue;
+                        }
+
                         yield return content;
                     }
 
                     if (!hasFunctionResult)
+                    {
+                        // Final round — yield Completion with accumulated usage
+                        if (!options.TextOnly)
+                        {
+                            var finalCompletion = new StreamingContent
+                            {
+                                Type = StreamingContentType.Completion
+                            };
+                            if (options.IncludeMetadata)
+                            {
+                                finalCompletion.Metadata = new Dictionary<string, object>
+                                {
+                                    ["model"] = Model,
+                                    ["total_rounds"] = round + 1
+                                };
+                            }
+                            if (accInputTokens > 0 || accOutputTokens > 0)
+                            {
+                                finalCompletion.Usage = new TokenUsage
+                                {
+                                    InputTokens = accInputTokens,
+                                    OutputTokens = accOutputTokens,
+                                    TotalTokens = accInputTokens + accOutputTokens,
+                                    CachedInputTokens = accCachedInputTokens,
+                                    CacheCreationTokens = accCacheCreationTokens,
+                                    ReasoningTokens = accReasoningTokens
+                                };
+                            }
+                            yield return finalCompletion;
+                        }
+
+                        // Apply summary after streaming completes (prepares context for next turn)
+                        await ApplySummaryPolicyIfNeededAsync();
                         yield break;
+                    }
                 }
             }
             finally

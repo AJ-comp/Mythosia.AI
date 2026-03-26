@@ -55,6 +55,10 @@ namespace Mythosia.AI.Services.Anthropic
             var currentToolUse = new ToolUseData();
             bool functionEventSent = false;
             string currentModel = null;
+            int? accInputTokens = null;
+            int? accOutputTokens = null;
+            int? accCachedInputTokens = null;
+            int? accCacheCreationTokens = null;
 
             using (var stream = await response.Content.ReadAsStreamAsync())
             using (var reader = new StreamReader(stream))
@@ -81,6 +85,14 @@ namespace Mythosia.AI.Services.Anthropic
 
                     if (currentModel == null && parseResult.Model != null)
                         currentModel = parseResult.Model;
+                    if (parseResult.InputTokens.HasValue)
+                        accInputTokens = parseResult.InputTokens;
+                    if (parseResult.OutputTokens.HasValue)
+                        accOutputTokens = parseResult.OutputTokens;
+                    if (parseResult.CachedInputTokens.HasValue)
+                        accCachedInputTokens = parseResult.CachedInputTokens;
+                    if (parseResult.CacheCreationTokens.HasValue)
+                        accCacheCreationTokens = parseResult.CacheCreationTokens;
 
                     // Tool use started
                     if (parseResult.ToolUseStarted && !functionEventSent && options.IncludeFunctionCalls)
@@ -138,20 +150,37 @@ namespace Mythosia.AI.Services.Anthropic
                         currentToolUse = new ToolUseData();
                     }
 
-                    // Message complete
+                    // Message complete — always yield unless TextOnly
                     if (parseResult.MessageComplete)
                     {
-                        if (options.IncludeMetadata)
+                        if (!options.TextOnly)
                         {
-                            yield return new StreamingContent
+                            var completionContent = new StreamingContent
                             {
-                                Type = StreamingContentType.Completion,
-                                Metadata = new Dictionary<string, object>
+                                Type = StreamingContentType.Completion
+                            };
+                            if (options.IncludeMetadata)
+                            {
+                                completionContent.Metadata = new Dictionary<string, object>
                                 {
                                     ["total_length"] = textBuffer.Length,
                                     ["model"] = currentModel ?? Model
-                                }
-                            };
+                                };
+                            }
+                            if (accInputTokens.HasValue || accOutputTokens.HasValue)
+                            {
+                                var input = accInputTokens ?? 0;
+                                var output = accOutputTokens ?? 0;
+                                completionContent.Usage = new TokenUsage
+                                {
+                                    InputTokens = input,
+                                    OutputTokens = output,
+                                    TotalTokens = input + output,
+                                    CachedInputTokens = accCachedInputTokens ?? 0,
+                                    CacheCreationTokens = accCacheCreationTokens ?? 0
+                                };
+                            }
+                            yield return completionContent;
                         }
                         break;
                     }
@@ -233,6 +262,10 @@ namespace Mythosia.AI.Services.Anthropic
             public bool ToolUseStarted { get; set; }
             public bool MessageComplete { get; set; }
             public string Model { get; set; }
+            public int? InputTokens { get; set; }
+            public int? OutputTokens { get; set; }
+            public int? CachedInputTokens { get; set; }
+            public int? CacheCreationTokens { get; set; }
         }
 
         private ClaudeStreamParseResult TryParseClaudeStreamChunk(
@@ -261,12 +294,21 @@ namespace Mythosia.AI.Services.Anthropic
                     switch (type)
                     {
                         case "message_start":
-                            // Message start - can extract metadata
+                            // Message start - can extract metadata and input token count
                             if (root.TryGetProperty("message", out var msgStart))
                             {
                                 if (msgStart.TryGetProperty("model", out var msgModel))
                                 {
                                     result.Model = msgModel.GetString();
+                                }
+                                if (msgStart.TryGetProperty("usage", out var startUsage))
+                                {
+                                    if (startUsage.TryGetProperty("input_tokens", out var inputTokens))
+                                        result.InputTokens = inputTokens.GetInt32();
+                                    if (startUsage.TryGetProperty("cache_read_input_tokens", out var cacheRead))
+                                        result.CachedInputTokens = cacheRead.GetInt32();
+                                    if (startUsage.TryGetProperty("cache_creation_input_tokens", out var cacheCreation))
+                                        result.CacheCreationTokens = cacheCreation.GetInt32();
                                 }
                             }
                             break;
@@ -351,10 +393,11 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
 
                         case "message_delta":
-                            // Message delta (usage info etc)
-                            if (root.TryGetProperty("usage", out var usageElem) && options.IncludeTokenInfo)
+                            // Message delta (usage info - output_tokens)
+                            if (root.TryGetProperty("usage", out var usageElem) &&
+                                usageElem.TryGetProperty("output_tokens", out var outputTokens))
                             {
-                                // Token info processing (if needed)
+                                result.OutputTokens = outputTokens.GetInt32();
                             }
                             break;
 

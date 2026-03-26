@@ -6,6 +6,7 @@ using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 
@@ -21,7 +22,9 @@ namespace Mythosia.AI.Services.Google
         private object BuildRequestBody(bool includeThoughts = false)
         {
             var contentsList = new List<object>();
-            foreach (var message in GetLatestMessagesWithFunctionFallback())
+            var messages = GetLatestMessagesWithFunctionFallback().ToList();
+            EnsureUserFirstMessage(messages);
+            foreach (var message in messages)
             {
                 contentsList.Add(ConvertMessageForGemini(message));
             }
@@ -394,7 +397,7 @@ namespace Mythosia.AI.Services.Google
                 {
                     content.Type = StreamingContentType.Status;
                     content.Metadata = new Dictionary<string, object> { ["finish_reason"] = reason };
-                    AddUsageMetadata(content.Metadata, root);
+                    content.Usage = TryParseUsageMetadata(root);
                     return content;
                 }
             }
@@ -491,7 +494,7 @@ namespace Mythosia.AI.Services.Google
                 if (candidate.TryGetProperty("finishReason", out var textFinishReason))
                     content.Metadata["finish_reason"] = textFinishReason.GetString();
 
-                AddUsageMetadata(content.Metadata, root);
+                content.Usage = TryParseUsageMetadata(root);
 
                 if (part.TryGetProperty("thoughtSignature", out var textSigElem))
                     content.Metadata[MessageMetadataKeys.ThoughtSignature] = textSigElem.GetString();
@@ -513,17 +516,27 @@ namespace Mythosia.AI.Services.Google
             return content;
         }
 
-        private void AddUsageMetadata(Dictionary<string, object> metadata, JsonElement root)
+        private static TokenUsage? TryParseUsageMetadata(JsonElement root)
         {
             if (!root.TryGetProperty("usageMetadata", out var usageMetadata))
-                return;
+                return null;
 
+            var usage = new TokenUsage();
             if (usageMetadata.TryGetProperty("promptTokenCount", out var promptTokens))
-                metadata["input_tokens"] = promptTokens.GetInt32();
+                usage.InputTokens = promptTokens.GetInt32();
             if (usageMetadata.TryGetProperty("candidatesTokenCount", out var outputTokens))
-                metadata["output_tokens"] = outputTokens.GetInt32();
+                usage.OutputTokens = outputTokens.GetInt32();
             if (usageMetadata.TryGetProperty("totalTokenCount", out var totalTokens))
-                metadata["total_tokens"] = totalTokens.GetInt32();
+                usage.TotalTokens = totalTokens.GetInt32();
+            else
+                usage.TotalTokens = usage.InputTokens + usage.OutputTokens;
+
+            if (usageMetadata.TryGetProperty("cachedContentTokenCount", out var cachedTokens))
+                usage.CachedInputTokens = cachedTokens.GetInt32();
+            if (usageMetadata.TryGetProperty("thoughtsTokenCount", out var thoughtsTokens))
+                usage.ReasoningTokens = thoughtsTokens.GetInt32();
+
+            return usage;
         }
 
         private StreamingContent? BuildUsageOnlyStatusContent(
@@ -534,12 +547,18 @@ namespace Mythosia.AI.Services.Google
             if (!options.IncludeMetadata)
                 return null;
 
-            content.Type = StreamingContentType.Status;
-            content.Metadata = new Dictionary<string, object>();
+            {
+                var usage = TryParseUsageMetadata(root);
+                if (usage != null)
+                {
+                    content.Type = StreamingContentType.Status;
+                    content.Metadata = new Dictionary<string, object>();
+                    content.Usage = usage;
+                    return content;
+                }
+            }
 
-            AddUsageMetadata(content.Metadata, root);
-
-            return content.Metadata.Count > 0 ? content : null;
+            return null;
         }
 
         #endregion

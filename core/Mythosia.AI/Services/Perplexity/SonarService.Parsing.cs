@@ -46,6 +46,8 @@ namespace Mythosia.AI.Services.Perplexity
                     {
                         ["finish_reason"] = reason
                     };
+                    if (root.TryGetProperty("usage", out var usage))
+                        content.Usage = ParseOpenAICompatibleUsage(usage);
                     return content;
                 }
             }
@@ -74,6 +76,20 @@ namespace Mythosia.AI.Services.Perplexity
             }
 
             return null;
+        }
+
+        private static TokenUsage ParseOpenAICompatibleUsage(JsonElement usage)
+        {
+            var tokenUsage = new TokenUsage();
+            if (usage.TryGetProperty("prompt_tokens", out var prompt))
+                tokenUsage.InputTokens = prompt.GetInt32();
+            if (usage.TryGetProperty("completion_tokens", out var completion))
+                tokenUsage.OutputTokens = completion.GetInt32();
+            if (usage.TryGetProperty("total_tokens", out var total))
+                tokenUsage.TotalTokens = total.GetInt32();
+            else
+                tokenUsage.TotalTokens = tokenUsage.InputTokens + tokenUsage.OutputTokens;
+            return tokenUsage;
         }
 
         private SonarSearchResponse ParseSearchResponse(string responseContent)

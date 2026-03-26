@@ -15,7 +15,7 @@ using TiktokenSharp;
 
 namespace Mythosia.AI.Services.xAI
 {
-    public partial class GrokService : AIService
+    public partial class GrokService : OpenAICompatibleService
     {
         public override string Provider => nameof(AIProvider.xAI);
 

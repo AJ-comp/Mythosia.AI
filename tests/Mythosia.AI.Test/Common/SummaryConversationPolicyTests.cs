@@ -207,6 +207,49 @@ public class SummaryConversationPolicyTests
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
     [TestMethod]
+    public void ShouldSummarize_ByToken_UsesActualTokens_WhenProvided()
+    {
+        var policy = SummaryConversationPolicy.ByToken(triggerTokens: 1000);
+        var messages = CreateMessages(2); // Small messages, estimation << 1000
+
+        // Without actual tokens → estimation is below trigger
+        Assert.IsFalse(policy.ShouldSummarize(messages));
+
+        // With actual tokens exceeding trigger → should trigger
+        Assert.IsTrue(policy.ShouldSummarize(messages, lastKnownInputTokens: 1500));
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public void ShouldSummarize_ByToken_FallsBackToEstimation_WhenZero()
+    {
+        var policy = SummaryConversationPolicy.ByToken(triggerTokens: 10);
+        var messages = new List<Message>();
+        for (int i = 0; i < 3; i++)
+            messages.Add(new Message(ActorRole.User, new string('A', 50))); // ~12.5 tokens each
+
+        // lastKnownInputTokens=0 → falls back to EstimateTokens, which exceeds 10
+        Assert.IsTrue(policy.ShouldSummarize(messages, lastKnownInputTokens: 0));
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public void ShouldSummarize_ByToken_ActualTokensBelowTrigger_ReturnsFalse()
+    {
+        var policy = SummaryConversationPolicy.ByToken(triggerTokens: 1000);
+        var messages = new List<Message>();
+        for (int i = 0; i < 3; i++)
+            messages.Add(new Message(ActorRole.User, new string('A', 50)));
+
+        // Actual tokens below trigger → should not trigger even if estimation might differ
+        Assert.IsFalse(policy.ShouldSummarize(messages, lastKnownInputTokens: 500));
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
     public void ShouldSummarize_ByBoth_CountExceeds_ReturnsTrue()
     {
         var policy = SummaryConversationPolicy.ByBoth(triggerTokens: 100000, triggerCount: 3);
@@ -696,7 +739,8 @@ public class SummaryConversationPolicyTests
     {
         // ApplySummaryPolicyIfNeededAsync()를 StreamAsync 전에 명시적으로 호출하는 패턴 검증
         // (ChatUI에서 사용하는 패턴)
-        var mock = new MockAIService("Summary of old conversation", "Streamed response");
+        // 3rd response: post-streaming summary (triggered because mock inflates message count)
+        var mock = new MockAIService("Summary of old conversation", "Streamed response", "Post-stream summary");
         mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 5, keepRecentCount: 2);
 
         // Pre-fill 6 messages to exceed threshold
@@ -726,6 +770,7 @@ public class SummaryConversationPolicyTests
             "Recent messages should be kept");
 
         // Now stream — should work normally after summarization
+        // Post-streaming summary may fire (message count grows during streaming)
         string streamed = "";
         await foreach (var chunk in mock.StreamAsync("New streaming question"))
         {
@@ -775,7 +820,8 @@ public class SummaryConversationPolicyTests
     public async Task Streaming_EffectiveSystemMessage_IncludesSummary()
     {
         // 요약 후 GetEffectiveSystemMessage에 요약이 포함되는지 검증
-        var mock = new MockAIService("Summary result", "Stream output");
+        // 3rd response: post-streaming summary (triggered because mock inflates message count)
+        var mock = new MockAIService("Summary result", "Stream output", "Post-stream summary");
         mock.SystemMessage = "You are a helpful assistant.";
         mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 3, keepRecentCount: 1);
 

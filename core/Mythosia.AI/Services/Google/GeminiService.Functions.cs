@@ -66,8 +66,10 @@ namespace Mythosia.AI.Services.Google
         {
             var contentsList = new List<object>();
             var isGemini3 = IsGemini3Model();
+            var messages = GetLatestMessages().ToList();
+            EnsureUserFirstMessage(messages);
 
-            foreach (var message in GetLatestMessages())
+            foreach (var message in messages)
             {
                 if (IsFunctionCallMessage(message))
                     contentsList.Add(BuildFunctionCallContent(message));

@@ -1,5 +1,54 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v5.1.0 - Unified Token Usage & Accurate Summary Trigger
+
+### **Unified Token Usage in Streaming** 📊
+
+`StreamingContent` now includes a `Usage` property (`TokenUsage`) on `Completion` events, providing unified token usage information across all providers.
+
+`TokenUsage` fields:
+- `InputTokens` / `OutputTokens` / `TotalTokens` — basic token counts
+- `CachedInputTokens` — tokens served from cache (OpenAI, Claude, DeepSeek, Gemini)
+- `CacheCreationTokens` — tokens written to cache (Anthropic)
+- `ReasoningTokens` — tokens used for internal reasoning (OpenAI, Gemini)
+- Computed: `NonCachedInputTokens`, `CacheHitRatio`, `HasCacheActivity`, `VisibleOutputTokens`
+
+When function calling spans multiple rounds, token usage is accumulated across all rounds and reported in the final `Completion` event.
+
+```csharp
+await foreach (var content in service.StreamAsync(message, StreamOptions.FullOptions))
+{
+    if (content.Type == StreamingContentType.Completion && content.Usage != null)
+    {
+        Console.WriteLine($"Input: {content.Usage.InputTokens}");
+        Console.WriteLine($"Output: {content.Usage.OutputTokens}");
+        Console.WriteLine($"Cached: {content.Usage.CachedInputTokens}");
+        Console.WriteLine($"Cache hit: {content.Usage.CacheHitRatio:P1}");
+    }
+}
+```
+
+### **Accurate API-Based Summary Trigger** 🎯
+
+`SummaryConversationPolicy` now uses the real input token count from the API response (when available) instead of local estimation for trigger decisions. This results in more accurate and reliable summarization timing.
+
+### **Summary Timing Improvement** ⏱️
+
+Summary is now applied after streaming completes (preparing context for the next turn), rather than before each streaming round. This avoids unnecessary latency during active streaming.
+
+### ⚠️ Breaking Changes
+
+- **Removed `StreamOptions.IncludeTokenInfo`** and `StreamOptions.WithTokenInfo()`
+  - Token usage is now always available via `StreamingContent.Usage` on `Completion` events
+  - **Migration:** Remove any `.WithTokenInfo()` calls and access `content.Usage` directly on Completion events
+
+### ✅ Compatibility
+
+- Breaking: `StreamOptions.IncludeTokenInfo` / `WithTokenInfo()` removed
+- All other APIs are backward compatible with v5.0.x
+
+---
+
 ## 🚀 v5.0.1 - GPT-5.4 Mini/Nano & Streaming Reliability
 
 ### **GPT-5.4 Mini & Nano Support** 🤖

@@ -19,22 +19,19 @@
 		DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v5.0.0
+## What's New in v5.1.0
 
-### AIModels String Catalog
-- Provider-organized `AIModels` constants for direct string-based model selection
-- Supports exact provider model IDs and dated variants without enum-style usage in application code
+### Unified Token Usage in Streaming
+- `StreamingContent.Usage` provides `TokenUsage` on Completion events with input, output, cached, reasoning token counts
+- Works across all providers (OpenAI, Claude, Gemini, Grok, DeepSeek, Perplexity, Qwen)
+- Multi-round function calling accumulates token usage across all rounds
 
-### Request-Scoped Runtime Control
-- Added `AIRequestProfile` for one-shot per-call overrides such as `Stateless`, `DisableFunctions`, `DisableReasoning`, `Temperature`, and `MaxTokens`
-- Added built-in presets via `RequestProfiles.QueryRewrite` and `RequestProfiles.Summarization`
+### Accurate Summary Trigger
+- Summary conversation policy now uses real API input token counts instead of local estimation
+- Summary applied after streaming completes for better timing
 
-### Request-Scoped Prompt Composition
-- Added `AIRequestContext` with `SystemMessagePrefix`, `SystemMessageSuffix`, `RequestMessageOverride`, and `AdditionalMessages`
-
-### Static Stateless Helpers
-- Added `AIService.QuickAskAsync(...)`
-- Added `AIService.QuickAskWithImageAsync(...)`
+### Breaking Changes
+- Removed `StreamOptions.IncludeTokenInfo` and `WithTokenInfo()` — token usage is now always available via `StreamingContent.Usage`
 
 ## Supported Models
 
@@ -75,8 +72,8 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v5.0.1: Added GPT-5.4 Mini and GPT-5.4 Nano model constants. Internal streaming refactor (Template Method pattern) and bug fixes.</PackageReleaseNotes>
-		<Version>5.0.1</Version>
+		<PackageReleaseNotes>v5.1.0: Unified TokenUsage in streaming (input/output/cached/reasoning tokens), accurate API-based summary trigger, removed IncludeTokenInfo (replaced by StreamingContent.Usage).</PackageReleaseNotes>
+		<Version>5.1.0</Version>
 	</PropertyGroup>
 
 

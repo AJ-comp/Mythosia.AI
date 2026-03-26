@@ -364,7 +364,6 @@ public abstract partial class AIServiceTestBase
 
             var customOptions = new StreamOptions()
                 .WithMetadata(true)
-                .WithTokenInfo(true)
                 .WithFunctionCalls(false)
                 .AsTextOnly(false);
 

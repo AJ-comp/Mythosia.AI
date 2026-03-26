@@ -17,7 +17,7 @@ using TiktokenSharp;
 
 namespace Mythosia.AI.Services.OpenAI
 {
-    public partial class ChatGptService : AIService
+    public partial class ChatGptService : OpenAICompatibleService
     {
         public override string Provider => nameof(AIProvider.OpenAI);
 

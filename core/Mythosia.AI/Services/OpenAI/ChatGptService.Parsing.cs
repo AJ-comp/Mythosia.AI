@@ -110,6 +110,13 @@ namespace Mythosia.AI.Services.OpenAI
             if (Stream)
             {
                 requestBody["stream"] = true;
+                if (!IsNewApiModel(Model))
+                {
+                    requestBody["stream_options"] = new Dictionary<string, object>
+                    {
+                        ["include_usage"] = true
+                    };
+                }
             }
         }
 
@@ -136,6 +143,14 @@ namespace Mythosia.AI.Services.OpenAI
             requestBody["frequency_penalty"] = FrequencyPenalty;
             requestBody["presence_penalty"] = PresencePenalty;
             requestBody["stream"] = Stream;
+
+            if (Stream)
+            {
+                requestBody["stream_options"] = new Dictionary<string, object>
+                {
+                    ["include_usage"] = true
+                };
+            }
 
             if (_structuredOutputSchemaJson != null)
             {
@@ -324,12 +339,18 @@ namespace Mythosia.AI.Services.OpenAI
             // Completion 타입은 항상 처리
             if (type == StreamingContentType.Completion)
             {
-                return new StreamingContent
+                var completionContent = new StreamingContent
                 {
                     Type = type,
                     Content = null,
                     Metadata = metadata
                 };
+                if (metadata != null &&
+                    metadata.Remove("_token_usage", out var usageObj) && usageObj is TokenUsage tokenUsage)
+                {
+                    completionContent.Usage = tokenUsage;
+                }
+                return completionContent;
             }
 
             // response.created 같은 초기 이벤트는 스킵
@@ -520,7 +541,7 @@ namespace Mythosia.AI.Services.OpenAI
                 if (root.TryGetProperty("response", out var finalResponse))
                 {
                     if (finalResponse.TryGetProperty("usage", out var usage))
-                        metadata["usage"] = usage.GetRawText();
+                        metadata["_token_usage"] = ParseOpenAICompatibleUsage(usage);
 
                     if (type == "response.completed" &&
                         finalResponse.TryGetProperty("id", out var idElem))

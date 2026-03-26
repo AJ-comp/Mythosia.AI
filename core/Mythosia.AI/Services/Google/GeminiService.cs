@@ -70,6 +70,17 @@ namespace Mythosia.AI.Services.Google
             return Model != null && Model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>
+        /// Returns true if the current model requires thinking mode and cannot disable it.
+        /// Gemini 2.5 Pro only works in thinking mode (minimum budget 128).
+        /// </summary>
+        private bool IsThinkingRequiredModel()
+        {
+            return Model != null &&
+                   Model.Contains("-pro", StringComparison.OrdinalIgnoreCase) &&
+                   !IsGemini3Model();
+        }
+
         #endregion
 
         #region Core Completion Methods
@@ -288,7 +299,9 @@ namespace Mythosia.AI.Services.Google
             var backupThinkingBudget = ThinkingBudget;
             var backupThinkingLevel = ThinkingLevel;
 
-            ThinkingBudget = 0;
+            // Gemini 2.5 Pro requires thinking mode (minimum budget 128).
+            // Flash/Lite models can disable thinking with budget 0.
+            ThinkingBudget = IsThinkingRequiredModel() ? 128 : 0;
             ThinkingLevel = GeminiThinkingLevel.Minimal;
 
             return () =>

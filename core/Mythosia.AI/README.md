@@ -565,7 +565,6 @@ await foreach (var content in service.StreamAsync("Hello", StreamOptions.FullOpt
 var options = new StreamOptions()
     .WithMetadata(true)
     .WithFunctionCalls(true)
-    .WithTokenInfo(false)
     .AsTextOnly(false);
 
 await foreach (var content in service.StreamAsync("Query", options))
@@ -585,6 +584,40 @@ await foreach (var content in service.StreamAsync("Query", options))
     }
 }
 ```
+
+### Token Usage
+
+Streaming `Completion` events include a `Usage` property with unified token usage across all providers.
+
+```csharp
+await foreach (var content in service.StreamAsync(message, StreamOptions.FullOptions))
+{
+    if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+
+    if (content.Type == StreamingContentType.Completion && content.Usage != null)
+    {
+        Console.WriteLine($"Input tokens: {content.Usage.InputTokens}");
+        Console.WriteLine($"Output tokens: {content.Usage.OutputTokens}");
+        Console.WriteLine($"Cached tokens: {content.Usage.CachedInputTokens}");
+        Console.WriteLine($"Reasoning tokens: {content.Usage.ReasoningTokens}");
+        Console.WriteLine($"Cache hit ratio: {content.Usage.CacheHitRatio:P1}");
+    }
+}
+```
+
+`TokenUsage` fields:
+
+| Field | Description | Providers |
+|-------|-------------|-----------|
+| `InputTokens` | Input/prompt tokens | All |
+| `OutputTokens` | Output/completion tokens | All |
+| `TotalTokens` | Total tokens used | All |
+| `CachedInputTokens` | Tokens served from cache | OpenAI, Claude, DeepSeek, Gemini |
+| `CacheCreationTokens` | Tokens written to cache | Claude |
+| `ReasoningTokens` | Internal reasoning tokens | OpenAI, Gemini |
+
+Computed properties: `NonCachedInputTokens`, `CacheHitRatio`, `HasCacheActivity`, `VisibleOutputTokens`.
 
 ## Reasoning Streaming
 

@@ -33,8 +33,10 @@ namespace Mythosia.AI.Services.Anthropic
         private object BuildRequestBodyWithFunctions()
         {
             var messagesList = new List<object>();
+            var messages = GetLatestMessages().ToList();
+            EnsureUserFirstMessage(messages);
 
-            foreach (var message in GetLatestMessages())
+            foreach (var message in messages)
             {
                 messagesList.Add(ConvertMessageForFunctionCalling(message));
             }

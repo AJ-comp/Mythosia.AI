@@ -133,6 +133,15 @@ namespace Mythosia.AI.Protocols
                 ["stream"] = p.Stream
             };
 
+            // Request token usage in streaming responses
+            if (p.Stream)
+            {
+                requestBody["stream_options"] = new Dictionary<string, object>
+                {
+                    ["include_usage"] = true
+                };
+            }
+
             // Standard parameters (can be excluded per provider)
             var exclude = p.ExcludeParameters;
             if (exclude == null || !exclude.Contains("temperature"))
@@ -280,6 +289,15 @@ namespace Mythosia.AI.Protocols
                 ["stream"] = p.Stream,
                 ["tool_choice"] = mode == FunctionCallMode.None ? "none" : "auto"
             };
+
+            // Request token usage in streaming responses
+            if (p.Stream)
+            {
+                requestBody["stream_options"] = new Dictionary<string, object>
+                {
+                    ["include_usage"] = true
+                };
+            }
 
             // Standard parameters (can be excluded per provider)
             var exclude = p.ExcludeParameters;

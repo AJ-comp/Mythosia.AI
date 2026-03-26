@@ -2,6 +2,7 @@
 using Mythosia.AI.Models.Messages;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -17,7 +18,9 @@ namespace Mythosia.AI.Services.Anthropic
             var messagesList = new List<object>();
 
             // Convert messages to Claude format
-            foreach (var message in GetLatestMessagesWithFunctionFallback())
+            var messages = GetLatestMessagesWithFunctionFallback().ToList();
+            EnsureUserFirstMessage(messages);
+            foreach (var message in messages)
             {
                 messagesList.Add(ConvertMessageForClaude(message));
             }

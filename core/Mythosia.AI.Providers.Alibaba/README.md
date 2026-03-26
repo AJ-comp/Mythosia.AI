@@ -9,7 +9,7 @@ It is intended for projects that want to keep using the common `AIService` abstr
 ## Features
 
 - Qwen chat completion support through `QwenService`
-- Streaming response support
+- Streaming response support with token usage reporting (`TokenUsage`)
 - Function calling support
 - Shared `Mythosia.AI` conversation and message abstractions
 - Optional thinking-mode control for supported Qwen models

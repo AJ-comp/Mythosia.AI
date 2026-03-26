@@ -1,5 +1,18 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## 🚀 v1.1.0 - Mythosia.AI v5.1.0 Compatibility & Token Usage Support
+
+### **Token Usage in Streaming**
+
+`QwenService` streaming now reports token usage (input, output, cached, reasoning tokens) on `Completion` events via `StreamingContent.Usage`, inherited from the core package.
+
+### ✅ Compatibility
+
+- Compatible with `Mythosia.AI` v5.1.0
+- Breaking: `StreamOptions.IncludeTokenInfo` / `WithTokenInfo()` removed in core package (see Mythosia.AI v5.1.0 release notes for migration guide)
+
+---
+
 ## 🔧 v1.0.2 - Mythosia.AI v5.0.1 Compatibility
 
 ### **Streaming Architecture Alignment**
