@@ -301,7 +301,7 @@ namespace Mythosia.AI.Rag
                 if (_builder == null)
                     throw new InvalidOperationException("RagBuilder is null and RagStore is not initialized.");
 
-                _ragStore = await _builder.BuildAsync(cancellationToken);
+                _ragStore = await _builder.BuildAsync(onDocumentEmbedded: null, cancellationToken);
                 ResolveQueryRewriter();
                 return _ragStore;
             }

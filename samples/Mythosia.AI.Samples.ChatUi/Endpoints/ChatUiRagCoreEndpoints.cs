@@ -472,7 +472,7 @@ internal static class ChatUiRagCoreEndpoints
                             entry.displayName);
                         builder.AddDocuments(loader, entry.path);
                     }
-                }, ctx.RequestAborted);
+                }, onDocumentEmbedded: null, ctx.RequestAborted);
 
                 var trace = RagReferenceTraceBuilder.Build(documents, chunks, records, embeddingProvider.Dimensions);
                 var config = new RagReferenceConfig(

@@ -232,22 +232,39 @@ namespace Mythosia.AI.Rag
         /// </summary>
         /// <example>
         /// <code>
+        /// // Default: embed and save to store automatically
         /// var ragStore = await RagStore.BuildAsync(config => config
         ///     .AddDocuments("./knowledge-base/")
         ///     .UseOpenAIEmbedding(apiKey)
         /// );
-        /// 
-        /// var claude = new ClaudeService(key, http).WithRag(ragStore);
-        /// var gpt = new ChatGptService(key, http).WithRag(ragStore);
+        ///
+        /// // With callback: replace vectors atomically per document
+        /// var ragStore = await RagStore.BuildAsync(config => config
+        ///     .AddDocuments(loader, filePath)
+        ///     .UseEmbedding(embeddingProvider)
+        ///     .UseStore(vectorStore),
+        ///     onDocumentEmbedded: records =>
+        ///         vectorStore.ReplaceByFilterAsync(
+        ///             VectorFilter.ByMetadata("full_path", filePath), records),
+        /// );
         /// </code>
         /// </example>
+        /// <param name="configure">Configuration delegate for the RAG builder.</param>
+        /// <param name="onDocumentEmbedded">
+        /// Optional callback invoked after each document's embedding is complete.
+        /// When provided, replaces the default <c>UpsertBatchAsync</c> call — the callback
+        /// receives the generated <see cref="VectorRecord"/> list and decides how to persist them.
+        /// When omitted, records are saved to the configured store automatically.
+        /// </param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         public static async Task<RagStore> BuildAsync(
             Action<RagBuilder> configure,
+            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null,
             CancellationToken cancellationToken = default)
         {
             var builder = new RagBuilder();
             configure(builder);
-            return await builder.BuildAsync(cancellationToken);
+            return await builder.BuildAsync(onDocumentEmbedded, cancellationToken);
         }
 
         #endregion

@@ -616,7 +616,9 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Builds the RAG store: applies defaults, loads documents, and indexes them.
         /// </summary>
-        internal async Task<RagStore> BuildAsync(CancellationToken cancellationToken = default)
+        internal async Task<RagStore> BuildAsync(
+            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null,
+            CancellationToken cancellationToken = default)
         {
             // 1. Apply defaults
             var embeddingProvider = _embeddingProvider ?? new LocalEmbeddingProvider();
@@ -693,7 +695,15 @@ namespace Mythosia.AI.Rag
                 if (docsToIndex.Count == 0)
                     continue;
 
-                if (source.TextSplitter != null)
+                if (onDocumentEmbedded != null)
+                {
+                    await pipeline.IndexDocumentsAsync(
+                        docsToIndex,
+                        source.TextSplitter,
+                        onDocumentEmbedded,
+                        cancellationToken: cancellationToken);
+                }
+                else if (source.TextSplitter != null)
                 {
                     await pipeline.IndexDocumentsAsync(
                         docsToIndex,

@@ -134,6 +134,15 @@ namespace Mythosia.AI.Rag
             await IndexDocumentsInternalAsync(documents, textSplitter, @namespace, cancellationToken);
         }
 
+        internal async Task IndexDocumentsAsync(
+            IEnumerable<RagDocument> documents,
+            ITextSplitter? textSplitter,
+            Func<IReadOnlyList<VectorRecord>, Task> onDocumentEmbedded,
+            CancellationToken cancellationToken = default)
+        {
+            await IndexDocumentsInternalAsync(documents, textSplitter, @namespace: null, cancellationToken, onDocumentEmbedded);
+        }
+
         /// <summary>
         /// Indexes a single document: split → embed → store.
         /// </summary>
@@ -161,7 +170,8 @@ namespace Mythosia.AI.Rag
             IEnumerable<RagDocument> documents,
             ITextSplitter? textSplitter,
             string? @namespace,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
             var effectiveSplitter = textSplitter ?? _textSplitter;
             var ns = @namespace ?? Options.DefaultQuery.Namespace;
@@ -169,7 +179,7 @@ namespace Mythosia.AI.Rag
             foreach (var document in documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken);
+                await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken, onDocumentEmbedded);
             }
         }
 
@@ -177,18 +187,20 @@ namespace Mythosia.AI.Rag
             RagDocument document,
             ITextSplitter? textSplitter,
             string? @namespace,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
             var ns = @namespace ?? Options.DefaultQuery.Namespace;
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken);
+            await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken, onDocumentEmbedded);
         }
 
         private async Task IndexSingleDocumentAsync(
             RagDocument document,
             string @namespace,
             ITextSplitter textSplitter,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
             // 1. Split
             IReadOnlyList<RagChunk> chunks = textSplitter.Split(document);
@@ -221,7 +233,10 @@ namespace Mythosia.AI.Rag
                 });
             }
 
-            await _vectorStore.UpsertBatchAsync(records, cancellationToken);
+            if (onDocumentEmbedded != null)
+                await onDocumentEmbedded(records);
+            else
+                await _vectorStore.UpsertBatchAsync(records, cancellationToken);
         }
 
         #endregion

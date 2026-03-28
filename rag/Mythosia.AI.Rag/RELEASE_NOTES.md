@@ -1,5 +1,44 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v6.1.0
+
+### Added
+
+- **`onDocumentEmbedded` callback parameter on `BuildAsync`** — optional `Func<IReadOnlyList<VectorRecord>, Task>?` callback invoked after each document's embedding is complete.
+  - When omitted (`null`), the default behavior is unchanged — records are saved to the configured store via `UpsertBatchAsync` as before.
+  - When provided, the callback **replaces** the default `UpsertBatchAsync` call, giving full control over how records are persisted.
+  - Enables atomic file replacement by combining with `IVectorStore.ReplaceByFilterAsync` (Abstractions v2.3.0).
+
+### Usage
+
+```csharp
+// Default: works exactly as before (no callback, saves to store automatically)
+var store = await RagStore.BuildAsync(builder =>
+{
+    builder.AddDocuments("./docs/")
+           .UseOpenAIEmbedding(apiKey)
+           .UseStore(vectorStore);
+}, ct);
+
+// Atomic file replacement via callback
+var store = await RagStore.BuildAsync(builder =>
+{
+    builder.AddDocuments(loader, file.LocalPath)
+           .UseEmbedding(embeddingProvider)
+           .UseStore(vectorStore);
+},
+onDocumentEmbedded: records =>
+    vectorStore.ReplaceByFilterAsync(
+        VectorFilter.ByMetadata("full_path", file.FullPath), records, ct),
+ct);
+```
+
+### Compatibility
+
+- Fully backward compatible with v6.0.1. No breaking changes — omitting the callback preserves existing behavior.
+
+---
+
 ## v6.0.1
 
 ### Mythosia.AI v5.0.1 Compatibility

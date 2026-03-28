@@ -301,6 +301,44 @@ await foreach (var chunk in ragService.StreamAsync("How do I use this product?")
 }
 ```
 
+## Document Indexing Callback
+
+`BuildAsync` accepts an optional `onDocumentEmbedded` callback invoked after each document's embedding is complete. When omitted, records are saved to the configured store automatically (default behavior). When provided, the callback replaces the default `UpsertBatchAsync` — you decide how to persist the records.
+
+### Atomic File Replacement
+
+When a file is modified and needs re-embedding, use the callback with `ReplaceByFilterAsync` to atomically swap old vectors with new ones — no query gap where the document temporarily disappears:
+
+```csharp
+var store = await RagStore.BuildAsync(config => config
+    .AddDocuments(loader, file.LocalPath)
+    .UseEmbedding(embeddingProvider)
+    .UseStore(vectorStore),
+    onDocumentEmbedded: records =>
+        vectorStore.ReplaceByFilterAsync(
+            VectorFilter.ByMetadata("full_path", file.FullPath), records)
+);
+```
+
+On `PostgresStore`, `ReplaceByFilterAsync` wraps DELETE + INSERT in a single transaction — queries always see either the old data or the new data, never an empty gap. Other stores (InMemory, Qdrant, Pinecone) perform sequential delete + insert via the default interface method.
+
+### Custom Processing
+
+Use the callback for logging, validation, or routing to different stores:
+
+```csharp
+var store = await RagStore.BuildAsync(config => config
+    .AddDocuments("./docs/")
+    .UseOpenAIEmbedding(apiKey)
+    .UseStore(vectorStore),
+    onDocumentEmbedded: async records =>
+    {
+        Console.WriteLine($"Indexed {records.Count} chunks");
+        await vectorStore.UpsertBatchAsync(records);
+    }
+);
+```
+
 ## Shared RagStore (Multiple Services)
 
 Build the index once, share across multiple AI services:
