@@ -23,4 +23,11 @@
     <PackageReference Include="PdfPig" Version="0.1.14" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
 </Project>
