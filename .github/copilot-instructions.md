@@ -16,6 +16,7 @@
 - optional callback, optional prompt template, optional rewritten query처럼 “부재”가 실제 의미를 갖는 참조 타입만 nullable로 두는 방향을 선호한다.
 - 설계를 단순화할 때 이름을 늘리거나 wrapper/resolved/request 타입을 불필요하게 늘리기보다, 개념 수 자체를 줄이는 방향을 우선한다.
 - DX에 실질적으로 도움이 되는 편의 오버로드는 유지한다. 단순화를 이유로 사용성이 분명히 좋아지는 public convenience API를 불필요하게 제거하지 않는다.
+- 사용자는 패키지의 의존성 구조를 파악하지 않고 마구잡이식으로 병합하는 제안을 극도로 싫어한다. 패키지 경계와 의존성 구조를 명확히 인식하고 제안해야 한다.
 
 ## Versioning Guidelines
 - v10.x 버전 넘버링은 .NET 10 (net10.0) 타겟 프로젝트에만 사용한다. .NET Standard 2.1 프로젝트는 1.x.x 등 일반적인 시맨틱 버전을 사용한다.

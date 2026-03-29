@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>Mythosia.Documents.Abstractions</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>1.0.0</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>Core document abstractions: DoclingDocument structured model, IDocumentLoader, IDocumentParser, and element types (TextItem, TableItem, CodeItem, etc.). Framework-agnostic ? usable with any RAG pipeline or document processing system.</Description>
+    <PackageTags>Document;DocumentLoader;DocumentParser;Abstractions;DoclingDocument;Structured</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v1.0.0: Initial release as Mythosia.Documents.Abstractions. DoclingDocument structured model with body tree, RawContent bypass, Metadata, Builder API, and Markdown export. IDocumentLoader returns DoclingDocument. Element types in Mythosia.Documents.Elements namespace.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="10.0.5" />
+  </ItemGroup>
+
+</Project>
+

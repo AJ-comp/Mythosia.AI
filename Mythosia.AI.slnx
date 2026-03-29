@@ -4,9 +4,9 @@
     <Project Path="core/Mythosia.AI/Mythosia.AI.csproj" />
   </Folder>
   <Folder Name="/loaders/">
-    <Project Path="loaders/Mythosia.AI.Loaders.Abstractions/Mythosia.AI.Loaders.Abstractions.csproj" />
-    <Project Path="loaders/Mythosia.AI.Loaders.Office/Mythosia.AI.Loaders.Office.csproj" />
-    <Project Path="loaders/Mythosia.AI.Loaders.Pdf/Mythosia.AI.Loaders.Pdf.csproj" />
+    <Project Path="loaders/Mythosia.Documents.Abstractions/Mythosia.Documents.Abstractions.csproj" />
+    <Project Path="loaders/Mythosia.Documents.Office/Mythosia.Documents.Office.csproj" />
+    <Project Path="loaders/Mythosia.Documents.Pdf/Mythosia.Documents.Pdf.csproj" />
   </Folder>
   <Folder Name="/rag/">
     <Project Path="rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
