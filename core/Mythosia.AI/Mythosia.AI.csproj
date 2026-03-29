@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -19,19 +19,13 @@
 		DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v5.1.0
+## What's New in v5.2.0
 
-### Unified Token Usage in Streaming
-- `StreamingContent.Usage` provides `TokenUsage` on Completion events with input, output, cached, reasoning token counts
-- Works across all providers (OpenAI, Claude, Gemini, Grok, DeepSeek, Perplexity, Qwen)
-- Multi-round function calling accumulates token usage across all rounds
-
-### Accurate Summary Trigger
-- Summary conversation policy now uses real API input token counts instead of local estimation
-- Summary applied after streaming completes for better timing
-
-### Breaking Changes
-- Removed `StreamOptions.IncludeTokenInfo` and `WithTokenInfo()` — token usage is now always available via `StreamingContent.Usage`
+### Abstractions Package Split
+- All shared model/contract types extracted into `Mythosia.AI.Abstractions` (zero heavy dependencies)
+- `AIService` now implements `IAIService` interface for abstraction-based dependency
+- Downstream libraries (e.g., `Mythosia.AI.Rag`) can depend on the lightweight abstractions instead of the full implementation
+- Source-level fully compatible ? all namespaces unchanged, no code changes needed
 
 ## Supported Models
 
@@ -72,8 +66,8 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v5.1.0: Unified TokenUsage in streaming (input/output/cached/reasoning tokens), accurate API-based summary trigger, removed IncludeTokenInfo (replaced by StreamingContent.Usage).</PackageReleaseNotes>
-		<Version>5.1.0</Version>
+		<PackageReleaseNotes>v5.2.0: Abstractions extraction ? model/contract types moved to Mythosia.AI.Abstractions (zero heavy deps). AIService implements IAIService. Source-level fully compatible.</PackageReleaseNotes>
+		<Version>5.2.0</Version>
 	</PropertyGroup>
 
 
@@ -81,13 +75,13 @@
 		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
 		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
 		<PackageReference Include="NJsonSchema" Version="11.5.2" />
-        <PackageReference Include="System.Threading.Channels" Version="10.0.3" />
+        <PackageReference Include="System.Threading.Channels" Version="10.0.5" />
         <PackageReference Include="TiktokenSharp" Version="1.2.1" />
 	</ItemGroup>
 
 
 	<ItemGroup>
-	  <PackageReference Include="Mythosia" Version="1.4.0" />
+	  <ProjectReference Include="..\Mythosia.AI.Abstractions\Mythosia.AI.Abstractions.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

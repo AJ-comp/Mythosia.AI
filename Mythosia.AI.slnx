@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/core/">
+    <Project Path="core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj" />
     <Project Path="core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj" />
     <Project Path="core/Mythosia.AI/Mythosia.AI.csproj" />
   </Folder>

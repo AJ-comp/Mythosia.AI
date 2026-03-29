@@ -4,6 +4,7 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services;
 using Mythosia.AI.Utilities;
 using System;
 using System.Collections.Generic;
@@ -17,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.Base
 {
-    public abstract partial class AIService
+    public abstract partial class AIService : IAIService
     {
         protected readonly string ApiKey;
         protected readonly HttpClient HttpClient;

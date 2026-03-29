@@ -1,5 +1,53 @@
 # Mythosia.AI - Release Notes
 
+## 🚀 v5.2.0 - Abstractions Extraction & IAIService Interface
+
+### **Abstractions Package Split** 📦
+
+All shared model/contract types have been extracted into the new `Mythosia.AI.Abstractions` package (zero heavy dependencies). `Mythosia.AI` now depends on `Mythosia.AI.Abstractions` and re-exports all types through the same namespaces.
+
+Moved types include:
+- **Models**: `Message`, `MessageContent`, `ChatBlock`, `ActorRole`, `AIRequestContext`, `AIRequestProfile`, `AIModels`, `AIProvider`, `RoundResult`, `SummaryConversationPolicy`, `StructuredOutputPolicy`
+- **Streaming**: `StreamingContent`, `StreamingContentType`, `StreamOptions`, `TokenUsage`
+- **Functions**: `FunctionDefinition`, `FunctionCallingPolicy`, `FunctionCallMode`
+- **Attributes**: `AiFunctionAttribute`, `AiParameterAttribute`
+- **Enums**: `ReasoningEffort`, `ReasoningSummary`, `GeminiThinkingLevel`, `Verbosity`
+- **Exceptions**: `AIServiceException`, `AgentMaxStepsExceededException`
+
+### **`IAIService` Interface** 🔌
+
+`AIService` now implements `IAIService` (defined in `Mythosia.AI.Abstractions`). This enables downstream libraries like `Mythosia.AI.Rag` to depend on the lightweight abstractions package instead of the full implementation.
+
+```csharp
+public interface IAIService
+{
+    string Model { get; }
+    string Provider { get; }
+    string SystemMessage { get; set; }
+    bool StatelessMode { get; set; }
+    ChatBlock ActivateChat { get; }
+
+    Task<string> GetCompletionAsync(string prompt);
+    Task<string> GetCompletionAsync(Message message, AIRequestContext context);
+    IAsyncEnumerable<string> StreamAsync(string prompt, CancellationToken ct = default);
+    IAsyncEnumerable<StreamingContent> StreamAsync(Message message, StreamOptions options, CancellationToken ct = default);
+    // ... additional overloads
+}
+```
+
+### **Dependency Cleanup** 🧹
+
+- `System.Threading.Channels` updated from 10.0.3 to 10.0.5
+- Direct `Mythosia` package dependency removed from `Mythosia.AI` (now transitive through `Mythosia.AI.Abstractions`)
+
+### ✅ Compatibility
+
+- **Source-level fully compatible** — all namespaces unchanged, no code changes needed
+- `AIService : IAIService` is additive — existing subclasses unaffected
+- `Mythosia.AI.Rag` now depends on `Mythosia.AI.Abstractions` instead of `Mythosia.AI`
+
+---
+
 ## 🚀 v5.1.0 - Unified Token Usage & Accurate Summary Trigger
 
 ### **Unified Token Usage in Streaming** 📊
