@@ -68,6 +68,26 @@ namespace Mythosia.VectorDb
         Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Retrieves multiple records by their Ids in a single batch operation.
+        /// Records that do not exist or do not match <paramref name="filter"/> are omitted from the result.
+        /// The order of results is not guaranteed to match the order of <paramref name="ids"/>.
+        /// </summary>
+        async Task<IReadOnlyList<VectorRecord>> GetBatchAsync(
+            IEnumerable<string> ids,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            var results = new List<VectorRecord>();
+            foreach (var id in ids)
+            {
+                var record = await GetAsync(id, filter, cancellationToken);
+                if (record != null)
+                    results.Add(record);
+            }
+            return results;
+        }
+
+        /// <summary>
         /// Deletes a single record by its Id.
         /// Implementations may use <paramref name="filter"/> to narrow by namespace/scope.
         /// </summary>
@@ -91,6 +111,15 @@ namespace Mythosia.VectorDb
             await DeleteByFilterAsync(filter, cancellationToken);
             await UpsertBatchAsync(records, cancellationToken);
         }
+
+        /// <summary>
+        /// Returns the number of records matching the optional filter.
+        /// When <paramref name="filter"/> is <see langword="null"/>, returns the total record count.
+        /// Implementations may ignore <see cref="VectorFilter.MinScore"/> as it is not meaningful for counting.
+        /// </summary>
+        Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException(
+                $"Store {GetType().Name} does not support CountAsync.");
 
         /// <summary>
         /// Verifies that the store can reach its backend (e.g. database, API).

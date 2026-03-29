@@ -362,6 +362,25 @@ var store = new PostgresStore(new PostgresOptions
 
 `content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval in `TsVector` mode.
 
+## Batch Get & Count
+
+```csharp
+// Fetch multiple records by ID — single query using WHERE id = ANY(@ids)
+var records = await store.InNamespace("docs").GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
+
+// Count all records in a namespace
+long count = await store.InNamespace("docs").CountAsync();
+
+// Count with additional metadata filter (jsonb @> containment)
+long filtered = await store.InNamespace("docs").CountAsync(
+    VectorFilter.ByMetadata("storage_id", storageId));
+
+// Count across all namespaces
+long total = await store.CountAsync();
+```
+
+`GetBatchAsync` uses a single `WHERE id = ANY(@ids)` query with Npgsql array binding. Applies the full filter (namespace, scope, metadata) in the same `WHERE` clause. `CountAsync` uses `SELECT COUNT(*)` with optional clauses for namespace, scope, and jsonb containment.
+
 ## Atomic Vector Replacement
 
 `ReplaceByFilterAsync` wraps DELETE + INSERT in a single PostgreSQL transaction, eliminating the query gap that occurs during re-embedding:

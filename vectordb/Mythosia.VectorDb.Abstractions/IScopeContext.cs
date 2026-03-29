@@ -42,9 +42,25 @@ namespace Mythosia.VectorDb
             CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// Performs a hybrid search combining dense vector similarity and keyword matching within this namespace and scope.
+        /// </summary>
+        Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            int topK = 5,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// Retrieves a single record by its Id.
         /// </summary>
         Task<VectorRecord?> GetAsync(string id, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Retrieves multiple records by their Ids in a single batch operation.
+        /// Records that do not exist are omitted from the result.
+        /// </summary>
+        Task<IReadOnlyList<VectorRecord>> GetBatchAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Deletes a single record by its Id.
@@ -55,5 +71,20 @@ namespace Mythosia.VectorDb
         /// Deletes all records matching the specified filter within this scope.
         /// </summary>
         Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Deletes all records in this namespace and scope.
+        /// </summary>
+        Task DeleteAllAsync(CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Atomically replaces all records matching the filter with new records within this namespace and scope.
+        /// </summary>
+        Task ReplaceByFilterAsync(VectorFilter filter, IReadOnlyList<VectorRecord> records, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// Returns the number of records in this namespace and scope, optionally narrowed by additional filter criteria.
+        /// </summary>
+        Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default);
     }
 }

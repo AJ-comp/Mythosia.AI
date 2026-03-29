@@ -123,15 +123,20 @@ public class PostgresStore : IVectorStore, IDisposable
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
         var ns = filter?.Namespace ?? DefaultNamespace;
+        var (whereClause, filterParams) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
+            : (string.Empty, new List<NpgsqlParameter>());
 
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $@"
 SELECT id, namespace, scope, content, metadata, embedding::text
 FROM {_qualifiedTable}
-WHERE namespace = @ns AND id = @id";
+WHERE namespace = @ns AND id = @id{whereClause}";
         cmd.Parameters.AddWithValue("@ns", ns);
         cmd.Parameters.AddWithValue("@id", id);
+        foreach (var p in filterParams)
+            cmd.Parameters.Add(p);
 
         using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken))
@@ -145,12 +150,17 @@ WHERE namespace = @ns AND id = @id";
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
         var ns = filter?.Namespace ?? DefaultNamespace;
+        var (whereClause, filterParams) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
+            : (string.Empty, new List<NpgsqlParameter>());
 
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE namespace = @ns AND id = @id";
+        cmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE namespace = @ns AND id = @id{whereClause}";
         cmd.Parameters.AddWithValue("@ns", ns);
         cmd.Parameters.AddWithValue("@id", id);
+        foreach (var p in filterParams)
+            cmd.Parameters.Add(p);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -169,6 +179,45 @@ WHERE namespace = @ns AND id = @id";
             cmd.Parameters.Add(p);
 
         await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    #endregion
+
+    #region IVectorStore — Get Batch
+
+    public async Task<IReadOnlyList<VectorRecord>> GetBatchAsync(
+        IEnumerable<string> ids,
+        VectorFilter? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaIfNeededAsync(cancellationToken);
+
+        var idList = ids.ToList();
+        if (idList.Count == 0)
+            return Array.Empty<VectorRecord>();
+
+        var ns = filter?.Namespace ?? DefaultNamespace;
+        var (whereClause, filterParams) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
+            : (string.Empty, new List<NpgsqlParameter>());
+
+        using var conn = await OpenConnectionAsync(cancellationToken);
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = $@"
+SELECT id, namespace, scope, content, metadata, embedding::text
+FROM {_qualifiedTable}
+WHERE namespace = @ns AND id = ANY(@ids){whereClause}";
+        cmd.Parameters.AddWithValue("@ns", ns);
+        cmd.Parameters.Add(new NpgsqlParameter("@ids", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = idList.ToArray() });
+        foreach (var p in filterParams)
+            cmd.Parameters.Add(p);
+
+        var results = new List<VectorRecord>();
+        using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            results.Add(ReadRecord(reader));
+
+        return results;
     }
 
     #endregion
@@ -530,6 +579,48 @@ WHERE table_schema = @schema AND table_name = @table";
                 $"Table \"{_options.SchemaName}\".\"{_options.TableName}\" does not exist. " +
                 $"Create the table manually or set EnsureSchema = true for automatic provisioning.");
         }
+    }
+
+    #endregion
+
+    #region IVectorStore — Count
+
+    public async Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+    {
+        await EnsureSchemaIfNeededAsync(cancellationToken);
+
+        using var conn = await OpenConnectionAsync(cancellationToken);
+        using var cmd = conn.CreateCommand();
+
+        var sb = new StringBuilder($"SELECT COUNT(*) FROM {_qualifiedTable}");
+        var hasWhere = false;
+
+        if (filter?.Namespace != null)
+        {
+            sb.Append(" WHERE namespace = @ns");
+            cmd.Parameters.AddWithValue("@ns", filter.Namespace);
+            hasWhere = true;
+        }
+
+        if (filter?.Scope != null)
+        {
+            sb.Append(hasWhere ? " AND" : " WHERE");
+            sb.Append(" scope = @scope_filter");
+            cmd.Parameters.Add(new NpgsqlParameter("@scope_filter", filter.Scope));
+            hasWhere = true;
+        }
+
+        if (filter?.MetadataMatch != null && filter.MetadataMatch.Count > 0)
+        {
+            var jsonb = JsonSerializer.Serialize(filter.MetadataMatch);
+            sb.Append(hasWhere ? " AND" : " WHERE");
+            sb.Append(" metadata @> @meta_filter");
+            cmd.Parameters.Add(CreateJsonbParameter("@meta_filter", jsonb));
+        }
+
+        cmd.CommandText = sb.ToString();
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return Convert.ToInt64(result);
     }
 
     #endregion

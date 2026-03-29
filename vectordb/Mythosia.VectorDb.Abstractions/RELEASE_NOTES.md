@@ -1,5 +1,37 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v2.4.0
+
+### Added
+
+- **`IVectorStore.GetBatchAsync(IEnumerable<string> ids, VectorFilter? filter, CancellationToken)`** — retrieves multiple records by ID in a single call.
+  - Default interface implementation falls back to sequential `GetAsync` calls.
+  - Concrete stores (InMemory, Postgres, Qdrant, Pinecone) override with a native batch fetch for efficiency.
+  - Records that do not exist or do not match `filter` are omitted. Result order is not guaranteed.
+
+- **`IVectorStore.CountAsync(VectorFilter? filter, CancellationToken)`** — returns the number of records matching the optional filter.
+  - Default implementation throws `NotSupportedException` (same pattern as `HybridSearchAsync`).
+  - `VectorFilter.MinScore` is ignored for counting purposes.
+
+- **`INamespaceContext`** — completed with the following new methods (all automatically inject the context namespace into filters):
+  - `HybridSearchAsync(float[], string, int, VectorFilter?, CancellationToken)`
+  - `GetBatchAsync(IEnumerable<string>, CancellationToken)`
+  - `ReplaceByFilterAsync(VectorFilter, IReadOnlyList<VectorRecord>, CancellationToken)`
+  - `CountAsync(VectorFilter?, CancellationToken)`
+
+- **`IScopeContext`** — completed with the following new methods (all inject namespace + scope):
+  - `HybridSearchAsync(float[], string, int, VectorFilter?, CancellationToken)`
+  - `GetBatchAsync(IEnumerable<string>, CancellationToken)`
+  - `DeleteAllAsync(CancellationToken)` — deletes all records in this namespace and scope
+  - `ReplaceByFilterAsync(VectorFilter, IReadOnlyList<VectorRecord>, CancellationToken)`
+  - `CountAsync(VectorFilter?, CancellationToken)`
+
+### Compatibility
+
+- Fully backward compatible with v2.3.0. All additions are new interface members with implementations in `NamespaceContext` / `ScopeContext`. Existing `IVectorStore` implementations continue to work via the default fallbacks.
+
+---
+
 ## v2.3.0
 
 ### Added

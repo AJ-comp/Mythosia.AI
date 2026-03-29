@@ -16,7 +16,7 @@ namespace Mythosia.VectorDb.InMemory
     /// Uses <see cref="Bm25Tokenizer"/> for text tokenization.
     /// Thread-safe for concurrent reads and writes.
     /// </summary>
-    public class Bm25Index
+    public class Bm25Index : IDisposable
     {
         private const string IdField = "id";
         private const string ContentField = "content";
@@ -152,6 +152,16 @@ namespace Mythosia.VectorDb.InMemory
                     using var reader = _writer.GetReader(applyAllDeletes: true);
                     return reader.NumDocs;
                 }
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_indexLock)
+            {
+                _writer.Dispose();
+                _analyzer.Dispose();
+                _directory.Dispose();
             }
         }
     }

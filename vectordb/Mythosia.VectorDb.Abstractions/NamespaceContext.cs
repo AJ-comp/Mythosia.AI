@@ -50,8 +50,22 @@ namespace Mythosia.VectorDb
             return _store.SearchAsync(queryVector, topK, merged, cancellationToken);
         }
 
+        public Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            int topK = 5,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            var merged = MergeNamespace(filter);
+            return _store.HybridSearchAsync(denseVector, query, topK, merged, cancellationToken);
+        }
+
         public Task<VectorRecord?> GetAsync(string id, CancellationToken cancellationToken = default)
             => _store.GetAsync(id, new VectorFilter { Namespace = Namespace }, cancellationToken);
+
+        public Task<IReadOnlyList<VectorRecord>> GetBatchAsync(IEnumerable<string> ids, CancellationToken cancellationToken = default)
+            => _store.GetBatchAsync(ids, new VectorFilter { Namespace = Namespace }, cancellationToken);
 
         public Task DeleteAsync(string id, CancellationToken cancellationToken = default)
             => _store.DeleteAsync(id, new VectorFilter { Namespace = Namespace }, cancellationToken);
@@ -60,6 +74,19 @@ namespace Mythosia.VectorDb
         {
             var merged = MergeNamespace(filter);
             return _store.DeleteByFilterAsync(merged, cancellationToken);
+        }
+
+        public Task ReplaceByFilterAsync(VectorFilter filter, IReadOnlyList<VectorRecord> records, CancellationToken cancellationToken = default)
+        {
+            foreach (var r in records) r.Namespace = Namespace;
+            var merged = MergeNamespace(filter);
+            return _store.ReplaceByFilterAsync(merged, records, cancellationToken);
+        }
+
+        public Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        {
+            var merged = MergeNamespace(filter);
+            return _store.CountAsync(merged, cancellationToken);
         }
 
         private VectorFilter MergeNamespace(VectorFilter? filter)

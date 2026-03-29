@@ -1,5 +1,24 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## v2.3.0
+
+### Added
+
+- **`QdrantStore.GetBatchAsync`** — batch record fetch using the Qdrant gRPC `RetrieveAsync` multi-point API. Applies namespace and filter conditions client-side; records that do not match are omitted.
+- **`QdrantStore.CountAsync`** — uses the Qdrant gRPC `CountAsync` API with a constructed filter. Always excludes the internal schema marker point (`SchemaMarkerId`) from the count so the result reflects only user-inserted records.
+
+### Changed
+
+- **`QdrantStore.GetAsync`** — now validates scope and metadata filter conditions via the new `MatchesFilter` helper after the point is fetched. Previously only the namespace payload key was checked.
+- **`QdrantStore.DeleteAsync`** — when the filter contains scope or metadata conditions, uses a Qdrant filter-based delete (adds an `id = @id` must-condition) instead of a bare point-ID delete. This ensures scope/metadata conditions are respected atomically at the server. Plain deletes (no scope/metadata filter) continue to use the direct point-ID path.
+- **Dependency update**: `System.IO.Hashing` → 10.0.5.
+
+### Compatibility
+
+- Fully backward compatible with v2.2.0. The `GetAsync`/`DeleteAsync` behavior changes only affect callers that pass a scope or metadata filter; plain calls without filter behave identically to before.
+
+---
+
 ## v2.2.0
 
 ### Compatibility

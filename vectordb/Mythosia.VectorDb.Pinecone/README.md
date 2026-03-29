@@ -105,6 +105,22 @@ var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
 await store.InNamespace("documents").ReplaceByFilterAsync(filter, newRecords);
 ```
 
+## Batch Get & Count
+
+```csharp
+// Fetch multiple records by ID — single HTTP call to /vectors/fetch?ids=...
+var records = await store.InNamespace("documents").GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
+
+// Count total vectors in a namespace
+long count = await store.InNamespace("documents").CountAsync();
+
+// Count with metadata filter (POSTs filter to describe_index_stats)
+long filtered = await store.InNamespace("documents").CountAsync(
+    VectorFilter.ByMetadata("category", "finance"));
+```
+
+`GetBatchAsync` issues a single `GET /vectors/fetch?ids=id1&ids=id2&...` request per namespace. `CountAsync` calls `describe_index_stats`; when a metadata filter is present, it is sent in a POST body for a server-side filtered count.
+
 ## Connection Verification
 
 Call `VerifyConnectionAsync` to test HTTP connectivity to the Pinecone index before running queries:

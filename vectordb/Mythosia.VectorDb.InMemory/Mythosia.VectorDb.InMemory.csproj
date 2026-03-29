@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.InMemory</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>2.2.0</Version>
+    <Version>2.3.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, upsert/delete operations, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
-    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF</PackageTags>
+    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, upsert/delete operations, GetBatchAsync, CountAsync, IDisposable, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
+    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.2.0: Compatible with Abstractions v2.3.0. ReplaceByFilterAsync available via default interface method (sequential DeleteByFilterAsync then UpsertBatchAsync).</PackageReleaseNotes>
+    <PackageReleaseNotes>v2.3.0: Add GetBatchAsync (O(n) lookup via namespace ConcurrentDictionary), CountAsync (namespace/scope/metadata aware), IDisposable on both InMemoryVectorStore and Bm25Index (Lucene writer/analyzer/directory disposal). DeleteAsync now validates scope and metadata filter conditions before removing a record.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

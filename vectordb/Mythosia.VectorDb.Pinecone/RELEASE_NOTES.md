@@ -1,5 +1,22 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v1.3.0
+
+### Added
+
+- **`PineconeStore.GetBatchAsync`** — fetches multiple records in a single HTTP call using the Pinecone `/vectors/fetch?ids=...` endpoint. IDs are URL-encoded and batched in one request per namespace. Records that are missing or filtered out are omitted.
+- **`PineconeStore.CountAsync`** — returns vector count via `describe_index_stats`. When a metadata filter is present, POSTs the filter to get a filtered count; otherwise uses GET. Namespace-specific counts are read from the `namespaces` stats map.
+
+### Changed
+
+- **Dependency updates**: `System.IO.Hashing` → 10.0.5, `System.Text.Json` → 10.0.5.
+
+### Compatibility
+
+- Fully backward compatible with v1.2.0. No breaking changes.
+
+---
+
 ## v1.2.0
 
 ### Compatibility

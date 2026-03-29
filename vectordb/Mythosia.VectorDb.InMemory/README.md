@@ -114,6 +114,32 @@ var results = bm25.Search("machine learning", topK: 5);
 
 When hybrid search is used, fused RRF scores are normalized to the `[0, 1]` range so `VectorFilter.MinScore` is applied consistently to the final merged score.
 
+## Batch Get & Count
+
+```csharp
+// Fetch multiple records by ID in one call
+var records = await store.InNamespace("docs").GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
+
+// Count all records in a namespace
+long count = await store.InNamespace("docs").CountAsync();
+
+// Count with additional metadata filter
+long filtered = await store.InNamespace("docs").CountAsync(
+    VectorFilter.ByMetadata("storage_id", storageId));
+```
+
+`GetBatchAsync` performs O(n) lookups against the namespace `ConcurrentDictionary` — no vector scoring, just direct key access. Records not found or not matching the filter are omitted.
+
+## Resource Disposal
+
+`InMemoryVectorStore` implements `IDisposable`. When hybrid search is enabled, BM25 indexes hold Lucene resources (writer, analyzer, RAMDirectory). Dispose the store when it is no longer needed:
+
+```csharp
+using var store = new InMemoryVectorStore();
+// ... use store
+// Lucene resources released on Dispose
+```
+
 ## Vector Replacement
 
 `ReplaceByFilterAsync` is available via the `IVectorStore` default interface method. It performs sequential `DeleteByFilterAsync` → `UpsertBatchAsync` (non-transactional, suitable for in-memory usage):

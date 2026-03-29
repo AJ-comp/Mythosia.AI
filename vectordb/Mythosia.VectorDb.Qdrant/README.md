@@ -163,6 +163,22 @@ Records are stored as Qdrant points with the following payload keys:
 
 Point IDs are deterministic UUIDs derived from `namespace + record Id` (when namespace is set) or just `record Id` (when null) via MD5 hash. This ensures the same record Id in different namespaces produces distinct points within the shared collection. The original string ID is preserved in the `_id` payload field.
 
+## Batch Get & Count
+
+```csharp
+// Fetch multiple records by ID — single Qdrant gRPC RetrieveAsync call
+var records = await store.InNamespace("documents").GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
+
+// Count total vectors in a namespace (excludes internal schema marker)
+long count = await store.InNamespace("documents").CountAsync();
+
+// Count with additional metadata filter
+long filtered = await store.InNamespace("documents").CountAsync(
+    VectorFilter.ByMetadata("category", "finance"));
+```
+
+`GetBatchAsync` maps string IDs to deterministic Qdrant point UUIDs, calls the Qdrant batch `RetrieveAsync` API, and applies namespace/scope/metadata conditions client-side. `CountAsync` uses the Qdrant server-side `CountAsync` API and always excludes the internal schema marker point from the result.
+
 ## Vector Replacement
 
 `ReplaceByFilterAsync` is available via the `IVectorStore` default interface method. It performs sequential `DeleteByFilterAsync` → `UpsertBatchAsync`. Qdrant does not support server-side transactions, so sequential execution is the best available behavior:

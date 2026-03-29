@@ -186,6 +186,41 @@ namespace Mythosia.VectorDb.Pinecone
 
         #endregion
 
+        #region IVectorStore — Get Batch
+
+        public async Task<IReadOnlyList<VectorRecord>> GetBatchAsync(
+            IEnumerable<string> ids,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (ids == null) throw new ArgumentNullException(nameof(ids));
+
+            await EnsureIndexAsync(cancellationToken);
+
+            var idList = ids.ToList();
+            if (idList.Count == 0)
+                return Array.Empty<VectorRecord>();
+
+            var ns = ResolveNamespace(filter?.Namespace);
+            var path = BuildFetchBatchPath(idList, ns);
+            var response = await SendAsync<FetchResponse>(HttpMethod.Get, path, null, cancellationToken);
+
+            if (response.Vectors == null)
+                return Array.Empty<VectorRecord>();
+
+            var results = new List<VectorRecord>(response.Vectors.Count);
+            foreach (var kvp in response.Vectors)
+            {
+                var record = ToVectorRecord(kvp.Value, ns);
+                if (filter == null || MatchesFilter(record, filter))
+                    results.Add(record);
+            }
+
+            return results;
+        }
+
+        #endregion
+
         #region IVectorStore - Search
 
         public async Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
@@ -494,6 +529,21 @@ namespace Mythosia.VectorDb.Pinecone
             return path.ToString();
         }
 
+        private static string BuildFetchBatchPath(IReadOnlyList<string> ids, string? @namespace)
+        {
+            var path = new StringBuilder("vectors/fetch?");
+            for (int i = 0; i < ids.Count; i++)
+            {
+                if (i > 0) path.Append('&');
+                path.Append("ids=").Append(Uri.EscapeDataString(ids[i]));
+            }
+
+            if (!string.IsNullOrWhiteSpace(@namespace))
+                path.Append("&namespace=").Append(Uri.EscapeDataString(@namespace));
+
+            return path.ToString();
+        }
+
         #endregion
 
         #region Helpers - Mapping
@@ -697,6 +747,44 @@ namespace Mythosia.VectorDb.Pinecone
 
         #endregion
 
+        #region IVectorStore — Count
+
+        public async Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        {
+            await EnsureIndexAsync(cancellationToken);
+
+            var ns = ResolveNamespace(filter?.Namespace);
+            var metadataFilter = BuildMetadataFilter(filter);
+
+            IndexStatsResponse stats;
+
+            if (metadataFilter != null)
+            {
+                // POST describe_index_stats with metadata filter body
+                var path = ns != null
+                    ? $"describe_index_stats?namespace={Uri.EscapeDataString(ns)}"
+                    : "describe_index_stats";
+                var body = new IndexStatsRequest { Filter = metadataFilter };
+                stats = await SendAsync<IndexStatsResponse>(HttpMethod.Post, path, body, cancellationToken);
+            }
+            else
+            {
+                stats = await SendAsync<IndexStatsResponse>(HttpMethod.Get, "describe_index_stats", null, cancellationToken);
+            }
+
+            if (ns != null)
+            {
+                if (stats.Namespaces != null &&
+                    stats.Namespaces.TryGetValue(ns, out var nsStats))
+                    return nsStats.VectorCount;
+                return 0L;
+            }
+
+            return stats.TotalVectorCount;
+        }
+
+        #endregion
+
         #region Connection Verification
 
         public async Task VerifyConnectionAsync(CancellationToken cancellationToken = default)
@@ -782,6 +870,28 @@ namespace Mythosia.VectorDb.Pinecone
             public List<string>? Ids { get; set; }
             public bool? DeleteAll { get; set; }
             public object? Filter { get; set; }
+        }
+
+        // Count DTOs
+
+        private sealed class IndexStatsRequest
+        {
+            public object? Filter { get; set; }
+        }
+
+        private sealed class IndexStatsResponse
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("totalVectorCount")]
+            public long TotalVectorCount { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("namespaces")]
+            public Dictionary<string, NamespaceStats>? Namespaces { get; set; }
+        }
+
+        private sealed class NamespaceStats
+        {
+            [System.Text.Json.Serialization.JsonPropertyName("vectorCount")]
+            public long VectorCount { get; set; }
         }
 
         // Control Plane DTOs

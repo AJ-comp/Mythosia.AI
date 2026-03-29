@@ -95,12 +95,51 @@ namespace Mythosia.VectorDb.Qdrant
             if (ns != null && !QdrantHelpers.HasNamespace(point.Payload, ns))
                 return null;
 
-            return QdrantHelpers.ToVectorRecord(point);
+            var record = QdrantHelpers.ToVectorRecord(point);
+
+            if (filter != null && !MatchesFilter(record, filter))
+                return null;
+
+            return record;
+        }
+
+        private static bool MatchesFilter(VectorRecord record, VectorFilter filter)
+        {
+            if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
+                return false;
+
+            if (filter.MetadataMatch != null)
+            {
+                foreach (var kvp in filter.MetadataMatch)
+                {
+                    if (!record.Metadata.TryGetValue(kvp.Key, out var value) ||
+                        !string.Equals(value, kvp.Value, StringComparison.Ordinal))
+                        return false;
+                }
+            }
+
+            return true;
         }
 
         public async Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
             await EnsureCollectionAsync(cancellationToken);
+
+            if (filter != null && (filter.Scope != null || filter.MetadataMatch != null))
+            {
+                // scope or metadata filter present: use filter-based delete so conditions are respected atomically
+                var deleteFilter = BuildFilter(filter);
+                deleteFilter.Must.Add(new Condition
+                {
+                    Field = new FieldCondition
+                    {
+                        Key = QdrantHelpers.PayloadKeyId,
+                        Match = new Match { Keyword = id }
+                    }
+                });
+                await _client.DeleteAsync(_options.CollectionName, deleteFilter, cancellationToken: cancellationToken);
+                return;
+            }
 
             var ns = filter?.Namespace;
             var pointId = CreatePointId(ns, id);
@@ -113,6 +152,47 @@ namespace Mythosia.VectorDb.Qdrant
 
             var qdrantFilter = BuildFilter(filter);
             await _client.DeleteAsync(_options.CollectionName, qdrantFilter, cancellationToken: cancellationToken);
+        }
+
+        #endregion
+
+        #region IVectorStore — Get Batch
+
+        public async Task<IReadOnlyList<VectorRecord>> GetBatchAsync(
+            IEnumerable<string> ids,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            await EnsureCollectionAsync(cancellationToken);
+
+            var idList = ids.ToList();
+            if (idList.Count == 0)
+                return Array.Empty<VectorRecord>();
+
+            var ns = filter?.Namespace;
+            var pointIds = idList.Select(id => CreatePointId(ns, id)).ToArray();
+
+            var points = await _client.RetrieveAsync(
+                _options.CollectionName,
+                pointIds,
+                withPayload: true,
+                withVectors: true,
+                cancellationToken: cancellationToken);
+
+            var results = new List<VectorRecord>(points.Count);
+            foreach (var point in points)
+            {
+                if (ns != null && !QdrantHelpers.HasNamespace(point.Payload, ns))
+                    continue;
+
+                var record = QdrantHelpers.ToVectorRecord(point);
+                if (filter != null && !MatchesFilter(record, filter))
+                    continue;
+
+                results.Add(record);
+            }
+
+            return results;
         }
 
         #endregion
@@ -377,6 +457,39 @@ namespace Mythosia.VectorDb.Qdrant
                 QdrantDistanceStrategy.DotProduct => Distance.Dot,
                 _ => throw new InvalidOperationException($"Unsupported distance strategy: {strategy}")
             };
+        }
+
+        #endregion
+
+        #region IVectorStore — Count
+
+        public async Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        {
+            await EnsureCollectionAsync(cancellationToken);
+
+            var qdrantFilter = BuildCountFilter(filter);
+            var count = await _client.CountAsync(_options.CollectionName, qdrantFilter, cancellationToken: cancellationToken);
+            return (long)count;
+        }
+
+        /// <summary>
+        /// Builds a count filter that applies user-specified conditions while always excluding
+        /// the internal schema marker point (<see cref="QdrantHelpers.SchemaMarkerId"/>).
+        /// </summary>
+        private static Filter BuildCountFilter(VectorFilter? filter)
+        {
+            var result = BuildFilter(filter);
+
+            result.MustNot.Add(new Condition
+            {
+                Field = new FieldCondition
+                {
+                    Key = QdrantHelpers.PayloadKeyId,
+                    Match = new Match { Keyword = QdrantHelpers.SchemaMarkerId }
+                }
+            });
+
+            return result;
         }
 
         #endregion

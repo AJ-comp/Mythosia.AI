@@ -1,5 +1,24 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v2.3.0
+
+### Added
+
+- **`InMemoryVectorStore.GetBatchAsync`** — O(n) lookup via the namespace `ConcurrentDictionary`. Applies scope and metadata filter conditions; omits records that do not match.
+- **`InMemoryVectorStore.CountAsync`** — counts records by namespace, scope, and/or metadata filter. When namespace is provided, scans only that namespace's dictionary; otherwise aggregates across all namespaces.
+- **`IDisposable` on `InMemoryVectorStore`** — disposes all `Bm25Index` instances held in the namespace-keyed dictionary. Call `Dispose()` when the store is no longer needed to release Lucene resources.
+- **`IDisposable` on `Bm25Index`** — disposes the underlying Lucene `IndexWriter`, `Analyzer`, and `RAMDirectory`. Previously these were not explicitly released.
+
+### Changed
+
+- **`InMemoryVectorStore.DeleteAsync`** — now validates scope and metadata filter conditions before removing a record. If the stored record does not satisfy the filter, the delete is a no-op (consistent with how other stores apply filter-aware deletes).
+
+### Compatibility
+
+- Fully backward compatible with v2.2.0. `IDisposable` is additive; existing code that does not call `Dispose()` continues to work (GC finalizers still run). The `DeleteAsync` behavior change only affects callers that pass a scope or metadata filter alongside the id; plain `DeleteAsync(id)` is unchanged.
+
+---
+
 ## v2.2.0
 
 ### Compatibility

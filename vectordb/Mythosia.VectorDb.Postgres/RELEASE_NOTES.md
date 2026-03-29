@@ -1,5 +1,24 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
+## v10.5.0
+
+### Added
+
+- **`PostgresStore.GetBatchAsync`** — fetches multiple records in a single query using `WHERE id = ANY(@ids)` with Npgsql array binding. Applies full filter conditions (namespace, scope, metadata) via `BuildFilterWhere`.
+- **`PostgresStore.CountAsync`** — `SELECT COUNT(*)` with optional `WHERE` clauses for namespace, scope, and metadata jsonb containment (`@>`). Returns the total record count when filter is null.
+
+### Changed
+
+- **`PostgresStore.GetAsync`** — now applies the full filter (scope, metadata) via `BuildFilterWhere` in addition to the existing `namespace = @ns AND id = @id` condition. Previously, only namespace was checked.
+- **`PostgresStore.DeleteAsync`** — now applies the full filter (scope, metadata) via `BuildFilterWhere`. Previously, only namespace was used in the `WHERE` clause.
+- **Dependency updates**: `Npgsql` → 10.0.2, `System.Text.Json` → 10.0.5.
+
+### Compatibility
+
+- Fully backward compatible with v10.4.0. The `GetAsync`/`DeleteAsync` behavior changes only affect callers that pass a scope or metadata filter; plain calls without a filter behave identically to before.
+
+---
+
 ## v10.4.0
 
 ### Added

@@ -14,7 +14,7 @@ namespace Mythosia.VectorDb.InMemory
     /// Supports metadata storage, scope isolation, filtering, upsert, and delete operations.
     /// Suitable for development, testing, and small-scale workloads.
     /// </summary>
-    public class InMemoryVectorStore : IVectorStore, IRagDiagnosticsStore
+    public class InMemoryVectorStore : IVectorStore, IRagDiagnosticsStore, IDisposable
     {
         private const string DefaultNamespace = "default";
         private const int RrfK = 60;
@@ -75,10 +75,13 @@ namespace Mythosia.VectorDb.InMemory
         {
             var ns = filter?.Namespace ?? DefaultNamespace;
             if (_namespaces.TryGetValue(ns, out var store))
-                store.TryRemove(id, out _);
+            {
+                if (filter != null && store.TryGetValue(id, out var existing) && !MatchesFilter(existing, filter))
+                    return Task.CompletedTask;
 
-            if (_bm25Indexes.TryGetValue(ns, out var bm25Index))
-                bm25Index.Remove(id);
+                if (store.TryRemove(id, out _) && _bm25Indexes.TryGetValue(ns, out var bm25Index))
+                    bm25Index.Remove(id);
+            }
 
             return Task.CompletedTask;
         }
@@ -112,6 +115,28 @@ namespace Mythosia.VectorDb.InMemory
         #endregion
 
         #region Search
+
+        public Task<IReadOnlyList<VectorRecord>> GetBatchAsync(
+            IEnumerable<string> ids,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            var ns = filter?.Namespace ?? DefaultNamespace;
+            if (!_namespaces.TryGetValue(ns, out var store))
+                return Task.FromResult<IReadOnlyList<VectorRecord>>(Array.Empty<VectorRecord>());
+
+            var results = new List<VectorRecord>();
+            foreach (var id in ids)
+            {
+                if (store.TryGetValue(id, out var record) &&
+                    (filter == null || MatchesFilter(record, filter)))
+                {
+                    results.Add(record);
+                }
+            }
+
+            return Task.FromResult<IReadOnlyList<VectorRecord>>(results);
+        }
 
         public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
             float[] queryVector,
@@ -192,6 +217,26 @@ namespace Mythosia.VectorDb.InMemory
             return _namespaces.Values.Sum(s => s.Count);
         }
 
+        public Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        {
+            if (filter?.Namespace != null)
+            {
+                if (!_namespaces.TryGetValue(filter.Namespace, out var store))
+                    return Task.FromResult(0L);
+
+                if (filter.Scope == null && filter.MetadataMatch == null)
+                    return Task.FromResult((long)store.Count);
+
+                return Task.FromResult((long)store.Values.Count(r => MatchesFilter(r, filter)));
+            }
+
+            // No namespace: count across all namespaces
+            if (filter == null || (filter.Scope == null && filter.MetadataMatch == null))
+                return Task.FromResult((long)_namespaces.Values.Sum(s => s.Count));
+
+            return Task.FromResult((long)_namespaces.Values.SelectMany(s => s.Values).Count(r => MatchesFilter(r, filter)));
+        }
+
         /// <summary>
         /// Computes cosine similarity scores for a query vector against ALL records in a namespace.
         /// Results are sorted by descending score. No TopK or MinScore filtering is applied.
@@ -211,6 +256,16 @@ namespace Mythosia.VectorDb.InMemory
                 .ToList();
 
             return Task.FromResult<IReadOnlyList<VectorSearchResult>>(results);
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        public void Dispose()
+        {
+            foreach (var bm25 in _bm25Indexes.Values)
+                bm25.Dispose();
         }
 
         #endregion
