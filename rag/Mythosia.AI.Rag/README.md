@@ -3,9 +3,9 @@
 ## Package Summary
 
 `Mythosia.AI.Rag` provides **RAG (Retrieval-Augmented Generation)** as an optional extension for `Mythosia.AI`.  
-Install this package to add `.WithRag()` to any `AIService` — no changes to the AI core required.
+Install this package to add `.WithRag()` to any `IAIService` — no changes to the AI core required.
 
-> **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v4.x`** — all interfaces (`IRagPipeline`, `IQueryRewriter`, `IRetrievalStrategy`, `IReranker`, etc.) and models (`RagQueryOptions`, `RagFilter`, `QueryRewriteResult`, etc.) are from Abstractions v4.0.0+.
+> **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v5.x`**
 
 ## Installation
 
@@ -438,6 +438,49 @@ var highRecall = await ragStore.QueryAsync(
 );
 ```
 
+## Store-Level Metadata Filtering (StoreFilter)
+
+Use `RagQueryOptions.StoreFilter` to pass a `VectorFilter` directly to `IVectorStore.SearchAsync` / `HybridSearchAsync` on every retrieval call. This allows scoping retrieval by tenant, user, category, time range, or any metadata key without wrapping the store in a custom decorator.
+
+```csharp
+// Single condition
+var options = new RagQueryOptions();
+options.StoreFilter = VectorFilter.ByMetadata("storage_id", storageId);
+var result = await ragStore.QueryAsync("질문", options, cancellationToken);
+
+// Multiple conditions — storage_id AND folder_path (AND logic)
+options.StoreFilter = new VectorFilter
+{
+    MetadataMatch = new Dictionary<string, string>
+    {
+        ["storage_id"] = storageId,
+        ["folder_path"] = "/docs/private"
+    }
+};
+
+// Namespace + metadata simultaneously
+options.Namespace = "tenant-A";
+options.StoreFilter = VectorFilter.ByMetadata("user_id", currentUserId);
+// → retrieval uses: namespace = "tenant-A" AND metadata->>'user_id' = '...'
+```
+
+For this to work, the metadata keys must be stored on `VectorRecord.Metadata` at index time:
+
+```csharp
+var doc = new RagDocument
+{
+    Content = "문서 내용...",
+    Metadata = new Dictionary<string, string>
+    {
+        ["storage_id"] = storageId,
+        ["user_id"] = userId
+    }
+};
+await ragPipeline.IndexDocumentAsync(doc, cancellationToken: ct);
+```
+
+`StoreFilter = null` (the default) preserves the existing behavior with no filtering.
+
 ## Progress Reporting
 
 Track pipeline stage progress with an async callback:
@@ -457,13 +500,13 @@ var result = await ragStore.QueryAsync("refund policy?",
 ## Architecture
 
 ```text
-Mythosia.AI (core)                    <- unchanged
+Mythosia.AI.Abstractions              <- IAIService interface
     |
-Mythosia.AI.Rag.Abstractions         <- interfaces (IRagPipeline, IVectorStore, etc.)
+Mythosia.AI.Rag.Abstractions         <- interfaces (IRagPipeline, ITextSplitter, etc.), RagDocument
     |
 Mythosia.AI.Rag                      <- fluent API, pipeline, builders, extensions
 Mythosia.VectorDb.InMemory (optional) <- InMemoryVectorStore
-Mythosia.AI.Loaders.Abstractions     <- IDocumentLoader, RagDocument
+Mythosia.Documents.Abstractions      <- IDocumentLoader, DoclingDocument
 ```
 
 The AI core has zero knowledge of RAG. Everything is wired through the `IRagPipeline` interface and C# extension methods.
@@ -503,7 +546,7 @@ public class MyVectorStore : IVectorStore
 ```csharp
 public class MyPdfLoader : IDocumentLoader
 {
-    public Task<IReadOnlyList<RagDocument>> LoadAsync(string source, CancellationToken ct = default)
+    public Task<IReadOnlyList<DoclingDocument>> LoadAsync(string source, CancellationToken ct = default)
     {
         // Parse PDF and return documents
     }

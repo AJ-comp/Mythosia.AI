@@ -1,4 +1,4 @@
-using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services;
 using System;
 
 namespace Mythosia.AI.Rag
@@ -24,7 +24,7 @@ namespace Mythosia.AI.Rag
         /// var response = await service.GetCompletionAsync("환불 정책이 어떻게 되나요?");
         /// </code>
         /// </example>
-        public static RagEnabledService WithRag(this AIService service, Action<RagBuilder> configure)
+        public static RagEnabledService WithRag(this IAIService service, Action<RagBuilder> configure)
         {
             var builder = new RagBuilder();
             configure(builder);
@@ -46,7 +46,7 @@ namespace Mythosia.AI.Rag
         /// var gpt = new ChatGptService(gptKey, http).WithRag(ragStore);
         /// </code>
         /// </example>
-        public static RagEnabledService WithRag(this AIService service, RagStore ragStore)
+        public static RagEnabledService WithRag(this IAIService service, RagStore ragStore)
         {
             return new RagEnabledService(service, ragStore);
         }

@@ -1,4 +1,4 @@
-using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ namespace Mythosia.AI.Rag.Reranking
     /// </summary>
     public class LlmReranker : IReranker
     {
-        private readonly AIService _aiService;
+        private readonly IAIService _aiService;
 
         /// <summary>
         /// Creates an LLM-based re-ranker using the provided AI service.
@@ -25,7 +25,7 @@ namespace Mythosia.AI.Rag.Reranking
         /// A low temperature (e.g., 0.0–0.2) is recommended for consistent scoring.
         /// </summary>
         /// <param name="aiService">The AI service to use for scoring.</param>
-        public LlmReranker(AIService aiService)
+        public LlmReranker(IAIService aiService)
         {
             _aiService = aiService ?? throw new ArgumentNullException(nameof(aiService));
         }

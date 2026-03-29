@@ -1,3 +1,4 @@
+using Mythosia.VectorDb;
 using System;
 using System.Threading.Tasks;
 
@@ -47,6 +48,17 @@ namespace Mythosia.AI.Rag
         /// enters each processing stage.
         /// </summary>
         public Func<RagProgressStage, Task>? ProgressAsync { get; set; }
+
+        /// <summary>
+        /// Optional metadata filter passed directly to <see cref="IVectorStore.SearchAsync"/> /
+        /// <see cref="IVectorStore.HybridSearchAsync"/> on every retrieval call.
+        /// Use this to scope searches by tenant, user, category, time range, etc.
+        /// When null the retrieval is unfiltered (same as before).
+        /// When <see cref="Namespace"/> is also set, both constraints are applied together.
+        /// Multiple metadata conditions can be expressed via <see cref="VectorFilter.MetadataMatch"/>
+        /// which accepts any number of key-value pairs (all combined with AND logic).
+        /// </summary>
+        public VectorFilter? StoreFilter { get; set; }
 
         public RagRetrievalFilter GetRetrievalFilter(bool hasReranker)
         {

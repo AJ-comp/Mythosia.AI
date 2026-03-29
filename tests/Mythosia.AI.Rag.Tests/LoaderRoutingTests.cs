@@ -1,4 +1,4 @@
-using Mythosia.AI.Loaders;
+using Mythosia.Documents;
 using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -90,7 +90,7 @@ public class LoaderRoutingTests
 
         public IReadOnlyList<string> Sources => _sources;
 
-        public Task<IReadOnlyList<RagDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<DoclingDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
             lock (_sources)
@@ -98,15 +98,15 @@ public class LoaderRoutingTests
                 _sources.Add(source);
             }
 
-            var doc = new RagDocument
+            var doc = new DoclingDocument
             {
-                Id = Path.GetFileName(source),
-                Content = File.ReadAllText(source),
+                Name = Path.GetFileNameWithoutExtension(source),
                 Source = source,
-                Metadata = { ["loader"] = _contentPrefix }
             };
+            doc.AddText(File.ReadAllText(source));
+            doc.Metadata["loader"] = _contentPrefix;
 
-            return Task.FromResult<IReadOnlyList<RagDocument>>(new[] { doc });
+            return Task.FromResult<IReadOnlyList<DoclingDocument>>(new[] { doc });
         }
     }
 

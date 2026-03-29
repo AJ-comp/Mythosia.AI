@@ -1,9 +1,9 @@
 using Mythosia.AI.Extensions;
-using Mythosia.AI.Loaders;
-using Mythosia.AI.Loaders.Office.Excel;
-using Mythosia.AI.Loaders.Office.PowerPoint;
-using Mythosia.AI.Loaders.Office.Word;
-using Mythosia.AI.Loaders.Pdf;
+using Mythosia.Documents;
+using Mythosia.Documents.Office.Excel;
+using Mythosia.Documents.Office.PowerPoint;
+using Mythosia.Documents.Office.Word;
+using Mythosia.Documents.Pdf;
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;

@@ -5,18 +5,17 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>5.0.0</Version>
+    <Version>5.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, and IReranker interfaces and shared models.</Description>
-    <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking</PackageTags>
+    <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, IReranker interfaces, RagDocument, RagQueryOptions (with StoreFilter), and shared models. No dependency on Loaders — RagDocument is self-contained.</Description>
+    <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking;MetadataFilter</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
-    <PackageReleaseNotes>v5.0.0: IReranker.RerankAsync removed topK parameter (pipeline responsibility). IRetrievalStrategy.RetrieveAsync query parameter now nullable. Added RagFinalSelectionOptions, QueryRewriteResult.Keywords, RagProcessedQuery.SearchKeywords/RerankedCandidates.</PackageReleaseNotes>
+    <PackageReleaseNotes>v5.1.0: RagDocument self-contained in Mythosia.AI.Rag namespace (removed Loaders.Abstractions dependency). Added RagQueryOptions.StoreFilter (VectorFilter?) for per-query metadata filtering.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\loaders\Mythosia.AI.Loaders.Abstractions\Mythosia.AI.Loaders.Abstractions.csproj" />
     <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
   </ItemGroup>
 

@@ -1,4 +1,4 @@
-using Mythosia.AI.Loaders;
+using Mythosia.Documents;
 using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
 

@@ -1,6 +1,6 @@
-using Mythosia.AI.Loaders;
+using Mythosia.Documents;
 using Mythosia.AI.Rag.Retrieval;
-using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
@@ -13,8 +13,8 @@ namespace Mythosia.AI.Rag
 {
     /// <summary>
     /// RAG (Retrieval Augmented Generation) orchestrator.
-    /// Coordinates the full pipeline: load → split → embed → store (indexing)
-    /// and query → search → context build → LLM call (querying).
+    /// Coordinates the full pipeline: load ??split ??embed ??store (indexing)
+    /// and query ??search ??context build ??LLM call (querying).
     /// </summary>
     public class RagPipeline : IRagPipeline
     {
@@ -96,10 +96,10 @@ namespace Mythosia.AI.Rag
             _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(_vectorStore);
         }
 
-        #region Indexing Pipeline: load → split → embed → store
+        #region Indexing Pipeline: load ??split ??embed ??store
 
         /// <summary>
-        /// Indexes documents from a loader: load → split → embed → store.
+        /// Indexes documents from a loader: load ??split ??embed ??store.
         /// </summary>
         public async Task IndexAsync(
             IDocumentLoader loader,
@@ -107,12 +107,13 @@ namespace Mythosia.AI.Rag
             string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var documents = await loader.LoadAsync(source, cancellationToken);
+            var doclingDocs = await loader.LoadAsync(source, cancellationToken);
+            var documents = DoclingDocumentConverter.ToRagDocuments(doclingDocs);
             await IndexDocumentsAsync(documents, @namespace, cancellationToken);
         }
 
         /// <summary>
-        /// Indexes pre-loaded documents: split → embed → store.
+        /// Indexes pre-loaded documents: split ??embed ??store.
         /// </summary>
         public async Task IndexDocumentsAsync(
             IEnumerable<RagDocument> documents,
@@ -144,7 +145,7 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
-        /// Indexes a single document: split → embed → store.
+        /// Indexes a single document: split ??embed ??store.
         /// </summary>
         public async Task IndexDocumentAsync(
             RagDocument document,
@@ -218,16 +219,20 @@ namespace Mythosia.AI.Rag
                 allEmbeddings.AddRange(embeddings);
             }
 
-            // 3. Store
+            // 3. Store ? ensure document_id is in metadata for DeleteDocumentAsync
             var records = new List<VectorRecord>(chunks.Count);
             for (int i = 0; i < chunks.Count; i++)
             {
+                var metadata = chunks[i].Metadata;
+                if (!metadata.ContainsKey("document_id"))
+                    metadata["document_id"] = document.Id;
+
                 records.Add(new VectorRecord
                 {
                     Id = chunks[i].Id,
                     Vector = allEmbeddings[i],
                     Content = chunks[i].Content,
-                    Metadata = chunks[i].Metadata,
+                    Metadata = metadata,
                     Namespace = @namespace,
                     Scope = Options.DefaultScope
                 });
@@ -241,10 +246,10 @@ namespace Mythosia.AI.Rag
 
         #endregion
 
-        #region Query Pipeline: query → search → context build
+        #region Query Pipeline: query ??search ??context build
 
         /// <summary>
-        /// Performs a RAG query: embed query → search → build context → return context string.
+        /// Performs a RAG query: embed query ??search ??build context ??return context string.
         /// Use the returned context to call an LLM (e.g., via AIService.GetCompletionAsync).
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
@@ -283,7 +288,7 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Performs a RAG query with per-request query overrides:
-        /// embed query → search → build context.
+        /// embed query ??search ??build context.
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
             string query,
@@ -327,18 +332,18 @@ namespace Mythosia.AI.Rag
 
             // 2. Apply namespace and retrieval score filter
             await ReportAsync(RagProgressStage.Filtering);
-            var effectiveFilter = filter ?? new VectorFilter();
+            var effectiveFilter = MergeStoreFilter(filter, effectiveOptions.StoreFilter);
             effectiveFilter.Namespace = ns;
             effectiveFilter.MinScore = retrievalMinScore;
 
-            // 3. Search (via retrieval strategy) — fetch wider pool when reranker is present
+            // 3. Search (via retrieval strategy) ??fetch wider pool when reranker is present
             //    textSearchQuery overrides the text leg when keywords are available from query rewriter
             await ReportAsync(RagProgressStage.Retrieval);
             var retrievalTextQuery = textSearchQuery;
             var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, retrievalTextQuery, retrievalK, effectiveFilter, cancellationToken);
             var retrievalCandidates = searchResults.ToList();
 
-            // 4. Re-rank if configured — reranker only re-scores, pipeline handles trimming
+            // 4. Re-rank if configured ??reranker only re-scores, pipeline handles trimming
             IReadOnlyList<VectorSearchResult>? rerankedCandidates = null;
             if (_reranker != null)
             {
@@ -436,10 +441,53 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
+        /// Merges an explicit <paramref name="filter"/> with the per-query <paramref name="storeFilter"/>
+        /// from <see cref="RagQueryOptions.StoreFilter"/>.
+        /// <list type="bullet">
+        ///   <item>When <paramref name="storeFilter"/> is null the original <paramref name="filter"/>
+        ///   (or a new empty filter) is returned ??identical to the previous behaviour.</item>
+        ///   <item>When both are set a new <see cref="VectorFilter"/> is created whose
+        ///   <see cref="VectorFilter.MetadataMatch"/> is the union of both dictionaries
+        ///   (<paramref name="storeFilter"/> values win on key conflicts) and whose
+        ///   <see cref="VectorFilter.Scope"/> is taken from <paramref name="storeFilter"/> when set.</item>
+        /// </list>
+        /// <see cref="VectorFilter.Namespace"/> and <see cref="VectorFilter.MinScore"/> are NOT copied
+        /// here because they are always overwritten immediately after this call.
+        /// </summary>
+        private static VectorFilter MergeStoreFilter(VectorFilter? filter, VectorFilter? storeFilter)
+        {
+            if (storeFilter == null)
+                return filter ?? new VectorFilter();
+
+            // Build merged MetadataMatch
+            System.Collections.Generic.Dictionary<string, string>? mergedMetadata = null;
+            var baseMetadata = filter?.MetadataMatch;
+            var storeMetadata = storeFilter.MetadataMatch;
+
+            if (baseMetadata != null || storeMetadata != null)
+            {
+                mergedMetadata = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
+                if (baseMetadata != null)
+                    foreach (var kvp in baseMetadata)
+                        mergedMetadata[kvp.Key] = kvp.Value;
+                // StoreFilter wins on key conflicts
+                if (storeMetadata != null)
+                    foreach (var kvp in storeMetadata)
+                        mergedMetadata[kvp.Key] = kvp.Value;
+            }
+
+            return new VectorFilter
+            {
+                Scope = storeFilter.Scope ?? filter?.Scope,
+                MetadataMatch = mergedMetadata
+            };
+        }
+
+        /// <summary>
         /// Performs a full RAG query and calls the LLM: embed query ??search ??context build ??LLM call.
         /// </summary>
         public async Task<string> QueryAndGenerateAsync(
-            AIService aiService,
+            IAIService aiService,
             string query,
             string? @namespace = null,
             int? topK = null,
@@ -454,7 +502,7 @@ namespace Mythosia.AI.Rag
         /// Performs a full RAG query with per-request overrides and calls the LLM.
         /// </summary>
         public async Task<string> QueryAndGenerateAsync(
-            AIService aiService,
+            IAIService aiService,
             string query,
             RagQueryOptions? queryOptions,
             VectorFilter? filter = null,
@@ -469,7 +517,7 @@ namespace Mythosia.AI.Rag
         #region IRagPipeline Implementation
 
         /// <summary>
-        /// Implements IRagPipeline: embed query → search → build context → return request message content.
+        /// Implements IRagPipeline: embed query ??search ??build context ??return request message content.
         /// </summary>
         public async Task<RagProcessedQuery> ProcessAsync(string query, CancellationToken cancellationToken = default)
         {

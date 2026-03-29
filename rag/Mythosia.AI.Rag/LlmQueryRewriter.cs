@@ -1,5 +1,5 @@
 using Mythosia.AI.Models;
-using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +16,7 @@ namespace Mythosia.AI.Rag
     /// </summary>
     public class LlmQueryRewriter : IQueryRewriter
     {
-        private readonly AIService _aiService;
+        private readonly IAIService _aiService;
         private readonly uint _maxTokens;
         private readonly bool _extractKeywords;
 
@@ -99,7 +99,7 @@ namespace Mythosia.AI.Rag
         /// for the text/keyword search leg of hybrid search.
         /// When false, only query rewriting and search gate are performed.
         /// </param>
-        public LlmQueryRewriter(AIService aiService, uint maxTokens = DefaultMaxTokens, bool extractKeywords = true)
+        public LlmQueryRewriter(IAIService aiService, uint maxTokens = DefaultMaxTokens, bool extractKeywords = true)
         {
             _aiService = aiService ?? throw new ArgumentNullException(nameof(aiService));
             _maxTokens = maxTokens;

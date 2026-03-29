@@ -1,4 +1,4 @@
-using Mythosia.AI.Loaders;
+using Mythosia.Documents;
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Reranking;
@@ -397,7 +397,7 @@ internal static class ChatUiRagCoreEndpoints
                 return Results.BadRequest(new { error = $"Failed to connect: {ex.Message}" });
             }
 
-            var documents = new List<RagDocument>();
+            var documents = new List<DoclingDocument>();
             var chunks = new List<RagChunk>();
             var records = new List<VectorRecord>();
 
@@ -474,7 +474,7 @@ internal static class ChatUiRagCoreEndpoints
                     }
                 }, onDocumentEmbedded: null, ctx.RequestAborted);
 
-                var trace = RagReferenceTraceBuilder.Build(documents, chunks, records, embeddingProvider.Dimensions);
+                var trace = RagReferenceTraceBuilder.Build(DoclingDocumentConverter.ToRagDocuments(documents), chunks, records, embeddingProvider.Dimensions);
                 var config = new RagReferenceConfig(
                     savedFiles.Select(entry => entry.displayName).ToList(),
                     chunkSizeValue,

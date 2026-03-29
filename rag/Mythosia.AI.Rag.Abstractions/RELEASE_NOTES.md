@@ -1,5 +1,18 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v5.1.0
+
+### Dependency Changes
+
+- **Removed `Mythosia.AI.Loaders.Abstractions` dependency** — `RagDocument` is now self-contained in this package (`Mythosia.AI.Rag` namespace). Consumers that relied on the transitive Loaders dependency must add an explicit reference to `Mythosia.Documents.Abstractions` if needed.
+
+### Added
+
+- **`RagDocument`** — self-contained document model (`Id`, `Content`, `Source`, `Metadata`) defined directly in `Mythosia.AI.Rag` namespace. Identical shape to the former `Mythosia.AI.Loaders.RagDocument`.
+- **`RagQueryOptions.StoreFilter`** (`VectorFilter?`) — optional metadata filter passed directly to `IVectorStore.SearchAsync` / `HybridSearchAsync` on every retrieval call. Enables per-query tenant isolation, permission-based filtering, and category scoping. When `null` the retrieval is unfiltered (backward compatible). When `Namespace` is also set, both constraints are applied together. Multiple metadata conditions are expressed via `VectorFilter.MetadataMatch` (AND logic).
+
+---
+
 ## v5.0.0
 
 ### Breaking Changes

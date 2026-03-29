@@ -24,12 +24,13 @@ This package defines the contracts that all RAG components implement — you onl
 | Model | Description |
 | --- | --- |
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
+| `RagDocument` | A loaded document with `Id`, `Content`, `Source`, and `Metadata` for the RAG pipeline |
 | `RagProcessedQuery` | Pipeline output: original query, rewritten semantic query, retrieval keywords, `RequestMessageContent`, references, `RetrievalCandidates`, `SearchSkipped`, `RewriteResult`, `HasReferences` flag, and `Diagnostics` |
 | `QueryRewriteResult` | Result of rewriting a query into retrieval-ready form, including search gate decision (`NeedsSearch`) and optional retrieval keywords. Factory methods `Pass()` and `Search()` |
 | `ConversationTurn` | Lightweight DTO representing a single conversation turn (role + content) for `IQueryRewriter` context |
 | `RagQueryDiagnostics` | Applied retrieval metadata (`AppliedNamespace`, `FinalTopK`, `RetrievalTopK`, `AppliedFinalMinScore`, `AppliedRetrievalMinScore`, `ElapsedMs`, `RewriteElapsedMs`) |
 | `RagPipelineOptions` | Configuration: `DefaultScope`, `DefaultQuery`, `PromptTemplate`, `EmbeddingBatchSize` |
-| `RagQueryOptions` | Per-request overrides: `FinalFilter`, `RetrievalDerivation`, `Namespace`, `FinalSelection`, `ProgressAsync` |
+| `RagQueryOptions` | Per-request overrides: `FinalFilter`, `RetrievalDerivation`, `Namespace`, `StoreFilter`, `FinalSelection`, `ProgressAsync` |
 | `RagFinalSelectionOptions` | Final selection policy after re-ranking (`Mode`, `RetrievalWeight`) |
 | `RagFinalSelectionMode` | Enum: `RerankerOnly` (default) or `WeightedBlend` |
 | `RagFilter` | Final selection policy (`TopK`, `MinScore`) |

@@ -1,5 +1,54 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v6.2.0
+
+### Dependency Changes
+
+- **`Mythosia.AI` → `Mythosia.AI.Abstractions`** — the Rag package now depends on the lightweight abstractions package instead of the full AI implementation. All public API surface accepts `IAIService` (widened from `AIService` — existing callers remain source-compatible). `WithoutRag()` now returns `IAIService`.
+- **`Mythosia.AI.Loaders.Office/Pdf` → `Mythosia.Documents.Office/Pdf`** — follows the package rename.
+
+### Added
+
+- **`DoclingDocumentConverter`** — converts `DoclingDocument` (from `Mythosia.Documents`) to `RagDocument` (from `Mythosia.AI.Rag`). Used internally by `RagBuilder` for all loader integrations.
+- **`RagQueryOptions.StoreFilter` passthrough** — `VectorFilter?` property on `RagQueryOptions` that is passed directly to `IVectorStore.SearchAsync` / `IVectorStore.HybridSearchAsync` on every retrieval call.
+  - Enables per-query **tenant isolation**, **permission-based filtering**, **category scoping**, and **time-range filtering** without wrapping the store in a custom decorator.
+  - When `StoreFilter` is `null` the pipeline behaves exactly as before (no breaking change).
+  - When `Namespace` is also set, both constraints are applied together: namespace sets `VectorFilter.Namespace`; `StoreFilter` contributes `MetadataMatch` and `Scope`.
+  - If both an explicit `VectorFilter` parameter and `StoreFilter` are present, their `MetadataMatch` dictionaries are merged (`StoreFilter` wins on key conflicts). `Scope` is taken from `StoreFilter` when set.
+  - Multiple metadata conditions are expressed via `VectorFilter.MetadataMatch` (any number of key-value pairs, all combined with AND logic).
+- **`MergeStoreFilter`** (internal) — merges explicit `VectorFilter` with per-query `StoreFilter`.
+
+### Usage
+
+```csharp
+// Single metadata condition
+var options = new RagQueryOptions();
+options.FinalFilter.TopK = 5;
+options.StoreFilter = VectorFilter.ByMetadata("storage_id", storageId);
+var result = await ragStore.QueryAsync("질문", options, cancellationToken);
+
+// Multiple conditions (AND) — storage_id AND folder_path
+options.StoreFilter = new VectorFilter
+{
+    MetadataMatch = new Dictionary<string, string>
+    {
+        ["storage_id"] = storageId,
+        ["folder_path"] = "/docs/private"
+    }
+};
+
+// Namespace + metadata simultaneously
+options.Namespace = "tenant-A";
+options.StoreFilter = VectorFilter.ByMetadata("user_id", currentUserId);
+```
+
+### Compatibility
+
+- Requires `Mythosia.AI.Rag.Abstractions` v5.1.0.
+- `StoreFilter = null` (default) preserves existing behavior.
+
+---
+
 ## v6.1.0
 
 ### Added

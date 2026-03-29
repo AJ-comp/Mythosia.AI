@@ -1,4 +1,4 @@
-using Mythosia.AI.Loaders;
+using Mythosia.Documents;
 using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
 
@@ -336,17 +336,17 @@ internal static class RagReferenceTraceBuilder
 internal sealed class TrackingDocumentLoader : IDocumentLoader
 {
     private readonly IDocumentLoader _inner;
-    private readonly List<RagDocument> _documents;
+    private readonly List<DoclingDocument> _documents;
     private readonly string _displaySource;
 
-    public TrackingDocumentLoader(IDocumentLoader inner, List<RagDocument> documents, string displaySource)
+    public TrackingDocumentLoader(IDocumentLoader inner, List<DoclingDocument> documents, string displaySource)
     {
         _inner = inner ?? throw new ArgumentNullException(nameof(inner));
         _documents = documents ?? throw new ArgumentNullException(nameof(documents));
         _displaySource = displaySource;
     }
 
-    public async Task<IReadOnlyList<RagDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<DoclingDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
     {
         var docs = await _inner.LoadAsync(source, cancellationToken);
         foreach (var doc in docs)

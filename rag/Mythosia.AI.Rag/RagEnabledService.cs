@@ -1,6 +1,6 @@
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
-using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +16,7 @@ namespace Mythosia.AI.Rag
     /// </summary>
     public class RagEnabledService
     {
-        private readonly AIService _innerService;
+        private readonly IAIService _innerService;
         private readonly RagBuilder? _builder;
         private RagStore? _ragStore;
         private IQueryRewriter? _queryRewriter;
@@ -25,7 +25,7 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Creates a RagEnabledService with lazy initialization (documents indexed on first query).
         /// </summary>
-        internal RagEnabledService(AIService innerService, RagBuilder builder)
+        internal RagEnabledService(IAIService innerService, RagBuilder builder)
         {
             _innerService = innerService ?? throw new ArgumentNullException(nameof(innerService));
             _builder = builder ?? throw new ArgumentNullException(nameof(builder));
@@ -34,7 +34,7 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Creates a RagEnabledService with a pre-built RagStore (no lazy init needed).
         /// </summary>
-        internal RagEnabledService(AIService innerService, RagStore ragStore)
+        internal RagEnabledService(IAIService innerService, RagStore ragStore)
         {
             _innerService = innerService ?? throw new ArgumentNullException(nameof(innerService));
             _ragStore = ragStore ?? throw new ArgumentNullException(nameof(ragStore));
@@ -42,9 +42,9 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
-        /// Returns the underlying AIService without RAG processing.
+        /// Returns the underlying IAIService without RAG processing.
         /// </summary>
-        public AIService WithoutRag() => _innerService;
+        public IAIService WithoutRag() => _innerService;
 
         #region Core Methods
 

@@ -1,10 +1,10 @@
-using Mythosia.AI.Loaders;
-using Mythosia.AI.Loaders.Document;
-using Mythosia.AI.Loaders.Office;
-using Mythosia.AI.Loaders.Office.Excel;
-using Mythosia.AI.Loaders.Office.PowerPoint;
-using Mythosia.AI.Loaders.Office.Word;
-using Mythosia.AI.Loaders.Pdf;
+using Mythosia.Documents;
+using Mythosia.Documents.Elements;
+using Mythosia.Documents.Office;
+using Mythosia.Documents.Office.Excel;
+using Mythosia.Documents.Office.PowerPoint;
+using Mythosia.Documents.Office.Word;
+using Mythosia.Documents.Pdf;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Retrieval;
@@ -168,7 +168,7 @@ namespace Mythosia.AI.Rag
                 var loader = options.Loader ?? GetOrCreateDefaultLoader(extension, defaultLoaders!);
                 var loaded = await loader.LoadAsync(file, cancellationToken);
                 if (loaded.Count > 0)
-                    docs.AddRange(loaded);
+                    docs.AddRange(DoclingDocumentConverter.ToRagDocuments(loaded));
             }
 
             return docs;
@@ -184,7 +184,8 @@ namespace Mythosia.AI.Rag
             {
                 var extension = Path.GetExtension(filePath);
                 var loader = CreateLoaderForExtension(extension);
-                return await loader.LoadAsync(filePath, ct);
+                var loaded = await loader.LoadAsync(filePath, ct);
+                return DoclingDocumentConverter.ToRagDocuments(loaded);
             }, kind: DocumentSourceKind.SingleFile);
         }
 
@@ -196,7 +197,8 @@ namespace Mythosia.AI.Rag
             return AddDocumentSource(async ct =>
             {
                 var loader = new DirectoryDocumentLoader();
-                return await loader.LoadAsync(directoryPath, ct);
+                var loaded = await loader.LoadAsync(directoryPath, ct);
+                return DoclingDocumentConverter.ToRagDocuments(loaded);
             }, kind: DocumentSourceKind.Directory);
         }
 
@@ -226,7 +228,8 @@ namespace Mythosia.AI.Rag
             return AddDocumentSource(async ct =>
             {
                 var loader = new WordDocumentLoader(parser, options);
-                return await loader.LoadAsync(filePath, ct);
+                var loaded = await loader.LoadAsync(filePath, ct);
+                return DoclingDocumentConverter.ToRagDocuments(loaded);
             }, kind: DocumentSourceKind.SingleFile);
         }
 
@@ -238,7 +241,8 @@ namespace Mythosia.AI.Rag
             return AddDocumentSource(async ct =>
             {
                 var loader = new ExcelDocumentLoader(parser, options);
-                return await loader.LoadAsync(filePath, ct);
+                var loaded = await loader.LoadAsync(filePath, ct);
+                return DoclingDocumentConverter.ToRagDocuments(loaded);
             }, kind: DocumentSourceKind.SingleFile);
         }
 
@@ -250,7 +254,8 @@ namespace Mythosia.AI.Rag
             return AddDocumentSource(async ct =>
             {
                 var loader = new PowerPointDocumentLoader(parser, options);
-                return await loader.LoadAsync(filePath, ct);
+                var loaded = await loader.LoadAsync(filePath, ct);
+                return DoclingDocumentConverter.ToRagDocuments(loaded);
             }, kind: DocumentSourceKind.SingleFile);
         }
 
@@ -303,7 +308,11 @@ namespace Mythosia.AI.Rag
                 throw new ArgumentNullException(nameof(loader));
 
             return AddDocumentSource(
-                async ct => await loader.LoadAsync(source, ct),
+                async ct =>
+                {
+                    var loaded = await loader.LoadAsync(source, ct);
+                    return DoclingDocumentConverter.ToRagDocuments(loaded);
+                },
                 kind: ResolveSourceKind(source));
         }
 
@@ -318,7 +327,11 @@ namespace Mythosia.AI.Rag
                 throw new ArgumentNullException(nameof(textSplitter));
 
             return AddDocumentSource(
-                async ct => await loader.LoadAsync(source, ct),
+                async ct =>
+                {
+                    var loaded = await loader.LoadAsync(source, ct);
+                    return DoclingDocumentConverter.ToRagDocuments(loaded);
+                },
                 textSplitter: textSplitter,
                 kind: ResolveSourceKind(source));
         }

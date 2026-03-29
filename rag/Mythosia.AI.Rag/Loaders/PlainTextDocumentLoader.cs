@@ -1,4 +1,5 @@
-using Mythosia.AI.Loaders;
+using Mythosia.Documents;
+using Mythosia.Documents.Elements;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -8,11 +9,11 @@ using System.Threading.Tasks;
 namespace Mythosia.AI.Rag.Loaders
 {
     /// <summary>
-    /// Loads plain text files (.txt, .md, .csv, .json, .xml, .html, etc.) as RagDocuments.
+    /// Loads plain text files (.txt, .md, .csv, .json, .xml, .html, etc.) as DoclingDocuments.
     /// </summary>
     public class PlainTextDocumentLoader : IDocumentLoader
     {
-        public async Task<IReadOnlyList<RagDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<DoclingDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
         {
             if (!File.Exists(source))
                 throw new FileNotFoundException($"Document file not found: {source}", source);
@@ -20,17 +21,14 @@ namespace Mythosia.AI.Rag.Loaders
             var content = await File.ReadAllTextAsync(source, cancellationToken);
             var fileName = Path.GetFileName(source);
 
-            var doc = new RagDocument
+            var doc = new DoclingDocument
             {
-                Id = fileName,
-                Content = content,
+                Name = Path.GetFileNameWithoutExtension(source),
                 Source = source,
-                Metadata =
-                {
-                    ["filename"] = fileName,
-                    ["extension"] = Path.GetExtension(source).ToLowerInvariant()
-                }
+                RawContent = content,
             };
+            doc.Metadata["filename"] = fileName;
+            doc.Metadata["extension"] = Path.GetExtension(source).ToLowerInvariant();
 
             return new[] { doc };
         }
@@ -61,13 +59,13 @@ namespace Mythosia.AI.Rag.Loaders
                 : DefaultExtensions;
         }
 
-        public async Task<IReadOnlyList<RagDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
+        public async Task<IReadOnlyList<DoclingDocument>> LoadAsync(string source, CancellationToken cancellationToken = default)
         {
             if (!Directory.Exists(source))
                 throw new DirectoryNotFoundException($"Document directory not found: {source}");
 
             var files = Directory.GetFiles(source, "*", SearchOption.AllDirectories);
-            var docs = new List<RagDocument>();
+            var docs = new List<DoclingDocument>();
 
             foreach (var file in files)
             {
@@ -80,18 +78,17 @@ namespace Mythosia.AI.Rag.Loaders
                 var content = await File.ReadAllTextAsync(file, cancellationToken);
                 var relativePath = Path.GetRelativePath(source, file);
 
-                docs.Add(new RagDocument
+                var doc = new DoclingDocument
                 {
-                    Id = relativePath,
-                    Content = content,
-                    Source = file,
-                    Metadata =
-                    {
-                        ["filename"] = Path.GetFileName(file),
-                        ["extension"] = ext.ToLowerInvariant(),
-                        ["relative_path"] = relativePath
-                    }
-                });
+                    Name = Path.GetFileNameWithoutExtension(file),
+                    Source = relativePath,
+                    RawContent = content,
+                };
+                doc.Metadata["filename"] = Path.GetFileName(file);
+                doc.Metadata["extension"] = ext.ToLowerInvariant();
+                doc.Metadata["relative_path"] = relativePath;
+
+                docs.Add(doc);
             }
 
             return docs;
