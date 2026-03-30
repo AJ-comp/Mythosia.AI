@@ -158,13 +158,14 @@ namespace Mythosia.AI.Rag.Retrieval
             if (filter == null || !filter.MinScore.HasValue)
                 return filter;
 
-            return new VectorFilter
+            var copy = new VectorFilter
             {
                 Namespace = filter.Namespace,
                 Scope = filter.Scope,
-                MetadataMatch = filter.MetadataMatch,
                 MinScore = null
             };
+            copy.AppendConditionsFrom(filter);
+            return copy;
         }
     }
 }

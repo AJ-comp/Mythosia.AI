@@ -316,7 +316,7 @@ var store = await RagStore.BuildAsync(config => config
     .UseStore(vectorStore),
     onDocumentEmbedded: records =>
         vectorStore.ReplaceByFilterAsync(
-            VectorFilter.ByMetadata("full_path", file.FullPath), records)
+            new VectorFilter().Where("full_path", file.FullPath), records)
 );
 ```
 
@@ -445,22 +445,21 @@ Use `RagQueryOptions.StoreFilter` to pass a `VectorFilter` directly to `IVectorS
 ```csharp
 // Single condition
 var options = new RagQueryOptions();
-options.StoreFilter = VectorFilter.ByMetadata("storage_id", storageId);
+options.StoreFilter = new VectorFilter().Where("storage_id", storageId);
 var result = await ragStore.QueryAsync("질문", options, cancellationToken);
 
-// Multiple conditions — storage_id AND folder_path (AND logic)
-options.StoreFilter = new VectorFilter
-{
-    MetadataMatch = new Dictionary<string, string>
-    {
-        ["storage_id"] = storageId,
-        ["folder_path"] = "/docs/private"
-    }
-};
+// Multiple conditions — storage_id AND folder_path (AND logic, fluent chaining)
+options.StoreFilter = new VectorFilter()
+    .Where("storage_id", storageId)
+    .Where("folder_path", "/docs/private");
+
+// Multi-value filter — only documents from specific tenants
+options.StoreFilter = new VectorFilter()
+    .WhereIn("storage_id", tenantId1, tenantId2, tenantId3);
 
 // Namespace + metadata simultaneously
 options.Namespace = "tenant-A";
-options.StoreFilter = VectorFilter.ByMetadata("user_id", currentUserId);
+options.StoreFilter = new VectorFilter().Where("user_id", currentUserId);
 // → retrieval uses: namespace = "tenant-A" AND metadata->>'user_id' = '...'
 ```
 

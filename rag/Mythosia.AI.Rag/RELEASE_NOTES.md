@@ -1,5 +1,31 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.0.0
+
+### Breaking Changes
+
+`VectorFilter` construction API changed (see `Mythosia.VectorDb.Abstractions` v3.0.0). Any code that assigns `RagQueryOptions.StoreFilter` using the old API must be updated:
+
+```csharp
+// Before — compile error in v7.0.0
+options.StoreFilter = VectorFilter.ByMetadata("storage_id", id);
+options.StoreFilter = new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["storage_id"] = id, ["folder"] = "/docs" } };
+
+// After
+options.StoreFilter = new VectorFilter().Where("storage_id", id);
+options.StoreFilter = new VectorFilter().Where("storage_id", id).Where("folder", "/docs");
+```
+
+Requires `Mythosia.AI.Rag.Abstractions` v6.0.0, `Mythosia.VectorDb.Abstractions` v3.0.0, `Mythosia.VectorDb.InMemory` v3.0.0.
+
+### Changed
+
+- **`MergeStoreFilter`** (internal) — rewrote filter merge logic to use `AppendConditionsFrom` on the new `VectorFilter` condition tree instead of merging `MetadataMatch` dictionaries. `storeFilter` conditions are appended first (permission constraints), followed by per-query `filter` conditions. `Scope` is taken from `storeFilter` when set, falling back to the query filter.
+- **`DeleteDocumentAsync`** — uses `new VectorFilter().Where("document_id", documentId)` instead of the removed `VectorFilter.ByMetadata()`.
+- **`HybridRetrievalStrategy.WithoutMinScore`** — updated to copy the condition tree via `AppendConditionsFrom` instead of copying the removed `MetadataMatch` property.
+
+---
+
 ## v6.2.0
 
 ### Dependency Changes

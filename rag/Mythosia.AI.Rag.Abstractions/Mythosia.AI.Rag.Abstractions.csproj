@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>5.1.0</Version>
+    <Version>6.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, IReranker interfaces, RagDocument, RagQueryOptions (with StoreFilter), and shared models. No dependency on Loaders — RagDocument is self-contained.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking;MetadataFilter</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
-    <PackageReleaseNotes>v5.1.0: RagDocument self-contained in Mythosia.AI.Rag namespace (removed Loaders.Abstractions dependency). Added RagQueryOptions.StoreFilter (VectorFilter?) for per-query metadata filtering.</PackageReleaseNotes>
+    <PackageReleaseNotes>v6.0.0: Requires Abstractions v3.0.0 — VectorFilter.ByMetadata/ByNamespace/ByScope and MetadataMatch are removed. Users of RagQueryOptions.StoreFilter must migrate to new fluent API: new VectorFilter().Where(...). No structural changes to this package's own types.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

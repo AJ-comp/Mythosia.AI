@@ -1,5 +1,25 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v6.0.0
+
+### Breaking Changes
+
+`VectorFilter` construction API changed (see `Mythosia.VectorDb.Abstractions` v3.0.0). Any code that assigns `RagQueryOptions.StoreFilter` using the old API must be updated:
+
+```csharp
+// Before — compile error in v6.0.0
+options.StoreFilter = VectorFilter.ByMetadata("storage_id", id);
+options.StoreFilter = new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["storage_id"] = id, ["folder"] = "/docs" } };
+
+// After
+options.StoreFilter = new VectorFilter().Where("storage_id", id);
+options.StoreFilter = new VectorFilter().Where("storage_id", id).Where("folder", "/docs");
+```
+
+No structural changes to this package's own types (`RagQueryOptions`, `IRagPipeline`, etc.).
+
+---
+
 ## v5.1.0
 
 ### Dependency Changes

@@ -159,7 +159,7 @@ public class BuildAsyncCallbackTests
             }
         };
 
-        var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
+        var filter = new VectorFilter().Where("full_path","/docs/file.md");
         filter.Namespace = "default";
         await ((IVectorStore)vectorStore).ReplaceByFilterAsync(filter, newRecords);
 
@@ -184,7 +184,7 @@ public class BuildAsyncCallbackTests
         var embedding = new LocalEmbeddingProvider(256);
         const string filePath = "/docs/policy.md";
 
-        var filter = VectorFilter.ByMetadata("full_path", filePath);
+        var filter = new VectorFilter().Where("full_path",filePath);
         filter.Namespace = "default";
 
         // Step 1: Initial build — save with metadata via callback

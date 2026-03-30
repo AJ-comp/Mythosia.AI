@@ -454,33 +454,30 @@ namespace Mythosia.AI.Rag
         /// <see cref="VectorFilter.Namespace"/> and <see cref="VectorFilter.MinScore"/> are NOT copied
         /// here because they are always overwritten immediately after this call.
         /// </summary>
+        /// <summary>
+        /// Merges a per-query <paramref name="filter"/> with a pipeline-level <paramref name="storeFilter"/>.
+        /// Both filters' conditions are AND-combined in the result — neither side is silently dropped.
+        /// This mirrors EF Core's Global Query Filter pattern: the store filter always applies,
+        /// and the per-query filter adds further constraints on top.
+        /// <see cref="VectorFilter.Namespace"/> and <see cref="VectorFilter.MinScore"/> are NOT copied
+        /// here because they are always overwritten immediately after this call.
+        /// </summary>
         private static VectorFilter MergeStoreFilter(VectorFilter? filter, VectorFilter? storeFilter)
         {
             if (storeFilter == null)
                 return filter ?? new VectorFilter();
 
-            // Build merged MetadataMatch
-            System.Collections.Generic.Dictionary<string, string>? mergedMetadata = null;
-            var baseMetadata = filter?.MetadataMatch;
-            var storeMetadata = storeFilter.MetadataMatch;
-
-            if (baseMetadata != null || storeMetadata != null)
+            var merged = new VectorFilter
             {
-                mergedMetadata = new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.Ordinal);
-                if (baseMetadata != null)
-                    foreach (var kvp in baseMetadata)
-                        mergedMetadata[kvp.Key] = kvp.Value;
-                // StoreFilter wins on key conflicts
-                if (storeMetadata != null)
-                    foreach (var kvp in storeMetadata)
-                        mergedMetadata[kvp.Key] = kvp.Value;
-            }
-
-            return new VectorFilter
-            {
-                Scope = storeFilter.Scope ?? filter?.Scope,
-                MetadataMatch = mergedMetadata
+                Scope = storeFilter.Scope ?? filter?.Scope
             };
+
+            // storeFilter conditions first (permission/tenant constraints), then per-query conditions
+            merged.AppendConditionsFrom(storeFilter);
+            if (filter != null)
+                merged.AppendConditionsFrom(filter);
+
+            return merged;
         }
 
         /// <summary>
@@ -595,7 +592,7 @@ namespace Mythosia.AI.Rag
             CancellationToken cancellationToken = default)
         {
             var ns = @namespace ?? Options.DefaultQuery.Namespace;
-            var filter = VectorFilter.ByMetadata("document_id", documentId);
+            var filter = new VectorFilter().Where("document_id", documentId);
             filter.Namespace = ns;
             await _vectorStore.DeleteByFilterAsync(filter, cancellationToken);
         }
