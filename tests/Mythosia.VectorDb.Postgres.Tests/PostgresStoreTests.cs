@@ -259,7 +259,7 @@ public class PostgresStoreTests
             }
         });
 
-        var filter = VectorFilter.ByMetadata("type", "article");
+        var filter = new VectorFilter().Where("type", "article");
         filter.Namespace = TestNamespace;
         var results = await store.SearchAsync(
             new float[] { 1, 0, 0 }, topK: 10,

@@ -1,5 +1,38 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v3.0.0
+
+### Breaking Changes
+
+`VectorFilter` construction API changed (see `Mythosia.VectorDb.Abstractions` v3.0.0). Any code that builds a `VectorFilter` to pass to `SearchAsync`, `HybridSearchAsync`, `GetAsync`, `GetBatchAsync`, `CountAsync`, `DeleteAsync`, `DeleteByFilterAsync`, or `ReplaceByFilterAsync` must be updated:
+
+```csharp
+// Before — compile error in v3.0.0
+store.SearchAsync(vector, filter: VectorFilter.ByMetadata("k", "v"));
+store.CountAsync(new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["k"] = "v" } });
+
+// After
+store.SearchAsync(vector, filter: new VectorFilter().Where("k", "v"));
+store.CountAsync(new VectorFilter().Where("k", "v"));
+```
+
+### Changed
+
+- **Filter evaluation engine** — updated to support the `VectorFilter` fluent condition tree introduced in `Mythosia.VectorDb.Abstractions` v3.0.0.
+  - All operators are evaluated in-memory via a recursive `EvaluateConditions` / `EvaluateCondition` chain.
+  - **`Eq`** — exact string match (ordinal).
+  - **`Ne`** — not-equal.
+  - **`Gt / Gte / Lt / Lte`** — lexicographic string comparison.
+  - **`In`** — value is in the provided set.
+  - **`NotIn`** — value is not in the provided set.
+  - **`Like`** — recursive LIKE pattern matcher supporting `%` (any substring) and `_` (any single character) wildcards.
+  - **`Exists`** — metadata key is present.
+  - **`NotExists`** — metadata key is absent.
+  - **`And / Or` groups** — recursive evaluation with short-circuit logic.
+- **`WithoutMinScore` helper** — now uses `AppendConditionsFrom` to copy the condition tree instead of the removed `MetadataMatch` copy.
+
+---
+
 ## v2.3.0
 
 ### Added

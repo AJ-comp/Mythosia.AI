@@ -4,6 +4,25 @@ Core contracts for the **Mythosia VectorDb** abstraction layer.
 Defines `IVectorStore`, all model types, and the fluent `InNamespace` / `InScope` API.
 Consumed by `Mythosia.AI.Rag` and all concrete store implementations (InMemory, Postgres, Qdrant, Pinecone).
 
+### Filter operator coverage vs. industry libraries
+
+| Operator | Pinecone | Weaviate¹ | Chroma | Semantic Kernel² | **Mythosia** |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| `Eq` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Ne` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Gt / Gte` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `Lt / Lte` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `In` | ✓ | ✓ (v1.22+) | ✓ | ✓ | ✓ |
+| `NotIn` | ✓ | — | ✓ | — | ✓ |
+| `Like` | — | ✓ (`*` wildcard) | — | — | ✓ (`%` / `_`) |
+| `Exists / NotExists` | — | — | — | — | ✓ |
+| `And / Or groups` | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+> ¹ Weaviate `ContainsAny` (v1.22+) maps to `In`. Wildcard `Like` uses `*` not `%`.
+> ² Semantic Kernel's `VectorSearchFilter` is a framework abstraction; operator availability depends on the underlying store connector.
+
+---
+
 ## Installation
 
 ```bash
@@ -45,34 +64,85 @@ var record = new VectorRecord
 
 ### `VectorFilter`
 
-Criteria for scoping searches, gets, deletes, and counts. All non-null fields are combined with AND logic.
+Fluent criteria builder for scoping searches, gets, deletes, and counts. Top-level conditions are AND-combined by default. Use `.And()` / `.Or()` for explicit logical grouping.
+
+#### Comparison operators
 
 ```csharp
-// Factory methods
-var f1 = VectorFilter.ByNamespace("docs");
-var f2 = VectorFilter.ByScope("tenant-1");
-var f3 = VectorFilter.ByMetadata("source", "manual.txt");
+var filter = new VectorFilter()
+    .Where("category", "policy")               // Eq  — exact match
+    .WhereNot("status", "archived")            // Ne
+    .WhereGreaterThan("year", "2023")          // Gt
+    .WhereGreaterThanOrEqual("year", "2023")   // Gte
+    .WhereLessThan("priority", "5")            // Lt
+    .WhereLessThanOrEqual("priority", "5")     // Lte
+    .WhereIn("type", "pdf", "docx", "txt")     // In
+    .WhereNotIn("lang", "zh", "ja")            // NotIn
+    .WhereLike("title", "%report%")            // LIKE — % and _ wildcards
+    .WhereExists("thumbnail")                  // key must be present
+    .WhereNotExists("deleted_at");             // key must be absent
+```
 
-// Combined filter (constructor)
-var combined = new VectorFilter
+#### Logical grouping
+
+```csharp
+// OR group: (type = 'policy' OR type = 'manual')
+var filter = new VectorFilter()
+    .Or(g => g
+        .Where("type", "policy")
+        .Where("type", "manual")
+    );
+
+// Nested AND inside OR: (a=1 OR (b=2 AND c=3))
+var filter = new VectorFilter()
+    .Or(g => g
+        .Where("a", "1")
+        .And(inner => inner
+            .Where("b", "2")
+            .Where("c", "3")
+        )
+    );
+```
+
+#### First-class properties
+
+```csharp
+// Object-initializer style
+var filter = new VectorFilter
 {
-    Namespace     = "docs",
-    Scope         = "tenant-1",
-    MetadataMatch = new Dictionary<string, string>
-    {
-        ["source"]   = "manual.txt",
-        ["category"] = "policy"
-    },
-    MinScore = 0.7
+    Namespace = "docs",    // first-tier isolation
+    Scope     = "tenant-1",// second-tier isolation — set by IScopeContext automatically
+    MinScore  = 0.7        // exclude results below this similarity score
 };
+
+// Fluent style
+var filter = new VectorFilter()
+    .Where("lang", "ko")
+    .WithNamespace("docs")  // sets Namespace for chaining
+    .WithMinScore(0.75);    // sets MinScore for chaining
 ```
 
 | Property | Type | Description |
 | --- | --- | --- |
-| `Namespace` | `string?` | Filter by namespace |
-| `Scope` | `string?` | Filter by scope |
-| `MetadataMatch` | `Dictionary<string, string>?` | All pairs must match (AND) |
+| `Namespace` | `string?` | Filter by namespace (injected by `INamespaceContext`) |
+| `Scope` | `string?` | Filter by scope (injected by `IScopeContext`) |
+| `Conditions` | `IReadOnlyList<FilterCondition>` | Top-level condition tree (AND-combined) |
 | `MinScore` | `double?` | Exclude results below this similarity score |
+
+#### Operator support by store
+
+| Operator | InMemory | Postgres | Qdrant | Pinecone |
+| --- | :---: | :---: | :---: | :---: |
+| `Eq` | ✓ | ✓ (JSONB `@>`) | ✓ | ✓ (`$eq`) |
+| `Ne` | ✓ | ✓ | ✓ | ✓ (`$ne`) |
+| `Gt / Gte / Lt / Lte` | ✓ | ✓ | — | ✓ (`$gt` etc.) |
+| `In` | ✓ | ✓ (`= ANY(...)`) | ✓ | ✓ (`$in`) |
+| `NotIn` | ✓ | ✓ | ✓ | ✓ (`$nin`) |
+| `Like` | ✓ | ✓ (`LIKE`) | — | — |
+| `Exists / NotExists` | ✓ | ✓ (`jsonb_exists`) | — | — |
+| `And / Or groups` | ✓ | ✓ | ✓ | ✓ |
+
+Qdrant and Pinecone silently skip unsupported operators during server-side filter translation; `MatchesFilter` in both stores evaluates all operators client-side for `GetAsync` / `GetBatchAsync`.
 
 ---
 
@@ -167,13 +237,13 @@ var records = await ns.GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
 
 // Count
 long count = await ns.CountAsync();
-long filtered = await scoped.CountAsync(VectorFilter.ByMetadata("category", "policy"));
+long filtered = await scoped.CountAsync(new VectorFilter().Where("category", "policy"));
 
 // Atomic replace
-await ns.ReplaceByFilterAsync(VectorFilter.ByMetadata("full_path", "/docs/file.md"), newRecords);
+await ns.ReplaceByFilterAsync(new VectorFilter().Where("full_path", "/docs/file.md"), newRecords);
 
-// Delete all in scope
-await scoped.DeleteAllAsync();    // IScopeContext only
+// Delete all in scope (also available on INamespaceContext to delete all in a namespace)
+await scoped.DeleteAllAsync();
 ```
 
 ### `INamespaceContext` surface
@@ -190,6 +260,7 @@ await scoped.DeleteAllAsync();    // IScopeContext only
 | `DeleteByFilterAsync` | `filter.Namespace` |
 | `ReplaceByFilterAsync` | `record.Namespace` + `filter.Namespace` |
 | `CountAsync` | `filter.Namespace` |
+| `DeleteAllAsync` | Deletes all records in this namespace |
 | `InScope(scope)` | Returns `IScopeContext` |
 
 ### `IScopeContext` surface
@@ -204,25 +275,30 @@ All `INamespaceContext` operations plus scope injection, and additionally:
 
 ## `VectorFilter` in Practice
 
-All filter conditions are AND-combined. `MinScore` is ignored by `CountAsync` and `DeleteByFilterAsync`.
+Top-level conditions are AND-combined. `MinScore` is ignored by `CountAsync` and `DeleteByFilterAsync`.
 
 ```csharp
-// Metadata AND scope
-var filter = new VectorFilter
-{
-    Scope         = "tenant-1",
-    MetadataMatch = new Dictionary<string, string>
-    {
-        ["storage_id"] = "abc",
-        ["file_type"]  = "pdf"
-    }
-};
+// Exact match + scope
+var filter = new VectorFilter()
+    .Where("storage_id", "abc")
+    .Where("file_type", "pdf");
 
 // Use directly
 var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 
-// Use via fluent API (namespace injected automatically)
-var results = await store.InNamespace("docs").SearchAsync(queryVector, topK: 5, filter: filter);
+// Use via fluent API (namespace + scope injected automatically)
+var results = await store
+    .InNamespace("docs")
+    .InScope("tenant-1")
+    .SearchAsync(queryVector, topK: 5, filter: filter);
+
+// Multi-tenant permission pattern
+var permFilter = new VectorFilter()
+    .WhereIn("storage_id", allowedIds)
+    .WhereLike("folder_path", "/shared/%");
+
+// MinScore filtering
+var highConf = new VectorFilter().Where("lang", "ko").WithMinScore(0.75);
 ```
 
 ---

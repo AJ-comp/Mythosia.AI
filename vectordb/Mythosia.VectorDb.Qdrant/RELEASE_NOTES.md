@@ -1,5 +1,35 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## v3.0.0
+
+### Breaking Changes
+
+`VectorFilter` construction API changed (see `Mythosia.VectorDb.Abstractions` v3.0.0). Any code that builds a `VectorFilter` to pass to `SearchAsync`, `HybridSearchAsync`, `GetAsync`, `GetBatchAsync`, `CountAsync`, `DeleteAsync`, `DeleteByFilterAsync`, or `ReplaceByFilterAsync` must be updated:
+
+```csharp
+// Before — compile error in v3.0.0
+store.SearchAsync(vector, filter: VectorFilter.ByMetadata("k", "v"));
+store.CountAsync(new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["k"] = "v" } });
+
+// After
+store.SearchAsync(vector, filter: new VectorFilter().Where("k", "v"));
+store.CountAsync(new VectorFilter().Where("k", "v"));
+```
+
+### Changed
+
+- **Qdrant filter builder** — rewrote `BuildFilter` / `AppendConditionsToFilter` to support the `VectorFilter` fluent condition tree introduced in `Mythosia.VectorDb.Abstractions` v3.0.0.
+  - **`Eq`** — `Must` → `FieldCondition` keyword match.
+  - **`Ne`** — `MustNot` → `FieldCondition` (in `And` context) or nested NOT `Filter` (in `Or` context).
+  - **`In`** — `Must` / `Should` → nested `Filter` with per-value `Should` keyword conditions.
+  - **`NotIn`** — `MustNot` → nested `Filter` with `Should` keyword conditions.
+  - **`And / Or` groups** — nested `Condition { Filter }` in `Must` / `Should` respectively.
+  - **`Gt / Gte / Lt / Lte / Like / Exists / NotExists`** — silently skipped in server-side Qdrant filter. Evaluated client-side in `MatchesFilter` for `GetAsync` / `GetBatchAsync`.
+- **`MatchesFilter`** — updated to recursive condition tree evaluation for `GetAsync` / `GetBatchAsync` post-retrieval filtering.
+- **`DeleteAsync`** — condition check updated from `filter.MetadataMatch != null` to `filter.Conditions.Count > 0`.
+
+---
+
 ## v2.3.0
 
 ### Added

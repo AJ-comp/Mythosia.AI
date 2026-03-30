@@ -57,7 +57,7 @@ END $$;
 ALTER TABLE "public"."vectors"
     ADD PRIMARY KEY (namespace, id);
 
--- Current v10.2.0 hybrid-search schema
+-- Current v10.6.0 hybrid-search schema
 ALTER TABLE "public"."vectors"
     ADD COLUMN IF NOT EXISTS content_tsv tsvector;
 
@@ -300,8 +300,21 @@ ANALYZE public.vectors;
 
 Use runtime options matching your index settings:
 
-- `Index = new HnswIndexOptions(...)` -> `HnswSearchRuntimeOptions`
-- `Index = new IvfFlatIndexOptions(...)` -> `IvfFlatSearchRuntimeOptions`
+- `Index = new HnswIndexOptions(...)` → `HnswSearchRuntimeOptions`
+- `Index = new IvfFlatIndexOptions(...)` → `IvfFlatSearchRuntimeOptions`
+
+Use named presets for convenience, or set explicit values:
+
+```csharp
+// Named presets (static properties)
+await store.SearchAsync(queryVector, topK: 10, filter, HnswSearchRuntimeOptions.Fast);
+await store.SearchAsync(queryVector, topK: 10, filter, HnswSearchRuntimeOptions.Balanced);
+await store.SearchAsync(queryVector, topK: 10, filter, HnswSearchRuntimeOptions.HighRecall);
+
+// Explicit override
+await store.SearchAsync(queryVector, topK: 10, filter, new HnswSearchRuntimeOptions { EfSearch = 80 });
+await store.SearchAsync(queryVector, topK: 10, filter, new IvfFlatSearchRuntimeOptions { Probes = 20 });
+```
 
 Recommended starting points:
 
@@ -319,15 +332,28 @@ These are practical ranges, not strict hard limits. Final values should be chose
 - There is no explicit namespace-create API. Namespaces are implicitly created on first upsert.
 - Delete all rows in a namespace via `store.InNamespace("your-ns").DeleteAllAsync()`.
 - **Scope filter**: `WHERE scope = @scope`
-- **Metadata filter**: `WHERE metadata @> @jsonb` (jsonb containment, AND logic)
+- **Metadata filter** — SQL per operator:
+  - `Eq`: `metadata @> @val` (JSONB containment — uses GIN index)
+  - `Ne`: `metadata->>'key' != @val`
+  - `In`: `metadata->>'key' = ANY(@vals)`
+  - `NotIn`: `NOT (metadata->>'key' = ANY(@vals))`
+  - `Gt / Gte / Lt / Lte`: `metadata->>'key' > @val` (lexicographic)
+  - `Like`: `metadata->>'key' LIKE @val`
+  - `Exists`: `jsonb_exists(metadata, 'key')`
+  - `NotExists`: `NOT jsonb_exists(metadata, 'key')`
+  - `And / Or groups`: wrapped in `(...)` with `AND` / `OR`
 - **MinScore filter** (distance-strategy dependent):
   - `Cosine`: `1 - (embedding <=> @q::vector) >= @minScore`
   - `Euclidean`: `1 / (1 + (embedding <-> @q::vector)) >= @minScore`
   - `InnerProduct`: `-(embedding <#> @q::vector) >= @minScore`
 
+### VectorFilter Examples
+
+For the full operator reference and fluent API examples (`Where`, `WhereNot`, `WhereIn`, `WhereLike`, `WhereExists`, `Or`, `And`, `WithMinScore`, etc.), see the [Mythosia.VectorDb.Abstractions README](../Mythosia.VectorDb.Abstractions/README.md#vectorfilter).
+
 ## Hybrid Search
 
-`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called via `UseHybridSearch()`, it runs **parallel queries** — text search and `pgvector` similarity search — then merges results via **Reciprocal Rank Fusion (RRF)**.
+`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called, it executes a **single SQL query using CTEs** — combining the vector similarity leg and the text search leg — then merges results via **Reciprocal Rank Fusion (RRF)**.
 
 ### TextSearchMode.TsVector (default)
 
@@ -371,9 +397,9 @@ var records = await store.InNamespace("docs").GetBatchAsync(new[] { "id-1", "id-
 // Count all records in a namespace
 long count = await store.InNamespace("docs").CountAsync();
 
-// Count with additional metadata filter (jsonb @> containment)
+// Count with additional metadata filter
 long filtered = await store.InNamespace("docs").CountAsync(
-    VectorFilter.ByMetadata("storage_id", storageId));
+    new VectorFilter().Where("storage_id", storageId));
 
 // Count across all namespaces
 long total = await store.CountAsync();
@@ -387,8 +413,8 @@ long total = await store.CountAsync();
 
 ```csharp
 // Delete all vectors matching the filter, then insert new ones — atomically
-var filter = VectorFilter.ByMetadata("full_path", "/docs/policy.md");
-filter.Namespace = "default";
+var filter = new VectorFilter { Namespace = "default" }
+    .Where("full_path", "/docs/policy.md");
 
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
@@ -442,6 +468,17 @@ catch (Exception ex)
     Console.WriteLine($"Connection failed: {ex.Message}");
 }
 ```
+
+## Resource Disposal
+
+`PostgresStore` implements `IDisposable`. Dispose the store when it is no longer needed to release internal resources (schema initialization lock):
+
+```csharp
+using var store = new PostgresStore(options);
+// ... use store
+```
+
+Each operation opens and closes its own `NpgsqlConnection` from the connection pool — the store itself holds no open connections between calls.
 
 ## Performance Tips
 

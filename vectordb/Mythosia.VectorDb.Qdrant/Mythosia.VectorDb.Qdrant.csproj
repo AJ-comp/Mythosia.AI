@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Qdrant</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>2.3.0</Version>
+    <Version>3.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based namespace and scope isolation. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, automatic collection provisioning, native hybrid search with sparse-dense fusion, GetBatchAsync, CountAsync, and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.3.0: Add GetBatchAsync (gRPC RetrieveAsync multi-point), CountAsync (gRPC CountAsync excluding schema marker). GetAsync/DeleteAsync now validate scope and metadata filter conditions. Dependency update: System.IO.Hashing 10.0.5.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.0: Requires Abstractions v3.0.0 — VectorFilter.ByMetadata/ByNamespace/ByScope and MetadataMatch are removed. Use new fluent API: new VectorFilter().Where(...). Qdrant filter builder updated for the full condition tree: Eq→Must, Ne→MustNot, In→nested Should, NotIn→MustNot{Should}, And/Or groups→nested Condition{Filter}. Unsupported operators silently skipped server-side, evaluated client-side in MatchesFilter.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <UserSecretsId>36819fe4-a0b6-41e3-9bdb-7cdfd9d51aa5</UserSecretsId>
   </PropertyGroup>

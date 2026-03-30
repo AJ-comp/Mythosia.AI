@@ -1,5 +1,36 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v2.0.0
+
+### Breaking Changes
+
+`VectorFilter` construction API changed (see `Mythosia.VectorDb.Abstractions` v3.0.0). Any code that builds a `VectorFilter` to pass to `SearchAsync`, `HybridSearchAsync`, `GetAsync`, `GetBatchAsync`, `CountAsync`, `DeleteAsync`, `DeleteByFilterAsync`, or `ReplaceByFilterAsync` must be updated:
+
+```csharp
+// Before — compile error in v2.0.0
+store.SearchAsync(vector, filter: VectorFilter.ByMetadata("k", "v"));
+store.CountAsync(new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["k"] = "v" } });
+
+// After
+store.SearchAsync(vector, filter: new VectorFilter().Where("k", "v"));
+store.CountAsync(new VectorFilter().Where("k", "v"));
+```
+
+### Changed
+
+- **Pinecone metadata filter builder** — rewrote `BuildMetadataFilter` / `BuildPineconeMetadataCondition` to support the `VectorFilter` fluent condition tree introduced in `Mythosia.VectorDb.Abstractions` v3.0.0.
+  - **`Eq`** → `{ "$eq": value }`
+  - **`Ne`** → `{ "$ne": value }`
+  - **`Gt / Gte / Lt / Lte`** → `{ "$gt": value }` / `{ "$gte": value }` / `{ "$lt": value }` / `{ "$lte": value }`
+  - **`In`** → `{ "$in": [values] }`
+  - **`NotIn`** → `{ "$nin": [values] }`
+  - **`And / Or` groups** → `{ "$and": [...] }` / `{ "$or": [...] }`
+  - **`Like / Exists / NotExists`** — silently skipped (Pinecone does not support these operators). Evaluated client-side in `MatchesFilter` for `GetAsync` / `GetBatchAsync`.
+- **`MatchesFilter`** — updated to recursive condition tree evaluation for `GetAsync` / `GetBatchAsync` post-retrieval filtering.
+- **`DeleteAsync`** — condition check updated from `filter.MetadataMatch != null` to `filter.Conditions.Count > 0`.
+
+---
+
 ## v1.3.0
 
 ### Added

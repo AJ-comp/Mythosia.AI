@@ -224,14 +224,14 @@ namespace Mythosia.VectorDb.InMemory
                 if (!_namespaces.TryGetValue(filter.Namespace, out var store))
                     return Task.FromResult(0L);
 
-                if (filter.Scope == null && filter.MetadataMatch == null)
+                if (filter.Scope == null && filter.Conditions.Count == 0)
                     return Task.FromResult((long)store.Count);
 
                 return Task.FromResult((long)store.Values.Count(r => MatchesFilter(r, filter)));
             }
 
             // No namespace: count across all namespaces
-            if (filter == null || (filter.Scope == null && filter.MetadataMatch == null))
+            if (filter == null || (filter.Scope == null && filter.Conditions.Count == 0))
                 return Task.FromResult((long)_namespaces.Values.Sum(s => s.Count));
 
             return Task.FromResult((long)_namespaces.Values.SelectMany(s => s.Values).Count(r => MatchesFilter(r, filter)));
@@ -287,13 +287,14 @@ namespace Mythosia.VectorDb.InMemory
             if (filter == null || !filter.MinScore.HasValue)
                 return filter;
 
-            return new VectorFilter
+            var copy = new VectorFilter
             {
                 Namespace = filter.Namespace,
                 Scope = filter.Scope,
-                MetadataMatch = filter.MetadataMatch,
                 MinScore = null
             };
+            copy.AppendConditionsFrom(filter);
+            return copy;
         }
 
         private static IReadOnlyList<VectorSearchResult> RrfMerge(
@@ -354,17 +355,137 @@ namespace Mythosia.VectorDb.InMemory
             if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
                 return false;
 
-            if (filter.MetadataMatch != null)
+            if (filter.Conditions.Count > 0 && !EvaluateConditions(record, filter.Conditions, FilterLogic.And))
+                return false;
+
+            return true;
+        }
+
+        private static bool EvaluateConditions(VectorRecord record, IReadOnlyList<FilterCondition> conditions, FilterLogic logic)
+        {
+            if (logic == FilterLogic.And)
             {
-                foreach (var kvp in filter.MetadataMatch)
-                {
-                    if (!record.Metadata.TryGetValue(kvp.Key, out var value) ||
-                        !string.Equals(value, kvp.Value, StringComparison.Ordinal))
+                foreach (var condition in conditions)
+                    if (!EvaluateCondition(record, condition))
                         return false;
+                return true;
+            }
+            else
+            {
+                foreach (var condition in conditions)
+                    if (EvaluateCondition(record, condition))
+                        return true;
+                return false;
+            }
+        }
+
+        private static bool EvaluateCondition(VectorRecord record, FilterCondition condition)
+        {
+            if (condition is MetadataCondition mc)
+                return EvaluateMetadataCondition(record, mc);
+            if (condition is FilterGroup group)
+                return EvaluateConditions(record, group.Conditions, group.Logic);
+            return true;
+        }
+
+        private static bool EvaluateMetadataCondition(VectorRecord record, MetadataCondition mc)
+        {
+            switch (mc.Operator)
+            {
+                case FilterOperator.Eq:
+                    return record.Metadata.TryGetValue(mc.Key, out var eqVal) &&
+                           string.Equals(eqVal, mc.Value, StringComparison.Ordinal);
+
+                case FilterOperator.Ne:
+                    return record.Metadata.TryGetValue(mc.Key, out var neVal) &&
+                           !string.Equals(neVal, mc.Value, StringComparison.Ordinal);
+
+                case FilterOperator.In:
+                    return record.Metadata.TryGetValue(mc.Key, out var inVal) &&
+                           mc.Values != null &&
+                           ContainsOrdinal(mc.Values, inVal);
+
+                case FilterOperator.NotIn:
+                    return record.Metadata.TryGetValue(mc.Key, out var ninVal) &&
+                           (mc.Values == null || !ContainsOrdinal(mc.Values, ninVal));
+
+                case FilterOperator.Like:
+                    return record.Metadata.TryGetValue(mc.Key, out var likeVal) &&
+                           LikeMatch(likeVal, mc.Value ?? string.Empty);
+
+                case FilterOperator.Gt:
+                    return record.Metadata.TryGetValue(mc.Key, out var gtVal) &&
+                           string.Compare(gtVal, mc.Value, StringComparison.Ordinal) > 0;
+
+                case FilterOperator.Gte:
+                    return record.Metadata.TryGetValue(mc.Key, out var gteVal) &&
+                           string.Compare(gteVal, mc.Value, StringComparison.Ordinal) >= 0;
+
+                case FilterOperator.Lt:
+                    return record.Metadata.TryGetValue(mc.Key, out var ltVal) &&
+                           string.Compare(ltVal, mc.Value, StringComparison.Ordinal) < 0;
+
+                case FilterOperator.Lte:
+                    return record.Metadata.TryGetValue(mc.Key, out var lteVal) &&
+                           string.Compare(lteVal, mc.Value, StringComparison.Ordinal) <= 0;
+
+                case FilterOperator.Exists:
+                    return record.Metadata.ContainsKey(mc.Key);
+
+                case FilterOperator.NotExists:
+                    return !record.Metadata.ContainsKey(mc.Key);
+
+                default:
+                    return true;
+            }
+        }
+
+        private static bool ContainsOrdinal(IReadOnlyList<string> values, string target)
+        {
+            for (int i = 0; i < values.Count; i++)
+                if (string.Equals(values[i], target, StringComparison.Ordinal))
+                    return true;
+            return false;
+        }
+
+        /// <summary>
+        /// SQL LIKE pattern matching: <c>%</c> matches any sequence, <c>_</c> matches any single character.
+        /// </summary>
+        private static bool LikeMatch(string text, string pattern)
+        {
+            return LikeMatchCore(text, pattern, 0, 0);
+        }
+
+        private static bool LikeMatchCore(string text, string pattern, int t, int p)
+        {
+            while (t < text.Length && p < pattern.Length)
+            {
+                if (pattern[p] == '%')
+                {
+                    // Collapse consecutive '%'
+                    while (p < pattern.Length && pattern[p] == '%') p++;
+                    if (p == pattern.Length) return true;
+                    // Try matching the remainder of the pattern at every position
+                    for (int i = t; i <= text.Length; i++)
+                        if (LikeMatchCore(text, pattern, i, p))
+                            return true;
+                    return false;
+                }
+
+                if (pattern[p] == '_' || pattern[p] == text[t])
+                {
+                    t++;
+                    p++;
+                }
+                else
+                {
+                    return false;
                 }
             }
 
-            return true;
+            // Consume any trailing '%'
+            while (p < pattern.Length && pattern[p] == '%') p++;
+            return t == text.Length && p == pattern.Length;
         }
 
         /// <summary>

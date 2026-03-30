@@ -40,7 +40,7 @@ dotnet add package Mythosia.VectorDb.Qdrant
 Current package version:
 
 ```bash
-dotnet add package Mythosia.VectorDb.Qdrant --version 2.0.0
+dotnet add package Mythosia.VectorDb.Qdrant --version 3.0.0
 ```
 
 ## Quick Start
@@ -83,6 +83,8 @@ var results = await store.InNamespace("documents")
 | `Dimension` | *(required)* | Embedding vector dimension |
 | `DistanceStrategy` | `Cosine` | `Cosine`, `Euclidean`, or `DotProduct` |
 | `AutoCreateCollection` | `true` | Auto-create the collection on first use |
+| `HybridFusionStrategy` | `Rrf` | Server-side fusion for hybrid search — `Rrf` (Reciprocal Rank Fusion) or `Dbsf` (Distribution-Based Score Fusion) |
+| `AdditionalPayloadIndexes` | `[]` | Extra payload fields to index on collection creation (e.g. `meta.author`). `_namespace` and `_scope` are always indexed automatically. |
 
 ## Hybrid Search (v2.0.0)
 
@@ -127,7 +129,7 @@ var results = await store.InNamespace("docs").InScope("tenant-1")
     .SearchAsync(queryVector, topK: 10);
 
 // Metadata filtering
-var filter = VectorFilter.ByMetadata("category", "science");
+var filter = new VectorFilter().Where("category", "science");
 var results = await store.InNamespace("docs")
     .SearchAsync(queryVector, topK: 5, filter: filter);
 
@@ -137,14 +139,42 @@ var results = await store.InNamespace("docs")
     .SearchAsync(queryVector, topK: 5, filter: filter);
 ```
 
-## Advanced: Inject a Pre-configured Client
+### Supported filter operators
+
+| Operator | Qdrant translation |
+| --- | --- |
+| `Eq` | `Must` → `FieldCondition` keyword match |
+| `Ne` | `MustNot` → `FieldCondition` |
+| `In` | `Must` → nested `Should` (keyword per value) |
+| `NotIn` | `MustNot` → nested `Should` |
+| `And / Or groups` | Nested `Condition{Filter}` in `Must` / `Should` |
+| `Gt / Gte / Lt / Lte / Like / Exists / NotExists` | **Silently ignored** for `SearchAsync` / `HybridSearchAsync` (no client-side fallback). Evaluated client-side via `MatchesFilter` for `GetAsync` / `GetBatchAsync` only. |
+
+> **Important**: Unsupported operators produce no error but filter nothing in search queries. Use `GetAsync` / `GetBatchAsync` when these operators are required.
+
+## VectorFilter
+
+For the full operator reference and fluent API examples (`Where`, `WhereNot`, `WhereIn`, `WhereLike`, `WhereExists`, `Or`, `And`, `WithMinScore`, etc.), see the [Mythosia.VectorDb.Abstractions README](../Mythosia.VectorDb.Abstractions/README.md#vectorfilter).
+
+> **Qdrant-specific note**: `Gt`, `Gte`, `Lt`, `Lte`, `Like`, `Exists`, `NotExists` are silently ignored in `SearchAsync` / `HybridSearchAsync`. They are only evaluated client-side in `GetAsync` / `GetBatchAsync`.
+
+## Resource Disposal
+
+`QdrantStore` implements `IDisposable`. When created via the standard constructor, it owns the internal `QdrantClient` and disposes it on `Dispose()`:
+
+```csharp
+using var store = new QdrantStore(options);
+// QdrantClient disposed automatically
+```
+
+When injecting a pre-configured client, the caller retains ownership and is responsible for disposal:
 
 ```csharp
 using Qdrant.Client;
 
 var client = new QdrantClient("my-qdrant-cloud.example.com", 6334, https: true, apiKey: "my-key");
 var store = new QdrantStore(options, client);
-// The caller is responsible for disposing the QdrantClient.
+// store.Dispose() will NOT dispose client — caller must dispose it separately
 ```
 
 ## Payload Layout
@@ -174,7 +204,7 @@ long count = await store.InNamespace("documents").CountAsync();
 
 // Count with additional metadata filter
 long filtered = await store.InNamespace("documents").CountAsync(
-    VectorFilter.ByMetadata("category", "finance"));
+    new VectorFilter().Where("category", "finance"));
 ```
 
 `GetBatchAsync` maps string IDs to deterministic Qdrant point UUIDs, calls the Qdrant batch `RetrieveAsync` API, and applies namespace/scope/metadata conditions client-side. `CountAsync` uses the Qdrant server-side `CountAsync` API and always excludes the internal schema marker point from the result.
@@ -184,7 +214,7 @@ long filtered = await store.InNamespace("documents").CountAsync(
 `ReplaceByFilterAsync` is available via the `IVectorStore` default interface method. It performs sequential `DeleteByFilterAsync` → `UpsertBatchAsync`. Qdrant does not support server-side transactions, so sequential execution is the best available behavior:
 
 ```csharp
-var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
+var filter = new VectorFilter().Where("full_path", "/docs/file.md");
 await store.InNamespace("documents").ReplaceByFilterAsync(filter, newRecords);
 ```
 

@@ -1,5 +1,38 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
+## v10.6.0
+
+### Breaking Changes
+
+`VectorFilter` construction API changed (see `Mythosia.VectorDb.Abstractions` v3.0.0). Any code that builds a `VectorFilter` to pass to `SearchAsync`, `HybridSearchAsync`, `GetAsync`, `GetBatchAsync`, `CountAsync`, `DeleteAsync`, `DeleteByFilterAsync`, or `ReplaceByFilterAsync` must be updated:
+
+```csharp
+// Before — compile error in v10.6.0
+store.SearchAsync(vector, filter: VectorFilter.ByMetadata("k", "v"));
+store.CountAsync(new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["k"] = "v" } });
+
+// After
+store.SearchAsync(vector, filter: new VectorFilter().Where("k", "v"));
+store.CountAsync(new VectorFilter().Where("k", "v"));
+```
+
+### Changed
+
+- **SQL filter builder** — rewrote `BuildFilterWhere` / `AppendConditionGroup` / `AppendMetadataCondition` to support the `VectorFilter` fluent condition tree introduced in `Mythosia.VectorDb.Abstractions` v3.0.0.
+  - **`Eq`** — `metadata @> @val::jsonb` (JSONB containment — preserves GIN index).
+  - **`Ne`** — `metadata->>@key != @val`
+  - **`Gt / Gte / Lt / Lte`** — `metadata->>@key > @val` (lexicographic string comparison).
+  - **`In`** — `metadata->>@key = ANY(@vals)` (Npgsql array binding).
+  - **`NotIn`** — `NOT (metadata->>@key = ANY(@vals))`.
+  - **`Like`** — `metadata->>@key LIKE @val`.
+  - **`Exists`** — `jsonb_exists(metadata, @key)`.
+  - **`NotExists`** — `NOT jsonb_exists(metadata, @key)`.
+  - **`And / Or` groups** — wrapped in `(...)` with `AND` / `OR` joins.
+  - Key names are parameterized (`@mf_k{idx}`) for all non-Eq operators. Values are always parameterized. No SQL injection surface.
+- **`CountAsync`** — updated to `WHERE 1=1` pattern, appending filter conditions via `BuildFilterWhere`.
+
+---
+
 ## v10.5.0
 
 ### Added

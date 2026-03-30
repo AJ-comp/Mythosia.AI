@@ -1,5 +1,61 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v3.0.0
+
+### Breaking Changes — VectorFilter Fluent API
+
+`VectorFilter` has been redesigned from a simple dictionary-based exact-match model to a full operator-based fluent builder with recursive logical grouping.
+
+| Removed (v2.x) | Replacement (v3.0.0) |
+| --- | --- |
+| `filter.MetadataMatch = new Dictionary<string, string> { ["k"] = "v" }` | `filter.Where("k", "v")` |
+| `VectorFilter.ByMetadata("k", "v")` | `new VectorFilter().Where("k", "v")` |
+| `VectorFilter.ByNamespace("ns")` | `new VectorFilter { Namespace = "ns" }` |
+| `VectorFilter.ByScope("s")` | `new VectorFilter { Scope = "s" }` |
+
+#### New types
+
+- **`FilterOperator`** — `Eq`, `Ne`, `Gt`, `Gte`, `Lt`, `Lte`, `In`, `NotIn`, `Like`, `Exists`, `NotExists`
+- **`FilterLogic`** — `And`, `Or`
+- **`FilterCondition`** — abstract base for condition nodes
+- **`MetadataCondition`** — leaf node (key, operator, value/values)
+- **`FilterGroup`** — composite node (logic + child conditions)
+
+#### New fluent methods on `VectorFilter` (all return `this`)
+
+```csharp
+.Where(key, value)                     // Eq
+.WhereNot(key, value)                  // Ne
+.WhereIn(key, params values)           // In
+.WhereNotIn(key, params values)        // NotIn
+.WhereGreaterThan(key, value)          // Gt
+.WhereGreaterThanOrEqual(key, value)   // Gte
+.WhereLessThan(key, value)             // Lt
+.WhereLessThanOrEqual(key, value)      // Lte
+.WhereLike(key, pattern)               // Like (% and _ wildcards)
+.WhereExists(key)                      // Exists
+.WhereNotExists(key)                   // NotExists
+.And(Action<VectorFilter> configure)   // AND group
+.Or(Action<VectorFilter> configure)    // OR group
+.WithNamespace(ns)
+.WithMinScore(score)
+.AppendConditionsFrom(other)           // merge condition trees (used by MergeStoreFilter)
+```
+
+### Migration Guide
+
+```csharp
+// Before
+var f = VectorFilter.ByMetadata("type", "pdf");
+var f2 = new VectorFilter { MetadataMatch = new Dictionary<string, string> { ["a"] = "1", ["b"] = "2" } };
+
+// After
+var f = new VectorFilter().Where("type", "pdf");
+var f2 = new VectorFilter().Where("a", "1").Where("b", "2");
+```
+
+---
+
 ## v2.4.0
 
 ### Added

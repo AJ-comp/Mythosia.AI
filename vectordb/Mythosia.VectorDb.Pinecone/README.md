@@ -64,6 +64,25 @@ For native hybrid search, the Pinecone index metric must be `dotproduct`.
 
 When `AutoCreateIndex = true`, the index is created with `dotproduct` metric automatically.
 
+### AutoCreateIndex example
+
+```csharp
+var options = new PineconeOptions
+{
+    ApiKey          = "YOUR_PINECONE_API_KEY",
+    AutoCreateIndex = true,
+    IndexName       = "my-index",
+    Dimension       = 1536,
+    Cloud           = "aws",
+    Region          = "us-east-1"
+    // IndexHost is resolved automatically after the index becomes ready
+};
+
+using var store = new PineconeStore(options);
+// On first use the store creates the index (dotproduct metric) and polls up to
+// 2 minutes (60 × 2 s) for it to become ready before accepting requests.
+```
+
 ## Hybrid Search
 
 ```csharp
@@ -81,10 +100,30 @@ await store.InNamespace("docs").InScope("tenant-1").UpsertAsync(record);
 var results = await store.InNamespace("docs").InScope("tenant-1")
     .SearchAsync(queryVector, topK: 10);
 
-var filter = VectorFilter.ByMetadata("category", "science");
+var filter = new VectorFilter().Where("category", "science");
 var filtered = await store.InNamespace("docs")
     .SearchAsync(queryVector, topK: 5, filter: filter);
 ```
+
+### Supported filter operators
+
+| Operator | Pinecone translation |
+| --- | --- |
+| `Eq` | `$eq` |
+| `Ne` | `$ne` |
+| `Gt / Gte / Lt / Lte` | `$gt` / `$gte` / `$lt` / `$lte` |
+| `In` | `$in` |
+| `NotIn` | `$nin` |
+| `And / Or groups` | `$and` / `$or` |
+| `Like / Exists / NotExists` | **Silently ignored** for `SearchAsync` / `HybridSearchAsync` (no client-side fallback). Evaluated client-side via `MatchesFilter` for `GetAsync` / `GetBatchAsync` only. |
+
+> **Important**: Unsupported operators produce no error but filter nothing in search queries. Use `GetAsync` / `GetBatchAsync` when these operators are required.
+
+## VectorFilter
+
+For the full operator reference and fluent API examples (`Where`, `WhereNot`, `WhereIn`, `WhereLike`, `WhereExists`, `Or`, `And`, `WithMinScore`, etc.), see the [Mythosia.VectorDb.Abstractions README](../Mythosia.VectorDb.Abstractions/README.md#vectorfilter).
+
+> **Pinecone-specific note**: `Like`, `Exists`, and `NotExists` are silently ignored in `SearchAsync` / `HybridSearchAsync`. They are only evaluated client-side in `GetAsync` / `GetBatchAsync`.
 
 ## Metadata Layout
 
@@ -101,7 +140,7 @@ Each stored vector uses reserved metadata keys:
 `ReplaceByFilterAsync` is available via the `IVectorStore` default interface method. It performs sequential `DeleteByFilterAsync` → `UpsertBatchAsync`. Pinecone does not support server-side transactions, so sequential execution is the best available behavior:
 
 ```csharp
-var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
+var filter = new VectorFilter().Where("full_path", "/docs/file.md");
 await store.InNamespace("documents").ReplaceByFilterAsync(filter, newRecords);
 ```
 
@@ -116,7 +155,7 @@ long count = await store.InNamespace("documents").CountAsync();
 
 // Count with metadata filter (POSTs filter to describe_index_stats)
 long filtered = await store.InNamespace("documents").CountAsync(
-    VectorFilter.ByMetadata("category", "finance"));
+    new VectorFilter().Where("category", "finance"));
 ```
 
 `GetBatchAsync` issues a single `GET /vectors/fetch?ids=id1&ids=id2&...` request per namespace. `CountAsync` calls `describe_index_stats`; when a metadata filter is present, it is sent in a POST body for a server-side filtered count.
@@ -141,6 +180,25 @@ catch (Exception ex)
 {
     Console.WriteLine($"Connection failed: {ex.Message}");
 }
+```
+
+## Resource Disposal
+
+`PineconeStore` implements `IDisposable`. When created via the standard constructor, it owns the internal `HttpClient` and disposes it on `Dispose()`:
+
+```csharp
+using var store = new PineconeStore(options);
+// HttpClient disposed automatically
+```
+
+When injecting a pre-configured `HttpClient`, the caller retains ownership and is responsible for disposal:
+
+```csharp
+var httpClient = new HttpClient();
+httpClient.BaseAddress = new Uri("https://my-index-xxxx.svc.us-east1-gcp.pinecone.io");
+
+var store = new PineconeStore(options, httpClient);
+// store.Dispose() will NOT dispose httpClient — caller must dispose it separately
 ```
 
 ## API Key Note

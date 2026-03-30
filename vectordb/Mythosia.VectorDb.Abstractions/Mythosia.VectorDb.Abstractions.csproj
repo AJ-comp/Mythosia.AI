@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>2.4.0</Version>
+    <Version>3.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Core abstractions for vector storage: IVectorStore, VectorRecord, VectorFilter, VectorSearchResult, HybridSearchAsync, GetBatchAsync, CountAsync, VerifyConnectionAsync, Bm25Tokenizer. Framework-agnostic contracts consumed by RAG pipelines, custom vector DB adapters, and more.</Description>
     <PackageTags>VectorDB;VectorStore;Abstractions;Embedding;CosineSimilarity;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.4.0: Add GetBatchAsync and CountAsync default interface methods to IVectorStore. Complete INamespaceContext and IScopeContext with HybridSearchAsync, GetBatchAsync, ReplaceByFilterAsync, CountAsync, and DeleteAllAsync methods.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.0: VectorFilter fluent API — replace MetadataMatch dictionary and static factory methods (ByMetadata, ByNamespace, ByScope) with a full operator-based fluent builder (Where/WhereNot/WhereIn/WhereNotIn/WhereGreaterThan/WhereLessThan/WhereLike/WhereExists/WhereNotExists/And/Or). Introduces FilterCondition, MetadataCondition, FilterGroup, FilterOperator, and FilterLogic types.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

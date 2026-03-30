@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.3.0</Version>
+    <Version>2.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with native namespace partitioning, metadata-based scope filtering, GetBatchAsync, CountAsync, and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.3.0: Add GetBatchAsync (single HTTP /vectors/fetch call) and CountAsync (via describe_index_stats). Dependency updates: System.IO.Hashing 10.0.5, System.Text.Json 10.0.5.</PackageReleaseNotes>
+    <PackageReleaseNotes>v2.0.0: Requires Abstractions v3.0.0 — VectorFilter.ByMetadata/ByNamespace/ByScope and MetadataMatch are removed. Use new fluent API: new VectorFilter().Where(...). Pinecone metadata filter builder updated for the full condition tree: Eq→$eq, Ne→$ne, Gt/Gte/Lt/Lte→$gt/$gte/$lt/$lte, In→$in, NotIn→$nin, And/Or groups→$and/$or. Like/Exists/NotExists silently skipped server-side, evaluated client-side in MatchesFilter.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

@@ -5,6 +5,20 @@
 
 Unified .NET AI library with modular provider packages, document loaders, and RAG extensions.
 
+### What do I need to install?
+
+```
+dotnet add package Mythosia.AI                    # start here (this is all you need)
+dotnet add package Mythosia.AI.Rag                # optional: when you need RAG
+dotnet add package Mythosia.VectorDb.Postgres     # optional: when you need a production vector store
+```
+
+| Step | Package | When |
+| :--: | --- | --- |
+| **1** | **`Mythosia.AI`** | **Start here** — completions, streaming, function calling, structured output (OpenAI / Claude / Gemini / Grok / DeepSeek / Perplexity) |
+| **2** | **`Mythosia.AI.Rag`** | When you need RAG — text splitters, embeddings, hybrid search, reranking, InMemory vector store, and document loaders (Word / Excel / PowerPoint / PDF) |
+| **3** | **`Mythosia.VectorDb.Postgres`** / **`Qdrant`** / **`Pinecone`** | When you need a production vector store instead of InMemory — pick one |
+
 ## Supported Providers
 
 | Provider | Package | Models |

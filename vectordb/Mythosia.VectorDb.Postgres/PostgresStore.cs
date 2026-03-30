@@ -592,30 +592,21 @@ WHERE table_schema = @schema AND table_name = @table";
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
 
-        var sb = new StringBuilder($"SELECT COUNT(*) FROM {_qualifiedTable}");
-        var hasWhere = false;
+        // Use WHERE 1=1 so every subsequent condition can safely prepend " AND "
+        var sb = new StringBuilder($"SELECT COUNT(*) FROM {_qualifiedTable} WHERE 1=1");
 
         if (filter?.Namespace != null)
         {
-            sb.Append(" WHERE namespace = @ns");
+            sb.Append(" AND namespace = @ns");
             cmd.Parameters.AddWithValue("@ns", filter.Namespace);
-            hasWhere = true;
         }
 
-        if (filter?.Scope != null)
+        if (filter != null)
         {
-            sb.Append(hasWhere ? " AND" : " WHERE");
-            sb.Append(" scope = @scope_filter");
-            cmd.Parameters.Add(new NpgsqlParameter("@scope_filter", filter.Scope));
-            hasWhere = true;
-        }
-
-        if (filter?.MetadataMatch != null && filter.MetadataMatch.Count > 0)
-        {
-            var jsonb = JsonSerializer.Serialize(filter.MetadataMatch);
-            sb.Append(hasWhere ? " AND" : " WHERE");
-            sb.Append(" metadata @> @meta_filter");
-            cmd.Parameters.Add(CreateJsonbParameter("@meta_filter", jsonb));
+            var (whereClause, filterParams) = BuildFilterWhere(filter, includeMinScore: false, string.Empty);
+            sb.Append(whereClause);
+            foreach (var p in filterParams)
+                cmd.Parameters.Add(p);
         }
 
         cmd.CommandText = sb.ToString();
@@ -675,6 +666,7 @@ ON CONFLICT (namespace, id) DO UPDATE SET
     {
         var sb = new StringBuilder();
         var parameters = new List<NpgsqlParameter>();
+        int paramIdx = 0;
 
         if (filter.Scope != null)
         {
@@ -682,11 +674,10 @@ ON CONFLICT (namespace, id) DO UPDATE SET
             parameters.Add(new NpgsqlParameter("@scope_filter", filter.Scope));
         }
 
-        if (filter.MetadataMatch != null && filter.MetadataMatch.Count > 0)
+        if (filter.Conditions.Count > 0)
         {
-            var jsonb = JsonSerializer.Serialize(filter.MetadataMatch);
-            sb.Append(" AND metadata @> @meta_filter");
-            parameters.Add(CreateJsonbParameter("@meta_filter", jsonb));
+            sb.Append(" AND ");
+            AppendConditionGroup(sb, parameters, filter.Conditions, FilterLogic.And, ref paramIdx);
         }
 
         if (includeMinScore && filter.MinScore.HasValue)
@@ -696,6 +687,134 @@ ON CONFLICT (namespace, id) DO UPDATE SET
         }
 
         return (sb.ToString(), parameters);
+    }
+
+    private static void AppendConditionGroup(
+        StringBuilder sb,
+        List<NpgsqlParameter> parameters,
+        IReadOnlyList<FilterCondition> conditions,
+        FilterLogic logic,
+        ref int paramIdx)
+    {
+        var joiner = logic == FilterLogic.And ? " AND " : " OR ";
+        sb.Append('(');
+        for (int i = 0; i < conditions.Count; i++)
+        {
+            if (i > 0) sb.Append(joiner);
+            AppendSingleCondition(sb, parameters, conditions[i], ref paramIdx);
+        }
+        sb.Append(')');
+    }
+
+    private static void AppendSingleCondition(
+        StringBuilder sb,
+        List<NpgsqlParameter> parameters,
+        FilterCondition condition,
+        ref int paramIdx)
+    {
+        if (condition is MetadataCondition mc)
+        {
+            AppendMetadataCondition(sb, parameters, mc, ref paramIdx);
+        }
+        else if (condition is FilterGroup group)
+        {
+            AppendConditionGroup(sb, parameters, group.Conditions, group.Logic, ref paramIdx);
+        }
+    }
+
+    private static void AppendMetadataCondition(
+        StringBuilder sb,
+        List<NpgsqlParameter> parameters,
+        MetadataCondition mc,
+        ref int paramIdx)
+    {
+        int idx = paramIdx++;
+        var pKey = $"@mf_k{idx}";
+        var pVal = $"@mf_v{idx}";
+
+        switch (mc.Operator)
+        {
+            case FilterOperator.Eq:
+            {
+                // JSONB containment: uses GIN index and safely embeds key via JsonSerializer
+                var json = JsonSerializer.Serialize(
+                    new System.Collections.Generic.Dictionary<string, string> { { mc.Key, mc.Value! } });
+                sb.Append($"metadata @> {pVal}");
+                parameters.Add(CreateJsonbParameter(pVal, json));
+                break;
+            }
+            case FilterOperator.Ne:
+                // NULL from missing key propagates as false in WHERE — records without the key do not match
+                sb.Append($"metadata->>{pKey} != {pVal}");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, mc.Value!));
+                break;
+
+            case FilterOperator.Gt:
+                sb.Append($"metadata->>{pKey} > {pVal}");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, mc.Value!));
+                break;
+
+            case FilterOperator.Gte:
+                sb.Append($"metadata->>{pKey} >= {pVal}");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, mc.Value!));
+                break;
+
+            case FilterOperator.Lt:
+                sb.Append($"metadata->>{pKey} < {pVal}");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, mc.Value!));
+                break;
+
+            case FilterOperator.Lte:
+                sb.Append($"metadata->>{pKey} <= {pVal}");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, mc.Value!));
+                break;
+
+            case FilterOperator.In:
+                sb.Append($"metadata->>{pKey} = ANY({pVal})");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = ToArray(mc.Values!)
+                });
+                break;
+
+            case FilterOperator.NotIn:
+                sb.Append($"NOT (metadata->>{pKey} = ANY({pVal}))");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text)
+                {
+                    Value = ToArray(mc.Values!)
+                });
+                break;
+
+            case FilterOperator.Like:
+                sb.Append($"metadata->>{pKey} LIKE {pVal}");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                parameters.Add(new NpgsqlParameter(pVal, mc.Value!));
+                break;
+
+            case FilterOperator.Exists:
+                sb.Append($"jsonb_exists(metadata, {pKey})");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                break;
+
+            case FilterOperator.NotExists:
+                sb.Append($"NOT jsonb_exists(metadata, {pKey})");
+                parameters.Add(new NpgsqlParameter(pKey, mc.Key));
+                break;
+        }
+    }
+
+    private static string[] ToArray(IReadOnlyList<string> values)
+    {
+        var arr = new string[values.Count];
+        for (int i = 0; i < values.Count; i++) arr[i] = values[i];
+        return arr;
     }
 
     /// <summary>

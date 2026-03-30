@@ -108,24 +108,99 @@ namespace Mythosia.VectorDb.Qdrant
             if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
                 return false;
 
-            if (filter.MetadataMatch != null)
-            {
-                foreach (var kvp in filter.MetadataMatch)
-                {
-                    if (!record.Metadata.TryGetValue(kvp.Key, out var value) ||
-                        !string.Equals(value, kvp.Value, StringComparison.Ordinal))
-                        return false;
-                }
-            }
+            if (filter.Conditions.Count > 0 && !EvaluateConditions(record, filter.Conditions, FilterLogic.And))
+                return false;
 
             return true;
+        }
+
+        private static bool EvaluateConditions(VectorRecord record, IReadOnlyList<FilterCondition> conditions, FilterLogic logic)
+        {
+            if (logic == FilterLogic.And)
+            {
+                foreach (var c in conditions)
+                    if (!EvaluateCondition(record, c)) return false;
+                return true;
+            }
+            else
+            {
+                foreach (var c in conditions)
+                    if (EvaluateCondition(record, c)) return true;
+                return false;
+            }
+        }
+
+        private static bool EvaluateCondition(VectorRecord record, FilterCondition condition)
+        {
+            if (condition is MetadataCondition mc) return EvaluateMetadataCondition(record, mc);
+            if (condition is FilterGroup group) return EvaluateConditions(record, group.Conditions, group.Logic);
+            return true;
+        }
+
+        private static bool EvaluateMetadataCondition(VectorRecord record, MetadataCondition mc)
+        {
+            switch (mc.Operator)
+            {
+                case FilterOperator.Eq:
+                    return record.Metadata.TryGetValue(mc.Key, out var eq) && string.Equals(eq, mc.Value, StringComparison.Ordinal);
+                case FilterOperator.Ne:
+                    return record.Metadata.TryGetValue(mc.Key, out var ne) && !string.Equals(ne, mc.Value, StringComparison.Ordinal);
+                case FilterOperator.In:
+                    return record.Metadata.TryGetValue(mc.Key, out var inV) && mc.Values != null && ContainsOrdinal(mc.Values, inV);
+                case FilterOperator.NotIn:
+                    return record.Metadata.TryGetValue(mc.Key, out var ninV) && (mc.Values == null || !ContainsOrdinal(mc.Values, ninV));
+                case FilterOperator.Like:
+                    return record.Metadata.TryGetValue(mc.Key, out var like) && LikeMatch(like, mc.Value ?? string.Empty);
+                case FilterOperator.Gt:
+                    return record.Metadata.TryGetValue(mc.Key, out var gt) && string.Compare(gt, mc.Value, StringComparison.Ordinal) > 0;
+                case FilterOperator.Gte:
+                    return record.Metadata.TryGetValue(mc.Key, out var gte) && string.Compare(gte, mc.Value, StringComparison.Ordinal) >= 0;
+                case FilterOperator.Lt:
+                    return record.Metadata.TryGetValue(mc.Key, out var lt) && string.Compare(lt, mc.Value, StringComparison.Ordinal) < 0;
+                case FilterOperator.Lte:
+                    return record.Metadata.TryGetValue(mc.Key, out var lte) && string.Compare(lte, mc.Value, StringComparison.Ordinal) <= 0;
+                case FilterOperator.Exists:
+                    return record.Metadata.ContainsKey(mc.Key);
+                case FilterOperator.NotExists:
+                    return !record.Metadata.ContainsKey(mc.Key);
+                default:
+                    return true;
+            }
+        }
+
+        private static bool ContainsOrdinal(IReadOnlyList<string> values, string target)
+        {
+            for (int i = 0; i < values.Count; i++)
+                if (string.Equals(values[i], target, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        private static bool LikeMatch(string text, string pattern) => LikeMatchCore(text, pattern, 0, 0);
+
+        private static bool LikeMatchCore(string text, string pattern, int t, int p)
+        {
+            while (t < text.Length && p < pattern.Length)
+            {
+                if (pattern[p] == '%')
+                {
+                    while (p < pattern.Length && pattern[p] == '%') p++;
+                    if (p == pattern.Length) return true;
+                    for (int i = t; i <= text.Length; i++)
+                        if (LikeMatchCore(text, pattern, i, p)) return true;
+                    return false;
+                }
+                if (pattern[p] == '_' || pattern[p] == text[t]) { t++; p++; }
+                else return false;
+            }
+            while (p < pattern.Length && pattern[p] == '%') p++;
+            return t == text.Length && p == pattern.Length;
         }
 
         public async Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            if (filter != null && (filter.Scope != null || filter.MetadataMatch != null))
+            if (filter != null && (filter.Scope != null || filter.Conditions.Count > 0))
             {
                 // scope or metadata filter present: use filter-based delete so conditions are respected atomically
                 var deleteFilter = BuildFilter(filter);
@@ -394,11 +469,11 @@ namespace Mythosia.VectorDb.Qdrant
 
         private static Filter BuildFilter(VectorFilter? filter)
         {
-            var conditions = new List<Condition>();
+            var result = new Filter();
 
             if (filter?.Namespace != null)
             {
-                conditions.Add(new Condition
+                result.Must.Add(new Condition
                 {
                     Field = new FieldCondition
                     {
@@ -410,7 +485,7 @@ namespace Mythosia.VectorDb.Qdrant
 
             if (filter?.Scope != null)
             {
-                conditions.Add(new Condition
+                result.Must.Add(new Condition
                 {
                     Field = new FieldCondition
                     {
@@ -420,28 +495,104 @@ namespace Mythosia.VectorDb.Qdrant
                 });
             }
 
-            if (filter?.MetadataMatch != null)
-            {
-                foreach (var kvp in filter.MetadataMatch)
-                {
-                    conditions.Add(new Condition
-                    {
-                        Field = new FieldCondition
-                        {
-                            Key = $"{QdrantHelpers.PayloadMetadataPrefix}{kvp.Key}",
-                            Match = new Match { Keyword = kvp.Value }
-                        }
-                    });
-                }
-            }
-
-            if (conditions.Count == 0)
-                return new Filter();
-
-            var result = new Filter();
-            result.Must.AddRange(conditions);
+            if (filter?.Conditions != null && filter.Conditions.Count > 0)
+                AppendConditionsToFilter(result, filter.Conditions, FilterLogic.And);
 
             return result;
+        }
+
+        /// <summary>
+        /// Recursively translates <see cref="FilterCondition"/> tree into Qdrant filter predicates.
+        /// Supported natively: Eq, Ne, In, NotIn, And/Or groups.
+        /// Unsupported operators (Gt, Gte, Lt, Lte, Like, Exists, NotExists) are silently skipped
+        /// at the Qdrant level — <see cref="MatchesFilter"/> handles them for GetAsync/GetBatchAsync.
+        /// </summary>
+        private static void AppendConditionsToFilter(Filter filter, IReadOnlyList<FilterCondition> conditions, FilterLogic logic)
+        {
+            foreach (var condition in conditions)
+            {
+                if (condition is MetadataCondition mc)
+                {
+                    var fieldKey = $"{QdrantHelpers.PayloadMetadataPrefix}{mc.Key}";
+                    switch (mc.Operator)
+                    {
+                        case FilterOperator.Eq:
+                        {
+                            var cond = new Condition
+                            {
+                                Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = mc.Value! } }
+                            };
+                            if (logic == FilterLogic.And) filter.Must.Add(cond);
+                            else filter.Should.Add(cond);
+                            break;
+                        }
+                        case FilterOperator.Ne:
+                        {
+                            var inner = new Condition
+                            {
+                                Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = mc.Value! } }
+                            };
+                            if (logic == FilterLogic.And)
+                            {
+                                filter.MustNot.Add(inner);
+                            }
+                            else
+                            {
+                                // OR context: wrap NOT condition in a nested filter
+                                var nested = new Filter();
+                                nested.MustNot.Add(inner);
+                                filter.Should.Add(new Condition { Filter = nested });
+                            }
+                            break;
+                        }
+                        case FilterOperator.In:
+                        {
+                            // Express as a nested OR of keyword matches
+                            var nested = new Filter();
+                            foreach (var val in mc.Values!)
+                                nested.Should.Add(new Condition
+                                {
+                                    Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = val } }
+                                });
+                            var cond = new Condition { Filter = nested };
+                            if (logic == FilterLogic.And) filter.Must.Add(cond);
+                            else filter.Should.Add(cond);
+                            break;
+                        }
+                        case FilterOperator.NotIn:
+                        {
+                            // NOT (val IN values) expressed as MustNot { Should [...] }
+                            var shouldFilter = new Filter();
+                            foreach (var val in mc.Values!)
+                                shouldFilter.Should.Add(new Condition
+                                {
+                                    Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = val } }
+                                });
+                            if (logic == FilterLogic.And)
+                            {
+                                filter.MustNot.Add(new Condition { Filter = shouldFilter });
+                            }
+                            else
+                            {
+                                var nested = new Filter();
+                                nested.MustNot.Add(new Condition { Filter = shouldFilter });
+                                filter.Should.Add(new Condition { Filter = nested });
+                            }
+                            break;
+                        }
+                        // Gt, Gte, Lt, Lte, Like, Exists, NotExists: not supported by Qdrant filter API
+                        // Skipped here; MatchesFilter handles post-retrieval for GetAsync/GetBatchAsync
+                    }
+                }
+                else if (condition is FilterGroup group)
+                {
+                    var nested = new Filter();
+                    AppendConditionsToFilter(nested, group.Conditions, group.Logic);
+                    var cond = new Condition { Filter = nested };
+                    if (logic == FilterLogic.And) filter.Must.Add(cond);
+                    else filter.Should.Add(cond);
+                }
+            }
         }
 
         #endregion

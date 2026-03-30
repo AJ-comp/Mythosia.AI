@@ -144,7 +144,7 @@ namespace Mythosia.VectorDb.Pinecone
             await EnsureIndexAsync(cancellationToken);
 
             // When additional filters are present, ensure the target matches first.
-            if (filter != null && (filter.Scope != null || filter.MetadataMatch != null))
+            if (filter != null && (filter.Scope != null || filter.Conditions.Count > 0))
             {
                 var existing = await GetAsync(id, filter, cancellationToken);
                 if (existing == null)
@@ -686,19 +686,92 @@ namespace Mythosia.VectorDb.Pinecone
             if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
                 return false;
 
-            if (filter.MetadataMatch != null)
-            {
-                foreach (var kvp in filter.MetadataMatch)
-                {
-                    if (!record.Metadata.TryGetValue(kvp.Key, out var value) ||
-                        !string.Equals(value, kvp.Value, StringComparison.Ordinal))
-                    {
-                        return false;
-                    }
-                }
-            }
+            if (filter.Conditions.Count > 0 && !EvaluateConditions(record, filter.Conditions, FilterLogic.And))
+                return false;
 
             return true;
+        }
+
+        private static bool EvaluateConditions(VectorRecord record, IReadOnlyList<FilterCondition> conditions, FilterLogic logic)
+        {
+            if (logic == FilterLogic.And)
+            {
+                foreach (var c in conditions)
+                    if (!EvaluateCondition(record, c)) return false;
+                return true;
+            }
+            else
+            {
+                foreach (var c in conditions)
+                    if (EvaluateCondition(record, c)) return true;
+                return false;
+            }
+        }
+
+        private static bool EvaluateCondition(VectorRecord record, FilterCondition condition)
+        {
+            if (condition is MetadataCondition mc) return EvaluateMetadataCondition(record, mc);
+            if (condition is FilterGroup group) return EvaluateConditions(record, group.Conditions, group.Logic);
+            return true;
+        }
+
+        private static bool EvaluateMetadataCondition(VectorRecord record, MetadataCondition mc)
+        {
+            switch (mc.Operator)
+            {
+                case FilterOperator.Eq:
+                    return record.Metadata.TryGetValue(mc.Key, out var eq) && string.Equals(eq, mc.Value, StringComparison.Ordinal);
+                case FilterOperator.Ne:
+                    return record.Metadata.TryGetValue(mc.Key, out var ne) && !string.Equals(ne, mc.Value, StringComparison.Ordinal);
+                case FilterOperator.In:
+                    return record.Metadata.TryGetValue(mc.Key, out var inV) && mc.Values != null && ContainsOrdinal(mc.Values, inV);
+                case FilterOperator.NotIn:
+                    return record.Metadata.TryGetValue(mc.Key, out var ninV) && (mc.Values == null || !ContainsOrdinal(mc.Values, ninV));
+                case FilterOperator.Like:
+                    return record.Metadata.TryGetValue(mc.Key, out var like) && LikeMatch(like, mc.Value ?? string.Empty);
+                case FilterOperator.Gt:
+                    return record.Metadata.TryGetValue(mc.Key, out var gt) && string.Compare(gt, mc.Value, StringComparison.Ordinal) > 0;
+                case FilterOperator.Gte:
+                    return record.Metadata.TryGetValue(mc.Key, out var gte) && string.Compare(gte, mc.Value, StringComparison.Ordinal) >= 0;
+                case FilterOperator.Lt:
+                    return record.Metadata.TryGetValue(mc.Key, out var lt) && string.Compare(lt, mc.Value, StringComparison.Ordinal) < 0;
+                case FilterOperator.Lte:
+                    return record.Metadata.TryGetValue(mc.Key, out var lte) && string.Compare(lte, mc.Value, StringComparison.Ordinal) <= 0;
+                case FilterOperator.Exists:
+                    return record.Metadata.ContainsKey(mc.Key);
+                case FilterOperator.NotExists:
+                    return !record.Metadata.ContainsKey(mc.Key);
+                default:
+                    return true;
+            }
+        }
+
+        private static bool ContainsOrdinal(IReadOnlyList<string> values, string target)
+        {
+            for (int i = 0; i < values.Count; i++)
+                if (string.Equals(values[i], target, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        private static bool LikeMatch(string text, string pattern) => LikeMatchCore(text, pattern, 0, 0);
+
+        private static bool LikeMatchCore(string text, string pattern, int t, int p)
+        {
+            while (t < text.Length && p < pattern.Length)
+            {
+                if (pattern[p] == '%')
+                {
+                    while (p < pattern.Length && pattern[p] == '%') p++;
+                    if (p == pattern.Length) return true;
+                    for (int i = t; i <= text.Length; i++)
+                        if (LikeMatchCore(text, pattern, i, p)) return true;
+                    return false;
+                }
+                if (pattern[p] == '_' || pattern[p] == text[t]) { t++; p++; }
+                else return false;
+            }
+            while (p < pattern.Length && pattern[p] == '%') p++;
+            return t == text.Length && p == pattern.Length;
         }
 
         private static object? BuildMetadataFilter(VectorFilter? filter)
@@ -706,32 +779,18 @@ namespace Mythosia.VectorDb.Pinecone
             if (filter == null)
                 return null;
 
-            var conditions = new List<Dictionary<string, object>>();
+            var conditions = new List<object>();
 
             if (filter.Scope != null)
             {
                 conditions.Add(new Dictionary<string, object>
                 {
-                    [MetadataKeyScope] = new Dictionary<string, object>
-                    {
-                        ["$eq"] = filter.Scope
-                    }
+                    [MetadataKeyScope] = new Dictionary<string, object> { ["$eq"] = filter.Scope }
                 });
             }
 
-            if (filter.MetadataMatch != null)
-            {
-                foreach (var kvp in filter.MetadataMatch)
-                {
-                    conditions.Add(new Dictionary<string, object>
-                    {
-                        [kvp.Key] = new Dictionary<string, object>
-                        {
-                            ["$eq"] = kvp.Value
-                        }
-                    });
-                }
-            }
+            foreach (var condition in filter.Conditions)
+                BuildPineconeCondition(condition, conditions);
 
             if (conditions.Count == 0)
                 return null;
@@ -739,10 +798,53 @@ namespace Mythosia.VectorDb.Pinecone
             if (conditions.Count == 1)
                 return conditions[0];
 
-            return new Dictionary<string, object>
+            return new Dictionary<string, object> { ["$and"] = conditions };
+        }
+
+        private static void BuildPineconeCondition(FilterCondition condition, List<object> target)
+        {
+            if (condition is MetadataCondition mc)
             {
-                ["$and"] = conditions
-            };
+                var expr = BuildPineconeMetadataCondition(mc);
+                if (expr != null) target.Add(expr);
+            }
+            else if (condition is FilterGroup group)
+            {
+                var inner = new List<object>();
+                foreach (var c in group.Conditions)
+                    BuildPineconeCondition(c, inner);
+
+                if (inner.Count == 0) return;
+
+                var op = group.Logic == FilterLogic.And ? "$and" : "$or";
+                target.Add(new Dictionary<string, object> { [op] = inner });
+            }
+        }
+
+        private static object? BuildPineconeMetadataCondition(MetadataCondition mc)
+        {
+            switch (mc.Operator)
+            {
+                case FilterOperator.Eq:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$eq"] = mc.Value! } };
+                case FilterOperator.Ne:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$ne"] = mc.Value! } };
+                case FilterOperator.Gt:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$gt"] = mc.Value! } };
+                case FilterOperator.Gte:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$gte"] = mc.Value! } };
+                case FilterOperator.Lt:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$lt"] = mc.Value! } };
+                case FilterOperator.Lte:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$lte"] = mc.Value! } };
+                case FilterOperator.In:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$in"] = mc.Values! } };
+                case FilterOperator.NotIn:
+                    return new Dictionary<string, object> { [mc.Key] = new Dictionary<string, object> { ["$nin"] = mc.Values! } };
+                // Like, Exists, NotExists: not supported by Pinecone filter API; skipped server-side
+                default:
+                    return null;
+            }
         }
 
         #endregion

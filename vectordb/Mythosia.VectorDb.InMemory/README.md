@@ -28,11 +28,13 @@ Automatically used as the default vector store in `Mythosia.AI.Rag`:
 
 - **Thread-safe** — Uses `ConcurrentDictionary` for safe concurrent access
 - **Cosine similarity** — TopK search with configurable result count
-- **Scope isolation** — Filter by scope for multi-tenant scenarios
-- **Metadata filtering** — Filter search results by key-value metadata
+- **Hybrid search** — BM25 + dense vector fusion via weighted RRF, scores normalized to `[0, 1]`
+- **Namespace / scope isolation** — First- and second-tier logical partitioning for multi-tenant scenarios
+- **Metadata filtering** — Full `VectorFilter` operator set (Eq/Ne/In/NotIn/Gt/Gte/Lt/Lte/Like/Exists/NotExists, And/Or groups)
 - **Minimum score** — Discard results below a similarity threshold
 - **Upsert** — Single and batch upsert operations
-- **Namespace-aware operations** — Use `InNamespace(...)` or `VectorFilter.Namespace`
+- **CountAsync** — Count records in a namespace/scope, optionally narrowed by additional filter criteria
+- **Diagnostics** — `IRagDiagnosticsStore`: `ListAllRecordsAsync`, `ScoredListAsync`, `GetTotalRecordCount`
 
 ## Standalone Usage
 
@@ -82,10 +84,10 @@ await store.UpsertAsync(new VectorRecord
 var results = await store.SearchAsync(
     queryVector,
     topK: 5,
-    filter: VectorFilter.ByNamespace("my-namespace"));
+    filter: new VectorFilter { Namespace = "my-namespace" });
 ```
 
-## BM25 Index (v2.1.0)
+## BM25 Index
 
 `Bm25Index` provides in-memory BM25 keyword search for hybrid retrieval. When `UseHybridSearch()` is called with `InMemoryVectorStore`, the RAG pipeline automatically builds a BM25 index alongside the vector store and merges results via RRF.
 
@@ -114,6 +116,12 @@ var results = bm25.Search("machine learning", topK: 5);
 
 When hybrid search is used, fused RRF scores are normalized to the `[0, 1]` range so `VectorFilter.MinScore` is applied consistently to the final merged score.
 
+## VectorFilter
+
+For the full operator reference and fluent API examples (`Where`, `WhereNot`, `WhereIn`, `WhereLike`, `WhereExists`, `Or`, `And`, `WithMinScore`, etc.), see the [Mythosia.VectorDb.Abstractions README](../Mythosia.VectorDb.Abstractions/README.md#vectorfilter).
+
+> **InMemory-specific note**: Range operators (`WhereGreaterThan`, `WhereLessThan`, etc.) use `string.Compare` (ordinal). Store numeric values zero-padded (e.g. `"0042"`) for correct ordering.
+
 ## Batch Get & Count
 
 ```csharp
@@ -125,14 +133,14 @@ long count = await store.InNamespace("docs").CountAsync();
 
 // Count with additional metadata filter
 long filtered = await store.InNamespace("docs").CountAsync(
-    VectorFilter.ByMetadata("storage_id", storageId));
+    new VectorFilter().Where("storage_id", storageId));
 ```
 
-`GetBatchAsync` performs O(n) lookups against the namespace `ConcurrentDictionary` — no vector scoring, just direct key access. Records not found or not matching the filter are omitted.
+`GetBatchAsync` performs O(1)-per-ID lookups via `ConcurrentDictionary.TryGetValue` — no vector scoring, just direct key access. Records not found or not matching the filter are omitted.
 
 ## Resource Disposal
 
-`InMemoryVectorStore` implements `IDisposable`. When hybrid search is enabled, BM25 indexes hold Lucene resources (writer, analyzer, RAMDirectory). Dispose the store when it is no longer needed:
+`InMemoryVectorStore` implements `IDisposable`. A `Bm25Index` (Lucene writer, analyzer, RAMDirectory) is created per namespace on first upsert and is always maintained alongside the vector store. Dispose the store when it is no longer needed to release these resources:
 
 ```csharp
 using var store = new InMemoryVectorStore();
@@ -147,8 +155,8 @@ using var store = new InMemoryVectorStore();
 ```csharp
 IVectorStore store = new InMemoryVectorStore();
 
-var filter = VectorFilter.ByMetadata("full_path", "/docs/file.md");
-filter.Namespace = "default";
+var filter = new VectorFilter { Namespace = "default" }
+    .Where("full_path", "/docs/file.md");
 
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
