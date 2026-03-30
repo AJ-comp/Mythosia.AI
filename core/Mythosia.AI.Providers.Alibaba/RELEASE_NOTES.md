@@ -1,5 +1,14 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v1.2.0 - Mythosia.AI v5.2.0 Binary Compatibility
+
+### ✅ Compatibility
+
+- Recompiled against `Mythosia.AI` v5.2.0 (Abstractions split: `AIService` now implements `IAIService`)
+- No API changes — fixes `TypeLoadException` when used alongside `Mythosia.AI.Abstractions` v1.0.0
+
+---
+
 ## 🚀 v1.1.0 - Mythosia.AI v5.1.0 Compatibility & Token Usage Support
 
 ### **Token Usage in Streaming**
