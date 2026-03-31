@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>Mythosia.VectorDb.InMemory</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>3.0.1</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, upsert/delete operations, GetBatchAsync, CountAsync, IDisposable, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
+    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF;Count;BatchGet</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v3.0.1: Namespace filtering is now optional — null namespace queries across all namespaces. Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Lucene.Net" Version="4.8.0-beta00016" />
+    <PackageReference Include="Lucene.Net.Analysis.Common" Version="4.8.0-beta00016" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

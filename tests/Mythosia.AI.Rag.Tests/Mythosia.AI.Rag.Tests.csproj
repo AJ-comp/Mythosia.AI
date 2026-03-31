@@ -15,12 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\core\Mythosia.AI\Mythosia.AI.csproj" />
-    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
-    <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
-    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
-    <ProjectReference Include="..\..\loaders\Mythosia.Documents.Abstractions\Mythosia.Documents.Abstractions.csproj" />
-    <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\core\Mythosia.AI\Mythosia.AI.csproj" />
+    <ProjectReference Include="..\..\src\rag\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
+    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\rag\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\loaders\Mythosia.Documents.Abstractions\Mythosia.Documents.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

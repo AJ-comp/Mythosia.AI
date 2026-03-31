@@ -1,0 +1,100 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mythosia.AI.Test" />
+  </ItemGroup>
+
+	<PropertyGroup>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);1591</NoWarn>
+	</PropertyGroup>
+
+
+	<PropertyGroup>
+		<PackageId>Mythosia.AI</PackageId>
+		<IsPackable>true</IsPackable>
+		<Company>Mythosia</Company>
+		<PackageTags>AI; Grok; xAI; Grok4; Grok3; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Gpt5.4Mini; Gpt5.4Nano; ChatGpt;
+		Claude Opus 4.6; Claude Sonnet 4.6; Claude Opus 4.5; Claude Sonnet 4.5; Claude Haiku 4.5; Claude;
+		DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
+		<Authors>JJW</Authors>
+		<Description>
+## What's New in v5.2.0
+
+### Abstractions Package Split
+- All shared model/contract types extracted into `Mythosia.AI.Abstractions` (zero heavy dependencies)
+- `AIService` now implements `IAIService` interface for abstraction-based dependency
+- Downstream libraries (e.g., `Mythosia.AI.Rag`) can depend on the lightweight abstractions instead of the full implementation
+- Source-level fully compatible ? all namespaces unchanged, no code changes needed
+
+## Supported Models
+
+### OpenAI
+- GPT-5, GPT-5 Mini, GPT-5 Nano, GPT-5 Chat Latest
+- GPT-5.1
+- GPT-5.2, GPT-5.2 Pro, GPT-5.2 Codex
+- GPT-5.3 Codex
+- GPT-5.4, GPT-5.4 Mini, GPT-5.4 Nano, GPT-5.4 Pro
+- o3, o3-pro
+- GPT-4.1, GPT-4.1 Mini, GPT-4.1 Nano
+- GPT-4o, GPT-4o Mini, GPT-4 Vision
+
+### Anthropic Claude
+- Claude Opus 4.6, Opus 4.5, Opus 4.1, Opus 4
+- Claude Sonnet 4.6, Sonnet 4.5, Sonnet 4
+- Claude Haiku 4.5
+
+### xAI Grok
+- Grok 4, Grok 4.1 Fast
+- Grok 3, Grok 3 Mini
+
+### Google Gemini
+- Gemini 2.5 Pro, Flash, Flash-Lite
+- Gemini 3 Pro Preview, Flash Preview
+
+### DeepSeek
+- DeepSeek Chat, DeepSeek Reasoner
+
+### Perplexity
+- Sonar, Sonar Pro, Sonar Reasoning
+
+## Documentation
+- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
+- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
+- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
+- GitHub: https://github.com/AJ-comp/Mythosia.AI
+		</Description>
+		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageReleaseNotes>v5.2.0: Abstractions extraction ? model/contract types moved to Mythosia.AI.Abstractions (zero heavy deps). AIService implements IAIService. Source-level fully compatible.</PackageReleaseNotes>
+		<Version>5.2.0</Version>
+	</PropertyGroup>
+
+
+	<ItemGroup>
+		<PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
+		<PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+		<PackageReference Include="NJsonSchema" Version="11.5.2" />
+        <PackageReference Include="System.Threading.Channels" Version="10.0.5" />
+        <PackageReference Include="TiktokenSharp" Version="1.2.1" />
+	</ItemGroup>
+
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Mythosia.AI.Abstractions\Mythosia.AI.Abstractions.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <None Update="README.md">
+	    <Pack>True</Pack>
+	    <PackagePath>\</PackagePath>
+	  </None>
+	</ItemGroup>
+
+</Project>
+

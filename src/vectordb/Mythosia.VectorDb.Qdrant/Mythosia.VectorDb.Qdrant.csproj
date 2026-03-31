@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>Mythosia.VectorDb.Qdrant</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>3.0.1</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based namespace and scope isolation. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, automatic collection provisioning, native hybrid search with sparse-dense fusion, GetBatchAsync, CountAsync, and connection verification.</Description>
+    <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC;HybridSearch;BM25;Count;BatchGet</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v3.0.1: Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead. All deprecated APIs marked [Obsolete] and will be removed in a future major version.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <UserSecretsId>36819fe4-a0b6-41e3-9bdb-7cdfd9d51aa5</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Qdrant.Client" Version="1.17.0" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

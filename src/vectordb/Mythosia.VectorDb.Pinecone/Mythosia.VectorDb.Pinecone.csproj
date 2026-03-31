@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>2.0.1</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with native namespace partitioning, metadata-based scope filtering, GetBatchAsync, CountAsync, and connection verification.</Description>
+    <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG;Count;BatchGet</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v2.0.1: Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead. All deprecated APIs marked [Obsolete] and will be removed in a future major version.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Hashing" Version="10.0.5" />
+    <PackageReference Include="System.Text.Json" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

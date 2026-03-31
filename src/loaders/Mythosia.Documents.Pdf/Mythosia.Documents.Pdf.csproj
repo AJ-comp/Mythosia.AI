@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>Mythosia.Documents.Pdf</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>1.1.0</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>PDF document loader. Parses PDF files into DoclingDocument structured models via PdfPig. Font-size based heading detection, bullet/numbered list recognition, spatial paragraph grouping. Supports encrypted PDFs, metadata extraction, and page number headers.</Description>
+    <PackageTags>Document;DocumentLoader;Pdf;PdfPig</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v1.1.0: Structured extraction — font-size heading detection, bullet/numbered list recognition, spatial paragraph grouping. Direct metadata access (reflection removed). NormalizeWhitespace preserves newlines. Fallback for PDFs with no extractable words.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.Documents.Abstractions\Mythosia.Documents.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PdfPig" Version="0.1.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

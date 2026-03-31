@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>Mythosia.VectorDb.Postgres</PackageId>
+    <IsPackable>true</IsPackable>
+    <Version>10.6.1</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, namespace isolation, GetBatchAsync, CountAsync, persisted content_tsv full-text indexing for hybrid search, pg_trgm trigram-based word_similarity for CJK languages, typed index settings (HNSW/IVFFlat/NoIndex), connection verification, and schema provisioning support.</Description>
+    <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK;Count;BatchGet</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReleaseNotes>v10.6.1: Namespace filtering is now optional — null namespace omits WHERE clause. Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead.</PackageReleaseNotes>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="10.0.2" />
+    <PackageReference Include="System.Text.Json" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

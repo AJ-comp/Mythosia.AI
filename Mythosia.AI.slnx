@@ -1,17 +1,26 @@
 <Solution>
-  <Folder Name="/core/">
-    <Project Path="core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj" />
-    <Project Path="core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj" />
-    <Project Path="core/Mythosia.AI/Mythosia.AI.csproj" />
+  <Folder Name="/src/" />
+  <Folder Name="/src/core/">
+    <Project Path="src/core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj" />
+    <Project Path="src/core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj" />
+    <Project Path="src/core/Mythosia.AI/Mythosia.AI.csproj" />
   </Folder>
-  <Folder Name="/loaders/">
-    <Project Path="loaders/Mythosia.Documents.Abstractions/Mythosia.Documents.Abstractions.csproj" />
-    <Project Path="loaders/Mythosia.Documents.Office/Mythosia.Documents.Office.csproj" />
-    <Project Path="loaders/Mythosia.Documents.Pdf/Mythosia.Documents.Pdf.csproj" />
+  <Folder Name="/src/loaders/">
+    <Project Path="src/loaders/Mythosia.Documents.Abstractions/Mythosia.Documents.Abstractions.csproj" />
+    <Project Path="src/loaders/Mythosia.Documents.Office/Mythosia.Documents.Office.csproj" />
+    <Project Path="src/loaders/Mythosia.Documents.Pdf/Mythosia.Documents.Pdf.csproj" />
   </Folder>
-  <Folder Name="/rag/">
-    <Project Path="rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
-    <Project Path="rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
+  <Folder Name="/src/rag/">
+    <Project Path="src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
+    <Project Path="src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
+  </Folder>
+  <Folder Name="/src/vectordb/">
+    <Project Path="src/vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj" />
+    <Project Path="src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj" />
+    <Project Path="src/vectordb/Mythosia.VectorDb.Pinecone/Mythosia.VectorDb.Pinecone.csproj" />
+    <Project Path="src/vectordb/Mythosia.VectorDb.Postgres/Mythosia.VectorDb.Postgres.csproj" />
+    <Project Path="src/vectordb/Mythosia.VectorDb.Qdrant/Mythosia.VectorDb.Qdrant.csproj" />
+    <Project Path="src/vectordb/Mythosia.VectorDb.Tools/Mythosia.VectorDb.Tools.csproj" />
   </Folder>
   <Folder Name="/samples/">
     <Project Path="samples/Mythosia.AI.Samples.ChatUi/Mythosia.AI.Samples.ChatUi.csproj" />
@@ -20,13 +29,5 @@
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
     <Project Path="tests/Mythosia.VectorDb.Postgres.Tests/Mythosia.VectorDb.Postgres.Tests.csproj" />
-  </Folder>
-  <Folder Name="/vectordb/">
-    <Project Path="vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj" Id="de25aa02-69a3-4c4a-a999-b3401d920f13" />
-    <Project Path="vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj" />
-    <Project Path="vectordb/Mythosia.VectorDb.Pinecone/Mythosia.VectorDb.Pinecone.csproj" />
-    <Project Path="vectordb/Mythosia.VectorDb.Postgres/Mythosia.VectorDb.Postgres.csproj" />
-    <Project Path="vectordb/Mythosia.VectorDb.Qdrant/Mythosia.VectorDb.Qdrant.csproj" />
-    <Project Path="vectordb/Mythosia.VectorDb.Tools/Mythosia.VectorDb.Tools.csproj" />
   </Folder>
 </Solution>

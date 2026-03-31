@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\core\Mythosia.AI\Mythosia.AI.csproj" />
+    <ProjectReference Include="..\..\src\core\Mythosia.AI\Mythosia.AI.csproj" />
     <PackageReference Include="Mythosia.Azure" Version="1.2.0" />
   </ItemGroup>
 
