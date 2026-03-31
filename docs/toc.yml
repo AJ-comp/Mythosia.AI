@@ -1,0 +1,24 @@
+- name: Get Started
+  items:
+  - name: Introduction
+    href: introduction.md
+  - name: Getting Started
+    href: getting-started.md
+
+- name: Core Features
+  items:
+  - name: Basic Completions
+    href: completions.md
+  - name: Streaming
+    href: streaming.md
+  - name: Function Calling
+    href: function-calling.md
+  - name: Structured Output
+    href: structured-output.md
+  - name: Conversation Management
+    href: conversation.md
+
+- name: RAG
+  items:
+  - name: RAG Basics
+    href: rag.md
