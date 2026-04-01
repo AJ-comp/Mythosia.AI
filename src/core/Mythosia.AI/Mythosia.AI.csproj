@@ -69,10 +69,10 @@
 - Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
 - GitHub: https://github.com/AJ-comp/Mythosia.AI
 		</Description>
-		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v5.2.0: Abstractions extraction ? model/contract types moved to Mythosia.AI.Abstractions (zero heavy deps). AIService implements IAIService. Source-level fully compatible.</PackageReleaseNotes>
-		<Version>5.2.0</Version>
+		<PackageReleaseNotes>v5.3.0: AIService now implements IFunctionRegisterable (from Mythosia.AI.Abstractions v1.1.0), enabling extension packages such as Mythosia.AI.Rag to register function tools without a direct dependency on this package.</PackageReleaseNotes>
+		<Version>5.3.0</Version>
 	</PropertyGroup>
 
 

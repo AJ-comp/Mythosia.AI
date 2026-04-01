@@ -1,5 +1,20 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v1.1.0
+
+### Added
+
+- **`IFunctionRegisterable`** — new interface that marks an AI service as capable of accepting function (tool) registrations at runtime.
+  - Exposes a single `void AddFunction(FunctionDefinition function)` method.
+  - Allows extension packages (e.g., `Mythosia.AI.Rag`) to register tools on `AIService` without taking a direct dependency on the full `Mythosia.AI` core package.
+  - `AIService` in `Mythosia.AI` v5.3.0 implements this interface via explicit interface implementation (`IFunctionRegisterable.AddFunction` → `Functions.Add`).
+
+### Purpose
+
+Enables `Mythosia.AI.Rag.WithAgenticRag<TService>()` to constrain its generic parameter to `where TService : IAIService, IFunctionRegisterable`, keeping the RAG package dependency-free from the AI core while still being able to register the RAG search tool.
+
+---
+
 ## v1.0.0
 
 ### Initial Release

@@ -409,6 +409,13 @@
   color: inherit;
 }
 
+/* ---------- Article content: heading spacing ---------- */
+article h2 {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--bs-border-color);
+}
+
 /* ---------- Landing layout: hide sidebar ---------- */
 [data-layout="landing"] .toc-offcanvas,
 [data-layout="landing"] .affix {

@@ -1,5 +1,21 @@
 # Mythosia.AI - Release Notes
 
+## v5.3.0
+
+### Added
+
+- **`IFunctionRegisterable` implementation on `AIService`** — `AIService` now implements `IFunctionRegisterable` (from `Mythosia.AI.Abstractions` v1.1.0) via explicit interface implementation.
+  - `IFunctionRegisterable.AddFunction(FunctionDefinition)` delegates to the existing `Functions.Add()` call.
+  - No changes to existing `Functions` property or `WithFunction` / `WithFunctionAsync` extension method API — fully backward compatible.
+  - Enables any extension package that depends only on `Mythosia.AI.Abstractions` to register tools on `AIService` at runtime without a direct dependency on this package.
+
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` v1.1.0.
+- No breaking changes. All existing API surface is unchanged.
+
+---
+
 ## 🚀 v5.2.0 - Abstractions Extraction & IAIService Interface
 
 ### **Abstractions Package Split** 📦

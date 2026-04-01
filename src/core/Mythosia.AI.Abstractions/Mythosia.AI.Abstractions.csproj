@@ -17,10 +17,10 @@
 		<PackageTags>AI;Abstractions;IAIService;Models;Streaming</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>Core abstractions and shared models for Mythosia.AI. Defines IAIService interface, Message, ChatBlock, StreamingContent, FunctionDefinition, and other contract types. Zero heavy dependencies.</Description>
-		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Abstractions</PackageProjectUrl>
+		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v1.0.0: Initial release ? IAIService interface, shared models (Message, ChatBlock, StreamingContent, FunctionDefinition, etc.), extracted from Mythosia.AI for lightweight dependency.</PackageReleaseNotes>
-		<Version>1.0.0</Version>
+		<PackageReleaseNotes>v1.1.0: Add IFunctionRegisterable interface — allows RAG and other extension packages to register function tools on AIService without a direct dependency on the core package.</PackageReleaseNotes>
+		<Version>1.1.0</Version>
 	</PropertyGroup>
 
 	<ItemGroup>

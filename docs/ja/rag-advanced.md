@@ -188,3 +188,65 @@ var result = await store.QueryAsync(
     conversationHistory: history
 );
 ```
+
+## エージェンティックRAG
+
+標準RAGではユーザーメッセージごとに1回検索します。エージェンティックRAGではエージェントが**いつ**検索するか、**何を**検索するか、最初の結果が不十分な場合に**再検索**するかをReActループ内で自律的に決定します。
+
+`WithAgenticRag`で`RagStore`をツールとして登録し、`RunAgentAsync`に委譲します:
+
+```csharp
+// インデックスを一度だけビルド
+var ragStore = await RagStore.BuildAsync(cfg => cfg
+    .AddDocument("manual.pdf")
+    .AddDocument("policy.docx")
+    .UseOpenAIEmbedding(apiKey));
+
+// RAGをToolとして登録してエージェントを実行
+var service = new ClaudeService(apiKey, http);
+service.WithAgenticRag(ragStore);
+
+var answer = await service.RunAgentAsync("返金ポリシーを要約してください。");
+```
+
+エージェントはドキュメントのコンテキストが必要なときに自動的に`search_documents`を呼び出し、取得した内容をもとに最終的な回答を生成します。
+
+### 他のToolとの組み合わせ
+
+エージェンティックRAGは追加のToolと組み合わせると真価を発揮します。エージェントが各サブタスクに適したToolを自ら選択します:
+
+```csharp
+var service = new ClaudeService(apiKey, http);
+
+service.WithAgenticRag(ragStore)
+       .WithFunctionAsync("get_order_status", "注文IDで注文ステータスを照会します。",
+           ("order_id", "照会する注文ID。", required: true),
+           async id => await orderApi.GetStatusAsync(id));
+
+// エージェントがポリシーはドキュメントから検索し、注文状況はAPIから取得
+var answer = await service.RunAgentAsync(
+    "注文 #12345 — 現在のポリシーで返金対象ですか？");
+```
+
+### Toolの説明をカスタマイズ
+
+Toolの説明はエージェントがRAGを呼び出す基準になります。ドメインに合わせて記述するとTool選択の精度が上がります:
+
+```csharp
+service.WithAgenticRag(ragStore,
+    toolDescription:
+        "社内HRポリシー、製品マニュアル、コンプライアンス文書を検索します。" +
+        "会社のポリシーや製品に関する情報が必要なときに呼び出してください。");
+```
+
+### 標準RAGとの違い
+
+| | 標準RAG | エージェンティックRAG |
+|---|---|---|
+| 検索タイミング | メッセージごと | エージェントが決定 |
+| クエリ生成 | QueryRewriter | エージェント自体 |
+| 検索回数 | ターンごとに1回 | 必要に応じて1回以上 |
+| Toolの組み合わせ | 非対応 | 登録済みの全Tool |
+| 設定方法 | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+
+> **注意:** エージェンティックRAGでは`QueryRewriter`が意図的にバイパスされます。エージェントが自ら独立した検索クエリを生成するため、別途の書き換えステップは不要であり、エージェントの意図を歪める可能性があります。

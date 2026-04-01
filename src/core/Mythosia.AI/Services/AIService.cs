@@ -18,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.Base
 {
-    public abstract partial class AIService : IAIService
+    public abstract partial class AIService : IAIService, IFunctionRegisterable
     {
         protected readonly string ApiKey;
         protected readonly HttpClient HttpClient;
@@ -89,6 +89,9 @@ namespace Mythosia.AI.Services.Base
         public FunctionCallMode FunctionCallMode { get; set; } = FunctionCallMode.Auto;
         public string ForceFunctionName { get; set; }
         public bool ShouldUseFunctions => Functions.Count > 0 && EnableFunctions && !FunctionsDisabled;
+
+        /// <inheritdoc/>
+        void IFunctionRegisterable.AddFunction(FunctionDefinition function) => Functions.Add(function);
 
         #endregion
 
