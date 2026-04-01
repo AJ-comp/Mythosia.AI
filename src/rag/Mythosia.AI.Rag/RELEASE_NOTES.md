@@ -1,5 +1,13 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.0.1
+
+### Changed
+
+- **Mythosia.Documents.Pdf** dependency updated to v1.1.0 — structured extraction improvements including font-size based heading detection, bullet/numbered list recognition, and spatial paragraph grouping.
+
+---
+
 ## v7.0.0
 
 ### Breaking Changes

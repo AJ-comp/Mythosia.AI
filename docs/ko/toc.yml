@@ -1,54 +1,54 @@
-- name: Get Started
+- name: 시작하기
   items:
-  - name: Introduction
+  - name: 소개
     href: introduction.md
-  - name: Getting Started
+  - name: 빠른 시작
     href: getting-started.md
 
-- name: Core Features
+- name: 핵심 기능
   items:
-  - name: Basic Completions
+  - name: 기본 완성
     href: completions.md
-  - name: Generation Parameters
+  - name: 생성 파라미터
     href: generation-params.md
-  - name: Streaming
+  - name: 스트리밍
     href: streaming.md
-  - name: Function Calling
+  - name: 함수 호출
     href: function-calling.md
-  - name: Agent (ReAct Loop)
+  - name: 에이전트 (ReAct 루프)
     href: agent.md
-  - name: Structured Output
+  - name: 구조화된 출력
     href: structured-output.md
-  - name: Conversation Management
+  - name: 대화 관리
     href: conversation.md
-  - name: Request Profiles & Contexts
+  - name: 요청 프로필 및 컨텍스트
     href: request-profiles.md
 
-- name: Providers
+- name: 프로바이더
   items:
-  - name: Provider-Specific Features
+  - name: 프로바이더별 기능
     href: providers.md
 
 - name: RAG
   items:
-  - name: RAG Basics
+  - name: RAG 기초
     href: rag.md
-  - name: Text Splitters
+  - name: 텍스트 분할기
     href: text-splitters.md
-  - name: Document Loaders
+  - name: 문서 로더
     href: document-loaders.md
-  - name: Advanced RAG
+  - name: 고급 RAG
     href: rag-advanced.md
 
-- name: Vector Database
+- name: 벡터 데이터베이스
   items:
-  - name: Overview
+  - name: 개요
     href: vectordb-overview.md
-  - name: Backend Setup
+  - name: 백엔드 설정
     href: vectordb-backends.md
-  - name: Operations
+  - name: 주요 작업
     href: vectordb-operations.md
   - name: VectorFilter
     href: vector-filter.md
-  - name: Migration
+  - name: 마이그레이션
     href: vectordb-migration.md

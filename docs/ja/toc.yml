@@ -1,0 +1,54 @@
+- name: はじめに
+  items:
+  - name: 概要
+    href: introduction.md
+  - name: クイックスタート
+    href: getting-started.md
+
+- name: コア機能
+  items:
+  - name: 基本的な補完
+    href: completions.md
+  - name: 生成パラメータ
+    href: generation-params.md
+  - name: ストリーミング
+    href: streaming.md
+  - name: 関数呼び出し
+    href: function-calling.md
+  - name: エージェント (ReActループ)
+    href: agent.md
+  - name: 構造化出力
+    href: structured-output.md
+  - name: 会話管理
+    href: conversation.md
+  - name: リクエストプロファイルとコンテキスト
+    href: request-profiles.md
+
+- name: プロバイダー
+  items:
+  - name: プロバイダー固有機能
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: RAG 基礎
+    href: rag.md
+  - name: テキストスプリッター
+    href: text-splitters.md
+  - name: ドキュメントローダー
+    href: document-loaders.md
+  - name: 高度なRAG
+    href: rag-advanced.md
+
+- name: ベクターデータベース
+  items:
+  - name: 概要
+    href: vectordb-overview.md
+  - name: バックエンド設定
+    href: vectordb-backends.md
+  - name: 主要操作
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: マイグレーション
+    href: vectordb-migration.md
