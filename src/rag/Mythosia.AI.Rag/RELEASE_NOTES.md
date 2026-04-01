@@ -1,5 +1,53 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.1.0
+
+### Added
+
+- **`WithAgenticRag<TService>(RagStore, string?, string?)`** — new extension method on `AgenticRagExtensions` that registers the `RagStore` as a callable search tool on any AI service implementing both `IAIService` and `IFunctionRegisterable`.
+  - Registers a `search_documents` function (name configurable via `toolName`) in the agent's function list.
+  - Inside the tool handler, `RagStore.QueryAsync(query)` is called directly — `QueryRewriter` is intentionally bypassed. The agent formulates its own self-contained search query as part of its ReAct reasoning.
+  - Returns all retrieved excerpts with source metadata as a formatted string for the agent to reason over.
+  - When no results are found, returns a descriptive fallback message so the agent can decide to retry with a different query.
+  - Tool description is customizable via `toolDescription` parameter; defaults to a domain-agnostic description that instructs the agent to use self-contained queries.
+  - Fully compatible with combining other tools via `WithFunction` / `WithFunctionAsync`.
+
+### Usage
+
+```csharp
+var ragStore = await RagStore.BuildAsync(cfg => cfg
+    .AddDocument("manual.pdf")
+    .UseOpenAIEmbedding(apiKey));
+
+// Basic: RAG as the only tool
+var service = new ClaudeService(apiKey, http);
+service.WithAgenticRag(ragStore);
+var answer = await service.RunAgentAsync("Summarise the refund policy.");
+
+// Combined with other tools
+service.WithAgenticRag(ragStore)
+       .WithFunctionAsync("get_order_status", "Look up an order by ID.",
+           ("order_id", "The order ID.", required: true),
+           async id => await orderApi.GetStatusAsync(id));
+
+// Custom tool description for better domain-specific selection
+service.WithAgenticRag(ragStore,
+    toolDescription: "Search HR policies and product manuals.");
+```
+
+### Design Notes
+
+- `QueryRewriter` set on the `RagStore` is intentionally not invoked. The agent's own ReAct reasoning replaces the rewriter's role — it produces a clean, standalone query before calling the tool.
+- Existing `WithRag()` / `RagEnabledService` flows are completely unaffected.
+- Requires `Mythosia.AI.Abstractions` v1.1.0 and `Mythosia.AI` v5.3.0 (both implement `IFunctionRegisterable`).
+
+### Compatibility
+
+- No breaking changes to any existing API.
+- Requires `Mythosia.AI.Abstractions` v1.1.0 for `IFunctionRegisterable`.
+
+---
+
 ## v7.0.1
 
 ### Changed

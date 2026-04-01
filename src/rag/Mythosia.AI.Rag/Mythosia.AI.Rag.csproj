@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>7.0.1</Version>
+    <Version>7.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Implements Mythosia.AI.Rag.Abstractions v5.x. Includes RagPipeline, text splitters, context builder, OpenAI/vLLM embedding providers, hybrid search (BM25 + Vector + RRF), re-ranking (Cohere, LLM, vLLM), search gate, keyword extraction, weighted-blend final selection, progress reporting, DoclingDocument-to-RagDocument conversion, and per-query VectorFilter passthrough (StoreFilter). Depends on Mythosia.AI.Abstractions (IAIService) instead of the full Mythosia.AI implementation.</Description>
     <PackageTags>AI;RAG;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking;MetadataFilter</PackageTags>
-    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag</PackageProjectUrl>
-    <PackageReleaseNotes>v7.0.1: Updated Mythosia.Documents.Pdf dependency to v1.1.0 (structured extraction — font-size heading detection, bullet/numbered list recognition, spatial paragraph grouping).</PackageReleaseNotes>
+    <PackageProjectUrl>https://aj-comp.github.io/Mythosia.AI/docs/rag.html</PackageProjectUrl>
+    <PackageReleaseNotes>v7.1.0: Add Agentic RAG support — WithAgenticRag&lt;TService&gt;() registers the RagStore as a search tool on any AIService that implements IFunctionRegisterable, enabling autonomous retrieval inside a RunAgentAsync ReAct loop. QueryRewriter is intentionally bypassed; the agent formulates its own self-contained search queries. Existing WithRag() / RagEnabledService flows are unaffected.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

@@ -339,6 +339,62 @@ var store = await RagStore.BuildAsync(config => config
 );
 ```
 
+## Agentic RAG
+
+In standard RAG the pipeline runs once per user message. In Agentic RAG the agent decides **when** to search, **what** to search for, and whether to search **again** if the first result is insufficient — all autonomously inside a ReAct loop.
+
+Register the `RagStore` as a search tool with `WithAgenticRag`, then run `RunAgentAsync`:
+
+```csharp
+// Build the index once
+var ragStore = await RagStore.BuildAsync(cfg => cfg
+    .AddDocument("manual.pdf")
+    .AddDocument("policy.docx")
+    .UseOpenAIEmbedding(apiKey));
+
+// Register RAG as a tool and run the agent
+var service = new ClaudeService(apiKey, http);
+service.WithAgenticRag(ragStore);
+
+var answer = await service.RunAgentAsync("Summarise the refund policy.");
+```
+
+### Combining with Other Tools
+
+```csharp
+service.WithAgenticRag(ragStore)
+       .WithFunctionAsync("get_order_status", "Look up an order status by order ID.",
+           ("order_id", "The order ID to look up.", required: true),
+           async id => await orderApi.GetStatusAsync(id));
+
+// The agent searches documents for policy AND calls the API for live order data
+var answer = await service.RunAgentAsync(
+    "Order #12345 — am I eligible for a refund based on the current policy?");
+```
+
+### Custom Tool Description
+
+The tool description controls when the agent decides to call RAG. Tailor it to your domain:
+
+```csharp
+service.WithAgenticRag(ragStore,
+    toolDescription:
+        "Search internal HR policies, product manuals, and compliance documents. " +
+        "Call this tool whenever company-specific policy or product information is needed.");
+```
+
+### How It Differs from Standard RAG
+
+| | Standard RAG | Agentic RAG |
+|---|---|---|
+| Search timing | Every message | Agent decides |
+| Query formulation | QueryRewriter | Agent itself |
+| Number of searches | Once per turn | One or more as needed |
+| Tool combination | Not applicable | Any registered tool |
+| Setup | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+
+> `QueryRewriter` is intentionally bypassed in Agentic RAG. The agent formulates its own self-contained search query, so a separate rewriting step is redundant and could distort the agent's intent.
+
 ## Shared RagStore (Multiple Services)
 
 Build the index once, share across multiple AI services:
