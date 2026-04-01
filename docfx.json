@@ -34,7 +34,8 @@
     "output": "_site",
     "template": [
       "default",
-      "modern"
+      "modern",
+      "templates/custom"
     ],
     "globalMetadata": {
       "_appName": "Mythosia.AI",

@@ -6,6 +6,8 @@
 
 Unified .NET AI library with modular provider packages, document loaders, and RAG extensions.
 
+> **[📖 Full Documentation →](https://aj-comp.github.io/Mythosia.AI/)**
+
 ### What do I need to install?
 
 ```

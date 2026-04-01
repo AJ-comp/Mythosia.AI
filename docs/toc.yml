@@ -9,16 +9,38 @@
   items:
   - name: Basic Completions
     href: completions.md
+  - name: Generation Parameters
+    href: generation-params.md
   - name: Streaming
     href: streaming.md
   - name: Function Calling
     href: function-calling.md
+  - name: Agent (ReAct Loop)
+    href: agent.md
   - name: Structured Output
     href: structured-output.md
   - name: Conversation Management
     href: conversation.md
+  - name: Request Profiles & Contexts
+    href: request-profiles.md
+
+- name: Providers
+  items:
+  - name: Provider-Specific Features
+    href: providers.md
 
 - name: RAG
   items:
   - name: RAG Basics
     href: rag.md
+  - name: Text Splitters
+    href: text-splitters.md
+  - name: Document Loaders
+    href: document-loaders.md
+  - name: Advanced RAG
+    href: rag-advanced.md
+
+- name: Vector Database
+  items:
+  - name: VectorFilter
+    href: vector-filter.md
