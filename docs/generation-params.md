@@ -86,6 +86,22 @@ service.SetActivateChat(chat2Id);
 var allChats = service.ChatRequests;
 ```
 
+## Inspecting Conversation State
+
+Retrieve the last assistant response or a quick summary of the current session:
+
+```csharp
+// Get the last assistant message (or null if none)
+string? lastReply = service.GetLastAssistantResponse();
+
+// Get a text summary of the current service state
+string info = service.GetConversationSummary();
+// → Model: gpt-4o-mini
+// → Messages: 12
+// → Stateless Mode: False
+// → System: You are a helpful assistant.
+```
+
 ## Copying Service Configuration
 
 Clone all settings from another service instance (without conversation history):

@@ -38,7 +38,29 @@ service.ConversationPolicy = SummaryConversationPolicy.ByToken(
 );
 ```
 
+### トークン＋メッセージ数の同時トリガー（OR条件）
+
+トークン制限またはメッセージ数の**いずれかを超過**した時点で要約をトリガーします:
+
+```csharp
+service.ConversationPolicy = SummaryConversationPolicy.ByBoth(
+    triggerTokens: 4000,
+    triggerCount: 30,
+    keepRecentTokens: 1300,  // オプション、デフォルト triggerTokens / 3
+    keepRecentCount: 7       // オプション、デフォルト triggerCount / 4
+);
+```
+
 設定すると`GetCompletionAsync`で自動的に要約が発生します。他の変更は不要です。
+
+### 動作の仕組み
+
+1. 各補完呼び出しの前に、ポリシーが会話が設定された閾値を超えているか確認します。
+2. トリガーされると、古いメッセージをステートレスLLM呼び出しで簡潔に要約します。
+3. 要約はシステムメッセージのプレフィックスとして注入され、モデルは以前のコンテキストとして認識します。
+4. 最近のメッセージ（`KeepRecentCount`または`KeepRecentTokens`で制御）はそのまま保持されます。
+
+トークンベースのトリガーを使用する場合、ポリシーはローカル推定の代わりに**APIから報告された実際の入力トークン数**（最後のストリーミングレスポンスから取得）を自動的に使用し、正確なトリガー判断を保証します。
 
 ### ストリーミング
 

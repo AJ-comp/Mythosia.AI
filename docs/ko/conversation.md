@@ -38,7 +38,29 @@ service.ConversationPolicy = SummaryConversationPolicy.ByToken(
 );
 ```
 
+### 토큰 + 메시지 수 동시 트리거 (OR 조건)
+
+토큰 한도 또는 메시지 수 중 **하나라도** 초과하면 요약을 트리거합니다:
+
+```csharp
+service.ConversationPolicy = SummaryConversationPolicy.ByBoth(
+    triggerTokens: 4000,
+    triggerCount: 30,
+    keepRecentTokens: 1300,  // 선택사항, 기본값 triggerTokens / 3
+    keepRecentCount: 7       // 선택사항, 기본값 triggerCount / 4
+);
+```
+
 설정하면 `GetCompletionAsync`에서 자동으로 요약이 발생합니다. 다른 변경은 필요 없습니다.
+
+### 동작 방식
+
+1. 매 완성 호출 전, 정책이 대화가 설정된 임계값을 초과하는지 확인합니다.
+2. 트리거되면 오래된 메시지를 Stateless LLM 호출로 간결하게 요약합니다.
+3. 요약은 시스템 메시지 접두사로 주입되어 모델이 이전 컨텍스트로 인식합니다.
+4. 최근 메시지(`KeepRecentCount` 또는 `KeepRecentTokens`로 제어)는 원문 그대로 유지됩니다.
+
+토큰 기반 트리거 사용 시, 정책은 로컬 추정 대신 **API가 보고한 실제 입력 토큰 수**(마지막 스트리밍 응답에서 제공)를 자동으로 사용하여 정확한 트리거 결정을 보장합니다.
 
 ### 스트리밍
 

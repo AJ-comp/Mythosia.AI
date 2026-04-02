@@ -66,15 +66,12 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ## Anthropic (AnthropicService)
 
-### Token Counting
+### Token Counting (Native API)
 
-Estimate token usage before sending a request:
+`GetInputTokenCountAsync` is available on all providers (see [Basic Completions](completions.md#token-counting)). Anthropic's implementation calls the official `messages/count_tokens` endpoint, returning **exact** token counts rather than local estimation:
 
 ```csharp
-// Count tokens for a specific prompt
 uint tokens = await service.GetInputTokenCountAsync("Your prompt here");
-
-// Count tokens for the current conversation
 uint total = await service.GetInputTokenCountAsync();
 ```
 

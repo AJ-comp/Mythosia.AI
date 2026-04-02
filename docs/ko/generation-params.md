@@ -86,6 +86,22 @@ service.SetActivateChat(chat2Id);
 var allChats = service.ChatRequests;
 ```
 
+## 대화 상태 조회
+
+마지막 AI 응답 또는 현재 세션의 간략한 요약을 가져옵니다:
+
+```csharp
+// 마지막 AI 응답 가져오기 (없으면 null)
+string? lastReply = service.GetLastAssistantResponse();
+
+// 현재 서비스 상태의 텍스트 요약
+string info = service.GetConversationSummary();
+// → Model: gpt-4o-mini
+// → Messages: 12
+// → Stateless Mode: False
+// → System: You are a helpful assistant.
+```
+
 ## 서비스 설정 복사
 
 대화 기록 없이 다른 서비스 인스턴스의 모든 설정을 복제합니다:

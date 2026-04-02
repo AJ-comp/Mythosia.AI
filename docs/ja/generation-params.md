@@ -86,6 +86,22 @@ service.SetActivateChat(chat2Id);
 var allChats = service.ChatRequests;
 ```
 
+## 会話状態の確認
+
+最後のAI応答や現在のセッションの簡易サマリーを取得します:
+
+```csharp
+// 最後のAI応答を取得（なければnull）
+string? lastReply = service.GetLastAssistantResponse();
+
+// 現在のサービス状態のテキストサマリー
+string info = service.GetConversationSummary();
+// → Model: gpt-4o-mini
+// → Messages: 12
+// → Stateless Mode: False
+// → System: You are a helpful assistant.
+```
+
 ## サービス設定のコピー
 
 会話履歴なしで別のサービスインスタンスのすべての設定を複製します:

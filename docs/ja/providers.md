@@ -66,15 +66,12 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ## Anthropic (AnthropicService)
 
-### トークンカウント
+### トークンカウント（ネイティブAPI）
 
-リクエストを送信する前にトークン使用量を推定します:
+`GetInputTokenCountAsync`はすべてのプロバイダーで利用可能です（[基本的な補完](completions.md#トークンカウント)参照）。Anthropicの実装は公式の`messages/count_tokens`エンドポイントを呼び出し、ローカル推定の代わりに**正確な**トークン数を返します:
 
 ```csharp
-// 特定プロンプトのトークン数を計算
 uint tokens = await service.GetInputTokenCountAsync("プロンプト内容");
-
-// 現在の会話のトークン数を計算
 uint total = await service.GetInputTokenCountAsync();
 ```
 

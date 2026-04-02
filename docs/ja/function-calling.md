@@ -57,6 +57,49 @@ service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
 service.FunctionCallingPolicy = FunctionCallingPolicy.None;
 ```
 
+## クラスからの一括登録
+
+`[AiFunction]`アトリビュートが付いたメソッドを一括で登録します:
+
+```csharp
+var tools = new MyTools();
+service.WithFunctions(tools);  // [AiFunction]インスタンスメソッドをスキャン
+
+// 静的メソッドの場合
+service.WithStaticFunctions<MyTools>();  // [AiFunction]静的メソッドをスキャン
+```
+
+## 非同期関数ハンドラー
+
+すべての`WithFunction`オーバーロードに、`Func<..., Task<string>>`を受け取る`WithFunctionAsync`対応メソッドがあります:
+
+```csharp
+service.WithFunctionAsync<string>(
+    "fetch_data",
+    "外部APIからデータを取得します",
+    ("url", "取得するURL", required: true),
+    async (string url) =>
+    {
+        var result = await httpClient.GetStringAsync(url);
+        return result;
+    }
+);
+```
+
+同期版と同様に0〜3パラメータをサポートします。
+
+## 関数の一時無効化
+
+登録を削除せずに単一リクエストで関数呼び出しを無効化します:
+
+```csharp
+// 拡張メソッド — 関数無効化状態で結果を返す
+string answer = await service.AskWithoutFunctionsAsync("直接回答してください");
+
+// またはプロパティをトグル
+service.WithoutFunctions();  // FunctionsDisabled = true を設定
+```
+
 ## FunctionBuilderの使用
 
 関数定義をプログラム的に構築します:

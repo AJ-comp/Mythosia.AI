@@ -57,6 +57,52 @@ service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
 service.FunctionCallingPolicy = FunctionCallingPolicy.None;
 ```
 
+## Bulk Registration from a Class
+
+Register all `[AiFunction]`-annotated methods from an object at once:
+
+```csharp
+var tools = new MyTools();
+service.WithFunctions(tools);  // scans instance methods with [AiFunction]
+```
+
+For static methods:
+
+```csharp
+service.WithStaticFunctions<MyTools>();  // scans static methods with [AiFunction]
+```
+
+## Async Function Handlers
+
+All `WithFunction` overloads have `WithFunctionAsync` counterparts that accept `Func<..., Task<string>>`:
+
+```csharp
+service.WithFunctionAsync<string>(
+    "fetch_data",
+    "Fetches data from an external API",
+    ("url", "The URL to fetch", required: true),
+    async (string url) =>
+    {
+        var result = await httpClient.GetStringAsync(url);
+        return result;
+    }
+);
+```
+
+Supports 0 to 3 parameters, same as the sync variants.
+
+## Temporarily Disabling Functions
+
+Disable function calling for a single request without removing registrations:
+
+```csharp
+// Extension method — returns result with functions disabled
+string answer = await service.AskWithoutFunctionsAsync("Just answer directly");
+
+// Or toggle the property
+service.WithoutFunctions();  // sets FunctionsDisabled = true
+```
+
 ## Using FunctionBuilder
 
 Build function definitions programmatically:

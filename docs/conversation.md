@@ -38,7 +38,29 @@ service.ConversationPolicy = SummaryConversationPolicy.ByToken(
 );
 ```
 
+### Trigger by Both (OR Condition)
+
+Trigger summarization when **either** the token limit or message count is exceeded:
+
+```csharp
+service.ConversationPolicy = SummaryConversationPolicy.ByBoth(
+    triggerTokens: 4000,
+    triggerCount: 30,
+    keepRecentTokens: 1300,  // optional, defaults to triggerTokens / 3
+    keepRecentCount: 7       // optional, defaults to triggerCount / 4
+);
+```
+
 Once set, summarization happens automatically on `GetCompletionAsync`. No other changes needed.
+
+### How It Works
+
+1. Before each completion, the policy checks if the conversation exceeds the configured threshold.
+2. If triggered, older messages are summarized into a concise text using a stateless LLM call.
+3. The summary is injected as a system message prefix — the model sees it as prior context.
+4. Recent messages (controlled by `KeepRecentCount` or `KeepRecentTokens`) are preserved verbatim.
+
+When using token-based triggers, the policy automatically uses the **actual input token count** reported by the API (from the last streaming response) instead of local estimation, ensuring accurate trigger decisions.
 
 ### Streaming
 

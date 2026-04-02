@@ -55,6 +55,93 @@ await foreach (var chunk in run.Stream())
 MyDto result = await run.Result;
 ```
 
+## トークン使用量
+
+ストリーミングが完了すると、最後の`Completion`イベントに詳細な使用量メトリクスを含む`TokenUsage`オブジェクトが含まれます:
+
+```csharp
+await foreach (var content in service.StreamAsync("量子コンピューティングを説明してください"))
+{
+    if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+
+    if (content.Type == StreamingContentType.Completion && content.Usage != null)
+    {
+        Console.WriteLine($"\n入力トークン:  {content.Usage.InputTokens}");
+        Console.WriteLine($"出力トークン: {content.Usage.OutputTokens}");
+        Console.WriteLine($"合計トークン: {content.Usage.TotalTokens}");
+    }
+}
+```
+
+### TokenUsageプロパティ
+
+| プロパティ | 説明 |
+|---|---|
+| `InputTokens` | 入力/プロンプトのトークン数 |
+| `OutputTokens` | 出力/補完のトークン数 |
+| `TotalTokens` | 入力 + 出力 |
+| `CachedInputTokens` | キャッシュから提供されたトークン（コスト削減） |
+| `CacheCreationTokens` | キャッシュに書き込まれたトークン（Anthropic） |
+| `ReasoningTokens` | 内部推論に使用されたトークン |
+| `CacheHitRatio` | キャッシュヒット率（0.0–1.0） |
+| `VisibleOutputTokens` | 推論を除いた出力トークン |
+
+### キャッシュ効率の確認
+
+```csharp
+if (content.Usage?.HasCacheActivity == true)
+{
+    Console.WriteLine($"キャッシュヒット率: {content.Usage.CacheHitRatio:P1}");
+    Console.WriteLine($"非キャッシュ入力: {content.Usage.NonCachedInputTokens}");
+}
+```
+
+## StreamOptionsプリセット
+
+`StreamOptions`はストリームが返す内容を制御するプリセットとFluentビルダーを提供します:
+
+```csharp
+// フル機能 — メタデータ、関数呼び出し、推論
+await foreach (var c in service.StreamAsync("プロンプト", StreamOptions.FullOptions))
+    Console.Write(c.Content);
+
+// 最小オーバーヘッド — テキストのみ、メタデータなし
+await foreach (var c in service.StreamAsync("プロンプト", StreamOptions.Minimal))
+    Console.Write(c.Content);
+
+// 関数呼び出しシナリオ
+await foreach (var c in service.StreamAsync("プロンプト", StreamOptions.WithFunctions))
+{ /* Text, FunctionCall, FunctionResult, Completionを処理 */ }
+```
+
+カスタム組み合わせ用のFluentビルダー:
+
+```csharp
+var options = new StreamOptions()
+    .WithReasoning()       // 思考過程を含む
+    .WithMetadata()        // Completionにモデル情報を含む
+    .WithFunctionCalls();  // ストリーム中の関数呼び出しを有効化
+```
+
+## ステートレスストリーミング（StreamOnceAsync）
+
+会話履歴に影響を与えずにレスポンスをストリーミングします — `AskOnceAsync`のストリーミング版です:
+
+```csharp
+await foreach (var chunk in service.StreamOnceAsync("これをフランス語に翻訳してください"))
+    Console.Write(chunk);
+```
+
+マルチモーダル入力用の`Message`オーバーロードもサポートしています:
+
+```csharp
+var message = MessageBuilder.Create().AddText("これを説明してください").AddImage("photo.jpg").Build();
+
+await foreach (var chunk in service.StreamOnceAsync(message))
+    Console.Write(chunk);
+```
+
 ## ストリーミング前の会話要約
 
 自動要約ポリシーはストリーミング中にはトリガーされません。`StreamAsync`の前に明示的に呼び出します:

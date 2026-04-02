@@ -66,15 +66,12 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ## Anthropic (AnthropicService)
 
-### 토큰 계산
+### 토큰 계산 (네이티브 API)
 
-요청을 보내기 전에 토큰 사용량을 추정합니다:
+`GetInputTokenCountAsync`는 모든 프로바이더에서 사용 가능합니다([기본 완성](completions.md#토큰-계산) 참조). Anthropic 구현은 공식 `messages/count_tokens` 엔드포인트를 호출하여 로컬 추정 대신 **정확한** 토큰 수를 반환합니다:
 
 ```csharp
-// 특정 프롬프트의 토큰 수 계산
 uint tokens = await service.GetInputTokenCountAsync("프롬프트 내용");
-
-// 현재 대화의 토큰 수 계산
 uint total = await service.GetInputTokenCountAsync();
 ```
 

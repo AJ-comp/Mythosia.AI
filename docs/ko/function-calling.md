@@ -57,6 +57,49 @@ service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
 service.FunctionCallingPolicy = FunctionCallingPolicy.None;
 ```
 
+## 클래스에서 일괄 등록
+
+`[AiFunction]` 어트리뷰트가 붙은 메서드를 한 번에 등록합니다:
+
+```csharp
+var tools = new MyTools();
+service.WithFunctions(tools);  // [AiFunction] 인스턴스 메서드를 스캔
+
+// 정적 메서드의 경우
+service.WithStaticFunctions<MyTools>();  // [AiFunction] 정적 메서드를 스캔
+```
+
+## 비동기 함수 핸들러
+
+모든 `WithFunction` 오버로드에 `Func<..., Task<string>>`을 받는 `WithFunctionAsync` 대응 메서드가 있습니다:
+
+```csharp
+service.WithFunctionAsync<string>(
+    "fetch_data",
+    "외부 API에서 데이터를 가져옵니다",
+    ("url", "가져올 URL", required: true),
+    async (string url) =>
+    {
+        var result = await httpClient.GetStringAsync(url);
+        return result;
+    }
+);
+```
+
+동기 버전과 동일하게 0~3개 파라미터를 지원합니다.
+
+## 함수 일시 비활성화
+
+등록을 제거하지 않고 단일 요청에서 함수 호출을 비활성화합니다:
+
+```csharp
+// 확장 메서드 — 함수 비활성화 상태로 결과 반환
+string answer = await service.AskWithoutFunctionsAsync("직접 답변해주세요");
+
+// 또는 속성 토글
+service.WithoutFunctions();  // FunctionsDisabled = true 설정
+```
+
 ## FunctionBuilder 사용
 
 함수 정의를 프로그래매틱하게 구성합니다:

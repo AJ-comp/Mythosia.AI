@@ -62,6 +62,104 @@ var message = MessageBuilder.User("What does this diagram show?")
 var response = await service.GetCompletionAsync(message);
 ```
 
+## Quick Ask (Static API)
+
+For one-off queries without constructing a service instance, use the static `QuickAskAsync`. The provider is auto-detected from the model name:
+
+```csharp
+string answer = await AIService.QuickAskAsync(
+    apiKey: "sk-...",
+    prompt: "What is the capital of France?",
+    model: AIModels.OpenAI.Gpt4oMini  // default
+);
+```
+
+Image variant:
+
+```csharp
+string description = await AIService.QuickAskWithImageAsync(
+    apiKey: "sk-...",
+    prompt: "Describe this image",
+    imagePath: "photo.jpg",
+    model: AIModels.OpenAI.Gpt4Vision
+);
+```
+
+## Image Convenience Methods
+
+Analyse images without `MessageBuilder` — the service reads the file and resolves the MIME type automatically:
+
+```csharp
+// From file path
+var response = await service.GetCompletionWithImageAsync(
+    "What does this diagram show?", "diagram.png");
+
+// From URL
+var response = await service.GetCompletionWithImageUrlAsync(
+    "Describe this photo", "https://example.com/photo.jpg");
+```
+
+## Retry Last Message
+
+Remove the last assistant response and resend the last user message:
+
+```csharp
+string regenerated = await service.RetryLastMessageAsync();
+```
+
+Useful when the previous response was unsatisfactory and you want the model to try again.
+
+## Token Counting
+
+Estimate token usage before sending a request. Available on **all providers**:
+
+```csharp
+// Count tokens for the current conversation history
+uint conversationTokens = await service.GetInputTokenCountAsync();
+
+// Count tokens for a specific prompt
+uint promptTokens = await service.GetInputTokenCountAsync("Your prompt here");
+```
+
+OpenAI and most providers use local TikToken-based estimation. Anthropic and Google call their native token counting APIs for exact results.
+
+## Fluent Message Chain
+
+`BeginMessage()` provides a fluent API for building and sending messages in a single chain — including text, images, streaming, and policy configuration:
+
+```csharp
+// Simple text + image → send
+string response = await service.BeginMessage()
+    .AddText("What does this diagram show?")
+    .AddImage("diagram.png")
+    .SendAsync();
+
+// One-off query (no conversation history)
+string answer = await service.BeginMessage()
+    .AddText("Translate this to Korean")
+    .SendOnceAsync();
+
+// Streaming
+await service.BeginMessage()
+    .AddText("Write a poem about spring")
+    .StreamAsync(chunk => Console.Write(chunk));
+
+// With custom timeout and policy
+string result = await service.BeginMessage()
+    .AddText("Analyze this image")
+    .AddImageUrl("https://example.com/photo.jpg")
+    .WithHighDetail()
+    .WithTimeout(90)
+    .SendAsync();
+```
+
+`StreamAsync()` also supports `IAsyncEnumerable`:
+
+```csharp
+await foreach (var chunk in service.BeginMessage().AddText("Tell me a story").StreamAsync())
+    Console.Write(chunk);
+```
+
 ## Controlling Output Length and Temperature
 
 ```csharp
