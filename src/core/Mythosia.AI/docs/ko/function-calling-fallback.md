@@ -69,9 +69,9 @@ internal IEnumerable<Message> GetLatestMessagesWithFunctionFallback()
 
 각 서비스의 비함수 `BuildRequestBody()`에 적용:
 
-- `ClaudeService.Parsing.cs`
-- `ChatGptService.Parsing.cs` (`BuildNewApiBody()`, `BuildLegacyApiBody()`)
-- `GeminiService.Parsing.cs`
+- `AnthropicService.Parsing.cs`
+- `OpenAIService.Parsing.cs` (`BuildNewApiBody()`, `BuildLegacyApiBody()`)
+- `GoogleAIService.Parsing.cs`
 
 ## 관련
 

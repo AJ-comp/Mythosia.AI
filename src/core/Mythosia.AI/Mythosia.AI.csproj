@@ -71,8 +71,8 @@
 		</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v5.4.0: Service classes renamed to reflect provider names — OpenAIService, AnthropicService, GoogleAIService, XAIService, PerplexityService. Previous names (ChatGptService, ClaudeService, GeminiService, GrokService, SonarService) are retained as [Obsolete] shims and will be removed in a future major version. Internal cleanup: removed empty Alibaba stub files from core package.</PackageReleaseNotes>
-		<Version>5.4.0</Version>
+		<PackageReleaseNotes>v5.3.0: Service classes renamed to reflect provider names — OpenAIService, AnthropicService, GoogleAIService, XAIService, PerplexityService. Previous names retained as [Obsolete] shims. IFunctionRegisterable implemented on AIService. Empty Alibaba stub files removed from core package.</PackageReleaseNotes>
+		<Version>5.3.0</Version>
 	</PropertyGroup>
 
 

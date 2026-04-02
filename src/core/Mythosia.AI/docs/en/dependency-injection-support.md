@@ -7,12 +7,12 @@
 ```csharp
 // Must know the concrete service type per provider, manage HttpClient manually
 var httpClient = new HttpClient();
-var gpt = new ChatGptService("sk-...", httpClient);
+var gpt = new OpenAIService("sk-...", httpClient);
 var response = await gpt.GetCompletionAsync("hello");
 
 // Switch model? ¡æ must create a new service instance
 var httpClient2 = new HttpClient();
-var claude = new ClaudeService("sk-ant-...", httpClient2);
+var claude = new AnthropicService("sk-ant-...", httpClient2);
 ```
 
 ## To-Be ? Ideal consumer experience
@@ -69,5 +69,5 @@ await foreach (var chunk in service.StreamAsync("explain quantum computing"))
 |-----------|-------------|
 | **Provider-agnostic** | Consumer only needs to know `AIModel` enum |
 | **HttpClient transparent** | `IHttpClientFactory` used internally, never exposed to consumer |
-| **Backward compatible** | `new ChatGptService(key, httpClient)` still works |
+| **Backward compatible** | `new OpenAIService(key, httpClient)` still works |
 | **Separation of concerns** | API keys at registration, model selection at usage |

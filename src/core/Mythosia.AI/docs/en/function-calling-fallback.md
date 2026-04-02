@@ -68,9 +68,9 @@ internal IEnumerable<Message> GetLatestMessagesWithFunctionFallback()
 ```
 
 Applied in each service's non-function `BuildRequestBody()`:
-- `ClaudeService.Parsing.cs`
-- `ChatGptService.Parsing.cs` (`BuildNewApiBody()`, `BuildLegacyApiBody()`)
-- `GeminiService.Parsing.cs`
+- `AnthropicService.Parsing.cs`
+- `OpenAIService.Parsing.cs` (`BuildNewApiBody()`, `BuildLegacyApiBody()`)
+- `GoogleAIService.Parsing.cs`
 
 ## Related
 

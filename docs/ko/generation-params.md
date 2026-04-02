@@ -18,7 +18,7 @@ service.MaxMessageCount = 20;      // 대화 윈도우 크기
 `this`를 반환하므로 체이닝이 가능합니다:
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithSystemMessage("당신은 도움이 되는 어시스턴트입니다.")
     .WithTemperature(0.3f)
     .WithMaxTokens(2048)
@@ -40,7 +40,7 @@ var service = new ChatGptService(apiKey, http)
 service.StatelessMode = true;
 
 // 동일한 효과:
-var service = new ChatGptService(apiKey, http).WithStatelessMode(true);
+var service = new OpenAIService(apiKey, http).WithStatelessMode(true);
 ```
 
 기록 오버헤드가 필요 없는 단발성 쿼리에 유용합니다.
@@ -91,6 +91,6 @@ var allChats = service.ChatRequests;
 대화 기록 없이 다른 서비스 인스턴스의 모든 설정을 복제합니다:
 
 ```csharp
-var newService = new ClaudeService(apiKey, http);
+var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```

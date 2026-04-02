@@ -79,7 +79,7 @@ Loaders are integrated automatically when using `.AddDocument()` in `RagBuilder`
 var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("report.pdf");
 
-var service = new ClaudeService(apiKey, http)
+var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .AddDocument("report.pdf")  // auto-detects format
         .AddDocument("notes.docx")

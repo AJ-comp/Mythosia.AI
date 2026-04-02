@@ -7,7 +7,7 @@
 関数を登録してから、目標と共に`RunAgentAsync`を呼び出します:
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithFunction(
         "search_web",
         "ウェブで情報を検索します",

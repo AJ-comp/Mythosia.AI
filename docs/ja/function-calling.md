@@ -5,7 +5,7 @@
 ## クイック例
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithFunction(
         "get_weather",
         "特定の場所の現在の天気を取得します",

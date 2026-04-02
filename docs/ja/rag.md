@@ -15,7 +15,7 @@ dotnet add package Mythosia.AI.Rag
 ```csharp
 using Mythosia.AI.Rag;
 
-var service = new ClaudeService(apiKey, http)
+var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
         .AddDocument("policy.txt")
@@ -47,7 +47,7 @@ using Mythosia.AI.Rag.Embeddings;
 
 var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small");
 
-var service = new ClaudeService(apiKey, http)
+var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .UseEmbeddingProvider(embedder)
         .AddDocument("knowledge-base.txt")
@@ -67,7 +67,7 @@ using Mythosia.VectorDb.Postgres;
 
 var store = new PostgresStore(connectionString, embedDimension: 1536);
 
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
         .UseVectorStore(store)
         .AddDocument("large-corpus.txt")

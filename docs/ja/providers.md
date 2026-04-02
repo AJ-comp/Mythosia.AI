@@ -1,6 +1,6 @@
 # プロバイダー固有機能
 
-## OpenAI (ChatGptService)
+## OpenAI (OpenAIService)
 
 ### 推論レベル
 
@@ -64,7 +64,7 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ---
 
-## Anthropic (ClaudeService)
+## Anthropic (AnthropicService)
 
 ### トークンカウント
 
@@ -80,7 +80,7 @@ uint total = await service.GetInputTokenCountAsync();
 
 ---
 
-## Google (GeminiService)
+## Google (GoogleAIService)
 
 ### 思考レベル
 
@@ -97,7 +97,7 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 
 ---
 
-## xAI (GrokService)
+## xAI (XAIService)
 
 ### 推論モード
 
@@ -110,7 +110,7 @@ service.ReasoningMode = GrokReasoning.High;
 
 ---
 
-## Perplexity (SonarService)
+## Perplexity (PerplexityService)
 
 ### 引用付きウェブ検索
 

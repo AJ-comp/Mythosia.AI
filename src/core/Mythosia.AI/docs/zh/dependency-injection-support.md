@@ -7,12 +7,12 @@
 ```csharp
 // Øß?ğ«ÍêßÂÔ´âÍé©ò±Ô³Îı?îÜÜ×??úş£¬?é©â¢?Î·×âHttpClient
 var httpClient = new HttpClient();
-var gpt = new ChatGptService("sk-...", httpClient);
+var gpt = new OpenAIService("sk-...", httpClient);
 var response = await gpt.GetCompletionAsync("hello");
 
 // ï·?Ù¼úş£¿¡æ âÍé©ñìãæ?ËïÜ×??ÖÇ
 var httpClient2 = new HttpClient();
-var claude = new ClaudeService("sk-ant-...", httpClient2);
+var claude = new AnthropicService("sk-ant-...", httpClient2);
 ```
 
 ## To-Be ? ×âßÌîÜá¼?íº??
@@ -69,5 +69,5 @@ await foreach (var chunk in service.StreamAsync("explain quantum computing"))
 |------|------|
 | **ğ«ÍêßÂÙé?** | á¼?íºñşâÍò±Ô³ `AIModel` enum |
 | **HttpClient÷âÙ¥** | ?İ»ŞÅéÄ `IHttpClientFactory`£¬Üôú¾á¼?íºøìÖÚ |
-| **ú¾ı¨ÌÂé»** | `new ChatGptService(key, httpClient)` Û°ãÒ??êóüù |
+| **ú¾ı¨ÌÂé»** | `new OpenAIService(key, httpClient)` Û°ãÒ??êóüù |
 | **ÛÕöÇİÂ?** | APIÚË?î¤ñ¼??£¬Ù¼úş??î¤ŞÅéÄ? |

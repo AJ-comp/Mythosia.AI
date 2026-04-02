@@ -18,7 +18,7 @@ service.MaxMessageCount = 20;      // Conversation window size
 These return `this` for chaining:
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithSystemMessage("You are a helpful assistant.")
     .WithTemperature(0.3f)
     .WithMaxTokens(2048)
@@ -40,7 +40,7 @@ When enabled, each request is independent — no conversation history is sent or
 service.StatelessMode = true;
 
 // Equivalent:
-var service = new ChatGptService(apiKey, http).WithStatelessMode(true);
+var service = new OpenAIService(apiKey, http).WithStatelessMode(true);
 ```
 
 Useful for one-off queries where you don't want history overhead.
@@ -91,6 +91,6 @@ var allChats = service.ChatRequests;
 Clone all settings from another service instance (without conversation history):
 
 ```csharp
-var newService = new ClaudeService(apiKey, http);
+var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```

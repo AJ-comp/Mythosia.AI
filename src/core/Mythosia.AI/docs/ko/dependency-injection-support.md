@@ -7,12 +7,12 @@
 ```csharp
 // 프로바이더마다 서비스 타입을 알아야 하고, HttpClient를 직접 관리해야 함
 var httpClient = new HttpClient();
-var gpt = new ChatGptService("sk-...", httpClient);
+var gpt = new OpenAIService("sk-...", httpClient);
 var response = await gpt.GetCompletionAsync("hello");
 
 // 모델 전환? → 서비스 새로 생성해야 함
 var httpClient2 = new HttpClient();
-var claude = new ClaudeService("sk-ant-...", httpClient2);
+var claude = new AnthropicService("sk-ant-...", httpClient2);
 ```
 
 ## To-Be ? 이상적인 소비자 경험
@@ -69,5 +69,5 @@ await foreach (var chunk in service.StreamAsync("explain quantum computing"))
 |------|------|
 | **프로바이더 무관** | 소비자는 `AIModel` enum만 알면 됨 |
 | **HttpClient 투명** | `IHttpClientFactory`를 내부에서 사용, 소비자에게 노출하지 않음 |
-| **기존 호환** | `new ChatGptService(key, httpClient)` 방식도 계속 동작 |
+| **기존 호환** | `new OpenAIService(key, httpClient)` 방식도 계속 동작 |
 | **설정 분리** | API 키는 등록 시, 모델 선택은 사용 시 |

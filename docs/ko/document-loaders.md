@@ -79,7 +79,7 @@ var docs = await loader.LoadAsync("presentation.pptx");
 var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("report.pdf");
 
-var service = new ClaudeService(apiKey, http)
+var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .AddDocument("report.pdf")  // 형식 자동 감지
         .AddDocument("notes.docx")

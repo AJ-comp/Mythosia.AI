@@ -5,7 +5,7 @@
 ## 빠른 예제
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithFunction(
         "get_weather",
         "특정 위치의 현재 날씨를 가져옵니다",

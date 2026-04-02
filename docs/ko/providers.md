@@ -1,6 +1,6 @@
 # 프로바이더별 기능
 
-## OpenAI (ChatGptService)
+## OpenAI (OpenAIService)
 
 ### 추론 수준
 
@@ -64,7 +64,7 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ---
 
-## Anthropic (ClaudeService)
+## Anthropic (AnthropicService)
 
 ### 토큰 계산
 
@@ -80,7 +80,7 @@ uint total = await service.GetInputTokenCountAsync();
 
 ---
 
-## Google (GeminiService)
+## Google (GoogleAIService)
 
 ### 사고 수준
 
@@ -97,7 +97,7 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 
 ---
 
-## xAI (GrokService)
+## xAI (XAIService)
 
 ### 추론 모드
 
@@ -110,7 +110,7 @@ service.ReasoningMode = GrokReasoning.High;
 
 ---
 
-## Perplexity (SonarService)
+## Perplexity (PerplexityService)
 
 ### 인용과 함께 웹 검색
 

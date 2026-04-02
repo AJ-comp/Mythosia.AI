@@ -1,6 +1,6 @@
 # Provider-Specific Features
 
-## OpenAI (ChatGptService)
+## OpenAI (OpenAIService)
 
 ### Reasoning Effort
 
@@ -64,7 +64,7 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ---
 
-## Anthropic (ClaudeService)
+## Anthropic (AnthropicService)
 
 ### Token Counting
 
@@ -80,7 +80,7 @@ uint total = await service.GetInputTokenCountAsync();
 
 ---
 
-## Google (GeminiService)
+## Google (GoogleAIService)
 
 ### Thinking Level
 
@@ -97,7 +97,7 @@ Higher levels produce more thorough responses but increase latency and token usa
 
 ---
 
-## xAI (GrokService)
+## xAI (XAIService)
 
 ### Reasoning Mode
 
@@ -110,7 +110,7 @@ service.ReasoningMode = GrokReasoning.High;
 
 ---
 
-## Perplexity (SonarService)
+## Perplexity (PerplexityService)
 
 ### Web Search with Citations
 

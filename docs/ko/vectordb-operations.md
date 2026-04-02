@@ -198,7 +198,7 @@ var store = new QdrantStore(new QdrantOptions
     Dimension      = 1536
 });
 
-var ragService = new ClaudeService(apiKey, http)
+var ragService = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .UseStore(store)
         .UseOpenAIEmbedding(embeddingKey, http)
@@ -217,6 +217,6 @@ RagStore ragStore = await RagBuilder.Create()
     .AddDocument("knowledge-base.pdf")
     .BuildAsync();
 
-var claudeRag = new ClaudeService(claudeKey, http).WithRag(ragStore);
-var gptRag    = new ChatGptService(openAiKey, http).WithRag(ragStore);
+var claudeRag = new AnthropicService(claudeKey, http).WithRag(ragStore);
+var gptRag    = new OpenAIService(openAiKey, http).WithRag(ragStore);
 ```

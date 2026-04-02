@@ -24,13 +24,13 @@ using Mythosia.AI;
 var http = new HttpClient();
 
 // OpenAI
-var service = new ChatGptService("your-openai-api-key", http);
+var service = new OpenAIService("your-openai-api-key", http);
 
 // Anthropic
-// var service = new ClaudeService("your-anthropic-api-key", http);
+// var service = new AnthropicService("your-anthropic-api-key", http);
 
 // Google
-// var service = new GeminiService("your-google-api-key", http);
+// var service = new GoogleAIService("your-google-api-key", http);
 ```
 
 그런 다음 `GetCompletionAsync`를 호출합니다:
@@ -45,7 +45,7 @@ Console.WriteLine(response);
 각 서비스는 기본 모델을 사용하지만, 명시적으로 지정할 수도 있습니다:
 
 ```csharp
-var service = new ChatGptService("your-api-key", http)
+var service = new OpenAIService("your-api-key", http)
 {
     Model = AIModels.OpenAI.Gpt4_1
 };

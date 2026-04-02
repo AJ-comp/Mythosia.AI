@@ -173,7 +173,7 @@ var store = new QdrantStore(new QdrantOptions
     Dimension      = 1536
 });
 
-var ragService = new ClaudeService(apiKey, http)
+var ragService = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .UseStore(store)
         .UseOpenAIEmbedding(embeddingKey, http)

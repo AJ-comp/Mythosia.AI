@@ -24,13 +24,13 @@ using Mythosia.AI;
 var http = new HttpClient();
 
 // OpenAI
-var service = new ChatGptService("your-openai-api-key", http);
+var service = new OpenAIService("your-openai-api-key", http);
 
 // Anthropic
-// var service = new ClaudeService("your-anthropic-api-key", http);
+// var service = new AnthropicService("your-anthropic-api-key", http);
 
 // Google
-// var service = new GeminiService("your-google-api-key", http);
+// var service = new GoogleAIService("your-google-api-key", http);
 ```
 
 `GetCompletionAsync`を呼び出します:
@@ -45,7 +45,7 @@ Console.WriteLine(response);
 各サービスはデフォルトモデルを使用しますが、明示的に指定することもできます:
 
 ```csharp
-var service = new ChatGptService("your-api-key", http)
+var service = new OpenAIService("your-api-key", http)
 {
     Model = AIModels.OpenAI.Gpt4_1
 };

@@ -151,8 +151,8 @@ RagStore store = await RagBuilder.Create()
     .BuildAsync();
 
 // 複数のサービスで再利用
-var claudeRag = new ClaudeService(apiKey, http).WithRag(store);
-var gptRag    = new ChatGptService(apiKey, http).WithRag(store);
+var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
+var gptRag    = new OpenAIService(apiKey, http).WithRag(store);
 ```
 
 ## RagStoreへの直接クエリ
@@ -203,7 +203,7 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
     .UseOpenAIEmbedding(apiKey));
 
 // RAGをToolとして登録してエージェントを実行
-var service = new ClaudeService(apiKey, http);
+var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 var answer = await service.RunAgentAsync("返金ポリシーを要約してください。");
@@ -216,7 +216,7 @@ var answer = await service.RunAgentAsync("返金ポリシーを要約してく�
 エージェンティックRAGは追加のToolと組み合わせると真価を発揮します。エージェントが各サブタスクに適したToolを自ら選択します:
 
 ```csharp
-var service = new ClaudeService(apiKey, http);
+var service = new AnthropicService(apiKey, http);
 
 service.WithAgenticRag(ragStore)
        .WithFunctionAsync("get_order_status", "注文IDで注文ステータスを照会します。",

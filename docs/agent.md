@@ -7,7 +7,7 @@ The agent loop lets the model autonomously pursue a goal by repeatedly calling f
 Register functions, then call `RunAgentAsync` with a goal:
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithFunction(
         "search_web",
         "Search the web for information",

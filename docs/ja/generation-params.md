@@ -18,7 +18,7 @@ service.MaxMessageCount = 20;      // 会話ウィンドウサイズ
 `this`を返すのでチェーンが可能です:
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithSystemMessage("あなたは役立つアシスタントです。")
     .WithTemperature(0.3f)
     .WithMaxTokens(2048)
@@ -40,7 +40,7 @@ var service = new ChatGptService(apiKey, http)
 service.StatelessMode = true;
 
 // 同等:
-var service = new ChatGptService(apiKey, http).WithStatelessMode(true);
+var service = new OpenAIService(apiKey, http).WithStatelessMode(true);
 ```
 
 履歴オーバーヘッドが不要な単発クエリに便利です。
@@ -91,6 +91,6 @@ var allChats = service.ChatRequests;
 会話履歴なしで別のサービスインスタンスのすべての設定を複製します:
 
 ```csharp
-var newService = new ClaudeService(apiKey, http);
+var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```

@@ -24,13 +24,13 @@ using Mythosia.AI;
 var http = new HttpClient();
 
 // OpenAI
-var service = new ChatGptService("your-openai-api-key", http);
+var service = new OpenAIService("your-openai-api-key", http);
 
 // Anthropic
-// var service = new ClaudeService("your-anthropic-api-key", http);
+// var service = new AnthropicService("your-anthropic-api-key", http);
 
 // Google
-// var service = new GeminiService("your-google-api-key", http);
+// var service = new GoogleAIService("your-google-api-key", http);
 ```
 
 Then call `GetCompletionAsync`:
@@ -45,7 +45,7 @@ Console.WriteLine(response);
 Each service defaults to a sensible model, but you can specify one explicitly:
 
 ```csharp
-var service = new ChatGptService("your-api-key", http)
+var service = new OpenAIService("your-api-key", http)
 {
     Model = AIModels.OpenAI.Gpt4_1
 };

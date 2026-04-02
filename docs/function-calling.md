@@ -5,7 +5,7 @@ Function calling lets the model invoke your C# code when it needs to retrieve in
 ## Quick Example
 
 ```csharp
-var service = new ChatGptService(apiKey, http)
+var service = new OpenAIService(apiKey, http)
     .WithFunction(
         "get_weather",
         "Gets the current weather for a location",

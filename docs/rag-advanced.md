@@ -151,8 +151,8 @@ RagStore store = await RagBuilder.Create()
     .BuildAsync();
 
 // Reuse across services
-var claudeRag = new ClaudeService(apiKey, http).WithRag(store);
-var gptRag    = new ChatGptService(apiKey, http).WithRag(store);
+var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
+var gptRag    = new OpenAIService(apiKey, http).WithRag(store);
 ```
 
 ## RagStore Direct Query
@@ -203,7 +203,7 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
     .UseOpenAIEmbedding(apiKey));
 
 // Register RAG as a tool and run the agent
-var service = new ClaudeService(apiKey, http);
+var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 var answer = await service.RunAgentAsync("Summarise the refund policy.");
@@ -216,7 +216,7 @@ The agent calls `search_documents` automatically whenever it needs document cont
 Agentic RAG shines when combined with additional tools — the agent selects the right tool for each sub-task:
 
 ```csharp
-var service = new ClaudeService(apiKey, http);
+var service = new AnthropicService(apiKey, http);
 
 service.WithAgenticRag(ragStore)
        .WithFunctionAsync("get_order_status", "Look up an order status by order ID.",
