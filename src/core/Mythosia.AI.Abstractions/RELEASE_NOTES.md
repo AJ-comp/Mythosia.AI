@@ -1,5 +1,13 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v1.1.1
+
+### Documentation
+
+- Added `Relationship to Microsoft.Extensions.AI` section to README — a factual comparison table between `IAIService` and `IChatClient` covering state management, session handling, request parameters, function calling, streaming, conversation summarization, multimodal handling, and token usage tracking.
+
+---
+
 ## v1.1.0
 
 ### Added

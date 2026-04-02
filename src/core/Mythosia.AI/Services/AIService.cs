@@ -197,33 +197,23 @@ namespace Mythosia.AI.Services.Base
 
         #region Core Completion Methods
 
-        public virtual async Task<string> GetCompletionAsync(string prompt)
+        private async Task<Message> PreparePromptAsync(string prompt)
         {
             await ApplySummaryPolicyIfNeededAsync();
-            var message = new Message(ActorRole.User, prompt);
-            return await GetCompletionAsync(message);
+            return new Message(ActorRole.User, prompt);
         }
+
+        public virtual async Task<string> GetCompletionAsync(string prompt)
+            => await GetCompletionAsync(await PreparePromptAsync(prompt));
 
         public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestContext context)
-        {
-            await ApplySummaryPolicyIfNeededAsync();
-            var message = new Message(ActorRole.User, prompt);
-            return await GetCompletionAsync(message, context);
-        }
+            => await GetCompletionAsync(await PreparePromptAsync(prompt), context);
 
         public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile profile)
-        {
-            await ApplySummaryPolicyIfNeededAsync();
-            var message = new Message(ActorRole.User, prompt);
-            return await GetCompletionAsync(message, profile);
-        }
+            => await GetCompletionAsync(await PreparePromptAsync(prompt), profile);
 
         public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile profile, AIRequestContext context)
-        {
-            await ApplySummaryPolicyIfNeededAsync();
-            var message = new Message(ActorRole.User, prompt);
-            return await GetCompletionAsync(message, profile, context);
-        }
+            => await GetCompletionAsync(await PreparePromptAsync(prompt), profile, context);
 
         public abstract Task<string> GetCompletionAsync(Message message);
 

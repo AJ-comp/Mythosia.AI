@@ -42,7 +42,7 @@ This adds `.WithRag()` to any `AIService`, enabling document-based context augme
 ```csharp
 using Mythosia.AI.Rag;
 
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
         .AddDocument("policy.txt")
@@ -55,15 +55,15 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 ```csharp
 // OpenAI GPT
-var gptService = new ChatGptService(apiKey, httpClient);
+var gptService = new OpenAIService(apiKey, httpClient);
 var response = await gptService.GetCompletionAsync("Hello!");
 
 // Anthropic Claude
-var claudeService = new ClaudeService(apiKey, httpClient);
+var claudeService = new AnthropicService(apiKey, httpClient);
 var response = await claudeService.GetCompletionAsync("Hello!");
 
 // Google Gemini
-var geminiService = new GeminiService(apiKey, httpClient);
+var geminiService = new GoogleAIService(apiKey, httpClient);
 geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
 var response = await geminiService.GetCompletionAsync("Hello!");
 ```
@@ -96,7 +96,7 @@ GPT-5 family models (GPT-5 / 5.1 / 5.2 / 5.3 / 5.4) support **type-safe reasonin
 Each GPT-5 variant has its own enum to ensure only valid options are available at compile time.
 
 ```csharp
-var gptService = (ChatGptService)service;
+var gptService = (OpenAIService)service;
 
 // GPT-5: Gpt5Reasoning (Auto/Minimal/Low/Medium/High)
 gptService.WithGpt5Parameters(
@@ -138,7 +138,7 @@ All GPT-5 family models support `ReasoningSummary` enum (`Auto` / `Concise` / `D
 ### Gemini 3 — ThinkingLevel
 
 ```csharp
-var geminiService = new GeminiService(apiKey, httpClient);
+var geminiService = new GoogleAIService(apiKey, httpClient);
 geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
 
 // GeminiThinkingLevel enum: Auto / Minimal / Low / Medium / High
@@ -171,7 +171,7 @@ await foreach (var content in geminiService.StreamAsync(message, new StreamOptio
 ### Reasoning Effort
 
 ```csharp
-var grokService = new GrokService(apiKey, httpClient);
+var grokService = new XAIService(apiKey, httpClient);
 grokService.ChangeModel(AIModels.xAI.Grok3Mini);
 
 // GrokReasoning enum: Off / Low / High
@@ -233,7 +233,7 @@ var response = await service.GetCompletionAsync(
 
 ```csharp
 // Define a simple function
-var service = new ChatGptService(apiKey, httpClient)
+var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(
         "get_weather",
         "Gets the current weather for a location",
@@ -263,14 +263,14 @@ public class WeatherService
 
 // Register all functions from a class
 var weatherService = new WeatherService();
-var service = new ChatGptService(apiKey, httpClient)
+var service = new OpenAIService(apiKey, httpClient)
     .WithFunctions(weatherService);
 ```
 
 ### Advanced Function Builder
 
 ```csharp
-var service = new ChatGptService(apiKey, httpClient)
+var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(FunctionBuilder.Create("calculate")
         .WithDescription("Performs mathematical calculations")
         .AddParameter("expression", "string", "The math expression", required: true)
@@ -288,7 +288,7 @@ var service = new ChatGptService(apiKey, httpClient)
 ### Multiple Functions with Different Types
 
 ```csharp
-var service = new ChatGptService(apiKey, httpClient)
+var service = new OpenAIService(apiKey, httpClient)
     // Parameterless function
     .WithFunction(
         "get_time",
@@ -660,13 +660,13 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 ```csharp
 public class WeatherAssistant
 {
-    private readonly ChatGptService _service;
+    private readonly OpenAIService _service;
     private readonly HttpClient _httpClient;
 
     public WeatherAssistant(string apiKey)
     {
         _httpClient = new HttpClient();
-        _service = new ChatGptService(apiKey, _httpClient)
+        _service = new OpenAIService(apiKey, _httpClient)
             .WithSystemMessage("You are a helpful weather assistant.")
             .WithFunction(
                 "get_weather",
@@ -738,7 +738,7 @@ await foreach (var chunk in assistant.StreamAsync(
 ### Math Tutor with Step-by-Step Solutions
 
 ```csharp
-var mathTutor = new ChatGptService(apiKey, httpClient)
+var mathTutor = new OpenAIService(apiKey, httpClient)
     .WithSystemMessage("You are a math tutor. Always explain your reasoning.")
     .WithFunction(
         "calculate",

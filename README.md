@@ -110,7 +110,7 @@ https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 ```csharp
 using Mythosia.AI;
 
-var service = new ChatGptService(apiKey, httpClient);
+var service = new OpenAIService(apiKey, httpClient);
 var response = await service.GetCompletionAsync("Hello!");
 ```
 
@@ -140,7 +140,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 ### Function Calling
 
 ```csharp
-var service = new ChatGptService(apiKey, httpClient)
+var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(
         "get_weather",
         "Gets the current weather for a location",
@@ -216,7 +216,7 @@ dotnet add package Mythosia.AI.Rag
 ```csharp
 using Mythosia.AI.Rag;
 
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
         .AddDocument("policy.txt")

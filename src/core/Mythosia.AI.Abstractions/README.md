@@ -43,7 +43,7 @@ public interface IAIService
 }
 ```
 
-All concrete providers (`ChatGptService`, `ClaudeService`, `GeminiService`, etc.) in `Mythosia.AI` implement this interface.
+All concrete providers (`OpenAIService`, `AnthropicService`, `GoogleAIService`, etc.) in `Mythosia.AI` implement this interface.
 
 ---
 
@@ -84,6 +84,28 @@ All concrete providers (`ChatGptService`, `ClaudeService`, `GeminiService`, etc.
 | --- | --- |
 | `AIServiceException` | Base exception for AI service errors |
 | `AgentMaxStepsExceededException` | Thrown when agent exceeds maximum iteration steps |
+
+---
+
+## Relationship to Microsoft.Extensions.AI
+
+`Microsoft.Extensions.AI` (`IChatClient`) and `IAIService` solve different problems at different layers.
+
+| | `IAIService` (Mythosia.AI) | `IChatClient` (MS.Extensions.AI) |
+|---|---|---|
+| **State** | Stateful — `ChatBlock` accumulates conversation history automatically | Stateless — caller passes the full message list on every call |
+| **Session management** | Multiple `ChatBlock` sessions per service instance, switchable at runtime | None; caller manages message lists |
+| **System message** | First-class property; supports per-request prefix/suffix injection via `AIRequestContext` | Passed as a `ChatMessage` with `Role = system` |
+| **Request parameters** | Strongly-typed `AIRequestProfile` (temperature, max tokens, stateless, disable functions) | `ChatOptions` dictionary |
+| **Function calling** | Automatic ReAct loop with configurable `FunctionCallingPolicy` (max rounds, timeout, concurrency) | Single-round; caller implements the loop |
+| **Streaming chunks** | Typed `StreamingContent` — `Text`, `Reasoning`, `FunctionCall`, `FunctionResult`, `Completion`, `Error` | Text content updates only |
+| **Conversation summarization** | Built-in `SummaryConversationPolicy` — auto-summarizes when token/message thresholds are exceeded | Not provided |
+| **Multimodal** | `Message` serializes to each provider's wire format automatically | Caller constructs provider-specific content objects |
+| **Token usage** | Tracks input, output, cached, cache-creation, and reasoning tokens | Input and output tokens only |
+
+`IAIService` sits at a higher abstraction level than `IChatClient`. Implementing `IChatClient` on top of `IAIService` would discard stateful session management, typed streaming, and the function-calling loop. The two interfaces are not interchangeable.
+
+If interoperability with the MS ecosystem is required, the recommended direction is to accept an `IChatClient` as a constructor dependency inside a Mythosia.AI provider — not to replace `IAIService` with `IChatClient`.
 
 ---
 

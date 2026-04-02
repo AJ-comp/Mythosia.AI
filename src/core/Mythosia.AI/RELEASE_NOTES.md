@@ -1,5 +1,36 @@
 # Mythosia.AI - Release Notes
 
+## v5.4.0
+
+### Changed
+
+- **Service classes renamed to match provider names:**
+
+  | Previous name | New name |
+  |---|---|
+  | `ChatGptService` | `OpenAIService` |
+  | `ClaudeService` | `AnthropicService` |
+  | `GeminiService` | `GoogleAIService` |
+  | `GrokService` | `XAIService` |
+  | `SonarService` | `PerplexityService` |
+
+  Previous names are retained as `[Obsolete]` subclasses and will be removed in a future major version. No code changes are required at this time; a compiler warning will appear at usages of the old names.
+
+### Removed
+
+- Empty Alibaba stub files from `Mythosia.AI` core package (`Services/Alibaba/QwenService*.cs`). The Alibaba/Qwen implementation remains available in the separate `Mythosia.AI.Providers.Alibaba` package, which is unchanged.
+
+### Internal
+
+- `GetCompletionAsync(string)` overloads in `AIService` refactored to eliminate the repeated `ApplySummaryPolicyIfNeededAsync` + `new Message(ActorRole.User, prompt)` pattern via a private `PreparePromptAsync` helper. No behavioral change.
+
+### Compatibility
+
+- No breaking changes. All existing API surface is preserved via `[Obsolete]` shims.
+- Requires `Mythosia.AI.Abstractions` v1.1.1.
+
+---
+
 ## v5.3.0
 
 ### Added

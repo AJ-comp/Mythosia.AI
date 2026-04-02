@@ -19,8 +19,8 @@
 		<Description>Core abstractions and shared models for Mythosia.AI. Defines IAIService interface, Message, ChatBlock, StreamingContent, FunctionDefinition, and other contract types. Zero heavy dependencies.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v1.1.0: Add IFunctionRegisterable interface — allows RAG and other extension packages to register function tools on AIService without a direct dependency on the core package.</PackageReleaseNotes>
-		<Version>1.1.0</Version>
+		<PackageReleaseNotes>v1.1.1: README — added comparison table between IAIService and Microsoft.Extensions.AI IChatClient to clarify design scope and interoperability position.</PackageReleaseNotes>
+		<Version>1.1.1</Version>
 	</PropertyGroup>
 
 	<ItemGroup>
