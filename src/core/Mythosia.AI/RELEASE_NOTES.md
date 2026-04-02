@@ -34,7 +34,7 @@
 ### Compatibility
 
 - No breaking changes. All existing API surface is preserved via `[Obsolete]` shims.
-- Requires `Mythosia.AI.Abstractions` v1.1.1.
+- Requires `Mythosia.AI.Abstractions` v1.1.0.
 
 ---
 

@@ -24,13 +24,14 @@
 		DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
 		<Authors>JJW</Authors>
 		<Description>
-## What's New in v5.2.0
+## What's New in v5.3.0
 
-### Abstractions Package Split
-- All shared model/contract types extracted into `Mythosia.AI.Abstractions` (zero heavy dependencies)
-- `AIService` now implements `IAIService` interface for abstraction-based dependency
-- Downstream libraries (e.g., `Mythosia.AI.Rag`) can depend on the lightweight abstractions instead of the full implementation
-- Source-level fully compatible ? all namespaces unchanged, no code changes needed
+### Service Class Renames
+- ChatGptService → OpenAIService, ClaudeService → AnthropicService, GeminiService → GoogleAIService, GrokService → XAIService, SonarService → PerplexityService
+- Previous names retained as [Obsolete] shims — no breaking changes
+
+### IFunctionRegisterable
+- AIService now implements IFunctionRegisterable, enabling extension packages (e.g., Mythosia.AI.Rag) to register function tools without a direct dependency on this package
 
 ## Supported Models
 
