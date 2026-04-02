@@ -182,5 +182,5 @@ var result = await service.GetCompletionAsync("What's the weather in Seoul?");
 ## Documentation
 
 - Main package: [GitHub Repository](https://github.com/AJ-comp/Mythosia.AI)
-- Core package docs: [Mythosia.AI Core Package](https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI)
+- Core package docs: [Mythosia.AI Core Package](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI)
 - Release notes: [RELEASE_NOTES.md](RELEASE_NOTES.md)

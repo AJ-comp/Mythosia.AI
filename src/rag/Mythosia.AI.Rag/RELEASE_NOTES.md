@@ -12,6 +12,10 @@
   - Tool description is customizable via `toolDescription` parameter; defaults to a domain-agnostic description that instructs the agent to use self-contained queries.
   - Fully compatible with combining other tools via `WithFunction` / `WithFunctionAsync`.
 
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` v1.1.0.
+
 ### Usage
 
 ```csharp

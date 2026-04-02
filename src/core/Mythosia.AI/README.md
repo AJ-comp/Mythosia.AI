@@ -15,9 +15,10 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 
 ## 📚 Documentation
 
-- **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia/wiki)** — Getting started with text queries, streaming, image analysis, and more
-- **[Advanced Features](https://github.com/AJ-comp/Mythosia/wiki/Advanced-Features)** — Function calling, policies, and enhanced streaming
+- **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)** — Getting started with text queries, streaming, image analysis, and more
+- **[Advanced Features](https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features)** — Function calling, policies, and enhanced streaming
 - **[Release Notes](RELEASE_NOTES.md)** — Full version history and migration guides
+- **[Relationship to Microsoft.Extensions.AI](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions#relationship-to-microsoftextensionsai)** — How IAIService and IChatClient differ
 
 ## Installation
 
@@ -37,7 +38,7 @@ For RAG (Retrieval-Augmented Generation) support:
 dotnet add package Mythosia.AI.Rag
 ```
 
-This adds `.WithRag()` to any `AIService`, enabling document-based context augmentation. See the [Mythosia.AI.Rag README](https://github.com/AJ-comp/Mythosia/tree/master/Mythosia.AI.Rag) for full usage details.
+This adds `.WithRag()` to any `AIService`, enabling document-based context augmentation. See the [Mythosia.AI.Rag README](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag) for full usage details.
 
 ```csharp
 using Mythosia.AI.Rag;

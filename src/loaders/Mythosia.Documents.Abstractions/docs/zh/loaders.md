@@ -23,7 +23,7 @@ dotnet add package Mythosia.AI.Loaders.Pdf
 ```csharp
 using Mythosia.AI.Rag;
 
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocument("docs/manual.pdf")
         .AddDocument("docs/plan.docx")
@@ -50,7 +50,7 @@ using Mythosia.AI.Loaders.Pdf;
 using Mythosia.AI.Loaders.Office.Word;
 using Mythosia.AI.Rag.Splitters;
 
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocuments("./docs", src => src
             .WithExtension(".pdf")

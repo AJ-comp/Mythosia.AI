@@ -22,13 +22,13 @@ string markdown = docs[0].ToMarkdown();
 ### With RAG Pipeline
 
 ```csharp
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocuments(new WordDocumentLoader(), "docs/report.docx")
     );
 
 // Or auto-select loader by extension:
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag.AddDocument("docs/report.docx"));
 ```
 

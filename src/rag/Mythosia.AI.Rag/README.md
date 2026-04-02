@@ -18,7 +18,7 @@ dotnet add package Mythosia.AI.Rag
 ```csharp
 using Mythosia.AI.Rag;
 
-var service = new ClaudeService(apiKey, httpClient)
+var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
         .AddDocument("policy.txt")
@@ -152,7 +152,7 @@ Use any existing `AIService` to score and reorder results:
 ```csharp
 using Mythosia.AI.Rag.Reranking;
 
-var scorer = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
+var scorer = new OpenAIService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
 
 .WithRag(rag => rag
     .AddDocument("docs.txt")
@@ -248,7 +248,7 @@ Use `{context}` and `{question}` placeholders. If no template is specified, a de
 By default, follow-up questions like *"Tell me more about that"* fail in RAG because the search query lacks context from previous turns. `WithQueryRewriter()` solves this by automatically rewriting follow-up queries into retrieval-ready form before vector search, and can also derive keyword terms for hybrid/text retrieval.
 
 ```csharp
-var service = new ChatGptService(apiKey, httpClient)
+var service = new OpenAIService(apiKey, httpClient)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
         .WithQueryRewriter()   // Enables automatic query rewriting and retrieval keyword derivation
@@ -264,9 +264,9 @@ var r2 = await service.GetCompletionAsync("Tell me more about that");
 Use a cheaper/smaller LLM for rewriting and retrieval keyword derivation to reduce cost:
 
 ```csharp
-var rewriterService = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
+var rewriterService = new OpenAIService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
 
-var service = new ChatGptService(apiKey, httpClient, AIModel.OpenAI_Gpt4o)
+var service = new OpenAIService(apiKey, httpClient, AIModel.OpenAI_Gpt4o)
     .WithRag(rag => rag
         .AddDocument("manual.txt")
         .WithQueryRewriter(new LlmQueryRewriter(rewriterService))
@@ -292,7 +292,7 @@ Console.WriteLine(result.RewrittenQuery);  // "Tell me more about OPM"
 ## Streaming
 
 ```csharp
-var ragService = new ChatGptService(apiKey, httpClient)
+var ragService = new OpenAIService(apiKey, httpClient)
     .WithRag(rag => rag.AddDocument("manual.txt"));
 
 await foreach (var chunk in ragService.StreamAsync("How do I use this product?"))
@@ -353,7 +353,7 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
     .UseOpenAIEmbedding(apiKey));
 
 // Register RAG as a tool and run the agent
-var service = new ClaudeService(apiKey, http);
+var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 var answer = await service.RunAgentAsync("Summarise the refund policy.");
@@ -406,8 +406,8 @@ var ragStore = await RagStore.BuildAsync(config => config
     .WithTopK(5)
 );
 
-var claude = new ClaudeService(claudeKey, http).WithRag(ragStore);
-var gpt = new ChatGptService(gptKey, http).WithRag(ragStore);
+var claude = new AnthropicService(claudeKey, http).WithRag(ragStore);
+var gpt = new OpenAIService(gptKey, http).WithRag(ragStore);
 
 // Both use the same pre-built index
 var resp1 = await claude.GetCompletionAsync("What is the refund policy?");
