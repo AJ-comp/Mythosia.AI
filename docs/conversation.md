@@ -18,7 +18,14 @@ service.ClearMessages();
 
 ## Summary Policy
 
-Long conversations consume tokens and eventually exceed the model's context limit. `SummaryConversationPolicy` automatically summarizes old messages when a threshold is reached.
+### Why Automatic Summarization?
+
+Every message in the conversation history is sent to the model on each request. As conversations grow, this creates two problems:
+
+1. **Cost** — longer histories mean more input tokens billed per request
+2. **Context overflow** — once the history exceeds the model's context window (e.g. 128K tokens for GPT-4o), requests fail entirely
+
+You could manually truncate old messages, but that loses context the model might need. **`SummaryConversationPolicy`** solves this by automatically condensing older messages into a compact summary while keeping recent messages verbatim — the model retains the gist of the full conversation without the token cost.
 
 ### Trigger by Message Count
 

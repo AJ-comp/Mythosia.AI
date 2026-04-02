@@ -1,6 +1,14 @@
 # Agent (ReAct Loop)
 
-The agent loop lets the model autonomously pursue a goal by repeatedly calling functions and incorporating their results until it reaches a final answer — without you writing the loop yourself.
+## Why an Agent Loop?
+
+With regular function calling, the model makes **one** function call per request, you execute it, and the conversation continues. But many real-world tasks require **multiple steps** that the model must plan and execute autonomously:
+
+- "Research the top 3 AI companies and compare their stock prices" — requires multiple web searches and stock lookups
+- "Find the relevant policy, check the order status, then tell me if I qualify for a refund" — requires chaining different tools in a logical sequence
+- The model might need to **retry or refine** a search if the first result is insufficient
+
+Writing this orchestration loop yourself is tedious and error-prone. The **agent loop** (ReAct pattern: Reason → Act → Observe → Repeat) handles it automatically — the model decides what to do next at each step until it reaches a final answer.
 
 ## Basic Usage
 
@@ -72,6 +80,7 @@ service.WithComplexPolicy(); // Higher timeout, more rounds — deep research
 ## How It Works
 
 Each step:
+
 1. LLM receives the goal + conversation history + function definitions
 2. If LLM calls a function → execute it, append result to history
 3. If LLM returns a text response → loop ends, return that response

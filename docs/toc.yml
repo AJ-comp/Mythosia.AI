@@ -21,8 +21,10 @@
     href: structured-output.md
   - name: Conversation Management
     href: conversation.md
-  - name: Request Profiles & Contexts
+  - name: AIRequestProfile
     href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
 
 - name: Providers
   items:
@@ -37,8 +39,16 @@
     href: text-splitters.md
   - name: Document Loaders
     href: document-loaders.md
-  - name: Advanced RAG
-    href: rag-advanced.md
+  - name: Hybrid Search
+    href: rag-hybrid-search.md
+  - name: Query Rewriting
+    href: rag-query-rewriting.md
+  - name: Re-ranking & Retrieval Tuning
+    href: rag-reranking.md
+  - name: Pipeline Customization
+    href: rag-pipeline.md
+  - name: Agentic RAG
+    href: rag-agentic.md
 
 - name: Vector Database
   items:

@@ -1,6 +1,40 @@
 # Function Calling
 
-Function calling lets the model invoke your C# code when it needs to retrieve information or perform an action.
+## Why Function Calling?
+
+LLMs can only generate text — they cannot check the weather, query a database, or call an API on their own. **Without** function calling, you'd have to parse the model's intent manually:
+
+```csharp
+// ❌ Without function calling — manual intent parsing
+var reply = await service.GetCompletionAsync("What's the weather in Seoul?");
+// reply = "I'd need to check a weather service for that information."
+
+// You have to figure out the user wants weather, extract "Seoul", call the API yourself
+if (reply.Contains("weather"))
+{
+    var city = ExtractCity(reply); // fragile regex or keyword matching
+    var weather = await weatherApi.GetAsync(city);
+    // Now ask again with the weather data injected...
+}
+```
+
+This is brittle, doesn't scale, and requires you to anticipate every possible user intent. **With** function calling, the model decides **when** to call your code and **what arguments** to pass:
+
+```csharp
+// ✅ With function calling — the model handles intent + extraction
+var service = new OpenAIService(apiKey, http)
+    .WithFunction(
+        "get_weather",
+        "Gets the current weather for a location",
+        ("location", "The city and country", required: true),
+        (string location) => weatherApi.Get(location)
+    );
+
+var response = await service.GetCompletionAsync("What's the weather in Seoul?");
+// The model calls get_weather("Seoul, Korea"), gets the result, and answers naturally.
+```
+
+You define **what** your code can do; the model figures out **when** and **how** to use it.
 
 ## Quick Example
 

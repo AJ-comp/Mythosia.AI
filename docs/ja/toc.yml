@@ -21,8 +21,10 @@
     href: structured-output.md
   - name: 会話管理
     href: conversation.md
-  - name: リクエストプロファイルとコンテキスト
+  - name: AIRequestProfile
     href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
 
 - name: プロバイダー
   items:
@@ -37,8 +39,16 @@
     href: text-splitters.md
   - name: ドキュメントローダー
     href: document-loaders.md
-  - name: 高度なRAG
-    href: rag-advanced.md
+  - name: ハイブリッド検索
+    href: rag-hybrid-search.md
+  - name: クエリ書き換え
+    href: rag-query-rewriting.md
+  - name: 再ランキング & 検索チューニング
+    href: rag-reranking.md
+  - name: パイプラインカスタマイズ
+    href: rag-pipeline.md
+  - name: エージェンティックRAG
+    href: rag-agentic.md
 
 - name: ベクターデータベース
   items:

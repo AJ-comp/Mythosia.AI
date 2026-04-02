@@ -21,8 +21,10 @@
     href: structured-output.md
   - name: 대화 관리
     href: conversation.md
-  - name: 요청 프로필 및 컨텍스트
+  - name: AIRequestProfile
     href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
 
 - name: 프로바이더
   items:
@@ -37,8 +39,16 @@
     href: text-splitters.md
   - name: 문서 로더
     href: document-loaders.md
-  - name: 고급 RAG
-    href: rag-advanced.md
+  - name: 하이브리드 검색
+    href: rag-hybrid-search.md
+  - name: 쿼리 재작성
+    href: rag-query-rewriting.md
+  - name: 재순위 & 검색 튜닝
+    href: rag-reranking.md
+  - name: 파이프라인 커스터마이징
+    href: rag-pipeline.md
+  - name: 에이전틱 RAG
+    href: rag-agentic.md
 
 - name: 벡터 데이터베이스
   items:
