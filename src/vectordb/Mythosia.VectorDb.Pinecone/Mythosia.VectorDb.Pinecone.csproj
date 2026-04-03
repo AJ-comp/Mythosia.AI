@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>2.0.1</Version>
+    <Version>3.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with native namespace partitioning, metadata-based scope filtering, GetBatchAsync, CountAsync, and connection verification.</Description>
+    <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with native namespace partitioning via Metadata, metadata-based scope filtering, GetBatchAsync, CountAsync, and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v2.0.1: Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead. All deprecated APIs marked [Obsolete] and will be removed in a future major version.</PackageReleaseNotes>
+    <PackageReleaseNotes>v3.0.0: Breaking — Namespace/Scope isolation now via Metadata and VectorFilter.Where(). Requires Mythosia.VectorDb.Abstractions v4.0.0.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

@@ -97,35 +97,43 @@ namespace Mythosia.VectorDb.Qdrant
 
         internal static VectorRecord ToVectorRecord(RetrievedPoint point)
         {
+            var metadata = ExtractMetadata(point.Payload);
+
+            if (point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal) && !string.IsNullOrEmpty(nsVal.StringValue))
+                metadata["namespace"] = nsVal.StringValue;
+
+            if (point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal) && !string.IsNullOrEmpty(scopeVal.StringValue))
+                metadata["scope"] = scopeVal.StringValue;
+
             return new VectorRecord
             {
                 Id = point.Payload.TryGetValue(PayloadKeyId, out var idVal)
                     ? idVal.StringValue : string.Empty,
                 Content = point.Payload.TryGetValue(PayloadKeyContent, out var contentVal)
                     ? contentVal.StringValue : string.Empty,
-                Namespace = point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal)
-                    ? nsVal.StringValue : null,
-                Scope = point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal)
-                    ? scopeVal.StringValue : null,
                 Vector = ExtractDenseVector(point.Vectors),
-                Metadata = ExtractMetadata(point.Payload)
+                Metadata = metadata
             };
         }
 
         internal static VectorRecord ToVectorRecord(ScoredPoint point)
         {
+            var metadata = ExtractMetadata(point.Payload);
+
+            if (point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal) && !string.IsNullOrEmpty(nsVal.StringValue))
+                metadata["namespace"] = nsVal.StringValue;
+
+            if (point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal) && !string.IsNullOrEmpty(scopeVal.StringValue))
+                metadata["scope"] = scopeVal.StringValue;
+
             return new VectorRecord
             {
                 Id = point.Payload.TryGetValue(PayloadKeyId, out var idVal)
                     ? idVal.StringValue : string.Empty,
                 Content = point.Payload.TryGetValue(PayloadKeyContent, out var contentVal)
                     ? contentVal.StringValue : string.Empty,
-                Namespace = point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal)
-                    ? nsVal.StringValue : null,
-                Scope = point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal)
-                    ? scopeVal.StringValue : null,
                 Vector = ExtractDenseVector(point.Vectors),
-                Metadata = ExtractMetadata(point.Payload)
+                Metadata = metadata
             };
         }
 
@@ -135,9 +143,12 @@ namespace Mythosia.VectorDb.Qdrant
         /// </summary>
         internal static PointStruct ToPointStruct(VectorRecord record)
         {
+            record.Metadata.TryGetValue("namespace", out var ns);
+            record.Metadata.TryGetValue("scope", out var scope);
+
             var point = new PointStruct
             {
-                Id = CreatePointId(record.Namespace, record.Id),
+                Id = CreatePointId(ns, record.Id),
                 Vectors = record.Vector ?? Array.Empty<float>(),
             };
 
@@ -168,16 +179,18 @@ namespace Mythosia.VectorDb.Qdrant
             point.Payload[PayloadKeyId] = record.Id;
             point.Payload[PayloadKeyContent] = record.Content ?? string.Empty;
 
-            if (record.Namespace != null)
-                point.Payload[PayloadKeyNamespace] = record.Namespace;
+            if (ns != null)
+                point.Payload[PayloadKeyNamespace] = ns;
 
-            if (record.Scope != null)
-                point.Payload[PayloadKeyScope] = record.Scope;
+            if (scope != null)
+                point.Payload[PayloadKeyScope] = scope;
 
             if (record.Metadata != null)
             {
                 foreach (var kvp in record.Metadata)
                 {
+                    if (kvp.Key == "namespace" || kvp.Key == "scope")
+                        continue;
                     point.Payload[$"{PayloadMetadataPrefix}{kvp.Key}"] = kvp.Value;
                 }
             }

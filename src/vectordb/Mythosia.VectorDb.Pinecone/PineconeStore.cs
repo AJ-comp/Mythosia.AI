@@ -30,6 +30,17 @@ namespace Mythosia.VectorDb.Pinecone
         private const string MetadataKeyContent = "_content";
         private const string MetadataKeyScope = "_scope";
 
+        private static string? PeekEqValue(IReadOnlyList<FilterCondition>? conditions, string key)
+        {
+            if (conditions == null) return null;
+            foreach (var c in conditions)
+            {
+                if (c is MetadataCondition mc && mc.Key == key && mc.Operator == FilterOperator.Eq)
+                    return mc.Value;
+            }
+            return null;
+        }
+
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
@@ -93,7 +104,7 @@ namespace Mythosia.VectorDb.Pinecone
             if (materialized.Count == 0)
                 return;
 
-            foreach (var nsGroup in materialized.GroupBy(r => ResolveNamespace(r.Namespace), StringComparer.Ordinal))
+            foreach (var nsGroup in materialized.GroupBy(r => ResolveNamespace(r.Metadata.TryGetValue("namespace", out var ns) ? ns : null), StringComparer.Ordinal))
             {
                 var vectors = nsGroup.Select(r => ToUpsertVector(r)).ToList();
 
@@ -122,7 +133,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             await EnsureIndexAsync(cancellationToken);
 
-            var ns = ResolveNamespace(filter?.Namespace);
+            var ns = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace"));
             var path = BuildFetchPath(id, ns);
             var response = await SendAsync<FetchResponse>(HttpMethod.Get, path, null, cancellationToken);
 
@@ -144,7 +155,7 @@ namespace Mythosia.VectorDb.Pinecone
             await EnsureIndexAsync(cancellationToken);
 
             // When additional filters are present, ensure the target matches first.
-            if (filter != null && (filter.Scope != null || filter.Conditions.Count > 0))
+            if (filter != null && (PeekEqValue(filter.Conditions, "scope") != null || filter.Conditions.Count > 0))
             {
                 var existing = await GetAsync(id, filter, cancellationToken);
                 if (existing == null)
@@ -153,7 +164,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var request = new DeleteRequest
             {
-                Namespace = ResolveNamespace(filter?.Namespace),
+                Namespace = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace")),
                 Ids = new List<string> { id }
             };
 
@@ -169,7 +180,7 @@ namespace Mythosia.VectorDb.Pinecone
             var metadataFilter = BuildMetadataFilter(filter);
             var request = new DeleteRequest
             {
-                Namespace = ResolveNamespace(filter.Namespace)
+                Namespace = ResolveNamespace(PeekEqValue(filter.Conditions, "namespace"))
             };
 
             if (metadataFilter == null)
@@ -201,7 +212,7 @@ namespace Mythosia.VectorDb.Pinecone
             if (idList.Count == 0)
                 return Array.Empty<VectorRecord>();
 
-            var ns = ResolveNamespace(filter?.Namespace);
+            var ns = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace"));
             var path = BuildFetchBatchPath(idList, ns);
             var response = await SendAsync<FetchResponse>(HttpMethod.Get, path, null, cancellationToken);
 
@@ -236,7 +247,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var request = new QueryRequest
             {
-                Namespace = ResolveNamespace(filter?.Namespace),
+                Namespace = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace")),
                 Vector = queryVector,
                 TopK = topK,
                 IncludeMetadata = true,
@@ -289,7 +300,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var request = new QueryRequest
             {
-                Namespace = ResolveNamespace(filter?.Namespace),
+                Namespace = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace")),
                 Vector = denseVector,
                 TopK = topK,
                 IncludeMetadata = true,
@@ -572,8 +583,9 @@ namespace Mythosia.VectorDb.Pinecone
             }
 
             metadata[MetadataKeyContent] = record.Content ?? string.Empty;
-            if (record.Scope != null)
-                metadata[MetadataKeyScope] = record.Scope;
+            record.Metadata.TryGetValue("scope", out var scope);
+            if (scope != null)
+                metadata[MetadataKeyScope] = scope;
 
             var upsertVector = new UpsertVector
             {
@@ -607,13 +619,16 @@ namespace Mythosia.VectorDb.Pinecone
             if (match.Metadata != null)
                 ParseMetadata(match.Metadata, ref content, ref scope, metadata);
 
+            if (@namespace != null)
+                metadata["namespace"] = @namespace;
+            if (scope != null)
+                metadata["scope"] = scope;
+
             return new VectorRecord
             {
                 Id = match.Id ?? string.Empty,
                 Vector = match.Values ?? Array.Empty<float>(),
                 Content = content,
-                Namespace = @namespace,
-                Scope = scope,
                 Metadata = metadata
             };
         }
@@ -627,13 +642,16 @@ namespace Mythosia.VectorDb.Pinecone
             if (vector.Metadata != null)
                 ParseMetadata(vector.Metadata, ref content, ref scope, metadata);
 
+            if (@namespace != null)
+                metadata["namespace"] = @namespace;
+            if (scope != null)
+                metadata["scope"] = scope;
+
             return new VectorRecord
             {
                 Id = vector.Id ?? string.Empty,
                 Vector = vector.Values ?? Array.Empty<float>(),
                 Content = content,
-                Namespace = @namespace,
-                Scope = scope,
                 Metadata = metadata
             };
         }
@@ -683,9 +701,6 @@ namespace Mythosia.VectorDb.Pinecone
 
         private static bool MatchesFilter(VectorRecord record, VectorFilter filter)
         {
-            if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
-                return false;
-
             if (filter.Conditions.Count > 0 && !EvaluateConditions(record, filter.Conditions, FilterLogic.And))
                 return false;
 
@@ -781,15 +796,26 @@ namespace Mythosia.VectorDb.Pinecone
 
             var conditions = new List<object>();
 
-            if (filter.Scope != null)
+            // scope and namespace conditions are handled by the dedicated API, not metadata filter;
+            // skip them so they don't double-filter.
+            var nonReservedConditions = new List<FilterCondition>();
+            foreach (var condition in filter.Conditions)
             {
-                conditions.Add(new Dictionary<string, object>
+                if (condition is MetadataCondition mc && (mc.Key == "namespace" || mc.Key == "scope"))
                 {
-                    [MetadataKeyScope] = new Dictionary<string, object> { ["$eq"] = filter.Scope }
-                });
+                    if (mc.Key == "scope")
+                    {
+                        conditions.Add(new Dictionary<string, object>
+                        {
+                            [MetadataKeyScope] = new Dictionary<string, object> { ["$eq"] = mc.Value! }
+                        });
+                    }
+                    continue;
+                }
+                nonReservedConditions.Add(condition);
             }
 
-            foreach (var condition in filter.Conditions)
+            foreach (var condition in nonReservedConditions)
                 BuildPineconeCondition(condition, conditions);
 
             if (conditions.Count == 0)
@@ -855,7 +881,7 @@ namespace Mythosia.VectorDb.Pinecone
         {
             await EnsureIndexAsync(cancellationToken);
 
-            var ns = ResolveNamespace(filter?.Namespace);
+            var ns = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace"));
             var metadataFilter = BuildMetadataFilter(filter);
 
             IndexStatsResponse stats;

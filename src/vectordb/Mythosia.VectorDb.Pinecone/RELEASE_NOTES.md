@@ -1,5 +1,21 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v3.0.0
+
+### Breaking Changes
+
+- **Namespace/scope isolation via Metadata only** — follows `Mythosia.VectorDb.Abstractions` v4.0.0.
+  - `VectorRecord.Namespace`, `VectorRecord.Scope`, `VectorFilter.Namespace`, `VectorFilter.Scope`, and `VectorFilter.WithNamespace()` no longer exist.
+  - Use `Metadata["namespace"]` / `Metadata["scope"]` and `VectorFilter.Where("namespace", value)` instead.
+  - **Stored data unchanged** — namespace/scope were already stored as Pinecone metadata fields. Only the source property changed; the metadata structure is identical.
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0.
+- **Existing indexes are fully compatible** — no re-indexing or migration required.
+
+---
+
 ## v2.0.1
 
 ### Deprecated

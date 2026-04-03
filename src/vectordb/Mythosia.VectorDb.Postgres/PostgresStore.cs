@@ -13,13 +13,11 @@ namespace Mythosia.VectorDb.Postgres;
 
 /// <summary>
 /// PostgreSQL (pgvector) implementation of <see cref="IVectorStore"/>.
-/// Uses a single shared table with a <c>namespace</c> column for logical isolation.
-/// Embedding vectors are bound as pgvector-compatible string literals (<c>'[0.1,0.2,...]'::vector</c>).
+/// Uses a single shared table with a <c>metadata</c> JSONB column for all filtering
+/// including logical isolation via <c>Metadata["namespace"]</c> and <c>Metadata["scope"]</c>.
 /// </summary>
 public class PostgresStore : IVectorStore, IDisposable
 {
-    private const string DefaultNamespace = "default";
-
     private readonly PostgresOptions _options;
     private readonly string _qualifiedTable;
     private readonly SemaphoreSlim _schemaLock = new SemaphoreSlim(1, 1);
@@ -84,15 +82,12 @@ public class PostgresStore : IVectorStore, IDisposable
         await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
         // DELETE by filter
-        var ns = filter.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns" : "1=1";
         var (whereClause, filterParams) = BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty);
 
         using (var deleteCmd = conn.CreateCommand())
         {
             deleteCmd.Transaction = tx;
-            deleteCmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE {nsCondition}{whereClause}";
-            if (ns != null) deleteCmd.Parameters.AddWithValue("@ns", ns);
+            deleteCmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE 1=1{whereClause}";
             foreach (var p in filterParams)
                 deleteCmd.Parameters.Add(p);
             await deleteCmd.ExecuteNonQueryAsync(cancellationToken);
@@ -123,8 +118,6 @@ public class PostgresStore : IVectorStore, IDisposable
     {
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
-        var ns = filter?.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns AND " : "";
         var (whereClause, filterParams) = filter != null
             ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
             : (string.Empty, new List<NpgsqlParameter>());
@@ -132,10 +125,9 @@ public class PostgresStore : IVectorStore, IDisposable
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $@"
-SELECT id, namespace, scope, content, metadata, embedding::text
+SELECT id, content, metadata, embedding::text
 FROM {_qualifiedTable}
-WHERE {nsCondition}id = @id{whereClause}";
-        if (ns != null) cmd.Parameters.AddWithValue("@ns", ns);
+WHERE id = @id{whereClause}";
         cmd.Parameters.AddWithValue("@id", id);
         foreach (var p in filterParams)
             cmd.Parameters.Add(p);
@@ -151,16 +143,13 @@ WHERE {nsCondition}id = @id{whereClause}";
     {
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
-        var ns = filter?.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns AND " : "";
         var (whereClause, filterParams) = filter != null
             ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
             : (string.Empty, new List<NpgsqlParameter>());
 
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE {nsCondition}id = @id{whereClause}";
-        if (ns != null) cmd.Parameters.AddWithValue("@ns", ns);
+        cmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE id = @id{whereClause}";
         cmd.Parameters.AddWithValue("@id", id);
         foreach (var p in filterParams)
             cmd.Parameters.Add(p);
@@ -171,14 +160,11 @@ WHERE {nsCondition}id = @id{whereClause}";
     {
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
-        var ns = filter.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns" : "1=1";
         var (whereClause, parameters) = BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty);
 
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE {nsCondition}{whereClause}";
-        if (ns != null) cmd.Parameters.AddWithValue("@ns", ns);
+        cmd.CommandText = $"DELETE FROM {_qualifiedTable} WHERE 1=1{whereClause}";
         foreach (var p in parameters)
             cmd.Parameters.Add(p);
 
@@ -200,8 +186,6 @@ WHERE {nsCondition}id = @id{whereClause}";
         if (idList.Count == 0)
             return Array.Empty<VectorRecord>();
 
-        var ns = filter?.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns AND " : "";
         var (whereClause, filterParams) = filter != null
             ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
             : (string.Empty, new List<NpgsqlParameter>());
@@ -209,10 +193,9 @@ WHERE {nsCondition}id = @id{whereClause}";
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $@"
-SELECT id, namespace, scope, content, metadata, embedding::text
+SELECT id, content, metadata, embedding::text
 FROM {_qualifiedTable}
-WHERE {nsCondition}id = ANY(@ids){whereClause}";
-        if (ns != null) cmd.Parameters.AddWithValue("@ns", ns);
+WHERE id = ANY(@ids){whereClause}";
         cmd.Parameters.Add(new NpgsqlParameter("@ids", NpgsqlDbType.Array | NpgsqlDbType.Text) { Value = idList.ToArray() });
         foreach (var p in filterParams)
             cmd.Parameters.Add(p);
@@ -248,8 +231,6 @@ WHERE {nsCondition}id = ANY(@ids){whereClause}";
     {
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
-        var ns = filter?.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns" : "1=1";
         var distanceOperator = GetDistanceOperator();
         var scoreExpression = GetScoreExpression();
 
@@ -264,22 +245,18 @@ WHERE {nsCondition}id = ANY(@ids){whereClause}";
 
         var results = new List<VectorSearchResult>();
 
-        // Block-scoped using for cmd/reader ensures they are fully disposed
-        // before tx.CommitAsync(). Npgsql requires the DataReader to be closed
-        // before any other command (including COMMIT) can execute on the connection.
         using (var cmd = conn.CreateCommand())
         {
             cmd.Transaction = tx;
 
             cmd.CommandText = $@"
-SELECT id, namespace, scope, content, metadata, embedding::text,
+SELECT id, content, metadata, embedding::text,
        {scoreExpression} AS score
 FROM {_qualifiedTable}
-WHERE {nsCondition}{whereClause}
+WHERE 1=1{whereClause}
 ORDER BY embedding {distanceOperator} @q::vector
 LIMIT @topK";
 
-            if (ns != null) cmd.Parameters.AddWithValue("@ns", ns);
             cmd.Parameters.AddWithValue("@q", VectorToString(queryVector));
             cmd.Parameters.AddWithValue("@topK", topK);
 
@@ -319,8 +296,6 @@ LIMIT @topK";
     {
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
-        var ns = filter?.Namespace;
-        var nsCondition = ns != null ? "namespace = @ns" : "1=1";
         var distanceOperator = GetDistanceOperator();
         var expandedTopK = topK * 2;
         const int rrfK = 60;
@@ -353,53 +328,50 @@ LIMIT @topK";
             cmd.Transaction = tx;
             cmd.CommandText = $@"
 WITH vector_candidates AS (
-    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding
+    SELECT id, content, metadata, embedding::text AS embedding
     FROM {_qualifiedTable}
-    WHERE {nsCondition}{whereClause}
+    WHERE 1=1{whereClause}
     ORDER BY embedding {distanceOperator} @q::vector
     LIMIT @candidateTopK
 ),
 vector_results AS (
-    SELECT id, namespace, scope, content, metadata, embedding,
+    SELECT id, content, metadata, embedding,
            ROW_NUMBER() OVER () AS rank_idx
     FROM vector_candidates
 ),
-{BuildTextCandidatesCte(nsCondition, bm25WhereClause)},
+{BuildTextCandidatesCte(bm25WhereClause)},
 text_results AS (
-    SELECT id, namespace, scope, content, metadata, embedding,
+    SELECT id, content, metadata, embedding,
            ROW_NUMBER() OVER (ORDER BY text_score DESC) AS rank_idx
     FROM text_candidates
 ),
 rrf_scores AS (
-    SELECT id, namespace,
+    SELECT id,
            @vectorWeight * (1.0 / (@rrfK + rank_idx)) AS rrf_score
     FROM vector_results
     UNION ALL
-    SELECT id, namespace,
+    SELECT id,
            @keywordWeight * (1.0 / (@rrfK + rank_idx)) AS rrf_score
     FROM text_results
 ),
 final_scores AS (
-    SELECT id, namespace, SUM(rrf_score) * (@rrfK + 1) AS score
+    SELECT id, SUM(rrf_score) * (@rrfK + 1) AS score
     FROM rrf_scores
-    GROUP BY id, namespace
+    GROUP BY id
     ORDER BY score DESC
     LIMIT @topK
 ),
 base_records AS (
-    SELECT id, namespace, scope, content, metadata, embedding FROM vector_results
+    SELECT id, content, metadata, embedding FROM vector_results
     UNION
-    SELECT id, namespace, scope, content, metadata, embedding FROM text_results
+    SELECT id, content, metadata, embedding FROM text_results
 )
-SELECT br.id, br.namespace, br.scope, br.content, br.metadata, br.embedding,
+SELECT br.id, br.content, br.metadata, br.embedding,
        fs.score
 FROM final_scores fs
-JOIN base_records br
-  ON br.namespace = fs.namespace
- AND br.id = fs.id
+JOIN base_records br ON br.id = fs.id
 ORDER BY fs.score DESC";
 
-            if (ns != null) cmd.Parameters.AddWithValue("@ns", ns);
             cmd.Parameters.AddWithValue("@q", VectorToString(denseVector));
             cmd.Parameters.AddWithValue("@query", query);
             cmd.Parameters.AddWithValue("@candidateTopK", expandedTopK);
@@ -450,6 +422,12 @@ ORDER BY fs.score DESC";
             if (_schemaEnsured)
                 return;
 
+            // Always migrate legacy schema if detected, regardless of EnsureSchema setting
+            using (var conn = await OpenConnectionAsync(cancellationToken))
+            {
+                await MigrateLegacySchemaAsync(conn, cancellationToken);
+            }
+
             if (_options.EnsureSchema)
             {
                 await CreateSchemaAsync(cancellationToken);
@@ -475,30 +453,14 @@ ORDER BY fs.score DESC";
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS {_qualifiedTable} (
-    namespace   text        NOT NULL,
-    id          text        NOT NULL,
-    scope       text        NULL,
+    id          text        NOT NULL PRIMARY KEY,
     content     text        NULL,
-    content_tsv tsvector    NOT NULL,
+    content_tsv tsvector    NOT NULL DEFAULT ''::tsvector,
     metadata    jsonb       NOT NULL DEFAULT '{{}}'::jsonb,
     embedding   vector({_options.Dimension}) NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
-    updated_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (namespace, id)
+    updated_at  timestamptz NOT NULL DEFAULT now()
 );
-
-ALTER TABLE {_qualifiedTable}
-    ADD COLUMN IF NOT EXISTS content_tsv tsvector;
-
-UPDATE {_qualifiedTable}
-SET content_tsv = to_tsvector('{_options.TextSearchConfig}',
-    regexp_replace(
-        regexp_replace(coalesce(content, ''),
-            '([a-zA-Z0-9])([^\u0001-\u007F\s])', E'\\1 \\2', 'g'),
-        '([^\u0001-\u007F\s])([a-zA-Z0-9])', E'\\1 \\2', 'g'));
-
-ALTER TABLE {_qualifiedTable}
-    ALTER COLUMN content_tsv SET NOT NULL;
 
 COMMENT ON COLUMN {_qualifiedTable}.content IS 'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
 
@@ -507,9 +469,6 @@ CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_metadata
 
 CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_content_tsv
     ON {_qualifiedTable} USING gin (content_tsv);
-
-CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_ns_scope
-    ON {_qualifiedTable} (namespace, scope);
 ";
         using var cmd = conn.CreateCommand();
         cmd.CommandText = sql;
@@ -517,6 +476,100 @@ CREATE INDEX IF NOT EXISTS idx_{_options.TableName}_ns_scope
 
         await TryCreateVectorIndexAsync(conn, cancellationToken);
         await TryCreateTrigramIndexAsync(conn, cancellationToken);
+    }
+
+    /// <summary>
+    /// Automatically migrates a legacy schema (v10.6.x and earlier) where <c>namespace</c> and <c>scope</c>
+    /// were stored as dedicated columns. Merges their values into <c>metadata</c> JSONB,
+    /// resolves any duplicate IDs across namespaces by prefixing with the namespace value,
+    /// changes the PK to <c>(id)</c>, and drops the legacy columns.
+    /// All operations run in a single transaction — on failure, the schema remains unchanged.
+    /// </summary>
+    private async Task MigrateLegacySchemaAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
+    {
+        bool hasLegacySchema;
+        using (var checkCmd = conn.CreateCommand())
+        {
+            checkCmd.CommandText = @"
+SELECT 1 FROM information_schema.columns
+WHERE table_schema = @schema AND table_name = @table AND column_name = 'namespace'";
+            checkCmd.Parameters.AddWithValue("@schema", _options.SchemaName);
+            checkCmd.Parameters.AddWithValue("@table", _options.TableName);
+            hasLegacySchema = await checkCmd.ExecuteScalarAsync(cancellationToken) != null;
+        }
+
+        if (!hasLegacySchema)
+            return;
+
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+
+        // 1. Merge namespace/scope values into metadata JSONB
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $@"
+UPDATE {_qualifiedTable}
+SET metadata = metadata
+    || jsonb_build_object('namespace', namespace)
+    || CASE WHEN scope IS NOT NULL THEN jsonb_build_object('scope', scope) ELSE '{{}}'::jsonb END";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 2. Resolve duplicate IDs across namespaces by prefixing with namespace
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $@"
+UPDATE {_qualifiedTable} t
+SET id = t.namespace || ':' || t.id
+FROM (SELECT id FROM {_qualifiedTable} GROUP BY id HAVING COUNT(*) > 1) dups
+WHERE t.id = dups.id";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 3. Look up existing PK constraint name
+        string? pkConstraintName;
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+SELECT constraint_name FROM information_schema.table_constraints
+WHERE table_schema = @schema AND table_name = @table AND constraint_type = 'PRIMARY KEY'";
+            cmd.Parameters.AddWithValue("@schema", _options.SchemaName);
+            cmd.Parameters.AddWithValue("@table", _options.TableName);
+            pkConstraintName = (string?)await cmd.ExecuteScalarAsync(cancellationToken);
+        }
+
+        // 4. Drop old PK and create new PK
+        if (pkConstraintName != null)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = $@"
+ALTER TABLE {_qualifiedTable} DROP CONSTRAINT ""{pkConstraintName}"";
+ALTER TABLE {_qualifiedTable} ADD PRIMARY KEY (id)";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 5. Drop legacy columns
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $@"
+ALTER TABLE {_qualifiedTable} DROP COLUMN namespace;
+ALTER TABLE {_qualifiedTable} DROP COLUMN scope";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        // 6. Drop old namespace+scope index
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.Transaction = tx;
+            cmd.CommandText = $"DROP INDEX IF EXISTS idx_{_options.TableName}_ns_scope";
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await tx.CommitAsync(cancellationToken);
     }
 
     private async Task TryCreateVectorIndexAsync(NpgsqlConnection conn, CancellationToken cancellationToken)
@@ -599,14 +652,7 @@ WHERE table_schema = @schema AND table_name = @table";
         using var conn = await OpenConnectionAsync(cancellationToken);
         using var cmd = conn.CreateCommand();
 
-        // Use WHERE 1=1 so every subsequent condition can safely prepend " AND "
         var sb = new StringBuilder($"SELECT COUNT(*) FROM {_qualifiedTable} WHERE 1=1");
-
-        if (filter?.Namespace != null)
-        {
-            sb.Append(" AND namespace = @ns");
-            cmd.Parameters.AddWithValue("@ns", filter.Namespace);
-        }
 
         if (filter != null)
         {
@@ -644,10 +690,9 @@ WHERE table_schema = @schema AND table_name = @table";
     private string BuildUpsertSql()
     {
         return $@"
-INSERT INTO {_qualifiedTable} (namespace, id, scope, content, content_tsv, metadata, embedding)
-VALUES (@ns, @id, @scope, @content, to_tsvector('{_options.TextSearchConfig}', coalesce(@content_normalized, '')), @metadata, @embedding::vector)
-ON CONFLICT (namespace, id) DO UPDATE SET
-    scope      = EXCLUDED.scope,
+INSERT INTO {_qualifiedTable} (id, content, content_tsv, metadata, embedding)
+VALUES (@id, @content, to_tsvector('{_options.TextSearchConfig}', coalesce(@content_normalized, '')), @metadata, @embedding::vector)
+ON CONFLICT (id) DO UPDATE SET
     content    = EXCLUDED.content,
     content_tsv = EXCLUDED.content_tsv,
     metadata   = EXCLUDED.metadata,
@@ -657,9 +702,7 @@ ON CONFLICT (namespace, id) DO UPDATE SET
 
     private static void AddUpsertParameters(NpgsqlParameterCollection parameters, VectorRecord record)
     {
-        parameters.AddWithValue("@ns", record.Namespace ?? DefaultNamespace);
         parameters.AddWithValue("@id", record.Id);
-        parameters.AddWithValue("@scope", (object?)record.Scope ?? DBNull.Value);
         parameters.AddWithValue("@content", (object?)record.Content ?? DBNull.Value);
         parameters.AddWithValue("@content_normalized", (object?)NormalizeScriptBoundaries(record.Content) ?? DBNull.Value);
         parameters.Add(CreateJsonbParameter("@metadata", record.Metadata));
@@ -674,12 +717,6 @@ ON CONFLICT (namespace, id) DO UPDATE SET
         var sb = new StringBuilder();
         var parameters = new List<NpgsqlParameter>();
         int paramIdx = 0;
-
-        if (filter.Scope != null)
-        {
-            sb.Append(" AND scope = @scope_filter");
-            parameters.Add(new NpgsqlParameter("@scope_filter", filter.Scope));
-        }
 
         if (filter.Conditions.Count > 0)
         {
@@ -827,15 +864,15 @@ ON CONFLICT (namespace, id) DO UPDATE SET
     /// <summary>
     /// Builds the <c>text_candidates</c> CTE for hybrid search based on <see cref="TextSearchMode"/>.
     /// </summary>
-    private string BuildTextCandidatesCte(string nsCondition, string filterWhereClause)
+    private string BuildTextCandidatesCte(string filterWhereClause)
     {
         if (_options.TextSearchMode == TextSearchMode.Trigram)
         {
             return $@"text_candidates AS (
-    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
+    SELECT id, content, metadata, embedding::text AS embedding,
            word_similarity(@query, content) AS text_score
     FROM {_qualifiedTable}
-    WHERE {nsCondition}{filterWhereClause}
+    WHERE 1=1{filterWhereClause}
       AND content IS NOT NULL
       AND length(@query) > 0
       AND @query <% content
@@ -844,18 +881,14 @@ ON CONFLICT (namespace, id) DO UPDATE SET
 )";
         }
 
-        // Use OR-based tsquery instead of plainto_tsquery's default AND.
-        // plainto_tsquery('simple', 'OPM 이벤트 코드') → 'opm' & '이벤트' & '코드' (AND — too restrictive)
-        // This approach → 'opm' | '이벤트' | '코드' (OR — standard BM25 behavior)
-        // Documents matching more terms still rank higher via ts_rank scoring.
         var cfg = _options.TextSearchConfig;
         return $@"text_candidates AS (
-    SELECT id, namespace, scope, content, metadata, embedding::text AS embedding,
+    SELECT id, content, metadata, embedding::text AS embedding,
            ts_rank(content_tsv, to_tsquery('{cfg}',
                regexp_replace(regexp_replace(trim(@query), '[^\w\s]', '', 'g'), '\s+', ' | ', 'g')
            )) AS text_score
     FROM {_qualifiedTable}
-    WHERE {nsCondition}{filterWhereClause}
+    WHERE 1=1{filterWhereClause}
       AND length(trim(@query)) > 0
       AND content_tsv @@ to_tsquery('{cfg}',
               regexp_replace(regexp_replace(trim(@query), '[^\w\s]', '', 'g'), '\s+', ' | ', 'g')
@@ -870,22 +903,16 @@ ON CONFLICT (namespace, id) DO UPDATE SET
         var record = new VectorRecord
         {
             Id = reader.GetString(reader.GetOrdinal("id")),
-            Namespace = reader.IsDBNull(reader.GetOrdinal("namespace"))
-                ? null
-                : reader.GetString(reader.GetOrdinal("namespace")),
             Content = reader.IsDBNull(reader.GetOrdinal("content"))
                 ? string.Empty
                 : reader.GetString(reader.GetOrdinal("content")),
-            Scope = reader.IsDBNull(reader.GetOrdinal("scope"))
-                ? null
-                : reader.GetString(reader.GetOrdinal("scope"))
         };
 
         // Read embedding as text (cast in SQL: embedding::text → '[0.1,0.2,...]')
         var embeddingText = reader.GetString(reader.GetOrdinal("embedding"));
         record.Vector = ParseVectorString(embeddingText);
 
-        // Read metadata jsonb
+        // Read metadata jsonb (includes namespace/scope if present)
         var metadataJson = reader.IsDBNull(reader.GetOrdinal("metadata"))
             ? "{}"
             : reader.GetString(reader.GetOrdinal("metadata"));

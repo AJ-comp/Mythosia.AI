@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.InMemory</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>3.0.1</Version>
+    <Version>4.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, namespace/scope support, upsert/delete operations, GetBatchAsync, CountAsync, IDisposable, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
+    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, upsert/delete operations, GetBatchAsync, CountAsync, IDisposable, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
     <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v3.0.1: Namespace filtering is now optional — null namespace queries across all namespaces. Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.0: Breaking — Removed namespace/scope partitioning. Use Metadata and VectorFilter.Where() for logical isolation. Requires Mythosia.VectorDb.Abstractions v4.0.0.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

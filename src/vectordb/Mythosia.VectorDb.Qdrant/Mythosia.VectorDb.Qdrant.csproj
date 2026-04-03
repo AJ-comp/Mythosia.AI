@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Qdrant</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>3.0.1</Version>
+    <Version>4.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based namespace and scope isolation. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, automatic collection provisioning, native hybrid search with sparse-dense fusion, GetBatchAsync, CountAsync, and connection verification.</Description>
+    <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based logical isolation via Metadata. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, automatic collection provisioning, native hybrid search with sparse-dense fusion, GetBatchAsync, CountAsync, and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v3.0.1: Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead. All deprecated APIs marked [Obsolete] and will be removed in a future major version.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.0: Breaking — Namespace/Scope isolation now via Metadata and VectorFilter.Where(). Requires Mythosia.VectorDb.Abstractions v4.0.0.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <UserSecretsId>36819fe4-a0b6-41e3-9bdb-7cdfd9d51aa5</UserSecretsId>
   </PropertyGroup>

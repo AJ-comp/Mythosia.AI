@@ -12,11 +12,7 @@ namespace Mythosia.VectorDb.Qdrant
     /// <summary>
     /// Qdrant implementation of <see cref="IVectorStore"/>.
     /// Uses a single Qdrant collection (configured via <see cref="QdrantOptions.CollectionName"/>)
-    /// with payload-based logical isolation:
-    /// <list type="bullet">
-    ///   <item><c>_namespace</c> — first-tier logical partition (maps to <see cref="VectorRecord.Namespace"/>)</item>
-    ///   <item><c>_scope</c> — second-tier logical partition (maps to <see cref="VectorRecord.Scope"/>)</item>
-    /// </list>
+    /// with payload-based logical isolation via <c>Metadata["namespace"]</c> and <c>Metadata["scope"]</c>.
     /// </summary>
     public class QdrantStore : IVectorStore, IDisposable
     {
@@ -25,6 +21,17 @@ namespace Mythosia.VectorDb.Qdrant
         private readonly bool _ownsClient;
         private readonly SemaphoreSlim _collectionLock = new SemaphoreSlim(1, 1);
         private volatile bool _collectionEnsured;
+
+        private static string? PeekEqValue(IReadOnlyList<FilterCondition>? conditions, string key)
+        {
+            if (conditions == null) return null;
+            foreach (var c in conditions)
+            {
+                if (c is MetadataCondition mc && mc.Key == key && mc.Operator == FilterOperator.Eq)
+                    return mc.Value;
+            }
+            return null;
+        }
 
         /// <summary>
         /// Creates a new <see cref="QdrantStore"/> that owns its <see cref="QdrantClient"/>.
@@ -79,7 +86,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            var ns = filter?.Namespace;
+            var ns = PeekEqValue(filter?.Conditions, "namespace");
             var pointId = CreatePointId(ns, id);
             var points = await _client.RetrieveAsync(
                 _options.CollectionName,
@@ -105,9 +112,6 @@ namespace Mythosia.VectorDb.Qdrant
 
         private static bool MatchesFilter(VectorRecord record, VectorFilter filter)
         {
-            if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
-                return false;
-
             if (filter.Conditions.Count > 0 && !EvaluateConditions(record, filter.Conditions, FilterLogic.And))
                 return false;
 
@@ -134,6 +138,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             if (condition is MetadataCondition mc) return EvaluateMetadataCondition(record, mc);
             if (condition is FilterGroup group) return EvaluateConditions(record, group.Conditions, group.Logic);
+
             return true;
         }
 
@@ -200,9 +205,9 @@ namespace Mythosia.VectorDb.Qdrant
         {
             await EnsureCollectionAsync(cancellationToken);
 
-            if (filter != null && (filter.Scope != null || filter.Conditions.Count > 0))
+            if (filter != null && filter.Conditions.Count > 0)
             {
-                // scope or metadata filter present: use filter-based delete so conditions are respected atomically
+                // conditions present: use filter-based delete so conditions are respected atomically
                 var deleteFilter = BuildFilter(filter);
                 deleteFilter.Must.Add(new Condition
                 {
@@ -216,7 +221,7 @@ namespace Mythosia.VectorDb.Qdrant
                 return;
             }
 
-            var ns = filter?.Namespace;
+            var ns = PeekEqValue(filter?.Conditions, "namespace");
             var pointId = CreatePointId(ns, id);
             await _client.DeleteAsync(_options.CollectionName, new PointId[] { pointId }, cancellationToken: cancellationToken);
         }
@@ -244,7 +249,7 @@ namespace Mythosia.VectorDb.Qdrant
             if (idList.Count == 0)
                 return Array.Empty<VectorRecord>();
 
-            var ns = filter?.Namespace;
+            var ns = PeekEqValue(filter?.Conditions, "namespace");
             var pointIds = idList.Select(id => CreatePointId(ns, id)).ToArray();
 
             var points = await _client.RetrieveAsync(
@@ -471,30 +476,6 @@ namespace Mythosia.VectorDb.Qdrant
         {
             var result = new Filter();
 
-            if (filter?.Namespace != null)
-            {
-                result.Must.Add(new Condition
-                {
-                    Field = new FieldCondition
-                    {
-                        Key = QdrantHelpers.PayloadKeyNamespace,
-                        Match = new Match { Keyword = filter.Namespace }
-                    }
-                });
-            }
-
-            if (filter?.Scope != null)
-            {
-                result.Must.Add(new Condition
-                {
-                    Field = new FieldCondition
-                    {
-                        Key = QdrantHelpers.PayloadKeyScope,
-                        Match = new Match { Keyword = filter.Scope }
-                    }
-                });
-            }
-
             if (filter?.Conditions != null && filter.Conditions.Count > 0)
                 AppendConditionsToFilter(result, filter.Conditions, FilterLogic.And);
 
@@ -513,7 +494,9 @@ namespace Mythosia.VectorDb.Qdrant
             {
                 if (condition is MetadataCondition mc)
                 {
-                    var fieldKey = $"{QdrantHelpers.PayloadMetadataPrefix}{mc.Key}";
+                    var fieldKey = mc.Key == "namespace" ? QdrantHelpers.PayloadKeyNamespace
+                                 : mc.Key == "scope" ? QdrantHelpers.PayloadKeyScope
+                                 : $"{QdrantHelpers.PayloadMetadataPrefix}{mc.Key}";
                     switch (mc.Operator)
                     {
                         case FilterOperator.Eq:

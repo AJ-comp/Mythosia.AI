@@ -24,21 +24,9 @@ namespace Mythosia.VectorDb
 
         /// <summary>
         /// Arbitrary key-value metadata for filtering and display.
+        /// Use <c>Metadata["namespace"]</c> and <c>Metadata["scope"]</c> for logical isolation.
         /// </summary>
         public Dictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
-
-        /// <summary>
-        /// Logical namespace for first-tier isolation.
-        /// When null, the store may apply a default or skip namespace filtering.
-        /// </summary>
-        [System.Obsolete("Namespace will be removed in a future major version. Use Metadata for logical isolation instead (e.g. Metadata[\"namespace\"] = \"value\").")]
-        public string? Namespace { get; set; }
-
-        /// <summary>
-        /// Logical scope for second-tier isolation within a namespace.
-        /// </summary>
-        [System.Obsolete("Scope will be removed in a future major version. Use Metadata for logical isolation instead (e.g. Metadata[\"scope\"] = \"value\").")]
-        public string? Scope { get; set; }
 
         public VectorRecord() { }
 

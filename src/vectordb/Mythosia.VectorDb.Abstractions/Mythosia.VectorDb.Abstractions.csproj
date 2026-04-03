@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>3.0.1</Version>
+    <Version>4.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Core abstractions for vector storage: IVectorStore, VectorRecord, VectorFilter, VectorSearchResult, HybridSearchAsync, GetBatchAsync, CountAsync, VerifyConnectionAsync, Bm25Tokenizer. Framework-agnostic contracts consumed by RAG pipelines, custom vector DB adapters, and more.</Description>
     <PackageTags>VectorDB;VectorStore;Abstractions;Embedding;CosineSimilarity;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v3.0.1: Deprecated: VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, InNamespace()/InScope() — use Metadata and VectorFilter.Where() for logical isolation instead. All deprecated APIs marked [Obsolete] and will be removed in a future major version.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.0: Breaking — Removed VectorRecord.Namespace/Scope, VectorFilter.Namespace/Scope/WithNamespace, INamespaceContext, IScopeContext, NamespaceContext, ScopeContext, InNamespace()/InScope(). Use Metadata and VectorFilter.Where() for logical isolation.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

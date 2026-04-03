@@ -85,14 +85,6 @@ namespace Mythosia.VectorDb
     /// </summary>
     public class VectorFilter
     {
-        /// <summary>Filter by namespace. Null means no namespace filter.</summary>
-        [System.Obsolete("Namespace will be removed in a future major version. Use Where(\"namespace\", value) instead.")]
-        public string? Namespace { get; set; }
-
-        /// <summary>Filter by scope. Null means no scope filter.</summary>
-        [System.Obsolete("Scope will be removed in a future major version. Use Where(\"scope\", value) instead.")]
-        public string? Scope { get; set; }
-
         /// <summary>Minimum similarity score threshold. Results below this score are excluded.</summary>
         public double? MinScore { get; set; }
 
@@ -221,14 +213,6 @@ namespace Mythosia.VectorDb
         }
 
         // ── Fluent property setters ───────────────────────────────────────────
-
-        /// <summary>Sets the namespace and returns <c>this</c> for chaining.</summary>
-        [System.Obsolete("WithNamespace will be removed in a future major version. Use Where(\"namespace\", value) instead.")]
-        public VectorFilter WithNamespace(string @namespace)
-        {
-            Namespace = @namespace;
-            return this;
-        }
 
         /// <summary>Sets the minimum similarity score threshold and returns <c>this</c> for chaining.</summary>
         public VectorFilter WithMinScore(double minScore)

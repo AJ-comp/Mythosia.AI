@@ -1,5 +1,31 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v4.0.0
+
+### Breaking Changes
+
+- **Removed `VectorRecord.Namespace`** and **`VectorRecord.Scope`** properties — namespace and scope isolation is now exclusively via `Metadata["namespace"]` and `Metadata["scope"]`.
+- **Removed `VectorFilter.Namespace`**, **`VectorFilter.Scope`**, and **`VectorFilter.WithNamespace()`** — use `VectorFilter.Where("namespace", value)` and `.Where("scope", value)` instead.
+- **Removed `INamespaceContext`**, **`IScopeContext`**, **`NamespaceContext`**, **`ScopeContext`**, and **`InNamespace()` / `InScope()`** extension methods.
+
+These APIs were deprecated in v3.0.1 and are now fully removed.
+
+### Migration Guide
+
+```csharp
+// Before (v3.x)
+var record = new VectorRecord { Id = "1", Namespace = "docs", Scope = "public" };
+var filter = new VectorFilter { Namespace = "docs" };
+var filter2 = new VectorFilter().WithNamespace("docs");
+
+// After (v4.0.0)
+var record = new VectorRecord { Id = "1", Metadata = { ["namespace"] = "docs", ["scope"] = "public" } };
+var filter = new VectorFilter().Where("namespace", "docs");
+var filter2 = new VectorFilter().Where("namespace", "docs");
+```
+
+---
+
 ## v3.0.1
 
 ### Deprecated

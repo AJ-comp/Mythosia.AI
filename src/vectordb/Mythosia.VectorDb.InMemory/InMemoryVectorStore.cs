@@ -11,31 +11,24 @@ namespace Mythosia.VectorDb.InMemory
 {
     /// <summary>
     /// Thread-safe in-memory implementation of IVectorStore using cosine similarity for TopK search.
-    /// Supports metadata storage, scope isolation, filtering, upsert, and delete operations.
+    /// Supports metadata storage, filtering, upsert, and delete operations.
     /// Suitable for development, testing, and small-scale workloads.
     /// </summary>
     public class InMemoryVectorStore : IVectorStore, IRagDiagnosticsStore, IDisposable
     {
-        private const string DefaultNamespace = "default";
         private const int RrfK = 60;
         private const float HybridVectorWeight = 0.5f;
 
-        private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, VectorRecord>> _namespaces
-            = new ConcurrentDictionary<string, ConcurrentDictionary<string, VectorRecord>>(StringComparer.OrdinalIgnoreCase);
-        private readonly ConcurrentDictionary<string, Bm25Index> _bm25Indexes
-            = new ConcurrentDictionary<string, Bm25Index>(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, VectorRecord> _records
+            = new ConcurrentDictionary<string, VectorRecord>(StringComparer.Ordinal);
+        private readonly Bm25Index _bm25Index = new Bm25Index();
 
         #region Upsert
 
         public Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default)
         {
-            var ns = record.Namespace ?? DefaultNamespace;
-            var store = GetOrCreateNamespace(ns);
-            store[record.Id] = record;
-
-            var bm25 = GetOrCreateBm25Index(ns);
-            bm25.Index(record.Id, record.Content);
-
+            _records[record.Id] = record;
+            _bm25Index.Index(record.Id, record.Content);
             return Task.CompletedTask;
         }
 
@@ -44,12 +37,8 @@ namespace Mythosia.VectorDb.InMemory
             foreach (var record in records)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var ns = record.Namespace ?? DefaultNamespace;
-                var store = GetOrCreateNamespace(ns);
-                store[record.Id] = record;
-
-                var bm25 = GetOrCreateBm25Index(ns);
-                bm25.Index(record.Id, record.Content);
+                _records[record.Id] = record;
+                _bm25Index.Index(record.Id, record.Content);
             }
             return Task.CompletedTask;
         }
@@ -60,64 +49,38 @@ namespace Mythosia.VectorDb.InMemory
 
         public Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
-            var ns = filter?.Namespace;
-            var targetNamespaces = ns != null
-                ? _namespaces.Where(kvp => string.Equals(kvp.Key, ns, StringComparison.OrdinalIgnoreCase))
-                : _namespaces;
+            if (!_records.TryGetValue(id, out var record))
+                return Task.FromResult<VectorRecord?>(null);
 
-            foreach (var nsKvp in targetNamespaces)
-            {
-                if (nsKvp.Value.TryGetValue(id, out var record))
-                {
-                    if (filter != null && !MatchesFilter(record, filter))
-                        continue;
-                    return Task.FromResult<VectorRecord?>(record);
-                }
-            }
+            if (filter != null && !MatchesFilter(record, filter))
+                return Task.FromResult<VectorRecord?>(null);
 
-            return Task.FromResult<VectorRecord?>(null);
+            return Task.FromResult<VectorRecord?>(record);
         }
 
         public Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
-            var ns = filter?.Namespace;
-            var targetNamespaces = ns != null
-                ? _namespaces.Where(kvp => string.Equals(kvp.Key, ns, StringComparison.OrdinalIgnoreCase))
-                : _namespaces;
+            if (filter != null && _records.TryGetValue(id, out var existing) && !MatchesFilter(existing, filter))
+                return Task.CompletedTask;
 
-            foreach (var nsKvp in targetNamespaces)
-            {
-                if (filter != null && nsKvp.Value.TryGetValue(id, out var existing) && !MatchesFilter(existing, filter))
-                    continue;
-
-                if (nsKvp.Value.TryRemove(id, out _) && _bm25Indexes.TryGetValue(nsKvp.Key, out var bm25Index))
-                    bm25Index.Remove(id);
-            }
+            if (_records.TryRemove(id, out _))
+                _bm25Index.Remove(id);
 
             return Task.CompletedTask;
         }
 
         public Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default)
         {
-            var targetNamespaces = filter.Namespace != null
-                ? _namespaces.Where(kvp => string.Equals(kvp.Key, filter.Namespace, StringComparison.OrdinalIgnoreCase))
-                : _namespaces;
+            var keysToRemove = _records.Values
+                .Where(r => MatchesFilter(r, filter))
+                .Select(r => r.Id)
+                .ToList();
 
-            foreach (var nsKvp in targetNamespaces)
+            foreach (var key in keysToRemove)
             {
-                _bm25Indexes.TryGetValue(nsKvp.Key, out var bm25Index);
-
-                var keysToRemove = nsKvp.Value.Values
-                    .Where(r => MatchesFilter(r, filter))
-                    .Select(r => r.Id)
-                    .ToList();
-
-                foreach (var key in keysToRemove)
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-                    nsKvp.Value.TryRemove(key, out _);
-                    bm25Index?.Remove(key);
-                }
+                cancellationToken.ThrowIfCancellationRequested();
+                _records.TryRemove(key, out _);
+                _bm25Index.Remove(key);
             }
 
             return Task.CompletedTask;
@@ -132,25 +95,17 @@ namespace Mythosia.VectorDb.InMemory
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = filter?.Namespace;
-            var targetNamespaces = ns != null
-                ? _namespaces.Where(kvp => string.Equals(kvp.Key, ns, StringComparison.OrdinalIgnoreCase))
-                : _namespaces;
-
             var idList = ids.ToList();
             if (idList.Count == 0)
                 return Task.FromResult<IReadOnlyList<VectorRecord>>(Array.Empty<VectorRecord>());
 
             var results = new List<VectorRecord>();
-            foreach (var nsKvp in targetNamespaces)
+            foreach (var id in idList)
             {
-                foreach (var id in idList)
+                if (_records.TryGetValue(id, out var record) &&
+                    (filter == null || MatchesFilter(record, filter)))
                 {
-                    if (nsKvp.Value.TryGetValue(id, out var record) &&
-                        (filter == null || MatchesFilter(record, filter)))
-                    {
-                        results.Add(record);
-                    }
+                    results.Add(record);
                 }
             }
 
@@ -163,13 +118,7 @@ namespace Mythosia.VectorDb.InMemory
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = filter?.Namespace;
-            var targetNamespaces = ns != null
-                ? _namespaces.Where(kvp => string.Equals(kvp.Key, ns, StringComparison.OrdinalIgnoreCase))
-                : _namespaces;
-
-            var results = targetNamespaces
-                .SelectMany(kvp => kvp.Value.Values)
+            var results = _records.Values
                 .Where(r => filter == null || MatchesFilter(r, filter))
                 .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
                 .Where(r => filter?.MinScore == null || r.Score >= (filter?.MinScore ?? 0))
@@ -187,50 +136,25 @@ namespace Mythosia.VectorDb.InMemory
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = filter?.Namespace;
-            var targetNamespaces = ns != null
-                ? _namespaces.Where(kvp => string.Equals(kvp.Key, ns, StringComparison.OrdinalIgnoreCase)).ToList()
-                : _namespaces.ToList();
-
-            if (targetNamespaces.Count == 0)
-                return Array.Empty<VectorSearchResult>();
-
-            // Build combined store for record lookups across target namespaces
-            var combinedStore = new ConcurrentDictionary<string, VectorRecord>(StringComparer.Ordinal);
-            foreach (var nsKvp in targetNamespaces)
-                foreach (var kvp in nsKvp.Value)
-                    combinedStore.TryAdd(kvp.Key, kvp.Value);
-
-            if (combinedStore.Count == 0)
+            if (_records.Count == 0)
                 return Array.Empty<VectorSearchResult>();
 
             var expandedTopK = Math.Max(topK * 2, topK);
 
-            // Collect BM25 candidates from all target namespaces
-            var hasBm25 = false;
-            var allBm25Candidates = new List<Bm25Index.Bm25Result>();
-            foreach (var nsKvp in targetNamespaces)
-            {
-                if (_bm25Indexes.TryGetValue(nsKvp.Key, out var bm25))
-                {
-                    hasBm25 = true;
-                    allBm25Candidates.AddRange(bm25.Search(query, expandedTopK));
-                }
-            }
+            var bm25Candidates = _bm25Index.Search(query, expandedTopK).ToList();
 
-            if (!hasBm25)
+            if (bm25Candidates.Count == 0)
                 return await SearchAsync(denseVector, topK, filter, cancellationToken);
 
             var vectorFilter = WithoutMinScore(filter);
 
             var vectorResults = await SearchAsync(denseVector, expandedTopK, vectorFilter, cancellationToken);
-            var bm25Results = allBm25Candidates
-                .Where(r => combinedStore.TryGetValue(r.Id, out var record) && (vectorFilter == null || MatchesFilter(record, vectorFilter)))
+            var bm25Results = bm25Candidates
+                .Where(r => _records.TryGetValue(r.Id, out var record) && (vectorFilter == null || MatchesFilter(record, vectorFilter)))
                 .ToList();
 
-            var merged = RrfMerge(vectorResults, bm25Results, combinedStore, topK);
+            var merged = RrfMerge(vectorResults, bm25Results, topK);
 
-            // Apply MinScore filter to the final RRF-normalized scores
             if (filter?.MinScore.HasValue == true)
             {
                 merged = merged.Where(r => r.Score >= filter.MinScore.Value).ToList();
@@ -244,52 +168,38 @@ namespace Mythosia.VectorDb.InMemory
         #region Diagnostics
 
         /// <summary>
-        /// Returns ALL records in a namespace. For diagnostic/debugging use only.
+        /// Returns ALL records, optionally filtered by <c>Metadata["namespace"]</c>.
+        /// For diagnostic/debugging use only.
         /// </summary>
         public Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(string? @namespace = null, CancellationToken cancellationToken = default)
         {
+            IEnumerable<VectorRecord> records = _records.Values;
+
             if (@namespace != null)
-            {
-                if (!_namespaces.TryGetValue(@namespace, out var store))
-                    return Task.FromResult<IReadOnlyList<VectorRecord>>(Array.Empty<VectorRecord>());
+                records = records.Where(r => r.Metadata.TryGetValue("namespace", out var ns) && string.Equals(ns, @namespace, StringComparison.Ordinal));
 
-                return Task.FromResult<IReadOnlyList<VectorRecord>>(store.Values.ToList());
-            }
-
-            var all = _namespaces.Values.SelectMany(s => s.Values).ToList();
-            return Task.FromResult<IReadOnlyList<VectorRecord>>(all);
+            return Task.FromResult<IReadOnlyList<VectorRecord>>(records.ToList());
         }
 
         /// <summary>
-        /// Returns the total number of records across all namespaces.
+        /// Returns the total number of records.
         /// </summary>
         public int GetTotalRecordCount()
         {
-            return _namespaces.Values.Sum(s => s.Count);
+            return _records.Count;
         }
 
         public Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
-            if (filter?.Namespace != null)
-            {
-                if (!_namespaces.TryGetValue(filter.Namespace, out var store))
-                    return Task.FromResult(0L);
+            if (filter == null || filter.Conditions.Count == 0)
+                return Task.FromResult((long)_records.Count);
 
-                if (filter.Scope == null && filter.Conditions.Count == 0)
-                    return Task.FromResult((long)store.Count);
-
-                return Task.FromResult((long)store.Values.Count(r => MatchesFilter(r, filter)));
-            }
-
-            // No namespace: count across all namespaces
-            if (filter == null || (filter.Scope == null && filter.Conditions.Count == 0))
-                return Task.FromResult((long)_namespaces.Values.Sum(s => s.Count));
-
-            return Task.FromResult((long)_namespaces.Values.SelectMany(s => s.Values).Count(r => MatchesFilter(r, filter)));
+            return Task.FromResult((long)_records.Values.Count(r => MatchesFilter(r, filter)));
         }
 
         /// <summary>
-        /// Computes cosine similarity scores for a query vector against ALL records in a namespace.
+        /// Computes cosine similarity scores for a query vector against ALL records,
+        /// optionally filtered by <c>Metadata["namespace"]</c>.
         /// Results are sorted by descending score. No TopK or MinScore filtering is applied.
         /// </summary>
         public Task<IReadOnlyList<VectorSearchResult>> ScoredListAsync(
@@ -297,17 +207,10 @@ namespace Mythosia.VectorDb.InMemory
             string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            IEnumerable<VectorRecord> records;
+            IEnumerable<VectorRecord> records = _records.Values;
+
             if (@namespace != null)
-            {
-                if (!_namespaces.TryGetValue(@namespace, out var store))
-                    return Task.FromResult<IReadOnlyList<VectorSearchResult>>(Array.Empty<VectorSearchResult>());
-                records = store.Values;
-            }
-            else
-            {
-                records = _namespaces.Values.SelectMany(s => s.Values);
-            }
+                records = records.Where(r => r.Metadata.TryGetValue("namespace", out var ns) && string.Equals(ns, @namespace, StringComparison.Ordinal));
 
             var results = records
                 .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
@@ -323,23 +226,12 @@ namespace Mythosia.VectorDb.InMemory
 
         public void Dispose()
         {
-            foreach (var bm25 in _bm25Indexes.Values)
-                bm25.Dispose();
+            _bm25Index.Dispose();
         }
 
         #endregion
 
         #region Private Helpers
-
-        private ConcurrentDictionary<string, VectorRecord> GetOrCreateNamespace(string @namespace)
-        {
-            return _namespaces.GetOrAdd(@namespace, _ => new ConcurrentDictionary<string, VectorRecord>(StringComparer.Ordinal));
-        }
-
-        private Bm25Index GetOrCreateBm25Index(string @namespace)
-        {
-            return _bm25Indexes.GetOrAdd(@namespace, _ => new Bm25Index());
-        }
 
         private static VectorFilter? WithoutMinScore(VectorFilter? filter)
         {
@@ -348,18 +240,15 @@ namespace Mythosia.VectorDb.InMemory
 
             var copy = new VectorFilter
             {
-                Namespace = filter.Namespace,
-                Scope = filter.Scope,
                 MinScore = null
             };
             copy.AppendConditionsFrom(filter);
             return copy;
         }
 
-        private static IReadOnlyList<VectorSearchResult> RrfMerge(
+        private IReadOnlyList<VectorSearchResult> RrfMerge(
             IReadOnlyList<VectorSearchResult> vectorResults,
             IReadOnlyList<Bm25Index.Bm25Result> bm25Results,
-            ConcurrentDictionary<string, VectorRecord> namespaceStore,
             int topK)
         {
             var scores = new Dictionary<string, (double score, VectorSearchResult? vectorResult, Bm25Index.Bm25Result? bm25Result)>(StringComparer.Ordinal);
@@ -401,7 +290,7 @@ namespace Mythosia.VectorDb.InMemory
                         return new VectorSearchResult(kvp.Value.vectorResult.Record, normalizedScore);
 
                     var bm25 = kvp.Value.bm25Result!;
-                    if (namespaceStore.TryGetValue(bm25.Id, out var record))
+                    if (_records.TryGetValue(bm25.Id, out var record))
                         return new VectorSearchResult(record, normalizedScore);
 
                     return new VectorSearchResult(new VectorRecord { Id = bm25.Id, Content = bm25.Content }, normalizedScore);
@@ -411,9 +300,6 @@ namespace Mythosia.VectorDb.InMemory
 
         private static bool MatchesFilter(VectorRecord record, VectorFilter filter)
         {
-            if (filter.Scope != null && !string.Equals(record.Scope, filter.Scope, StringComparison.Ordinal))
-                return false;
-
             if (filter.Conditions.Count > 0 && !EvaluateConditions(record, filter.Conditions, FilterLogic.And))
                 return false;
 

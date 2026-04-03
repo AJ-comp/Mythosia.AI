@@ -1,4 +1,36 @@
-# Mythosia.VectorDb.Postgres - Release Notes
+﻿# Mythosia.VectorDb.Postgres - Release Notes
+
+## v10.7.0
+
+### Breaking Changes — Schema
+
+- **`namespace` and `scope` columns removed** — all values are now stored in the `metadata` JSONB column.
+  - Primary key changed from `(namespace, id)` to `(id)`.
+  - `namespace` and `scope` columns no longer exist in the table schema.
+  - Namespace/scope filtering uses the standard metadata JSONB operators (`metadata @> '{"namespace":"docs"}'::jsonb`), leveraging the existing GIN index on `metadata`.
+  - **Existing tables are migrated automatically** on first operation.
+
+### Changed
+
+- **Schema auto-provisioning** — `CreateSchemaAsync` now creates tables without `namespace`/`scope` columns and with `PRIMARY KEY (id)`.
+- **Automatic legacy schema migration** — regardless of `EnsureSchema` setting, the store detects the legacy `namespace` column on first operation and automatically migrates the schema in a single transaction:
+  1. Merges `namespace`/`scope` column values into `metadata` JSONB.
+  2. Resolves duplicate IDs across namespaces by prefixing with `{namespace}:` (e.g., `chunk-1` in namespace `docs` → `docs:chunk-1`). Non-duplicate IDs are unchanged.
+  3. Changes the primary key from `(namespace, id)` to `(id)`.
+  4. Drops the `namespace` and `scope` columns.
+  5. Drops the `idx_ns_scope` index.
+  - On failure, the transaction rolls back and the schema remains unchanged.
+- **SQL simplification** — all query methods (`SearchAsync`, `HybridSearchAsync`, `GetAsync`, `GetBatchAsync`, `CountAsync`, `DeleteAsync`, `DeleteByFilterAsync`, `ReplaceByFilterAsync`) no longer have special namespace/scope column handling. All conditions are processed uniformly via JSONB metadata filtering.
+- **`BuildFilterWhere`** — removed `GetNonReservedConditions` (namespace/scope bypass). All `VectorFilter.Where(...)` conditions are now treated as standard metadata conditions.
+- **`ReadRecord`** — reads namespace/scope from `metadata` JSONB directly (no column injection).
+- **Hybrid search SQL** — RRF join key simplified from `(namespace, id)` to `(id)`.
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0.
+- **Fully automatic migration** from v10.6.x — no manual steps required.
+
+---
 
 ## v10.6.1
 

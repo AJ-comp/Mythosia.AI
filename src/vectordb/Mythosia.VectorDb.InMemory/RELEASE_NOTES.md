@@ -1,5 +1,21 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v4.0.0
+
+### Breaking Changes
+
+- **Namespace/scope isolation via Metadata only** — follows `Mythosia.VectorDb.Abstractions` v4.0.0.
+  - Storage key derived from `Metadata["namespace"]` (falls back to `"default"` when absent).
+  - Scope filtering reads from `Metadata["scope"]` via `VectorFilter.Where("scope", value)` conditions.
+  - `VectorRecord.Namespace`, `VectorRecord.Scope`, `VectorFilter.Namespace`, `VectorFilter.Scope`, and `VectorFilter.WithNamespace()` no longer exist.
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0.
+- No data format changes — existing in-memory records are transient and unaffected.
+
+---
+
 ## v3.0.1
 
 ### Changed
