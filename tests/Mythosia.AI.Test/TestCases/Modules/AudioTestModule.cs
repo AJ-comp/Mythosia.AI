@@ -19,7 +19,7 @@ public abstract class AudioTestModule : TestModuleBase
             () => SupportsAudio(),
             async () =>
             {
-                if (AI is ChatGptService gptService)
+                if (AI is OpenAIService gptService)
                 {
                     var audioData = await gptService.GetSpeechAsync(
                         "Hello, this is a test of the speech synthesis.",

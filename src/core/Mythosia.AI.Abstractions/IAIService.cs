@@ -40,25 +40,17 @@ namespace Mythosia.AI.Services
 
         #region Completion
 
-        Task<string> GetCompletionAsync(string prompt);
-        Task<string> GetCompletionAsync(string prompt, AIRequestProfile profile);
-        Task<string> GetCompletionAsync(string prompt, AIRequestContext context);
-        Task<string> GetCompletionAsync(string prompt, AIRequestProfile profile, AIRequestContext context);
-        Task<string> GetCompletionAsync(Message message);
-        Task<string> GetCompletionAsync(Message message, AIRequestContext context);
-        Task<string> GetCompletionAsync(Message message, AIRequestProfile profile);
-        Task<string> GetCompletionAsync(Message message, AIRequestProfile profile, AIRequestContext context);
+        Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null);
+        Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null);
 
         #endregion
 
         #region Streaming
 
         IAsyncEnumerable<string> StreamAsync(string prompt, CancellationToken cancellationToken = default);
-        IAsyncEnumerable<string> StreamAsync(Message message, CancellationToken cancellationToken = default);
-        IAsyncEnumerable<string> StreamAsync(Message message, AIRequestContext context, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<string> StreamAsync(Message message, AIRequestContext? context = null, CancellationToken cancellationToken = default);
         IAsyncEnumerable<StreamingContent> StreamAsync(string prompt, StreamOptions options, CancellationToken cancellationToken = default);
-        IAsyncEnumerable<StreamingContent> StreamAsync(Message message, StreamOptions options, CancellationToken cancellationToken = default);
-        IAsyncEnumerable<StreamingContent> StreamAsync(Message message, StreamOptions options, AIRequestContext context, CancellationToken cancellationToken = default);
+        IAsyncEnumerable<StreamingContent> StreamAsync(Message message, StreamOptions options, AIRequestContext? context = null, CancellationToken cancellationToken = default);
 
         #endregion
     }

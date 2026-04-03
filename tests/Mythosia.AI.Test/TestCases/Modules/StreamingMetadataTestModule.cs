@@ -154,7 +154,7 @@ public abstract class StreamingMetadataTestModule : TestModuleBase
             try
             {
                 var message = new Message(ActorRole.User, "Write a very long essay about computing");
-                await foreach (var content in aiService.StreamAsync(message, options, cts.Token))
+                await foreach (var content in aiService.StreamAsync(message, options, cancellationToken: cts.Token))
                 {
                     chunksBeforeCancellation++;
                     if (content.Metadata != null) collectedMetadata.Add(content.Metadata);
@@ -205,7 +205,7 @@ public abstract class StreamingMetadataTestModule : TestModuleBase
         await RunIfSupported(() => SupportsMultimodal(), async () =>
         {
             if (AI is not Mythosia.AI.Services.Base.AIService aiService) { Assert.Inconclusive("Metadata streaming requires AIService base class"); return; }
-            if (AI is Mythosia.AI.Services.OpenAI.ChatGptService && AI.Model.Contains("mini")) AI.ChangeModel(Mythosia.AI.Models.AIModels.OpenAI.Gpt4oLatest);
+            if (AI is Mythosia.AI.Services.OpenAI.OpenAIService && AI.Model.Contains("mini")) AI.ChangeModel(Mythosia.AI.Models.AIModels.OpenAI.Gpt4oLatest);
             var options = new StreamOptions { IncludeMetadata = true };
             var message = Mythosia.AI.Builders.MessageBuilder.Create().WithRole(ActorRole.User).AddText("What's in this image?").AddImage(TestImagePath).Build();
             var metadataTypes = new Dictionary<string, int>();

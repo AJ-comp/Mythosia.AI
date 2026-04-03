@@ -1,5 +1,23 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v2.0.0
+
+### Changed
+
+- **`IAIService.GetCompletionAsync` — 8 overloads → 2** (breaking change)
+  - `GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null)`
+  - `GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)`
+  - Migration: callers using `GetCompletionAsync(message, context)` must switch to `GetCompletionAsync(message, context: context)`.
+
+- **`IAIService.StreamAsync` — 6 overloads → 4** (breaking change)
+  - `StreamAsync(string prompt, CancellationToken cancellationToken = default)`
+  - `StreamAsync(Message message, AIRequestContext? context = null, CancellationToken cancellationToken = default)`
+  - `StreamAsync(string prompt, StreamOptions options, CancellationToken cancellationToken = default)`
+  - `StreamAsync(Message message, StreamOptions options, AIRequestContext? context = null, CancellationToken cancellationToken = default)`
+  - Migration: callers using `StreamAsync(message, context, ct)` must switch to `StreamAsync(message, context: context, ct)`.
+
+---
+
 ## v1.1.0
 
 ### Added

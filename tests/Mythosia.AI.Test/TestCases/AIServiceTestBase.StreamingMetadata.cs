@@ -351,7 +351,7 @@ public abstract partial class AIServiceTestBase
             {
                 var message = new Message(ActorRole.User, "Write a very long essay about computing");
 
-                await foreach (var content in aiService.StreamAsync(message, options, cts.Token))
+                await foreach (var content in aiService.StreamAsync(message, options, cancellationToken: cts.Token))
                 {
                     chunksBeforeCancellation++;
 
@@ -462,7 +462,7 @@ public abstract partial class AIServiceTestBase
                 }
 
                 // Vision 지원 모델로 변경
-                if (AI is Mythosia.AI.Services.OpenAI.ChatGptService && AI.Model.Contains("mini"))
+                if (AI is Mythosia.AI.Services.OpenAI.OpenAIService && AI.Model.Contains("mini"))
                 {
                     AI.ChangeModel(AIModels.OpenAI.Gpt4oLatest);
                 }

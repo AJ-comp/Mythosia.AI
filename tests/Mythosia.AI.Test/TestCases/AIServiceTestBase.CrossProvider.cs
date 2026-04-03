@@ -83,7 +83,7 @@ public async Task ToClaude()
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
             string apiKey = await secretFetcher.GetKeyValueAsync();
 
-            var newService = new ClaudeService(apiKey, new HttpClient()).CopyFrom(AI);
+            var newService = new AnthropicService(apiKey, new HttpClient()).CopyFrom(AI);
             newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_250514);
             
             // 메시지가 유지되는지 확인
@@ -219,7 +219,7 @@ public async Task ToGpt4o()
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
             string openAiKey = await secretFetcher.GetKeyValueAsync();
 
-            var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
+            var chatGptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
             chatGptService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
             
             var messageCountAfter = chatGptService.ActivateChat.Messages.Count;
@@ -365,7 +365,7 @@ public async Task ToGpt4o()
                 var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
                 string openAiKey = await secretFetcher.GetKeyValueAsync();
 
-                var chatGptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
+                var chatGptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
                 chatGptService.ChangeModel(AIModels.OpenAI.O3);
 
                 var messageCountAfter = chatGptService.ActivateChat.Messages.Count;
@@ -477,7 +477,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 2] Switching to Claude ==========");
                 var claudeKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret")
                     .GetKeyValueAsync();
-                var claudeService = new ClaudeService(claudeKey, new HttpClient()).CopyFrom(AI);
+                var claudeService = new AnthropicService(claudeKey, new HttpClient()).CopyFrom(AI);
                 claudeService.ChangeModel(AIModels.Anthropic.ClaudeHaiku4_5_251001);
 
                 Assert.AreEqual(totalMessagesPhase1, claudeService.ActivateChat.Messages.Count,
@@ -498,7 +498,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 3] Switching to ChatGPT ==========");
                 var openAiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret")
                     .GetKeyValueAsync();
-                var gptService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(claudeService);
+                var gptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(claudeService);
                 gptService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
 
                 Assert.AreEqual(totalMessagesPhase2, gptService.ActivateChat.Messages.Count,
@@ -513,7 +513,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 4] Switching to Gemini 2.5 ==========");
                 var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret")
                     .GetKeyValueAsync();
-                var geminiService = new GeminiService(geminiKey, new HttpClient()).CopyFrom(gptService);
+                var geminiService = new GoogleAIService(geminiKey, new HttpClient()).CopyFrom(gptService);
                 geminiService.ChangeModel(AIModels.Google.Gemini2_5Flash);
 
                 var response4 = await geminiService.GetCompletionAsync(
@@ -563,7 +563,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 2] Switch to Claude with Functions DISABLED ==========");
                 var claudeKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret")
                     .GetKeyValueAsync();
-                var claudeService = new ClaudeService(claudeKey, new HttpClient()).CopyFrom(AI);
+                var claudeService = new AnthropicService(claudeKey, new HttpClient()).CopyFrom(AI);
                 claudeService.ChangeModel(AIModels.Anthropic.ClaudeHaiku4_5_251001);
                 claudeService.FunctionsDisabled = true;  // Function OFF
 
@@ -595,7 +595,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 3] Switch to ChatGPT Legacy (gpt-4o-mini) with Functions DISABLED ==========");
                 var openAiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret")
                     .GetKeyValueAsync();
-                var gptLegacyService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
+                var gptLegacyService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
                 gptLegacyService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
                 gptLegacyService.FunctionsDisabled = true;
 
@@ -617,7 +617,7 @@ public async Task ToGpt4o()
 
                 // Phase 4: Function OFF로 ChatGPT New API (gpt-5-mini) 전환
                 Console.WriteLine($"\n========== [Phase 4] Switch to ChatGPT New API (gpt-5-mini) with Functions DISABLED ==========");
-                var gptNewService = new ChatGptService(openAiKey, new HttpClient()).CopyFrom(AI);
+                var gptNewService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
                 gptNewService.ChangeModel(AIModels.OpenAI.Gpt5Mini);
                 gptNewService.FunctionsDisabled = true;
 
@@ -641,7 +641,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 5] Switch to Gemini with Functions DISABLED ==========");
                 var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret")
                     .GetKeyValueAsync();
-                var geminiService = new GeminiService(geminiKey, new HttpClient()).CopyFrom(AI);
+                var geminiService = new GoogleAIService(geminiKey, new HttpClient()).CopyFrom(AI);
                 geminiService.ChangeModel(AIModels.Google.Gemini2_5Flash);
                 geminiService.FunctionsDisabled = true;
 
@@ -706,7 +706,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n========== [Phase 2] Switch to Gemini 3 Flash ==========");
                 var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret")
                     .GetKeyValueAsync();
-                var geminiService = new GeminiService(geminiKey, new HttpClient()).CopyFrom(AI);
+                var geminiService = new GoogleAIService(geminiKey, new HttpClient()).CopyFrom(AI);
                 geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
 
                 try

@@ -10,7 +10,7 @@ using Mythosia.Azure;
 namespace Mythosia.AI.Tests.Google;
 
 [TestClass]
-public abstract class GeminiServiceTestsBase : AIServiceTestBase
+public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
     protected abstract string ModelToTest { get; }
@@ -28,7 +28,7 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new GeminiService(apiKey!, new HttpClient());
+        var service = new GoogleAIService(apiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);
         Console.WriteLine($"[Testing Model] {ModelToTest}");
         return service;
@@ -45,7 +45,7 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
 
     protected override void SetupReasoningEffort()
     {
-        if (AI is not GeminiService geminiService)
+        if (AI is not GoogleAIService geminiService)
             return;
 
         if (geminiService.Model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase))
@@ -100,7 +100,7 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var geminiService = (GeminiService)AI;
+            var geminiService = (GoogleAIService)AI;
 
             // Gemini ThinkingBudget 설정
             geminiService.ThinkingBudget = 1024;
@@ -237,7 +237,7 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var geminiService = (GeminiService)AI;
+            var geminiService = (GoogleAIService)AI;
 
             var response = await geminiService.GetCompletionAsync(
                 "Write a children's story about a friendly robot"
@@ -287,31 +287,31 @@ public abstract class GeminiServiceTestsBase : AIServiceTestBase
 }
 
 [TestClass]
-public class Gemini_2_5Pro_Tests : GeminiServiceTestsBase
+public class Gemini_2_5Pro_Tests : GoogleAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Google.Gemini2_5Pro;
 }
 
 [TestClass]
-public class Gemini_2_5Flash_Tests : GeminiServiceTestsBase
+public class Gemini_2_5Flash_Tests : GoogleAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Google.Gemini2_5Flash;
 }
 
 [TestClass]
-public class Gemini_2_5FlashLite_Tests : GeminiServiceTestsBase
+public class Gemini_2_5FlashLite_Tests : GoogleAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Google.Gemini2_5FlashLite;
 }
 
 [TestClass]
-public class Gemini_3FlashPreview_Tests : GeminiServiceTestsBase
+public class Gemini_3FlashPreview_Tests : GoogleAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Google.Gemini3FlashPreview;
 }
 
 [TestClass]
-public class Gemini_3ProPreview_Tests : GeminiServiceTestsBase
+public class Gemini_3ProPreview_Tests : GoogleAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Google.Gemini3ProPreview;
 }

@@ -197,68 +197,21 @@ namespace Mythosia.AI.Services.Base
 
         #region Core Completion Methods
 
-        private async Task<Message> PreparePromptAsync(string prompt)
+        public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null)
         {
             await ApplySummaryPolicyIfNeededAsync();
-            return new Message(ActorRole.User, prompt);
+            return await GetCompletionAsync(new Message(ActorRole.User, prompt), profile, context);
         }
-
-        public virtual async Task<string> GetCompletionAsync(string prompt)
-            => await GetCompletionAsync(await PreparePromptAsync(prompt));
-
-        public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestContext context)
-            => await GetCompletionAsync(await PreparePromptAsync(prompt), context);
-
-        public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile profile)
-            => await GetCompletionAsync(await PreparePromptAsync(prompt), profile);
-
-        public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile profile, AIRequestContext context)
-            => await GetCompletionAsync(await PreparePromptAsync(prompt), profile, context);
 
         public abstract Task<string> GetCompletionAsync(Message message);
 
-        public virtual async Task<string> GetCompletionAsync(Message message, AIRequestContext context)
+        public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)
         {
-            if (context == null)
+            if (profile == null && context == null)
                 return await GetCompletionAsync(message);
 
-            var restoreContext = ApplyRequestContext(context);
-            try
-            {
-                return await GetCompletionAsync(message);
-            }
-            finally
-            {
-                restoreContext();
-            }
-        }
-
-        public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile profile)
-        {
-            if (profile == null)
-                return await GetCompletionAsync(message);
-
-            var restore = ApplyRequestProfile(profile);
-            try
-            {
-                return await GetCompletionAsync(message);
-            }
-            finally
-            {
-                restore();
-            }
-        }
-
-        public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile profile, AIRequestContext context)
-        {
-            if (profile == null)
-                return await GetCompletionAsync(message, context);
-
-            if (context == null)
-                return await GetCompletionAsync(message, profile);
-
-            var restoreProfile = ApplyRequestProfile(profile);
-            var restoreContext = ApplyRequestContext(context);
+            Action restoreProfile = profile != null ? ApplyRequestProfile(profile) : () => { };
+            Action restoreContext = context != null ? ApplyRequestContext(context) : () => { };
             try
             {
                 return await GetCompletionAsync(message);

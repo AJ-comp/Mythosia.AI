@@ -8,7 +8,7 @@ namespace Mythosia.AI.Tests.OpenAI;
 /// <summary>
 /// OpenAI 서비스 생성 팩토리. API 키를 한 번만 로드하여 공유.
 /// </summary>
-public static class ChatGptServiceFactory
+public static class OpenAIServiceFactory
 {
     private static string? _apiKey;
     private static readonly SemaphoreSlim _semaphore = new(1, 1);
@@ -16,7 +16,7 @@ public static class ChatGptServiceFactory
     public static AIService Create(string model)
     {
         EnsureApiKey().GetAwaiter().GetResult();
-        var service = new ChatGptService(_apiKey!, new HttpClient());
+        var service = new OpenAIService(_apiKey!, new HttpClient());
         service.ChangeModel(model);
         service.ActivateChat.SystemMessage = "You are a helpful assistant for testing purposes.";
         return service;

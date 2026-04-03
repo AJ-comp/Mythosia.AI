@@ -1,12 +1,10 @@
-﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models;
+﻿using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -25,7 +23,7 @@ namespace Mythosia.AI.Services.Base
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var message = new Message(ActorRole.User, prompt);
-            await foreach (var chunk in StreamAsync(message, cancellationToken))
+            await foreach (var chunk in StreamAsync(message, cancellationToken: cancellationToken))
             {
                 yield return chunk;
             }
@@ -36,21 +34,7 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         public async IAsyncEnumerable<string> StreamAsync(
             Message message,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            // Use text-only options for simple streaming
-            var options = StreamOptions.TextOnlyOptions;
-
-            await foreach (var content in StreamAsync(message, options, cancellationToken))
-            {
-                if (content.Content != null)
-                    yield return content.Content;
-            }
-        }
-
-        public async IAsyncEnumerable<string> StreamAsync(
-            Message message,
-            AIRequestContext context,
+            AIRequestContext? context = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var options = StreamOptions.TextOnlyOptions;
@@ -71,39 +55,9 @@ namespace Mythosia.AI.Services.Base
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             var message = new Message(ActorRole.User, prompt);
-            await foreach (var content in StreamAsync(message, options, cancellationToken))
+            await foreach (var content in StreamAsync(message, options, cancellationToken: cancellationToken))
             {
                 yield return content;
-            }
-        }
-
-        public async IAsyncEnumerable<StreamingContent> StreamAsync(
-            Message message,
-            StreamOptions options,
-            AIRequestContext context,
-            [EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            if (context == null)
-            {
-                await foreach (var content in StreamAsync(message, options, cancellationToken))
-                {
-                    yield return content;
-                }
-
-                yield break;
-            }
-
-            var restoreContext = ApplyRequestContext(context);
-            try
-            {
-                await foreach (var content in StreamAsync(message, options, cancellationToken))
-                {
-                    yield return content;
-                }
-            }
-            finally
-            {
-                restoreContext();
             }
         }
 
@@ -115,6 +69,29 @@ namespace Mythosia.AI.Services.Base
         /// may override this method directly.
         /// </summary>
         public virtual async IAsyncEnumerable<StreamingContent> StreamAsync(
+            Message message,
+            StreamOptions options,
+            AIRequestContext? context = null,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            Action restoreContext = context != null ? ApplyRequestContext(context) : () => { };
+            try
+            {
+                await foreach (var content in StreamCoreAsync(message, options, cancellationToken))
+                    yield return content;
+            }
+            finally
+            {
+                restoreContext();
+            }
+        }
+
+        /// <summary>
+        /// Core streaming loop. Override this method to replace the full streaming pipeline
+        /// (round loop, StatelessMode, summary policy). Most providers should override
+        /// <see cref="StreamRoundAsync"/> instead.
+        /// </summary>
+        protected virtual async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
             Message message,
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -312,7 +289,7 @@ namespace Mythosia.AI.Services.Base
 
             try
             {
-                await foreach (var chunk in StreamAsync(message, cancellationToken))
+                await foreach (var chunk in StreamAsync(message, cancellationToken: cancellationToken))
                 {
                     yield return chunk;
                 }

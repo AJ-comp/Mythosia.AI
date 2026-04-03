@@ -92,4 +92,6 @@ var response = await service.GetCompletionAsync("質問", ragOptions: options);
 
 - [ベクターストア](../vectordb-overview.md) — 概要とバックエンド設定
 - [テキストスプリッター](text-splitters.md) — ドキュメントのチャンク方法をカスタマイズ
-- [高度なRAG](rag-advanced.md) — ハイブリッド検索、再ランキング、クエリ書き換え
+- [ハイブリッド検索](rag-hybrid-search.md) — ベクター + BM25 結合検索
+- [再ランキング](rag-reranking.md) — 検索結果の再順位付け
+- [クエリ書き換え](rag-query-rewriting.md) — LLMベースのクエリ最適化

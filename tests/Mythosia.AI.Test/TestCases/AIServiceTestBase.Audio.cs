@@ -15,7 +15,7 @@ public abstract partial class AIServiceTestBase
             () => SupportsAudio(),
             async () =>
             {
-                if (AI is ChatGptService gptService)
+                if (AI is OpenAIService gptService)
                 {
                     // Text-to-Speech
                     var audioData = await gptService.GetSpeechAsync(

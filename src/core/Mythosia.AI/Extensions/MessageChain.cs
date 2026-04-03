@@ -228,7 +228,7 @@ namespace Mythosia.AI.Extensions
 
             try
             {
-                await foreach (var chunk in _service.StreamAsync(message, cancellationToken))
+                await foreach (var chunk in _service.StreamAsync(message, cancellationToken: cancellationToken))
                 {
                     yield return chunk;
                 }

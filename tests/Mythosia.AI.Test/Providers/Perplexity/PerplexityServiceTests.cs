@@ -8,13 +8,13 @@ using Mythosia.Azure;
 namespace Mythosia.AI.Tests.Perplexity;
 
 [TestClass]
-public class SonarServiceTests : AIServiceTestBase
+public class PerplexityServiceTests : AIServiceTestBase
 {
     protected override AIService CreateAIService()
     {
         var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "sonar-secret2");
         string sonarKey = secretFetcher.GetKeyValueAsync().Result;
-        var service = new SonarService(sonarKey, new HttpClient());
+        var service = new PerplexityService(sonarKey, new HttpClient());
 
         // 기본 설정
         service.ActivateChat.SystemMessage = "Be concise and factual.";
@@ -39,7 +39,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
 
             // 웹 검색 활성화된 모델로 질의
             var searchResponse = await sonarService.GetCompletionWithSearchAsync(
@@ -81,7 +81,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
 
             // Sonar Pro 모델 테스트
             sonarService.UseSonarPro();
@@ -114,7 +114,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
 
             // 특정 도메인에서만 검색
             var filteredResponse = await sonarService.GetCompletionWithSearchAsync(
@@ -224,7 +224,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
             var timeFilters = new[] { "day", "week", "month", "year" };
 
             foreach (var filter in timeFilters)
@@ -317,7 +317,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
 
             // 복잡한 multi-part 질문
             var complexResponse = await sonarService.GetCompletionWithSearchAsync(
@@ -356,7 +356,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
 
             // 잘못된 모델명으로 변경 시도
             try
@@ -392,7 +392,7 @@ public class SonarServiceTests : AIServiceTestBase
     {
         try
         {
-            var sonarService = (SonarService)AI;
+            var sonarService = (PerplexityService)AI;
 
             // 도메인 필터 + 시간 필터 조합
             var combinedResponse = await sonarService.GetCompletionWithSearchAsync(

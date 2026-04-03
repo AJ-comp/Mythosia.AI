@@ -1,5 +1,84 @@
 # Mythosia.AI - Release Notes
 
+## v6.0.0
+
+### Changed
+
+- **`AIService.GetCompletionAsync` — 8 overloads → 2** (breaking change)
+  - Replaces all positional overloads with two methods using optional parameters.
+  - All concrete service implementations (`OpenAIService`, `AnthropicService`, etc.) are unaffected — they still override the internal `GetCompletionAsync(Message message)`.
+  - Migration: callers using `GetCompletionAsync(message, context)` must switch to `GetCompletionAsync(message, context: context)`.
+
+- **`AIService.StreamAsync` — 6 overloads → 4** (breaking change)
+  - `AIRequestContext` parameter moved to optional position in all `Message`-based overloads.
+  - Migration: callers using `StreamAsync(message, context, ct)` must switch to `StreamAsync(message, context: context, ct)`.
+
+- **`StreamCoreAsync` protected virtual introduced**
+  - Provider-level full streaming pipeline overrides (previously `override StreamAsync(Message, StreamOptions, CancellationToken)`) must now override `StreamCoreAsync` instead.
+  - Affects: `DeepSeekService`, `PerplexityService`.
+
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` v2.0.0.
+
+### Migration from v5.x
+
+#### Service class renames (from v5.2 or earlier)
+
+The old names still compile but are marked `[Obsolete]` — update when convenient.
+
+| Old name | New name |
+|---|---|
+| `ChatGptService` | `OpenAIService` |
+| `ClaudeService` | `AnthropicService` |
+| `GeminiService` | `GoogleAIService` |
+| `GrokService` | `XAIService` |
+| `SonarService` | `PerplexityService` |
+
+```csharp
+// before (v5.2 and earlier)
+var service = new ChatGptService(apiKey, httpClient);
+
+// after
+var service = new OpenAIService(apiKey, httpClient);
+```
+
+#### GetCompletionAsync — one pattern requires a fix
+
+```csharp
+// before — compile error in v6.0
+await service.GetCompletionAsync(message, myContext);
+
+// after
+await service.GetCompletionAsync(message, context: myContext);
+```
+
+All other patterns (`GetCompletionAsync("hello")`, `GetCompletionAsync(message, profile)`, etc.) compile unchanged.
+
+#### StreamAsync — one pattern requires a fix
+
+```csharp
+// before — compile error in v6.0
+await foreach (var chunk in service.StreamAsync(message, options, cancellationToken)) ...
+
+// after
+await foreach (var chunk in service.StreamAsync(message, options, cancellationToken: cancellationToken)) ...
+```
+
+#### Custom AIService subclasses — streaming override rename
+
+```csharp
+// before
+public override async IAsyncEnumerable<StreamingContent> StreamAsync(
+    Message message, StreamOptions options, CancellationToken cancellationToken = default) { ... }
+
+// after
+protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
+    Message message, StreamOptions options, CancellationToken cancellationToken = default) { ... }
+```
+
+---
+
 ## v5.3.0
 
 ### Added

@@ -92,4 +92,6 @@ var response = await service.GetCompletionAsync("질문", ragOptions: options);
 
 - [벡터 스토어](../vectordb-overview.md) — 개요 및 백엔드 설정
 - [텍스트 분할기](text-splitters.md) — 문서 청크 방식 커스터마이즈
-- [고급 RAG](rag-advanced.md) — 하이브리드 검색, 재순위, 쿼리 재작성
+- [하이브리드 검색](rag-hybrid-search.md) — 벡터 + BM25 결합 검색
+- [재순위](rag-reranking.md) — 검색 결과 재순위 지정
+- [쿼리 재작성](rag-query-rewriting.md) — LLM 기반 쿼리 최적화

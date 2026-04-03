@@ -1,12 +1,30 @@
-﻿# Mythosia.AI
+﻿<div align="center">
 
-[![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI)
-[![Docs](https://img.shields.io/badge/docs-github%20pages-blue)](https://aj-comp.github.io/Mythosia.AI/)
+<br>
 
-Unified .NET AI library with modular provider packages, document loaders, and RAG extensions.
+[![OPEN SOURCE](https://img.shields.io/badge/OPEN%20SOURCE%20·%20.NET%20·%20NUGET-111827?style=flat-square&labelColor=111827&color=111827)](https://github.com/AJ-comp/Mythosia.AI)
 
-> **[📖 Full Documentation →](https://aj-comp.github.io/Mythosia.AI/)**
+# Mythosia**.AI**
+
+### A modular .NET AI library for building intelligent applications.
+**Switch providers, add RAG, load documents — all with a unified API.**
+
+<br>
+
+[![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg?style=for-the-badge&logo=nuget&label=NuGet&color=512BD4)](https://www.nuget.org/packages/Mythosia.AI)
+[![Downloads](https://img.shields.io/nuget/dt/Mythosia.AI.svg?style=for-the-badge&logo=nuget&color=512BD4)](https://www.nuget.org/packages/Mythosia.AI)
+[![Docs](https://img.shields.io/badge/Docs-GitHub%20Pages-0ea5e9?style=for-the-badge&logo=readthedocs&logoColor=white)](https://aj-comp.github.io/Mythosia.AI/)
+[![.NET](https://img.shields.io/badge/.NET-Standard%202.1-6d28d9?style=for-the-badge&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com)
+
+<br>
+
+**[📖 Get Started](https://aj-comp.github.io/Mythosia.AI/)** &nbsp;·&nbsp; **[API Reference](https://aj-comp.github.io/Mythosia.AI/api/)** &nbsp;·&nbsp; **[GitHub ↗](https://github.com/AJ-comp/Mythosia.AI)**
+
+<br>
+
+</div>
+
+---
 
 ### What do I need to install?
 

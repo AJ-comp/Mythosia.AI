@@ -129,8 +129,8 @@ namespace Mythosia.AI.Services.Perplexity
             }
         }
 
-        // Override the virtual StreamAsync method for better Sonar-specific implementation
-        public override async IAsyncEnumerable<StreamingContent> StreamAsync(
+        // Override the core streaming loop for Sonar-specific implementation
+        protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
             Message message,
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)

@@ -129,8 +129,7 @@ namespace Mythosia.AI.Services.DeepSeek
             }
         }
 
-        // Override the new streaming method with options
-        public override async IAsyncEnumerable<StreamingContent> StreamAsync(
+        protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
             Message message,
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)

@@ -10,66 +10,66 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_4Pro;
 
 [TestClass] public class Core : CoreTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
     protected override string? GetAlternativeModel() => AIModels.OpenAI.Gpt4oMini;
-    protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
     protected override bool SupportsReasoning() => true;
 }
 
 [TestClass] public class Streaming : StreamingTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class Reasoning : ReasoningTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
-    protected override void SetupReasoningEffort() => ((ChatGptService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
     protected override bool SupportsReasoning() => true;
 }
 
 [TestClass] public class FunctionCalling : FunctionCallingTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class Vision : VisionTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class Audio : AudioTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class ImageGeneration : ImageGenerationTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class StructuredOutput : StructuredOutputTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class StreamingMetadata : StreamingMetadataTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class Performance : PerformanceTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class CrossProvider : CrossProviderTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 
 [TestClass] public class ServiceSpecific : ServiceSpecificTestModule
 {
-    protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
+    protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_4Pro);
 }
 #endif

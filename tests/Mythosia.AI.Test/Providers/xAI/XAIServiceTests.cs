@@ -9,7 +9,7 @@ namespace Mythosia.AI.Tests.xAI;
 
 // 1. Abstract base class
 [TestClass]
-public abstract class GrokServiceTestsBase : AIServiceTestBase
+public abstract class XAIServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
     protected abstract string ModelToTest { get; }
@@ -27,7 +27,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new GrokService(apiKey!, new HttpClient());
+        var service = new XAIService(apiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);
         Console.WriteLine($"[Testing Model] {ModelToTest}");
         return service;
@@ -43,7 +43,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 
     protected override bool SupportsReasoning()
     {
-        if (AI is not GrokService grokService)
+        if (AI is not XAIService grokService)
             return false;
 
         // Only grok-3-mini returns reasoning_content in Chat Completions API.
@@ -69,7 +69,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var grokService = (GrokService)AI;
+            var grokService = (XAIService)AI;
 
             // Mini 모델로 전환
             grokService.UseMiniModel();
@@ -117,7 +117,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var grokService = (GrokService)AI;
+            var grokService = (XAIService)AI;
 
             // Python 코드 생성 모드
             grokService.WithCodeGenerationMode("python");
@@ -156,7 +156,7 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var grokService = (GrokService)AI;
+            var grokService = (XAIService)AI;
 
             var cotResponse = await grokService.GetCompletionWithCoTAsync(
                 "If a train travels 120 km in 2 hours, and then 180 km in 3 hours, what is its average speed?"
@@ -319,26 +319,26 @@ public abstract class GrokServiceTestsBase : AIServiceTestBase
 // 2. 모델별 구체 클래스
 
 [TestClass]
-public class xAI_Grok4_Tests : GrokServiceTestsBase
+public class xAI_Grok4_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.Grok4;
 }
 
 [TestClass]
-public class xAI_Grok4_1Fast_Tests : GrokServiceTestsBase
+public class xAI_Grok4_1Fast_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.Grok4_1Fast;
 }
 
 [TestClass]
-public class xAI_Grok3_Tests : GrokServiceTestsBase
+public class xAI_Grok3_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.Grok3;
     protected override string? GetAlternativeModel() => AIModels.xAI.Grok3Mini;
 }
 
 [TestClass]
-public class xAI_Grok3Mini_Tests : GrokServiceTestsBase
+public class xAI_Grok3Mini_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.Grok3Mini;
     protected override string? GetAlternativeModel() => AIModels.xAI.Grok3;

@@ -1,5 +1,7 @@
 ﻿# Mythosia.AI
 
+> ⚠️ **Upgrading from v5.x?** See the **[v6.0 Migration Guide](RELEASE_NOTES.md#migration-from-v5x)**.
+
 ## Package Summary
 
 The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**.
@@ -767,10 +769,6 @@ var response = await mathTutor.GetCompletionAsync(
 );
 // Output includes step-by-step solution with verification
 ```
-
-## Migration Guides
-
-For detailed migration instructions, see the **[Release Notes](RELEASE_NOTES.md)**.
 
 ## Best Practices
 

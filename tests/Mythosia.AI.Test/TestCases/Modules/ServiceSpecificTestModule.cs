@@ -7,7 +7,7 @@ namespace Mythosia.AI.Tests.Modules;
 
 /// <summary>
 /// OpenAI 특화 파라미터 테스트.
-/// 원본: ChatGptServiceTestsBase.GptSpecificParametersTest
+/// 원본: OpenAIServiceTestsBase.GptSpecificParametersTest
 /// </summary>
 [TestClass]
 public abstract class ServiceSpecificTestModule : TestModuleBase
@@ -18,7 +18,7 @@ public abstract class ServiceSpecificTestModule : TestModuleBase
     {
         try
         {
-            var gptService = (ChatGptService)AI;
+            var gptService = (OpenAIService)AI;
             gptService.WithOpenAIParameters(
                 presencePenalty: 0.5f,
                 frequencyPenalty: 0.3f

@@ -12,12 +12,12 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5
 {
     /// <summary>
     /// GPT-5 전용 reasoning effort 파라미터 테스트.
-    /// 원본: ChatGptServiceTests.cs → OpenAI_Gpt5_ReasoningTests
+    /// 원본: OpenAIServiceTests.cs → OpenAI_Gpt5_ReasoningTests
     /// </summary>
     [TestClass]
     public class ReasoningSpecific : TestModuleBase
     {
-        protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5);
+        protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5);
         protected override bool SupportsReasoning() => true;
 
         /// <summary>
@@ -30,7 +30,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5
         {
             try
             {
-                var gptService = (ChatGptService)AI;
+                var gptService = (OpenAIService)AI;
 
                 // minimal reasoning effort로 빠른 응답
                 gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Minimal);
@@ -62,7 +62,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5
         {
             try
             {
-                var gptService = (ChatGptService)AI;
+                var gptService = (OpenAIService)AI;
                 gptService
                     .WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Low)
                     .WithSystemMessage("You are a concise assistant. Answer in one word if possible.")
@@ -88,12 +88,12 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_3Codex
 {
     /// <summary>
     /// GPT-5.3 전용 reasoning effort, verbosity 파라미터 테스트.
-    /// 원본: ChatGptServiceTests.cs → OpenAI_Gpt5_3_ReasoningTests
+    /// 원본: OpenAIServiceTests.cs → OpenAI_Gpt5_3_ReasoningTests
     /// </summary>
     [TestClass]
     public class ReasoningSpecific : TestModuleBase
     {
-        protected override AIService CreateAIService() => ChatGptServiceFactory.Create(AIModels.OpenAI.Gpt5_3Codex);
+        protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5_3Codex);
         protected override bool SupportsReasoning() => true;
 
         /// <summary>
@@ -106,7 +106,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_3Codex
         {
             try
             {
-                var gptService = (ChatGptService)AI;
+                var gptService = (OpenAIService)AI;
 
                 // medium reasoning effort (Codex default)
                 gptService.WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.Medium);
@@ -138,7 +138,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_3Codex
         {
             try
             {
-                var gptService = (ChatGptService)AI;
+                var gptService = (OpenAIService)AI;
                 gptService
                     .WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.Low)
                     .WithSystemMessage("You are a concise assistant. Answer in one word if possible.")
@@ -167,7 +167,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_3Codex
         {
             try
             {
-                var gptService = (ChatGptService)AI;
+                var gptService = (OpenAIService)AI;
 
                 // Codex에서 None은 지원되지 않으므로 자동으로 Low로 조정되어야 함
                 gptService.WithGpt5_3Parameters(reasoningEffort: Gpt5_3Reasoning.None);
@@ -191,7 +191,7 @@ namespace Mythosia.AI.Tests.OpenAI.Gpt5_3Codex
         {
             try
             {
-                var gptService = (ChatGptService)AI;
+                var gptService = (OpenAIService)AI;
 
                 gptService.WithGpt5_3Parameters(
                     reasoningEffort: Gpt5_3Reasoning.Medium,

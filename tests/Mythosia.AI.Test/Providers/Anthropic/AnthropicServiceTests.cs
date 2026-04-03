@@ -8,7 +8,7 @@ namespace Mythosia.AI.Tests.Anthropic;
 
 // 1. 기존 클래스를 추상 클래스로 변경 (이름에 Base 추가)
 [TestClass]
-public abstract class ClaudeServiceTestsBase : AIServiceTestBase
+public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
     protected abstract string ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
@@ -38,7 +38,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
             () => SupportsReasoning(),
             async () =>
             {
-                var claudeService = (ClaudeService)AI;
+                var claudeService = (AnthropicService)AI;
                 claudeService.ThinkingBudget = 1024;
 
                 var response = await claudeService.GetCompletionAsync(
@@ -57,7 +57,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new ClaudeService(apiKey!, new HttpClient());
+        var service = new AnthropicService(apiKey!, new HttpClient());
         service.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
         Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
         return service;
@@ -71,7 +71,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning()
     {
-        if (AI is not ClaudeService claudeService)
+        if (AI is not AnthropicService claudeService)
             return false;
 
         if (!claudeService.SupportsExtendedThinking)
@@ -96,7 +96,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
             () => SupportsReasoning(),
             async () =>
             {
-                var claudeService = (ClaudeService)AI;
+                var claudeService = (AnthropicService)AI;
 
                 // max_tokens 기본값(8192)과 같은 budget 설정 — 자동 조정이 동작해야 함
                 claudeService.MaxTokens = 8192;
@@ -126,7 +126,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var claudeService = (ClaudeService)AI;
+            var claudeService = (AnthropicService)AI;
 
             // Claude 파라미터 설정
             claudeService
@@ -196,7 +196,7 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
     {
         try
         {
-            var claudeService = (ClaudeService)AI;
+            var claudeService = (AnthropicService)AI;
 
             // Claude는 URL을 직접 지원하지 않으므로 다운로드 필요
             var testImageUrl = "https://example.com/test.jpg";
@@ -225,49 +225,49 @@ public abstract class ClaudeServiceTestsBase : AIServiceTestBase
 }
 
 [TestClass]
-public class Claude_Opus4_6 : ClaudeServiceTestsBase
+public class Claude_Opus4_6 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_6;
 }
 
 [TestClass]
-public class Claude_Sonnet4_6 : ClaudeServiceTestsBase
+public class Claude_Sonnet4_6 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_6;
 }
 
 [TestClass]
-public class Claude_Opus4_1 : ClaudeServiceTestsBase
+public class Claude_Opus4_1 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_1_250805;
 }
 
 [TestClass]
-public class Claude_Opus4 : ClaudeServiceTestsBase
+public class Claude_Opus4 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_250514;
 }
 
 [TestClass]
-public class Claude_Opus4_5 : ClaudeServiceTestsBase
+public class Claude_Opus4_5 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_5_251101;
 }
 
 [TestClass]
-public class Claude_Sonnet4_5 : ClaudeServiceTestsBase
+public class Claude_Sonnet4_5 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_5_250929;
 }
 
 [TestClass]
-public class Claude_Sonnet4 : ClaudeServiceTestsBase
+public class Claude_Sonnet4 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_250514;
 }
 
 [TestClass]
-public class Claude_Haiku4_5 : ClaudeServiceTestsBase
+public class Claude_Haiku4_5 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeHaiku4_5_251001;
 }

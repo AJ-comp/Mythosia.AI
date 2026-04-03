@@ -40,12 +40,12 @@ namespace Mythosia.AI.Services.Base
             var provider = GetProviderFromModel(model);
             return provider switch
             {
-                nameof(AIProvider.OpenAI) => new ChatGptService(apiKey, httpClient),
-                nameof(AIProvider.Anthropic) => new ClaudeService(apiKey, httpClient),
-                nameof(AIProvider.Google) => new GeminiService(apiKey, httpClient),
+                nameof(AIProvider.OpenAI) => new OpenAIService(apiKey, httpClient),
+                nameof(AIProvider.Anthropic) => new AnthropicService(apiKey, httpClient),
+                nameof(AIProvider.Google) => new GoogleAIService(apiKey, httpClient),
                 nameof(AIProvider.DeepSeek) => new DeepSeekService(apiKey, httpClient),
-                nameof(AIProvider.xAI) => new GrokService(apiKey, httpClient),
-                nameof(AIProvider.Perplexity) => new SonarService(apiKey, httpClient),
+                nameof(AIProvider.xAI) => new XAIService(apiKey, httpClient),
+                nameof(AIProvider.Perplexity) => new PerplexityService(apiKey, httpClient),
                 _ => throw new NotSupportedException($"Provider {provider} not supported")
             };
         }
