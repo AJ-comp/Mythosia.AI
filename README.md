@@ -4,7 +4,7 @@
 
 [![OPEN SOURCE](https://img.shields.io/badge/OPEN%20SOURCE%20·%20.NET%20·%20NUGET-111827?style=flat-square&labelColor=111827&color=111827)](https://github.com/AJ-comp/Mythosia.AI)
 
-# Mythosia**.AI**
+<img width="694" height="181" alt="title_60" src="https://github.com/user-attachments/assets/57fd8c63-5b9b-46f6-be30-274354808c0d" />
 
 ### A modular .NET AI library for building intelligent applications.
 **Switch providers, add RAG, load documents — all with a unified API.**
