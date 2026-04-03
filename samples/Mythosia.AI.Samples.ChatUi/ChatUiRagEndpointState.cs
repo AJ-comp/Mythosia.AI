@@ -45,12 +45,12 @@ namespace Mythosia.AI.Samples.ChatUi
             var provider = GetProviderForModel(overrideModel);
             _cachedRewriterService = provider switch
             {
-                "OpenAI" => new ChatGptService(RewriterApiKey, _rewriterHttpClient),
-                "Anthropic" => new ClaudeService(RewriterApiKey, _rewriterHttpClient),
-                "Google" => new GeminiService(RewriterApiKey, _rewriterHttpClient),
+                "OpenAI" => new OpenAIService(RewriterApiKey, _rewriterHttpClient),
+                "Anthropic" => new AnthropicService(RewriterApiKey, _rewriterHttpClient),
+                "Google" => new GoogleAIService(RewriterApiKey, _rewriterHttpClient),
                 "DeepSeek" => new DeepSeekService(RewriterApiKey, _rewriterHttpClient),
-                "xAI" => new GrokService(RewriterApiKey, _rewriterHttpClient),
-                "Perplexity" => new SonarService(RewriterApiKey, _rewriterHttpClient),
+                "xAI" => new XAIService(RewriterApiKey, _rewriterHttpClient),
+                "Perplexity" => new PerplexityService(RewriterApiKey, _rewriterHttpClient),
                 _ => fallback
             };
             _cachedRewriterService.ChangeModel(overrideModel);

@@ -1,5 +1,27 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.2.0
+
+### Changed
+
+- **Internal namespace/scope handling migrated to Metadata** — follows `Mythosia.VectorDb.Abstractions` v4.0.0.
+  - `RagPipeline.BuildAsync` now writes namespace/scope to `Metadata["namespace"]` / `Metadata["scope"]` instead of `VectorRecord.Namespace` / `VectorRecord.Scope`.
+  - `RagPipeline.QueryAsync` now applies namespace filter via `VectorFilter.Where("namespace", ns)` instead of `VectorFilter.Namespace`.
+  - `RagPipeline.DeleteDocumentAsync` updated similarly.
+  - `HybridRetrievalStrategy.WithoutMinScore` no longer copies removed `Namespace`/`Scope` properties — conditions are preserved via `AppendConditionsFrom`.
+  - `RagDiagnostics.DiagnoseQueryAsync` fallback filter updated.
+- **Default indexing now uses `ReplaceByFilterAsync`** — when no `onDocumentEmbedded` callback is provided, `IndexSingleDocumentAsync` now calls `ReplaceByFilterAsync(Where("document_id", docId), records)` instead of `UpsertBatchAsync(records)`.
+  - Fixes stale chunk problem: re-indexing a file that produces fewer chunks no longer leaves orphan chunks from the previous version.
+  - The operation is atomic (transactional in stores that support it) — on failure, existing data remains intact.
+  - `onDocumentEmbedded` callback behavior is unchanged — when provided, it still replaces the default persistence logic entirely.
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0.
+- **User-facing API unchanged** — `RagStore.BuildAsync()`, `RagStore.QueryAsync()`, `RagQueryOptions`, and `AgenticRag` all work identically. No user code changes required unless `VectorRecord.Namespace`/`Scope` was accessed directly in `onDocumentEmbedded` callbacks.
+
+---
+
 ## v7.1.0
 
 ### Added

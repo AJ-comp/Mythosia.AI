@@ -303,22 +303,7 @@ await foreach (var chunk in ragService.StreamAsync("How do I use this product?")
 
 ## Document Indexing Callback
 
-`BuildAsync` accepts an optional `onDocumentEmbedded` callback invoked after each document's embedding is complete. When omitted, records are saved to the configured store automatically (default behavior). When provided, the callback replaces the default `UpsertBatchAsync` — you decide how to persist the records.
-
-### Atomic File Replacement
-
-When a file is modified and needs re-embedding, use the callback with `ReplaceByFilterAsync` to atomically swap old vectors with new ones — no query gap where the document temporarily disappears:
-
-```csharp
-var store = await RagStore.BuildAsync(config => config
-    .AddDocuments(loader, file.LocalPath)
-    .UseEmbedding(embeddingProvider)
-    .UseStore(vectorStore),
-    onDocumentEmbedded: records =>
-        vectorStore.ReplaceByFilterAsync(
-            new VectorFilter().Where("full_path", file.FullPath), records)
-);
-```
+`BuildAsync` accepts an optional `onDocumentEmbedded` callback invoked after each document's embedding is complete. When omitted, the pipeline automatically calls `ReplaceByFilterAsync(Where("document_id", docId), records)` — which deletes all existing chunks for that document and inserts the new ones atomically. When provided, the callback replaces this default behavior entirely — you decide how to persist the records.
 
 On `PostgresStore`, `ReplaceByFilterAsync` wraps DELETE + INSERT in a single transaction — queries always see either the old data or the new data, never an empty gap. Other stores (InMemory, Qdrant, Pinecone) perform sequential delete + insert via the default interface method.
 

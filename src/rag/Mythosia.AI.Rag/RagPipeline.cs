@@ -232,16 +232,20 @@ namespace Mythosia.AI.Rag
                     Id = chunks[i].Id,
                     Vector = allEmbeddings[i],
                     Content = chunks[i].Content,
-                    Metadata = metadata,
-                    Namespace = @namespace,
-                    Scope = Options.DefaultScope
+                    Metadata = metadata
                 });
+
+                if (@namespace != null)
+                    records[records.Count - 1].Metadata["namespace"] = @namespace;
+                if (Options.DefaultScope != null)
+                    records[records.Count - 1].Metadata["scope"] = Options.DefaultScope;
             }
 
             if (onDocumentEmbedded != null)
                 await onDocumentEmbedded(records);
             else
-                await _vectorStore.UpsertBatchAsync(records, cancellationToken);
+                await _vectorStore.ReplaceByFilterAsync(
+                    new VectorFilter().Where("document_id", document.Id), records, cancellationToken);
         }
 
         #endregion
@@ -333,7 +337,8 @@ namespace Mythosia.AI.Rag
             // 2. Apply namespace and retrieval score filter
             await ReportAsync(RagProgressStage.Filtering);
             var effectiveFilter = MergeStoreFilter(filter, effectiveOptions.StoreFilter);
-            effectiveFilter.Namespace = ns;
+            if (ns != null)
+                effectiveFilter.Where("namespace", ns);
             effectiveFilter.MinScore = retrievalMinScore;
 
             // 3. Search (via retrieval strategy) ??fetch wider pool when reranker is present
@@ -459,18 +464,15 @@ namespace Mythosia.AI.Rag
         /// Both filters' conditions are AND-combined in the result — neither side is silently dropped.
         /// This mirrors EF Core's Global Query Filter pattern: the store filter always applies,
         /// and the per-query filter adds further constraints on top.
-        /// <see cref="VectorFilter.Namespace"/> and <see cref="VectorFilter.MinScore"/> are NOT copied
-        /// here because they are always overwritten immediately after this call.
+        /// <see cref="VectorFilter.MinScore"/> is NOT copied
+        /// here because it is always overwritten immediately after this call.
         /// </summary>
         private static VectorFilter MergeStoreFilter(VectorFilter? filter, VectorFilter? storeFilter)
         {
             if (storeFilter == null)
                 return filter ?? new VectorFilter();
 
-            var merged = new VectorFilter
-            {
-                Scope = storeFilter.Scope ?? filter?.Scope
-            };
+            var merged = new VectorFilter();
 
             // storeFilter conditions first (permission/tenant constraints), then per-query conditions
             merged.AppendConditionsFrom(storeFilter);
@@ -593,7 +595,8 @@ namespace Mythosia.AI.Rag
         {
             var ns = @namespace ?? Options.DefaultQuery.Namespace;
             var filter = new VectorFilter().Where("document_id", documentId);
-            filter.Namespace = ns;
+            if (ns != null)
+                filter.Where("namespace", ns);
             await _vectorStore.DeleteByFilterAsync(filter, cancellationToken);
         }
 

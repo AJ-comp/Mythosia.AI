@@ -184,9 +184,7 @@ internal static class ExternalTestEndpoints
                     TextOnly = false
                 };
 
-                var stream = requestContext == null
-                    ? currentService.StreamAsync(message, options, ct)
-                    : currentService.StreamAsync(message, options, requestContext, ct);
+                var stream = currentService.StreamAsync(message, options, requestContext, ct);
 
                 await foreach (var sc in stream)
                 {

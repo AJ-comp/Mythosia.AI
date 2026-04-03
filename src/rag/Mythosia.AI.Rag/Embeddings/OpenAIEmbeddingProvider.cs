@@ -11,7 +11,7 @@ namespace Mythosia.AI.Rag.Embeddings
 {
     /// <summary>
     /// IEmbeddingProvider implementation that calls the OpenAI Embeddings API.
-    /// Uses the same HttpClient/API-key pattern as Mythosia.AI's ChatGptService.
+    /// Uses the same HttpClient/API-key pattern as Mythosia.AI's OpenAIService.
     /// </summary>
     public class OpenAIEmbeddingProvider : IEmbeddingProvider
     {

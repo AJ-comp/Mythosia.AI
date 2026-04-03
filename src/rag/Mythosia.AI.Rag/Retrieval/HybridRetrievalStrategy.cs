@@ -160,8 +160,6 @@ namespace Mythosia.AI.Rag.Retrieval
 
             var copy = new VectorFilter
             {
-                Namespace = filter.Namespace,
-                Scope = filter.Scope,
                 MinScore = null
             };
             copy.AppendConditionsFrom(filter);

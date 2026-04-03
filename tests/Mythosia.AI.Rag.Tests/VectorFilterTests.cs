@@ -1,4 +1,4 @@
-using Mythosia.VectorDb;
+﻿using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 namespace Mythosia.AI.Rag.Tests;
@@ -10,20 +10,22 @@ namespace Mythosia.AI.Rag.Tests;
 [TestClass]
 public class VectorFilterTests
 {
-    // ── Helpers ────────────────────────────────────────────────────────────
+    // ?? Helpers ????????????????????????????????????????????????????????????
 
     private static readonly float[] AnyVector = new float[] { 1, 0, 0 };
 
-    private static VectorRecord Record(string id, Dictionary<string, string> metadata, string? scope = null) =>
-        new VectorRecord
+    private static VectorRecord Record(string id, Dictionary<string, string> metadata, string? scope = null)
+    {
+        var combined = new Dictionary<string, string>(metadata) { ["namespace"] = "test" };
+        if (scope != null) combined["scope"] = scope;
+        return new VectorRecord
         {
             Id = id,
             Vector = AnyVector,
             Content = id,
-            Namespace = "test",
-            Scope = scope,
-            Metadata = metadata
+            Metadata = combined
         };
+    }
 
     private static async Task<InMemoryVectorStore> StoreWith(params VectorRecord[] records)
     {
@@ -38,7 +40,7 @@ public class VectorFilterTests
         return results.Select(r => r.Record.Id).ToList();
     }
 
-    // ── Eq ─────────────────────────────────────────────────────────────────
+    // ?? Eq ?????????????????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Eq_MatchesExactValue()
@@ -48,7 +50,7 @@ public class VectorFilterTests
             Record("b", new() { ["status"] = "draft" }),
             Record("c", new() { ["status"] = "active" }));
 
-        var filter = new VectorFilter().WithNamespace("test").Where("status", "active");
+        var filter = new VectorFilter().Where("namespace", "test").Where("status", "active");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
@@ -61,13 +63,13 @@ public class VectorFilterTests
             Record("a", new() { ["status"] = "active" }),
             Record("b", new())); // no status key
 
-        var filter = new VectorFilter().WithNamespace("test").Where("status", "active");
+        var filter = new VectorFilter().Where("namespace", "test").Where("status", "active");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "a" }, ids);
     }
 
-    // ── Ne ─────────────────────────────────────────────────────────────────
+    // ?? Ne ?????????????????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Ne_ExcludesMatchingValue()
@@ -77,7 +79,7 @@ public class VectorFilterTests
             Record("b", new() { ["status"] = "draft" }),
             Record("c", new() { ["status"] = "archived" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereNot("status", "draft");
+        var filter = new VectorFilter().Where("namespace", "test").WhereNot("status", "draft");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
@@ -88,16 +90,16 @@ public class VectorFilterTests
     {
         var store = await StoreWith(
             Record("a", new() { ["status"] = "active" }),
-            Record("b", new())); // no status key — should not match Ne
+            Record("b", new())); // no status key ??should not match Ne
 
-        var filter = new VectorFilter().WithNamespace("test").WhereNot("status", "draft");
+        var filter = new VectorFilter().Where("namespace", "test").WhereNot("status", "draft");
         var ids = await SearchIds(store, filter);
 
         // Only "a" has the key with a different value
         CollectionAssert.AreEqual(new[] { "a" }, ids);
     }
 
-    // ── In ─────────────────────────────────────────────────────────────────
+    // ?? In ?????????????????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task In_MatchesAnyValueInSet()
@@ -108,7 +110,7 @@ public class VectorFilterTests
             Record("c", new() { ["type"] = "news" }),
             Record("d", new() { ["type"] = "doc" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereIn("type", "doc", "faq");
+        var filter = new VectorFilter().Where("namespace", "test").WhereIn("type", "doc", "faq");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "b", "d" }, ids);
@@ -121,13 +123,13 @@ public class VectorFilterTests
             Record("a", new() { ["type"] = "doc" }),
             Record("b", new())); // no type key
 
-        var filter = new VectorFilter().WithNamespace("test").WhereIn("type", "doc", "faq");
+        var filter = new VectorFilter().Where("namespace", "test").WhereIn("type", "doc", "faq");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "a" }, ids);
     }
 
-    // ── NotIn ──────────────────────────────────────────────────────────────
+    // ?? NotIn ??????????????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task NotIn_ExcludesValuesInSet()
@@ -137,13 +139,13 @@ public class VectorFilterTests
             Record("b", new() { ["type"] = "faq" }),
             Record("c", new() { ["type"] = "news" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereNotIn("type", "doc", "faq");
+        var filter = new VectorFilter().Where("namespace", "test").WhereNotIn("type", "doc", "faq");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "c" }, ids);
     }
 
-    // ── Gt / Gte / Lt / Lte ────────────────────────────────────────────────
+    // ?? Gt / Gte / Lt / Lte ????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Gt_MatchesGreaterValues()
@@ -154,7 +156,7 @@ public class VectorFilterTests
             Record("c", new() { ["score"] = "30" }));
 
         // String ordinal comparison: "80" > "50" > "30"
-        var filter = new VectorFilter().WithNamespace("test").WhereGreaterThan("score", "50");
+        var filter = new VectorFilter().Where("namespace", "test").WhereGreaterThan("score", "50");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "b" }, ids);
@@ -168,7 +170,7 @@ public class VectorFilterTests
             Record("b", new() { ["score"] = "80" }),
             Record("c", new() { ["score"] = "30" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereGreaterThanOrEqual("score", "50");
+        var filter = new VectorFilter().Where("namespace", "test").WhereGreaterThanOrEqual("score", "50");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "b" }, ids);
@@ -182,7 +184,7 @@ public class VectorFilterTests
             Record("b", new() { ["score"] = "80" }),
             Record("c", new() { ["score"] = "30" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereLessThan("score", "50");
+        var filter = new VectorFilter().Where("namespace", "test").WhereLessThan("score", "50");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "c" }, ids);
@@ -196,13 +198,13 @@ public class VectorFilterTests
             Record("b", new() { ["score"] = "80" }),
             Record("c", new() { ["score"] = "30" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereLessThanOrEqual("score", "50");
+        var filter = new VectorFilter().Where("namespace", "test").WhereLessThanOrEqual("score", "50");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
     }
 
-    // ── Like ───────────────────────────────────────────────────────────────
+    // ?? Like ???????????????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Like_LeadingWildcard_MatchesSuffix()
@@ -212,7 +214,7 @@ public class VectorFilterTests
             Record("b", new() { ["path"] = "/hr/report.docx" }),
             Record("c", new() { ["path"] = "/sales/summary.xlsx" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereLike("path", "/sales/%");
+        var filter = new VectorFilter().Where("namespace", "test").WhereLike("path", "/sales/%");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
@@ -226,7 +228,7 @@ public class VectorFilterTests
             Record("b", new() { ["name"] = "summary_2024" }),
             Record("c", new() { ["name"] = "report_2023" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereLike("name", "report%");
+        var filter = new VectorFilter().Where("namespace", "test").WhereLike("name", "report%");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
@@ -240,7 +242,7 @@ public class VectorFilterTests
             Record("b", new() { ["code"] = "A22" }),
             Record("c", new() { ["code"] = "B1" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereLike("code", "A_");
+        var filter = new VectorFilter().Where("namespace", "test").WhereLike("code", "A_");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "a" }, ids);
@@ -254,13 +256,13 @@ public class VectorFilterTests
             Record("b", new() { ["path"] = "/folder/2023/file.txt" }),
             Record("c", new() { ["path"] = "/other/2024/doc.txt" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereLike("path", "/folder/%/file.txt");
+        var filter = new VectorFilter().Where("namespace", "test").WhereLike("path", "/folder/%/file.txt");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "b" }, ids);
     }
 
-    // ── Exists / NotExists ─────────────────────────────────────────────────
+    // ?? Exists / NotExists ?????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Exists_OnlyMatchesRecordsWithKey()
@@ -270,7 +272,7 @@ public class VectorFilterTests
             Record("b", new()),
             Record("c", new() { ["tag"] = "" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereExists("tag");
+        var filter = new VectorFilter().Where("namespace", "test").WhereExists("tag");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
@@ -284,13 +286,13 @@ public class VectorFilterTests
             Record("b", new()),
             Record("c", new() { ["other"] = "x" }));
 
-        var filter = new VectorFilter().WithNamespace("test").WhereNotExists("tag");
+        var filter = new VectorFilter().Where("namespace", "test").WhereNotExists("tag");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "b", "c" }, ids);
     }
 
-    // ── And grouping ───────────────────────────────────────────────────────
+    // ?? And grouping ???????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task TopLevel_MultipleConditions_AreAndCombined()
@@ -300,7 +302,7 @@ public class VectorFilterTests
             Record("b", new() { ["status"] = "active", ["type"] = "faq" }),
             Record("c", new() { ["status"] = "draft",  ["type"] = "doc" }));
 
-        var filter = new VectorFilter().WithNamespace("test")
+        var filter = new VectorFilter().Where("namespace", "test")
             .Where("status", "active")
             .Where("type", "doc");
 
@@ -319,7 +321,7 @@ public class VectorFilterTests
             Record("c", new() { ["storage"] = "B", ["folder"] = "/hr/" }),
             Record("d", new() { ["storage"] = "C", ["folder"] = "/sales/" }));
 
-        var filter = new VectorFilter().WithNamespace("test")
+        var filter = new VectorFilter().Where("namespace", "test")
             .Or(g => g
                 .And(g2 => g2
                     .Where("storage", "A")
@@ -331,7 +333,7 @@ public class VectorFilterTests
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
     }
 
-    // ── Or grouping ────────────────────────────────────────────────────────
+    // ?? Or grouping ????????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Or_MatchesAnyCondition()
@@ -341,7 +343,7 @@ public class VectorFilterTests
             Record("b", new() { ["type"] = "faq" }),
             Record("c", new() { ["type"] = "news" }));
 
-        var filter = new VectorFilter().WithNamespace("test")
+        var filter = new VectorFilter().Where("namespace", "test")
             .Or(g => g.Where("type", "doc").Where("type", "news"));
 
         var ids = await SearchIds(store, filter);
@@ -355,7 +357,7 @@ public class VectorFilterTests
         var store = await StoreWith(
             Record("a", new() { ["type"] = "other" }));
 
-        var filter = new VectorFilter().WithNamespace("test")
+        var filter = new VectorFilter().Where("namespace", "test")
             .Or(g => g.Where("type", "doc").Where("type", "faq"));
 
         var ids = await SearchIds(store, filter);
@@ -363,7 +365,7 @@ public class VectorFilterTests
         Assert.AreEqual(0, ids.Count);
     }
 
-    // ── Multi-tenant access pattern ────────────────────────────────────────
+    // ?? Multi-tenant access pattern ????????????????????????????????????????
 
     [TestMethod]
     public async Task WhereIn_StorageIds_PermissionBasedSearch()
@@ -375,7 +377,7 @@ public class VectorFilterTests
             Record("c", new() { ["storage_id"] = "C", ["title"] = "Finance data" }),
             Record("d", new() { ["storage_id"] = "A", ["title"] = "Sales forecast" }));
 
-        var filter = new VectorFilter().WithNamespace("test")
+        var filter = new VectorFilter().Where("namespace", "test")
             .WhereIn("storage_id", "A", "B");
 
         var ids = await SearchIds(store, filter);
@@ -394,7 +396,7 @@ public class VectorFilterTests
             Record("c", new() { ["storage_id"] = "B", ["folder"] = "/hr/" }),
             Record("d", new() { ["storage_id"] = "C", ["folder"] = "/sales/" }));
 
-        var filter = new VectorFilter().WithNamespace("test")
+        var filter = new VectorFilter().Where("namespace", "test")
             .Or(g => g
                 .And(inner => inner.Where("storage_id", "A").WhereLike("folder", "/sales/%"))
                 .Where("storage_id", "B"));
@@ -404,7 +406,7 @@ public class VectorFilterTests
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
     }
 
-    // ── Scope filtering ────────────────────────────────────────────────────
+    // ?? Scope filtering ????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task Scope_FiltersRecordsByScope()
@@ -414,7 +416,7 @@ public class VectorFilterTests
             Record("b", new() { ["x"] = "1" }, scope: "draft"),
             Record("c", new() { ["x"] = "1" }, scope: "published"));
 
-        var filter = new VectorFilter { Namespace = "test", Scope = "published" };
+        var filter = new VectorFilter().Where("namespace", "test").Where("scope", "published");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEquivalent(new[] { "a", "c" }, ids);
@@ -428,14 +430,14 @@ public class VectorFilterTests
             Record("b", new() { ["type"] = "doc" }, scope: "draft"),
             Record("c", new() { ["type"] = "faq" }, scope: "published"));
 
-        var filter = new VectorFilter { Namespace = "test", Scope = "published" };
+        var filter = new VectorFilter().Where("namespace", "test").Where("scope", "published");
         filter.Where("type", "doc");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "a" }, ids);
     }
 
-    // ── Empty filter ───────────────────────────────────────────────────────
+    // ?? Empty filter ???????????????????????????????????????????????????????
 
     [TestMethod]
     public async Task EmptyConditions_MatchesAllRecords()
@@ -445,13 +447,13 @@ public class VectorFilterTests
             Record("b", new() { ["x"] = "2" }),
             Record("c", new()));
 
-        var filter = new VectorFilter { Namespace = "test" };
+        var filter = new VectorFilter().Where("namespace", "test");
         var ids = await SearchIds(store, filter);
 
         Assert.AreEqual(3, ids.Count);
     }
 
-    // ── AppendConditionsFrom (MergeStoreFilter simulation) ─────────────────
+    // ?? AppendConditionsFrom (MergeStoreFilter simulation) ?????????????????
 
     [TestMethod]
     public async Task AppendConditionsFrom_AndCombinesTwoFilters()
@@ -467,7 +469,7 @@ public class VectorFilterTests
         // queryFilter: only active status
         var queryFilter = new VectorFilter().Where("status", "active");
 
-        var merged = new VectorFilter { Namespace = "test" };
+        var merged = new VectorFilter().Where("namespace", "test");
         merged.AppendConditionsFrom(storeFilter);
         merged.AppendConditionsFrom(queryFilter);
 
@@ -480,12 +482,12 @@ public class VectorFilterTests
     [TestMethod]
     public async Task AppendConditionsFrom_ConflictingConditions_ResultIsEmpty()
     {
-        // storeFilter says storage=A, queryFilter says storage=C — no results
+        // storeFilter says storage=A, queryFilter says storage=C ??no results
         var store = await StoreWith(
             Record("a", new() { ["storage_id"] = "A" }),
             Record("b", new() { ["storage_id"] = "C" }));
 
-        var merged = new VectorFilter { Namespace = "test" };
+        var merged = new VectorFilter().Where("namespace", "test");
         merged.AppendConditionsFrom(new VectorFilter().WhereIn("storage_id", "A", "B"));
         merged.AppendConditionsFrom(new VectorFilter().Where("storage_id", "C"));
 
@@ -494,7 +496,7 @@ public class VectorFilterTests
         Assert.AreEqual(0, ids.Count);
     }
 
-    // ── WithoutMinScore (used in HybridSearch) ─────────────────────────────
+    // ?? WithoutMinScore (used in HybridSearch) ?????????????????????????????
 
     [TestMethod]
     public async Task MinScore_FiltersLowScoreResults()
@@ -503,11 +505,11 @@ public class VectorFilterTests
         var store = new InMemoryVectorStore();
         await store.UpsertBatchAsync(new[]
         {
-            new VectorRecord { Id = "perfect",    Vector = new float[] { 1, 0, 0 }, Content = "perfect",    Namespace = "test" },
-            new VectorRecord { Id = "orthogonal", Vector = new float[] { 0, 1, 0 }, Content = "orthogonal", Namespace = "test" },
+            new VectorRecord { Id = "perfect",    Vector = new float[] { 1, 0, 0 }, Content = "perfect",    Metadata = { ["namespace"] = "test" } },
+            new VectorRecord { Id = "orthogonal", Vector = new float[] { 0, 1, 0 }, Content = "orthogonal", Metadata = { ["namespace"] = "test" } },
         });
 
-        var filter = new VectorFilter { Namespace = "test" };
+        var filter = new VectorFilter().Where("namespace", "test");
         filter.WithMinScore(0.5);
         var results = await store.SearchAsync(AnyVector, topK: 10, filter: filter);
 
@@ -515,7 +517,7 @@ public class VectorFilterTests
         Assert.AreEqual("perfect", results[0].Record.Id);
     }
 
-    // ── Fluent chaining correctness ────────────────────────────────────────
+    // ?? Fluent chaining correctness ????????????????????????????????????????
 
     [TestMethod]
     public void FluentChaining_ReturnsThisInstance()
@@ -531,12 +533,12 @@ public class VectorFilterTests
             .WhereExists("g")
             .WhereNotExists("h")
             .WhereLike("i", "%pattern%")
-            .WithNamespace("ns")
+            .Where("namespace", "ns")
             .WithMinScore(0.7);
 
         Assert.AreSame(filter, result);
         Assert.AreEqual(9, filter.Conditions.Count);
-        Assert.AreEqual("ns", filter.Namespace);
+        Assert.IsTrue(filter.Conditions.OfType<MetadataCondition>().Any(c => c.Key == "namespace" && c.Value == "ns"));
         Assert.AreEqual(0.7, filter.MinScore);
     }
 
@@ -554,7 +556,7 @@ public class VectorFilterTests
         Assert.AreEqual(0, filter.Conditions.Count);
     }
 
-    // ── DeleteByFilter integration ─────────────────────────────────────────
+    // ?? DeleteByFilter integration ?????????????????????????????????????????
 
     [TestMethod]
     public async Task DeleteByFilter_RemovesOnlyMatchingRecords()
@@ -564,17 +566,17 @@ public class VectorFilterTests
             Record("b", new() { ["type"] = "faq" }),
             Record("c", new() { ["type"] = "doc" }));
 
-        var deleteFilter = new VectorFilter { Namespace = "test" };
+        var deleteFilter = new VectorFilter().Where("namespace", "test");
         deleteFilter.Where("type", "doc");
         await store.DeleteByFilterAsync(deleteFilter);
 
-        var filter = new VectorFilter { Namespace = "test" };
+        var filter = new VectorFilter().Where("namespace", "test");
         var ids = await SearchIds(store, filter);
 
         CollectionAssert.AreEqual(new[] { "b" }, ids);
     }
 
-    // ── CountAsync integration ─────────────────────────────────────────────
+    // ?? CountAsync integration ?????????????????????????????????????????????
 
     [TestMethod]
     public async Task CountAsync_WithFilter_CountsOnlyMatching()
@@ -584,10 +586,11 @@ public class VectorFilterTests
             Record("b", new() { ["status"] = "draft" }),
             Record("c", new() { ["status"] = "active" }));
 
-        var filter = new VectorFilter { Namespace = "test" };
+        var filter = new VectorFilter().Where("namespace", "test");
         filter.Where("status", "active");
         var count = await store.CountAsync(filter);
 
         Assert.AreEqual(2L, count);
     }
 }
+

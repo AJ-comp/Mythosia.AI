@@ -64,12 +64,12 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
         var httpClient = new HttpClient();
         currentService = provider switch
         {
-            "OpenAI" => new ChatGptService(req.ApiKey, httpClient),
-            "Anthropic" => new ClaudeService(req.ApiKey, httpClient),
-            "Google" => new GeminiService(req.ApiKey, httpClient),
+            "OpenAI" => new OpenAIService(req.ApiKey, httpClient),
+            "Anthropic" => new AnthropicService(req.ApiKey, httpClient),
+            "Google" => new GoogleAIService(req.ApiKey, httpClient),
             "DeepSeek" => new DeepSeekService(req.ApiKey, httpClient),
-            "xAI" => new GrokService(req.ApiKey, httpClient),
-            "Perplexity" => new SonarService(req.ApiKey, httpClient),
+            "xAI" => new XAIService(req.ApiKey, httpClient),
+            "Perplexity" => new PerplexityService(req.ApiKey, httpClient),
             "Alibaba" => string.IsNullOrWhiteSpace(req.BaseUrl)
                 ? new QwenService(req.ApiKey, httpClient)
                 : new QwenService(req.BaseUrl, ParsePlatform(req.Platform), httpClient),
@@ -474,9 +474,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             TextOnly = false
         };
 
-        var stream = requestContext == null
-            ? currentService.StreamAsync(message, options, ctx.RequestAborted)
-            : currentService.StreamAsync(message, options, requestContext, ctx.RequestAborted);
+        var stream = currentService.StreamAsync(message, options, requestContext, ctx.RequestAborted);
 
         await foreach (var sc in stream)
         {
@@ -570,7 +568,7 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     }
     else if (req.ReasoningEnabled == true && req.ReasoningLevel != null && req.ReasoningType != null)
     {
-        if (currentService is ChatGptService gpt)
+        if (currentService is OpenAIService gpt)
         {
             switch (req.ReasoningType)
             {
@@ -601,17 +599,17 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
                     break;
             }
         }
-        else if (currentService is ClaudeService claude)
+        else if (currentService is AnthropicService claude)
         {
             if (int.TryParse(req.ReasoningLevel, out var budget))
                 claude.ThinkingBudget = budget;
         }
-        else if (currentService is GrokService grok)
+        else if (currentService is XAIService grok)
         {
             if (Enum.TryParse<GrokReasoning>(req.ReasoningLevel, out var grokEffort))
                 grok.ReasoningEffort = grokEffort;
         }
-        else if (currentService is GeminiService gemini)
+        else if (currentService is GoogleAIService gemini)
         {
             switch (req.ReasoningType)
             {
@@ -630,7 +628,7 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     }
     else if (req.ReasoningEnabled == false)
     {
-        if (currentService is ChatGptService gptOff)
+        if (currentService is OpenAIService gptOff)
         {
             gptOff.Gpt5ReasoningEffort = Gpt5Reasoning.Auto;
             gptOff.Gpt5ReasoningSummary = null;
@@ -643,15 +641,15 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
             gptOff.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.Auto;
             gptOff.Gpt5_4ReasoningSummary = null;
         }
-        else if (currentService is ClaudeService claudeOff)
+        else if (currentService is AnthropicService claudeOff)
         {
             claudeOff.ThinkingBudget = -1;
         }
-        else if (currentService is GrokService grokOff)
+        else if (currentService is XAIService grokOff)
         {
             grokOff.ReasoningEffort = GrokReasoning.Off;
         }
-        else if (currentService is GeminiService geminiOff)
+        else if (currentService is GoogleAIService geminiOff)
         {
             geminiOff.ThinkingLevel = GeminiThinkingLevel.Auto;
             geminiOff.ThinkingBudget = -1;

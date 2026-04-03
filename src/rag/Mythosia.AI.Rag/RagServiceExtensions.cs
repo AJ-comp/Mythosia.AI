@@ -15,7 +15,7 @@ namespace Mythosia.AI.Rag
         /// </summary>
         /// <example>
         /// <code>
-        /// var service = new ClaudeService(apiKey, httpClient)
+        /// var service = new AnthropicService(apiKey, httpClient)
         ///     .WithRag(rag => rag
         ///         .AddDocument("manual.pdf")
         ///         .AddDocument("policy.txt")
@@ -42,8 +42,8 @@ namespace Mythosia.AI.Rag
         ///     .UseOpenAIEmbedding(apiKey)
         /// );
         /// 
-        /// var claude = new ClaudeService(claudeKey, http).WithRag(ragStore);
-        /// var gpt = new ChatGptService(gptKey, http).WithRag(ragStore);
+        /// var claude = new AnthropicService(claudeKey, http).WithRag(ragStore);
+        /// var gpt = new OpenAIService(gptKey, http).WithRag(ragStore);
         /// </code>
         /// </example>
         public static RagEnabledService WithRag(this IAIService service, RagStore ragStore)

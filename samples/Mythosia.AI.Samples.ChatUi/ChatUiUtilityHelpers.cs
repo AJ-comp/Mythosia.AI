@@ -21,13 +21,13 @@ namespace Mythosia.AI.Samples.ChatUi
         {
             var serviceClass = provider switch
             {
-                "OpenAI" => "ChatGptService",
-                "Anthropic" => "ClaudeService",
-                "Google" => "GeminiService",
+                "OpenAI" => "OpenAIService",
+                "Anthropic" => "AnthropicService",
+                "Google" => "GoogleAIService",
                 "DeepSeek" => "DeepSeekService",
-                "xAI" => "GrokService",
-                "Perplexity" => "SonarService",
-                _ => "ChatGptService"
+                "xAI" => "XAIService",
+                "Perplexity" => "PerplexityService",
+                _ => "OpenAIService"
             };
 
             var escapedApiKey = "YOUR_API_KEY";
@@ -129,7 +129,7 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine("using System.Net.Http;");
             sb.AppendLine();
             sb.AppendLine("// 1. Create your AI service and enable RAG (extension method)");
-            sb.AppendLine("var service = new ChatGptService(\"YOUR_API_KEY\", new HttpClient())");
+            sb.AppendLine("var service = new OpenAIService(\"YOUR_API_KEY\", new HttpClient())");
             sb.AppendLine("    .WithRag(rag => rag");
 
             if (config.Sources.Count == 0)

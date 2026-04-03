@@ -68,7 +68,7 @@ namespace Mythosia.AI.Rag
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(
                 new Message(ActorRole.User, query),
-                BuildRequestContext(processed));
+                context: BuildRequestContext(processed));
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace Mythosia.AI.Rag
         {
             var query = message.Content ?? message.GetDisplayText();
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
-            return await _innerService.GetCompletionAsync(message, BuildRequestContext(processed));
+            return await _innerService.GetCompletionAsync(message, context: BuildRequestContext(processed));
         }
 
         /// <summary>

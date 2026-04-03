@@ -118,7 +118,7 @@ public class BuildAsyncCallbackTests
         Assert.IsNotNull(record.Content, "Record should have content");
         Assert.IsNotNull(record.Vector, "Record should have an embedding vector");
         Assert.AreEqual(256, record.Vector.Length, "Embedding dimension should match");
-        Assert.IsNotNull(record.Namespace, "Record should have a namespace");
+        Assert.IsTrue(record.Metadata.ContainsKey("namespace"), "Record should have a namespace in metadata");
     }
 
     /// <summary>
@@ -137,8 +137,7 @@ public class BuildAsyncCallbackTests
             Id = "old-chunk-1",
             Content = "이전 버전의 문서입니다.",
             Vector = await embedding.GetEmbeddingAsync("이전 버전의 문서입니다."),
-            Metadata = new Dictionary<string, string> { ["full_path"] = "/docs/file.md" },
-            Namespace = "default"
+            Metadata = new Dictionary<string, string> { ["full_path"] = "/docs/file.md", ["namespace"] = "default" }
         };
         await vectorStore.UpsertAsync(oldRecord);
 
@@ -154,13 +153,11 @@ public class BuildAsyncCallbackTests
                 Id = "new-chunk-1",
                 Content = "새로운 버전의 문서입니다.",
                 Vector = await embedding.GetEmbeddingAsync("새로운 버전의 문서입니다."),
-                Metadata = new Dictionary<string, string> { ["full_path"] = "/docs/file.md" },
-                Namespace = "default"
+                Metadata = new Dictionary<string, string> { ["full_path"] = "/docs/file.md", ["namespace"] = "default" }
             }
         };
 
-        var filter = new VectorFilter().Where("full_path","/docs/file.md");
-        filter.Namespace = "default";
+        var filter = new VectorFilter().Where("full_path","/docs/file.md").Where("namespace", "default");
         await ((IVectorStore)vectorStore).ReplaceByFilterAsync(filter, newRecords);
 
         // Old record should be gone
@@ -184,8 +181,7 @@ public class BuildAsyncCallbackTests
         var embedding = new LocalEmbeddingProvider(256);
         const string filePath = "/docs/policy.md";
 
-        var filter = new VectorFilter().Where("full_path",filePath);
-        filter.Namespace = "default";
+        var filter = new VectorFilter().Where("full_path",filePath).Where("namespace", "default");
 
         // Step 1: Initial build — save with metadata via callback
         await RagStore.BuildAsync(config => config

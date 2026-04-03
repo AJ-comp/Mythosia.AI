@@ -28,12 +28,6 @@ internal class MockAIService : AIService
         return Task.FromResult(CompletionResponse);
     }
 
-    public override Task<string> GetCompletionAsync(Message message, AIRequestContext context)
-    {
-        LastReceivedPrompt = context?.RequestMessageOverride?.Content ?? message.Content;
-        return Task.FromResult(CompletionResponse);
-    }
-
     public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
     {
         LastReceivedPrompt = message.Content;

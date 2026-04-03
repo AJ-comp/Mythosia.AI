@@ -27,7 +27,7 @@ namespace Mythosia.AI.Rag
         /// </summary>
         /// <typeparam name="TService">
         /// A concrete AI service that implements both <see cref="IAIService"/> and
-        /// <see cref="IFunctionRegisterable"/> (e.g. <c>ClaudeService</c>, <c>ChatGptService</c>).
+        /// <see cref="IFunctionRegisterable"/> (e.g. <c>AnthropicService</c>, <c>OpenAIService</c>).
         /// </typeparam>
         /// <param name="service">The AI service to register the RAG tool on.</param>
         /// <param name="ragStore">A pre-built RAG store containing the indexed documents.</param>
@@ -46,7 +46,7 @@ namespace Mythosia.AI.Rag
         ///     .AddDocument("manual.pdf")
         ///     .UseOpenAIEmbedding(apiKey));
         ///
-        /// var answer = await new ClaudeService(apiKey, http)
+        /// var answer = await new AnthropicService(apiKey, http)
         ///     .WithAgenticRag(ragStore)
         ///     .RunAgentAsync("환불 정책을 요약해 줘");
         /// </code>

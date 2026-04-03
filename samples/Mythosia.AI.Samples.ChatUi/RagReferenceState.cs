@@ -298,7 +298,7 @@ internal static class RagReferenceTraceBuilder
 
         var recordItems = records.Select(record => new RagReferenceRecord(
             record.Id,
-            record.Scope,
+            record.Metadata.TryGetValue("scope", out var scope) ? scope : null,
             record.Content?.Length ?? 0,
             record.Content ?? string.Empty,
             new Dictionary<string, string>(record.Metadata))).ToList();

@@ -170,7 +170,9 @@ namespace Mythosia.AI.Rag.Diagnostics
             else
             {
                 // Fallback: use SearchAsync with max TopK
-                allScored = await _vectorStore.SearchAsync(queryVector, int.MaxValue, new VectorFilter { Namespace = ns }, cancellationToken);
+                var fallbackFilter = new VectorFilter();
+                if (ns != null) fallbackFilter.Where("namespace", ns);
+                allScored = await _vectorStore.SearchAsync(queryVector, int.MaxValue, fallbackFilter, cancellationToken);
             }
 
             // Step 3: Annotate results
