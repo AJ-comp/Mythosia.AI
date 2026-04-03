@@ -22,8 +22,8 @@ Documentation
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.2.1: Recompiled against Mythosia.AI v5.4.0. No API changes.</PackageReleaseNotes>
-    <Version>1.2.1</Version>
+    <PackageReleaseNotes>v1.2.2: Recompiled against Mythosia.AI v6.0.0. No API changes.</PackageReleaseNotes>
+    <Version>1.2.2</Version>
   </PropertyGroup>
 
   <ItemGroup>
