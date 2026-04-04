@@ -112,6 +112,18 @@ new QdrantOptions
 }
 ```
 
+### 使用外部 QdrantClient
+
+如果已有配置好的 `QdrantClient`（例如來自 DI 容器），可以直接傳入：
+
+```csharp
+var store = new QdrantStore(options, existingQdrantClient);
+```
+
+儲存器**不會** Dispose 外部提供的客戶端。
+
+> 所有向量儲存器都實作了 `IDisposable`。使用標準建構子建立儲存器時，請呼叫 `Dispose()` 或使用 `using` 來釋放內部資源。
+
 ---
 
 ## Pinecone
@@ -119,7 +131,6 @@ new QdrantOptions
 全託管的無伺服器向量資料庫，無需管理基礎設施。
 
 ```bash
-dotnet add package Mythosia.VectorDb.Pinecone
 ```
 
 ```csharp
@@ -157,7 +168,7 @@ new PineconeOptions
 {
     IndexHost              = "https://...",   // 必填（或使用 AutoCreateIndex）
     ApiKey                 = "...",           // 必填
-    DefaultNamespace       = "production",    // 選填：套用於所有操作
+    Namespace              = "production",    // 選填：套用於所有操作
 
     UpsertBatchSize        = 100,             // 每次批次 upsert 的記錄數
     RequestTimeoutSeconds  = 100,
@@ -170,6 +181,16 @@ new PineconeOptions
     ControlPlaneHost       = "https://api.pinecone.io"
 }
 ```
+
+### 使用外部 HttpClient
+
+如果已有配置好的 `HttpClient`（例如來自 `IHttpClientFactory`）：
+
+```csharp
+var store = new PineconeStore(options, existingHttpClient);
+```
+
+儲存器**不會** Dispose 外部提供的客戶端。
 
 ---
 
@@ -268,13 +289,13 @@ new PostgresOptions
 在查詢時微調召回率與延遲的平衡：
 
 ```csharp
-var opts = new VectorSearchRuntimeOptions
+var opts = new HnswSearchRuntimeOptions
 {
     Profile = SearchProfile.HighRecall,  // Fast | Balanced | HighRecall
     EfSearch = 80                        // 直接覆蓋 HNSW ef_search
 };
 
-var results = await store.SearchAsync(queryVector, topK: 5, runtimeOptions: opts);
+var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
 ### 全部選項

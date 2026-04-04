@@ -125,8 +125,10 @@ services.AddSingleton<IVectorStore>(new PostgresStore(new PostgresOptions
 |--------|------|--------|----------|----------|
 | Eq / Ne | 客户端 | **服务端** | **服务端** | **SQL** |
 | In / NotIn | 客户端 | **服务端** | **服务端** | **SQL** |
-| Gt / Gte / Lt / Lte | 客户端 | 客户端 | 客户端 | **SQL** |
+| Gt / Gte / Lt / Lte | 客户端 | 客户端 | **服务端** | **SQL** |
 | Like | 客户端 | 客户端 | 客户端 | **SQL** |
 | Exists / NotExists | 客户端 | 客户端 | 客户端 | **SQL** |
 
-Postgres 对所有操作符实现了完整的 SQL 下推。Qdrant 和 Pinecone 原生下推等值和集合成员判断。
+Postgres 对所有操作符实现了完整的 SQL 下推。Qdrant 和 Pinecone 原生下推等值、集合成员判断和比较运算符。
+
+> **注意：** Qdrant 会静默忽略不支持的过滤运算符（`Like`、`Exists`、`NotExists`）—— 这些运算符也不会在客户端应用。如果在使用 Qdrant 时需要这些运算符，请对返回结果进行额外过滤。

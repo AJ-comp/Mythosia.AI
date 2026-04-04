@@ -125,8 +125,10 @@ services.AddSingleton<IVectorStore>(new PostgresStore(new PostgresOptions
 |--------|----------|--------|----------|---------|
 | Eq / Ne | 클라이언트 | **서버** | **서버** | **SQL** |
 | In / NotIn | 클라이언트 | **서버** | **서버** | **SQL** |
-| Gt / Gte / Lt / Lte | 클라이언트 | 클라이언트 | 클라이언트 | **SQL** |
+| Gt / Gte / Lt / Lte | 클라이언트 | 클라이언트 | **서버** | **SQL** |
 | Like | 클라이언트 | 클라이언트 | 클라이언트 | **SQL** |
 | Exists / NotExists | 클라이언트 | 클라이언트 | 클라이언트 | **SQL** |
 
-Postgres는 모든 연산자에 대해 전체 SQL 푸시다운을 지원합니다.
+Postgres는 모든 연산자에 대해 전체 SQL 푸시다운을 지원합니다. Qdrant와 Pinecone는 등값, 집합 멤버십, 비교 연산자를 네이티브로 푸시다운합니다.
+
+> **참고:** Qdrant는 지원하지 않는 필터 연산자(`Like`, `Exists`, `NotExists`)를 조용히 무시합니다 — 클라이언트 측에서도 적용되지 않습니다. Qdrant에서 이러한 연산자가 필요하면 반환된 결과에 추가 필터링을 적용하세요.

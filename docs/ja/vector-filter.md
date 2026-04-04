@@ -106,3 +106,15 @@ var options = new RagQueryOptions
 
 var response = await ragService.GetCompletionAsync("デバイスをリセットするにはどうすればよいですか？", options);
 ```
+
+## フィルターのマージ
+
+`AppendConditionsFrom` で２つのフィルターを結合できます（例: パイプラインレベルのフィルターとクエリ別フィルターの統合）:
+
+```csharp
+var baseFilter = new VectorFilter().Where("tenant", "acme");
+var queryFilter = new VectorFilter().Where("language", "ja");
+
+baseFilter.AppendConditionsFrom(queryFilter);
+// baseFilter に両方の条件が含まれる
+```

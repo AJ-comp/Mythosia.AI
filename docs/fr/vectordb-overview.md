@@ -125,8 +125,10 @@ Les conditions `VectorFilter` sont poussées vers le backend lorsque c'est possi
 |----------|----------|--------|----------|----------|
 | Eq / Ne | Client | **Serveur** | **Serveur** | **SQL** |
 | In / NotIn | Client | **Serveur** | **Serveur** | **SQL** |
-| Gt / Gte / Lt / Lte | Client | Client | Client | **SQL** |
+| Gt / Gte / Lt / Lte | Client | Client | **Serveur** | **SQL** |
 | Like | Client | Client | Client | **SQL** |
 | Exists / NotExists | Client | Client | Client | **SQL** |
 
-Postgres dispose d'un pushdown SQL complet pour tous les opérateurs. Qdrant et Pinecone poussent nativement les tests d'égalité et d'appartenance à un ensemble.
+Postgres dispose d'un pushdown SQL complet pour tous les opérateurs. Qdrant et Pinecone poussent nativement les tests d'égalité, d'appartenance à un ensemble et de comparaison.
+
+> **Note :** Qdrant ignore silencieusement les opérateurs de filtre non pris en charge (`Like`, `Exists`, `NotExists`) — ils ne sont pas appliqués côté client non plus. Si vous avez besoin de ces opérateurs avec Qdrant, appliquez un filtrage supplémentaire sur les résultats retournés.

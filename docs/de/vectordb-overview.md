@@ -125,8 +125,10 @@ services.AddSingleton<IVectorStore>(new PostgresStore(new PostgresOptions
 |----------|----------|--------|----------|----------|
 | Eq / Ne | Client | **Server** | **Server** | **SQL** |
 | In / NotIn | Client | **Server** | **Server** | **SQL** |
-| Gt / Gte / Lt / Lte | Client | Client | Client | **SQL** |
+| Gt / Gte / Lt / Lte | Client | Client | **Server** | **SQL** |
 | Like | Client | Client | Client | **SQL** |
 | Exists / NotExists | Client | Client | Client | **SQL** |
 
-Postgres hat volles SQL-Pushdown für alle Operatoren. Qdrant und Pinecone pushen Gleichheits- und Mengenzugehörigkeitsprüfungen nativ herunter.
+Postgres hat volles SQL-Pushdown für alle Operatoren. Qdrant und Pinecone pushen Gleichheits-, Mengenzugehörigkeits- und Vergleichsprüfungen nativ herunter.
+
+> **Hinweis:** Qdrant ignoriert nicht unterstützte Filteroperatoren (`Like`, `Exists`, `NotExists`) stillschweigend — sie werden auch clientseitig nicht angewendet. Wenn Sie diese Operatoren mit Qdrant benötigen, wenden Sie zusätzliche Filterung auf die zurückgegebenen Ergebnisse an.

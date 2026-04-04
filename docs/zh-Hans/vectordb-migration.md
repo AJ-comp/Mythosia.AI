@@ -66,13 +66,12 @@ var migrator = new QdrantVectorStoreMigrator(new QdrantOptions
 ```csharp
 var plan = await migrator.PlanAsync(new VectorStoreMigrationRequest
 {
-    Source = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-    Target = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" }
+    Source = "my-collection"
 });
 
-Console.WriteLine($"当前 Schema：{plan.CurrentSchema}");
-Console.WriteLine($"目标 Schema：{plan.TargetSchema}");
-Console.WriteLine($"待迁移记录数：{plan.RecordCount}");
+Console.WriteLine($"当前 Schema：{plan.SchemaKind} v{plan.SchemaVersion}");
+Console.WriteLine($"目标 Schema：{plan.TargetSchemaKind} v{plan.TargetSchemaVersion}");
+Console.WriteLine($"需要迁移：{plan.MigrationRequired}");
 ```
 
 ### 带进度的迁移
@@ -86,15 +85,13 @@ var progress = new Progress<VectorStoreMigrationProgress>(p =>
 var result = await migrator.MigrateAsync(
     new VectorStoreMigrationRequest
     {
-        Source          = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-        Target          = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
+        Source           = "my-collection",
         ReplaceOnSuccess = false   // true = 完成后覆盖源集合
     },
     progress: progress
 );
 
 Console.WriteLine($"已迁移：{result.MigratedRecords} 条记录");
-Console.WriteLine($"错误：{result.ErrorCount}");
 ```
 
 ### 复制到新集合

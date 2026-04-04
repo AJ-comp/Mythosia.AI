@@ -66,13 +66,12 @@ var migrator = new QdrantVectorStoreMigrator(new QdrantOptions
 ```csharp
 var plan = await migrator.PlanAsync(new VectorStoreMigrationRequest
 {
-    Source = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-    Target = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" }
+    Source = "my-collection"
 });
 
-Console.WriteLine($"Current schema: {plan.CurrentSchema}");
-Console.WriteLine($"Target schema:  {plan.TargetSchema}");
-Console.WriteLine($"Records to migrate: {plan.RecordCount}");
+Console.WriteLine($"Текущая схема: {plan.SchemaKind} v{plan.SchemaVersion}");
+Console.WriteLine($"Целевая схема:  {plan.TargetSchemaKind} v{plan.TargetSchemaVersion}");
+Console.WriteLine($"Миграция необходима: {plan.MigrationRequired}");
 ```
 
 ### Миграция с отслеживанием прогресса
@@ -86,15 +85,13 @@ var progress = new Progress<VectorStoreMigrationProgress>(p =>
 var result = await migrator.MigrateAsync(
     new VectorStoreMigrationRequest
     {
-        Source          = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-        Target          = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
+        Source           = "my-collection",
         ReplaceOnSuccess = false   // true = перезаписать исходную коллекцию по завершении
     },
     progress: progress
 );
 
-Console.WriteLine($"Migrated: {result.MigratedRecords} records");
-Console.WriteLine($"Errors:   {result.ErrorCount}");
+Console.WriteLine($"Мигрировано: {result.MigratedRecords} записей");
 ```
 
 ### Копирование в новую коллекцию

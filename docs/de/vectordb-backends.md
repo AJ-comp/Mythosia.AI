@@ -112,6 +112,18 @@ new QdrantOptions
 }
 ```
 
+### Externen QdrantClient verwenden
+
+Wenn Sie bereits einen konfigurierten `QdrantClient` haben (z. B. aus einem DI-Container), übergeben Sie ihn direkt:
+
+```csharp
+var store = new QdrantStore(options, existingQdrantClient);
+```
+
+Der Store gibt den extern bereitgestellten Client **nicht** frei.
+
+> Alle Vector Stores implementieren `IDisposable`. Wenn Sie einen Store mit dem Standard-Konstruktor erstellen, rufen Sie `Dispose()` auf (oder verwenden Sie `using`), um interne Ressourcen freizugeben.
+
 ---
 
 ## Pinecone
@@ -157,7 +169,7 @@ new PineconeOptions
 {
     IndexHost              = "https://...",   // Pflichtfeld (oder AutoCreateIndex nutzen)
     ApiKey                 = "...",           // Pflichtfeld
-    DefaultNamespace       = "produktion",    // Optional: für alle Operationen angewendet
+    Namespace              = "produktion",    // Optional: für alle Operationen angewendet
 
     UpsertBatchSize        = 100,             // Datensätze pro Batch-Upsert-Anfrage
     RequestTimeoutSeconds  = 100,
@@ -170,6 +182,16 @@ new PineconeOptions
     ControlPlaneHost       = "https://api.pinecone.io"
 }
 ```
+
+### Externen HttpClient verwenden
+
+Wenn Sie bereits einen konfigurierten `HttpClient` haben (z. B. aus einer `IHttpClientFactory`):
+
+```csharp
+var store = new PineconeStore(options, existingHttpClient);
+```
+
+Der Store gibt den extern bereitgestellten Client **nicht** frei.
 
 ---
 
@@ -268,13 +290,13 @@ new PostgresOptions
 Recall vs. Latenz zur Abfragezeit feinjustieren:
 
 ```csharp
-var opts = new VectorSearchRuntimeOptions
+var opts = new HnswSearchRuntimeOptions
 {
     Profile = SearchProfile.HighRecall,  // Fast | Balanced | HighRecall
     EfSearch = 80                        // HNSW ef_search direkt überschreiben
 };
 
-var results = await store.SearchAsync(queryVector, topK: 5, runtimeOptions: opts);
+var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
 ### Alle Optionen

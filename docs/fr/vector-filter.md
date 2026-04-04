@@ -106,3 +106,15 @@ var options = new RagQueryOptions
 
 var response = await ragService.GetCompletionAsync("Comment réinitialiser l'appareil ?", options);
 ```
+
+## Fusionner des filtres
+
+Utilisez `AppendConditionsFrom` pour combiner deux filtres (par ex. fusionner un filtre de pipeline avec un filtre de requête) :
+
+```csharp
+var baseFilter = new VectorFilter().Where("tenant", "acme");
+var queryFilter = new VectorFilter().Where("language", "fr");
+
+baseFilter.AppendConditionsFrom(queryFilter);
+// baseFilter contient désormais les deux conditions
+```

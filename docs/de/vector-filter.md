@@ -106,3 +106,15 @@ var options = new RagQueryOptions
 
 var response = await ragService.GetCompletionAsync("Wie setze ich das Gerät zurück?", options);
 ```
+
+## Filter zusammenführen
+
+Verwenden Sie `AppendConditionsFrom`, um zwei Filter zu kombinieren (z. B. Pipeline-Filter mit Query-Filter zusammenführen):
+
+```csharp
+var baseFilter = new VectorFilter().Where("tenant", "acme");
+var queryFilter = new VectorFilter().Where("language", "de");
+
+baseFilter.AppendConditionsFrom(queryFilter);
+// baseFilter enthält nun beide Bedingungen
+```

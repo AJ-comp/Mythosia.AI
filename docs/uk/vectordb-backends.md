@@ -112,6 +112,18 @@ new QdrantOptions
 }
 ```
 
+### Використання зовнішнього QdrantClient
+
+Якщо у вас вже є налаштований `QdrantClient` (наприклад, з DI-контейнера), передайте його безпосередньо:
+
+```csharp
+var store = new QdrantStore(options, existingQdrantClient);
+```
+
+Стор **не** звільнить зовнішньо наданого клієнта.
+
+> Усі векторні стори реалізують `IDisposable`. При створенні стору через стандартний конструктор викликайте `Dispose()` (або `using`) для звільнення внутрішніх ресурсів.
+
 ---
 
 ## Pinecone
@@ -119,7 +131,6 @@ new QdrantOptions
 Повністю керована серверлес-векторна база даних. Жодної інфраструктури для управління.
 
 ```bash
-dotnet add package Mythosia.VectorDb.Pinecone
 ```
 
 ```csharp
@@ -157,7 +168,7 @@ new PineconeOptions
 {
     IndexHost              = "https://...",   // Обов'язковий (або AutoCreateIndex)
     ApiKey                 = "...",           // Обов'язковий
-    DefaultNamespace       = "production",    // Необов'язковий: застосовується до всіх операцій
+    Namespace              = "production",    // Необов'язковий: застосовується до всіх операцій
 
     UpsertBatchSize        = 100,             // Записів на батч-запит
     RequestTimeoutSeconds  = 100,
@@ -170,6 +181,16 @@ new PineconeOptions
     ControlPlaneHost       = "https://api.pinecone.io"
 }
 ```
+
+### Використання зовнішнього HttpClient
+
+Якщо у вас вже є налаштований `HttpClient` (наприклад, з `IHttpClientFactory`):
+
+```csharp
+var store = new PineconeStore(options, existingHttpClient);
+```
+
+Стор **не** звільнить зовнішньо наданого клієнта.
 
 ---
 
@@ -268,13 +289,13 @@ new PostgresOptions
 Тонке налаштування балансу повноти та затримки при запиті:
 
 ```csharp
-var opts = new VectorSearchRuntimeOptions
+var opts = new HnswSearchRuntimeOptions
 {
     Profile = SearchProfile.HighRecall,  // Fast | Balanced | HighRecall
     EfSearch = 80                        // Пряме перевизначення HNSW ef_search
 };
 
-var results = await store.SearchAsync(queryVector, topK: 5, runtimeOptions: opts);
+var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
 ### Усі параметри

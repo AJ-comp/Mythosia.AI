@@ -64,13 +64,12 @@ var migrator = new QdrantVectorStoreMigrator(new QdrantOptions
 ```csharp
 var plan = await migrator.PlanAsync(new VectorStoreMigrationRequest
 {
-    Source = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-    Target = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" }
+    Source = "my-collection"
 });
 
-Console.WriteLine($"現在のスキーマ: {plan.CurrentSchema}");
-Console.WriteLine($"対象スキーマ: {plan.TargetSchema}");
-Console.WriteLine($"マイグレーションするレコード数: {plan.RecordCount}");
+Console.WriteLine($"現在のスキーマ: {plan.SchemaKind} v{plan.SchemaVersion}");
+Console.WriteLine($"対象スキーマ: {plan.TargetSchemaKind} v{plan.TargetSchemaVersion}");
+Console.WriteLine($"マイグレーション必要: {plan.MigrationRequired}");
 ```
 
 ### 進捗付きマイグレーションの実行
@@ -84,15 +83,13 @@ var progress = new Progress<VectorStoreMigrationProgress>(p =>
 var result = await migrator.MigrateAsync(
     new VectorStoreMigrationRequest
     {
-        Source           = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-        Target           = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
+        Source           = "my-collection",
         ReplaceOnSuccess = false
     },
     progress: progress
 );
 
 Console.WriteLine($"マイグレーション: {result.MigratedRecords}件");
-Console.WriteLine($"エラー: {result.ErrorCount}件");
 ```
 
 ## スキーマバージョン管理

@@ -106,3 +106,15 @@ var options = new RagQueryOptions
 
 var response = await ragService.GetCompletionAsync("기기를 어떻게 초기화하나요?", options);
 ```
+
+## 필터 병합
+
+`AppendConditionsFrom`을 사용하여 두 필터를 결합합니다(예: 파이프라인 수준 필터와 쿼리별 필터 병합):
+
+```csharp
+var baseFilter = new VectorFilter().Where("tenant", "acme");
+var queryFilter = new VectorFilter().Where("language", "ko");
+
+baseFilter.AppendConditionsFrom(queryFilter);
+// baseFilter에 두 조건이 모두 포함됨
+```

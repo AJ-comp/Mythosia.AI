@@ -106,3 +106,15 @@ var options = new RagQueryOptions
 
 var response = await ragService.GetCompletionAsync("如何重置设备？", options);
 ```
+
+## 合并过滤器
+
+使用 `AppendConditionsFrom` 合并两个过滤器（例如将管道级过滤器与查询级过滤器合并）：
+
+```csharp
+var baseFilter = new VectorFilter().Where("tenant", "acme");
+var queryFilter = new VectorFilter().Where("language", "zh");
+
+baseFilter.AppendConditionsFrom(queryFilter);
+// baseFilter 现在包含两个条件
+```

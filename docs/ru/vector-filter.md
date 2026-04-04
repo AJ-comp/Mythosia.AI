@@ -98,4 +98,23 @@ var results = await vectorStore.SearchAsync(
 
 ```csharp
 var options = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter()
+        .Where("source", "product-manual.pdf")
+        .WithMinScore(0.7)
+};
+
+var response = await ragService.GetCompletionAsync("Как сбросить устройство?", options);
+```
+
+## Объединение фильтров
+
+Используйте `AppendConditionsFrom` для объединения двух фильтров (например, фильтр пайплайна + фильтр запроса):
+
+```csharp
+var baseFilter = new VectorFilter().Where("tenant", "acme");
+var queryFilter = new VectorFilter().Where("language", "ru");
+
+baseFilter.AppendConditionsFrom(queryFilter);
+// baseFilter теперь содержит оба условия
 ```

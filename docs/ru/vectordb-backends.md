@@ -112,6 +112,18 @@ new QdrantOptions
 }
 ```
 
+### Использование внешнего QdrantClient
+
+Если у вас уже есть настроенный `QdrantClient` (например, из DI-контейнера), передайте его напрямую:
+
+```csharp
+var store = new QdrantStore(options, existingQdrantClient);
+```
+
+Стор **не** освободит внешне предоставленный клиент.
+
+> Все векторные сторы реализуют `IDisposable`. При создании стора через стандартный конструктор вызывайте `Dispose()` (или используйте `using`) для освобождения внутренних ресурсов.
+
 ---
 
 ## Pinecone
@@ -119,7 +131,6 @@ new QdrantOptions
 Полностью управляемая серверлесс-векторная база данных. Никакой инфраструктуры для управления.
 
 ```bash
-dotnet add package Mythosia.VectorDb.Pinecone
 ```
 
 ```csharp
@@ -157,7 +168,7 @@ new PineconeOptions
 {
     IndexHost              = "https://...",   // Обязательный (или AutoCreateIndex)
     ApiKey                 = "...",           // Обязательный
-    DefaultNamespace       = "production",    // Необязательный: применяется ко всем операциям
+    Namespace              = "production",    // Необязательный: применяется ко всем операциям
 
     UpsertBatchSize        = 100,             // Записей на батч-запрос
     RequestTimeoutSeconds  = 100,
@@ -170,6 +181,16 @@ new PineconeOptions
     ControlPlaneHost       = "https://api.pinecone.io"
 }
 ```
+
+### Использование внешнего HttpClient
+
+Если у вас уже есть настроенный `HttpClient` (например, из `IHttpClientFactory`):
+
+```csharp
+var store = new PineconeStore(options, existingHttpClient);
+```
+
+Стор **не** освободит внешне предоставленный клиент.
 
 ---
 
@@ -268,13 +289,13 @@ new PostgresOptions
 Тонкая настройка баланса полноты и задержки при запросе:
 
 ```csharp
-var opts = new VectorSearchRuntimeOptions
+var opts = new HnswSearchRuntimeOptions
 {
     Profile = SearchProfile.HighRecall,  // Fast | Balanced | HighRecall
     EfSearch = 80                        // Прямое переопределение HNSW ef_search
 };
 
-var results = await store.SearchAsync(queryVector, topK: 5, runtimeOptions: opts);
+var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
 ### Все параметры

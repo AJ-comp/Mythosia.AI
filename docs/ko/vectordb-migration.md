@@ -66,13 +66,12 @@ var migrator = new QdrantVectorStoreMigrator(new QdrantOptions
 ```csharp
 var plan = await migrator.PlanAsync(new VectorStoreMigrationRequest
 {
-    Source = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-    Target = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" }
+    Source = "my-collection"
 });
 
-Console.WriteLine($"현재 스키마: {plan.CurrentSchema}");
-Console.WriteLine($"대상 스키마: {plan.TargetSchema}");
-Console.WriteLine($"마이그레이션할 레코드: {plan.RecordCount}");
+Console.WriteLine($"현재 스키마: {plan.SchemaKind} v{plan.SchemaVersion}");
+Console.WriteLine($"대상 스키마: {plan.TargetSchemaKind} v{plan.TargetSchemaVersion}");
+Console.WriteLine($"마이그레이션 필요: {plan.MigrationRequired}");
 ```
 
 ### 진행 상황과 함께 마이그레이션 실행
@@ -86,15 +85,13 @@ var progress = new Progress<VectorStoreMigrationProgress>(p =>
 var result = await migrator.MigrateAsync(
     new VectorStoreMigrationRequest
     {
-        Source           = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-        Target           = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
+        Source           = "my-collection",
         ReplaceOnSuccess = false   // true = 완료 시 소스 덮어씀
     },
     progress: progress
 );
 
 Console.WriteLine($"마이그레이션: {result.MigratedRecords}개 레코드");
-Console.WriteLine($"오류: {result.ErrorCount}개");
 ```
 
 ### 새 컬렉션으로 복사

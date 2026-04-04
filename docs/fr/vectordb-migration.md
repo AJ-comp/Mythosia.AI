@@ -66,13 +66,12 @@ Vérifiez ce que la migration va faire avant de l'exécuter :
 ```csharp
 var plan = await migrator.PlanAsync(new VectorStoreMigrationRequest
 {
-    Source = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-    Target = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" }
+    Source = "my-collection"
 });
 
-Console.WriteLine($"Schéma actuel : {plan.CurrentSchema}");
-Console.WriteLine($"Schéma cible :  {plan.TargetSchema}");
-Console.WriteLine($"Enregistrements à migrer : {plan.RecordCount}");
+Console.WriteLine($"Schéma actuel : {plan.SchemaKind} v{plan.SchemaVersion}");
+Console.WriteLine($"Schéma cible :  {plan.TargetSchemaKind} v{plan.TargetSchemaVersion}");
+Console.WriteLine($"Migration requise : {plan.MigrationRequired}");
 ```
 
 ### Exécuter la migration avec suivi de progression
@@ -86,15 +85,13 @@ var progress = new Progress<VectorStoreMigrationProgress>(p =>
 var result = await migrator.MigrateAsync(
     new VectorStoreMigrationRequest
     {
-        Source          = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
-        Target          = new VectorStoreMigrationConnection { Endpoint = "localhost:6334" },
+        Source           = "my-collection",
         ReplaceOnSuccess = false   // true = écraser la source à la fin
     },
     progress: progress
 );
 
 Console.WriteLine($"Migrés : {result.MigratedRecords} enregistrements");
-Console.WriteLine($"Erreurs :   {result.ErrorCount}");
 ```
 
 ### Copier vers une nouvelle collection

@@ -112,6 +112,18 @@ new QdrantOptions
 }
 ```
 
+### 외부 QdrantClient 사용
+
+이미 구성된 `QdrantClient`가 있다면(예: DI 컨테이너에서) 직접 전달할 수 있습니다:
+
+```csharp
+var store = new QdrantStore(options, existingQdrantClient);
+```
+
+외부에서 제공된 클라이언트는 스토어가 Dispose하지 **않습니다**.
+
+> 모든 벡터 스토어는 `IDisposable`을 구현합니다. 표준 생성자로 스토어를 생성한 경우 `Dispose()` 또는 `using`을 사용해 내부 리소스를 해제하세요.
+
 ---
 
 ## Pinecone
@@ -157,7 +169,7 @@ new PineconeOptions
 {
     IndexHost              = "https://...",    // 필수 (또는 AutoCreateIndex 사용)
     ApiKey                 = "...",            // 필수
-    DefaultNamespace       = "production",     // 선택: 모든 작업에 적용
+    Namespace              = "production",     // 선택: 모든 작업에 적용
 
     UpsertBatchSize        = 100,              // 배치 upsert당 레코드 수
     RequestTimeoutSeconds  = 100,
@@ -171,11 +183,21 @@ new PineconeOptions
 }
 ```
 
+### 외부 HttpClient 사용
+
+이미 구성된 `HttpClient`가 있다면(예: `IHttpClientFactory`에서):
+
+```csharp
+var store = new PineconeStore(options, existingHttpClient);
+```
+
+외부에서 제공된 클라이언트는 스토어가 Dispose하지 **않습니다**.
+
 ---
 
 ## PostgreSQL (pgvector)
 
-표준 PostgreSQL 데이터베이스에 벡터 유사도 검색을 추가하는 [`pgvector`](https://github.com/pgvector/pgvector) 확장을 사용합니다.
+표준 PostgreSQL 데이터베이스에 벡터 유사도 검색을 추가하는
 
 ```bash
 dotnet add package Mythosia.VectorDb.Postgres
@@ -263,11 +285,11 @@ new PostgresOptions
 쿼리 시점에 재현율 대 지연 시간을 세부 조정합니다:
 
 ```csharp
-var opts = new VectorSearchRuntimeOptions
+var opts = new HnswSearchRuntimeOptions
 {
     Profile = SearchProfile.HighRecall,  // Fast | Balanced | HighRecall
     EfSearch = 80                        // HNSW ef_search 직접 재정의
 };
 
-var results = await store.SearchAsync(queryVector, topK: 5, runtimeOptions: opts);
+var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```

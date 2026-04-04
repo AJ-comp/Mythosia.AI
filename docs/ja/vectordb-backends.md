@@ -112,6 +112,18 @@ new QdrantOptions
 }
 ```
 
+### 外部 QdrantClient の使用
+
+既に構成済みの `QdrantClient`（例: DI コンテナから）がある場合、直接渡せます:
+
+```csharp
+var store = new QdrantStore(options, existingQdrantClient);
+```
+
+外部から提供されたクライアントはストアが Dispose **しません**。
+
+> すべてのベクターストアは `IDisposable` を実装しています。標準コンストラクタでストアを作成した場合は、`Dispose()` または `using` で内部リソースを解放してください。
+
 ---
 
 ## Pinecone
@@ -119,7 +131,6 @@ new QdrantOptions
 完全マネージドのサーバーレスベクターデータベースです。インフラ管理が不要です。
 
 ```bash
-dotnet add package Mythosia.VectorDb.Pinecone
 ```
 
 ```csharp
@@ -149,6 +160,16 @@ new PineconeOptions
 ```
 
 > `AutoCreateIndex = true`の場合、ハイブリッド検索に必要な`dotproduct`メトリックでインデックスを作成します。
+
+### 外部 HttpClient の使用
+
+既に構成済みの `HttpClient`（例: `IHttpClientFactory` から）がある場合:
+
+```csharp
+var store = new PineconeStore(options, existingHttpClient);
+```
+
+外部から提供されたクライアントはストアが Dispose **しません**。
 
 ---
 
@@ -242,11 +263,11 @@ new PostgresOptions
 クエリ時にリコール対レイテンシのバランスを調整します:
 
 ```csharp
-var opts = new VectorSearchRuntimeOptions
+var opts = new HnswSearchRuntimeOptions
 {
     Profile = SearchProfile.HighRecall,  // Fast | Balanced | HighRecall
     EfSearch = 80                        // HNSWのef_searchを直接上書き
 };
 
-var results = await store.SearchAsync(queryVector, topK: 5, runtimeOptions: opts);
+var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
