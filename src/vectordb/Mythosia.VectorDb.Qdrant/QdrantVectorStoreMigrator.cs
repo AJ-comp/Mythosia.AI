@@ -424,7 +424,7 @@ namespace Mythosia.VectorDb.Qdrant
         {
             var points = await _client.RetrieveAsync(
                 collectionName,
-                new PointId[] { QdrantHelpers.CreatePointId(null, QdrantHelpers.SchemaMarkerId) },
+                new PointId[] { QdrantHelpers.CreatePointId(QdrantHelpers.SchemaMarkerId) },
                 withPayload: true,
                 withVectors: false,
                 cancellationToken: cancellationToken);

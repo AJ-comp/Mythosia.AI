@@ -1,5 +1,14 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v4.1.0
+
+### Changed
+
+- **`ListAllRecordsAsync`** — removed `string? @namespace` parameter. Returns all records unconditionally. Use `VectorFilter` for filtering.
+- **`ScoredListAsync`** — removed `string? @namespace` parameter. Scores all records unconditionally.
+
+---
+
 ## v4.0.0
 
 ### Breaking Changes

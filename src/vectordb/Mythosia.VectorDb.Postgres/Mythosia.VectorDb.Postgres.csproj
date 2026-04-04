@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Postgres</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>10.7.0</Version>
+    <Version>10.7.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>PostgreSQL (pgvector) vector store implementation for Mythosia VectorDb. Provides PostgresStore with multi-strategy similarity search (Cosine, Euclidean, InnerProduct), metadata jsonb filtering, GetBatchAsync, CountAsync, persisted content_tsv full-text indexing for hybrid search, pg_trgm trigram-based word_similarity for CJK languages, typed index settings (HNSW/IVFFlat/NoIndex), connection verification, and schema provisioning support.</Description>
     <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v10.7.0: Breaking schema — namespace/scope columns removed; all values now in metadata JSONB. PK changed from (namespace, id) to (id). Fully automatic migration on first operation. Requires Mythosia.VectorDb.Abstractions v4.0.0.</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.7.1: Recompiled against Mythosia.VectorDb.Abstractions v4.0.1 (XML doc fixes). No code changes.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

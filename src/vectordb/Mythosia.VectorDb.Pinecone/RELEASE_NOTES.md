@@ -1,5 +1,33 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v4.0.0
+
+### Breaking Changes
+
+- **Removed `PineconeOptions.DefaultNamespace`** — replaced with `PineconeOptions.Namespace`. All operations (upsert, query, fetch, delete) are scoped to this single namespace.
+- **Removed `_scope` reserved metadata key** — scope is no longer stored as a separate Pinecone metadata field (`_scope`). Use standard metadata keys directly.
+- **Removed `ResolveNamespace` / `PeekEqValue` internal logic** — namespace is no longer resolved from `VectorFilter.Where("namespace", ...)` conditions. Set `PineconeOptions.Namespace` explicitly instead.
+- **`BuildMetadataFilter` no longer skips `namespace`/`scope` keys** — all metadata conditions are passed through to Pinecone's filter API uniformly.
+
+### Migration Guide
+
+```csharp
+// Before (v3.x)
+var options = new PineconeOptions { DefaultNamespace = "docs" };
+var filter = new VectorFilter().Where("namespace", "docs");
+
+// After (v4.0.0)
+var options = new PineconeOptions { Namespace = "docs" };
+var filter = new VectorFilter(); // namespace is handled by options, not filter
+```
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0+.
+- **Existing indexes are fully compatible** — no re-indexing required. Records previously stored with `_scope` metadata will retain that field but it is no longer treated specially.
+
+---
+
 ## v3.0.0
 
 ### Breaking Changes

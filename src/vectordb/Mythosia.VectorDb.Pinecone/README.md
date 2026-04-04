@@ -2,11 +2,11 @@
 
 [Pinecone](https://www.pinecone.io/) vector store implementation for the **Mythosia VectorDb** abstraction layer.
 
-Isolation model used by this package:
+Isolation model:
 
 - **Collection** = Pinecone **index** (physical storage)
-- **Namespace** = Pinecone **namespace** (1st-tier logical partition)
-- **Scope** = metadata key **`_scope`** (2nd-tier logical partition)
+- **Namespace** = Pinecone **namespace** (optional, via `PineconeOptions.Namespace`)
+- **Metadata** = all user-defined key-value pairs stored as Pinecone metadata fields
 
 ---
 
@@ -25,16 +25,16 @@ using Mythosia.VectorDb.Pinecone;
 var options = new PineconeOptions
 {
     IndexHost = "https://my-index-xxxx.svc.us-east1-gcp.pinecone.io",
-    ApiKey = "YOUR_PINECONE_API_KEY"
+    ApiKey = "YOUR_PINECONE_API_KEY",
+    Namespace = "documents"  // optional — scopes all operations to this namespace
 };
 
 using var store = new PineconeStore(options);
 
 var record = new VectorRecord("doc-1", embedding, "Hello world");
-await store.InNamespace("documents").UpsertAsync(record);
+await store.UpsertAsync(record);
 
-var results = await store.InNamespace("documents")
-    .SearchAsync(queryVector, topK: 5);
+var results = await store.SearchAsync(queryVector, topK: 5);
 ```
 
 `PineconeStore` follows the same hybrid-capable storage model as `QdrantStore`:
@@ -52,7 +52,7 @@ For native hybrid search, the Pinecone index metric must be `dotproduct`.
 | --- | --- | --- |
 | `IndexHost` | *(required)* | Pinecone data-plane host for your index |
 | `ApiKey` | *(required)* | Pinecone API key |
-| `DefaultNamespace` | `null` | Namespace used when record/filter namespace is null |
+| `Namespace` | `null` | Optional Pinecone namespace. When set, all operations are scoped to this namespace |
 | `UpsertBatchSize` | `100` | Max vectors per upsert request |
 | `RequestTimeoutSeconds` | `100` | Timeout when store owns `HttpClient` |
 | `AutoCreateIndex` | `false` | Auto-create the index through the Pinecone Control Plane API |
@@ -86,23 +86,28 @@ using var store = new PineconeStore(options);
 ## Hybrid Search
 
 ```csharp
-var hybridResults = await store.InNamespace("documents")
-    .HybridSearchAsync(queryVector, "hello world", topK: 5);
+var hybridResults = await store.HybridSearchAsync(queryVector, "hello world", topK: 5);
 ```
 
 `SearchAsync` remains pure dense retrieval. `HybridSearchAsync` sends both dense and sparse query components and lets Pinecone perform server-side fusion.
 
-## Scope & Metadata Filtering
+## Metadata Filtering
 
 ```csharp
-await store.InNamespace("docs").InScope("tenant-1").UpsertAsync(record);
+// Store with metadata for logical isolation
+await store.UpsertAsync(new VectorRecord
+{
+    Id = "doc-1",
+    Content = "Some text",
+    Vector = embedding,
+    Metadata = { ["tenant"] = "tenant-1", ["category"] = "science" }
+});
 
-var results = await store.InNamespace("docs").InScope("tenant-1")
-    .SearchAsync(queryVector, topK: 10);
-
-var filter = new VectorFilter().Where("category", "science");
-var filtered = await store.InNamespace("docs")
-    .SearchAsync(queryVector, topK: 5, filter: filter);
+// Filter by metadata conditions
+var filter = new VectorFilter()
+    .Where("tenant", "tenant-1")
+    .Where("category", "science");
+var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 ```
 
 ### Supported filter operators
@@ -132,7 +137,6 @@ Each stored vector uses reserved metadata keys:
 | Key | Description |
 | --- | --- |
 | `_content` | Original text content |
-| `_scope` | Scope for 2nd-tier isolation (omitted if null) |
 | `<custom>` | User metadata entries from `VectorRecord.Metadata` |
 
 ## Vector Replacement
@@ -141,24 +145,24 @@ Each stored vector uses reserved metadata keys:
 
 ```csharp
 var filter = new VectorFilter().Where("full_path", "/docs/file.md");
-await store.InNamespace("documents").ReplaceByFilterAsync(filter, newRecords);
+await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
 ## Batch Get & Count
 
 ```csharp
 // Fetch multiple records by ID — single HTTP call to /vectors/fetch?ids=...
-var records = await store.InNamespace("documents").GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
+var records = await store.GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
 
-// Count total vectors in a namespace
-long count = await store.InNamespace("documents").CountAsync();
+// Count total vectors in the configured namespace
+long count = await store.CountAsync();
 
 // Count with metadata filter (POSTs filter to describe_index_stats)
-long filtered = await store.InNamespace("documents").CountAsync(
+long filtered = await store.CountAsync(
     new VectorFilter().Where("category", "finance"));
 ```
 
-`GetBatchAsync` issues a single `GET /vectors/fetch?ids=id1&ids=id2&...` request per namespace. `CountAsync` calls `describe_index_stats`; when a metadata filter is present, it is sent in a POST body for a server-side filtered count.
+`GetBatchAsync` issues a single `GET /vectors/fetch?ids=id1&ids=id2&...` request. `CountAsync` calls `describe_index_stats`; when a metadata filter is present, it is sent in a POST body for a server-side filtered count.
 
 ## Connection Verification
 

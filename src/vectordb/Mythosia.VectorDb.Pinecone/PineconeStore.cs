@@ -15,9 +15,8 @@ namespace Mythosia.VectorDb.Pinecone
     /// Pinecone implementation of <see cref="IVectorStore"/>.
     ///
     /// Mapping model:
-    /// - Collection (physical) -> Pinecone index (via <see cref="PineconeOptions.IndexHost"/>)
-    /// - Namespace (1st-tier logical) -> Pinecone namespace
-    /// - Scope (2nd-tier logical) -> reserved metadata key <c>_scope</c>
+    /// - Collection (physical) → Pinecone index (via <see cref="PineconeOptions.IndexHost"/>)
+    /// - All metadata stored as Pinecone metadata fields.
     /// </summary>
     public class PineconeStore : IVectorStore, IDisposable
     {
@@ -28,18 +27,6 @@ namespace Mythosia.VectorDb.Pinecone
         private volatile bool _indexEnsured;
 
         private const string MetadataKeyContent = "_content";
-        private const string MetadataKeyScope = "_scope";
-
-        private static string? PeekEqValue(IReadOnlyList<FilterCondition>? conditions, string key)
-        {
-            if (conditions == null) return null;
-            foreach (var c in conditions)
-            {
-                if (c is MetadataCondition mc && mc.Key == key && mc.Operator == FilterOperator.Eq)
-                    return mc.Value;
-            }
-            return null;
-        }
 
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
@@ -104,21 +91,18 @@ namespace Mythosia.VectorDb.Pinecone
             if (materialized.Count == 0)
                 return;
 
-            foreach (var nsGroup in materialized.GroupBy(r => ResolveNamespace(r.Metadata.TryGetValue("namespace", out var ns) ? ns : null), StringComparer.Ordinal))
+            var vectors = materialized.Select(r => ToUpsertVector(r)).ToList();
+
+            for (var i = 0; i < vectors.Count; i += _options.UpsertBatchSize)
             {
-                var vectors = nsGroup.Select(r => ToUpsertVector(r)).ToList();
-
-                for (var i = 0; i < vectors.Count; i += _options.UpsertBatchSize)
+                var batch = vectors.Skip(i).Take(_options.UpsertBatchSize).ToList();
+                var request = new UpsertRequest
                 {
-                    var batch = vectors.Skip(i).Take(_options.UpsertBatchSize).ToList();
-                    var request = new UpsertRequest
-                    {
-                        Namespace = nsGroup.Key,
-                        Vectors = batch
-                    };
+                    Namespace = _options.Namespace,
+                    Vectors = batch
+                };
 
-                    await SendNoContentAsync(HttpMethod.Post, "vectors/upsert", request, cancellationToken);
-                }
+                await SendNoContentAsync(HttpMethod.Post, "vectors/upsert", request, cancellationToken);
             }
         }
 
@@ -133,14 +117,13 @@ namespace Mythosia.VectorDb.Pinecone
 
             await EnsureIndexAsync(cancellationToken);
 
-            var ns = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace"));
-            var path = BuildFetchPath(id, ns);
+            var path = BuildFetchPath(id, _options.Namespace);
             var response = await SendAsync<FetchResponse>(HttpMethod.Get, path, null, cancellationToken);
 
             if (response.Vectors == null || !response.Vectors.TryGetValue(id, out var vector))
                 return null;
 
-            var record = ToVectorRecord(vector, ns);
+            var record = ToVectorRecord(vector);
             if (filter != null && !MatchesFilter(record, filter))
                 return null;
 
@@ -155,7 +138,7 @@ namespace Mythosia.VectorDb.Pinecone
             await EnsureIndexAsync(cancellationToken);
 
             // When additional filters are present, ensure the target matches first.
-            if (filter != null && (PeekEqValue(filter.Conditions, "scope") != null || filter.Conditions.Count > 0))
+            if (filter != null && filter.Conditions.Count > 0)
             {
                 var existing = await GetAsync(id, filter, cancellationToken);
                 if (existing == null)
@@ -164,7 +147,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var request = new DeleteRequest
             {
-                Namespace = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace")),
+                Namespace = _options.Namespace,
                 Ids = new List<string> { id }
             };
 
@@ -178,10 +161,7 @@ namespace Mythosia.VectorDb.Pinecone
             await EnsureIndexAsync(cancellationToken);
 
             var metadataFilter = BuildMetadataFilter(filter);
-            var request = new DeleteRequest
-            {
-                Namespace = ResolveNamespace(PeekEqValue(filter.Conditions, "namespace"))
-            };
+            var request = new DeleteRequest { Namespace = _options.Namespace };
 
             if (metadataFilter == null)
             {
@@ -212,8 +192,7 @@ namespace Mythosia.VectorDb.Pinecone
             if (idList.Count == 0)
                 return Array.Empty<VectorRecord>();
 
-            var ns = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace"));
-            var path = BuildFetchBatchPath(idList, ns);
+            var path = BuildFetchBatchPath(idList, _options.Namespace);
             var response = await SendAsync<FetchResponse>(HttpMethod.Get, path, null, cancellationToken);
 
             if (response.Vectors == null)
@@ -222,7 +201,7 @@ namespace Mythosia.VectorDb.Pinecone
             var results = new List<VectorRecord>(response.Vectors.Count);
             foreach (var kvp in response.Vectors)
             {
-                var record = ToVectorRecord(kvp.Value, ns);
+                var record = ToVectorRecord(kvp.Value);
                 if (filter == null || MatchesFilter(record, filter))
                     results.Add(record);
             }
@@ -247,7 +226,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var request = new QueryRequest
             {
-                Namespace = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace")),
+                Namespace = _options.Namespace,
                 Vector = queryVector,
                 TopK = topK,
                 IncludeMetadata = true,
@@ -266,7 +245,7 @@ namespace Mythosia.VectorDb.Pinecone
                 if (minScore.HasValue && match.Score < minScore.Value)
                     continue;
 
-                var record = ToVectorRecord(match, request.Namespace);
+                var record = ToVectorRecord(match);
                 results.Add(new VectorSearchResult(record, match.Score));
             }
 
@@ -300,7 +279,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var request = new QueryRequest
             {
-                Namespace = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace")),
+                Namespace = _options.Namespace,
                 Vector = denseVector,
                 TopK = topK,
                 IncludeMetadata = true,
@@ -328,7 +307,7 @@ namespace Mythosia.VectorDb.Pinecone
                 if (minScore.HasValue && match.Score < minScore.Value)
                     continue;
 
-                var record = ToVectorRecord(match, request.Namespace);
+                var record = ToVectorRecord(match);
                 results.Add(new VectorSearchResult(record, match.Score));
             }
 
@@ -526,21 +505,18 @@ namespace Mythosia.VectorDb.Pinecone
             return new Uri(host, UriKind.Absolute);
         }
 
-        private static string BuildFetchPath(string id, string? @namespace)
+        private static string BuildFetchPath(string id, string? ns)
         {
-            var path = new StringBuilder("vectors/fetch?ids=")
+            var sb = new StringBuilder("vectors/fetch?ids=")
                 .Append(Uri.EscapeDataString(id));
 
-            if (!string.IsNullOrWhiteSpace(@namespace))
-            {
-                path.Append("&namespace=")
-                    .Append(Uri.EscapeDataString(@namespace));
-            }
+            if (!string.IsNullOrEmpty(ns))
+                sb.Append("&namespace=").Append(Uri.EscapeDataString(ns));
 
-            return path.ToString();
+            return sb.ToString();
         }
 
-        private static string BuildFetchBatchPath(IReadOnlyList<string> ids, string? @namespace)
+        private static string BuildFetchBatchPath(IReadOnlyList<string> ids, string? ns)
         {
             var path = new StringBuilder("vectors/fetch?");
             for (int i = 0; i < ids.Count; i++)
@@ -549,8 +525,8 @@ namespace Mythosia.VectorDb.Pinecone
                 path.Append("ids=").Append(Uri.EscapeDataString(ids[i]));
             }
 
-            if (!string.IsNullOrWhiteSpace(@namespace))
-                path.Append("&namespace=").Append(Uri.EscapeDataString(@namespace));
+            if (!string.IsNullOrEmpty(ns))
+                path.Append("&namespace=").Append(Uri.EscapeDataString(ns));
 
             return path.ToString();
         }
@@ -558,11 +534,6 @@ namespace Mythosia.VectorDb.Pinecone
         #endregion
 
         #region Helpers - Mapping
-
-        private string? ResolveNamespace(string? explicitNamespace)
-        {
-            return explicitNamespace ?? _options.DefaultNamespace;
-        }
 
         private static UpsertVector ToUpsertVector(VectorRecord record)
         {
@@ -583,9 +554,6 @@ namespace Mythosia.VectorDb.Pinecone
             }
 
             metadata[MetadataKeyContent] = record.Content ?? string.Empty;
-            record.Metadata.TryGetValue("scope", out var scope);
-            if (scope != null)
-                metadata[MetadataKeyScope] = scope;
 
             var upsertVector = new UpsertVector
             {
@@ -610,19 +578,13 @@ namespace Mythosia.VectorDb.Pinecone
             return upsertVector;
         }
 
-        private static VectorRecord ToVectorRecord(QueryMatch match, string? @namespace)
+        private static VectorRecord ToVectorRecord(QueryMatch match)
         {
             var content = string.Empty;
-            string? scope = null;
             var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
 
             if (match.Metadata != null)
-                ParseMetadata(match.Metadata, ref content, ref scope, metadata);
-
-            if (@namespace != null)
-                metadata["namespace"] = @namespace;
-            if (scope != null)
-                metadata["scope"] = scope;
+                ParseMetadata(match.Metadata, ref content, metadata);
 
             return new VectorRecord
             {
@@ -633,19 +595,13 @@ namespace Mythosia.VectorDb.Pinecone
             };
         }
 
-        private static VectorRecord ToVectorRecord(FetchVector vector, string? @namespace)
+        private static VectorRecord ToVectorRecord(FetchVector vector)
         {
             var content = string.Empty;
-            string? scope = null;
             var metadata = new Dictionary<string, string>(StringComparer.Ordinal);
 
             if (vector.Metadata != null)
-                ParseMetadata(vector.Metadata, ref content, ref scope, metadata);
-
-            if (@namespace != null)
-                metadata["namespace"] = @namespace;
-            if (scope != null)
-                metadata["scope"] = scope;
+                ParseMetadata(vector.Metadata, ref content, metadata);
 
             return new VectorRecord
             {
@@ -659,7 +615,6 @@ namespace Mythosia.VectorDb.Pinecone
         private static void ParseMetadata(
             Dictionary<string, JsonElement> source,
             ref string content,
-            ref string? scope,
             Dictionary<string, string> metadata)
         {
             foreach (var kvp in source)
@@ -669,12 +624,6 @@ namespace Mythosia.VectorDb.Pinecone
                 if (kvp.Key == MetadataKeyContent)
                 {
                     content = value;
-                    continue;
-                }
-
-                if (kvp.Key == MetadataKeyScope)
-                {
-                    scope = value;
                     continue;
                 }
 
@@ -796,26 +745,7 @@ namespace Mythosia.VectorDb.Pinecone
 
             var conditions = new List<object>();
 
-            // scope and namespace conditions are handled by the dedicated API, not metadata filter;
-            // skip them so they don't double-filter.
-            var nonReservedConditions = new List<FilterCondition>();
             foreach (var condition in filter.Conditions)
-            {
-                if (condition is MetadataCondition mc && (mc.Key == "namespace" || mc.Key == "scope"))
-                {
-                    if (mc.Key == "scope")
-                    {
-                        conditions.Add(new Dictionary<string, object>
-                        {
-                            [MetadataKeyScope] = new Dictionary<string, object> { ["$eq"] = mc.Value! }
-                        });
-                    }
-                    continue;
-                }
-                nonReservedConditions.Add(condition);
-            }
-
-            foreach (var condition in nonReservedConditions)
                 BuildPineconeCondition(condition, conditions);
 
             if (conditions.Count == 0)
@@ -881,7 +811,6 @@ namespace Mythosia.VectorDb.Pinecone
         {
             await EnsureIndexAsync(cancellationToken);
 
-            var ns = ResolveNamespace(PeekEqValue(filter?.Conditions, "namespace"));
             var metadataFilter = BuildMetadataFilter(filter);
 
             IndexStatsResponse stats;
@@ -889,26 +818,21 @@ namespace Mythosia.VectorDb.Pinecone
             if (metadataFilter != null)
             {
                 // POST describe_index_stats with metadata filter body
-                var path = ns != null
-                    ? $"describe_index_stats?namespace={Uri.EscapeDataString(ns)}"
-                    : "describe_index_stats";
                 var body = new IndexStatsRequest { Filter = metadataFilter };
-                stats = await SendAsync<IndexStatsResponse>(HttpMethod.Post, path, body, cancellationToken);
+                stats = await SendAsync<IndexStatsResponse>(HttpMethod.Post, "describe_index_stats", body, cancellationToken);
             }
             else
             {
                 stats = await SendAsync<IndexStatsResponse>(HttpMethod.Get, "describe_index_stats", null, cancellationToken);
             }
 
-            if (ns != null)
-            {
-                if (stats.Namespaces != null &&
-                    stats.Namespaces.TryGetValue(ns, out var nsStats))
-                    return nsStats.VectorCount;
-                return 0L;
-            }
+            // Resolve to default namespace ("") when Namespace is not set,
+            // consistent with query/fetch/delete which all target the default namespace.
+            var ns = _options.Namespace ?? string.Empty;
+            if (stats.Namespaces != null && stats.Namespaces.TryGetValue(ns, out var nsStats))
+                return nsStats.VectorCount;
 
-            return stats.TotalVectorCount;
+            return 0;
         }
 
         #endregion

@@ -1,5 +1,13 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v4.0.1
+
+### Fixed
+
+- Fixed stale XML doc comments in `IVectorStore` and `VectorRecord` that still referenced removed Namespace/Scope concepts.
+
+---
+
 ## v4.0.0
 
 ### Breaking Changes

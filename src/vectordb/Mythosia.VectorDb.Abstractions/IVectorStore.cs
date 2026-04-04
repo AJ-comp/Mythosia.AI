@@ -9,15 +9,15 @@ namespace Mythosia.VectorDb
     /// Abstracts vector storage and similarity search operations.
     /// Implementations handle only storage and retrieval — they have no knowledge of RAG pipelines.
     /// <para>
-    /// Namespace and scope are optional properties on <see cref="VectorRecord"/> and <see cref="VectorFilter"/>.
-    /// Use the fluent API (<c>store.InNamespace("ns").InScope("scope")</c>) for convenient scoped access.
+    /// For logical isolation (e.g. tenant, category), use metadata conditions via
+    /// <see cref="VectorFilter.Where(string, string)"/>.
     /// </para>
     /// </summary>
     public interface IVectorStore
     {
         /// <summary>
         /// Inserts or updates a single vector record.
-        /// If a record with the same Id (and namespace, when applicable) exists, it is overwritten.
+        /// If a record with the same Id already exists, it is overwritten.
         /// </summary>
         Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default);
 
@@ -28,12 +28,12 @@ namespace Mythosia.VectorDb
 
         /// <summary>
         /// Performs a similarity search.
-        /// Implementations should respect <see cref="VectorFilter.Namespace"/> and <see cref="VectorFilter.Scope"/>
-        /// when present.
+        /// Implementations should respect <see cref="VectorFilter.Conditions"/> and
+        /// <see cref="VectorFilter.MinScore"/> when present.
         /// </summary>
         /// <param name="queryVector">The query embedding vector.</param>
         /// <param name="topK">Maximum number of results to return.</param>
-        /// <param name="filter">Optional filter criteria (namespace, scope, metadata, min score).</param>
+        /// <param name="filter">Optional filter criteria (metadata conditions, min score).</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Results ordered by descending similarity score.</returns>
         Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
@@ -49,7 +49,7 @@ namespace Mythosia.VectorDb
         /// <param name="denseVector">The dense embedding vector for semantic similarity.</param>
         /// <param name="query">The original text query for keyword-based matching.</param>
         /// <param name="topK">Maximum number of results to return.</param>
-        /// <param name="filter">Optional filter criteria (namespace, scope, metadata, min score).</param>
+        /// <param name="filter">Optional filter criteria (metadata conditions, min score).</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Results ordered by descending hybrid relevance score.</returns>
         Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
@@ -63,7 +63,7 @@ namespace Mythosia.VectorDb
 
         /// <summary>
         /// Retrieves a single record by its Id.
-        /// Implementations may use <paramref name="filter"/> to narrow by namespace/scope.
+        /// Implementations may use <paramref name="filter"/> to narrow results by metadata conditions.
         /// </summary>
         Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default);
 
@@ -89,7 +89,7 @@ namespace Mythosia.VectorDb
 
         /// <summary>
         /// Deletes a single record by its Id.
-        /// Implementations may use <paramref name="filter"/> to narrow by namespace/scope.
+        /// Implementations may use <paramref name="filter"/> to narrow by metadata conditions.
         /// </summary>
         Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default);
 

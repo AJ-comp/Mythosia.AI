@@ -2,9 +2,12 @@
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,8 +15,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Postgres\Mythosia.VectorDb.Postgres.csproj" />
     <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Pinecone\Mythosia.VectorDb.Pinecone.csproj" />
+    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Postgres\Mythosia.VectorDb.Postgres.csproj" />
   </ItemGroup>
 
   <ItemGroup>

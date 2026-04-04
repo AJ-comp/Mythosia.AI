@@ -20,8 +20,6 @@ namespace Mythosia.VectorDb.Qdrant
 
         internal const string PayloadKeyId = "_id";
         internal const string PayloadKeyContent = "_content";
-        internal const string PayloadKeyNamespace = "_namespace";
-        internal const string PayloadKeyScope = "_scope";
         internal const string PayloadMetadataPrefix = "meta.";
 
         #endregion
@@ -77,16 +75,13 @@ namespace Mythosia.VectorDb.Qdrant
         #region Point ID
 
         /// <summary>
-        /// Creates a deterministic <see cref="PointId"/> (UUID) from namespace + record Id.
-        /// When namespace is provided, it is included so that the same record Id in different
-        /// namespaces produces distinct point IDs within the single shared collection.
+        /// Creates a deterministic <see cref="PointId"/> (UUID) from record Id.
         /// </summary>
-        internal static PointId CreatePointId(string? @namespace, string id)
+        internal static PointId CreatePointId(string id)
         {
-            var input = @namespace != null ? $"{@namespace}\0{id}" : id;
             using (var md5 = MD5.Create())
             {
-                var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(input));
+                var hash = md5.ComputeHash(Encoding.UTF8.GetBytes(id));
                 return new Guid(hash);
             }
         }
@@ -98,12 +93,6 @@ namespace Mythosia.VectorDb.Qdrant
         internal static VectorRecord ToVectorRecord(RetrievedPoint point)
         {
             var metadata = ExtractMetadata(point.Payload);
-
-            if (point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal) && !string.IsNullOrEmpty(nsVal.StringValue))
-                metadata["namespace"] = nsVal.StringValue;
-
-            if (point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal) && !string.IsNullOrEmpty(scopeVal.StringValue))
-                metadata["scope"] = scopeVal.StringValue;
 
             return new VectorRecord
             {
@@ -119,12 +108,6 @@ namespace Mythosia.VectorDb.Qdrant
         internal static VectorRecord ToVectorRecord(ScoredPoint point)
         {
             var metadata = ExtractMetadata(point.Payload);
-
-            if (point.Payload.TryGetValue(PayloadKeyNamespace, out var nsVal) && !string.IsNullOrEmpty(nsVal.StringValue))
-                metadata["namespace"] = nsVal.StringValue;
-
-            if (point.Payload.TryGetValue(PayloadKeyScope, out var scopeVal) && !string.IsNullOrEmpty(scopeVal.StringValue))
-                metadata["scope"] = scopeVal.StringValue;
 
             return new VectorRecord
             {
@@ -143,12 +126,9 @@ namespace Mythosia.VectorDb.Qdrant
         /// </summary>
         internal static PointStruct ToPointStruct(VectorRecord record)
         {
-            record.Metadata.TryGetValue("namespace", out var ns);
-            record.Metadata.TryGetValue("scope", out var scope);
-
             var point = new PointStruct
             {
-                Id = CreatePointId(ns, record.Id),
+                Id = CreatePointId(record.Id),
                 Vectors = record.Vector ?? Array.Empty<float>(),
             };
 
@@ -179,18 +159,10 @@ namespace Mythosia.VectorDb.Qdrant
             point.Payload[PayloadKeyId] = record.Id;
             point.Payload[PayloadKeyContent] = record.Content ?? string.Empty;
 
-            if (ns != null)
-                point.Payload[PayloadKeyNamespace] = ns;
-
-            if (scope != null)
-                point.Payload[PayloadKeyScope] = scope;
-
             if (record.Metadata != null)
             {
                 foreach (var kvp in record.Metadata)
                 {
-                    if (kvp.Key == "namespace" || kvp.Key == "scope")
-                        continue;
                     point.Payload[$"{PayloadMetadataPrefix}{kvp.Key}"] = kvp.Value;
                 }
             }
@@ -257,7 +229,7 @@ namespace Mythosia.VectorDb.Qdrant
 
             var marker = new PointStruct
             {
-                Id = CreatePointId(null, SchemaMarkerId),
+                Id = CreatePointId(SchemaMarkerId),
                 Vectors = new Vectors { Vectors_ = namedVectors }
             };
 
@@ -302,17 +274,6 @@ namespace Mythosia.VectorDb.Qdrant
                     // Index may already exist; safe to ignore.
                 }
             }
-        }
-
-        #endregion
-
-        #region Namespace Check
-
-        internal static bool HasNamespace(
-            Google.Protobuf.Collections.MapField<string, Value> payload, string @namespace)
-        {
-            return payload.TryGetValue(PayloadKeyNamespace, out var nsVal)
-                && nsVal.StringValue == @namespace;
         }
 
         #endregion

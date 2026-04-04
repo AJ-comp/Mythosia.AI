@@ -1,89 +1,8 @@
 # Mythosia.VectorDb.Postgres
 
-PostgreSQL ([pgvector](https://github.com/pgvector/pgvector)) implementation of `IVectorStore`.  
-Single-table design with namespace column for logical isolation.
-
-## Migration
-
-Run the following migration **before** deploying if your Postgres table was created by any earlier version of `Mythosia.VectorDb.Postgres`.
-
-This normalizes the table to the current schema and is safe to run on already-updated tables.
-
-If you configured custom names via `PostgresOptions.SchemaName` or `PostgresOptions.TableName`, replace every occurrence of `"public"."vectors"` in the SQL below to match your actual schema and table name.
-
-```sql
--- Legacy rename step for older schemas that still use `collection`
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'vectors'
-          AND column_name = 'collection'
-    ) AND EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'vectors'
-          AND column_name = 'namespace'
-    ) THEN
-        EXECUTE 'ALTER TABLE "public"."vectors" RENAME COLUMN namespace TO scope';
-        EXECUTE 'ALTER TABLE "public"."vectors" RENAME COLUMN collection TO namespace';
-    END IF;
-END $$;
-
--- Recreate index/primary key if the legacy schema was renamed above
-DROP INDEX IF EXISTS idx_vectors_collection_ns;
-CREATE INDEX IF NOT EXISTS idx_vectors_ns_scope ON "public"."vectors" (namespace, scope);
-
-DO $$
-BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM pg_constraint c
-        JOIN pg_class t ON t.oid = c.conrelid
-        JOIN pg_namespace n ON n.oid = t.relnamespace
-        WHERE n.nspname = 'public'
-          AND t.relname = 'vectors'
-          AND c.conname = 'vectors_pkey'
-    ) THEN
-        EXECUTE 'ALTER TABLE "public"."vectors" DROP CONSTRAINT vectors_pkey';
-    END IF;
-EXCEPTION
-    WHEN undefined_table THEN NULL;
-END $$;
-
-ALTER TABLE "public"."vectors"
-    ADD PRIMARY KEY (namespace, id);
-
--- Current v10.6.0 hybrid-search schema
-ALTER TABLE "public"."vectors"
-    ADD COLUMN IF NOT EXISTS content_tsv tsvector;
-
-UPDATE "public"."vectors"
-SET content_tsv = to_tsvector('simple',
-    regexp_replace(
-        regexp_replace(coalesce(content, ''),
-            '([a-zA-Z0-9])([^\u0001-\u007F\s])', E'\\1 \\2', 'g'),
-        '([^\u0001-\u007F\s])([a-zA-Z0-9])', E'\\1 \\2', 'g'));
-
-ALTER TABLE "public"."vectors"
-    ALTER COLUMN content_tsv SET NOT NULL;
-
-COMMENT ON COLUMN "public"."vectors".content IS
-    'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
-
-CREATE INDEX IF NOT EXISTS idx_vectors_content_tsv
-    ON "public"."vectors" USING gin (content_tsv);
-```
-
-Notes:
-
-- The `collection` -> `namespace` rename block only affects old legacy schemas.
-- The `content_tsv` migration is the current **breaking schema change** because hybrid search now depends on a persisted `content_tsv` column instead of recalculating `to_tsvector(content)` at query time.
-- If you are creating a new deployment from scratch, you do not need this migration; the current schema below is sufficient.
-- The sample SQL assumes the default `SchemaName = "public"` and `TableName = "vectors"`.
+PostgreSQL ([pgvector](https://github.com/pgvector/pgvector)) implementation of `IVectorStore`.
+Single-table design with a `metadata` JSONB column for all filtering including logical isolation.
+All isolation keys (e.g. `namespace`, `scope`, `category`) are standard metadata entries — there are no framework-reserved keys.
 
 ## Prerequisites
 
@@ -116,15 +35,14 @@ var store = new PostgresStore(new PostgresOptions
     Index = new HnswIndexOptions { M = 16, EfConstruction = 64, EfSearch = 40 }
 });
 
-// Fluent API (recommended)
-var ns = store.InNamespace("my-namespace");
-await ns.UpsertAsync(record);
-var results = await ns.SearchAsync(queryVector, topK: 5);
+// Upsert records with optional metadata for logical isolation
+var record = new VectorRecord("doc-1", embedding, "Hello world");
+record.Metadata["namespace"] = "documents";
+await store.UpsertAsync(record);
 
-// With scope
-var scoped = ns.InScope("tenant-1");
-await scoped.UpsertAsync(record);   // record.Scope set automatically
-var scopedResults = await scoped.SearchAsync(queryVector);
+// Search with metadata filter
+var filter = new VectorFilter().Where("namespace", "documents");
+var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 ```
 
 ## ERD
@@ -132,9 +50,7 @@ var scopedResults = await scoped.SearchAsync(queryVector);
 ```mermaid
 erDiagram
     vectors {
-        text namespace PK "NOT NULL — logical namespace"
-        text id PK "NOT NULL — unique record ID within namespace"
-        text scope "NULL — optional sub-namespace isolation"
+        text id PK "NOT NULL — unique record ID"
         text content "NULL — original text content, optional when only content_tsv may be stored"
         tsvector content_tsv "NOT NULL — persisted full-text search vector for hybrid search"
         jsonb metadata "NOT NULL DEFAULT '{}' — arbitrary key-value pairs"
@@ -144,18 +60,17 @@ erDiagram
     }
 ```
 
-> **Single-table design**: All namespaces share one table. The composite primary key `(namespace, id)` ensures uniqueness per namespace.
+> **Single-table design**: All records share one table. The primary key is `(id)`. Logical isolation is achieved via metadata JSONB conditions.
 
 ### Indexes
 
 | Index | Type | Target | Purpose |
 | --- | --- | --- | --- |
-| PK | btree | `(namespace, id)` | Primary key / upsert conflict |
+| PK | btree | `(id)` | Primary key / upsert conflict |
 | `idx_*_embedding` | hnsw / ivfflat | `embedding vector_*_ops` | ANN similarity search (distance strategy dependent) |
 | `idx_*_metadata` | gin | `metadata` | jsonb containment filter (`@>`) |
 | `idx_*_content_tsv` | gin | `content_tsv` | Full-text search index for hybrid lexical retrieval (`TsVector` mode) |
 | `idx_*_content_trgm` | gin | `content gin_trgm_ops` | Trigram similarity index for hybrid search (`Trigram` mode, auto-created when configured) |
-| `idx_*_ns_scope` | btree | `(namespace, scope)` | Scope-scoped queries |
 
 ## Schema
 
@@ -165,30 +80,14 @@ When `EnsureSchema = true`, the following is created automatically:
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS "public"."vectors" (
-    namespace   text        NOT NULL,
-    id          text        NOT NULL,
-    scope       text        NULL,
+    id          text        NOT NULL PRIMARY KEY,
     content     text        NULL,
-    content_tsv tsvector    NOT NULL,
+    content_tsv tsvector    NOT NULL DEFAULT ''::tsvector,
     metadata    jsonb       NOT NULL DEFAULT '{}'::jsonb,
     embedding   vector(1536) NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
-    updated_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (namespace, id)
+    updated_at  timestamptz NOT NULL DEFAULT now()
 );
-
-ALTER TABLE "public"."vectors"
-    ADD COLUMN IF NOT EXISTS content_tsv tsvector;
-
-UPDATE "public"."vectors"
-SET content_tsv = to_tsvector('simple',
-    regexp_replace(
-        regexp_replace(coalesce(content, ''),
-            '([a-zA-Z0-9])([^\u0001-\u007F\s])', E'\\1 \\2', 'g'),
-        '([^\u0001-\u007F\s])([a-zA-Z0-9])', E'\\1 \\2', 'g'));
-
-ALTER TABLE "public"."vectors"
-    ALTER COLUMN content_tsv SET NOT NULL;
 
 COMMENT ON COLUMN "public"."vectors".content IS
     'Nullable to support customer policies that prohibit storing original text while still allowing hybrid search via content_tsv.';
@@ -199,9 +98,6 @@ CREATE INDEX IF NOT EXISTS idx_vectors_metadata
 
 CREATE INDEX IF NOT EXISTS idx_vectors_content_tsv
     ON "public"."vectors" USING gin (content_tsv);
-
-CREATE INDEX IF NOT EXISTS idx_vectors_ns_scope
-    ON "public"."vectors" (namespace, scope);
 
 -- vector index (default: HNSW)
 CREATE INDEX IF NOT EXISTS idx_vectors_embedding
@@ -216,7 +112,7 @@ Notes:
   - `Euclidean` -> `vector_l2_ops`
   - `InnerProduct` -> `vector_ip_ops`
 
-When `EnsureSchema = false` (recommended for production), the table must already exist.  
+When `EnsureSchema = false` (recommended for production), the table must already exist.
 An `InvalidOperationException` is thrown with a clear message if the table is missing.
 
 ## Manual Schema Setup (Production)
@@ -229,16 +125,13 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 -- 2. Create table (adjust dimension as needed)
 CREATE TABLE public.vectors (
-    namespace   text        NOT NULL,
-    id          text        NOT NULL,
-    scope       text        NULL,
+    id          text        NOT NULL PRIMARY KEY,
     content     text        NULL,
-    content_tsv tsvector    NOT NULL,
+    content_tsv tsvector    NOT NULL DEFAULT ''::tsvector,
     metadata    jsonb       NOT NULL DEFAULT '{}'::jsonb,
     embedding   vector(1536) NOT NULL,
     created_at  timestamptz NOT NULL DEFAULT now(),
-    updated_at  timestamptz NOT NULL DEFAULT now(),
-    PRIMARY KEY (namespace, id)
+    updated_at  timestamptz NOT NULL DEFAULT now()
 );
 
 COMMENT ON COLUMN public.vectors.content IS
@@ -250,9 +143,6 @@ CREATE INDEX idx_vectors_metadata
 
 CREATE INDEX idx_vectors_content_tsv
     ON public.vectors USING gin (content_tsv);
-
-CREATE INDEX idx_vectors_ns_scope
-    ON public.vectors (namespace, scope);
 
 -- 4-A. Option A (recommended default): HNSW
 CREATE INDEX idx_vectors_embedding
@@ -271,6 +161,17 @@ ANALYZE public.vectors;
 -- CREATE INDEX idx_vectors_content_trgm
 --     ON public.vectors USING gin (content gin_trgm_ops);
 ```
+
+## Legacy Schema Migration
+
+If your Postgres table was created by an earlier version of `Mythosia.VectorDb.Postgres` that used `namespace` and `scope` columns, the migration is handled **automatically** on first use. `PostgresStore` detects legacy columns and:
+
+1. Merges `namespace` / `scope` values into `metadata` JSONB
+2. Resolves duplicate IDs across namespaces by prefixing with the namespace value
+3. Changes the primary key to `(id)` only
+4. Drops the `namespace` and `scope` columns
+
+This runs in a single transaction — on failure, the schema remains unchanged. No manual SQL required.
 
 ## Options
 
@@ -326,30 +227,25 @@ Recommended starting points:
 
 These are practical ranges, not strict hard limits. Final values should be chosen from production latency/recall measurements.
 
-## Namespace & Filter Behavior
+## Metadata Filtering
 
-> **⚠ Deprecation Notice** — `VectorRecord.Namespace`, `VectorRecord.Scope`, and the `InNamespace()` / `InScope()` fluent API are **deprecated** and will be removed in a future major version.
-> Use `Metadata` entries (e.g. `Metadata["namespace"]`, `Metadata["scope"]`) and `VectorFilter.Where("namespace", value)` for logical isolation instead.
-> This aligns with industry-standard vector database designs where all filtering is done via metadata/payload.
+All filtering is done via the `metadata` JSONB column. SQL per operator:
 
-- **Namespaces** are currently stored as a `namespace` column (this column will be removed in a future version).
-- **Namespace is optional for queries** — when `VectorFilter.Namespace` is null, the `WHERE namespace = @ns` clause is omitted, allowing searches and deletes across all namespaces.
-- **Upsert always requires a namespace** — if `record.Namespace` is null, it falls back to `"default"` because the DB column is `NOT NULL` and part of the primary key.
-- **Recommended** — store isolation keys in `Metadata` and filter with `VectorFilter.Where()` instead of using `Namespace` / `Scope` properties.
-- **Metadata filter** — SQL per operator:
-  - `Eq`: `metadata @> @val` (JSONB containment — uses GIN index)
-  - `Ne`: `metadata->>'key' != @val`
-  - `In`: `metadata->>'key' = ANY(@vals)`
-  - `NotIn`: `NOT (metadata->>'key' = ANY(@vals))`
-  - `Gt / Gte / Lt / Lte`: `metadata->>'key' > @val` (lexicographic)
-  - `Like`: `metadata->>'key' LIKE @val`
-  - `Exists`: `jsonb_exists(metadata, 'key')`
-  - `NotExists`: `NOT jsonb_exists(metadata, 'key')`
-  - `And / Or groups`: wrapped in `(...)` with `AND` / `OR`
-- **MinScore filter** (distance-strategy dependent):
-  - `Cosine`: `1 - (embedding <=> @q::vector) >= @minScore`
-  - `Euclidean`: `1 / (1 + (embedding <-> @q::vector)) >= @minScore`
-  - `InnerProduct`: `-(embedding <#> @q::vector) >= @minScore`
+- `Eq`: `metadata @> @val` (JSONB containment — uses GIN index)
+- `Ne`: `metadata->>'key' != @val`
+- `In`: `metadata->>'key' = ANY(@vals)`
+- `NotIn`: `NOT (metadata->>'key' = ANY(@vals))`
+- `Gt / Gte / Lt / Lte`: `metadata->>'key' > @val` (lexicographic)
+- `Like`: `metadata->>'key' LIKE @val`
+- `Exists`: `jsonb_exists(metadata, 'key')`
+- `NotExists`: `NOT jsonb_exists(metadata, 'key')`
+- `And / Or groups`: wrapped in `(...)` with `AND` / `OR`
+
+**MinScore filter** (distance-strategy dependent):
+
+- `Cosine`: `1 - (embedding <=> @q::vector) >= @minScore`
+- `Euclidean`: `1 / (1 + (embedding <-> @q::vector)) >= @minScore`
+- `InnerProduct`: `-(embedding <#> @q::vector) >= @minScore`
 
 ### VectorFilter Examples
 
@@ -387,8 +283,8 @@ var store = new PostgresStore(new PostgresOptions
 });
 ```
 
-> **Why Trigram for Korean/CJK?**  
-> PostgreSQL’s `simple` text search config tokenizes by whitespace only. Korean particles (조사/어미) attach to words, so `"opm에"` ≠ `"opm은"` — no match. Trigram splits text into 3-character grams and uses substring similarity, bypassing morphological analysis entirely.
+> **Why Trigram for Korean/CJK?**
+> PostgreSQL's `simple` text search config tokenizes by whitespace only. Korean particles (조사/어미) attach to words, so `"opm에"` ≠ `"opm은"` — no match. Trigram splits text into 3-character grams and uses substring similarity, bypassing morphological analysis entirely.
 
 `content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval in `TsVector` mode.
 
@@ -396,30 +292,24 @@ var store = new PostgresStore(new PostgresOptions
 
 ```csharp
 // Fetch multiple records by ID — single query using WHERE id = ANY(@ids)
-var records = await store.InNamespace("docs").GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
+var records = await store.GetBatchAsync(new[] { "id-1", "id-2", "id-3" });
 
-// Count all records in a namespace
-long count = await store.InNamespace("docs").CountAsync();
+// Count total vectors
+long count = await store.CountAsync();
 
-// Count with additional metadata filter
-long filtered = await store.InNamespace("docs").CountAsync(
-    new VectorFilter().Where("storage_id", storageId));
-
-// Count across all namespaces
-long total = await store.CountAsync();
+// Count with metadata filter
+long filtered = await store.CountAsync(
+    new VectorFilter().Where("category", "finance"));
 ```
 
-`GetBatchAsync` uses a single `WHERE id = ANY(@ids)` query with Npgsql array binding. Applies the full filter (namespace, scope, metadata) in the same `WHERE` clause. `CountAsync` uses `SELECT COUNT(*)` with optional clauses for namespace, scope, and jsonb containment.
+`GetBatchAsync` uses a single `WHERE id = ANY(@ids)` query with Npgsql array binding. Applies metadata conditions in the same `WHERE` clause. `CountAsync` uses `SELECT COUNT(*)` with optional jsonb containment clauses.
 
 ## Atomic Vector Replacement
 
 `ReplaceByFilterAsync` wraps DELETE + INSERT in a single PostgreSQL transaction, eliminating the query gap that occurs during re-embedding:
 
 ```csharp
-// Delete all vectors matching the filter, then insert new ones — atomically
-var filter = new VectorFilter { Namespace = "default" }
-    .Where("full_path", "/docs/policy.md");
-
+var filter = new VectorFilter().Where("full_path", "/docs/policy.md");
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
@@ -488,13 +378,3 @@ Each operation opens and closes its own `NpgsqlConnection` from the connection p
 
 - **ivfflat lists**: Rule of thumb — `lists = sqrt(total_rows)`. Default 100 is good for up to ~10K rows.
 - Run `ANALYZE vectors;` after bulk inserts for optimal query plans.
-- For large datasets (1M+ rows), consider HNSW index (`CREATE INDEX ... USING hnsw`) instead of ivfflat.
-- Use connection pooling (e.g., `Npgsql` connection string `Pooling=true;Maximum Pool Size=20`).
-
-## EnsureSchema Guidance
-
-- **`EnsureSchema = true`**: Development, testing, local Docker — auto-provisions everything.
-- **`EnsureSchema = false`**: Production — schema managed by DBA/migration tools; fails fast with clear error if missing.
-- For `ivfflat`, index creation can fail on empty tables (PostgreSQL/pgvector behavior). In that case, use `Hnsw` or create `ivfflat` after loading data.
-- `FailFastOnIndexCreationFailure = true` (default): throws immediately if vector index creation fails.
-- `FailFastOnIndexCreationFailure = false`: startup continues even if vector index creation fails.

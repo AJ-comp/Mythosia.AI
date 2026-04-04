@@ -1,12 +1,5 @@
 # Mythosia.VectorDb.InMemory
 
-## Migration from v1.0.0
-
-v2.0.0 renames logical separation units:
-
-- **`collection` → `namespace`** (terminology update in public API/docs)
-- **`namespace` → `scope`** (for second-tier logical isolation)
-
 ## Package Summary
 
 Provides `InMemoryVectorStore`, a thread-safe in-memory implementation of `IVectorStore` using cosine similarity search.  
@@ -29,11 +22,10 @@ Automatically used as the default vector store in `Mythosia.AI.Rag`:
 - **Thread-safe** — Uses `ConcurrentDictionary` for safe concurrent access
 - **Cosine similarity** — TopK search with configurable result count
 - **Hybrid search** — BM25 + dense vector fusion via weighted RRF, scores normalized to `[0, 1]`
-- **Namespace / scope isolation** — ⚠ **Deprecated.** Use `Metadata` entries and `VectorFilter.Where()` for logical isolation instead. Legacy namespace/scope properties still function but will be removed in a future major version
 - **Metadata filtering** — Full `VectorFilter` operator set (Eq/Ne/In/NotIn/Gt/Gte/Lt/Lte/Like/Exists/NotExists, And/Or groups)
 - **Minimum score** — Discard results below a similarity threshold
 - **Upsert** — Single and batch upsert operations
-- **CountAsync** — Count records in a namespace/scope, optionally narrowed by additional filter criteria
+- **CountAsync** — Count records, optionally narrowed by filter criteria
 - **Diagnostics** — `IRagDiagnosticsStore`: `ListAllRecordsAsync`, `ScoredListAsync`, `GetTotalRecordCount`
 
 ## Standalone Usage
@@ -63,17 +55,6 @@ var filter = new VectorFilter()
     .Where("namespace", "my-namespace")
     .Where("scope", "tenant-1");
 var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
-```
-
-### ~~Fluent API~~ (Deprecated)
-
-> `InNamespace()` / `InScope()` still work but produce compiler warnings and will be removed.
-
-```csharp
-// Deprecated — use Metadata + Where() instead
-var ns = store.InNamespace("my-namespace");
-await ns.UpsertAsync(record);
-var results = await ns.SearchAsync(queryVector, topK: 5);
 ```
 
 ## BM25 Index
@@ -130,7 +111,7 @@ long filtered = await store.CountAsync(
 
 ## Resource Disposal
 
-`InMemoryVectorStore` implements `IDisposable`. A `Bm25Index` (Lucene writer, analyzer, RAMDirectory) is created per namespace on first upsert and is always maintained alongside the vector store. Dispose the store when it is no longer needed to release these resources:
+`InMemoryVectorStore` implements `IDisposable`. A `Bm25Index` (Lucene writer, analyzer, RAMDirectory) is maintained alongside the vector store. Dispose the store when it is no longer needed to release these resources:
 
 ```csharp
 using var store = new InMemoryVectorStore();

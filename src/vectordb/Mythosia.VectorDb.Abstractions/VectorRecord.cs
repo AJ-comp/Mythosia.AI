@@ -24,7 +24,6 @@ namespace Mythosia.VectorDb
 
         /// <summary>
         /// Arbitrary key-value metadata for filtering and display.
-        /// Use <c>Metadata["namespace"]</c> and <c>Metadata["scope"]</c> for logical isolation.
         /// </summary>
         public Dictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
 

@@ -22,11 +22,6 @@ namespace Mythosia.VectorDb.Pinecone
         public string ApiKey { get; set; } = string.Empty;
 
         /// <summary>
-        /// Optional default namespace applied when a record/filter namespace is null.
-        /// </summary>
-        public string? DefaultNamespace { get; set; }
-
-        /// <summary>
         /// Max vectors per upsert request. Default: 100.
         /// </summary>
         public int UpsertBatchSize { get; set; } = 100;
@@ -69,6 +64,13 @@ namespace Mythosia.VectorDb.Pinecone
         /// Required when <see cref="AutoCreateIndex"/> is true.
         /// </summary>
         public string? Region { get; set; }
+
+        /// <summary>
+        /// Optional Pinecone namespace for data isolation within a single index.
+        /// When set, all operations (upsert, query, fetch, delete) are scoped to this namespace.
+        /// When null (default), the Pinecone default namespace (<c>""</c>) is used.
+        /// </summary>
+        public string? Namespace { get; set; }
 
         /// <summary>
         /// Pinecone Control Plane API host.

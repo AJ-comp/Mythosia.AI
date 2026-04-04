@@ -9,8 +9,6 @@ namespace Mythosia.VectorDb.Qdrant
     /// </summary>
     public class QdrantOptions
     {
-        private const string ReservedPayloadKeyNamespace = "_namespace";
-        private const string ReservedPayloadKeyScope = "_scope";
 
         /// <summary>
         /// Qdrant server host. Default: "localhost".
@@ -34,7 +32,7 @@ namespace Mythosia.VectorDb.Qdrant
 
         /// <summary>
         /// Qdrant collection name. This is the physical container for all vector data.
-        /// Namespaces and scopes provide logical isolation within this single collection.
+        /// For logical isolation use metadata filtering via <c>VectorFilter.Where()</c>.
         /// Required.
         /// </summary>
         public string CollectionName { get; set; } = string.Empty;
@@ -77,16 +75,12 @@ namespace Mythosia.VectorDb.Qdrant
 
         /// <summary>
         /// Additional payload fields to index when the collection is ensured.
-        /// Reserved fields (<c>_namespace</c>, <c>_scope</c>) are always indexed.
         /// </summary>
         public IList<QdrantIndexOption> AdditionalPayloadIndexes { get; set; }
             = new List<QdrantIndexOption>();
 
         internal IEnumerable<QdrantIndexOption> GetAllPayloadIndexes()
         {
-            yield return new QdrantIndexOption(ReservedPayloadKeyNamespace, PayloadSchemaType.Keyword);
-            yield return new QdrantIndexOption(ReservedPayloadKeyScope, PayloadSchemaType.Keyword);
-
             if (AdditionalPayloadIndexes == null)
                 yield break;
 

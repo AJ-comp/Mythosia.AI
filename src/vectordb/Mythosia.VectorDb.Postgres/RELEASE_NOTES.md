@@ -1,5 +1,13 @@
 ﻿# Mythosia.VectorDb.Postgres - Release Notes
 
+## v10.7.1
+
+### Changed
+
+- Recompiled against `Mythosia.VectorDb.Abstractions` v4.0.1 (XML doc fixes). No code changes.
+
+---
+
 ## v10.7.0
 
 ### Breaking Changes — Schema

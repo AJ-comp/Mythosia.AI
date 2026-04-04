@@ -1,5 +1,47 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## v4.1.0
+
+### Changed
+
+- **Removed `__namespace` / `__scope` reserved payload keys** — v4.0.0까지 내부적으로 사용하던 예약 키가 완전히 제거되었다. 이제 라이브러리에 예약된 메타데이터 키는 없으며, 모든 사용자 메타데이터가 `meta.{key}` 프리픽스로 균일하게 저장된다.
+- **Point ID derivation changed** — `CreatePointId` now uses only `record.Id`. Previously it was derived from `namespace + id` when namespace was set. Records in different logical namespaces with the same Id now share the same point ID.
+- **`AppendConditionsToFilter` simplified** — no longer special-cases `namespace`/`scope` keys. All metadata conditions are translated to `meta.{key}` uniformly.
+- **Removed `PeekEqValue` internal logic** — namespace is no longer extracted from `VectorFilter` conditions for point ID derivation.
+
+#### Payload layout change
+
+```
+// v4.0.0 — reserved payload keys for namespace/scope
+{
+  "_id": "doc-1",
+  "_content": "Hello world",
+  "__namespace": "documents",       // ← library-reserved key
+  "__scope": "tenant-1",            // ← library-reserved key
+  "meta.category": "science"
+}
+Point ID = MD5("documents" + "doc-1")
+
+// v4.1.0 — no reserved keys; all user metadata is meta.*
+{
+  "_id": "doc-1",
+  "_content": "Hello world",
+  "meta.category": "science"
+}
+Point ID = MD5("doc-1")
+```
+
+> `namespace`, `scope` 등 특정 키에 대한 라이브러리 수준의 특별 처리는 없다. 논리 분리가 필요하면 사용자가 원하는 키(`Metadata["tenant"]`, `Metadata["env"]` 등)를 자유롭게 사용하면 된다.
+
+> **User-facing API is unchanged** — the change is internal storage only, but **re-indexing is required** for collections that used the old `__namespace` / `__scope` reserved keys.
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0+.
+- **Existing collections are NOT automatically compatible** — the old `__namespace` / `__scope` reserved payload keys and namespace-based point ID derivation are no longer recognized. Re-indexing is required for collections that relied on those reserved keys.
+
+---
+
 ## v4.0.0
 
 ### Breaking Changes

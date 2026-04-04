@@ -168,17 +168,12 @@ namespace Mythosia.VectorDb.InMemory
         #region Diagnostics
 
         /// <summary>
-        /// Returns ALL records, optionally filtered by <c>Metadata["namespace"]</c>.
+        /// Returns ALL records.
         /// For diagnostic/debugging use only.
         /// </summary>
-        public Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(string? @namespace = null, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(CancellationToken cancellationToken = default)
         {
-            IEnumerable<VectorRecord> records = _records.Values;
-
-            if (@namespace != null)
-                records = records.Where(r => r.Metadata.TryGetValue("namespace", out var ns) && string.Equals(ns, @namespace, StringComparison.Ordinal));
-
-            return Task.FromResult<IReadOnlyList<VectorRecord>>(records.ToList());
+            return Task.FromResult<IReadOnlyList<VectorRecord>>(_records.Values.ToList());
         }
 
         /// <summary>
@@ -198,21 +193,14 @@ namespace Mythosia.VectorDb.InMemory
         }
 
         /// <summary>
-        /// Computes cosine similarity scores for a query vector against ALL records,
-        /// optionally filtered by <c>Metadata["namespace"]</c>.
+        /// Computes cosine similarity scores for a query vector against ALL records.
         /// Results are sorted by descending score. No TopK or MinScore filtering is applied.
         /// </summary>
         public Task<IReadOnlyList<VectorSearchResult>> ScoredListAsync(
             float[] queryVector,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            IEnumerable<VectorRecord> records = _records.Values;
-
-            if (@namespace != null)
-                records = records.Where(r => r.Metadata.TryGetValue("namespace", out var ns) && string.Equals(ns, @namespace, StringComparison.Ordinal));
-
-            var results = records
+            var results = _records.Values
                 .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
                 .OrderByDescending(r => r.Score)
                 .ToList();

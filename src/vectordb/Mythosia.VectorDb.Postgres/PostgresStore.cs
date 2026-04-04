@@ -14,7 +14,7 @@ namespace Mythosia.VectorDb.Postgres;
 /// <summary>
 /// PostgreSQL (pgvector) implementation of <see cref="IVectorStore"/>.
 /// Uses a single shared table with a <c>metadata</c> JSONB column for all filtering
-/// including logical isolation via <c>Metadata["namespace"]</c> and <c>Metadata["scope"]</c>.
+/// including logical isolation via metadata conditions.
 /// </summary>
 public class PostgresStore : IVectorStore, IDisposable
 {
@@ -912,7 +912,6 @@ ON CONFLICT (id) DO UPDATE SET
         var embeddingText = reader.GetString(reader.GetOrdinal("embedding"));
         record.Vector = ParseVectorString(embeddingText);
 
-        // Read metadata jsonb (includes namespace/scope if present)
         var metadataJson = reader.IsDBNull(reader.GetOrdinal("metadata"))
             ? "{}"
             : reader.GetString(reader.GetOrdinal("metadata"));

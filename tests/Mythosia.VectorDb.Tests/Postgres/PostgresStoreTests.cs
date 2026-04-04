@@ -1,7 +1,7 @@
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.Postgres;
 
-namespace Mythosia.VectorDb.Postgres.Tests;
+namespace Mythosia.VectorDb.Tests.Postgres;
 
 /// <summary>
 /// Integration tests for <see cref="PostgresStore"/>.
