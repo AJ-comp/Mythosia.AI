@@ -1,0 +1,64 @@
+- name: 快速入門
+  items:
+  - name: 簡介
+    href: introduction.md
+  - name: 開始使用
+    href: getting-started.md
+
+- name: 核心功能
+  items:
+  - name: 文字生成
+    href: completions.md
+  - name: 生成參數
+    href: generation-params.md
+  - name: 串流輸出
+    href: streaming.md
+  - name: 函式呼叫
+    href: function-calling.md
+  - name: Agent（ReAct 迴圈）
+    href: agent.md
+  - name: 結構化輸出
+    href: structured-output.md
+  - name: 對話管理
+    href: conversation.md
+  - name: AIRequestProfile
+    href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
+
+- name: 模型供應商
+  items:
+  - name: 各供應商特性
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: RAG 基礎
+    href: rag.md
+  - name: 文字分割器
+    href: text-splitters.md
+  - name: 文件載入器
+    href: document-loaders.md
+  - name: 混合檢索
+    href: rag-hybrid-search.md
+  - name: 查詢改寫
+    href: rag-query-rewriting.md
+  - name: 重排序與檢索調校
+    href: rag-reranking.md
+  - name: 管線自訂
+    href: rag-pipeline.md
+  - name: Agent 式 RAG
+    href: rag-agentic.md
+
+- name: 向量資料庫
+  items:
+  - name: 概述
+    href: vectordb-overview.md
+  - name: 後端設定
+    href: vectordb-backends.md
+  - name: 常用操作
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: 遷移
+    href: vectordb-migration.md

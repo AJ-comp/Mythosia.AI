@@ -91,6 +91,12 @@
               <li role="menuitem"><button data-lang="en">🇺🇸 English</button></li>
               <li role="menuitem"><button data-lang="ko">🇰🇷 한국어</button></li>
               <li role="menuitem"><button data-lang="ja">🇯🇵 日本語</button></li>
+              <li role="menuitem"><button data-lang="zh-Hans">🇨🇳 简体中文</button></li>
+              <li role="menuitem"><button data-lang="zh-Hant">🇹🇼 繁體中文</button></li>
+              <li role="menuitem"><button data-lang="de">🇩🇪 Deutsch</button></li>
+              <li role="menuitem"><button data-lang="fr">🇫🇷 Français</button></li>
+              <li role="menuitem"><button data-lang="ru">🇷🇺 Русский</button></li>
+              <li role="menuitem"><button data-lang="uk">🇺🇦 Українська</button></li>
             </ul>
           </div>
           <script>
@@ -98,36 +104,55 @@
             var LANGS = {
               en: { flag: '🌐', label: 'EN', prefix: '' },
               ko: { flag: '🇰🇷', label: 'KO', prefix: 'ko/' },
-              ja: { flag: '🇯🇵', label: 'JA', prefix: 'ja/' }
+              ja: { flag: '🇯🇵', label: 'JA', prefix: 'ja/' },
+              'zh-Hans': { flag: '🇨🇳', label: 'ZH', prefix: 'zh-Hans/' },
+              'zh-Hant': { flag: '🇹🇼', label: 'ZH', prefix: 'zh-Hant/' },
+              de: { flag: '🇩🇪', label: 'DE', prefix: 'de/' },
+              fr: { flag: '🇫🇷', label: 'FR', prefix: 'fr/' },
+              ru: { flag: '🇷🇺', label: 'RU', prefix: 'ru/' },
+              uk: { flag: '🇺🇦', label: 'UK', prefix: 'uk/' }
             };
-            var SUPPORTED = ['ko', 'ja'];
+            var SUPPORTED = ['ko', 'ja', 'zh-Hans', 'zh-Hant', 'de', 'fr', 'ru', 'uk'];
 
             function getSavedLang() { return localStorage.getItem('mythosia-lang'); }
             function saveLang(l) { localStorage.setItem('mythosia-lang', l); }
 
-            function detectCurrentLang() {
-              var path = window.location.pathname;
-              if (/\/docs\/ko\//.test(path)) return 'ko';
-              if (/\/docs\/ja\//.test(path)) return 'ja';
+            function detectBrowserLang() {
+              var langs = navigator.languages || [navigator.language || navigator.userLanguage || ''];
+              for (var i = 0; i < langs.length; i++) {
+                var tag = langs[i];
+                // Chinese: map script/region variants to zh-Hans or zh-Hant
+                if (/^zh\b/i.test(tag)) {
+                  if (/Hant|TW|HK|MO/i.test(tag)) return 'zh-Hant';
+                  return 'zh-Hans';
+                }
+                var code = tag.split('-')[0].toLowerCase();
+                if (LANGS[code] && code !== 'en') return code;
+              }
               return 'en';
             }
 
             function switchTo(lang) {
+              if (!LANGS[lang]) lang = 'en';
               saveLang(lang);
+              if (window.location.pathname.indexOf('/docs/') === -1) return;
               var path = window.location.pathname;
-              var filename = path.split('/').pop() || 'introduction.html';
-              // strip existing lang prefix
-              var base = path.replace(/\/docs\/(ko|ja)\//, '/docs/');
-              if (lang === 'en') {
-                window.location.href = base;
-              } else {
-                window.location.href = base.replace('/docs/', '/docs/' + lang + '/');
-              }
+              var langPattern = new RegExp('/docs/(' + SUPPORTED.map(function(s) { return s.replace('-', '\\-'); }).join('|') + ')/');
+              var base = path.replace(langPattern, '/docs/');
+              var target = (lang === 'en') ? base : base.replace('/docs/', '/docs/' + lang + '/');
+              if (path !== target) window.location.href = target;
             }
 
             document.addEventListener('DOMContentLoaded', function () {
-              var cur = detectCurrentLang();
-              var info = LANGS[cur] || LANGS.en;
+              var target = getSavedLang();
+              if (!target) {
+                target = detectBrowserLang();
+                saveLang(target);
+              }
+
+              switchTo(target);
+
+              var info = LANGS[target] || LANGS.en;
               document.getElementById('lang-current-flag').textContent = info.flag;
               document.getElementById('lang-current-label').textContent = info.label;
 
