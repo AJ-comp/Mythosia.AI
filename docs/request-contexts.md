@@ -107,6 +107,8 @@ await service.GetCompletionAsync(userQuery, context);
 
 **When to use:** When a middleware layer (RAG, query rewriting) needs to reformulate the prompt entirely before sending it to the model, while keeping the original user input in the conversation history.
 
+> **💡 Note:** When you use `.WithRag()`, the RAG pipeline leverages this property automatically. See [Pipeline Customization — How It Works Internally](rag-pipeline.md#how-it-works-internally) for the full flow.
+
 ## Before vs. After Comparison
 
 ### Scenario: RAG with date injection and retrieved context

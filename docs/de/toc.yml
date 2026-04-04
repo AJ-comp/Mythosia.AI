@@ -1,0 +1,64 @@
+- name: Erste Schritte
+  items:
+  - name: Einführung
+    href: introduction.md
+  - name: Schnellstart
+    href: getting-started.md
+
+- name: Kernfunktionen
+  items:
+  - name: Textvervollständigung
+    href: completions.md
+  - name: Generierungsparameter
+    href: generation-params.md
+  - name: Streaming
+    href: streaming.md
+  - name: Funktionsaufruf
+    href: function-calling.md
+  - name: Agent (ReAct-Loop)
+    href: agent.md
+  - name: Strukturierte Ausgabe
+    href: structured-output.md
+  - name: Gesprächsverwaltung
+    href: conversation.md
+  - name: AIRequestProfile
+    href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
+
+- name: Anbieter
+  items:
+  - name: Anbieterspezifische Funktionen
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: RAG-Grundlagen
+    href: rag.md
+  - name: Text-Splitter
+    href: text-splitters.md
+  - name: Dokument-Loader
+    href: document-loaders.md
+  - name: Hybridsuche
+    href: rag-hybrid-search.md
+  - name: Query-Umschreibung
+    href: rag-query-rewriting.md
+  - name: Re-Ranking & Retrieval-Tuning
+    href: rag-reranking.md
+  - name: Pipeline-Anpassung
+    href: rag-pipeline.md
+  - name: Agentisches RAG
+    href: rag-agentic.md
+
+- name: Vektordatenbank
+  items:
+  - name: Überblick
+    href: vectordb-overview.md
+  - name: Backend-Einrichtung
+    href: vectordb-backends.md
+  - name: Operationen
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: Migration
+    href: vectordb-migration.md

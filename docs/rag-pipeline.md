@@ -86,3 +86,65 @@ foreach (var ref_ in result.References)
 ```
 
 `result.RequestMessageContent` contains the fully assembled prompt that would be sent to the LLM. This is extremely useful for debugging retrieval quality without spending LLM tokens.
+
+## How It Works Internally
+
+When you call `.WithRag()`, a `RagEnabledService` wrapper is created around your AIService. This wrapper automatically connects the RAG pipeline to the LLM call. The key mechanism behind this is [AIRequestContext](request-contexts.md).
+
+### The Full Flow
+
+```
+ragService.GetCompletionAsync("What is the return policy?")
+    ↓
+① RagEnabledService executes the RAG pipeline
+   Query rewrite → Embedding → Retrieval → Context assembly
+    ↓
+② TemplateContextBuilder replaces {context} and {question}
+   → "Answer using the following info.\n[1] Returns within 30 days...\nQuestion: What is the return policy?"
+    ↓
+③ RagEnabledService creates an AIRequestContext
+   RequestMessageOverride = assembled prompt
+    ↓
+④ _innerService.GetCompletionAsync(original message, context) is called
+   → AIService stores context in AsyncLocal
+   → Original question is added to conversation history
+    ↓
+⑤ AIService.GetLatestMessages() replaces the last message
+   Conversation history: "What is the return policy?" (original preserved)
+   What the model sees: assembled prompt (RequestMessageOverride)
+```
+
+### Why This Design?
+
+The key insight is **separating conversation history from model input**:
+
+- **Conversation history keeps the original question** — so follow-up questions like "what about that?" have correct context
+- **The model receives the assembled prompt** — the full prompt with retrieved documents + question
+- **AIService state is never mutated** — `AsyncLocal<T>` provides per-request isolation
+
+This is the real-world use case of `RequestMessageOverride` described in the [AIRequestContext](request-contexts.md) documentation. The RAG pipeline leverages this mechanism automatically, so all you need to do is call `.WithRag()`.
+
+### In Code
+
+Here's the core code inside `RagEnabledService` where this connection happens:
+
+```csharp
+// Inside RagEnabledService.GetCompletionAsync
+var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
+return await _innerService.GetCompletionAsync(
+    new Message(ActorRole.User, query),         // ← original question (saved in history)
+    context: BuildRequestContext(processed));    // ← assembled prompt (only the model sees this)
+
+// BuildRequestContext — creates the AIRequestContext
+private static AIRequestContext BuildRequestContext(RagProcessedQuery processed)
+{
+    return new AIRequestContext
+    {
+        RequestMessageOverride = new Message(
+            ActorRole.User,
+            processed.RequestMessageContent)  // ← output of TemplateContextBuilder
+    };
+}
+```
+
+`AIService` stores this context in `AsyncLocal`, and `GetLatestMessages()` replaces the last message with the `RequestMessageOverride`. After the request completes, the context is automatically restored, ensuring no impact on subsequent requests.

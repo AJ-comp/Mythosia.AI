@@ -114,3 +114,65 @@ foreach (var ref_ in result.References)
 ```
 
 `result.RequestMessageContent`にはAIに渡される完成済みプロンプトがそのまま入っています。LLMトークンを消費せずに検索品質をチェックできるので、開発中のデバッグに非常に便利です。
+
+## 内部動作の仕組み
+
+`.WithRag()`を呼び出すと、実際には`RagEnabledService`というラッパーが作成されます。このラッパーは元のAIServiceを包み、RAGパイプラインとLLM呼び出しを自動的に接続します。その核心には[AIRequestContext](request-contexts.md)があります。
+
+### 全体フロー
+
+```
+ragService.GetCompletionAsync("返品ポリシーは何ですか？")
+    ↓
+① RagEnabledServiceがRAGパイプラインを実行
+   クエリ書き換え → 埋め込み → 検索 → コンテキスト組み立て
+    ↓
+② TemplateContextBuilderが{context}と{question}を置換
+   → "以下の情報で答えてください。\n[1] 返品は30日以内...\n質問: 返品ポリシーは何ですか？"
+    ↓
+③ RagEnabledServiceがAIRequestContextを生成
+   RequestMessageOverride = 組み立てられたプロンプト
+    ↓
+④ _innerService.GetCompletionAsync(元のメッセージ, context)を呼び出し
+   → AIServiceがAsyncLocalにcontextを保存
+   → 元の質問を会話履歴に追加
+    ↓
+⑤ AIService.GetLatestMessages()が最後のメッセージを差し替え
+   会話履歴: "返品ポリシーは何ですか？"（元のまま保持）
+   モデルが見るもの: 組み立てられたプロンプト（RequestMessageOverride）
+```
+
+### なぜこの設計なのか？
+
+この設計の核心は**会話履歴とモデル入力の分離**です：
+
+- **会話履歴には元の質問が残ります** — 後続の会話で「それ」が何を指すか文脈を維持します
+- **モデルには組み立てられたプロンプトが渡されます** — 検索されたドキュメント＋質問を含む完成したプロンプト
+- **AIServiceの状態は変更されません** — `AsyncLocal<T>`によりリクエスト単位で隔離されます
+
+これが`request-contexts.md`で説明している`RequestMessageOverride`の実際のユースケースです。RAGパイプラインがこのメカニズムを自動的に活用するため、ユーザーは`.WithRag()`を呼び出すだけで済みます。
+
+### コードで見る
+
+`RagEnabledService`内部でこの接続が行われる核心コードです：
+
+```csharp
+// RagEnabledService.GetCompletionAsync内部
+var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
+return await _innerService.GetCompletionAsync(
+    new Message(ActorRole.User, query),         // ← 元の質問（会話履歴に保存される）
+    context: BuildRequestContext(processed));    // ← 組み立てられたプロンプト（モデルだけが見る）
+
+// BuildRequestContext — AIRequestContextを生成する部分
+private static AIRequestContext BuildRequestContext(RagProcessedQuery processed)
+{
+    return new AIRequestContext
+    {
+        RequestMessageOverride = new Message(
+            ActorRole.User,
+            processed.RequestMessageContent)  // ← TemplateContextBuilderの出力
+    };
+}
+```
+
+`AIService`はこのcontextを`AsyncLocal`に保存し、`GetLatestMessages()`で最後のメッセージを`RequestMessageOverride`に差し替えます。リクエストが完了すると自動的に復元されるため、後続のリクエストに影響を与えません。

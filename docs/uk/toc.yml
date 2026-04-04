@@ -1,0 +1,64 @@
+﻿- name: Початок роботи
+  items:
+  - name: Вступ
+    href: introduction.md
+  - name: Швидкий старт
+    href: getting-started.md
+
+- name: Основні можливості
+  items:
+  - name: Генерація тексту
+    href: completions.md
+  - name: Параметри генерації
+    href: generation-params.md
+  - name: Потокова передача
+    href: streaming.md
+  - name: Виклик функцій
+    href: function-calling.md
+  - name: Агент (цикл ReAct)
+    href: agent.md
+  - name: Структурований вивід
+    href: structured-output.md
+  - name: Керування діалогом
+    href: conversation.md
+  - name: AIRequestProfile
+    href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
+
+- name: Провайдери
+  items:
+  - name: Можливості провайдерів
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: Основи RAG
+    href: rag.md
+  - name: Розділювачі тексту
+    href: text-splitters.md
+  - name: Завантажувачі документів
+    href: document-loaders.md
+  - name: Гібридний пошук
+    href: rag-hybrid-search.md
+  - name: Переписування запитів
+    href: rag-query-rewriting.md
+  - name: Переранжування та налаштування пошуку
+    href: rag-reranking.md
+  - name: Налаштування пайплайну
+    href: rag-pipeline.md
+  - name: Агентний RAG
+    href: rag-agentic.md
+
+- name: Векторні бази даних
+  items:
+  - name: Огляд
+    href: vectordb-overview.md
+  - name: Налаштування бекендів
+    href: vectordb-backends.md
+  - name: Основні операції
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: Міграція
+    href: vectordb-migration.md

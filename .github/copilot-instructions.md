@@ -25,3 +25,4 @@
 
 ## Commit Message Guidelines
 - Commit messages must always be written in English.
+- 다국어 문서 작성 시 영어를 직역하지 않는다. 내용과 논리는 그대로 유지하면서, 해당 언어 문화권에 친화적인 자연스러운 어투와 문장으로 작성한다.
