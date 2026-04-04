@@ -7,6 +7,7 @@
   </Folder>
   <Folder Name="/src/loaders/">
     <Project Path="src/loaders/Mythosia.Documents.Abstractions/Mythosia.Documents.Abstractions.csproj" />
+    <Project Path="src/loaders/Mythosia.Documents.Hwp/Mythosia.Documents.Hwp.csproj" />
     <Project Path="src/loaders/Mythosia.Documents.Office/Mythosia.Documents.Office.csproj" />
     <Project Path="src/loaders/Mythosia.Documents.Pdf/Mythosia.Documents.Pdf.csproj" />
   </Folder>
@@ -29,9 +30,10 @@
     <Project Path="samples/Mythosia.AI.Samples.ChatUi/Mythosia.AI.Samples.ChatUi.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
-    <Project Path="tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj" />
+    <Project Path="tests/Mythosia.Documents.Tests/Mythosia.Documents.Tests.csproj" />
     <Project Path="tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj" />
   </Folder>
 </Solution>
