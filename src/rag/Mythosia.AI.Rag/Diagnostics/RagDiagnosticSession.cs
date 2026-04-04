@@ -49,12 +49,10 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// </summary>
         /// <param name="query">The query that produced incorrect/incomplete results.</param>
         /// <param name="expectedText">The text you expected to find in results (e.g., "6,300만원").</param>
-        /// <param name="namespace">Optional namespace override.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public async Task<MissingAnalysis> WhyMissingAsync(
             string query,
             string expectedText,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
             var steps = new List<AnalysisStep>();
@@ -68,7 +66,7 @@ namespace Mythosia.AI.Rag.Diagnostics
 
             if (canSearchChunks)
             {
-                var matches = await _diag.FindChunksContainingAsync(expectedText, @namespace, cancellationToken);
+                var matches = await _diag.FindChunksContainingAsync(expectedText, cancellationToken);
 
                 if (matches.Count == 0)
                 {
@@ -91,14 +89,14 @@ namespace Mythosia.AI.Rag.Diagnostics
             }
 
             // ── Step 2: Score all chunks against the query ──
-            var queryResult = await _diag.DiagnoseQueryAsync(query, expectedText, @namespace, cancellationToken);
+            var queryResult = await _diag.DiagnoseQueryAsync(query, expectedText, cancellationToken);
             var target = queryResult.TargetChunkInfo;
 
             if (target == null)
             {
                 steps.Add(AnalysisStep.Fail("Scoring",
                     "Target chunk was not found in search results.",
-                    "The chunk may be filtered by namespace/metadata, or the text was split across chunk boundaries."));
+                    "The chunk may be filtered by metadata, or the text was split across chunk boundaries."));
                 return new MissingAnalysis(query, expectedText, steps, suggestions, queryResult);
             }
 
@@ -186,27 +184,25 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// chunk size variance, oversized chunks, very small chunks, and potential duplicates.
         /// </summary>
         public async Task<HealthCheckResult> HealthCheckAsync(
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
             var items = new List<HealthCheckItem>();
-            var ns = @namespace ?? _pipeline.Options.DefaultQuery.Namespace;
 
             var diagnosticsStore = _pipeline.VectorStore as IRagDiagnosticsStore;
             if (diagnosticsStore == null)
             {
                 items.Add(HealthCheckItem.Info("Store Type",
                     "HealthCheck requires a vector store implementing IRagDiagnosticsStore for full analysis."));
-                return new HealthCheckResult(ns, 0, items);
+                return new HealthCheckResult(0, items);
             }
 
-            var allRecords = await diagnosticsStore.ListAllRecordsAsync(ns, cancellationToken);
+            var allRecords = await diagnosticsStore.ListAllRecordsAsync(cancellationToken);
             int count = allRecords.Count;
 
             if (count == 0)
             {
                 items.Add(HealthCheckItem.Fail("Chunk Count", "No chunks found. Index is empty."));
-                return new HealthCheckResult(ns, 0, items);
+                return new HealthCheckResult(0, items);
             }
 
             // ── Chunk count ──
@@ -267,7 +263,7 @@ namespace Mythosia.AI.Rag.Diagnostics
                 items.Add(HealthCheckItem.Pass("Duplicates", "No exact duplicates detected."));
             }
 
-            return new HealthCheckResult(ns, count, items);
+            return new HealthCheckResult(count, items);
         }
 
         #endregion
@@ -481,13 +477,11 @@ namespace Mythosia.AI.Rag.Diagnostics
     /// </summary>
     public class HealthCheckResult
     {
-        public string Namespace { get; }
         public int TotalChunks { get; }
         public IReadOnlyList<HealthCheckItem> Items { get; }
 
-        public HealthCheckResult(string @namespace, int totalChunks, IReadOnlyList<HealthCheckItem> items)
+        public HealthCheckResult(int totalChunks, IReadOnlyList<HealthCheckItem> items)
         {
-            Namespace = @namespace;
             TotalChunks = totalChunks;
             Items = items;
         }
@@ -500,7 +494,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             sb.AppendLine("========================================");
             sb.AppendLine("  RAG Index Health Check");
             sb.AppendLine("========================================");
-            sb.AppendLine($"  Namespace: \"{Namespace}\" ({TotalChunks} chunks)");
+            sb.AppendLine($"  {TotalChunks} chunks indexed");
             sb.AppendLine("----------------------------------------");
 
             foreach (var item in Items)

@@ -87,7 +87,6 @@ namespace Mythosia.AI.Rag
         private int _retrievalMultiplier = 3;
         private double _retrievalMinScoreDivider = 3d;
         private string? _promptTemplate;
-        private string? _defaultNamespace;
 
         private static IVectorStore CreateInMemoryStore()
             => new InMemoryVectorStore();
@@ -533,17 +532,6 @@ namespace Mythosia.AI.Rag
         #region Prompt Template
 
         /// <summary>
-        /// Sets the default namespace (collection name) used for indexing and querying.
-        /// For Qdrant this maps to a collection, for PostgreSQL it maps to the namespace column.
-        /// Default is "default".
-        /// </summary>
-        public RagBuilder WithNamespace(string defaultNamespace)
-        {
-            _defaultNamespace = defaultNamespace;
-            return this;
-        }
-
-        /// <summary>
         /// Sets a custom prompt template. Use {context} and {question} placeholders.
         /// </summary>
         /// <example>
@@ -648,7 +636,6 @@ namespace Mythosia.AI.Rag
             {
                 DefaultQuery = new RagQueryOptions
                 {
-                    Namespace = !string.IsNullOrWhiteSpace(_defaultNamespace) ? _defaultNamespace : "default",
                     FinalFilter = new RagFilter
                     {
                         TopK = _finalTopK,
@@ -735,8 +722,7 @@ namespace Mythosia.AI.Rag
             // 5. Populate BM25 index from indexed records (for InMemory hybrid)
             if (bm25Index != null && vectorStore is InMemoryVectorStore inMemoryStore)
             {
-                var allRecords = await inMemoryStore.ListAllRecordsAsync(
-                    options.DefaultQuery.Namespace, cancellationToken);
+                var allRecords = await inMemoryStore.ListAllRecordsAsync(cancellationToken);
                 foreach (var record in allRecords)
                 {
                     bm25Index.Index(record.Id, record.Content);

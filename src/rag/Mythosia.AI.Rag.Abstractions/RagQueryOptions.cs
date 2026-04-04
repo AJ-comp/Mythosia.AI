@@ -33,11 +33,6 @@ namespace Mythosia.AI.Rag
         public RagRetrievalDerivation RetrievalDerivation { get; set; } = new RagRetrievalDerivation();
 
         /// <summary>
-        /// Override for target namespace used during search.
-        /// </summary>
-        public string Namespace { get; set; } = "default";
-
-        /// <summary>
         /// Controls how final references are selected after optional re-ranking.
         /// Defaults to reranker-only selection for backward compatibility.
         /// </summary>
@@ -54,9 +49,8 @@ namespace Mythosia.AI.Rag
         /// <see cref="IVectorStore.HybridSearchAsync"/> on every retrieval call.
         /// Use this to scope searches by tenant, user, category, time range, etc.
         /// When null the retrieval is unfiltered (same as before).
-        /// When <see cref="Namespace"/> is also set, both constraints are applied together.
-        /// Multiple metadata conditions can be expressed via <see cref="VectorFilter.MetadataMatch"/>
-        /// which accepts any number of key-value pairs (all combined with AND logic).
+        /// For logical isolation (e.g. tenant, category), add conditions via
+        /// <see cref="VectorFilter.Where(string, string)"/>.
         /// </summary>
         public VectorFilter? StoreFilter { get; set; }
 

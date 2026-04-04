@@ -9,11 +9,6 @@ namespace Mythosia.AI.Rag
     public class RagQueryDiagnostics
     {
         /// <summary>
-        /// The namespace that was actually applied during retrieval.
-        /// </summary>
-        public string AppliedNamespace { get; set; } = string.Empty;
-
-        /// <summary>
         /// The final TopK target retained after retrieval and optional re-ranking.
         /// </summary>
         public int FinalTopK { get; set; }

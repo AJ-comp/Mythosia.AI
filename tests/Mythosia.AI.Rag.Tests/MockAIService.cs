@@ -2,6 +2,7 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
+using System.Linq;
 using System.Net.Http;
 
 namespace Mythosia.AI.Rag.Tests;
@@ -24,13 +25,17 @@ internal class MockAIService : AIService
 
     public override Task<string> GetCompletionAsync(Message message)
     {
-        LastReceivedPrompt = message.Content;
+        ActivateChat.Messages.Add(message);
+        var resolved = GetLatestMessages().LastOrDefault();
+        LastReceivedPrompt = resolved?.Content ?? message.Content;
         return Task.FromResult(CompletionResponse);
     }
 
     public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
     {
-        LastReceivedPrompt = message.Content;
+        ActivateChat.Messages.Add(message);
+        var resolved = GetLatestMessages().LastOrDefault();
+        LastReceivedPrompt = resolved?.Content ?? message.Content;
         return messageReceivedAsync(CompletionResponse);
     }
 

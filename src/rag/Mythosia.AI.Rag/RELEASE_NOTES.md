@@ -1,6 +1,11 @@
 # Mythosia.AI.Rag - Release Notes
 
-## v7.2.0
+## v7.3.0
+
+### Breaking Changes
+
+- **`RagBuilder.WithNamespace()` removed.**
+- **`HealthCheckResult.Namespace` removed** — constructor changed from `(string @namespace, int totalChunks, items)` to `(int totalChunks, items)`.
 
 ### Changed
 
@@ -10,6 +15,8 @@
   - `RagPipeline.DeleteDocumentAsync` updated similarly.
   - `HybridRetrievalStrategy.WithoutMinScore` no longer copies removed `Namespace`/`Scope` properties — conditions are preserved via `AppendConditionsFrom`.
   - `RagDiagnostics.DiagnoseQueryAsync` fallback filter updated.
+  - `RagDiagnosticSession` error message: "namespace/metadata" → "metadata".
+  - `HealthCheckResult.ToReport()`: `Namespace: "default" (N chunks)` → `N chunks indexed`.
 - **Default indexing now uses `ReplaceByFilterAsync`** — when no `onDocumentEmbedded` callback is provided, `IndexSingleDocumentAsync` now calls `ReplaceByFilterAsync(Where("document_id", docId), records)` instead of `UpsertBatchAsync(records)`.
   - Fixes stale chunk problem: re-indexing a file that produces fewer chunks no longer leaves orphan chunks from the previous version.
   - The operation is atomic (transactional in stores that support it) — on failure, existing data remains intact.
@@ -17,8 +24,7 @@
 
 ### Compatibility
 
-- Requires `Mythosia.VectorDb.Abstractions` v4.0.0.
-- **User-facing API unchanged** — `RagStore.BuildAsync()`, `RagStore.QueryAsync()`, `RagQueryOptions`, and `AgenticRag` all work identically. No user code changes required unless `VectorRecord.Namespace`/`Scope` was accessed directly in `onDocumentEmbedded` callbacks.
+- Requires `Mythosia.AI.Rag.Abstractions` v6.1.0, `Mythosia.VectorDb.Abstractions` v4.0.1.
 
 ---
 

@@ -96,7 +96,6 @@ public class RagPipelineEndToEndTests
         Assert.IsFalse(string.IsNullOrWhiteSpace(processed.RequestMessageContent));
         Assert.IsTrue(processed.RequestMessageContent.Contains("가격이 얼마인가요?"),
             "Request message content should contain the original query");
-        Assert.AreEqual("default", processed.Diagnostics.AppliedNamespace);
         Assert.AreEqual(5, processed.Diagnostics.FinalTopK);
         Assert.IsNull(processed.Diagnostics.AppliedFinalMinScore);
         Assert.IsNull(processed.Diagnostics.AppliedRetrievalMinScore);
@@ -113,7 +112,7 @@ public class RagPipelineEndToEndTests
         var splitter = new CharacterTextSplitter(chunkSize: 100, chunkOverlap: 20);
         var contextBuilder = new DefaultContextBuilder();
         var pipeline = new RagPipeline(embedding, vectorStore, splitter, contextBuilder,
-            new RagPipelineOptions { DefaultQuery = new RagQueryOptions { Namespace = "base", FinalFilter = new RagFilter { TopK = 3, MinScore = 0.4 } } });
+            new RagPipelineOptions { DefaultQuery = new RagQueryOptions { FinalFilter = new RagFilter { TopK = 3, MinScore = 0.4 } } });
 
         await pipeline.IndexDocumentAsync(new RagDocument
         {
@@ -125,7 +124,6 @@ public class RagPipelineEndToEndTests
         IRagPipeline ragPipeline = pipeline;
         var processed = await ragPipeline.ProcessAsync("환불 정책", new RagQueryOptions
         {
-            Namespace = "policy",
             FinalFilter = new RagFilter
             {
                 TopK = 5,
@@ -133,7 +131,6 @@ public class RagPipelineEndToEndTests
             }
         });
 
-        Assert.AreEqual("policy", processed.Diagnostics.AppliedNamespace);
         Assert.AreEqual(5, processed.Diagnostics.FinalTopK);
         Assert.AreEqual(0.2, processed.Diagnostics.AppliedFinalMinScore);
         Assert.AreEqual(0.2, processed.Diagnostics.AppliedRetrievalMinScore);

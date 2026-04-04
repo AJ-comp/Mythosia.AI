@@ -416,7 +416,6 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 },
                 diagnostics = new
                 {
-                    appliedNamespace = ragProcessed.Diagnostics.AppliedNamespace,
                     finalTopK = ragProcessed.Diagnostics.FinalTopK,
                     retrievalTopK = ragProcessed.Diagnostics.RetrievalTopK,
                     appliedFinalMinScore = ragProcessed.Diagnostics.AppliedFinalMinScore,

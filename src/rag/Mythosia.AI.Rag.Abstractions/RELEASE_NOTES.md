@@ -1,5 +1,33 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v6.1.0
+
+### Breaking Changes
+
+- **`RagQueryOptions.Namespace` removed** — namespace is no longer a first-class concept. For logical isolation, add metadata conditions via `StoreFilter`:
+  ```csharp
+  // Before
+  options.Namespace = "docs";
+
+  // After — use tenant, category, or any custom key
+  options.StoreFilter = new VectorFilter().Where("tenant", "acme");
+  ```
+- **`RagPipelineOptions.DefaultScope` removed** — scope is no longer a first-class concept. Use `DefaultQuery.StoreFilter` with metadata conditions instead.
+- **`RagQueryDiagnostics.AppliedNamespace` removed** — namespace is no longer tracked as a separate diagnostic field.
+- **`IRagDiagnosticsStore.ListAllRecordsAsync` / `ScoredListAsync`** — `string? @namespace` parameter removed. Scoping is done at the pipeline level via `VectorFilter`.
+
+### Changed
+
+- **`IRagPipeline.ProcessAsync` XML doc** — `options` parameter description updated to reference `StoreFilter` instead of `Namespace`.
+- **`RagQueryOptions.StoreFilter` XML doc** — guidance updated: use metadata conditions (e.g. `Where("tenant", value)`, `Where("category", value)`) for logical isolation.
+
+### Compatibility
+
+- Requires `Mythosia.VectorDb.Abstractions` v4.0.0+.
+- All `IRagDiagnosticsStore` implementations must update their method signatures to remove the `@namespace` parameter.
+
+---
+
 ## v6.0.0
 
 ### Breaking Changes

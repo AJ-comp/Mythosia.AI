@@ -6,11 +6,6 @@ namespace Mythosia.AI.Rag
     public class RagPipelineOptions
     {
         /// <summary>
-        /// Default scope for vector records.
-        /// </summary>
-        public string? DefaultScope { get; set; }
-
-        /// <summary>
         /// Default query policy applied when a per-request query policy is not supplied.
         /// </summary>
         public RagQueryOptions DefaultQuery { get; set; } = new RagQueryOptions();

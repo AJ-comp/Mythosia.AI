@@ -13,19 +13,18 @@ namespace Mythosia.AI.Rag
     public interface IRagDiagnosticsStore
     {
         /// <summary>
-        /// Returns all records in the target namespace for diagnostic analysis.
+        /// Returns all records for diagnostic analysis.
+        /// Use a <see cref="VectorFilter"/> at the pipeline level if scoping is needed.
         /// </summary>
         Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(
-            string? @namespace = null,
             CancellationToken cancellationToken = default);
 
         /// <summary>
-        /// Returns similarity scores against all records in the target namespace,
+        /// Returns similarity scores against all records,
         /// ordered by descending score, without TopK filtering.
         /// </summary>
         Task<IReadOnlyList<VectorSearchResult>> ScoredListAsync(
             float[] queryVector,
-            string? @namespace = null,
             CancellationToken cancellationToken = default);
     }
 }

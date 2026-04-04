@@ -5,7 +5,7 @@
 `Mythosia.AI.Rag` provides **RAG (Retrieval-Augmented Generation)** as an optional extension for `Mythosia.AI`.  
 Install this package to add `.WithRag()` to any `IAIService` — no changes to the AI core required.
 
-> **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v5.x`**
+> **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v6.x`**
 
 ## Installation
 
@@ -444,7 +444,7 @@ if (result.HasReferences)
 {
     Console.WriteLine(result.RequestMessageContent);  // Context + query
     Console.WriteLine(result.References.Count);        // Number of matched chunks
-    Console.WriteLine($"FinalTopK={result.Diagnostics.FinalTopK}, RetrievalTopK={result.Diagnostics.RetrievalTopK}, FinalMinScore={result.Diagnostics.AppliedFinalMinScore}, Namespace={result.Diagnostics.AppliedNamespace}, Elapsed={result.Diagnostics.ElapsedMs}ms");
+    Console.WriteLine($"FinalTopK={result.Diagnostics.FinalTopK}, RetrievalTopK={result.Diagnostics.RetrievalTopK}, FinalMinScore={result.Diagnostics.AppliedFinalMinScore}, Elapsed={result.Diagnostics.ElapsedMs}ms");
     foreach (var r in result.References)
     {
         Console.WriteLine($"Score: {r.Score:F4} | {r.Record.Content}");
@@ -498,10 +498,10 @@ options.StoreFilter = new VectorFilter()
 options.StoreFilter = new VectorFilter()
     .WhereIn("storage_id", tenantId1, tenantId2, tenantId3);
 
-// Namespace + metadata simultaneously
-options.Namespace = "tenant-A";
-options.StoreFilter = new VectorFilter().Where("user_id", currentUserId);
-// → retrieval uses: namespace = "tenant-A" AND metadata->>'user_id' = '...'
+// Tenant isolation + user scoping via metadata
+options.StoreFilter = new VectorFilter()
+    .Where("tenant", "tenant-A")
+    .Where("user_id", currentUserId);
 ```
 
 For this to work, the metadata keys must be stored on `VectorRecord.Metadata` at index time:

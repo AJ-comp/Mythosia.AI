@@ -51,7 +51,6 @@ namespace Mythosia.AI.Samples.ChatUi
                     var result = await session.HealthCheckAsync(cancellationToken: ct);
                     return Results.Ok(new
                     {
-                        @namespace = result.Namespace,
                         totalChunks = result.TotalChunks,
                         hasWarnings = result.HasWarnings,
                         items = result.Items.Select(i => new

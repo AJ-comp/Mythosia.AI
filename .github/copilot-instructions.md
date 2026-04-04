@@ -18,6 +18,7 @@
 - DX에 실질적으로 도움이 되는 편의 오버로드는 유지한다. 단순화를 이유로 사용성이 분명히 좋아지는 public convenience API를 불필요하게 제거하지 않는다.
 - 사용자는 패키지의 의존성 구조를 파악하지 않고 마구잡이식으로 병합하는 제안을 극도로 싫어한다. 패키지 경계와 의존성 구조를 명확히 인식하고 제안해야 한다.
 - 메이저 브레이킹 체인지의 기준은 철저하게 라이브러리 사용자 코드가 바껴야 할 때가 기준이다. 사용자 코드 변화 없이 그냥 호환이 되면 그건 메이저 브레이킹 체인지가 절대 아니다. 파라미터 확장(AIService → IAIService)처럼 기존 코드가 그대로 컴파일되는 변경은 브레이킹이 아니다.
+- 과거 릴리즈 노트(이미 배포된 버전)는 수정하지 않는다. 해당 시점의 기록으로 그대로 유지한다.
 
 ## Versioning Guidelines
 - v10.x 버전 넘버링은 .NET 10 (net10.0) 타겟 프로젝트에만 사용한다. .NET Standard 2.1 프로젝트는 1.x.x 등 일반적인 시맨틱 버전을 사용한다.
@@ -26,3 +27,6 @@
 ## Commit Message Guidelines
 - Commit messages must always be written in English.
 - 다국어 문서 작성 시 영어를 직역하지 않는다. 내용과 논리는 그대로 유지하면서, 해당 언어 문화권에 친화적인 자연스러운 어투와 문장으로 작성한다.
+
+## File Editing Guidelines
+- 문서 파일(.md 등)이나 주석을 편집할 때는 절대로 터미널 명령(PowerShell Set-Content, Get-Content -replace 등)을 사용하지 않는다. 인코딩이 깨질 수 있으므로 반드시 replace_string_in_file 또는 create_file 같은 에디터 도구만 사용한다.

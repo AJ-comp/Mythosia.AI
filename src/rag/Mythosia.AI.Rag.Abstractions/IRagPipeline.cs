@@ -22,7 +22,7 @@ namespace Mythosia.AI.Rag
         /// Processes the user query with per-request query overrides.
         /// </summary>
         /// <param name="query">The original user query.</param>
-        /// <param name="options">Per-request query overrides (TopK, MinScore, Namespace).</param>
+        /// <param name="options">Per-request query overrides (TopK, MinScore, StoreFilter).</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>The processed query with request message content and references.</returns>
         Task<RagProcessedQuery> ProcessAsync(string query, RagQueryOptions? options, CancellationToken cancellationToken = default);

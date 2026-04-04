@@ -118,7 +118,6 @@ public class BuildAsyncCallbackTests
         Assert.IsNotNull(record.Content, "Record should have content");
         Assert.IsNotNull(record.Vector, "Record should have an embedding vector");
         Assert.AreEqual(256, record.Vector.Length, "Embedding dimension should match");
-        Assert.IsTrue(record.Metadata.ContainsKey("namespace"), "Record should have a namespace in metadata");
     }
 
     /// <summary>
@@ -191,7 +190,10 @@ public class BuildAsyncCallbackTests
             onDocumentEmbedded: records =>
             {
                 foreach (var r in records)
+                {
                     r.Metadata["full_path"] = filePath;
+                    r.Metadata["namespace"] = "default";
+                }
                 return vectorStore.UpsertBatchAsync(records);
             }
         );
@@ -210,7 +212,10 @@ public class BuildAsyncCallbackTests
             onDocumentEmbedded: records =>
             {
                 foreach (var r in records)
+                {
                     r.Metadata["full_path"] = filePath;
+                    r.Metadata["namespace"] = "default";
+                }
                 return ((IVectorStore)vectorStore).ReplaceByFilterAsync(filter, records);
             }
         );

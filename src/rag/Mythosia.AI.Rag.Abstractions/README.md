@@ -28,18 +28,18 @@ This package defines the contracts that all RAG components implement — you onl
 | `RagProcessedQuery` | Pipeline output: original query, rewritten semantic query, retrieval keywords, `RequestMessageContent`, references, `RetrievalCandidates`, `SearchSkipped`, `RewriteResult`, `HasReferences` flag, and `Diagnostics` |
 | `QueryRewriteResult` | Result of rewriting a query into retrieval-ready form, including search gate decision (`NeedsSearch`) and optional retrieval keywords. Factory methods `Pass()` and `Search()` |
 | `ConversationTurn` | Lightweight DTO representing a single conversation turn (role + content) for `IQueryRewriter` context |
-| `RagQueryDiagnostics` | Applied retrieval metadata (`AppliedNamespace`, `FinalTopK`, `RetrievalTopK`, `AppliedFinalMinScore`, `AppliedRetrievalMinScore`, `ElapsedMs`, `RewriteElapsedMs`) |
-| `RagPipelineOptions` | Configuration: `DefaultScope`, `DefaultQuery`, `PromptTemplate`, `EmbeddingBatchSize` |
-| `RagQueryOptions` | Per-request overrides: `FinalFilter`, `RetrievalDerivation`, `Namespace`, `StoreFilter`, `FinalSelection`, `ProgressAsync` |
+| `RagQueryDiagnostics` | Applied retrieval metadata (`FinalTopK`, `RetrievalTopK`, `AppliedFinalMinScore`, `AppliedRetrievalMinScore`, `ElapsedMs`, `RewriteElapsedMs`) |
+| `RagPipelineOptions` | Configuration: `DefaultQuery`, `PromptTemplate`, `EmbeddingBatchSize` |
+| `RagQueryOptions` | Per-request overrides: `FinalFilter`, `RetrievalDerivation`, `StoreFilter`, `FinalSelection`, `ProgressAsync` |
 | `RagFinalSelectionOptions` | Final selection policy after re-ranking (`Mode`, `RetrievalWeight`) |
 | `RagFinalSelectionMode` | Enum: `RerankerOnly` (default) or `WeightedBlend` |
 | `RagFilter` | Final selection policy (`TopK`, `MinScore`) |
 | `RagRetrievalDerivation` | Controls how retrieval candidates are derived (`TopKMultiplier`, `MinScoreDivider`) |
 | `RagRetrievalFilter` | Immutable computed retrieval filter (`TopK`, `MinScore`) |
 | `RagProgressStage` | Enum for pipeline stage progress reporting (`QueryRewrite`, `Embedding`, `Filtering`, `Retrieval`, `Reranking`, `ContextBuild`) |
-| `VectorRecord` | Stored vector with ID, content, embedding, metadata, namespace |
+| `VectorRecord` | Stored vector with ID, content, embedding, and metadata |
 | `VectorSearchResult` | Search result with record and similarity score |
-| `VectorFilter` | Filter by namespace, metadata, or minimum score |
+| `VectorFilter` | Filter by metadata conditions or minimum score |
 
 ## Custom Implementation Example
 

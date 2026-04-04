@@ -104,12 +104,11 @@ namespace Mythosia.AI.Rag
         public async Task IndexAsync(
             IDocumentLoader loader,
             string source,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
             var doclingDocs = await loader.LoadAsync(source, cancellationToken);
             var documents = DoclingDocumentConverter.ToRagDocuments(doclingDocs);
-            await IndexDocumentsAsync(documents, @namespace, cancellationToken);
+            await IndexDocumentsAsync(documents, cancellationToken);
         }
 
         /// <summary>
@@ -117,10 +116,9 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task IndexDocumentsAsync(
             IEnumerable<RagDocument> documents,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentsInternalAsync(documents, textSplitter: null, @namespace, cancellationToken);
+            await IndexDocumentsInternalAsync(documents, textSplitter: null, cancellationToken);
         }
 
         /// <summary>
@@ -129,10 +127,9 @@ namespace Mythosia.AI.Rag
         public async Task IndexDocumentsAsync(
             IEnumerable<RagDocument> documents,
             ITextSplitter? textSplitter,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentsInternalAsync(documents, textSplitter, @namespace, cancellationToken);
+            await IndexDocumentsInternalAsync(documents, textSplitter, cancellationToken);
         }
 
         internal async Task IndexDocumentsAsync(
@@ -141,7 +138,7 @@ namespace Mythosia.AI.Rag
             Func<IReadOnlyList<VectorRecord>, Task> onDocumentEmbedded,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentsInternalAsync(documents, textSplitter, @namespace: null, cancellationToken, onDocumentEmbedded);
+            await IndexDocumentsInternalAsync(documents, textSplitter, cancellationToken, onDocumentEmbedded);
         }
 
         /// <summary>
@@ -149,10 +146,9 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task IndexDocumentAsync(
             RagDocument document,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentInternalAsync(document, textSplitter: null, @namespace, cancellationToken);
+            await IndexDocumentInternalAsync(document, textSplitter: null, cancellationToken);
         }
 
         /// <summary>
@@ -161,44 +157,38 @@ namespace Mythosia.AI.Rag
         public async Task IndexDocumentAsync(
             RagDocument document,
             ITextSplitter? textSplitter,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            await IndexDocumentInternalAsync(document, textSplitter, @namespace, cancellationToken);
+            await IndexDocumentInternalAsync(document, textSplitter, cancellationToken);
         }
 
         private async Task IndexDocumentsInternalAsync(
             IEnumerable<RagDocument> documents,
             ITextSplitter? textSplitter,
-            string? @namespace,
             CancellationToken cancellationToken,
             Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            var ns = @namespace ?? Options.DefaultQuery.Namespace;
 
             foreach (var document in documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken, onDocumentEmbedded);
+                await IndexSingleDocumentAsync(document, effectiveSplitter, cancellationToken, onDocumentEmbedded);
             }
         }
 
         private async Task IndexDocumentInternalAsync(
             RagDocument document,
             ITextSplitter? textSplitter,
-            string? @namespace,
             CancellationToken cancellationToken,
             Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
-            var ns = @namespace ?? Options.DefaultQuery.Namespace;
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            await IndexSingleDocumentAsync(document, ns, effectiveSplitter, cancellationToken, onDocumentEmbedded);
+            await IndexSingleDocumentAsync(document, effectiveSplitter, cancellationToken, onDocumentEmbedded);
         }
 
         private async Task IndexSingleDocumentAsync(
             RagDocument document,
-            string @namespace,
             ITextSplitter textSplitter,
             CancellationToken cancellationToken,
             Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
@@ -234,11 +224,6 @@ namespace Mythosia.AI.Rag
                     Content = chunks[i].Content,
                     Metadata = metadata
                 });
-
-                if (@namespace != null)
-                    records[records.Count - 1].Metadata["namespace"] = @namespace;
-                if (Options.DefaultScope != null)
-                    records[records.Count - 1].Metadata["scope"] = Options.DefaultScope;
             }
 
             if (onDocumentEmbedded != null)
@@ -258,17 +243,15 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
             string query,
-            string? @namespace = null,
             int? topK = null,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
             RagQueryOptions? queryOptions = null;
-            if (@namespace != null || topK.HasValue)
+            if (topK.HasValue)
             {
                 queryOptions = new RagQueryOptions
                 {
-                    Namespace = @namespace ?? Options.DefaultQuery.Namespace,
                     FinalFilter = new RagFilter
                     {
                         TopK = topK ?? Options.DefaultQuery.FinalFilter.TopK,
@@ -317,7 +300,6 @@ namespace Mythosia.AI.Rag
         {
             var effectiveOptions = queryOptions ?? Options.DefaultQuery;
 
-            var ns = effectiveOptions.Namespace;
             var k = effectiveOptions.FinalFilter.TopK;
             var finalMinScore = effectiveOptions.FinalFilter.MinScore;
             var retrievalFilter = effectiveOptions.GetRetrievalFilter(_reranker != null);
@@ -334,11 +316,9 @@ namespace Mythosia.AI.Rag
             await ReportAsync(RagProgressStage.Embedding);
             var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
 
-            // 2. Apply namespace and retrieval score filter
+            // 2. Apply retrieval score filter
             await ReportAsync(RagProgressStage.Filtering);
             var effectiveFilter = MergeStoreFilter(filter, effectiveOptions.StoreFilter);
-            if (ns != null)
-                effectiveFilter.Where("namespace", ns);
             effectiveFilter.MinScore = retrievalMinScore;
 
             // 3. Search (via retrieval strategy) ??fetch wider pool when reranker is present
@@ -446,20 +426,6 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
-        /// Merges an explicit <paramref name="filter"/> with the per-query <paramref name="storeFilter"/>
-        /// from <see cref="RagQueryOptions.StoreFilter"/>.
-        /// <list type="bullet">
-        ///   <item>When <paramref name="storeFilter"/> is null the original <paramref name="filter"/>
-        ///   (or a new empty filter) is returned ??identical to the previous behaviour.</item>
-        ///   <item>When both are set a new <see cref="VectorFilter"/> is created whose
-        ///   <see cref="VectorFilter.MetadataMatch"/> is the union of both dictionaries
-        ///   (<paramref name="storeFilter"/> values win on key conflicts) and whose
-        ///   <see cref="VectorFilter.Scope"/> is taken from <paramref name="storeFilter"/> when set.</item>
-        /// </list>
-        /// <see cref="VectorFilter.Namespace"/> and <see cref="VectorFilter.MinScore"/> are NOT copied
-        /// here because they are always overwritten immediately after this call.
-        /// </summary>
-        /// <summary>
         /// Merges a per-query <paramref name="filter"/> with a pipeline-level <paramref name="storeFilter"/>.
         /// Both filters' conditions are AND-combined in the result — neither side is silently dropped.
         /// This mirrors EF Core's Global Query Filter pattern: the store filter always applies,
@@ -488,12 +454,11 @@ namespace Mythosia.AI.Rag
         public async Task<string> QueryAndGenerateAsync(
             IAIService aiService,
             string query,
-            string? @namespace = null,
             int? topK = null,
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            var result = await QueryAsync(query, @namespace, topK, filter, cancellationToken);
+            var result = await QueryAsync(query, topK, filter, cancellationToken);
             return await aiService.GetCompletionAsync(result.Context);
         }
 
@@ -546,7 +511,6 @@ namespace Mythosia.AI.Rag
             var effectiveOptions = options ?? Options.DefaultQuery;
 
             var retrievalFilter = effectiveOptions.GetRetrievalFilter(_reranker != null);
-            var appliedNamespace = effectiveOptions.Namespace;
             var appliedTopK = effectiveOptions.FinalFilter.TopK;
             var appliedFinalMinScore = effectiveOptions.FinalFilter.MinScore;
             var appliedRetrievalMinScore = retrievalFilter.MinScore;
@@ -569,7 +533,6 @@ namespace Mythosia.AI.Rag
                 result.RetrievalCandidates,
                 new RagQueryDiagnostics
                 {
-                    AppliedNamespace = appliedNamespace,
                     FinalTopK = appliedTopK,
                     RetrievalTopK = retrievalK,
                     AppliedFinalMinScore = appliedFinalMinScore,
@@ -590,13 +553,9 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public async Task DeleteDocumentAsync(
             string documentId,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = @namespace ?? Options.DefaultQuery.Namespace;
             var filter = new VectorFilter().Where("document_id", documentId);
-            if (ns != null)
-                filter.Where("namespace", ns);
             await _vectorStore.DeleteByFilterAsync(filter, cancellationToken);
         }
 

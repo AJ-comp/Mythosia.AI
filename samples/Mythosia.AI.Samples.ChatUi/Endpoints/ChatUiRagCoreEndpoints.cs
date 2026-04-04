@@ -80,8 +80,7 @@ internal static class ChatUiRagCoreEndpoints
                     ragState,
                     embeddingHttpClient,
                     buildResult.Store,
-                    req.OpenAiApiKey,
-                    buildResult.Namespace);
+                    req.OpenAiApiKey);
             }
             catch (Exception ex)
             {
@@ -122,8 +121,7 @@ internal static class ChatUiRagCoreEndpoints
                     status = "connected",
                     warning = autoConnectWarning,
                     schemaWarnings,
-                    indexHost = buildResult.IndexHost,
-                    @namespace = buildResult.Namespace
+                    indexHost = buildResult.IndexHost
                 }),
                 _ => Results.Ok(new { provider = buildResult.Provider, status = "connected", warning = autoConnectWarning, schemaWarnings })
             };
@@ -449,9 +447,6 @@ internal static class ChatUiRagCoreEndpoints
                         .UseEmbedding(embeddingProvider)
                         .UseStore(trackingStore);
 
-                    if (!string.IsNullOrWhiteSpace(vectorStoreResult.Namespace))
-                        builder.WithNamespace(vectorStoreResult.Namespace);
-
                     if (requestSettings.FinalFilter.MinScore.HasValue)
                         builder.WithScoreThreshold(requestSettings.FinalFilter.MinScore.Value);
                     builder.WithRetrievalMultiplier(requestSettings.RetrievalDerivation.TopKMultiplier);
@@ -522,7 +517,6 @@ internal static class ChatUiRagCoreEndpoints
     private sealed record VectorStoreBuildResult(
         string Provider,
         IVectorStore Store,
-        string? Namespace = null,
         string? TableName = null,
         string? SchemaName = null,
         int? Dimension = null,
@@ -551,8 +545,7 @@ internal static class ChatUiRagCoreEndpoints
             ragState,
             embeddingHttpClient,
             buildResult.Store,
-            vectorStoreRequest.OpenAiApiKey,
-            buildResult.Namespace);
+            vectorStoreRequest.OpenAiApiKey);
 
         if (warning != null && buildResult.Store is IDisposable disposable)
             disposable.Dispose();
@@ -781,7 +774,6 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
             return new VectorStoreBuildResult(
                 Provider: "qdrant",
                 Store: store,
-                Namespace: collectionName,
                 Host: host,
                 Port: port,
                 Dimension: dimension,
@@ -797,21 +789,17 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
             if (string.IsNullOrWhiteSpace(apiKey))
                 throw new ArgumentException("PineconeApiKey is required for Pinecone.");
 
-            var @namespace = NormalizeOptionalValue(req.PineconeNamespace);
-            if (string.IsNullOrWhiteSpace(@namespace))
-                throw new ArgumentException("PineconeNamespace is required for Pinecone.");
-
+            var ns = NormalizeOptionalValue(req.PineconeNamespace);
             var store = new PineconeStore(new PineconeOptions
             {
                 IndexHost = indexHost,
                 ApiKey = apiKey,
-                DefaultNamespace = @namespace
+                Namespace = ns
             });
 
             return new VectorStoreBuildResult(
                 Provider: "pinecone",
                 Store: store,
-                Namespace: @namespace,
                 IndexHost: indexHost);
         }
 
@@ -853,8 +841,7 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
         RagReferenceState ragState,
         HttpClient embeddingHttpClient,
         IVectorStore vectorStore,
-        string? openAiApiKey,
-        string? @namespace)
+        string? openAiApiKey)
     {
         var settings = ragState.GetSettings();
         var embeddingKey = !string.IsNullOrWhiteSpace(openAiApiKey)
@@ -895,9 +882,6 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
                     .WithTopK(settings.FinalFilter.TopK);
 
                 builder.WithRetrievalMultiplier(settings.RetrievalDerivation.TopKMultiplier);
-
-                if (!string.IsNullOrWhiteSpace(@namespace))
-                    builder.WithNamespace(@namespace);
 
                 if (epKey == "ollama")
                 {

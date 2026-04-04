@@ -100,24 +100,21 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// </summary>
         public Task<IReadOnlyList<ChunkSearchMatch>> FindChunksContainingAsync(
             string text,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            return FindChunksContainingInternalAsync(text, @namespace, cancellationToken);
+            return FindChunksContainingInternalAsync(text, cancellationToken);
         }
 
         private async Task<IReadOnlyList<ChunkSearchMatch>> FindChunksContainingInternalAsync(
             string text,
-            string? @namespace,
             CancellationToken cancellationToken)
         {
-            var ns = @namespace ?? _pipeline.Options.DefaultQuery.Namespace;
             if (_diagnosticsStore == null)
                 throw new InvalidOperationException(
                     "FindChunksContainingAsync requires a vector store implementing IRagDiagnosticsStore. " +
                     "For other vector stores, use DiagnoseQueryAsync instead.");
 
-            var allRecords = await _diagnosticsStore.ListAllRecordsAsync(ns, cancellationToken);
+            var allRecords = await _diagnosticsStore.ListAllRecordsAsync(cancellationToken);
             var matches = new List<ChunkSearchMatch>();
 
             foreach (var record in allRecords)
@@ -146,15 +143,12 @@ namespace Mythosia.AI.Rag.Diagnostics
         /// <param name="query">The user query to diagnose.</param>
         /// <param name="targetText">Optional: text you expect to find in results (e.g., "6,300만원"). 
         /// When provided, results are annotated with whether they contain this text.</param>
-        /// <param name="namespace">Optional namespace override.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public async Task<QueryDiagnosticResult> DiagnoseQueryAsync(
             string query,
             string? targetText = null,
-            string? @namespace = null,
             CancellationToken cancellationToken = default)
         {
-            var ns = @namespace ?? _pipeline.Options.DefaultQuery.Namespace;
             var topK = _pipeline.Options.DefaultQuery.FinalFilter.TopK;
             var minScore = _pipeline.Options.DefaultQuery.FinalFilter.MinScore;
 
@@ -165,13 +159,12 @@ namespace Mythosia.AI.Rag.Diagnostics
             IReadOnlyList<VectorSearchResult> allScored;
             if (_diagnosticsStore != null)
             {
-                allScored = await _diagnosticsStore.ScoredListAsync(queryVector, ns, cancellationToken);
+                allScored = await _diagnosticsStore.ScoredListAsync(queryVector, cancellationToken);
             }
             else
             {
                 // Fallback: use SearchAsync with max TopK
                 var fallbackFilter = new VectorFilter();
-                if (ns != null) fallbackFilter.Where("namespace", ns);
                 allScored = await _vectorStore.SearchAsync(queryVector, int.MaxValue, fallbackFilter, cancellationToken);
             }
 
