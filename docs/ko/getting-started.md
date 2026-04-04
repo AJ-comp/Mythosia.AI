@@ -14,9 +14,9 @@ LINQ 연산자(예: `ToListAsync`)를 사용한 스트리밍이 필요하다면 
 dotnet add package System.Linq.Async
 ```
 
-## 첫 번째 완성 요청
+## 첫 번째 AI 응답 받기
 
-프로바이더를 선택하고 API 키와 `HttpClient`로 서비스 인스턴스를 생성합니다:
+프로바이더를 선택하고, API 키와 `HttpClient`로 서비스 인스턴스를 만들면 됩니다:
 
 ```csharp
 using Mythosia.AI;
@@ -55,7 +55,7 @@ var service = new OpenAIService("your-api-key", http)
 
 ## 다음 단계
 
-- [기본 완성](completions.md) — 시스템 프롬프트, 대화 기록, 멀티모달
+- [기본 텍스트 생성](completions.md) — 시스템 프롬프트, 대화 기록, 멀티모달
 - [스트리밍](streaming.md) — 토큰 단위 출력 및 추론 스트리밍
 - [함수 호출](function-calling.md) — 모델이 내 코드를 호출하게 하기
 - [구조화된 출력](structured-output.md) — 응답을 C# 타입으로 역직렬화

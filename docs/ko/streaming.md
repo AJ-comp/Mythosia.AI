@@ -79,7 +79,7 @@ await foreach (var content in service.StreamAsync("양자 컴퓨팅을 설명해
 | 속성 | 설명 |
 |---|---|
 | `InputTokens` | 입력/프롬프트의 토큰 수 |
-| `OutputTokens` | 출력/완성의 토큰 수 |
+| `OutputTokens` | 출력 응답의 토큰 수 |
 | `TotalTokens` | 입력 + 출력 |
 | `CachedInputTokens` | 캐시에서 제공된 토큰 (비용 절감) |
 | `CacheCreationTokens` | 캐시에 기록된 토큰 (Anthropic) |

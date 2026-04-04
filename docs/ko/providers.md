@@ -4,22 +4,22 @@
 
 ### 추론 수준
 
-GPT-5.x 및 o3 시리즈 모델은 추론 수준 제어를 지원합니다. 속도와 깊이를 트레이드오프하는 수준을 설정합니다:
+속도와 분석 깊이 사이의 균형을 조절합니다:
 
 ```csharp
 using Mythosia.AI.Models;
 
 // GPT-5.4 시리즈
 service.Model = AIModels.OpenAI.Gpt5_4;
-service.ReasoningLevel = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
+service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2 시리즈
 service.Model = AIModels.OpenAI.Gpt5_2;
-service.ReasoningLevel = Gpt5_2Reasoning.Medium;
+service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
 service.Model = AIModels.OpenAI.O3;
-service.ReasoningLevel = Gpt5Reasoning.High; // Minimal, Low, Medium, High
+service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
 ### 텍스트 음성 변환 (TTS)

@@ -79,7 +79,7 @@ await foreach (var content in service.StreamAsync("量子コンピューティ�
 | プロパティ | 説明 |
 |---|---|
 | `InputTokens` | 入力/プロンプトのトークン数 |
-| `OutputTokens` | 出力/補完のトークン数 |
+| `OutputTokens` | 出力応答のトークン数 |
 | `TotalTokens` | 入力 + 出力 |
 | `CachedInputTokens` | キャッシュから提供されたトークン（コスト削減） |
 | `CacheCreationTokens` | キャッシュに書き込まれたトークン（Anthropic） |

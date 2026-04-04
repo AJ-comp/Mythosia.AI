@@ -11,15 +11,15 @@ using Mythosia.AI.Models;
 
 // GPT-5.4 series
 service.Model = AIModels.OpenAI.Gpt5_4;
-service.ReasoningLevel = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
+service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2 series
 service.Model = AIModels.OpenAI.Gpt5_2;
-service.ReasoningLevel = Gpt5_2Reasoning.Medium;
+service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
 service.Model = AIModels.OpenAI.O3;
-service.ReasoningLevel = Gpt5Reasoning.High; // Minimal, Low, Medium, High
+service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
 ### Text-to-Speech

@@ -9,7 +9,7 @@
 문자 수로 분할합니다. 단순하고 빠르지만 문장 중간에서 잘릴 수 있습니다:
 
 ```csharp
-.UseCharacterSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new CharacterTextSplitter(500, 50))
 ```
 
 ### RecursiveTextSplitter (권장 기본값)
@@ -17,7 +17,7 @@
 다음 순서로 의미 있는 경계에서 분할을 시도합니다: 단락 → 문장 → 단어 → 문자. 더 일관된 청크를 생성합니다:
 
 ```csharp
-.UseRecursiveSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new RecursiveTextSplitter(500, 50))
 ```
 
 ### TokenTextSplitter
@@ -25,7 +25,7 @@
 문자 수 대신 토큰 수로 분할합니다. LLM 컨텍스트 윈도우 예산에 더 정확합니다:
 
 ```csharp
-.UseTokenSplitter(chunkSize: 256, chunkOverlap: 32)
+.WithTextSplitter(new TokenTextSplitter(256, 32))
 ```
 
 임베딩 모델에 엄격한 토큰 제한이 있을 때 사용하세요.
@@ -35,7 +35,7 @@
 마크다운 구조를 보존합니다 — 문자 분할로 폴백하기 전에 헤더, 목록, 코드 블록에서 분할합니다:
 
 ```csharp
-.UseMarkdownSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new MarkdownTextSplitter(500, 50))
 ```
 
 문서 파일, README 파일, 구조화된 마크다운 콘텐츠에 적합합니다.
@@ -56,9 +56,9 @@
 
 ```csharp
 .WithRag(rag => rag
-    .AddDocument("readme.md", new MarkdownTextSplitter(chunkSize: 600, chunkOverlap: 60))
-    .AddDocument("data.txt",  new RecursiveTextSplitter(chunkSize: 300, chunkOverlap: 30))
-    .UseRecursiveSplitter(chunkSize: 500, chunkOverlap: 50)  // 나머지 문서의 기본값
+    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600, 60))
+    .AddDocuments(new PlainTextDocumentLoader(), "data.txt",  new RecursiveTextSplitter(300, 30))
+    .WithTextSplitter(new RecursiveTextSplitter(500, 50))  // 나머지 문서의 기본값
 )
 ```
 
@@ -82,5 +82,5 @@ public class SentenceSplitter : ITextSplitter
 }
 
 // 등록:
-.UseCustomSplitter(new SentenceSplitter())
+.WithTextSplitter(new SentenceSplitter())
 ```

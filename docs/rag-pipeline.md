@@ -60,7 +60,7 @@ Build the index once and reuse it across multiple service instances — useful w
 RagStore store = await RagBuilder.Create()
     .UseOpenAIEmbedding(apiKey, http)
     .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDirectory("docs/", ".txt", ".md", ".pdf")
+    .AddDocuments("docs/")
     .BuildAsync();
 
 // Reuse across services

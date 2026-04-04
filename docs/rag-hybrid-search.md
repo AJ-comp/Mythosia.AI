@@ -12,7 +12,7 @@ Blend dense vector search with BM25 keyword search using a single method call:
 
 ```csharp
 .WithRag(rag => rag
-    .UseHybridRetrieval(vectorWeight: 0.6f)  // 60% vector, 40% BM25
+    .UseHybridSearch(vectorWeight: 0.6f)  // 60% vector, 40% BM25
     .AddDocument("knowledge-base.txt")
 )
 ```
@@ -32,7 +32,7 @@ Blend dense vector search with BM25 keyword search using a single method call:
 ```csharp
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseHybridRetrieval(vectorWeight: 0.5f)
+        .UseHybridSearch(vectorWeight: 0.5f)
         .AddDocument("product-catalog.txt")
         .AddDocument("error-codes.txt")
     );

@@ -14,9 +14,9 @@ LINQオペレーター（例: `ToListAsync`）を使ったストリーミング�
 dotnet add package System.Linq.Async
 ```
 
-## 最初の補完リクエスト
+## 最初のAIレスポンスを取得
 
-プロバイダーを選択し、APIキーと`HttpClient`でサービスインスタンスを作成します:
+プロバイダーを選んで、APIキーと`HttpClient`でサービスインスタンスを作成するだけです:
 
 ```csharp
 using Mythosia.AI;
@@ -55,7 +55,7 @@ var service = new OpenAIService("your-api-key", http)
 
 ## 次のステップ
 
-- [基本的な補完](completions.md) — システムプロンプト、会話履歴、マルチモーダル
+- [基本的なテキスト生成](completions.md)
 - [ストリーミング](streaming.md) — トークン単位の出力と推論ストリーミング
 - [関数呼び出し](function-calling.md) — モデルにコードを呼び出させる
 - [構造化出力](structured-output.md) — レスポンスをC#型にデシリアライズ

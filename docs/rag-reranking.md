@@ -18,7 +18,7 @@ Uses your AI service to score results. Effective but adds latency:
 
 ```csharp
 .WithRag(rag => rag
-    .UseLlmReranker(aiService)
+    .WithReranker(new LlmReranker(aiService))
     .AddDocument("corpus.txt")
 )
 ```
@@ -29,7 +29,7 @@ Calls the Cohere Rerank API — fast and accurate:
 
 ```csharp
 .WithRag(rag => rag
-    .UseCohereReranker(cohereApiKey)
+    .WithReranker(new CohereReranker(cohereApiKey))
     .AddDocument("corpus.txt")
 )
 ```
@@ -40,7 +40,7 @@ Uses a locally hosted vLLM reranking endpoint:
 
 ```csharp
 .WithRag(rag => rag
-    .UseVllmReranker("http://localhost:8000")
+    .WithReranker(new VllmReranker("http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -70,11 +70,10 @@ When a reranker is used, choose how the final ranking score is calculated:
 using Mythosia.AI.Rag;
 
 // Default: trust reranker scores only
-.WithFinalSelectionMode(RagFinalSelectionMode.RerankerOnly)
+.WithFinalSelectionPolicy(RagFinalSelectionMode.RerankerOnly)
 
 // Blend retrieval score and reranker score
-.WithFinalSelectionMode(RagFinalSelectionMode.WeightedBlend)
-.WithRetrievalWeightBlend(0.65)  // 65% retrieval, 35% reranker
+.WithFinalSelectionPolicy(RagFinalSelectionMode.WeightedBlend, retrievalWeight: 0.65)  // 65% retrieval, 35% reranker
 ```
 
 **`RerankerOnly`** is the safe default — the reranker's judgment completely replaces the initial retrieval score.

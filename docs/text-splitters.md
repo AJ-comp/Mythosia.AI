@@ -9,7 +9,7 @@ Text splitters divide documents into chunks before embedding. Chunk size and ove
 Splits on character count. Simple and fast, but may cut mid-sentence:
 
 ```csharp
-.UseCharacterSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new CharacterTextSplitter(500, 50))
 ```
 
 ### RecursiveTextSplitter (recommended default)
@@ -17,7 +17,7 @@ Splits on character count. Simple and fast, but may cut mid-sentence:
 Tries to split on semantically meaningful boundaries in this order: paragraphs → sentences → words → characters. Produces more coherent chunks:
 
 ```csharp
-.UseRecursiveSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new RecursiveTextSplitter(500, 50))
 ```
 
 ### TokenTextSplitter
@@ -25,7 +25,7 @@ Tries to split on semantically meaningful boundaries in this order: paragraphs �
 Splits by token count rather than character count. More accurate for LLM context window budgeting:
 
 ```csharp
-.UseTokenSplitter(chunkSize: 256, chunkOverlap: 32)
+.WithTextSplitter(new TokenTextSplitter(256, 32))
 ```
 
 Use this when the embedding model has strict token limits.
@@ -35,7 +35,7 @@ Use this when the embedding model has strict token limits.
 Preserves Markdown structure — splits on headers, lists, and code blocks before falling back to character splitting:
 
 ```csharp
-.UseMarkdownSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new MarkdownTextSplitter(500, 50))
 ```
 
 Best for documentation files, README files, and any structured Markdown content.
@@ -56,9 +56,9 @@ Different splitters can be applied per document in `RagBuilder`:
 
 ```csharp
 .WithRag(rag => rag
-    .AddDocument("readme.md", new MarkdownTextSplitter(chunkSize: 600, chunkOverlap: 60))
-    .AddDocument("data.txt",  new RecursiveTextSplitter(chunkSize: 300, chunkOverlap: 30))
-    .UseRecursiveSplitter(chunkSize: 500, chunkOverlap: 50)  // default for the rest
+    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600, 60))
+    .AddDocuments(new PlainTextDocumentLoader(), "data.txt",  new RecursiveTextSplitter(300, 30))
+    .WithTextSplitter(new RecursiveTextSplitter(500, 50))  // default for the rest
 )
 ```
 
@@ -82,5 +82,5 @@ public class SentenceSplitter : ITextSplitter
 }
 
 // Register:
-.UseCustomSplitter(new SentenceSplitter())
+.WithTextSplitter(new SentenceSplitter())
 ```

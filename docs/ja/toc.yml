@@ -7,7 +7,7 @@
 
 - name: コア機能
   items:
-  - name: 基本的な補完
+  - name: 基本的なテキスト生成
     href: completions.md
   - name: 生成パラメータ
     href: generation-params.md

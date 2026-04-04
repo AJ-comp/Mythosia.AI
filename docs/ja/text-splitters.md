@@ -9,7 +9,7 @@
 文字数で分割します。シンプルで高速ですが、文の途中で切れることがあります:
 
 ```csharp
-.UseCharacterSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new CharacterTextSplitter(500, 50))
 ```
 
 ### RecursiveTextSplitter（推奨デフォルト）
@@ -17,7 +17,7 @@
 段落 → 文 → 単語 → 文字の順に意味のある境界で分割を試みます。より一貫したチャンクを生成します:
 
 ```csharp
-.UseRecursiveSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new RecursiveTextSplitter(500, 50))
 ```
 
 ### TokenTextSplitter
@@ -25,7 +25,7 @@
 文字数ではなくトークン数で分割します。LLMコンテキストウィンドウの予算管理に正確です:
 
 ```csharp
-.UseTokenSplitter(chunkSize: 256, chunkOverlap: 32)
+.WithTextSplitter(new TokenTextSplitter(256, 32))
 ```
 
 埋め込みモデルに厳格なトークン制限がある場合に使用します。
@@ -35,7 +35,7 @@
 Markdownの構造を保持します — 文字分割にフォールバックする前にヘッダー、リスト、コードブロックで分割します:
 
 ```csharp
-.UseMarkdownSplitter(chunkSize: 500, chunkOverlap: 50)
+.WithTextSplitter(new MarkdownTextSplitter(500, 50))
 ```
 
 ドキュメントファイル、READMEファイル、構造化Markdownコンテンツに最適です。
@@ -56,9 +56,9 @@ Markdownの構造を保持します — 文字分割にフォールバックす�
 
 ```csharp
 .WithRag(rag => rag
-    .AddDocument("readme.md", new MarkdownTextSplitter(chunkSize: 600, chunkOverlap: 60))
-    .AddDocument("data.txt",  new RecursiveTextSplitter(chunkSize: 300, chunkOverlap: 30))
-    .UseRecursiveSplitter(chunkSize: 500, chunkOverlap: 50)  // 残りのデフォルト
+    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600, 60))
+    .AddDocuments(new PlainTextDocumentLoader(), "data.txt",  new RecursiveTextSplitter(300, 30))
+    .WithTextSplitter(new RecursiveTextSplitter(500, 50))  // 残りのデフォルト
 )
 ```
 
@@ -82,5 +82,5 @@ public class SentenceSplitter : ITextSplitter
 }
 
 // 登録:
-.UseCustomSplitter(new SentenceSplitter())
+.WithTextSplitter(new SentenceSplitter())
 ```

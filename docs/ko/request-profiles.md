@@ -1,10 +1,10 @@
 # AIRequestProfile
 
-## 이것은 무엇인가요?
+## 개요
 
 `AIRequestProfile`은 생성 파라미터 — Temperature, MaxTokens, Stateless 모드, 함수 호출 — 를 **단일 요청에 대해서만** 오버라이드합니다. 서비스의 전역 설정은 그대로 유지됩니다.
 
-## 어떤 문제를 해결하나요?
+## 기존 방식의 한계
 
 창의적인 대화용으로 설정된 챗봇이 있다고 가정합니다:
 

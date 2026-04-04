@@ -7,7 +7,7 @@
 
 - name: 핵심 기능
   items:
-  - name: 기본 완성
+  - name: 기본 텍스트 생성
     href: completions.md
   - name: 생성 파라미터
     href: generation-params.md
