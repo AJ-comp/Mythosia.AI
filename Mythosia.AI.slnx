@@ -10,6 +10,9 @@
     <Project Path="src/loaders/Mythosia.Documents.Office/Mythosia.Documents.Office.csproj" />
     <Project Path="src/loaders/Mythosia.Documents.Pdf/Mythosia.Documents.Pdf.csproj" />
   </Folder>
+  <Folder Name="/src/integrations/">
+    <Project Path="src/integrations/Mythosia.AI.Mcp/Mythosia.AI.Mcp.csproj" />
+  </Folder>
   <Folder Name="/src/rag/">
     <Project Path="src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
     <Project Path="src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
@@ -28,6 +31,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
-    <Project Path="tests/Mythosia.VectorDb.Postgres.Tests/Mythosia.VectorDb.Postgres.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj" />
+    <Project Path="tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj" />
   </Folder>
 </Solution>

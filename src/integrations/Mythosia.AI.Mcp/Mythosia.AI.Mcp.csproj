@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>Mythosia.AI.Mcp</PackageId>
+    <IsPackable>true</IsPackable>
+    <Company>Mythosia</Company>
+    <PackageTags>AI;MCP;ModelContextProtocol;Tools;FunctionCalling</PackageTags>
+    <Authors>JJW</Authors>
+    <Description>MCP (Model Context Protocol) client integration for Mythosia.AI. Connect to any MCP server (stdio or SSE) and automatically register its tools as FunctionDefinitions usable by all AI providers.</Description>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>v0.0.1-preview: Initial preview — McpConnection, StdioTransport, automatic MCP tool-to-FunctionDefinition bridging, AIService.WithMcpServerAsync() extension method.</PackageReleaseNotes>
+    <Version>0.0.1-preview</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mythosia.AI.Mcp.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\Mythosia.AI\Mythosia.AI.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>
