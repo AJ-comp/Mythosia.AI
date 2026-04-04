@@ -1,4 +1,4 @@
-﻿# Mythosia.VectorDb.Postgres - Release Notes
+# Mythosia.VectorDb.Postgres - Release Notes
 
 ## v10.7.1
 

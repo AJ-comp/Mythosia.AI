@@ -1,23 +1,23 @@
-# [To-Be] ¼ÒºñÀÚ API °³¼±
+# [To-Be] ì†Œë¹„ì API ê°œì„ 
 
-> **ÇÙ½É ¸ñÇ¥**: ¿ÜºÎ¿¡¼­ ±ò²ûÇÏ°í ¿ì¾ÆÇÏ°Ô »ç¿ëÇÒ ¼ö ÀÖ¾î¾ß ÇÑ´Ù. ¸ğµ¨ ÀüÈ¯ÀÌ ÇÑ ÁÙÀÌ¾î¾ß ÇÑ´Ù.
+> **í•µì‹¬ ëª©í‘œ**: ì™¸ë¶€ì—ì„œ ê¹”ë”í•˜ê³  ìš°ì•„í•˜ê²Œ ì‚¬ìš©í•  ìˆ˜ ìˆì–´ì•¼ í•œë‹¤. ëª¨ë¸ ì „í™˜ì´ í•œ ì¤„ì´ì–´ì•¼ í•œë‹¤.
 
-## As-Is ? ÇöÀçÀÇ ºÒÆíÇÔ
+## As-Is â€” í˜„ì¬ì˜ ë¶ˆí¸í•¨
 
 ```csharp
-// ÇÁ·Î¹ÙÀÌ´õ¸¶´Ù ¼­ºñ½º Å¸ÀÔÀ» ¾Ë¾Æ¾ß ÇÏ°í, HttpClient¸¦ Á÷Á¢ °ü¸®ÇØ¾ß ÇÔ
+// í”„ë¡œë°”ì´ë”ë§ˆë‹¤ ì„œë¹„ìŠ¤ íƒ€ì…ì„ ì•Œì•„ì•¼ í•˜ê³ , HttpClientë¥¼ ì§ì ‘ ê´€ë¦¬í•´ì•¼ í•¨
 var httpClient = new HttpClient();
 var gpt = new OpenAIService("sk-...", httpClient);
 var response = await gpt.GetCompletionAsync("hello");
 
-// ¸ğµ¨ ÀüÈ¯? ¡æ ¼­ºñ½º »õ·Î »ı¼ºÇØ¾ß ÇÔ
+// ëª¨ë¸ ì „í™˜? â†’ ì„œë¹„ìŠ¤ ìƒˆë¡œ ìƒì„±í•´ì•¼ í•¨
 var httpClient2 = new HttpClient();
 var claude = new AnthropicService("sk-ant-...", httpClient2);
 ```
 
-## To-Be ? ÀÌ»óÀûÀÎ ¼ÒºñÀÚ °æÇè
+## To-Be â€” ì´ìƒì ì¸ ì†Œë¹„ì ê²½í—˜
 
-### 1. ÇÑ ÁÙ µî·Ï
+### 1. í•œ ì¤„ ë“±ë¡
 
 ```csharp
 services.AddMythosiaAI(o =>
@@ -28,31 +28,31 @@ services.AddMythosiaAI(o =>
 });
 ```
 
-### 2. ¸ğµ¨ ±â¹İ »ç¿ë ? ÇÁ·Î¹ÙÀÌ´õ¸¦ ¸ô¶óµµ µÊ
+### 2. ëª¨ë¸ ê¸°ë°˜ ì‚¬ìš© â€” í”„ë¡œë°”ì´ë”ë¥¼ ëª°ë¼ë„ ë¨
 
 ```csharp
 public class ChatController(IAIServiceFactory ai)
 {
     public async Task<string> Ask(string prompt)
     {
-        // ¸ğµ¨¸¸ ÁöÁ¤ÇÏ¸é ÇÁ·Î¹ÙÀÌ´õ´Â ÀÚµ¿ °áÁ¤
+        // ëª¨ë¸ë§Œ ì§€ì •í•˜ë©´ í”„ë¡œë°”ì´ë”ëŠ” ìë™ ê²°ì •
         var service = ai.Create(AIModel.Gpt4oMini);
         return await service.GetCompletionAsync(prompt);
     }
 }
 ```
 
-### 3. ¸ğµ¨ ÀüÈ¯ÀÌ ÇÑ ÁÙ
+### 3. ëª¨ë¸ ì „í™˜ì´ í•œ ì¤„
 
 ```csharp
-// GPT ¡æ Claude ÀüÈ¯
+// GPT â†’ Claude ì „í™˜
 var service = ai.Create(AIModel.Claude4Sonnet);
 
-// ´ëÈ­ ÀÌ·Âµµ ±×´ë·Î ÀÌ¾î°¡±â
+// ëŒ€í™” ì´ë ¥ë„ ê·¸ëŒ€ë¡œ ì´ì–´ê°€ê¸°
 var service = ai.Create(AIModel.Claude4Sonnet).CopyFrom(previousService);
 ```
 
-### 4. ½ºÆ®¸®¹Öµµ µ¿ÀÏÇÑ ÆĞÅÏ
+### 4. ìŠ¤íŠ¸ë¦¬ë°ë„ ë™ì¼í•œ íŒ¨í„´
 
 ```csharp
 var service = ai.Create(AIModel.Gpt4oMini);
@@ -63,11 +63,11 @@ await foreach (var chunk in service.StreamAsync("explain quantum computing"))
 }
 ```
 
-## ¼³°è ¿øÄ¢
+## ì„¤ê³„ ì›ì¹™
 
-| ¿øÄ¢ | ¼³¸í |
+| ì›ì¹™ | ì„¤ëª… |
 |------|------|
-| **ÇÁ·Î¹ÙÀÌ´õ ¹«°ü** | ¼ÒºñÀÚ´Â `AIModel` enum¸¸ ¾Ë¸é µÊ |
-| **HttpClient Åõ¸í** | `IHttpClientFactory`¸¦ ³»ºÎ¿¡¼­ »ç¿ë, ¼ÒºñÀÚ¿¡°Ô ³ëÃâÇÏÁö ¾ÊÀ½ |
-| **±âÁ¸ È£È¯** | `new OpenAIService(key, httpClient)` ¹æ½Äµµ °è¼Ó µ¿ÀÛ |
-| **¼³Á¤ ºĞ¸®** | API Å°´Â µî·Ï ½Ã, ¸ğµ¨ ¼±ÅÃÀº »ç¿ë ½Ã |
+| **í”„ë¡œë°”ì´ë” ë¬´ê´€** | ì†Œë¹„ìëŠ” `AIModel` enumë§Œ ì•Œë©´ ë¨ |
+| **HttpClient íˆ¬ëª…** | `IHttpClientFactory`ë¥¼ ë‚´ë¶€ì—ì„œ ì‚¬ìš©, ì†Œë¹„ìì—ê²Œ ë…¸ì¶œí•˜ì§€ ì•ŠìŒ |
+| **ê¸°ì¡´ í˜¸í™˜** | `new OpenAIService(key, httpClient)` ë°©ì‹ë„ ê³„ì† ë™ì‘ |
+| **ì„¤ì • ë¶„ë¦¬** | API í‚¤ëŠ” ë“±ë¡ ì‹œ, ëª¨ë¸ ì„ íƒì€ ì‚¬ìš© ì‹œ |

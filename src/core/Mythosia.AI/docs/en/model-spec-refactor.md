@@ -35,13 +35,13 @@
 ## Resolution Rules
 
 1. When `Model` is set, attempt resolve via **ModelSpecRegistry**
-2. **Resolved** ¡æ apply capability/limit from ModelSpec
-3. **Not resolved** ¡æ use existing per-service string parsing
+2. **Resolved** â†’ apply capability/limit from ModelSpec
+3. **Not resolved** â†’ use existing per-service string parsing
 4. Unknown strings must still work reliably
 
 ## Expected Benefits
 
-- Centralized metadata for known models ¡æ **better maintainability**
+- Centralized metadata for known models â†’ **better maintainability**
 - Keeps **flexibility** for custom models
 - Enables **gradual migration**
 

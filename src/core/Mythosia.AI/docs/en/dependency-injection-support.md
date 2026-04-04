@@ -2,7 +2,7 @@
 
 > **Core goal**: The external API must be clean and elegant. Model switching must be a single line.
 
-## As-Is ? Current friction
+## As-Is â€” Current friction
 
 ```csharp
 // Must know the concrete service type per provider, manage HttpClient manually
@@ -10,12 +10,12 @@ var httpClient = new HttpClient();
 var gpt = new OpenAIService("sk-...", httpClient);
 var response = await gpt.GetCompletionAsync("hello");
 
-// Switch model? ¡æ must create a new service instance
+// Switch model? â†’ must create a new service instance
 var httpClient2 = new HttpClient();
 var claude = new AnthropicService("sk-ant-...", httpClient2);
 ```
 
-## To-Be ? Ideal consumer experience
+## To-Be â€” Ideal consumer experience
 
 ### 1. One-line registration
 
@@ -28,7 +28,7 @@ services.AddMythosiaAI(o =>
 });
 ```
 
-### 2. Model-based usage ? no need to know the provider
+### 2. Model-based usage â€” no need to know the provider
 
 ```csharp
 public class ChatController(IAIServiceFactory ai)
@@ -45,7 +45,7 @@ public class ChatController(IAIServiceFactory ai)
 ### 3. Model switching in one line
 
 ```csharp
-// GPT ¡æ Claude
+// GPT â†’ Claude
 var service = ai.Create(AIModel.Claude4Sonnet);
 
 // Carry over conversation history

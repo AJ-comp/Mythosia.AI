@@ -513,7 +513,7 @@ ChatGPT (Responses API) streaming now correctly handles the `response.function_c
 
 ---
 
-## � v4.6.1 - Streaming Error Content & Claude Thinking Budget Fix
+## 🚀 v4.6.1 - Streaming Error Content & Claude Thinking Budget Fix
 
 ### **Streaming Error Content** 🐛
 
@@ -564,7 +564,7 @@ claude.ThinkingBudget = 8192;  // budget_tokens == max_tokens → auto-adjusted 
 
 ---
 
-## �� v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
+## 🚀 v4.6.0 - Conversation Summary Policy & Real-Time Streaming Fix
 
 ### **SummaryConversationPolicy** 🧠
 
@@ -904,7 +904,7 @@ await foreach (var content in grokService.StreamAsync(message, StreamOptions.Wit
 
 ---
 
-## � v4.2.0 - Claude Sonnet 4.6 & Deprecated Model Cleanup
+## 🚀 v4.2.0 - Claude Sonnet 4.6 & Deprecated Model Cleanup
 
 ### **New Model: Claude Sonnet 4.6** ✨
 
@@ -932,7 +932,7 @@ All Claude 3.x models have been retired by Anthropic and are removed from the li
 
 ---
 
-## �🔧 v4.1.0 - Error Reporting, New Claude Models & Code Quality
+## 🔧 v4.1.0 - Error Reporting, New Claude Models & Code Quality
 
 ### **Enhanced Error Reporting** 🚨
 
@@ -1066,7 +1066,7 @@ When function calling is disabled (`FunctionsDisabled = true`), function-related
 
 ---
 
-## �🚀 What's New in v4.0.0
+## 🚀 What's New in v4.0.0
 
 ### **Architecture: Configuration moved from ChatBlock to AIService** 🏗️
 

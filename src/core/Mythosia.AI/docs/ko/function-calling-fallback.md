@@ -1,41 +1,41 @@
-# Function Calling (FC) Fallback: FC ON ¡æ FC OFF
+# Function Calling (FC) Fallback: FC ON â†’ FC OFF
 
-## ÇÙ½É ¹®Á¦
+## í•µì‹¬ ë¬¸ì œ
 
-FC ON ´ëÈ­ È÷½ºÅä¸®¸¦ FC OFF (ºñÇÔ¼ö) API °æ·Î·Î Àü¼ÛÇÏ¸é µÎ °¡Áö ¹®Á¦·Î ¸ğµç ÇÁ·Î¹ÙÀÌ´õ¿¡¼­ `400 Bad Request` ¿¡·¯°¡ ¹ß»ıÇÕ´Ï´Ù:
+FC ON ëŒ€í™” íˆìŠ¤í† ë¦¬ë¥¼ FC OFF (ë¹„í•¨ìˆ˜) API ê²½ë¡œë¡œ ì „ì†¡í•˜ë©´ ë‘ ê°€ì§€ ë¬¸ì œë¡œ ëª¨ë“  í”„ë¡œë°”ì´ë”ì—ì„œ `400 Bad Request` ì—ëŸ¬ê°€ ë°œìƒí•©ë‹ˆë‹¤:
 
-1. **`Role = Function`Àº FC OFF¿¡¼­ À¯È¿ÇÏÁö ¾ÊÀ½** ? Claude, OpenAI, Gemini ¸ğµÎ Function CallingÀÌ ºñÈ°¼ºÈ­µÈ »óÅÂ¿¡¼­ `"function"` roleÀ» °ÅºÎÇÕ´Ï´Ù. `User`¿Í `Assistant` role¸¸ Çã¿ëµË´Ï´Ù.
+1. **`Role = Function`ì€ FC OFFì—ì„œ ìœ íš¨í•˜ì§€ ì•ŠìŒ** â€” Claude, OpenAI, Gemini ëª¨ë‘ Function Callingì´ ë¹„í™œì„±í™”ëœ ìƒíƒœì—ì„œ `"function"` roleì„ ê±°ë¶€í•©ë‹ˆë‹¤. `User`ì™€ `Assistant` roleë§Œ í—ˆìš©ë©ë‹ˆë‹¤.
 
-2. **`Assistant`ÀÇ content°¡ ºñ¾î ÀÖÀ½** ? FC ON¿¡¼­ AI°¡ ÇÔ¼ö¸¦ È£ÃâÇÒ ¶§, assistant ¸Ş½ÃÁöÀÇ content´Â ºñ¾î ÀÖ°í ½ÇÁ¦ È£Ãâ Á¤º¸´Â metadata¿¡ ÀÖ½À´Ï´Ù. FC OFF¿¡¼­´Â ºó assistant content°¡ °ËÁõ ¿¡·¯¸¦ ¹ß»ı½ÃÅµ´Ï´Ù (Æ¯È÷ Claude).
+2. **`Assistant`ì˜ contentê°€ ë¹„ì–´ ìˆìŒ** â€” FC ONì—ì„œ AIê°€ í•¨ìˆ˜ë¥¼ í˜¸ì¶œí•  ë•Œ, assistant ë©”ì‹œì§€ì˜ contentëŠ” ë¹„ì–´ ìˆê³  ì‹¤ì œ í˜¸ì¶œ ì •ë³´ëŠ” metadataì— ìˆìŠµë‹ˆë‹¤. FC OFFì—ì„œëŠ” ë¹ˆ assistant contentê°€ ê²€ì¦ ì—ëŸ¬ë¥¼ ë°œìƒì‹œí‚µë‹ˆë‹¤ (íŠ¹íˆ Claude).
 
-## ÇØ°á
+## í•´ê²°
 
-FC OFFÀÏ ¶§, Àü¼Û Àü¿¡ ´ÙÀ½°ú °°ÀÌ º¯È¯ÇÕ´Ï´Ù:
+FC OFFì¼ ë•Œ, ì „ì†¡ ì „ì— ë‹¤ìŒê³¼ ê°™ì´ ë³€í™˜í•©ë‹ˆë‹¤:
 
-| ¸Ş½ÃÁö | ¹®Á¦ | Ã³¸® |
+| ë©”ì‹œì§€ | ë¬¸ì œ | ì²˜ë¦¬ |
 |--------|------|------|
-| `Function` role (°á°ú) | `"function"` role °ÅºÎµÊ | roleÀ» `User`·Î º¯°æ, ÇÔ¼ö °á°ú¸¦ content¿¡ ±â·Ï |
-| `Assistant` (ÇÔ¼ö È£Ãâ) | content°¡ ºñ¾î ÀÖÀ½ | È£ÃâÇÑ ÇÔ¼ö ³»¿ªÀ» content¿¡ ±â·Ï |
+| `Function` role (ê²°ê³¼) | `"function"` role ê±°ë¶€ë¨ | roleì„ `User`ë¡œ ë³€ê²½, í•¨ìˆ˜ ê²°ê³¼ë¥¼ contentì— ê¸°ë¡ |
+| `Assistant` (í•¨ìˆ˜ í˜¸ì¶œ) | contentê°€ ë¹„ì–´ ìˆìŒ | í˜¸ì¶œí•œ í•¨ìˆ˜ ë‚´ì—­ì„ contentì— ê¸°ë¡ |
 
-`GetLatestMessagesWithFunctionFallback()`¿¡¼­ Ã³¸®ÇÏ¸ç, ChatBlockÀÇ ¿øº» ¸Ş½ÃÁö´Â ¼öÁ¤ÇÏÁö ¾Ê½À´Ï´Ù.
+`GetLatestMessagesWithFunctionFallback()`ì—ì„œ ì²˜ë¦¬í•˜ë©°, ChatBlockì˜ ì›ë³¸ ë©”ì‹œì§€ëŠ” ìˆ˜ì •í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
 
-### º¯È¯ ¿¹½Ã
+### ë³€í™˜ ì˜ˆì‹œ
 
 ```text
-[FC ON ? ChatBlock¿¡ ÀúÀåµÈ È÷½ºÅä¸®]
-  User: "¼­¿ï ³¯¾¾ ¾Ë·ÁÁà"
-  Assistant: (ºó content, metadata: function_call=get_weather)      ¡ç ¹®Á¦: ºó content
-  Function: "Seoul: 15¡ÆC, Clear"                                    ¡ç ¹®Á¦: À¯È¿ÇÏÁö ¾ÊÀº role
-  Assistant: "¼­¿ïÀÇ ³¯¾¾´Â 15¡ÆCÀÌ¸ç ¸¼½À´Ï´Ù."
+[FC ON â€” ChatBlockì— ì €ì¥ëœ íˆìŠ¤í† ë¦¬]
+  User: "ì„œìš¸ ë‚ ì”¨ ì•Œë ¤ì¤˜"
+  Assistant: (ë¹ˆ content, metadata: function_call=get_weather)      â† ë¬¸ì œ: ë¹ˆ content
+  Function: "Seoul: 15Â°C, Clear"                                    â† ë¬¸ì œ: ìœ íš¨í•˜ì§€ ì•Šì€ role
+  Assistant: "ì„œìš¸ì˜ ë‚ ì”¨ëŠ” 15Â°Cì´ë©° ë§‘ìŠµë‹ˆë‹¤."
 
-[FC OFF Àü¼Û ½Ã º¯È¯ °á°ú]
-  User: "¼­¿ï ³¯¾¾ ¾Ë·ÁÁà"
-  Assistant: "[Called get_weather({"city":"Seoul"})]"                ¡ç È£Ãâ ³»¿ªÀ¸·Î Ã¤¿ò
-  User: "[Function get_weather returned: Seoul: 15¡ÆC, Clear]"      ¡ç roleÀ» User·Î º¯°æ
-  Assistant: "¼­¿ïÀÇ ³¯¾¾´Â 15¡ÆCÀÌ¸ç ¸¼½À´Ï´Ù."
+[FC OFF ì „ì†¡ ì‹œ ë³€í™˜ ê²°ê³¼]
+  User: "ì„œìš¸ ë‚ ì”¨ ì•Œë ¤ì¤˜"
+  Assistant: "[Called get_weather({"city":"Seoul"})]"                â† í˜¸ì¶œ ë‚´ì—­ìœ¼ë¡œ ì±„ì›€
+  User: "[Function get_weather returned: Seoul: 15Â°C, Clear]"      â† roleì„ Userë¡œ ë³€ê²½
+  Assistant: "ì„œìš¸ì˜ ë‚ ì”¨ëŠ” 15Â°Cì´ë©° ë§‘ìŠµë‹ˆë‹¤."
 ```
 
-## ±¸Çö
+## êµ¬í˜„
 
 ```csharp
 // AIService.cs
@@ -43,7 +43,7 @@ internal IEnumerable<Message> GetLatestMessagesWithFunctionFallback()
 {
     foreach (var message in GetLatestMessages())
     {
-        // ºó contentÀÇ Assistant (ÇÔ¼ö È£Ãâ) ¡æ È£Ãâ ³»¿ªÀ» content¿¡ ±â·Ï
+        // ë¹ˆ contentì˜ Assistant (í•¨ìˆ˜ í˜¸ì¶œ) â†’ í˜¸ì¶œ ë‚´ì—­ì„ contentì— ê¸°ë¡
         if (message.Role == ActorRole.Assistant &&
             message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)
                 ?.ToString() == "function_call")
@@ -54,7 +54,7 @@ internal IEnumerable<Message> GetLatestMessagesWithFunctionFallback()
             continue;
         }
 
-        // Function role ¡æ User role·Î º¯°æ, °á°ú¸¦ content·Î À¯Áö
+        // Function role â†’ User roleë¡œ ë³€ê²½, ê²°ê³¼ë¥¼ contentë¡œ ìœ ì§€
         if (message.Role == ActorRole.Function)
         {
             var funcName = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "function";
@@ -67,12 +67,12 @@ internal IEnumerable<Message> GetLatestMessagesWithFunctionFallback()
 }
 ```
 
-°¢ ¼­ºñ½ºÀÇ ºñÇÔ¼ö `BuildRequestBody()`¿¡ Àû¿ë:
+ê° ì„œë¹„ìŠ¤ì˜ ë¹„í•¨ìˆ˜ `BuildRequestBody()`ì— ì ìš©:
 
 - `AnthropicService.Parsing.cs`
 - `OpenAIService.Parsing.cs` (`BuildNewApiBody()`, `BuildLegacyApiBody()`)
 - `GoogleAIService.Parsing.cs`
 
-## °ü·Ã
+## ê´€ë ¨
 
-**MaxTokens ÀÚµ¿ Ä¸ÇÎ**(`GetEffectiveMaxTokens()`)°ú ÇÔ²² µ¿ÀÛÇÕ´Ï´Ù ? `RELEASE_NOTES.md` v4.0.1 ÂüÁ¶.
+**MaxTokens ìë™ ìº¡í•‘**(`GetEffectiveMaxTokens()`)ê³¼ í•¨ê»˜ ë™ì‘í•©ë‹ˆë‹¤ â€” `RELEASE_NOTES.md` v4.0.1 ì°¸ì¡°.

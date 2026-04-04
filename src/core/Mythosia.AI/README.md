@@ -1,4 +1,4 @@
-﻿# Mythosia.AI
+# Mythosia.AI
 
 > ⚠️ **Upgrading from v5.x?** See the **[v6.0 Migration Guide](RELEASE_NOTES.md#migration-from-v5x)**.
 

@@ -1,4 +1,4 @@
-﻿# AIRequestContext
+# AIRequestContext
 
 ## Огляд
 

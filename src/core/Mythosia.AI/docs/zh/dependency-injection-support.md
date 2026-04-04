@@ -1,23 +1,23 @@
-# [To-Be] á¼?íºAPIËÇ?
+# [To-Be] æ¶ˆè´¹è€…APIæ”¹å–„
 
-> **ú·ãıÙÍ?**: èâİ»ŞÅéÄù±????äº¡£Ù¼úşï·?ù±?ìéú¼?ïÒ¡£
+> **æ ¸å¿ƒç›®æ ‡**: å¤–éƒ¨ä½¿ç”¨å¿…é¡»æ•´æ´ä¼˜é›…ã€‚æ¨¡å‹åˆ‡æ¢å¿…é¡»ä¸€è¡Œæå®šã€‚
 
-## As-Is ? ?îñîÜÜôøµ
+## As-Is â€” å½“å‰çš„ä¸ä¾¿
 
 ```csharp
-// Øß?ğ«ÍêßÂÔ´âÍé©ò±Ô³Îı?îÜÜ×??úş£¬?é©â¢?Î·×âHttpClient
+// æ¯ä¸ªæä¾›å•†éƒ½éœ€è¦çŸ¥é“å…·ä½“çš„æœåŠ¡ç±»å‹ï¼Œè¿˜è¦æ‰‹åŠ¨ç®¡ç†HttpClient
 var httpClient = new HttpClient();
 var gpt = new OpenAIService("sk-...", httpClient);
 var response = await gpt.GetCompletionAsync("hello");
 
-// ï·?Ù¼úş£¿¡æ âÍé©ñìãæ?ËïÜ×??ÖÇ
+// åˆ‡æ¢æ¨¡å‹ï¼Ÿâ†’ éœ€è¦é‡æ–°åˆ›å»ºæœåŠ¡å®ä¾‹
 var httpClient2 = new HttpClient();
 var claude = new AnthropicService("sk-ant-...", httpClient2);
 ```
 
-## To-Be ? ×âßÌîÜá¼?íº??
+## To-Be â€” ç†æƒ³çš„æ¶ˆè´¹è€…ä½“éªŒ
 
-### 1. ìéú¼ñ¼?
+### 1. ä¸€è¡Œæ³¨å†Œ
 
 ```csharp
 services.AddMythosiaAI(o =>
@@ -28,31 +28,31 @@ services.AddMythosiaAI(o =>
 });
 ```
 
-### 2. ĞñéÍÙ¼úşŞÅéÄ ? ÙéâÍò±Ô³ğ«ÍêßÂ
+### 2. åŸºäºæ¨¡å‹ä½¿ç”¨ â€” æ— éœ€çŸ¥é“æä¾›å•†
 
 ```csharp
 public class ChatController(IAIServiceFactory ai)
 {
     public async Task<string> Ask(string prompt)
     {
-        // ñşâÍò¦ïÒÙ¼úş£¬ğ«ÍêßÂí»??ïÒ
+        // åªéœ€æŒ‡å®šæ¨¡å‹ï¼Œæä¾›å•†è‡ªåŠ¨å†³å®š
         var service = ai.Create(AIModel.Gpt4oMini);
         return await service.GetCompletionAsync(prompt);
     }
 }
 ```
 
-### 3. Ù¼úşï·?ñşâÍìéú¼
+### 3. æ¨¡å‹åˆ‡æ¢åªéœ€ä¸€è¡Œ
 
 ```csharp
-// GPT ¡æ Claude ï·?
+// GPT â†’ Claude åˆ‡æ¢
 var service = ai.Create(AIModel.Claude4Sonnet);
 
-// ???ŞÈå¥Ê¦ì¤òÁïÈ?ã¯
+// å¯¹è¯å†å²ä¹Ÿå¯ä»¥ç›´æ¥ç»§æ‰¿
 var service = ai.Create(AIModel.Claude4Sonnet).CopyFrom(previousService);
 ```
 
-### 4. ×µãÒ?õóÔÒ?îÜÙ¼ãÒ
+### 4. æµå¼è¾“å‡ºåŒæ ·çš„æ¨¡å¼
 
 ```csharp
 var service = ai.Create(AIModel.Gpt4oMini);
@@ -63,11 +63,11 @@ await foreach (var chunk in service.StreamAsync("explain quantum computing"))
 }
 ```
 
-## ??ê«?
+## è®¾è®¡åŸåˆ™
 
-| ê«? | ?Ù¥ |
+| åŸåˆ™ | è¯´æ˜ |
 |------|------|
-| **ğ«ÍêßÂÙé?** | á¼?íºñşâÍò±Ô³ `AIModel` enum |
-| **HttpClient÷âÙ¥** | ?İ»ŞÅéÄ `IHttpClientFactory`£¬Üôú¾á¼?íºøìÖÚ |
-| **ú¾ı¨ÌÂé»** | `new OpenAIService(key, httpClient)` Û°ãÒ??êóüù |
-| **ÛÕöÇİÂ?** | APIÚË?î¤ñ¼??£¬Ù¼úş??î¤ŞÅéÄ? |
+| **æä¾›å•†æ— å…³** | æ¶ˆè´¹è€…åªéœ€çŸ¥é“ `AIModel` enum |
+| **HttpClienté€æ˜** | å†…éƒ¨ä½¿ç”¨ `IHttpClientFactory`ï¼Œä¸å‘æ¶ˆè´¹è€…æš´éœ² |
+| **å‘åå…¼å®¹** | `new OpenAIService(key, httpClient)` æ–¹å¼ä»ç„¶æœ‰æ•ˆ |
+| **é…ç½®åˆ†ç¦»** | APIå¯†é’¥åœ¨æ³¨å†Œæ—¶ï¼Œæ¨¡å‹é€‰æ‹©åœ¨ä½¿ç”¨æ—¶ |

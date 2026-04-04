@@ -1,4 +1,4 @@
-﻿# AIRequestProfile
+# AIRequestProfile
 
 ## Огляд
 
