@@ -1,5 +1,7 @@
 # Re-Ranking & Retrieval-Tuning
 
+> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → **`Re-Ranking`** → Kontextaufbau
+
 ## Warum Re-Ranking?
 
 Die Vektorsuche gibt Kandidaten sortiert nach Embedding-Ähnlichkeit zurück, aber Embedding-Ähnlichkeit ist eine **Annäherung**. Ein Abschnitt mit Bewertung 0,82 kann tatsächlich relevanter sein als einer mit 0,85 — das Embedding konnte sie einfach nicht auseinanderhalten.

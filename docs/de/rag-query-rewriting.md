@@ -1,5 +1,7 @@
 # Query-Umschreibung
 
+> 📍 **Fragen & Antworten Pipeline:** **`Query-Umschreibung`** → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → Kontextaufbau
+
 ## Warum Query-Umschreibung?
 
 In einem Mehrturngespräch verwenden Nutzer natürlich Pronomen und kurze Referenzen:

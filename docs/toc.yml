@@ -37,18 +37,24 @@
     href: rag.md
   - name: Document Preparation
     items:
-    - name: Text Splitters
-      href: text-splitters.md
     - name: Document Loaders
       href: document-loaders.md
+    - name: Text Splitters
+      href: text-splitters.md
   - name: Question Answering
     items:
-    - name: Hybrid Search
-      href: rag-hybrid-search.md
     - name: Query Rewriting
       href: rag-query-rewriting.md
+    - name: Embedding
+      href: rag-embedding.md
+    - name: Filtering
+      href: rag-filtering.md
+    - name: Hybrid Search
+      href: rag-hybrid-search.md
     - name: Re-ranking & Retrieval Tuning
       href: rag-reranking.md
+    - name: Context Build
+      href: rag-context-build.md
   - name: Pipeline Customization
     href: rag-pipeline.md
   - name: Agentic RAG

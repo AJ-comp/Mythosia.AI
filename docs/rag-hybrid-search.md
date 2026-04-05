@@ -1,5 +1,7 @@
 # Hybrid Search
 
+> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → Embedding → Filtering → **`Retrieval`** → [Re-ranking](rag-reranking.md) → Context Build
+
 ## Why Hybrid Search?
 
 Pure vector search excels at capturing semantic meaning — "cancel my subscription" matches "terminate membership" even though they share no words. However, it can miss **exact terms** like product names, error codes, or policy identifiers that a user types verbatim.

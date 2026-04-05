@@ -1,5 +1,7 @@
 # Re-ranking & Retrieval Tuning
 
+> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → **`Re-ranking`** → Context Build
+
 ## Why Re-ranking?
 
 Vector search returns candidates sorted by embedding similarity, but embedding similarity is an **approximation**. A chunk that scores 0.82 might actually be more relevant than one scoring 0.85 — the embedding just couldn't tell them apart.

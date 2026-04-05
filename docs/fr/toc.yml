@@ -37,18 +37,24 @@
     href: rag.md
   - name: Préparation des documents
     items:
-    - name: Découpeurs de texte
-      href: text-splitters.md
     - name: Chargeurs de documents
       href: document-loaders.md
+    - name: Découpeurs de texte
+      href: text-splitters.md
   - name: Questions-réponses
     items:
-    - name: Recherche hybride
-      href: rag-hybrid-search.md
     - name: Réécriture de requête
       href: rag-query-rewriting.md
+    - name: Embedding
+      href: rag-embedding.md
+    - name: Filtrage
+      href: rag-filtering.md
+    - name: Recherche hybride
+      href: rag-hybrid-search.md
     - name: Re-ranking & réglage de la récupération
       href: rag-reranking.md
+    - name: Construction du contexte
+      href: rag-context-build.md
   - name: Personnalisation du pipeline
     href: rag-pipeline.md
   - name: RAG agentique

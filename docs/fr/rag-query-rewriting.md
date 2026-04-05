@@ -1,5 +1,7 @@
 # Réécriture de requête
 
+> 📍 **Pipeline questions-réponses :** **`Réécriture de requête`** → Embedding → Filtrage → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Construction du contexte
+
 ## Pourquoi réécrire les requêtes ?
 
 Dans une conversation multi-tours, les utilisateurs utilisent naturellement des pronoms et des références courtes :

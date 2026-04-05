@@ -1,5 +1,7 @@
 # Recherche hybride
 
+> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → Embedding → Filtrage → **`Recherche`** → [Re-ranking](rag-reranking.md) → Construction du contexte
+
 ## Pourquoi la recherche hybride ?
 
 La recherche vectorielle pure excelle à capturer le sens sémantique — « annuler mon abonnement » correspond à « résilier mon adhésion » même s'ils ne partagent aucun mot. Mais elle peut rater les **termes exacts** comme les noms de produits, les codes d'erreur ou les identifiants de politique que les utilisateurs saisissent mot pour mot.

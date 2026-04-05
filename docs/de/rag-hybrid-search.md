@@ -1,5 +1,7 @@
 # Hybridsuche
 
+> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → Embedding → Filtering → **`Retrieval`** → [Re-Ranking](rag-reranking.md) → Kontextaufbau
+
 ## Warum Hybridsuche?
 
 Reine Vektorsuche ist gut darin, semantische Bedeutung zu erfassen — „Abonnement kündigen" passt zu „Mitgliedschaft beenden", obwohl sie keine Wörter teilen. Bei **exakten Begriffen** wie Produktnamen, Fehlercodes oder Richtlinienkennzeichen, die Nutzer wörtlich eintippen, kann sie aber versagen.

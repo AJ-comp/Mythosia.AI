@@ -1,5 +1,7 @@
 # Query Rewriting
 
+> 📍 **Question Answering Pipeline:** **`Query Rewriting`** → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Context Build
+
 ## Why Query Rewriting?
 
 In a multi-turn conversation, users naturally use pronouns and short references:

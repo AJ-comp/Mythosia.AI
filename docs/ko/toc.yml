@@ -37,18 +37,24 @@
     href: rag.md
   - name: 문서 준비
     items:
-    - name: 텍스트 분할기
-      href: text-splitters.md
     - name: 문서 로더
       href: document-loaders.md
+    - name: 텍스트 분할기
+      href: text-splitters.md
   - name: 질문 응답
     items:
-    - name: 하이브리드 검색
-      href: rag-hybrid-search.md
     - name: 쿼리 재작성
       href: rag-query-rewriting.md
+    - name: 임베딩
+      href: rag-embedding.md
+    - name: 필터링
+      href: rag-filtering.md
+    - name: 하이브리드 검색
+      href: rag-hybrid-search.md
     - name: 재순위 & 검색 튜닝
       href: rag-reranking.md
+    - name: 컨텍스트 구성
+      href: rag-context-build.md
   - name: 파이프라인 커스터마이징
     href: rag-pipeline.md
   - name: 에이전틱 RAG

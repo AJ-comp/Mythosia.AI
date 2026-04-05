@@ -1,5 +1,7 @@
 # Re-ranking & réglage de la récupération
 
+> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → Embedding → Filtrage → [Recherche](rag-hybrid-search.md) → **`Re-ranking`** → Construction du contexte
+
 ## Pourquoi le re-ranking ?
 
 La recherche vectorielle retourne des candidats triés par similarité d'embedding, mais cette similarité est une **approximation**. Un passage avec un score de 0,82 peut en réalité être plus pertinent qu'un passage à 0,85 — l'embedding ne pouvait tout simplement pas les distinguer.

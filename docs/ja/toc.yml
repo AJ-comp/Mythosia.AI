@@ -37,18 +37,24 @@
     href: rag.md
   - name: ドキュメント準備
     items:
-    - name: テキストスプリッター
-      href: text-splitters.md
     - name: ドキュメントローダー
       href: document-loaders.md
+    - name: テキストスプリッター
+      href: text-splitters.md
   - name: 質問応答
     items:
-    - name: ハイブリッド検索
-      href: rag-hybrid-search.md
     - name: クエリ書き換え
       href: rag-query-rewriting.md
+    - name: 埋め込み
+      href: rag-embedding.md
+    - name: フィルタリング
+      href: rag-filtering.md
+    - name: ハイブリッド検索
+      href: rag-hybrid-search.md
     - name: 再ランキング & 検索チューニング
       href: rag-reranking.md
+    - name: コンテキスト構築
+      href: rag-context-build.md
   - name: パイプラインカスタマイズ
     href: rag-pipeline.md
   - name: エージェンティックRAG

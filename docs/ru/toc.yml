@@ -37,18 +37,24 @@
     href: rag.md
   - name: Подготовка документов
     items:
-    - name: Разделители текста
-      href: text-splitters.md
     - name: Загрузчики документов
       href: document-loaders.md
+    - name: Разделители текста
+      href: text-splitters.md
   - name: Вопрос-ответ
     items:
-    - name: Гибридный поиск
-      href: rag-hybrid-search.md
     - name: Переписывание запросов
       href: rag-query-rewriting.md
+    - name: Эмбеддинг
+      href: rag-embedding.md
+    - name: Фильтрация
+      href: rag-filtering.md
+    - name: Гибридный поиск
+      href: rag-hybrid-search.md
     - name: Переранжирование и настройка поиска
       href: rag-reranking.md
+    - name: Построение контекста
+      href: rag-context-build.md
   - name: Настройка пайплайна
     href: rag-pipeline.md
   - name: Агентный RAG
