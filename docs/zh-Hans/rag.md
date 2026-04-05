@@ -90,6 +90,10 @@ var response = await service.GetCompletionAsync("你的问题", ragOptions: opti
 
 ## 后续步骤
 
-- [向量存储](../api/Mythosia.VectorDb.yml) — Postgres、Qdrant、Pinecone API 参考
-- [嵌入](../api/Mythosia.AI.Rag.Embeddings.yml) — 可用的嵌入提供商
-- [文本分割器](../api/Mythosia.AI.Rag.Splitters.yml) — 自定义文档分割方式
+- [混合搜索](rag-hybrid-search.md) — 语义搜索与关键词搜索结合
+- [查询重写](rag-query-rewriting.md) — 基于对话上下文优化查询
+- [重新排序](rag-reranking.md) — 进一步提升搜索结果准确度
+- [管线自定义](rag-pipeline.md) — 精细控制 RAG 流程
+- [智能体 RAG](rag-agentic.md) — AI 自行判断何时搜索什么
+- [向量存储](vectordb-overview.md) — 持久化存储配置
+- [文本分割器](text-splitters.md) — 自定义文档分割方式

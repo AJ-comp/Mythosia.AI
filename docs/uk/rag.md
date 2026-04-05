@@ -118,6 +118,10 @@ var response = await service.GetCompletionAsync("Your question", ragOptions: opt
 
 ## Наступні кроки
 
-- [Векторні сховища](../api/Mythosia.VectorDb.yml) — API-довідка Postgres, Qdrant, Pinecone
-- [Ембеддинги](../api/Mythosia.AI.Rag.Embeddings.yml) — доступні провайдери ембеддингів
-- [Розділювачі тексту](../api/Mythosia.AI.Rag.Splitters.yml) — налаштування розбиття документів
+- [Гібридний пошук](rag-hybrid-search.md) — семантика + ключові слова
+- [Переписування запитів](rag-query-rewriting.md) — оптимізація з урахуванням контексту діалогу
+- [Переранжування](rag-reranking.md) — підвищення точності результатів
+- [Налаштування пайплайну](rag-pipeline.md) — тонке керування процесом RAG
+- [Агентний RAG](rag-agentic.md) — AI сам вирішує, коли і що шукати
+- [Векторні сховища](vectordb-overview.md) — налаштування персистентного сховища
+- [Розділювачі тексту](text-splitters.md) — налаштування розбиття документів

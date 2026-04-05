@@ -19,6 +19,7 @@ dotnet add package Mythosia.Documents.Pdf
 | `WordDocumentLoader` | `.docx` | `Mythosia.Documents.Office` |
 | `ExcelDocumentLoader` | `.xlsx` | `Mythosia.Documents.Office` |
 | `PowerPointDocumentLoader` | `.pptx` | `Mythosia.Documents.Office` |
+| `HwpDocumentLoader` | `.hwp` | `Mythosia.Documents.Hwp` |
 | `PlainTextDocumentLoader` | `.txt`, `.md`, etc. | `Mythosia.AI.Rag` |
 
 ## PDF
@@ -71,6 +72,27 @@ var loader = new PowerPointDocumentLoader(new OfficeParserOptions
 var docs = await loader.LoadAsync("presentation.pptx");
 ```
 
+## HWP (.hwp)
+
+Parses Korean Hangul Word Processor (HWP) files. Available as a separate package:
+
+```bash
+dotnet add package Mythosia.Documents.Hwp
+```
+
+```csharp
+var loader = new HwpDocumentLoader(options: new HwpParserOptions
+{
+    IncludeMetadata = true,
+    NormalizeWhitespace = true,
+    IncludeSectionHeaders = false
+});
+
+var docs = await loader.LoadAsync("report.hwp");
+```
+
+The HWP loader converts text, tables, and heading structure into a `DoclingDocument`, which is then output as Markdown. Tables are rendered as Markdown tables (`| ... |`), so using `MarkdownTextSplitter` preserves table structure throughout chunking.
+
 ## Using in RAG
 
 Loaders are integrated automatically when using `.AddDocument()` in `RagBuilder`. To load manually and add the result:
@@ -110,3 +132,19 @@ foreach (var item in doc.Document)
 ```
 
 **Element types:** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
+
+## Document Loaders & Text Splitters Integration
+
+Document loaders for Word, Excel, PowerPoint, and HWP internally convert files through `DoclingDocument` into **Markdown format**. During this process, tables become Markdown tables (`| Header |` + `|---|` + `| Data |`), and headings and code blocks are also rendered as Markdown syntax.
+
+This makes `MarkdownTextSplitter` the most effective choice for Office/HWP documents:
+
+```csharp
+var service = new AnthropicService(apiKey, http)
+    .WithRag(rag => rag
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+    );
+```
+
+`MarkdownTextSplitter` splits tables at row boundaries and automatically includes headers in each chunk, so table data remains intact in search results. See [Text Splitters](text-splitters.md) for details.

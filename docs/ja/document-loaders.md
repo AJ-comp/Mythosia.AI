@@ -19,6 +19,7 @@ dotnet add package Mythosia.Documents.Pdf
 | `WordDocumentLoader` | `.docx` | `Mythosia.Documents.Office` |
 | `ExcelDocumentLoader` | `.xlsx` | `Mythosia.Documents.Office` |
 | `PowerPointDocumentLoader` | `.pptx` | `Mythosia.Documents.Office` |
+| `HwpDocumentLoader` | `.hwp` | `Mythosia.Documents.Hwp` |
 | `PlainTextDocumentLoader` | `.txt`、`.md`など | `Mythosia.AI.Rag` |
 
 ## PDF
@@ -71,6 +72,27 @@ var loader = new PowerPointDocumentLoader(new OfficeParserOptions
 var docs = await loader.LoadAsync("presentation.pptx");
 ```
 
+## HWP (.hwp)
+
+韓国語ワープロ形式（HWP）ファイルを解析します。別パッケージとして提供されています：
+
+```bash
+dotnet add package Mythosia.Documents.Hwp
+```
+
+```csharp
+var loader = new HwpDocumentLoader(options: new HwpParserOptions
+{
+    IncludeMetadata = true,
+    NormalizeWhitespace = true,
+    IncludeSectionHeaders = false
+});
+
+var docs = await loader.LoadAsync("report.hwp");
+```
+
+HWPローダーはテキスト、テーブル、見出し構造を`DoclingDocument`に変換し、最終的にMarkdown形式で出力します。テーブルはMarkdownテーブル（`| ... |`）として変換されるため、`MarkdownTextSplitter`と併用するとチャンキング時にもテーブル構造が完全に保持されます。
+
 ## RAGでの使用
 
 ローダーは`RagBuilder`で`.AddDocument()`を使用する際に自動的に統合されます。手動でロードして結果を追加するには:
@@ -110,3 +132,19 @@ foreach (var item in doc.Document)
 ```
 
 **要素タイプ:** `TextItem`、`SectionHeaderItem`、`TitleItem`、`ListItem`、`TableItem`、`CodeItem`、`FormulaItem`、`PictureItem`、`GroupItem`、`RefItem`
+
+## ドキュメントローダーとテキストスプリッターの連携
+
+Word、Excel、PowerPoint、HWPのドキュメントローダーは、内部的に`DoclingDocument`を経由して**Markdown形式**に変換します。この過程でテーブルはMarkdownテーブル（`| ヘッダー |` + `|---|` + `| データ |`）に、見出しやコードブロックもMarkdown構文で出力されます。
+
+そのため、Office/HWPドキュメントには`MarkdownTextSplitter`が最も効果的です：
+
+```csharp
+var service = new AnthropicService(apiKey, http)
+    .WithRag(rag => rag
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+    );
+```
+
+`MarkdownTextSplitter`はテーブルを行単位で分割し、各チャンクにヘッダーを自動的に含めるため、検索結果でもテーブルデータが完全な形で返されます。詳細は[テキストスプリッター](text-splitters.md)を参照してください。

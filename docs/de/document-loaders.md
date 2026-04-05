@@ -19,6 +19,7 @@ dotnet add package Mythosia.Documents.Pdf
 | `WordDocumentLoader` | `.docx` | `Mythosia.Documents.Office` |
 | `ExcelDocumentLoader` | `.xlsx` | `Mythosia.Documents.Office` |
 | `PowerPointDocumentLoader` | `.pptx` | `Mythosia.Documents.Office` |
+| `HwpDocumentLoader` | `.hwp` | `Mythosia.Documents.Hwp` |
 | `PlainTextDocumentLoader` | `.txt`, `.md`, etc. | `Mythosia.AI.Rag` |
 
 ## PDF
@@ -71,6 +72,27 @@ var loader = new PowerPointDocumentLoader(new OfficeParserOptions
 var docs = await loader.LoadAsync("praesentation.pptx");
 ```
 
+## HWP (.hwp)
+
+Parsing von koreanischen Hangul-Textverarbeitungsdateien (HWP). Verfügbar als separates Paket:
+
+```bash
+dotnet add package Mythosia.Documents.Hwp
+```
+
+```csharp
+var loader = new HwpDocumentLoader(options: new HwpParserOptions
+{
+    IncludeMetadata = true,
+    NormalizeWhitespace = true,
+    IncludeSectionHeaders = false
+});
+
+var docs = await loader.LoadAsync("bericht.hwp");
+```
+
+Der HWP-Loader wandelt Text, Tabellen und Überschriftenstruktur in ein `DoclingDocument` um, das anschließend als Markdown ausgegeben wird. Tabellen werden als Markdown-Tabellen (`| ... |`) dargestellt, sodass `MarkdownTextSplitter` die Tabellenstruktur beim Chunking vollständig erhält.
+
 ## In RAG verwenden
 
 Loader werden automatisch integriert, wenn `.AddDocument()` im `RagBuilder` verwendet wird. Um manuell zu laden und das Ergebnis hinzuzufügen:
@@ -110,3 +132,19 @@ foreach (var item in doc.Document)
 ```
 
 **Elementtypen:** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
+
+## Dokument-Loader & Text-Splitter Integration
+
+Dokument-Loader für Word, Excel, PowerPoint und HWP wandeln Dateien intern über `DoclingDocument` in **Markdown-Format** um. Tabellen werden dabei zu Markdown-Tabellen (`| Header |` + `|---|` + `| Daten |`), und Überschriften sowie Codeblöcke werden ebenfalls als Markdown-Syntax ausgegeben.
+
+Deshalb ist `MarkdownTextSplitter` die effektivste Wahl für Office/HWP-Dokumente:
+
+```csharp
+var service = new AnthropicService(apiKey, http)
+    .WithRag(rag => rag
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+    );
+```
+
+`MarkdownTextSplitter` teilt Tabellen zeilenweise auf und fügt automatisch Header in jeden Chunk ein, sodass Tabellendaten in den Suchergebnissen vollständig erhalten bleiben. Weitere Details finden Sie unter [Text-Splitter](text-splitters.md).

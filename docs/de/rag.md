@@ -90,6 +90,10 @@ var response = await service.GetCompletionAsync("Deine Frage", ragOptions: optio
 
 ## Nächste Schritte
 
-- [Vektorspeicher](../api/Mythosia.VectorDb.yml) — Postgres, Qdrant, Pinecone API-Referenz
-- [Embeddings](../api/Mythosia.AI.Rag.Embeddings.yml) — verfügbare Embedding-Anbieter
-- [Text-Splitter](../api/Mythosia.AI.Rag.Splitters.yml) — Anpassen der Dokument-Segmentierung
+- [Hybridsuche](rag-hybrid-search.md) — semantische und Stichwortsuche kombinieren
+- [Query-Rewriting](rag-query-rewriting.md) — Abfragen mit Gesprächskontext optimieren
+- [Re-Ranking](rag-reranking.md) — Suchergebnis-Genauigkeit weiter verbessern
+- [Pipeline-Anpassung](rag-pipeline.md) — feingranulare Steuerung des RAG-Prozesses
+- [Agentisches RAG](rag-agentic.md) — AI entscheidet selbst, wann und was gesucht wird
+- [Vektorspeicher](vectordb-overview.md) — persistente Speicher einrichten
+- [Text-Splitter](text-splitters.md) — Anpassen der Dokument-Segmentierung

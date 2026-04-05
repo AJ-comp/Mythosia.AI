@@ -90,6 +90,10 @@ var response = await service.GetCompletionAsync("Your question", ragOptions: opt
 
 ## Next Steps
 
-- [Vector Stores](../api/Mythosia.VectorDb.yml) — Postgres, Qdrant, Pinecone API reference
-- [Embeddings](../api/Mythosia.AI.Rag.Embeddings.yml) — available embedding providers
-- [Text Splitters](../api/Mythosia.AI.Rag.Splitters.yml) — customize how documents are chunked
+- [Hybrid Search](rag-hybrid-search.md) — combine semantic and keyword search
+- [Query Rewriting](rag-query-rewriting.md) — optimize queries with conversation context
+- [Re-ranking](rag-reranking.md) — further refine search result accuracy
+- [Pipeline Customization](rag-pipeline.md) — fine-grained control over the RAG process
+- [Agentic RAG](rag-agentic.md) — AI decides when and what to search
+- [Vector Stores](vectordb-overview.md) — persistent storage setup
+- [Text Splitters](text-splitters.md) — customize how documents are chunked

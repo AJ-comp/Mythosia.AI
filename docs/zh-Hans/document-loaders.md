@@ -19,6 +19,7 @@ dotnet add package Mythosia.Documents.Pdf
 | `WordDocumentLoader` | `.docx` | `Mythosia.Documents.Office` |
 | `ExcelDocumentLoader` | `.xlsx` | `Mythosia.Documents.Office` |
 | `PowerPointDocumentLoader` | `.pptx` | `Mythosia.Documents.Office` |
+| `HwpDocumentLoader` | `.hwp` | `Mythosia.Documents.Hwp` |
 | `PlainTextDocumentLoader` | `.txt`、`.md` 等 | `Mythosia.AI.Rag` |
 
 ## PDF
@@ -71,6 +72,27 @@ var loader = new PowerPointDocumentLoader(new OfficeParserOptions
 var docs = await loader.LoadAsync("presentation.pptx");
 ```
 
+## HWP (.hwp)
+
+解析韩国 Hangul 文字处理器（HWP）文件。作为单独的包提供：
+
+```bash
+dotnet add package Mythosia.Documents.Hwp
+```
+
+```csharp
+var loader = new HwpDocumentLoader(options: new HwpParserOptions
+{
+    IncludeMetadata = true,
+    NormalizeWhitespace = true,
+    IncludeSectionHeaders = false
+});
+
+var docs = await loader.LoadAsync("report.hwp");
+```
+
+HWP 加载器将文本、表格和标题结构转换为 `DoclingDocument`，最终以 Markdown 格式输出。表格以 Markdown 表格（`| ... |`）呈现，因此配合 `MarkdownTextSplitter` 使用时，表格结构在分块过程中会被完整保留。
+
 ## 在 RAG 中使用
 
 在 `RagBuilder` 中使用 `.AddDocument()` 时，加载器会自动集成。手动加载并添加结果：
@@ -110,3 +132,19 @@ foreach (var item in doc.Document)
 ```
 
 **元素类型：** `TextItem`、`SectionHeaderItem`、`TitleItem`、`ListItem`、`TableItem`、`CodeItem`、`FormulaItem`、`PictureItem`、`GroupItem`、`RefItem`
+
+## 文档加载器与文本分割器的配合
+
+Word、Excel、PowerPoint 和 HWP 的文档加载器在内部通过 `DoclingDocument` 将文件转换为 **Markdown 格式**。表格会变成 Markdown 表格（`| 表头 |` + `|---|` + `| 数据 |`），标题和代码块也以 Markdown 语法输出。
+
+因此，`MarkdownTextSplitter` 是 Office/HWP 文档最有效的选择：
+
+```csharp
+var service = new AnthropicService(apiKey, http)
+    .WithRag(rag => rag
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+    );
+```
+
+`MarkdownTextSplitter` 按行拆分表格，并自动在每个分块中包含表头，从而确保搜索结果中的表格数据保持完整。详细信息请参见[文本分割器](text-splitters.md)。

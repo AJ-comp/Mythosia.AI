@@ -35,16 +35,20 @@
   items:
   - name: RAG 基礎
     href: rag.md
-  - name: テキストスプリッター
-    href: text-splitters.md
-  - name: ドキュメントローダー
-    href: document-loaders.md
-  - name: ハイブリッド検索
-    href: rag-hybrid-search.md
-  - name: クエリ書き換え
-    href: rag-query-rewriting.md
-  - name: 再ランキング & 検索チューニング
-    href: rag-reranking.md
+  - name: ドキュメント準備
+    items:
+    - name: テキストスプリッター
+      href: text-splitters.md
+    - name: ドキュメントローダー
+      href: document-loaders.md
+  - name: 質問応答
+    items:
+    - name: ハイブリッド検索
+      href: rag-hybrid-search.md
+    - name: クエリ書き換え
+      href: rag-query-rewriting.md
+    - name: 再ランキング & 検索チューニング
+      href: rag-reranking.md
   - name: パイプラインカスタマイズ
     href: rag-pipeline.md
   - name: エージェンティックRAG

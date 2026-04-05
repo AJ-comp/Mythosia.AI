@@ -19,6 +19,7 @@ dotnet add package Mythosia.Documents.Pdf
 | `WordDocumentLoader` | `.docx` | `Mythosia.Documents.Office` |
 | `ExcelDocumentLoader` | `.xlsx` | `Mythosia.Documents.Office` |
 | `PowerPointDocumentLoader` | `.pptx` | `Mythosia.Documents.Office` |
+| `HwpDocumentLoader` | `.hwp` | `Mythosia.Documents.Hwp` |
 | `PlainTextDocumentLoader` | `.txt`, `.md`, etc. | `Mythosia.AI.Rag` |
 
 ## PDF
@@ -71,6 +72,27 @@ var loader = new PowerPointDocumentLoader(new OfficeParserOptions
 var docs = await loader.LoadAsync("presentation.pptx");
 ```
 
+## HWP (.hwp)
+
+Analyse les fichiers du traitement de texte coréen Hangul (HWP). Disponible en tant que package séparé :
+
+```bash
+dotnet add package Mythosia.Documents.Hwp
+```
+
+```csharp
+var loader = new HwpDocumentLoader(options: new HwpParserOptions
+{
+    IncludeMetadata = true,
+    NormalizeWhitespace = true,
+    IncludeSectionHeaders = false
+});
+
+var docs = await loader.LoadAsync("report.hwp");
+```
+
+Le chargeur HWP convertit le texte, les tableaux et la structure des titres en `DoclingDocument`, qui est ensuite restitué au format Markdown. Les tableaux sont rendus en tableaux Markdown (`| ... |`), de sorte que l'utilisation de `MarkdownTextSplitter` préserve la structure des tableaux tout au long du découpage.
+
 ## Utiliser dans le RAG
 
 Les chargeurs sont intégrés automatiquement lors de l'utilisation de `.AddDocument()` dans `RagBuilder`. Pour charger manuellement et ajouter le résultat :
@@ -110,3 +132,19 @@ foreach (var item in doc.Document)
 ```
 
 **Types d'éléments :** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
+
+## Intégration chargeurs de documents et découpeurs de texte
+
+Les chargeurs de documents Word, Excel, PowerPoint et HWP convertissent en interne les fichiers via `DoclingDocument` au **format Markdown**. Les tableaux deviennent des tableaux Markdown (`| En-tête |` + `|---|` + `| Données |`), et les titres ainsi que les blocs de code sont également rendus en syntaxe Markdown.
+
+C'est pourquoi `MarkdownTextSplitter` est le choix le plus efficace pour les documents Office/HWP :
+
+```csharp
+var service = new AnthropicService(apiKey, http)
+    .WithRag(rag => rag
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+    );
+```
+
+`MarkdownTextSplitter` découpe les tableaux ligne par ligne et inclut automatiquement les en-têtes dans chaque fragment, garantissant que les données tabulaires restent intactes dans les résultats de recherche. Consultez [Découpeurs de texte](text-splitters.md) pour plus de détails.

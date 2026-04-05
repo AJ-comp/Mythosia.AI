@@ -32,13 +32,60 @@ Use this when the embedding model has strict token limits.
 
 ### MarkdownTextSplitter
 
-Preserves Markdown structure — splits on headers, lists, and code blocks before falling back to character splitting:
+A structure-aware splitter that understands Markdown heading hierarchy (H1–H6), code fences, and tables, splitting content into semantically meaningful units:
 
 ```csharp
 .WithTextSplitter(new MarkdownTextSplitter(500, 50))
 ```
 
-Best for documentation files, README files, and any structured Markdown content.
+Best for documentation files, README files, and output from structured document loaders like Office and HWP.
+
+> [!TIP]
+> Document loaders for Word, Excel, PowerPoint, and HWP internally convert documents to Markdown. Using `MarkdownTextSplitter` with these documents ensures that table and code block structures are preserved throughout the chunking process.
+
+#### Table Splitting Quality
+
+`MarkdownTextSplitter` splits Markdown tables at **row boundaries**. It never cuts a row in half, and each resulting chunk automatically includes the **header row and separator line**:
+
+```
+Original table:
+| Name   | Dept   | Salary  |
+|--------|--------|---------|
+| Alice  | Dev    | $90,000 |
+| Bob    | PM     | $85,000 |
+| Carol  | Design | $80,000 |
+
+→ Chunk 1:
+| Name   | Dept   | Salary  |
+|--------|--------|---------|
+| Alice  | Dev    | $90,000 |
+| Bob    | PM     | $85,000 |
+
+→ Chunk 2:
+| Name   | Dept   | Salary  |
+|--------|--------|---------|
+| Carol  | Design | $80,000 |
+```
+
+Each chunk is a self-contained, valid table—ensuring embedding and retrieval quality.
+
+#### Code Block Protection
+
+Code fence blocks (`` ``` ``) are treated as **atomic units**. A code block is never split mid-way, even if it exceeds the chunk size, preserving code semantics.
+
+#### Heading Breadcrumb
+
+Each chunk is automatically prefixed with the heading path leading to its content, enriching context for vector search:
+
+```
+# Product Manual
+## Installation Guide
+### Windows
+
+(actual content for this section)
+```
+
+This feature is controlled by the `IncludeHeadingBreadcrumb` property (default: `true`).
 
 ## Choosing Parameters
 
@@ -49,6 +96,28 @@ Best for documentation files, README files, and any structured Markdown content.
 | `chunkOverlap` | Prevents information loss at chunk boundaries |
 
 A common starting point: `chunkSize: 500, chunkOverlap: 50`.
+
+## Chunk Size vs. Token Count (Multilingual)
+
+`chunkSize` is measured in **characters**, but embedding model limits are in **tokens**. The same number of characters can produce vastly different token counts depending on the language:
+
+| Language | 1,000 chars ≈ tokens | Recommended chunkSize |
+|----------|----------------------|-----------------------|
+| English | ~250 tokens | 500–2,000 |
+| Korean / Japanese / Chinese | ~800–1,500 tokens | 300–1,000 |
+
+> [!WARNING]
+> CJK text (Korean, Japanese, Chinese) has a much higher token-per-character ratio than English. If chunks exceed the embedding model’s token limit (e.g., 2,048 tokens), an error will occur. Reduce `chunkSize` generously when working with CJK documents.
+
+For example, with an embedding model that has a 2,048-token limit:
+
+```csharp
+// English documents: 2000 chars ≈ 500 tokens → well within limit
+.WithTextSplitter(new MarkdownTextSplitter(2000, 200))
+
+// Korean documents: 1000 chars ≈ 1000 tokens → safe range
+.WithTextSplitter(new MarkdownTextSplitter(1000, 200))
+```
 
 ## Per-Document Splitter
 

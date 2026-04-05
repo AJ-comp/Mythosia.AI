@@ -19,6 +19,7 @@ dotnet add package Mythosia.Documents.Pdf
 | `WordDocumentLoader` | `.docx` | `Mythosia.Documents.Office` |
 | `ExcelDocumentLoader` | `.xlsx` | `Mythosia.Documents.Office` |
 | `PowerPointDocumentLoader` | `.pptx` | `Mythosia.Documents.Office` |
+| `HwpDocumentLoader` | `.hwp` | `Mythosia.Documents.Hwp` |
 | `PlainTextDocumentLoader` | `.txt`, `.md` тощо | `Mythosia.AI.Rag` |
 
 ## PDF
@@ -71,6 +72,27 @@ var loader = new PowerPointDocumentLoader(new OfficeParserOptions
 var docs = await loader.LoadAsync("presentation.pptx");
 ```
 
+## HWP (.hwp)
+
+Розбір файлів корейського текстового процесора Hangul (HWP). Постачається окремим пакетом:
+
+```bash
+dotnet add package Mythosia.Documents.Hwp
+```
+
+```csharp
+var loader = new HwpDocumentLoader(options: new HwpParserOptions
+{
+    IncludeMetadata = true,
+    NormalizeWhitespace = true,
+    IncludeSectionHeaders = false
+});
+
+var docs = await loader.LoadAsync("report.hwp");
+```
+
+HWP-завантажувач перетворює текст, таблиці та структуру заголовків у `DoclingDocument`, який потім виводиться у форматі Markdown. Таблиці відтворюються як Markdown-таблиці (`| ... |`), тому при використанні `MarkdownTextSplitter` структура таблиць повністю зберігається під час розбиття на чанки.
+
 ## Використання в RAG
 
 Завантажувачі автоматично інтегруються при виклику `.AddDocument()` у `RagBuilder`. Для ручного завантаження:
@@ -110,3 +132,19 @@ foreach (var item in doc.Document)
 ```
 
 **Типи елементів:** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
+
+## Інтеграція завантажувачів документів та розділювачів тексту
+
+Завантажувачі документів Word, Excel, PowerPoint та HWP внутрішньо перетворюють файли через `DoclingDocument` у **формат Markdown**. Таблиці стають Markdown-таблицями (`| Заголовок |` + `|---|` + `| Дані |`), а заголовки та блоки коду також виводяться у синтаксисі Markdown.
+
+Тому `MarkdownTextSplitter` — найефективніший вибір для документів Office/HWP:
+
+```csharp
+var service = new AnthropicService(apiKey, http)
+    .WithRag(rag => rag
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+    );
+```
+
+`MarkdownTextSplitter` розділяє таблиці порядково та автоматично додає заголовки до кожного чанка, тому табличні дані в результатах пошуку залишаються цілісними. Детальніше див. [Розділювачі тексту](text-splitters.md).

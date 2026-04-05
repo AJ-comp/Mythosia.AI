@@ -32,13 +32,60 @@ Découpe selon le nombre de tokens plutôt que de caractères. Plus précis pour
 
 ### MarkdownTextSplitter
 
-Préserve la structure Markdown — découpe sur les titres, listes et blocs de code avant de revenir au découpage par caractères :
+Un découpeur qui comprend et préserve la structure Markdown. Il reconnaît la hiérarchie des titres (H1–H6), les blocs de code et les tableaux pour découper le contenu en unités sémantiques :
 
 ```csharp
 .WithTextSplitter(new MarkdownTextSplitter(500, 50))
 ```
 
-Idéal pour les fichiers de documentation, les README et tout contenu Markdown structuré.
+Idéal pour les fichiers de documentation, les README et les sorties de chargeurs de documents structurés comme Office et HWP.
+
+> [!TIP]
+> Les chargeurs Word, Excel, PowerPoint et HWP convertissent les documents en Markdown en interne. Utiliser `MarkdownTextSplitter` avec ces documents garantit que les structures de tableaux et de blocs de code sont préservées durant le découpage.
+
+#### Qualité du découpage des tableaux
+
+`MarkdownTextSplitter` découpe les tableaux Markdown au **niveau des lignes**. Il ne coupe jamais une ligne en deux, et chaque morceau résultant inclut automatiquement **la ligne d’en-tête et le séparateur** :
+
+```
+Tableau original :
+| Nom    | Dépt.   | Salaire  |
+|--------|---------|----------|
+| Alice  | Dév     | 45 000 € |
+| Bob    | PM      | 42 000 € |
+| Carol  | Design  | 40 000 € |
+
+→ Morceau 1 :
+| Nom    | Dépt.   | Salaire  |
+|--------|---------|----------|
+| Alice  | Dév     | 45 000 € |
+| Bob    | PM      | 42 000 € |
+
+→ Morceau 2 :
+| Nom    | Dépt.   | Salaire  |
+|--------|---------|----------|
+| Carol  | Design  | 40 000 € |
+```
+
+Chaque morceau est un tableau autonome et valide, garantissant la qualité des embeddings et de la recherche.
+
+#### Protection des blocs de code
+
+Les blocs délimités par des barrières de code (`` ``` ``) sont traités comme des **unités atomiques**. Un bloc de code n’est jamais scindé, même s’il dépasse la taille du morceau, préservant la sémantique du code.
+
+#### Fil d’Ariane des titres
+
+Chaque morceau est automatiquement préfixé par le chemin de titres menant à son contenu, enrichissant le contexte pour la recherche vectorielle :
+
+```
+# Manuel produit
+## Guide d’installation
+### Windows
+
+(contenu réel de cette section)
+```
+
+Cette fonctionnalité est contrôlée par la propriété `IncludeHeadingBreadcrumb` (par défaut : `true`).
 
 ## Choisir les paramètres
 
@@ -49,6 +96,28 @@ Idéal pour les fichiers de documentation, les README et tout contenu Markdown s
 | `chunkOverlap` | Évite la perte d'information aux frontières des morceaux |
 
 Un bon point de départ : `chunkSize: 500, chunkOverlap: 50`.
+
+## Taille des morceaux et nombre de tokens (multilingue)
+
+`chunkSize` est mesuré en **caractères**, mais les limites des modèles d’embedding sont en **tokens**. Le même nombre de caractères peut générer des nombres de tokens très différents selon la langue :
+
+| Langue | 1 000 caractères ≈ tokens | chunkSize recommandé |
+|--------|------------------------|-----------------------|
+| Anglais | ~250 tokens | 500–2 000 |
+| Coréen / Japonais / Chinois | ~800–1 500 tokens | 300–1 000 |
+
+> [!WARNING]
+> Le texte CJK (coréen, japonais, chinois) a un ratio tokens/caractère bien plus élevé que l’anglais. Si les morceaux dépassent la limite de tokens du modèle d’embedding (ex. : 2 048 tokens), une erreur se produira. Réduisez généreusement `chunkSize` pour les documents CJK.
+
+Par exemple, avec un modèle d’embedding limité à 2 048 tokens :
+
+```csharp
+// Documents anglais : 2000 caractères ≈ 500 tokens → dans la limite
+.WithTextSplitter(new MarkdownTextSplitter(2000, 200))
+
+// Documents coréens : 1000 caractères ≈ 1000 tokens → plage sûre
+.WithTextSplitter(new MarkdownTextSplitter(1000, 200))
+```
 
 ## Découpeur par document
 

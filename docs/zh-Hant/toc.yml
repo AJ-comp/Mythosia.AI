@@ -35,16 +35,20 @@
   items:
   - name: RAG 基礎
     href: rag.md
-  - name: 文字分割器
-    href: text-splitters.md
-  - name: 文件載入器
-    href: document-loaders.md
-  - name: 混合檢索
-    href: rag-hybrid-search.md
-  - name: 查詢改寫
-    href: rag-query-rewriting.md
-  - name: 重排序與檢索調校
-    href: rag-reranking.md
+  - name: 文件準備
+    items:
+    - name: 文字分割器
+      href: text-splitters.md
+    - name: 文件載入器
+      href: document-loaders.md
+  - name: 問答檢索
+    items:
+    - name: 混合檢索
+      href: rag-hybrid-search.md
+    - name: 查詢改寫
+      href: rag-query-rewriting.md
+    - name: 重排序與檢索調校
+      href: rag-reranking.md
   - name: 管線自訂
     href: rag-pipeline.md
   - name: Agent 式 RAG
