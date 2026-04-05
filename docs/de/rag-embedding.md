@@ -65,7 +65,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local (ohne API)
 
-Leichtgewichtiger Anbieter basierend auf Feature-Hashing. Kein API-Schlüssel nötig, ideal für **Prototyping**:
+Leichtgewichtiger Anbieter basierend auf Feature-Hashing. Kein API-Schlüssel oder externer Dienst erforderlich — allerdings ist die Embedding-Qualität deutlich schlechter als bei neuronalen Modellen und wird daher **nicht für den produktiven Einsatz empfohlen**.
 
 ```csharp
 .WithRag(rag => rag
@@ -73,6 +73,8 @@ Leichtgewichtiger Anbieter basierend auf Feature-Hashing. Kein API-Schlüssel n�
     .AddDocument("docs.txt")
 )
 ```
+
+> **Tipp:** Verwenden Sie stattdessen `OpenAIEmbeddingProvider` mit dem Modell `text-embedding-3-small`. Es ist extrem günstig — nahezu kostenlos — und liefert deutlich bessere Ergebnisse.
 
 ## Batch-Verarbeitung
 
@@ -91,8 +93,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (Feature-Hashing) | 1024 |
 
 ## Eigener Embedding-Anbieter

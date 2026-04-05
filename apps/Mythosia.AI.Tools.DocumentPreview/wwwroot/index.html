@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document Preview — Mythosia.AI</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <div class="header-title">Document Preview</div>
+    <div class="header-sub">Document → Markdown → Chunks 파이프라인 검사 도구</div>
+  </header>
+
+  <main>
+    <!-- Upload -->
+    <div class="upload-area" id="uploadArea">
+      <input type="file" id="fileInput" accept=".hwp,.docx,.xlsx,.pptx,.pdf" hidden>
+      <div class="upload-prompt" id="uploadPrompt">
+        <span class="upload-icon">↑</span>
+        <span>파일을 드래그하거나 클릭하여 업로드</span>
+        <span class="upload-hint">.hwp · .docx · .xlsx · .pptx · .pdf</span>
+      </div>
+      <div class="upload-selected" id="uploadSelected" hidden>
+        <span class="upload-icon file-icon">📄</span>
+        <span id="selectedFileName"></span>
+        <button class="btn-clear" id="btnClear" title="파일 제거">✕</button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings-bar">
+      <label class="setting">
+        <span>Chunk Size</span>
+        <input type="number" id="chunkSize" value="1000" min="100" step="100">
+      </label>
+      <label class="setting">
+        <span>경고 기준</span>
+        <input type="number" id="warnThreshold" value="800" min="100" step="100">
+        <span class="setting-unit">chars</span>
+      </label>
+      <button class="btn-analyze" id="btnAnalyze" disabled>분석</button>
+    </div>
+
+    <!-- Error -->
+    <div class="error-bar" id="errorBar" hidden></div>
+
+    <!-- Results -->
+    <div class="panels" id="panels" hidden>
+      <div class="panels-row">
+        <div class="panel" id="panelMarkdown">
+          <div class="panel-header">
+            <span>Markdown</span>
+            <span class="panel-meta" id="markdownMeta"></span>
+          </div>
+          <pre class="panel-body" id="markdownOutput"></pre>
+        </div>
+        <div class="panel" id="panelChunks">
+          <div class="panel-header">
+            <span>Chunks</span>
+            <span class="panel-meta" id="chunksMeta"></span>
+          </div>
+          <div class="panel-body" id="chunksOutput"></div>
+        </div>
+      </div>
+      <div class="panel" id="panelTree">
+        <div class="panel-header">
+          <span>Document Tree</span>
+          <span class="panel-meta" id="treeMeta"></span>
+        </div>
+        <div class="panel-body" id="treeOutput"></div>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading" id="loading" hidden>
+      <div class="spinner"></div>
+      <span>분석 중...</span>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

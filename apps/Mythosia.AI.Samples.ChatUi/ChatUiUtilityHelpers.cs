@@ -197,7 +197,7 @@ namespace Mythosia.AI.Samples.ChatUi
             {
                 "token" => $"new TokenTextSplitter({config.ChunkSize}, {config.ChunkOverlap})",
                 "recursive" => $"new RecursiveTextSplitter({config.ChunkSize}, {config.ChunkOverlap})",
-                "markdown" => "new MarkdownTextSplitter()",
+                "markdown" => $"new MarkdownTextSplitter({config.ChunkSize})",
                 _ => $"new CharacterTextSplitter({config.ChunkSize}, {config.ChunkOverlap})"
             };
         }
@@ -220,7 +220,7 @@ namespace Mythosia.AI.Samples.ChatUi
             {
                 "token" => new TokenTextSplitter(chunkSize, chunkOverlap),
                 "recursive" => new RecursiveTextSplitter(chunkSize, chunkOverlap),
-                "markdown" => new MarkdownTextSplitter(),
+                "markdown" => new MarkdownTextSplitter(chunkSize),
                 _ => new CharacterTextSplitter(chunkSize, chunkOverlap)
             };
         }

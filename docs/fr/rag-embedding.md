@@ -65,7 +65,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local (sans API)
 
-Fournisseur léger basé sur le hachage de caractéristiques. Aucune clé API requise, idéal pour le **prototypage** :
+Fournisseur léger basé sur le hachage de caractéristiques, sans clé API ni service externe. Cependant, la qualité des embeddings est nettement inférieure aux modèles neuronaux, il **n'est donc pas recommandé en production**.
 
 ```csharp
 .WithRag(rag => rag
@@ -73,6 +73,8 @@ Fournisseur léger basé sur le hachage de caractéristiques. Aucune clé API re
     .AddDocument("docs.txt")
 )
 ```
+
+> **Conseil :** Utilisez plutôt `OpenAIEmbeddingProvider` avec le modèle `text-embedding-3-small`. Son coût est extrêmement faible — quasi gratuit — pour des résultats bien meilleurs.
 
 ## Traitement par lots
 
@@ -91,8 +93,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (hachage) | 1024 |
 
 ## Fournisseur personnalisé

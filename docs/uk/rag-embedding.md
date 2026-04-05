@@ -28,6 +28,15 @@ var embedder = new OpenAIEmbeddingProvider(
 );
 ```
 
+Скорочений запис через Builder:
+
+```csharp
+.WithRag(rag => rag
+    .UseOpenAIEmbedding(apiKey, model: "text-embedding-3-small", dimensions: 1536)
+    .AddDocument("docs.txt")
+)
+```
+
 ### Ollama (локально)
 
 Запуск ембеддингів локально через [Ollama](https://ollama.com/):
@@ -56,7 +65,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local (без API)
 
-Легкий провайдер на основі хешування ознак. Не потребує ключа API, підходить для **прототипування**:
+Легкий провайдер на основі хешування ознак, без ключа API та зовнішніх сервісів. Проте якість ембедингів значно поступається нейромережевим моделям, тому **не рекомендується для робочого використання**.
 
 ```csharp
 .WithRag(rag => rag
@@ -64,6 +73,8 @@ var embedder = new VllmEmbeddingProvider(
     .AddDocument("docs.txt")
 )
 ```
+
+> **Порада:** Використовуйте натомість `OpenAIEmbeddingProvider` з моделлю `text-embedding-3-small`. Вартість майже нульова, а результати значно кращі.
 
 ## Пакетна обробка
 
@@ -82,8 +93,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (хешування) | 1024 |
 
 ## Власний провайдер

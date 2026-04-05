@@ -117,7 +117,7 @@ Run **`Mythosia.AI.Samples.ChatUi`** to try it locally:
 
 ```bash
 # from repo root
-dotnet run --project samples/Mythosia.AI.Samples.ChatUi
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
@@ -315,7 +315,7 @@ src/
     Mythosia.VectorDb.Pinecone/         # Pinecone vector store
     Mythosia.VectorDb.Postgres/         # PostgreSQL + pgvector store
     Mythosia.VectorDb.Qdrant/           # Qdrant vector store
-samples/                                # Sample applications
+apps/                                   # Applications (samples & tools)
 tests/                                  # Unit/integration test projects
 ```
 

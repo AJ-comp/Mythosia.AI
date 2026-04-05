@@ -65,7 +65,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local（無需 API）
 
-基於特徵雜湊的輕量提供者，無需 API 金鑰，適合**原型開發**：
+基於特徵雜湊的輕量提供者，無需 API 金鑰或外部服務。但嵌入品質遠低於神經網路模型，**不建議用於正式環境**。
 
 ```csharp
 .WithRag(rag => rag
@@ -73,6 +73,8 @@ var embedder = new VllmEmbeddingProvider(
     .AddDocument("docs.txt")
 )
 ```
+
+> **提示：** 建議改用 `OpenAIEmbeddingProvider` 的 `text-embedding-3-small` 模型。費用極低，幾乎免費，效果遠優於本機方案。
 
 ## 批次處理
 
@@ -91,8 +93,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | （特徵雜湊） | 1024 |
 
 ## 自訂提供者

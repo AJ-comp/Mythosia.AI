@@ -65,7 +65,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local (без API)
 
-Легковесный провайдер на основе хеширования признаков. Не требует ключа API, подходит для **прототипирования**:
+Легковесный провайдер на основе хеширования признаков, без API-ключа и внешних сервисов. Однако качество эмбеддингов значительно уступает нейросетевым моделям, поэтому **не рекомендуется для рабочего применения**.
 
 ```csharp
 .WithRag(rag => rag
@@ -73,6 +73,8 @@ var embedder = new VllmEmbeddingProvider(
     .AddDocument("docs.txt")
 )
 ```
+
+> **Совет:** Используйте `OpenAIEmbeddingProvider` с моделью `text-embedding-3-small`. Стоимость практически нулевая, а результаты значительно лучше.
 
 ## Пакетная обработка
 
@@ -91,8 +93,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (хеширование) | 1024 |
 
 ## Собственный провайдер

@@ -71,7 +71,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local (API 불필요)
 
-특징 해싱 기반의 경량 프로바이더입니다. API 키도, 외부 서비스도 필요 없습니다. 다만 뉴럴 임베딩에 비해 품질은 떨어지므로 **프로토타이핑과 테스트용**으로 적합합니다:
+특징 해싱 기반의 경량 프로바이더로, API 키나 외부 서비스가 필요 없습니다. 하지만 임베딩 품질이 뉴럴 모델에 비해 크게 떨어지므로 **실제 사용에는 추천하지 않습니다**.
 
 ```csharp
 .WithRag(rag => rag
@@ -80,7 +80,7 @@ var embedder = new VllmEmbeddingProvider(
 )
 ```
 
-> **팁:** 개발 중에는 `LocalEmbeddingProvider`로 빠르게 시작하고, 운영 환경에서는 OpenAI나 Ollama로 전환하세요.
+> **팁:** 대신 `OpenAIEmbeddingProvider`의 `text-embedding-3-small` 모델을 사용하세요. 무료에 가까울 정도로 매우 저렴하면서 훨씬 좋은 결과를 얻을 수 있습니다.
 
 ## 배치 처리
 
@@ -109,8 +109,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (특징 해싱) | 1024 |
 
 ## 커스텀 임베딩 프로바이더

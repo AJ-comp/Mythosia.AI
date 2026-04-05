@@ -65,7 +65,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local（无需 API）
 
-基于特征哈希的轻量提供者，无需 API 密钥，适合**原型开发**：
+基于特征哈希的轻量提供者，无需 API 密钥或外部服务。但嵌入质量远低于神经网络模型，**不建议在生产环境中使用**。
 
 ```csharp
 .WithRag(rag => rag
@@ -73,6 +73,8 @@ var embedder = new VllmEmbeddingProvider(
     .AddDocument("docs.txt")
 )
 ```
+
+> **提示：** 建议改用 `OpenAIEmbeddingProvider` 的 `text-embedding-3-small` 模型。费用极低，几乎免费，效果远优于本地方案。
 
 ## 批处理
 
@@ -91,8 +93,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | （特征哈希） | 1024 |
 
 ## 自定义提供者

@@ -71,7 +71,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local（API不要）
 
-特徴ハッシュベースの軽量プロバイダーです。APIキーも外部サービスも不要ですが、ニューラル埋め込みと比べると品質は下がります。**プロトタイプやテスト用**に最適です：
+特徴ハッシュベースの軽量プロバイダーで、APIキーも外部サービスも不要です。ただし、ニューラルモデルと比べて埋め込み品質が大幅に劣るため、**実用には推奨しません**。
 
 ```csharp
 .WithRag(rag => rag
@@ -80,7 +80,7 @@ var embedder = new VllmEmbeddingProvider(
 )
 ```
 
-> **ヒント：** 開発中は`LocalEmbeddingProvider`で始めて、本番ではOpenAIやOllamaに切り替えるのがおすすめです。
+> **ヒント：** 代わりに`OpenAIEmbeddingProvider`の`text-embedding-3-small`モデルをお使いください。ほぼ無料に近い価格で、はるかに優れた結果が得られます。
 
 ## バッチ処理
 
@@ -109,8 +109,9 @@ var options = new RagPipelineOptions
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | （特徴ハッシュ） | 1024 |
 
 ## カスタム埋め込みプロバイダー

@@ -26,8 +26,9 @@
     <Project Path="src/vectordb/Mythosia.VectorDb.Qdrant/Mythosia.VectorDb.Qdrant.csproj" />
     <Project Path="src/vectordb/Mythosia.VectorDb.Tools/Mythosia.VectorDb.Tools.csproj" />
   </Folder>
-  <Folder Name="/samples/">
-    <Project Path="samples/Mythosia.AI.Samples.ChatUi/Mythosia.AI.Samples.ChatUi.csproj" />
+  <Folder Name="/apps/">
+    <Project Path="apps/Mythosia.AI.Samples.ChatUi/Mythosia.AI.Samples.ChatUi.csproj" />
+    <Project Path="apps/Mythosia.AI.Tools.DocumentPreview/Mythosia.AI.Tools.DocumentPreview.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj" />

@@ -71,7 +71,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ### Local (No API Required)
 
-A lightweight, zero-configuration provider based on feature hashing. No API key, no external service — but lower quality than neural embeddings. Best for **prototyping and testing**:
+A lightweight, zero-configuration provider based on feature hashing. No API key, no external service — but the embedding quality is significantly lower than neural models, so **it is not recommended for production use**.
 
 ```csharp
 .WithRag(rag => rag
@@ -80,7 +80,7 @@ A lightweight, zero-configuration provider based on feature hashing. No API key,
 )
 ```
 
-> **Tip:** Start with `LocalEmbeddingProvider` while developing, then switch to OpenAI or Ollama for production.
+> **Tip:** Use `OpenAIEmbeddingProvider` with the `text-embedding-3-small` model instead. It's extremely affordable — nearly free — and delivers far better results.
 
 ## Batch Processing
 
@@ -109,8 +109,9 @@ Common dimension sizes:
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
-| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
+| vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (feature hashing) | 1024 |
 
 ## Custom Embedding Provider
