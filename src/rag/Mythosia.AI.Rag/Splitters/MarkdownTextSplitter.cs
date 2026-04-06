@@ -14,9 +14,6 @@ namespace Mythosia.AI.Rag.Splitters
         /// <summary>Maximum characters per chunk (excluding the prepended breadcrumb).</summary>
         public int ChunkSize { get; set; } = 1000;
 
-        /// <summary>Number of overlapping characters carried from the previous chunk.</summary>
-        public int ChunkOverlap { get; set; } = 200;
-
         /// <summary>
         /// When true, each chunk is prefixed with the heading path that leads to its
         /// content (e.g. "# Doc Title\n## Section\n### Sub-section\n\n"). 
@@ -33,10 +30,9 @@ namespace Mythosia.AI.Rag.Splitters
 
         public MarkdownTextSplitter() { }
 
-        public MarkdownTextSplitter(int chunkSize, int chunkOverlap = 200)
+        public MarkdownTextSplitter(int chunkSize)
         {
             ChunkSize = chunkSize;
-            ChunkOverlap = chunkOverlap;
         }
 
         // =================================================================
@@ -296,7 +292,8 @@ namespace Mythosia.AI.Rag.Splitters
             foreach (var section in sections)
             {
                 var breadcrumb = IncludeHeadingBreadcrumb ? section.BuildBreadcrumb() : string.Empty;
-                var budgetForContent = ChunkSize - breadcrumb.Length;
+                const int bufferMargin = 50;
+                var budgetForContent = ChunkSize - breadcrumb.Length - bufferMargin;
 
                 if (budgetForContent < 100)
                     budgetForContent = 100; // safety minimum
@@ -311,12 +308,26 @@ namespace Mythosia.AI.Rag.Splitters
                 else
                 {
                     // Section is too large — split content blocks into sub-chunks
-                    var subChunks = SplitContentBlocks(section.ContentBlocks, budgetForContent);
+                    var subChunks = MergeBlocksIntoChunks(section.ContentBlocks, budgetForContent);
+
+                    // Track active bold label across sub-chunks within this section.
+                    // If a chunk doesn't start with its own **label**, prepend the active one.
+                    string? activeLabel = null;
                     foreach (var sub in subChunks)
                     {
                         var text = sub.Trim();
-                        if (text.Length > 0)
-                            chunks.Add(breadcrumb + text);
+                        if (text.Length == 0) continue;
+
+                        var startsWithLabel = ExtractBoldLabel(text) != null;
+
+                        if (!startsWithLabel && activeLabel != null)
+                            text = activeLabel + "\n" + text;
+
+                        var lastLabel = FindLastBoldLabel(text);
+                        if (lastLabel != null)
+                            activeLabel = lastLabel;
+
+                        chunks.Add(breadcrumb + text);
                     }
                 }
             }
@@ -328,11 +339,10 @@ namespace Mythosia.AI.Rag.Splitters
         /// Merges content blocks up to budget, applying overlap when a chunk boundary is hit.
         /// Atomic blocks (code fences, tables) are never split even if they exceed the budget.
         /// </summary>
-        private List<string> SplitContentBlocks(List<string> blocks, int budget)
+        private List<string> MergeBlocksIntoChunks(List<string> blocks, int budget)
         {
             var result = new List<string>();
             var current = new StringBuilder();
-            string? previousChunkTail = null;
 
             foreach (var block in blocks)
             {
@@ -342,14 +352,7 @@ namespace Mythosia.AI.Rag.Splitters
                 {
                     // Flush current chunk
                     result.Add(current.ToString());
-                    previousChunkTail = BuildOverlapTail(current.ToString(), ChunkOverlap);
                     current.Clear();
-
-                    // Start new chunk with overlap
-                    if (previousChunkTail != null && previousChunkTail.Length > 0)
-                    {
-                        current.Append(previousChunkTail);
-                    }
                 }
 
                 if (current.Length > 0)
@@ -380,7 +383,7 @@ namespace Mythosia.AI.Rag.Splitters
                 }
                 else
                 {
-                    final.AddRange(SplitLargeText(chunk, budget));
+                    final.AddRange(SplitOversizedBlock(chunk, budget));
                 }
             }
 
@@ -388,68 +391,130 @@ namespace Mythosia.AI.Rag.Splitters
         }
 
         /// <summary>
-        /// Last-resort splitting of a large text block at paragraph → line → character boundaries.
+        /// Cascading split of a large text block: paragraph → line → word boundaries.
+        /// Each stage only processes pieces that still exceed the budget.
         /// </summary>
-        private List<string> SplitLargeText(string text, int budget)
+        private List<string> SplitOversizedBlock(string text, int budget)
+        {
+            var pieces = SplitOversizedBySeparator(new List<string> { text }, budget, "\n\n");
+            pieces = SplitOversizedBySeparator(pieces, budget, "\n");
+
+            var result = new List<string>();
+            foreach (var piece in pieces)
+            {
+                if (piece.Length <= budget)
+                    result.Add(piece);
+                else
+                    result.AddRange(SplitByWordBoundary(piece, budget));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Splits only the pieces that exceed budget using the given separator.
+        /// Pieces within budget pass through unchanged.
+        /// </summary>
+        private static List<string> SplitOversizedBySeparator(List<string> pieces, int budget, string separator)
+        {
+            var result = new List<string>();
+            foreach (var piece in pieces)
+            {
+                if (piece.Length <= budget)
+                {
+                    result.Add(piece);
+                    continue;
+                }
+
+                var parts = piece.Split(new[] { separator }, StringSplitOptions.None);
+                if (parts.Length <= 1)
+                {
+                    result.Add(piece);
+                    continue;
+                }
+
+                var sb = new StringBuilder();
+                foreach (var part in parts)
+                {
+                    int addLen = sb.Length == 0 ? part.Length : part.Length + separator.Length;
+                    if (sb.Length > 0 && sb.Length + addLen > budget)
+                    {
+                        result.Add(sb.ToString());
+                        sb.Clear();
+                    }
+                    if (sb.Length > 0) sb.Append(separator);
+                    sb.Append(part);
+                }
+                if (sb.Length > 0)
+                    result.Add(sb.ToString());
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Last-resort split at word (space) boundaries. Falls back to character-level
+        /// if no spaces are found within the budget window.
+        /// </summary>
+        private static List<string> SplitByWordBoundary(string text, int budget)
         {
             var parts = new List<string>();
-
-            // Try paragraph splits first
-            var paragraphs = text.Split(new[] { "\n\n" }, StringSplitOptions.None);
-            if (paragraphs.Length > 1)
+            int pos = 0;
+            while (pos < text.Length)
             {
-                var sb = new StringBuilder();
-                foreach (var para in paragraphs)
+                int end = Math.Min(pos + budget, text.Length);
+                if (end < text.Length)
                 {
-                    if (sb.Length > 0 && sb.Length + 2 + para.Length > budget)
-                    {
-                        parts.Add(sb.ToString());
-                        sb.Clear();
-                        // Overlap
-                        var tail = BuildOverlapTail(parts[parts.Count - 1], ChunkOverlap);
-                        if (tail.Length > 0)
-                            sb.Append(tail);
-                    }
-                    if (sb.Length > 0) sb.Append("\n\n");
-                    sb.Append(para);
+                    int lastSpace = text.LastIndexOf(' ', end - 1, end - pos);
+                    if (lastSpace > pos)
+                        end = lastSpace;
                 }
-                if (sb.Length > 0)
-                    parts.Add(sb.ToString());
-                return parts;
+                parts.Add(text.Substring(pos, end - pos));
+                pos = end;
+                if (pos < text.Length && text[pos] == ' ')
+                    pos++;
             }
-
-            // Try line splits
-            var lines = text.Split(new[] { "\n" }, StringSplitOptions.None);
-            if (lines.Length > 1)
-            {
-                var sb = new StringBuilder();
-                foreach (var line in lines)
-                {
-                    if (sb.Length > 0 && sb.Length + 1 + line.Length > budget)
-                    {
-                        parts.Add(sb.ToString());
-                        sb.Clear();
-                        var tail = BuildOverlapTail(parts[parts.Count - 1], ChunkOverlap);
-                        if (tail.Length > 0)
-                            sb.Append(tail);
-                    }
-                    if (sb.Length > 0) sb.Append("\n");
-                    sb.Append(line);
-                }
-                if (sb.Length > 0)
-                    parts.Add(sb.ToString());
-                return parts;
-            }
-
-            // Character-level split (worst case)
-            int step = Math.Max(1, budget - ChunkOverlap);
-            for (int pos = 0; pos < text.Length; pos += step)
-            {
-                int len = Math.Min(budget, text.Length - pos);
-                parts.Add(text.Substring(pos, len));
-            }
-
             return parts;
+        }
+
+        /// <summary>
+        /// Extracts a bold label from the beginning of text, e.g. <c>**제품 내용**</c>.
+        /// Returns null if no bold label pattern is found.
+        /// </summary>
+        private static string? ExtractBoldLabel(string text)
+        {
+            if (!text.StartsWith("**", StringComparison.Ordinal))
+                return null;
+
+            int close = text.IndexOf("**", 2, StringComparison.Ordinal);
+            if (close < 0)
+                return null;
+
+            return text.Substring(0, close + 2);
+        }
+
+        /// <summary>
+        /// Scans text for the last <c>**label**</c> pattern that appears at the
+        /// start of a line. Returns the label, or null if none found.
+        /// </summary>
+        private static string? FindLastBoldLabel(string text)
+        {
+            string? last = null;
+            int pos = 0;
+            while (pos < text.Length)
+            {
+                if (pos == 0 || (pos > 0 && text[pos - 1] == '\n'))
+                {
+                    if (text.Length - pos >= 4 && text[pos] == '*' && text[pos + 1] == '*')
+                    {
+                        int close = text.IndexOf("**", pos + 2, StringComparison.Ordinal);
+                        if (close > pos + 2)
+                            last = text.Substring(pos, close + 2 - pos);
+                    }
+                }
+                int nl = text.IndexOf('\n', pos);
+                if (nl < 0) break;
+                pos = nl + 1;
+            }
+            return last;
         }
 
         // =================================================================
@@ -516,24 +581,6 @@ namespace Mythosia.AI.Rag.Splitters
         // =================================================================
         //  Overlap helper
         // =================================================================
-
-        /// <summary>
-        /// Extracts the last N characters of text, aligned to a line or sentence boundary.
-        /// </summary>
-        private static string BuildOverlapTail(string text, int overlapSize)
-        {
-            if (overlapSize <= 0 || text.Length == 0)
-                return string.Empty;
-
-            int start = Math.Max(0, text.Length - overlapSize);
-
-            // Align forward to a newline boundary if possible
-            int newlinePos = text.IndexOf('\n', start);
-            if (newlinePos >= 0 && newlinePos < text.Length - 1)
-                start = newlinePos + 1;
-
-            return text.Substring(start);
-        }
 
         // =================================================================
         //  Line-level helpers

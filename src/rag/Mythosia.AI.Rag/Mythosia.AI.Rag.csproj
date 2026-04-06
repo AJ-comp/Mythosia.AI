@@ -5,13 +5,14 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>7.3.0</Version>
+    <Version>7.3.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Implements Mythosia.AI.Rag.Abstractions v5.x. Includes RagPipeline, text splitters, context builder, OpenAI/vLLM embedding providers, hybrid search (BM25 + Vector + RRF), re-ranking (Cohere, LLM, vLLM), search gate, keyword extraction, weighted-blend final selection, progress reporting, DoclingDocument-to-RagDocument conversion, and per-query VectorFilter passthrough (StoreFilter). Depends on Mythosia.AI.Abstractions (IAIService) instead of the full Mythosia.AI implementation.</Description>
     <PackageTags>AI;RAG;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking;MetadataFilter</PackageTags>
     <PackageProjectUrl>https://aj-comp.github.io/Mythosia.AI/docs/rag.html</PackageProjectUrl>
-    <PackageReleaseNotes>v7.3.0: Namespace concept removed.</PackageReleaseNotes>
+    <PackageReleaseNotes>v7.3.1: MarkdownTextSplitter — bold label propagation across all chunk boundaries, cascading split (paragraph → line → word), 50-char buffer margin, method renames (MergeBlocksIntoChunks, SplitOversizedBlock).
+v7.3.0: Namespace concept removed.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

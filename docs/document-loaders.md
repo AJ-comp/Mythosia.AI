@@ -133,11 +133,43 @@ foreach (var item in doc.Document)
 
 **Element types:** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
 
+## Processing Pipeline Overview
+
+Documents go through three stages before becoming RAG-searchable chunks. Each stage is handled by a different package.
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. Parsing (Documents.Hwp / Documents.Office / Documents.Pdf)
+│     .hwp, .pdf, .docx, etc. → DoclingDocument (structured model)
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  2. Serialization (Documents.Abstractions)
+│     DoclingDocument → Markdown string
+│     MarkdownSerializer converts headings, tables, code blocks
+│     into Markdown syntax.
+│     Table rendering is swappable via ITableSerializer.
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  3. Chunking (AI.Rag)
+│     Markdown string → searchable chunk list
+│     MarkdownTextSplitter splits by headers into sections,
+│     then cascades: paragraph → line → word boundary.
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Stage 1 (Parsing)** — Each document loader (`HwpDocumentLoader`, `PdfDocumentLoader`, etc.) reads the original file and converts it into a `DoclingDocument`, a structured model containing text, headings, tables, and code blocks in a tree structure.
+
+**Stage 2 (Serialization)** — When `DoclingDocument.ToMarkdown()` is called, the internal `MarkdownSerializer` traverses the tree and produces a Markdown string. Table rendering can be swapped via `ITableSerializer`. HWP documents default to `SemanticTableSerializer`, which renders form-style tables with bold group labels.
+
+**Stage 3 (Chunking)** — The RAG pipeline's `MarkdownTextSplitter` receives the Markdown string and splits it into search-friendly chunks. It organizes sections by headers (`#`, `##`, etc.) and automatically includes breadcrumbs (parent header paths) in each chunk.
+
+Because these three stages are decoupled, adding a new document loader or changing the table rendering strategy does not affect the other stages.
+
 ## Document Loaders & Text Splitters Integration
 
-Document loaders for Word, Excel, PowerPoint, and HWP internally convert files through `DoclingDocument` into **Markdown format**. During this process, tables become Markdown tables (`| Header |` + `|---|` + `| Data |`), and headings and code blocks are also rendered as Markdown syntax.
-
-This makes `MarkdownTextSplitter` the most effective choice for Office/HWP documents:
+`MarkdownTextSplitter` is the most effective choice for Office/HWP documents:
 
 ```csharp
 var service = new AnthropicService(apiKey, http)

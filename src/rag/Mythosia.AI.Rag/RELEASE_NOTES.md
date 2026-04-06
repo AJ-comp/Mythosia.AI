@@ -1,5 +1,20 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.3.1
+
+### MarkdownTextSplitter Improvements
+
+- **Bold label propagation** — `**label**` context is now tracked and prepended to all subsequent chunks within a section, regardless of where the split occurs (`MergeBlocksIntoChunks` or `SplitOversizedBlock`). Propagation logic moved to `ChunkSections` for universal coverage.
+- **Cascading split** — oversized text blocks are split in stages: paragraph (`\n\n`) → line (`\n`) → word boundary (space), minimizing mid-word breaks.
+- **50-char buffer margin** — chunk budget reserves 50 characters for breadcrumb and label overhead, preventing chunk size overflow.
+- **Method renames** — `SplitContentBlocks` → `MergeBlocksIntoChunks`, `SplitLargeText` → `SplitOversizedBlock` for clarity.
+
+### Dependency Updates
+
+- Recompiled against `Mythosia.Documents.Office` 1.0.1, `Mythosia.Documents.Pdf` 1.1.1 (both updated for `Mythosia.Documents.Abstractions` 1.1.0).
+
+---
+
 ## v7.3.0
 
 ### Breaking Changes

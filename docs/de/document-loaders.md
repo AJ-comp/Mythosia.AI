@@ -133,11 +133,43 @@ foreach (var item in doc.Document)
 
 **Elementtypen:** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
 
+## Verarbeitungs-Pipeline Übersicht
+
+Dokumente durchlaufen drei Stufen, bevor sie zu RAG-durchsuchbaren Chunks werden. Jede Stufe wird von einem anderen Paket verarbeitet.
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. Parsing (Documents.Hwp / Documents.Office / Documents.Pdf)
+│     .hwp, .pdf, .docx usw. → DoclingDocument (strukturiertes Modell)
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  2. Serialisierung (Documents.Abstractions)
+│     DoclingDocument → Markdown-String
+│     MarkdownSerializer wandelt Überschriften, Tabellen,
+│     Codeblöcke in Markdown-Syntax um.
+│     Tabellen-Rendering ist über ITableSerializer austauschbar.
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  3. Chunking (AI.Rag)
+│     Markdown-String → durchsuchbare Chunk-Liste
+│     MarkdownTextSplitter teilt nach Überschriften in Sektionen,
+│     dann kaskadierend: Absatz → Zeile → Wortgrenze.
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Stufe 1 (Parsing)** — Jeder Dokument-Loader (`HwpDocumentLoader`, `PdfDocumentLoader` usw.) liest die Originaldatei und wandelt sie in ein `DoclingDocument` um — ein strukturiertes Modell mit Text, Überschriften, Tabellen und Codeblöcken in einer Baumstruktur.
+
+**Stufe 2 (Serialisierung)** — Beim Aufruf von `DoclingDocument.ToMarkdown()` durchläuft der interne `MarkdownSerializer` den Baum und erzeugt einen Markdown-String. Das Tabellen-Rendering kann über `ITableSerializer` ausgetauscht werden. HWP-Dokumente verwenden standardmäßig `SemanticTableSerializer`, der Formulartabellen mit fetten Gruppenlabels rendert.
+
+**Stufe 3 (Chunking)** — Der `MarkdownTextSplitter` der RAG-Pipeline empfängt den Markdown-String und teilt ihn in suchfreundliche Chunks auf. Er organisiert Sektionen nach Überschriften (`#`, `##` usw.) und fügt automatisch Breadcrumbs (übergeordnete Überschriftenpfade) in jeden Chunk ein.
+
+Da diese drei Stufen entkoppelt sind, beeinflusst das Hinzufügen eines neuen Dokument-Loaders oder das Ändern der Tabellen-Rendering-Strategie die anderen Stufen nicht.
+
 ## Dokument-Loader & Text-Splitter Integration
 
-Dokument-Loader für Word, Excel, PowerPoint und HWP wandeln Dateien intern über `DoclingDocument` in **Markdown-Format** um. Tabellen werden dabei zu Markdown-Tabellen (`| Header |` + `|---|` + `| Daten |`), und Überschriften sowie Codeblöcke werden ebenfalls als Markdown-Syntax ausgegeben.
-
-Deshalb ist `MarkdownTextSplitter` die effektivste Wahl für Office/HWP-Dokumente:
+`MarkdownTextSplitter` ist die effektivste Wahl für Office/HWP-Dokumente:
 
 ```csharp
 var service = new AnthropicService(apiKey, http)

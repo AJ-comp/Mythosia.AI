@@ -16,6 +16,18 @@ internal static class PreviewEndpoints
     private static readonly HashSet<string> SupportedExtensions =
         new(StringComparer.OrdinalIgnoreCase) { ".hwp", ".docx", ".xlsx", ".pptx", ".pdf" };
 
+    private static IEnumerable<TableItem> CollectTables(DoclingDocument doc, NodeItem node)
+    {
+        if (node is TableItem t) yield return t;
+        foreach (var r in node.Children)
+        {
+            var child = r.Resolve(doc);
+            if (child != null)
+                foreach (var t2 in CollectTables(doc, child))
+                    yield return t2;
+        }
+    }
+
     private static object BuildDocTree(DoclingDocument doc, NodeItem node)
     {
         string type = node.GetType().Name;
@@ -49,7 +61,16 @@ internal static class PreviewEndpoints
             case TableItem table:
                 props["rows"] = (object)table.Data.NumRows;
                 props["cols"] = (object)table.Data.NumCols;
-                props["cells"] = (object)table.Data.TableCells.Count;
+                props["cells"] = table.Data.TableCells.Select(c => new
+                {
+                    text         = Truncate(c.Text, 30),
+                    startRow     = c.StartRowOffsetIdx,
+                    startCol     = c.StartColOffsetIdx,
+                    rowSpan      = c.RowSpan,
+                    colSpan      = c.ColSpan,
+                    columnHeader = c.ColumnHeader,
+                    rowHeader    = c.RowHeader,
+                }).ToList();
                 break;
             case GroupItem g:
                 props["name"] = g.Name;
@@ -107,31 +128,68 @@ internal static class PreviewEndpoints
                 if (docs.Count == 0)
                     return Results.BadRequest(new { error = "Document loaded but produced no content." });
 
-                var markdown = new MarkdownSerializer().Serialize(docs[0]);
-
-                var ragDoc = new RagDocument
+                var markdownGrid = new MarkdownSerializer
                 {
-                    Id      = "preview",
-                    Source  = file.FileName,
-                    Content = markdown
-                };
+                    TableSerializer = new GridTableSerializer()
+                }.Serialize(docs[0]);
 
-                var chunks = new MarkdownTextSplitter(chunkSize).Split(ragDoc);
+                var markdownSemantic = new MarkdownSerializer
+                {
+                    TableSerializer = new SemanticTableSerializer()
+                }.Serialize(docs[0]);
+
+                var splitter = new MarkdownTextSplitter(chunkSize);
+
+                var chunksGrid = splitter.Split(new RagDocument
+                {
+                    Id = "preview", Source = file.FileName, Content = markdownGrid
+                });
+
+                var chunksSemantic = splitter.Split(new RagDocument
+                {
+                    Id = "preview", Source = file.FileName, Content = markdownSemantic
+                });
 
                 return Results.Ok(new
                 {
-                    fileName      = file.FileName,
-                    markdownLength = markdown.Length,
-                    markdown,
+                    fileName          = file.FileName,
+                    markdownLength    = markdownGrid.Length,
+                    markdown          = markdownGrid,
+                    markdownSemantic,
                     chunkSize,
-                    chunks = chunks.Select(c => new
+                    chunks = chunksGrid.Select(c => new
+                    {
+                        index   = c.Index,
+                        length  = c.Content.Length,
+                        content = c.Content
+                    }),
+                    chunksSemantic = chunksSemantic.Select(c => new
                     {
                         index   = c.Index,
                         length  = c.Content.Length,
                         content = c.Content
                     }),
                     tree     = BuildDocTree(docs[0], docs[0].Body),
-                    metadata = docs[0].Metadata
+                    metadata = docs[0].Metadata,
+                    semanticTables = CollectTables(docs[0], docs[0].Body)
+                        .Select((t, i) =>
+                        {
+                            var sv = t.Data.BuildSemanticGroups();
+                            return new
+                            {
+                                tableIndex   = i,
+                                rows         = t.Data.NumRows,
+                                cols         = t.Data.NumCols,
+                                isFormStyle  = sv.IsFormStyle,
+                                headerRows   = sv.HeaderRows,
+                                groups       = sv.Groups.Select(g => new
+                                {
+                                    rowLabel = g.RowLabel,
+                                    rowCount = g.DataRows.Count,
+                                    dataRows = g.DataRows,
+                                }).ToList(),
+                            };
+                        }).ToList()
                 });
             }
             catch (Exception ex)

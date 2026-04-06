@@ -133,11 +133,43 @@ foreach (var item in doc.Document)
 
 **Types d'éléments :** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
 
+## Aperçu du pipeline de traitement
+
+Les documents passent par trois étapes avant de devenir des fragments recherchables par RAG. Chaque étape est gérée par un package différent.
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. Analyse (Documents.Hwp / Documents.Office / Documents.Pdf)
+│     .hwp, .pdf, .docx, etc. → DoclingDocument (modèle structuré)
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  2. Sérialisation (Documents.Abstractions)
+│     DoclingDocument → chaîne Markdown
+│     MarkdownSerializer convertit titres, tableaux, blocs de code
+│     en syntaxe Markdown.
+│     Le rendu des tableaux est interchangeable via ITableSerializer.
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  3. Découpage (AI.Rag)
+│     Chaîne Markdown → liste de fragments recherchables
+│     MarkdownTextSplitter découpe par titres en sections,
+│     puis en cascade : paragraphe → ligne → limite de mot.
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Étape 1 (Analyse)** — Chaque chargeur de documents (`HwpDocumentLoader`, `PdfDocumentLoader`, etc.) lit le fichier original et le convertit en `DoclingDocument`, un modèle structuré contenant texte, titres, tableaux et blocs de code dans une arborescence.
+
+**Étape 2 (Sérialisation)** — Lorsque `DoclingDocument.ToMarkdown()` est appelé, le `MarkdownSerializer` interne parcourt l'arborescence et produit une chaîne Markdown. Le rendu des tableaux peut être remplacé via `ITableSerializer`. Les documents HWP utilisent par défaut `SemanticTableSerializer`, qui rend les tableaux de formulaire avec des libellés de groupe en gras.
+
+**Étape 3 (Découpage)** — Le `MarkdownTextSplitter` du pipeline RAG reçoit la chaîne Markdown et la découpe en fragments adaptés à la recherche. Il organise les sections par titres (`#`, `##`, etc.) et inclut automatiquement des fils d'Ariane (chemins des titres parents) dans chaque fragment.
+
+Ces trois étapes étant découplées, l'ajout d'un nouveau chargeur de documents ou la modification de la stratégie de rendu des tableaux n'affecte pas les autres étapes.
+
 ## Intégration chargeurs de documents et découpeurs de texte
 
-Les chargeurs de documents Word, Excel, PowerPoint et HWP convertissent en interne les fichiers via `DoclingDocument` au **format Markdown**. Les tableaux deviennent des tableaux Markdown (`| En-tête |` + `|---|` + `| Données |`), et les titres ainsi que les blocs de code sont également rendus en syntaxe Markdown.
-
-C'est pourquoi `MarkdownTextSplitter` est le choix le plus efficace pour les documents Office/HWP :
+`MarkdownTextSplitter` est le choix le plus efficace pour les documents Office/HWP :
 
 ```csharp
 var service = new AnthropicService(apiKey, http)

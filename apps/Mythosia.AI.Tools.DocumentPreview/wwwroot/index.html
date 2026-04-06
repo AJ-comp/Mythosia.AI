@@ -9,6 +9,7 @@
 <body>
   <header>
     <div class="header-title">Document Preview</div>
+    <div class="header-dot"></div>
     <div class="header-sub">Document → Markdown → Chunks 파이프라인 검사 도구</div>
   </header>
 
@@ -39,6 +40,12 @@
         <input type="number" id="warnThreshold" value="800" min="100" step="100">
         <span class="setting-unit">chars</span>
       </label>
+      <div class="setting-sep"></div>
+      <span class="setting"><span>Table 방식</span></span>
+      <div class="algo-toggle">
+        <button class="algo-btn active" id="btnAlgoGrid">Grid</button>
+        <button class="algo-btn" id="btnAlgoSemantic">Semantic</button>
+      </div>
       <button class="btn-analyze" id="btnAnalyze" disabled>분석</button>
     </div>
 
@@ -50,25 +57,40 @@
       <div class="panels-row">
         <div class="panel" id="panelMarkdown">
           <div class="panel-header">
-            <span>Markdown</span>
+            <span class="panel-title">Markdown</span>
             <span class="panel-meta" id="markdownMeta"></span>
+            <div class="md-view-toggle">
+              <button class="md-toggle-btn active" id="btnMdSource">소스</button>
+              <button class="md-toggle-btn" id="btnMdPreview">프리뷰</button>
+            </div>
           </div>
           <pre class="panel-body" id="markdownOutput"></pre>
+          <div class="panel-body md-preview" id="markdownPreview" hidden></div>
         </div>
         <div class="panel" id="panelChunks">
           <div class="panel-header">
-            <span>Chunks</span>
+            <span class="panel-title">Chunks</span>
             <span class="panel-meta" id="chunksMeta"></span>
           </div>
           <div class="panel-body" id="chunksOutput"></div>
         </div>
       </div>
-      <div class="panel" id="panelTree">
-        <div class="panel-header">
-          <span>Document Tree</span>
-          <span class="panel-meta" id="treeMeta"></span>
+      <div class="panels-row">
+        <div class="panel" id="panelTree">
+          <div class="panel-header">
+            <span class="panel-title">Document Tree</span>
+            <span class="panel-meta" id="treeMeta"></span>
+            <button class="btn-copy-tree" id="btnCopyTree">복사</button>
+          </div>
+          <div class="panel-body" id="treeOutput"></div>
         </div>
-        <div class="panel-body" id="treeOutput"></div>
+        <div class="panel" id="panelSemantic">
+          <div class="panel-header">
+            <span class="panel-title">Semantic Tables</span>
+            <span class="panel-meta" id="semanticMeta"></span>
+          </div>
+          <div class="panel-body" id="semanticOutput"></div>
+        </div>
       </div>
     </div>
 
@@ -79,6 +101,7 @@
     </div>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

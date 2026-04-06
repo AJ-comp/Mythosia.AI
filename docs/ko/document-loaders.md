@@ -133,11 +133,43 @@ foreach (var item in doc.Document)
 
 **요소 타입:** `TextItem`, `SectionHeaderItem`, `TitleItem`, `ListItem`, `TableItem`, `CodeItem`, `FormulaItem`, `PictureItem`, `GroupItem`, `RefItem`
 
+## 처리 파이프라인 개요
+
+문서가 RAG 검색 가능한 청크로 변환되기까지 세 단계를 거칩니다. 각 단계는 서로 다른 패키지가 담당합니다.
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. 파싱 (Documents.Hwp / Documents.Office / Documents.Pdf) │
+│     .hwp, .pdf, .docx 등 → DoclingDocument (구조화 모델)     │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  2. 직렬화 (Documents.Abstractions)                          │
+│     DoclingDocument → Markdown 문자열                         │
+│     MarkdownSerializer가 헤딩, 테이블, 코드 블록 등을          │
+│     마크다운 문법으로 변환합니다.                                │
+│     테이블 렌더링은 ITableSerializer로 교체할 수 있습니다.      │
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  3. 청킹 (AI.Rag)                                           │
+│     Markdown 문자열 → 검색 가능한 청크 리스트                   │
+│     MarkdownTextSplitter가 헤더 기반으로 섹션을 나누고,         │
+│     큰 섹션은 문단 → 줄 → 단어 경계 순으로 분할합니다.          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**1단계 (파싱)** — 각 문서 로더(`HwpDocumentLoader`, `PdfDocumentLoader` 등)가 원본 파일을 읽어 `DoclingDocument`라는 구조화된 모델로 변환합니다. 여기에는 텍스트, 헤딩, 테이블, 코드 블록 등의 요소가 트리 형태로 저장됩니다.
+
+**2단계 (직렬화)** — `DoclingDocument.ToMarkdown()`이 호출되면 내부적으로 `MarkdownSerializer`가 트리를 순회하며 마크다운 문자열을 생성합니다. 테이블 렌더링 방식은 `ITableSerializer`를 통해 교체할 수 있으며, HWP 문서는 기본적으로 `SemanticTableSerializer`를 사용하여 양식(Form) 스타일 테이블을 볼드 레이블 형태로 렌더링합니다.
+
+**3단계 (청킹)** — RAG 파이프라인의 `MarkdownTextSplitter`가 마크다운 문자열을 받아 검색에 적합한 크기의 청크로 분할합니다. 헤더(`#`, `##` 등) 기반으로 섹션을 구성하고, 각 청크에 상위 헤더 경로(breadcrumb)를 자동 포함합니다.
+
+이 세 단계가 분리되어 있으므로, 문서 로더를 추가하거나 테이블 렌더링 방식을 변경해도 다른 단계에 영향을 주지 않습니다.
+
 ## 문서 로더와 텍스트 분할기 연계
 
-Word, Excel, PowerPoint, HWP 등의 문서 로더는 내부적으로 `DoclingDocument`를 거쳐 **마크다운 형식**으로 변환됩니다. 이 과정에서 테이블은 마크다운 테이블 문법(`| 헤더 |` + `|---|` + `| 데이터 |`)으로 변환되고, 헤딩과 코드 블록도 마크다운 구문으로 출력됩니다.
-
-이 때문에 Office/HWP 문서에는 `MarkdownTextSplitter`를 사용하는 것이 가장 효과적입니다:
+Office/HWP 문서에는 `MarkdownTextSplitter`를 사용하는 것이 가장 효과적입니다:
 
 ```csharp
 var service = new AnthropicService(apiKey, http)

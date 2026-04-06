@@ -133,11 +133,43 @@ foreach (var item in doc.Document)
 
 **元素类型：** `TextItem`、`SectionHeaderItem`、`TitleItem`、`ListItem`、`TableItem`、`CodeItem`、`FormulaItem`、`PictureItem`、`GroupItem`、`RefItem`
 
+## 处理管线概览
+
+文档在成为 RAG 可搜索的分块之前需要经过三个阶段。每个阶段由不同的包负责。
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. 解析 (Documents.Hwp / Documents.Office / Documents.Pdf)
+│     .hwp, .pdf, .docx 等 → DoclingDocument（结构化模型）
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  2. 序列化 (Documents.Abstractions)
+│     DoclingDocument → Markdown 字符串
+│     MarkdownSerializer 将标题、表格、代码块
+│     转换为 Markdown 语法。
+│     表格渲染可通过 ITableSerializer 替换。
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  3. 分块 (AI.Rag)
+│     Markdown 字符串 → 可搜索的分块列表
+│     MarkdownTextSplitter 按标题分割为章节，
+│     然后级联分割：段落 → 行 → 词边界。
+└─────────────────────────────────────────────────────────────┘
+```
+
+**阶段 1（解析）** — 每个文档加载器（`HwpDocumentLoader`、`PdfDocumentLoader` 等）读取原始文件并将其转换为 `DoclingDocument`，即一个包含文本、标题、表格和代码块的树形结构化模型。
+
+**阶段 2（序列化）** — 调用 `DoclingDocument.ToMarkdown()` 时，内部的 `MarkdownSerializer` 遍历树结构并生成 Markdown 字符串。表格渲染可通过 `ITableSerializer` 替换。HWP 文档默认使用 `SemanticTableSerializer`，以粗体组标签渲染表单样式的表格。
+
+**阶段 3（分块）** — RAG 管线的 `MarkdownTextSplitter` 接收 Markdown 字符串并将其分割为适合搜索的分块。它按标题（`#`、`##` 等）组织章节，并自动在每个分块中包含面包屑导航（父标题路径）。
+
+由于这三个阶段是解耦的，添加新的文档加载器或更改表格渲染策略不会影响其他阶段。
+
 ## 文档加载器与文本分割器的配合
 
-Word、Excel、PowerPoint 和 HWP 的文档加载器在内部通过 `DoclingDocument` 将文件转换为 **Markdown 格式**。表格会变成 Markdown 表格（`| 表头 |` + `|---|` + `| 数据 |`），标题和代码块也以 Markdown 语法输出。
-
-因此，`MarkdownTextSplitter` 是 Office/HWP 文档最有效的选择：
+`MarkdownTextSplitter` 是 Office/HWP 文档最有效的选择：
 
 ```csharp
 var service = new AnthropicService(apiKey, http)

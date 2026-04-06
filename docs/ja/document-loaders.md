@@ -133,11 +133,43 @@ foreach (var item in doc.Document)
 
 **要素タイプ:** `TextItem`、`SectionHeaderItem`、`TitleItem`、`ListItem`、`TableItem`、`CodeItem`、`FormulaItem`、`PictureItem`、`GroupItem`、`RefItem`
 
+## 処理パイプラインの概要
+
+ドキュメントはRAG検索可能なチャンクになるまでに3つのステージを経ます。各ステージは異なるパッケージが担当します。
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│  1. パース (Documents.Hwp / Documents.Office / Documents.Pdf)
+│     .hwp, .pdf, .docx など → DoclingDocument（構造化モデル）
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  2. シリアライズ (Documents.Abstractions)
+│     DoclingDocument → Markdown文字列
+│     MarkdownSerializerが見出し、テーブル、コードブロックを
+│     Markdown構文に変換します。
+│     テーブルレンダリングはITableSerializerで交換可能です。
+└──────────────────────────┬──────────────────────────────────┘
+                           ↓
+┌──────────────────────────┴──────────────────────────────────┐
+│  3. チャンキング (AI.Rag)
+│     Markdown文字列 → 検索可能なチャンクリスト
+│     MarkdownTextSplitterが見出しベースでセクションに分割し、
+│     段落 → 行 → 単語境界の順でカスケード分割します。
+└─────────────────────────────────────────────────────────────┘
+```
+
+**ステージ1（パース）** — 各ドキュメントローダー（`HwpDocumentLoader`、`PdfDocumentLoader`など）が元のファイルを読み込み、テキスト、見出し、テーブル、コードブロックなどの要素をツリー構造で持つ`DoclingDocument`に変換します。
+
+**ステージ2（シリアライズ）** — `DoclingDocument.ToMarkdown()`が呼び出されると、内部の`MarkdownSerializer`がツリーを走査してMarkdown文字列を生成します。テーブルレンダリングは`ITableSerializer`で交換可能です。HWPドキュメントはデフォルトで`SemanticTableSerializer`を使用し、フォームスタイルのテーブルを太字グループラベルでレンダリングします。
+
+**ステージ3（チャンキング）** — RAGパイプラインの`MarkdownTextSplitter`がMarkdown文字列を受け取り、検索に適したサイズのチャンクに分割します。見出し（`#`、`##`など）ベースでセクションを構成し、各チャンクにブレッドクラム（親見出しパス）を自動的に含めます。
+
+これら3つのステージが分離されているため、新しいドキュメントローダーの追加やテーブルレンダリング戦略の変更が他のステージに影響を与えません。
+
 ## ドキュメントローダーとテキストスプリッターの連携
 
-Word、Excel、PowerPoint、HWPのドキュメントローダーは、内部的に`DoclingDocument`を経由して**Markdown形式**に変換します。この過程でテーブルはMarkdownテーブル（`| ヘッダー |` + `|---|` + `| データ |`）に、見出しやコードブロックもMarkdown構文で出力されます。
-
-そのため、Office/HWPドキュメントには`MarkdownTextSplitter`が最も効果的です：
+Office/HWPドキュメントには`MarkdownTextSplitter`が最も効果的です：
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
