@@ -31,6 +31,10 @@ doc.AddCode("var x = 42;", language: "csharp");
 
 // Export to Markdown
 string markdown = doc.ToMarkdown();
+
+// Optional: override table rendering strategy
+doc.TableSerializer = new SemanticTableSerializer();
+string semanticMarkdown = doc.ToMarkdown();
 ```
 
 For plain-text content that should be preserved as-is, use `RawContent`:
@@ -43,6 +47,27 @@ var doc = new DoclingDocument
     RawContent = rawText, // ToMarkdown() returns this directly
 };
 ```
+
+### Table Serialization
+
+Table rendering is pluggable via `ITableSerializer`. The default is `GridTableSerializer` (standard Markdown pipe table). Switch to `SemanticTableSerializer` for form-style documents:
+
+```csharp
+using Mythosia.Documents.Elements;
+
+// Default: pipe table
+var doc = new DoclingDocument { Name = "report" };
+string md = doc.ToMarkdown(); // uses GridTableSerializer
+
+// Semantic: bold group labels for form-style tables
+doc.TableSerializer = new SemanticTableSerializer();
+string md2 = doc.ToMarkdown(); // uses SemanticTableSerializer
+```
+
+| Serializer | Output Style |
+|------|-------------|
+| `GridTableSerializer` | Standard Markdown pipe table (default) |
+| `SemanticTableSerializer` | Form-style with `**bold labels**` and inline data |
 
 ### IDocumentLoader
 
@@ -74,6 +99,7 @@ public interface IDocumentParser
 | `CodeItem` | Code block with language |
 | `DocListItem` | List item (ordered/unordered) |
 | `TableItem` / `TableData` / `TableCell` | Table structure |
+| `TableSemanticView` | Semantic group/column analysis for table layout |
 | `PictureItem` | Image placeholder |
 | `GroupItem` | Container (chapter, slide, sheet) |
 
@@ -81,6 +107,7 @@ public interface IDocumentParser
 
 | Package | Description |
 |---------|-------------|
+| [Mythosia.Documents.Hwp](https://www.nuget.org/packages/Mythosia.Documents.Hwp) | HWP (Korean word processor) loader |
 | [Mythosia.Documents.Office](https://www.nuget.org/packages/Mythosia.Documents.Office) | Word / Excel / PowerPoint loaders |
 | [Mythosia.Documents.Pdf](https://www.nuget.org/packages/Mythosia.Documents.Pdf) | PDF loader (PdfPig) |
 | [Mythosia.AI.Rag](https://www.nuget.org/packages/Mythosia.AI.Rag) | RAG pipeline that consumes DoclingDocument |

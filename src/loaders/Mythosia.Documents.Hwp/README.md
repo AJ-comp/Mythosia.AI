@@ -32,13 +32,26 @@ var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag.AddDocument("docs/report.hwp"));
 ```
 
+## Table Rendering
+
+HWP documents default to `SemanticTableSerializer`. Form-style tables (e.g., application forms, key-value layouts) are automatically detected and rendered with bold group labels (`**label**`) for improved RAG chunking context.
+
+To override:
+
+```csharp
+using Mythosia.Documents.Elements;
+
+var docs = await loader.LoadAsync("docs/report.hwp");
+docs[0].TableSerializer = new GridTableSerializer(); // switch to pipe table
+```
+
 ## Structured Extraction
 
 The parser iterates HWP sections and paragraphs to produce a structured `DoclingDocument`:
 
 - **Headings** — paragraphs with outline styles (Korean "개요" 1–9, Heading 1–9) are classified as headings.
 - **Titles** — paragraphs with Korean "제목" or "Title" style are emitted as document titles.
-- **Tables** — inline table controls are fully extracted with cell spans (ColSpan/RowSpan) preserved.
+- **Tables** — inline table controls are fully extracted with cell spans (ColSpan/RowSpan) preserved. Semantic form detection is applied by default.
 - **Paragraphs** — all remaining text paragraphs are emitted as body paragraphs.
 
 ## Parser Options

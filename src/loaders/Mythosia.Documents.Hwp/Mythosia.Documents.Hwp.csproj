@@ -5,13 +5,14 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Hwp</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>HWP document loader. Parses Korean word-processor (.hwp) files into DoclingDocument structured models via HwpLibSharp. Section/paragraph text extraction with table support.</Description>
     <PackageTags>Document;DocumentLoader;HWP;Hangul;HwpLibSharp</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.0.0: Initial release. HWP document loader returning DoclingDocument. Section-based paragraph extraction with table support via HwpLibSharp.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.1: Default SemanticTableSerializer for HWP documents. Requires Mythosia.Documents.Abstractions >= 1.1.0.
+v1.0.0: Initial release. HWP document loader returning DoclingDocument. Section-based paragraph extraction with table support via HwpLibSharp.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

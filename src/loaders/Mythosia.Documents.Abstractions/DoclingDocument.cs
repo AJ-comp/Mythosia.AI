@@ -74,6 +74,12 @@ namespace Mythosia.Documents
         /// </summary>
         public string? RawContent { get; set; }
 
+        /// <summary>
+        /// Optional table serialization strategy used by <see cref="ToMarkdown"/>.
+        /// When set, overrides the default <see cref="GridTableSerializer"/> in <see cref="MarkdownSerializer"/>.
+        /// </summary>
+        public ITableSerializer? TableSerializer { get; set; }
+
         // -----------------------------------------------------------------
         //  Builder API — mirrors docling's document construction methods
         // -----------------------------------------------------------------
@@ -214,7 +220,10 @@ namespace Mythosia.Documents
         public string ToMarkdown()
         {
             if (RawContent != null) return RawContent;
-            return new MarkdownSerializer().Serialize(this);
+            var serializer = new MarkdownSerializer();
+            if (TableSerializer != null)
+                serializer.TableSerializer = TableSerializer;
+            return serializer.Serialize(this);
         }
 
         // -----------------------------------------------------------------

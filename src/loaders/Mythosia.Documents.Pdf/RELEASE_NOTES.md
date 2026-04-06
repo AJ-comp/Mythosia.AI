@@ -1,5 +1,11 @@
 # Mythosia.Documents.Pdf - Release Notes
 
+## v1.1.1
+
+### Dependency Update
+
+- Recompiled against `Mythosia.Documents.Abstractions` 1.1.0 (pluggable table serialization via `ITableSerializer`).
+
 ## v1.1.0
 
 ### Structured Extraction

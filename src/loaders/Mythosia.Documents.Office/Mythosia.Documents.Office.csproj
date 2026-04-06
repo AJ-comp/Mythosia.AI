@@ -5,13 +5,14 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Office</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Office document loaders for Word (.docx), Excel (.xlsx), and PowerPoint (.pptx). Parses documents into DoclingDocument structured models via OpenXml.</Description>
     <PackageTags>Document;DocumentLoader;Office;OpenXml;Word;Excel;PowerPoint</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.0.0: Initial release as Mythosia.Documents.Office. Word/Excel/PowerPoint loaders returning DoclingDocument. OpenXml-based parsers with OfficeParserOptions (IncludeMetadata, NormalizeWhitespace, IncludeSheetNames, IncludeSlideNumbers).</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
+v1.0.0: Initial release as Mythosia.Documents.Office. Word/Excel/PowerPoint loaders returning DoclingDocument. OpenXml-based parsers with OfficeParserOptions (IncludeMetadata, NormalizeWhitespace, IncludeSheetNames, IncludeSlideNumbers).</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

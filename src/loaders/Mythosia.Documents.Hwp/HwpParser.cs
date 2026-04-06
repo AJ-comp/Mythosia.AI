@@ -211,7 +211,7 @@ namespace Mythosia.Documents.Hwp
                         EndRowOffsetIdx = rowIndex + rowSpan,
                         StartColOffsetIdx = colIndex,
                         EndColOffsetIdx = colIndex + colSpan,
-                        ColumnHeader = rIdx == 0,
+                        ColumnHeader = header.Property.TitleCell,
                     };
 
                     tableData.TableCells.Add(docCell);

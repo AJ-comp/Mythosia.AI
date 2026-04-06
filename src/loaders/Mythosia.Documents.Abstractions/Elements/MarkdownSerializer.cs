@@ -14,6 +14,13 @@ namespace Mythosia.Documents.Elements
         public string ImagePlaceholder { get; set; } = "<!-- image -->";
 
         /// <summary>
+        /// Strategy for rendering table items to Markdown.
+        /// Defaults to <see cref="GridTableSerializer"/> (standard pipe table).
+        /// Swap to <see cref="SemanticTableSerializer"/> for semantic group rendering.
+        /// </summary>
+        public ITableSerializer TableSerializer { get; set; } = new GridTableSerializer();
+
+        /// <summary>
         /// Converts the entire document body to a Markdown string.
         /// </summary>
         public string Serialize(DoclingDocument doc)
@@ -81,7 +88,7 @@ namespace Mythosia.Documents.Elements
                     break;
 
                 case TableItem table:
-                    RenderTable(doc, table, sb);
+                    TableSerializer.Render(table, sb);
                     break;
 
                 case PictureItem _:
@@ -95,77 +102,5 @@ namespace Mythosia.Documents.Elements
             }
         }
 
-        private void RenderTable(DoclingDocument doc, TableItem table, StringBuilder sb)
-        {
-            var data = table.Data;
-            if (data.NumRows == 0 || data.NumCols == 0)
-                return;
-
-            var grid = data.BuildGrid();
-
-            // Determine how many rows are column headers
-            int headerRows = 0;
-            for (int r = 0; r < data.NumRows; r++)
-            {
-                bool anyHeader = false;
-                for (int c = 0; c < data.NumCols; c++)
-                {
-                    if (grid[r, c]?.ColumnHeader == true)
-                    {
-                        anyHeader = true;
-                        break;
-                    }
-                }
-
-                if (anyHeader)
-                    headerRows++;
-                else
-                    break;
-            }
-
-            // If no explicit header rows, treat first row as header
-            if (headerRows == 0)
-                headerRows = 1;
-
-            // Render header rows
-            for (int r = 0; r < headerRows; r++)
-            {
-                sb.Append("| ");
-                for (int c = 0; c < data.NumCols; c++)
-                {
-                    var cellText = SanitizeForTable(grid[r, c]?.Text ?? "");
-                    sb.Append(cellText);
-                    sb.Append(" | ");
-                }
-                sb.AppendLine();
-            }
-
-            // Separator
-            sb.Append("|");
-            for (int c = 0; c < data.NumCols; c++)
-                sb.Append("---|");
-            sb.AppendLine();
-
-            // Data rows
-            for (int r = headerRows; r < data.NumRows; r++)
-            {
-                sb.Append("| ");
-                for (int c = 0; c < data.NumCols; c++)
-                {
-                    var cellText = SanitizeForTable(grid[r, c]?.Text ?? "");
-                    sb.Append(cellText);
-                    sb.Append(" | ");
-                }
-                sb.AppendLine();
-            }
-
-            sb.AppendLine();
-        }
-
-        private static string SanitizeForTable(string text)
-        {
-            // Markdown table cells must not contain newlines or pipe characters
-            return text.Replace("\r", "").Replace("\n", " ").Replace("|", "\\|");
-        }
     }
 }

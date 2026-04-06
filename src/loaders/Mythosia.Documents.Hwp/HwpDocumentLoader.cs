@@ -34,6 +34,7 @@ namespace Mythosia.Documents.Hwp
 
             var doclingDoc = await _parser.ParseAsync(source, ct);
             doclingDoc.Source = source;
+            doclingDoc.TableSerializer = new SemanticTableSerializer();
             doclingDoc.Metadata["type"] = "hwp";
             doclingDoc.Metadata["filename"] = Path.GetFileName(source);
             doclingDoc.Metadata["extension"] = Path.GetExtension(source).ToLowerInvariant();
