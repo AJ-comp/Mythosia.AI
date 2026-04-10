@@ -3,9 +3,14 @@ using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Tests.Common;
@@ -60,6 +65,169 @@ public class AgentRunTests
 
             ActivateChat.Messages.Add(new Message(ActorRole.Assistant, response));
             return Task.FromResult(response);
+        }
+
+        protected override HttpRequestMessage CreateMessageRequest()
+            => new(HttpMethod.Post, "https://localhost/");
+
+        protected override string ExtractResponseContent(string responseContent)
+            => responseContent;
+
+        protected override string StreamParseJson(string jsonData)
+            => jsonData;
+
+        public override Task<uint> GetInputTokenCountAsync()
+            => Task.FromResult(0u);
+
+        public override Task<uint> GetInputTokenCountAsync(string prompt)
+            => Task.FromResult(0u);
+
+        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
+            => Task.FromResult(Array.Empty<byte>());
+
+        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
+            => Task.FromResult(string.Empty);
+
+        public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+            => Task.CompletedTask;
+
+        protected override HttpRequestMessage CreateFunctionMessageRequest()
+            => new(HttpMethod.Post, "https://localhost/");
+
+        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+            => (response, null!);
+    }
+
+    /// <summary>
+    /// Streaming agent test double that reuses the base streaming loop while
+    /// capturing the effective options and goal passed to the stream.
+    /// </summary>
+    private class MockStreamingAgentService : AIService
+    {
+        private readonly string _response;
+
+        public int StreamCallCount { get; private set; }
+        public List<string> ReceivedStreamMessages { get; } = new();
+        public StreamOptions? LastStreamOptions { get; private set; }
+        public int? LastObservedMaxRounds { get; private set; }
+
+        public MockStreamingAgentService(string response)
+            : base("fake-key", "https://localhost/", new HttpClient())
+        {
+            _response = response;
+            AddNewChat();
+        }
+
+        public override string Provider => nameof(AIProvider.OpenAI);
+
+        public override Task<string> GetCompletionAsync(Message message)
+        {
+            ActivateChat.Messages.Add(message);
+            return Task.FromResult(_response);
+        }
+
+        protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
+            Message message,
+            StreamOptions options,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            LastStreamOptions = options.Clone();
+            LastObservedMaxRounds = (CurrentPolicy ?? DefaultPolicy).MaxRounds;
+
+            await foreach (var content in base.StreamCoreAsync(message, options, cancellationToken)
+                .WithCancellation(cancellationToken))
+            {
+                yield return content;
+            }
+        }
+
+        public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+        {
+            StreamCallCount++;
+            ReceivedStreamMessages.Add(message.Content ?? string.Empty);
+
+            foreach (var chunk in Chunk(_response, 4))
+                await messageReceivedAsync(chunk);
+
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, _response));
+        }
+
+        protected override HttpRequestMessage CreateMessageRequest()
+            => new(HttpMethod.Post, "https://localhost/");
+
+        protected override string ExtractResponseContent(string responseContent)
+            => responseContent;
+
+        protected override string StreamParseJson(string jsonData)
+            => jsonData;
+
+        public override Task<uint> GetInputTokenCountAsync()
+            => Task.FromResult(0u);
+
+        public override Task<uint> GetInputTokenCountAsync(string prompt)
+            => Task.FromResult(0u);
+
+        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
+            => Task.FromResult(Array.Empty<byte>());
+
+        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
+            => Task.FromResult(string.Empty);
+
+        protected override HttpRequestMessage CreateFunctionMessageRequest()
+            => new(HttpMethod.Post, "https://localhost/");
+
+        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+            => (response, null!);
+
+        private static IEnumerable<string> Chunk(string value, int size)
+        {
+            for (var i = 0; i < value.Length; i += size)
+                yield return value.Substring(i, Math.Min(size, value.Length - i));
+        }
+    }
+
+    /// <summary>
+    /// Streaming mock that mimics a function-calling loop exhausting max rounds
+    /// without ever producing a final completion event.
+    /// </summary>
+    private class MockStreamingAgentServiceNoCompletion : AIService
+    {
+        public int? LastObservedMaxRounds { get; private set; }
+
+        public MockStreamingAgentServiceNoCompletion()
+            : base("fake-key", "https://localhost/", new HttpClient())
+        {
+            AddNewChat();
+        }
+
+        public override string Provider => nameof(AIProvider.OpenAI);
+
+        public override Task<string> GetCompletionAsync(Message message)
+            => Task.FromResult(string.Empty);
+
+        protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
+            Message message,
+            StreamOptions options,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            var policy = CurrentPolicy ?? DefaultPolicy;
+            LastObservedMaxRounds = policy.MaxRounds;
+            CurrentPolicy = null;
+
+            ActivateChat.Messages.Add(message);
+            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "Partial streamed answer..."));
+
+            yield return new StreamingContent
+            {
+                Type = StreamingContentType.FunctionResult,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["function_name"] = "mock_tool",
+                    ["status"] = "completed"
+                }
+            };
+
+            await Task.CompletedTask;
         }
 
         protected override HttpRequestMessage CreateMessageRequest()
@@ -250,6 +418,98 @@ public class AgentRunTests
 
         protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
             => (response, null!);
+    }
+
+    #endregion
+
+    #region RunAgentStreamAsync - Basic Behavior
+
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_StreamsTextAndCompletion()
+    {
+        var mock = new MockStreamingAgentService("The answer is 42.");
+        var events = new List<StreamingContent>();
+
+        await foreach (var content in mock.RunAgentStreamAsync("What is the meaning of life?"))
+            events.Add(content);
+
+        var streamedText = string.Concat(events
+            .Where(e => e.Type == StreamingContentType.Text)
+            .Select(e => e.Content));
+
+        Assert.AreEqual(1, mock.StreamCallCount, "Should invoke the streaming pipeline exactly once");
+        Assert.AreEqual("The answer is 42.", streamedText);
+        Assert.IsTrue(events.Any(e => e.Type == StreamingContentType.Completion),
+            "Agent stream should emit a final completion event");
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_GoalIsPassedAsUserMessage()
+    {
+        var mock = new MockStreamingAgentService("Done.");
+
+        await foreach (var _ in mock.RunAgentStreamAsync("Find the weather in Seoul"))
+        {
+        }
+
+        Assert.AreEqual(1, mock.ReceivedStreamMessages.Count);
+        Assert.AreEqual("Find the weather in Seoul", mock.ReceivedStreamMessages[0]);
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_EnablesFunctionCallingAndDisablesTextOnly()
+    {
+        var mock = new MockStreamingAgentService("Done.");
+
+        await foreach (var _ in mock.RunAgentStreamAsync(
+            "goal",
+            maxSteps: 5,
+            options: StreamOptions.TextOnlyOptions))
+        {
+        }
+
+        Assert.AreEqual(5, mock.LastObservedMaxRounds);
+        Assert.IsNotNull(mock.LastStreamOptions);
+        Assert.IsTrue(mock.LastStreamOptions!.IncludeFunctionCalls,
+            "RunAgentStreamAsync should force function calling on");
+        Assert.IsFalse(mock.LastStreamOptions.TextOnly,
+            "RunAgentStreamAsync should disable TextOnly so completion events can be emitted");
+    }
+
+    #endregion
+
+    #region RunAgentStreamAsync - MaxSteps Exceeded
+
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_MaxStepsExceeded_ThrowsAgentException()
+    {
+        var mock = new MockStreamingAgentServiceNoCompletion();
+
+        AgentMaxStepsExceededException? ex = null;
+        try
+        {
+            await foreach (var _ in mock.RunAgentStreamAsync("complex task", maxSteps: 3))
+            {
+            }
+
+            Assert.Fail("Expected AgentMaxStepsExceededException was not thrown");
+        }
+        catch (AgentMaxStepsExceededException caught)
+        {
+            ex = caught;
+        }
+
+        Assert.IsNotNull(ex);
+        Assert.AreEqual(3, ex.MaxSteps);
+        Assert.AreEqual("Partial streamed answer...", ex.PartialResponse);
     }
 
     #endregion

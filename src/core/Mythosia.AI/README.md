@@ -374,6 +374,36 @@ await foreach (var content in service.StreamAsync(
 }
 ```
 
+### ReAct Agent Helpers
+
+```csharp
+// Non-streaming agent helper
+var answer = await service.RunAgentAsync(
+    "Find the weather in Seoul and explain what to wear today."
+);
+
+// Streaming agent helper
+await foreach (var content in service.RunAgentStreamAsync(
+    "Find the weather in Seoul and explain what to wear today.",
+    maxSteps: 10))
+{
+    if (content.Type == StreamingContentType.FunctionCall)
+    {
+        Console.WriteLine($"Calling: {content.Metadata["function_name"]}");
+    }
+    else if (content.Type == StreamingContentType.FunctionResult)
+    {
+        Console.WriteLine($"Tool result: {content.Content}");
+    }
+    else if (content.Type == StreamingContentType.Text)
+    {
+        Console.Write(content.Content);
+    }
+}
+```
+
+`RunAgentStreamAsync(...)` is the streaming counterpart to `RunAgentAsync(...)`. It keeps function calling enabled for the request and disables `TextOnly` so agent runs can emit function call, function result, and completion events.
+
 ### Disabling Functions Temporarily
 
 ```csharp

@@ -1,5 +1,36 @@
 # Mythosia.AI - Release Notes
 
+## v6.1.0
+
+### Added
+
+- **`AIService.RunAgentStreamAsync(...)`**
+  - Adds a streaming counterpart to `RunAgentAsync(...)` for agent-style function-calling loops.
+  - Accepts `goal`, `maxSteps`, optional `StreamOptions`, and `CancellationToken`.
+  - Preserves token streaming while still allowing tool-use events to flow through the stream.
+
+### Behavior
+
+- **Agent-safe stream option normalization**
+  - Forces `IncludeFunctionCalls = true` so agent tool calls remain available during streaming.
+  - Forces `TextOnly = false` so the stream can emit the final `Completion` event required for agent completion tracking.
+
+- **Consistent max-step failure semantics**
+  - Converts max-round exhaustion into `AgentMaxStepsExceededException`, matching `RunAgentAsync(...)`.
+  - Includes the last assistant response as partial output when available.
+
+### Tests
+
+- Added mock/unit coverage for `RunAgentStreamAsync(...)`.
+- Added provider-level shared integration coverage for streaming agent execution with function calling.
+
+### Compatibility
+
+- No `IAIService` or `Mythosia.AI.Abstractions` contract changes in this release.
+- `Mythosia.AI.Abstractions` remains at v2.0.0.
+
+---
+
 ## v6.0.0
 
 ### Changed
