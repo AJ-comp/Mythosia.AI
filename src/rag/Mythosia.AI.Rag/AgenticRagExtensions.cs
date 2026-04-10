@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace Mythosia.AI.Rag
 {
@@ -17,7 +18,7 @@ namespace Mythosia.AI.Rag
         /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>.
         /// <para>
         /// In Agentic RAG mode the agent autonomously decides when to search and what query to use.
-        /// The <see cref="RagStore"/>'s QueryRewriter is intentionally bypassed for this tool —
+        /// The <see cref="RagStore"/>'s QueryRewriter is intentionally bypassed for this tool because
         /// the agent itself is responsible for formulating a clear, self-contained query.
         /// </para>
         /// <para>
@@ -25,37 +26,76 @@ namespace Mythosia.AI.Rag
         /// <see cref="RagStore"/> are respected as-is.
         /// </para>
         /// </summary>
-        /// <typeparam name="TService">
-        /// A concrete AI service that implements both <see cref="IAIService"/> and
-        /// <see cref="IFunctionRegisterable"/> (e.g. <c>AnthropicService</c>, <c>OpenAIService</c>).
-        /// </typeparam>
-        /// <param name="service">The AI service to register the RAG tool on.</param>
-        /// <param name="ragStore">A pre-built RAG store containing the indexed documents.</param>
-        /// <param name="toolName">
-        /// The function name exposed to the LLM. Defaults to <c>search_documents</c>.
-        /// Must be unique among all registered functions on the service.
-        /// </param>
-        /// <param name="toolDescription">
-        /// Custom description for the tool. When null a sensible default is used.
-        /// A good description is critical: it controls when the agent decides to invoke this tool.
-        /// </param>
-        /// <returns>The same service instance for fluent chaining.</returns>
-        /// <example>
-        /// <code>
-        /// var ragStore = await RagStore.BuildAsync(cfg => cfg
-        ///     .AddDocument("manual.pdf")
-        ///     .UseOpenAIEmbedding(apiKey));
-        ///
-        /// var answer = await new AnthropicService(apiKey, http)
-        ///     .WithAgenticRag(ragStore)
-        ///     .RunAgentAsync("환불 정책을 요약해 줘");
-        /// </code>
-        /// </example>
         public static TService WithAgenticRag<TService>(
             this TService service,
             RagStore ragStore,
             string toolName = "search_documents",
             string? toolDescription = null)
+            where TService : IAIService, IFunctionRegisterable
+        {
+            return RegisterAgenticRag(
+                service,
+                ragStore,
+                queryOptionsCallback: null,
+                onTrace: null,
+                toolName,
+                toolDescription);
+        }
+
+        /// <summary>
+        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>,
+        /// with per-tool-call query overrides and optional structured tracing.
+        /// </summary>
+        public static TService WithAgenticRag<TService>(
+            this TService service,
+            RagStore ragStore,
+            Func<AgenticRagQueryContext, RagQueryOptions?> queryOptions,
+            Action<AgenticRagSearchTrace>? onTrace = null,
+            string toolName = "search_documents",
+            string? toolDescription = null)
+            where TService : IAIService, IFunctionRegisterable
+        {
+            if (queryOptions == null) throw new ArgumentNullException(nameof(queryOptions));
+
+            return RegisterAgenticRag(
+                service,
+                ragStore,
+                queryOptionsCallback: queryOptions,
+                onTrace,
+                toolName,
+                toolDescription);
+        }
+
+        /// <summary>
+        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>,
+        /// with structured tracing only.
+        /// </summary>
+        public static TService WithAgenticRag<TService>(
+            this TService service,
+            RagStore ragStore,
+            Action<AgenticRagSearchTrace> onTrace,
+            string toolName = "search_documents",
+            string? toolDescription = null)
+            where TService : IAIService, IFunctionRegisterable
+        {
+            if (onTrace == null) throw new ArgumentNullException(nameof(onTrace));
+
+            return RegisterAgenticRag(
+                service,
+                ragStore,
+                queryOptionsCallback: null,
+                onTrace,
+                toolName,
+                toolDescription);
+        }
+
+        private static TService RegisterAgenticRag<TService>(
+            TService service,
+            RagStore ragStore,
+            Func<AgenticRagQueryContext, RagQueryOptions?>? queryOptionsCallback,
+            Action<AgenticRagSearchTrace>? onTrace,
+            string toolName,
+            string? toolDescription)
             where TService : IAIService, IFunctionRegisterable
         {
             if (service == null) throw new ArgumentNullException(nameof(service));
@@ -66,7 +106,7 @@ namespace Mythosia.AI.Rag
             var description = toolDescription ??
                 "Search the indexed knowledge base for relevant information. " +
                 "Call this tool whenever you need factual information from documents. " +
-                "The query must be self-contained — do not use pronouns or references to " +
+                "The query must be self-contained, do not use pronouns or references to " +
                 "previous turns (e.g. write 'refund policy details' not 'tell me more about that'). " +
                 "You may call this tool multiple times with different queries if the first result is insufficient. " +
                 "Return your final answer only after you have retrieved enough context.";
@@ -93,51 +133,86 @@ namespace Mythosia.AI.Rag
                     string? query = null;
 
                     if (args.TryGetValue("query", out var raw))
-                    {
                         query = raw is JsonElement je ? je.GetString() : raw?.ToString();
-                    }
 
                     if (string.IsNullOrWhiteSpace(query))
                         return "Search failed: no query was provided. Please specify what to search for.";
 
-                    // Directly call the pipeline — QueryRewriter is intentionally skipped.
-                    // The agent has already formulated a clean, standalone query.
-                    RagProcessedQuery result;
+                    RagQueryOptions? resolvedQueryOptions = null;
+
                     try
                     {
-                        result = await ragStore.QueryAsync(query);
+                        if (queryOptionsCallback != null)
+                        {
+                            resolvedQueryOptions = queryOptionsCallback(
+                                new AgenticRagQueryContext(toolName, query));
+                        }
+
+                        var result = resolvedQueryOptions != null
+                            ? await ragStore.QueryAsync(query, resolvedQueryOptions)
+                            : await ragStore.QueryAsync(query);
+
+                        TryTrace(
+                            onTrace,
+                            new AgenticRagSearchTrace(toolName, query, resolvedQueryOptions, result));
+
+                        if (!result.HasReferences)
+                            return "No relevant documents found. Try rephrasing the query or using different keywords.";
+
+                        return FormatSearchResult(query, result);
                     }
                     catch (Exception ex)
                     {
+                        TryTrace(
+                            onTrace,
+                            new AgenticRagSearchTrace(toolName, query, resolvedQueryOptions, result: null, exception: ex));
+
                         return $"Search failed: {ex.Message}";
                     }
-
-                    if (!result.HasReferences)
-                        return "No relevant documents found. Try rephrasing the query or using different keywords.";
-
-                    var sb = new StringBuilder();
-                    sb.AppendLine($"Retrieved {result.References.Count} relevant excerpt(s) for query: \"{query}\"");
-                    sb.AppendLine();
-
-                    for (int i = 0; i < result.References.Count; i++)
-                    {
-                        var r = result.References[i];
-                        sb.Append($"[{i + 1}]");
-
-                        if (r.Record.Metadata.TryGetValue("source", out var source))
-                            sb.Append($" (Source: {source})");
-
-                        sb.AppendLine();
-                        sb.AppendLine(r.Record.Content);
-                        sb.AppendLine();
-                    }
-
-                    return sb.ToString().TrimEnd();
                 }
             };
 
             service.AddFunction(funcDef);
             return service;
+        }
+
+        private static void TryTrace(
+            Action<AgenticRagSearchTrace>? onTrace,
+            AgenticRagSearchTrace trace)
+        {
+            if (onTrace == null)
+                return;
+
+            try
+            {
+                onTrace(trace);
+            }
+            catch
+            {
+                // Trace callbacks are observability helpers and should not break agent execution.
+            }
+        }
+
+        private static string FormatSearchResult(string query, RagProcessedQuery result)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"Retrieved {result.References.Count} relevant excerpt(s) for query: \"{query}\"");
+            sb.AppendLine();
+
+            for (int i = 0; i < result.References.Count; i++)
+            {
+                var reference = result.References[i];
+                sb.Append($"[{i + 1}]");
+
+                if (reference.Record.Metadata.TryGetValue("source", out var source))
+                    sb.Append($" (Source: {source})");
+
+                sb.AppendLine();
+                sb.AppendLine(reference.Record.Content);
+                sb.AppendLine();
+            }
+
+            return sb.ToString().TrimEnd();
         }
     }
 }
