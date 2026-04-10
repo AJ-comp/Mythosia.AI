@@ -1,5 +1,14 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.3.2
+
+### Changed
+
+- Recompiled for the `Mythosia.AI` v6.1.0 release line.
+- No changes to `Mythosia.AI.Rag` source code, public API, or runtime behavior.
+
+---
+
 ## v7.3.1
 
 ### MarkdownTextSplitter Improvements

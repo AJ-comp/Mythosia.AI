@@ -328,7 +328,7 @@ var store = await RagStore.BuildAsync(config => config
 
 In standard RAG the pipeline runs once per user message. In Agentic RAG the agent decides **when** to search, **what** to search for, and whether to search **again** if the first result is insufficient — all autonomously inside a ReAct loop.
 
-Register the `RagStore` as a search tool with `WithAgenticRag`, then run `RunAgentAsync`:
+Register the `RagStore` as a search tool with `WithAgenticRag`, then run `RunAgentAsync` for a final answer or `RunAgentStreamAsync` for streaming:
 
 ```csharp
 // Build the index once
@@ -343,6 +343,36 @@ service.WithAgenticRag(ragStore);
 
 var answer = await service.RunAgentAsync("Summarise the refund policy.");
 ```
+
+### Streaming Agentic RAG
+
+```csharp
+// Build the index once
+var ragStore = await RagStore.BuildAsync(cfg => cfg
+    .AddDocument("manual.pdf")
+    .AddDocument("policy.docx")
+    .UseOpenAIEmbedding(apiKey));
+
+// Register RAG as a tool and stream the agent run
+var service = new AnthropicService(apiKey, http);
+service.WithAgenticRag(ragStore);
+
+await foreach (var content in service.RunAgentStreamAsync(
+    "Summarise the refund policy and mention the key eligibility rules.",
+    maxSteps: 10))
+{
+    if (content.Type == StreamingContentType.FunctionCall)
+    {
+        Console.WriteLine($"Searching docs via: {content.Metadata["function_name"]}");
+    }
+    else if (content.Type == StreamingContentType.Text)
+    {
+        Console.Write(content.Content);
+    }
+}
+```
+
+`RunAgentStreamAsync(...)` keeps token streaming while still emitting tool-call and tool-result events from the agent loop.
 
 ### Combining with Other Tools
 
@@ -376,7 +406,7 @@ service.WithAgenticRag(ragStore,
 | Query formulation | QueryRewriter | Agent itself |
 | Number of searches | Once per turn | One or more as needed |
 | Tool combination | Not applicable | Any registered tool |
-| Setup | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| Setup | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` / `RunAgentStreamAsync` |
 
 > `QueryRewriter` is intentionally bypassed in Agentic RAG. The agent formulates its own self-contained search query, so a separate rewriting step is redundant and could distort the agent's intent.
 

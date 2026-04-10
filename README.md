@@ -1,6 +1,6 @@
 ﻿<div align="center">
 
-🌐 [English](README.md) · [한국어](docs/ko/README.md) · [日本語](docs/ja/README.md) · [Français](docs/fr/README.md) · [Deutsch](docs/de/README.md) · [Русский](docs/ru/README.md) · [Українська](docs/uk/README.md) · [简体中文](docs/zh-Hans/README.md) · [繁體中文](docs/zh-Hant/README.md)
+🌐 [English](README.md) · [한국어](docs/ko/README.md) · [日本語](docs/ja/README.md) · [Français](docs/fr/README.md) · [Deutsch](docs/de/README.md) · [Русский](docs/ru/README.md) · [Українська](docs/uk/README.md) · [简体中文](docs/zh-Hans/README.md) · [繁體中文](docs/zh-Hant/README.md) · [Tiếng Việt](docs/vi/README.md) · [ภาษาไทย](docs/th/README.md) · [Português](docs/pt/README.md) · [Español](docs/es/README.md)
 
 <br>
 
@@ -245,6 +245,8 @@ var service = new AnthropicService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
 
+For agent-controlled retrieval, register the store with `WithAgenticRag(...)` and run either `RunAgentAsync(...)` or `RunAgentStreamAsync(...)`. See [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md) for full examples.
+
 ## Supported Providers
 
 | Provider | Package | Models |
@@ -333,6 +335,7 @@ dotnet add package System.Linq.Async
 
 ## Documentation
 
+- **[📖 Full Documentation Site](https://aj-comp.github.io/Mythosia.AI/)** — DocFX-generated docs covering all features, RAG pipeline, vector stores, and API reference
 - [Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)
 - [Mythosia.AI README](src/core/Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
 - [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
