@@ -120,6 +120,10 @@ _disableAffix: true
   const LANG_MAP = {
     ko: { intro: 'docs/ko/introduction.html', start: 'docs/ko/getting-started.html' },
     ja: { intro: 'docs/ja/introduction.html', start: 'docs/ja/getting-started.html' },
+    vi: { intro: 'docs/vi/introduction.html', start: 'docs/vi/getting-started.html' },
+    th: { intro: 'docs/th/introduction.html', start: 'docs/th/getting-started.html' },
+    pt: { intro: 'docs/pt/introduction.html', start: 'docs/pt/getting-started.html' },
+    es: { intro: 'docs/es/introduction.html', start: 'docs/es/getting-started.html' },
   };
   const DEFAULT = { intro: 'docs/introduction.html', start: 'docs/getting-started.html' };
 

@@ -1,0 +1,74 @@
+- name: Introdução
+  items:
+  - name: Visão geral
+    href: introduction.md
+  - name: Primeiros passos
+    href: getting-started.md
+
+- name: Funcionalidades principais
+  items:
+  - name: Geração de texto
+    href: completions.md
+  - name: Parâmetros de geração
+    href: generation-params.md
+  - name: Streaming
+    href: streaming.md
+  - name: Function Calling
+    href: function-calling.md
+  - name: Agente (loop ReAct)
+    href: agent.md
+  - name: Structured Output
+    href: structured-output.md
+  - name: Gerenciamento de conversa
+    href: conversation.md
+  - name: AIRequestProfile
+    href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
+
+- name: Providers
+  items:
+  - name: Capacidades dos providers
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: Visão geral do RAG
+    href: rag.md
+  - name: Preparação de documentos
+    items:
+    - name: Document loaders
+      href: document-loaders.md
+    - name: Text splitters
+      href: text-splitters.md
+  - name: Perguntas e Respostas
+    items:
+    - name: Reescrita de consulta
+      href: rag-query-rewriting.md
+    - name: Embedding
+      href: rag-embedding.md
+    - name: Filtragem
+      href: rag-filtering.md
+    - name: Hybrid Search
+      href: rag-hybrid-search.md
+    - name: Reranking e ajuste fino
+      href: rag-reranking.md
+    - name: Construção de contexto
+      href: rag-context-build.md
+  - name: Configuração do pipeline
+    href: rag-pipeline.md
+  - name: RAG Agêntico
+    href: rag-agentic.md
+
+- name: Banco de Dados Vetorial
+  items:
+  - name: Visão geral
+    href: vectordb-overview.md
+  - name: Configuração de backends
+    href: vectordb-backends.md
+  - name: Operações básicas
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: Migração
+    href: vectordb-migration.md

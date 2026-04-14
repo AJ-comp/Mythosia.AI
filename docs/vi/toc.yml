@@ -1,0 +1,74 @@
+- name: Bắt đầu
+  items:
+  - name: Giới thiệu
+    href: introduction.md
+  - name: Bắt đầu nhanh
+    href: getting-started.md
+
+- name: Tính năng cốt lõi
+  items:
+  - name: Tạo văn bản
+    href: completions.md
+  - name: Tham số tạo văn bản
+    href: generation-params.md
+  - name: Streaming
+    href: streaming.md
+  - name: Gọi hàm
+    href: function-calling.md
+  - name: Agent (vòng lặp ReAct)
+    href: agent.md
+  - name: Structured Output
+    href: structured-output.md
+  - name: Quản lý hội thoại
+    href: conversation.md
+  - name: AIRequestProfile
+    href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
+
+- name: Nhà cung cấp
+  items:
+  - name: Khả năng nhà cung cấp
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: Tổng quan RAG
+    href: rag.md
+  - name: Chuẩn bị tài liệu
+    items:
+    - name: Trình tải tài liệu
+      href: document-loaders.md
+    - name: Bộ chia văn bản
+      href: text-splitters.md
+  - name: Hỏi & Đáp
+    items:
+    - name: Viết lại truy vấn
+      href: rag-query-rewriting.md
+    - name: Embedding
+      href: rag-embedding.md
+    - name: Lọc
+      href: rag-filtering.md
+    - name: Hybrid Search
+      href: rag-hybrid-search.md
+    - name: Reranking & Tinh chỉnh
+      href: rag-reranking.md
+    - name: Xây dựng ngữ cảnh
+      href: rag-context-build.md
+  - name: Cấu hình pipeline
+    href: rag-pipeline.md
+  - name: Agentic RAG
+    href: rag-agentic.md
+
+- name: Cơ sở dữ liệu Vector
+  items:
+  - name: Tổng quan
+    href: vectordb-overview.md
+  - name: Cấu hình backend
+    href: vectordb-backends.md
+  - name: Thao tác cơ bản
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: Migration
+    href: vectordb-migration.md

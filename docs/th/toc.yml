@@ -1,0 +1,74 @@
+- name: เริ่มต้นใช้งาน
+  items:
+  - name: บทนำ
+    href: introduction.md
+  - name: เริ่มต้นอย่างรวดเร็ว
+    href: getting-started.md
+
+- name: ฟีเจอร์หลัก
+  items:
+  - name: การสร้างข้อความ
+    href: completions.md
+  - name: พารามิเตอร์การสร้าง
+    href: generation-params.md
+  - name: Streaming
+    href: streaming.md
+  - name: การเรียกใช้ฟังก์ชัน
+    href: function-calling.md
+  - name: Agent (วนซ้ำ ReAct)
+    href: agent.md
+  - name: Structured Output
+    href: structured-output.md
+  - name: การจัดการบทสนทนา
+    href: conversation.md
+  - name: AIRequestProfile
+    href: request-profiles.md
+  - name: AIRequestContext
+    href: request-contexts.md
+
+- name: Provider
+  items:
+  - name: ความสามารถของ Provider
+    href: providers.md
+
+- name: RAG
+  items:
+  - name: ภาพรวม RAG
+    href: rag.md
+  - name: เตรียมเอกสาร
+    items:
+    - name: Document Loader
+      href: document-loaders.md
+    - name: Text Splitter
+      href: text-splitters.md
+  - name: ถาม & ตอบ
+    items:
+    - name: เขียน Query ใหม่
+      href: rag-query-rewriting.md
+    - name: Embedding
+      href: rag-embedding.md
+    - name: การกรอง
+      href: rag-filtering.md
+    - name: Hybrid Search
+      href: rag-hybrid-search.md
+    - name: Reranking & ปรับแต่ง
+      href: rag-reranking.md
+    - name: สร้าง Context
+      href: rag-context-build.md
+  - name: ตั้งค่า Pipeline
+    href: rag-pipeline.md
+  - name: Agentic RAG
+    href: rag-agentic.md
+
+- name: ฐานข้อมูล Vector
+  items:
+  - name: ภาพรวม
+    href: vectordb-overview.md
+  - name: ตั้งค่า Backend
+    href: vectordb-backends.md
+  - name: การดำเนินการพื้นฐาน
+    href: vectordb-operations.md
+  - name: VectorFilter
+    href: vector-filter.md
+  - name: Migration
+    href: vectordb-migration.md
