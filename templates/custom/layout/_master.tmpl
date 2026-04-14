@@ -97,6 +97,10 @@
               <li role="menuitem"><button data-lang="fr">🇫🇷 Français</button></li>
               <li role="menuitem"><button data-lang="ru">🇷🇺 Русский</button></li>
               <li role="menuitem"><button data-lang="uk">🇺🇦 Українська</button></li>
+              <li role="menuitem"><button data-lang="vi">🇻🇳 Tiếng Việt</button></li>
+              <li role="menuitem"><button data-lang="th">🇹🇭 ภาษาไทย</button></li>
+              <li role="menuitem"><button data-lang="pt">🇧🇷 Português</button></li>
+              <li role="menuitem"><button data-lang="es">🇪🇸 Español</button></li>
             </ul>
           </div>
           <script>
@@ -110,9 +114,13 @@
               de: { flag: '🇩🇪', label: 'DE', prefix: 'de/' },
               fr: { flag: '🇫🇷', label: 'FR', prefix: 'fr/' },
               ru: { flag: '🇷🇺', label: 'RU', prefix: 'ru/' },
-              uk: { flag: '🇺🇦', label: 'UK', prefix: 'uk/' }
+              uk: { flag: '🇺🇦', label: 'UK', prefix: 'uk/' },
+              vi: { flag: '🇻🇳', label: 'VI', prefix: 'vi/' },
+              th: { flag: '🇹🇭', label: 'TH', prefix: 'th/' },
+              pt: { flag: '🇧🇷', label: 'PT', prefix: 'pt/' },
+              es: { flag: '🇪🇸', label: 'ES', prefix: 'es/' }
             };
-            var SUPPORTED = ['ko', 'ja', 'zh-Hans', 'zh-Hant', 'de', 'fr', 'ru', 'uk'];
+            var SUPPORTED = ['ko', 'ja', 'zh-Hans', 'zh-Hant', 'de', 'fr', 'ru', 'uk', 'vi', 'th', 'pt', 'es'];
 
             function getSavedLang() { return localStorage.getItem('mythosia-lang'); }
             function saveLang(l) { localStorage.setItem('mythosia-lang', l); }
