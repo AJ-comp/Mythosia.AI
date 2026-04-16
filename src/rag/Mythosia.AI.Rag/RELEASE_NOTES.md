@@ -1,11 +1,11 @@
 # Mythosia.AI.Rag - Release Notes
 
-## v7.4.0-preview1
+## v7.4.0
 
 ### Added
 
-- `WithAgenticRag(..., queryOptions: ..., onTrace: ...)` now supports per-tool-call `RagQueryOptions`, enabling Agentic RAG permission filters such as `StoreFilter`.
-- `AgenticRagSearchTrace` + `onTrace` provide structured step-level access to each Agentic RAG search query, references, candidates, diagnostics, and failures.
+- `WithAgenticRag(..., queryOptions: ...)` now supports per-tool-call `RagQueryOptions`, enabling Agentic RAG permission filters such as `StoreFilter`.
+- `WithAgenticRagTracing(...)` + `AgenticRagSearchTrace` provide structured step-level access to each Agentic RAG search query, references, candidates, diagnostics, and failures.
 - `AgenticRagQueryContext` gives `queryOptions` access to the current tool name and self-contained search query for dynamic per-step filtering or retrieval policy selection.
 
 ---

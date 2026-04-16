@@ -37,20 +37,18 @@ namespace Mythosia.AI.Rag
                 service,
                 ragStore,
                 queryOptionsCallback: null,
-                onTrace: null,
                 toolName,
                 toolDescription);
         }
 
         /// <summary>
-        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>,
-        /// with per-tool-call query overrides and optional structured tracing.
+        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>
+        /// with per-tool-call query overrides.
         /// </summary>
         public static TService WithAgenticRag<TService>(
             this TService service,
             RagStore ragStore,
             Func<AgenticRagQueryContext, RagQueryOptions?> queryOptions,
-            Action<AgenticRagSearchTrace>? onTrace = null,
             string toolName = "search_documents",
             string? toolDescription = null)
             where TService : IAIService, IFunctionRegisterable
@@ -61,39 +59,32 @@ namespace Mythosia.AI.Rag
                 service,
                 ragStore,
                 queryOptionsCallback: queryOptions,
-                onTrace,
                 toolName,
                 toolDescription);
         }
 
         /// <summary>
-        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>,
-        /// with structured tracing only.
+        /// Registers a structured trace observer for Agentic RAG tool executions.
         /// </summary>
-        public static TService WithAgenticRag<TService>(
+        public static TService WithAgenticRagTracing<TService>(
             this TService service,
-            RagStore ragStore,
             Action<AgenticRagSearchTrace> onTrace,
-            string toolName = "search_documents",
-            string? toolDescription = null)
+            string toolName = "search_documents")
             where TService : IAIService, IFunctionRegisterable
         {
+            if (service == null) throw new ArgumentNullException(nameof(service));
             if (onTrace == null) throw new ArgumentNullException(nameof(onTrace));
+            if (string.IsNullOrWhiteSpace(toolName))
+                throw new ArgumentException("Tool name must not be empty.", nameof(toolName));
 
-            return RegisterAgenticRag(
-                service,
-                ragStore,
-                queryOptionsCallback: null,
-                onTrace,
-                toolName,
-                toolDescription);
+            AgenticRagTraceRegistry.Add(service, toolName, onTrace);
+            return service;
         }
 
         private static TService RegisterAgenticRag<TService>(
             TService service,
             RagStore ragStore,
             Func<AgenticRagQueryContext, RagQueryOptions?>? queryOptionsCallback,
-            Action<AgenticRagSearchTrace>? onTrace,
             string toolName,
             string? toolDescription)
             where TService : IAIService, IFunctionRegisterable
@@ -152,8 +143,9 @@ namespace Mythosia.AI.Rag
                             ? await ragStore.QueryAsync(query, resolvedQueryOptions)
                             : await ragStore.QueryAsync(query);
 
-                        TryTrace(
-                            onTrace,
+                        AgenticRagTraceRegistry.Notify(
+                            service,
+                            toolName,
                             new AgenticRagSearchTrace(toolName, query, resolvedQueryOptions, result));
 
                         if (!result.HasReferences)
@@ -163,8 +155,9 @@ namespace Mythosia.AI.Rag
                     }
                     catch (Exception ex)
                     {
-                        TryTrace(
-                            onTrace,
+                        AgenticRagTraceRegistry.Notify(
+                            service,
+                            toolName,
                             new AgenticRagSearchTrace(toolName, query, resolvedQueryOptions, result: null, exception: ex));
 
                         return $"Search failed: {ex.Message}";
@@ -174,23 +167,6 @@ namespace Mythosia.AI.Rag
 
             service.AddFunction(funcDef);
             return service;
-        }
-
-        private static void TryTrace(
-            Action<AgenticRagSearchTrace>? onTrace,
-            AgenticRagSearchTrace trace)
-        {
-            if (onTrace == null)
-                return;
-
-            try
-            {
-                onTrace(trace);
-            }
-            catch
-            {
-                // Trace callbacks are observability helpers and should not break agent execution.
-            }
         }
 
         private static string FormatSearchResult(string query, RagProcessedQuery result)

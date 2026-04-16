@@ -400,9 +400,14 @@ service.WithAgenticRag(ragStore,
 
 ### Per-Call Filters and Structured Traces
 
-Use `queryOptions` when each agent search step needs a fresh `RagQueryOptions`,
-or `onTrace` when the host app wants structured access to `References`, `Diagnostics`,
-and other RAG metadata.
+Use `queryOptions` when each agent search step needs a fresh `RagQueryOptions`.
+If the host app wants structured access to `References`, `Diagnostics`, and other
+RAG metadata, register tracing separately with `WithAgenticRagTracing(...)`.
+
+These calls have separate responsibilities:
+
+- `WithAgenticRag(...)` registers the RAG search tool and resolves per-call query options.
+- `WithAgenticRagTracing(...)` registers trace observers for Agentic RAG search executions.
 
 ```csharp
 var traces = new List<AgenticRagSearchTrace>();
@@ -415,16 +420,27 @@ service.WithAgenticRag(
             .Where("tenant", currentTenantId)
             .Where("storage_id", currentStorageId)
     },
-    onTrace: trace =>
+    toolDescription: "Search only the documents the current user is allowed to access.")
+    .WithAgenticRagTracing(trace =>
     {
         traces.Add(trace);
-    },
-    toolDescription: "Search only the documents the current user is allowed to access.");
+    });
 ```
 
 `queryOptions` receives an `AgenticRagQueryContext` with the current tool name and self-contained search query.
 Use `_ => ...` when the filter is fixed for the whole request, or inspect `ctx.Query` / `ctx.ToolName`
 when the filter or retrieval policy should vary by search step.
+
+Tracing is registered by service instance and tool name. If you customize the Agentic RAG tool name,
+pass the same name to `WithAgenticRagTracing(...)`:
+
+```csharp
+service
+    .WithAgenticRag(ragStore, toolName: "search_private_docs")
+    .WithAgenticRagTracing(
+        trace => traces.Add(trace),
+        toolName: "search_private_docs");
+```
 
 Each `AgenticRagSearchTrace` contains:
 

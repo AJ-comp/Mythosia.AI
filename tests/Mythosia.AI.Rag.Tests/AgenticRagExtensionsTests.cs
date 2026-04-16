@@ -32,19 +32,20 @@ public class AgenticRagExtensionsTests
     }
 
     [TestMethod]
-    public async Task WithAgenticRag_OnTrace_ReceivesStructuredRagResult()
+    public async Task WithAgenticRagTracing_ReceivesStructuredRagResult()
     {
         var store = await CreateTaggedStoreAsync();
         var service = new MockAIService();
         AgenticRagSearchTrace? captured = null;
 
-        service.WithAgenticRag(
-            store,
-            queryOptions: _ => new RagQueryOptions
-            {
-                StoreFilter = new VectorFilter().Where("tenant", "alpha")
-            },
-            onTrace: trace =>
+        service
+            .WithAgenticRag(
+                store,
+                queryOptions: _ => new RagQueryOptions
+                {
+                    StoreFilter = new VectorFilter().Where("tenant", "alpha")
+                })
+            .WithAgenticRagTracing(trace =>
             {
                 captured = trace;
             });
@@ -69,16 +70,17 @@ public class AgenticRagExtensionsTests
     }
 
     [TestMethod]
-    public async Task WithAgenticRag_OnTrace_ReceivesFailuresFromQueryOptions()
+    public async Task WithAgenticRagTracing_ReceivesFailuresFromQueryOptions()
     {
         var store = await CreateTaggedStoreAsync();
         var service = new MockAIService();
         AgenticRagSearchTrace? captured = null;
 
-        service.WithAgenticRag(
-            store,
-            queryOptions: _ => throw new InvalidOperationException("permission lookup failed"),
-            onTrace: trace =>
+        service
+            .WithAgenticRag(
+                store,
+                queryOptions: _ => throw new InvalidOperationException("permission lookup failed"))
+            .WithAgenticRagTracing(trace =>
             {
                 captured = trace;
             });
