@@ -4,7 +4,7 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, and **advanced streaming capabilities**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, **round-level token usage**, and **advanced streaming capabilities**.
 
 ### Supported Providers
 
@@ -620,13 +620,37 @@ await foreach (var content in service.StreamAsync("Query", options))
 
 ### Token Usage
 
-Streaming `Completion` events include a `Usage` property with unified token usage across all providers.
+Streaming exposes token usage in two different places, with different meanings:
+
+- `StreamingContentType.RoundUsage`: usage for one LLM round only.
+- `StreamingContentType.Completion`: cumulative usage for the whole streaming run.
+
+For a single LLM call, the final `RoundUsage.Usage` and `Completion.Usage` should describe
+the same one-round request. For an agent or function-calling run, each LLM round emits its own
+`RoundUsage`, while the final `Completion.Usage` remains the sum of all rounds.
+
+This distinction is important for UI context meters. If you want to show "how many tokens the
+current conversation state used when it entered the latest LLM call", use the latest
+`RoundUsage.Usage.TotalTokens`. If you want cost or diagnostics for the full agent run, use
+`Completion.Usage.TotalTokens`.
+
+`RoundUsage` events also include:
+
+- `RoundIndex`: 1-based LLM round number.
+- `IsFinalRound`: true when this is the last LLM round in the stream.
 
 ```csharp
 await foreach (var content in service.StreamAsync(message, StreamOptions.FullOptions))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
+
+    if (content.Type == StreamingContentType.RoundUsage && content.Usage != null)
+    {
+        Console.WriteLine($"Round: {content.RoundIndex}");
+        Console.WriteLine($"Round total: {content.Usage.TotalTokens}");
+        Console.WriteLine($"Final round: {content.IsFinalRound}");
+    }
 
     if (content.Type == StreamingContentType.Completion && content.Usage != null)
     {
@@ -638,6 +662,59 @@ await foreach (var content in service.StreamAsync(message, StreamOptions.FullOpt
     }
 }
 ```
+
+### Agent Token Meter Example
+
+```csharp
+int? contextTokenMeter = null;
+TokenUsage? cumulativeRunUsage = null;
+
+await foreach (var content in service.RunAgentStreamAsync(
+    "Find the weather in Seoul and answer briefly.",
+    maxSteps: 10))
+{
+    if (content.Type == StreamingContentType.RoundUsage && content.Usage != null)
+    {
+        // Best value for a UI context/token meter.
+        contextTokenMeter = content.Usage.TotalTokens;
+
+        Console.WriteLine(
+            $"Round {content.RoundIndex}: {content.Usage.TotalTokens} tokens");
+
+        if (content.IsFinalRound)
+        {
+            Console.WriteLine($"Final context meter value: {contextTokenMeter}");
+        }
+
+        continue;
+    }
+
+    if (content.Type == StreamingContentType.Completion)
+    {
+        // Cumulative usage across the whole agent run.
+        cumulativeRunUsage = content.Usage;
+        continue;
+    }
+
+    if (content.Type == StreamingContentType.Text)
+        Console.Write(content.Content);
+}
+```
+
+### Token Usage Contract
+
+- `RoundUsage.Usage` is never an accumulated run total. It represents that one LLM round.
+- `RoundUsage.Usage.TotalTokens` is normalized to `InputTokens + OutputTokens`.
+- `Completion.Usage` keeps the existing cumulative meaning for the full stream or agent run.
+- In function-calling streams, non-final rounds have `IsFinalRound = false`; the last round has `IsFinalRound = true`.
+- Token usage collection does not depend on `IncludeMetadata`. Usage can still be emitted when metadata is disabled.
+- Providers may attach official usage to different stream chunks internally. Consumers should read the normalized `RoundUsage` and `Completion` events rather than provider-specific chunk metadata.
+- Gemini streams are drained after function calls so late `usageMetadata` chunks can still become `RoundUsage`.
+
+The `Token` test category contains provider-level tests for this contract. If those tests pass
+for a provider/model, Mythosia.AI considers round-level usage and final cumulative usage supported
+for that provider/model. If a provider/model does not return official usage, these tests should fail
+or be treated as unsupported for token usage.
 
 `TokenUsage` fields:
 

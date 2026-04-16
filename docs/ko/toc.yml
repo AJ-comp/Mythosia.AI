@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: 스트리밍
     href: streaming.md
+  - name: 토큰 사용량
+    href: token-usage.md
   - name: 함수 호출
     href: function-calling.md
   - name: 에이전트 (ReAct 루프)

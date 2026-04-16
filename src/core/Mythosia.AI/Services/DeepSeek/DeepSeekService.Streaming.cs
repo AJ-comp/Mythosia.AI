@@ -253,6 +253,9 @@ namespace Mythosia.AI.Services.DeepSeek
                     // Stream completed
                     if (!options.TextOnly)
                     {
+                        if (lastUsage != null)
+                            yield return CreateRoundUsageContent(1, isFinalRound: true, lastUsage);
+
                         var completionContent = new StreamingContent
                         {
                             Type = StreamingContentType.Completion

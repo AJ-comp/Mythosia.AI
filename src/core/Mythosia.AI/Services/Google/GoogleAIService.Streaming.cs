@@ -175,6 +175,9 @@ namespace Mythosia.AI.Services.Google
             using var stream = await response.Content.ReadAsStreamAsync();
             using var reader = new StreamReader(stream);
 
+            TokenUsage? lastUsage = null;
+            bool functionCallEventSent = false;
+
             while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync();
@@ -196,6 +199,8 @@ namespace Mythosia.AI.Services.Google
                                 ["total_length"] = 0
                             };
                         }
+                        if (lastUsage != null)
+                            completionContent.Usage = lastUsage;
                         yield return completionContent;
                     }
                     break;
@@ -214,25 +219,34 @@ namespace Mythosia.AI.Services.Google
                 if (parsedContent == null)
                     continue;
 
+                if (parsedContent.Usage != null)
+                    lastUsage = CopyTokenUsage(parsedContent.Usage);
+
                 if (parsedContent.Type == StreamingContentType.FunctionCall)
                 {
-                    yield return parsedContent;
-
-                    // Function call detected — stop reading stream, let the round loop handle execution
-                    if (functionCallData.IsComplete && functionCallData.Name != null)
-                        yield break;
+                    if (!functionCallEventSent)
+                    {
+                        functionCallEventSent = true;
+                        yield return parsedContent;
+                    }
                 }
                 else if (parsedContent.Type == StreamingContentType.Text)
                 {
+                    if (functionCallEventSent && functionCallData.IsComplete)
+                        continue;
+
                     if (!options.TextOnly || parsedContent.Content != null)
                         yield return parsedContent;
                 }
                 else if (parsedContent.Type == StreamingContentType.Reasoning)
                 {
+                    if (functionCallEventSent && functionCallData.IsComplete)
+                        continue;
+
                     if (!options.TextOnly)
                         yield return parsedContent;
                 }
-                else if (options.IncludeMetadata)
+                else if (!options.TextOnly && (options.IncludeMetadata || parsedContent.Usage != null))
                 {
                     yield return parsedContent;
                 }
@@ -246,7 +260,7 @@ namespace Mythosia.AI.Services.Google
                 [MessageMetadataKeys.MessageType] = "function_call",
                 [MessageMetadataKeys.FunctionId] = functionId,
                 [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
-                [MessageMetadataKeys.FunctionName] = functionCallData.Name,
+                [MessageMetadataKeys.FunctionName] = functionCallData.Name ?? string.Empty,
                 [MessageMetadataKeys.FunctionArguments] = argsJson
             };
 
@@ -265,7 +279,7 @@ namespace Mythosia.AI.Services.Google
                     [MessageMetadataKeys.MessageType] = "function_result",
                     [MessageMetadataKeys.FunctionId] = functionId,
                     [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
-                    [MessageMetadataKeys.FunctionName] = functionCallData.Name
+                    [MessageMetadataKeys.FunctionName] = functionCallData.Name ?? string.Empty
                 }
             });
         }

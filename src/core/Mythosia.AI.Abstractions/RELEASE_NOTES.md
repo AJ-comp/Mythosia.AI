@@ -1,5 +1,21 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v2.1.0
+
+### Added
+
+- **Round-scoped streaming usage**
+  - Added `StreamingContentType.RoundUsage`.
+  - Added `StreamingContent.RoundIndex` and `StreamingContent.IsFinalRound`.
+  - `StreamingContent.Usage` can now carry one-round usage on `RoundUsage` events while `Completion` keeps cumulative run usage.
+
+### Compatibility
+
+- Additive public API update.
+- No existing members were removed or renamed.
+
+---
+
 ## v2.0.0
 
 ### Changed

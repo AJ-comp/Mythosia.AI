@@ -5,11 +5,13 @@ using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services.Google;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -261,6 +263,154 @@ public class AgentRunTests
             => (response, null!);
     }
 
+    private class MockRoundUsageAgentService : AIService
+    {
+        private int _round;
+
+        public MockRoundUsageAgentService()
+            : base("fake-key", "https://localhost/", new HttpClient())
+        {
+            AddNewChat();
+        }
+
+        public override string Provider => nameof(AIProvider.OpenAI);
+
+        public override Task<string> GetCompletionAsync(Message message)
+            => Task.FromResult(string.Empty);
+
+        protected override async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
+            StreamOptions options,
+            bool useFunctions,
+            FunctionCallingPolicy policy,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            _round++;
+
+            if (_round == 1)
+            {
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.FunctionCall,
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["function_name"] = "mock_tool",
+                        ["status"] = "started"
+                    }
+                };
+
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Completion,
+                    Usage = new TokenUsage
+                    {
+                        InputTokens = 10000,
+                        OutputTokens = 100,
+                        TotalTokens = 999999,
+                        CachedInputTokens = 10,
+                        CacheCreationTokens = 20,
+                        ReasoningTokens = 30
+                    }
+                };
+
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.FunctionResult,
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["function_name"] = "mock_tool",
+                        ["status"] = "completed",
+                        ["result"] = "ok"
+                    }
+                };
+            }
+            else
+            {
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Text,
+                    Content = "Final answer"
+                };
+
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "Final answer"));
+
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Completion,
+                    Usage = new TokenUsage
+                    {
+                        InputTokens = 13000,
+                        OutputTokens = 1000,
+                        TotalTokens = 888888,
+                        CachedInputTokens = 40,
+                        CacheCreationTokens = 50,
+                        ReasoningTokens = 60
+                    }
+                };
+            }
+
+            await Task.CompletedTask;
+        }
+
+        protected override HttpRequestMessage CreateMessageRequest()
+            => new(HttpMethod.Post, "https://localhost/");
+
+        protected override string ExtractResponseContent(string responseContent)
+            => responseContent;
+
+        protected override string StreamParseJson(string jsonData)
+            => jsonData;
+
+        public override Task<uint> GetInputTokenCountAsync()
+            => Task.FromResult(0u);
+
+        public override Task<uint> GetInputTokenCountAsync(string prompt)
+            => Task.FromResult(0u);
+
+        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
+            => Task.FromResult(Array.Empty<byte>());
+
+        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
+            => Task.FromResult(string.Empty);
+
+        public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
+            => Task.CompletedTask;
+
+        protected override HttpRequestMessage CreateFunctionMessageRequest()
+            => new(HttpMethod.Post, "https://localhost/");
+
+        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+            => (response, null!);
+    }
+
+    private sealed class QueueHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Queue<string> _responses = new();
+
+        public int RequestCount { get; private set; }
+
+        public void EnqueueSse(string content)
+        {
+            _responses.Enqueue(content);
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestCount++;
+
+            if (_responses.Count == 0)
+                throw new InvalidOperationException("No queued response for fake HTTP handler.");
+
+            var response = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_responses.Dequeue(), Encoding.UTF8, "text/event-stream")
+            };
+
+            return Task.FromResult(response);
+        }
+    }
+
     #endregion
 
     #region RunAgentAsync - Basic Behavior
@@ -480,6 +630,156 @@ public class AgentRunTests
             "RunAgentStreamAsync should force function calling on");
         Assert.IsFalse(mock.LastStreamOptions.TextOnly,
             "RunAgentStreamAsync should disable TextOnly so completion events can be emitted");
+    }
+
+    /// <summary>
+    /// Tests the base agent streaming loop with deterministic mock round usage values.
+    /// Guarantees that one RoundUsage event is emitted for each LLM round, RoundUsage is
+    /// per-round rather than cumulative, TotalTokens is normalized to InputTokens +
+    /// OutputTokens, and the final Completion usage remains the cumulative sum for the
+    /// whole agent run.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestCategory("Token")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_EmitsRoundUsagePerRoundAndKeepsCompletionUsageCumulative()
+    {
+        var mock = new MockRoundUsageAgentService();
+        var events = new List<StreamingContent>();
+
+        await foreach (var content in mock.RunAgentStreamAsync("Run two rounds", maxSteps: 3))
+            events.Add(content);
+
+        var roundUsageEvents = events
+            .Where(e => e.Type == StreamingContentType.RoundUsage)
+            .ToList();
+
+        Assert.AreEqual(2, roundUsageEvents.Count, "Should emit one RoundUsage event per LLM round.");
+
+        Assert.AreEqual(1, roundUsageEvents[0].RoundIndex);
+        Assert.IsFalse(roundUsageEvents[0].IsFinalRound);
+        Assert.IsNotNull(roundUsageEvents[0].Usage);
+        var firstRoundUsage = roundUsageEvents[0].Usage!;
+        Assert.AreEqual(10000, firstRoundUsage.InputTokens);
+        Assert.AreEqual(100, firstRoundUsage.OutputTokens);
+        Assert.AreEqual(10100, firstRoundUsage.TotalTokens,
+            "RoundUsage should normalize TotalTokens to InputTokens + OutputTokens.");
+
+        Assert.AreEqual(2, roundUsageEvents[1].RoundIndex);
+        Assert.IsTrue(roundUsageEvents[1].IsFinalRound);
+        Assert.IsNotNull(roundUsageEvents[1].Usage);
+        var secondRoundUsage = roundUsageEvents[1].Usage!;
+        Assert.AreEqual(13000, secondRoundUsage.InputTokens);
+        Assert.AreEqual(1000, secondRoundUsage.OutputTokens);
+        Assert.AreEqual(14000, secondRoundUsage.TotalTokens);
+
+        var completion = events.Last(e => e.Type == StreamingContentType.Completion);
+        Assert.IsNotNull(completion.Usage);
+        var completionUsage = completion.Usage!;
+        Assert.AreEqual(23000, completionUsage.InputTokens);
+        Assert.AreEqual(1100, completionUsage.OutputTokens);
+        Assert.AreEqual(24100, completionUsage.TotalTokens,
+            "Completion usage should remain cumulative across the full agent run.");
+        Assert.AreEqual(50, completionUsage.CachedInputTokens);
+        Assert.AreEqual(70, completionUsage.CacheCreationTokens);
+        Assert.AreEqual(90, completionUsage.ReasoningTokens);
+    }
+
+    /// <summary>
+    /// Tests Gemini's risky streaming shape where a functionCall chunk can arrive before
+    /// the usageMetadata chunk for the same LLM round. Guarantees that Gemini drains the
+    /// stream after the function call, captures late usage even when metadata is disabled,
+    /// emits RoundUsage for both the function-call round and final answer round, and keeps
+    /// final Completion usage cumulative.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestCategory("Token")]
+    [TestMethod]
+    public async Task GeminiStreamFunctionCall_DrainsUsageAfterFunctionCallForRoundUsage()
+    {
+        var handler = new QueueHttpMessageHandler();
+        handler.EnqueueSse(string.Join("\n", new[]
+        {
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"name\":\"get_weather\",\"args\":{\"city\":\"Seoul\"}}}]}}]}",
+            "data: {\"usageMetadata\":{\"promptTokenCount\":10000,\"candidatesTokenCount\":100,\"totalTokenCount\":10100,\"cachedContentTokenCount\":12,\"thoughtsTokenCount\":3}}",
+            "data: [DONE]",
+            ""
+        }));
+        handler.EnqueueSse(string.Join("\n", new[]
+        {
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Seoul is sunny.\"}]}}]}",
+            "data: {\"usageMetadata\":{\"promptTokenCount\":13000,\"candidatesTokenCount\":1000,\"totalTokenCount\":14000,\"cachedContentTokenCount\":34,\"thoughtsTokenCount\":5}}",
+            "data: [DONE]",
+            ""
+        }));
+
+        var service = new GoogleAIService("fake-key", new HttpClient(handler));
+        var functionWasCalled = false;
+
+        service.WithFunction<string>(
+            "get_weather",
+            "Gets current weather for a city.",
+            ("city", "City name", true),
+            city =>
+            {
+                functionWasCalled = true;
+                return $"Weather in {city}: sunny";
+            });
+
+        var events = new List<StreamingContent>();
+        await foreach (var content in service.RunAgentStreamAsync(
+            "Use get_weather for Seoul, then answer.",
+            maxSteps: 3,
+            options: new StreamOptions
+            {
+                IncludeMetadata = false,
+                IncludeFunctionCalls = true,
+                TextOnly = false
+            }))
+        {
+            events.Add(content);
+        }
+
+        Assert.AreEqual(2, handler.RequestCount);
+        Assert.IsTrue(functionWasCalled, "Gemini stream should execute the function call.");
+        Assert.IsFalse(events.Any(e => e.Type == StreamingContentType.Error),
+            "Gemini fake stream should not surface function execution errors.");
+
+        var roundUsageEvents = events
+            .Where(e => e.Type == StreamingContentType.RoundUsage)
+            .ToList();
+
+        Assert.AreEqual(2, roundUsageEvents.Count,
+            "Gemini should emit usage for both the function-call round and the final answer round.");
+
+        Assert.AreEqual(1, roundUsageEvents[0].RoundIndex);
+        Assert.IsFalse(roundUsageEvents[0].IsFinalRound);
+        Assert.IsNotNull(roundUsageEvents[0].Usage);
+        var firstGeminiRoundUsage = roundUsageEvents[0].Usage!;
+        Assert.AreEqual(10000, firstGeminiRoundUsage.InputTokens);
+        Assert.AreEqual(100, firstGeminiRoundUsage.OutputTokens);
+        Assert.AreEqual(10100, firstGeminiRoundUsage.TotalTokens);
+        Assert.AreEqual(12, firstGeminiRoundUsage.CachedInputTokens);
+        Assert.AreEqual(3, firstGeminiRoundUsage.ReasoningTokens);
+
+        Assert.AreEqual(2, roundUsageEvents[1].RoundIndex);
+        Assert.IsTrue(roundUsageEvents[1].IsFinalRound);
+        Assert.IsNotNull(roundUsageEvents[1].Usage);
+        var secondGeminiRoundUsage = roundUsageEvents[1].Usage!;
+        Assert.AreEqual(13000, secondGeminiRoundUsage.InputTokens);
+        Assert.AreEqual(1000, secondGeminiRoundUsage.OutputTokens);
+        Assert.AreEqual(14000, secondGeminiRoundUsage.TotalTokens);
+        Assert.AreEqual(34, secondGeminiRoundUsage.CachedInputTokens);
+        Assert.AreEqual(5, secondGeminiRoundUsage.ReasoningTokens);
+
+        var completion = events.Last(e => e.Type == StreamingContentType.Completion);
+        Assert.IsNotNull(completion.Usage);
+        var geminiCompletionUsage = completion.Usage!;
+        Assert.AreEqual(23000, geminiCompletionUsage.InputTokens);
+        Assert.AreEqual(1100, geminiCompletionUsage.OutputTokens);
+        Assert.AreEqual(24100, geminiCompletionUsage.TotalTokens);
     }
 
     #endregion

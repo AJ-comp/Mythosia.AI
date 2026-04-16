@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: ストリーミング
     href: streaming.md
+  - name: トークン使用量
+    href: token-usage.md
   - name: 関数呼び出し
     href: function-calling.md
   - name: エージェント (ReActループ)

@@ -8,6 +8,7 @@ public abstract partial class AIServiceTestBase
     /// 멀티턴 대화 테스트
     /// </summary>
     [TestCategory("Conversation")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task MultiTurnConversationTest()
     {

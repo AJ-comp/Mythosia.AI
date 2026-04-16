@@ -1,5 +1,35 @@
 # Mythosia.AI - Release Notes
 
+## v6.2.0
+
+### Added
+
+- **`StreamingContentType.RoundUsage`**
+  - Emits per-LLM-round token usage as a separate stream event.
+  - Adds `StreamingContent.RoundIndex` and `StreamingContent.IsFinalRound` for consumers that need stable round metadata without parsing dictionaries.
+
+### Behavior
+
+- **Completion usage remains cumulative**
+  - `Completion.Usage` keeps its existing meaning as total usage across the whole streaming run.
+  - `RoundUsage.Usage` is scoped to one LLM round and normalizes `TotalTokens` to `InputTokens + OutputTokens`.
+
+- **Gemini usage handling**
+  - Gemini streaming now keeps reading after a function-call chunk so late `usageMetadata` can be captured before tool execution.
+  - Usage capture is no longer tied to metadata-only chunks.
+
+### Tests
+
+- Added provider-level `Token` test coverage for round usage events and final cumulative usage.
+
+### Compatibility
+
+- Additive public API update.
+- Requires `Mythosia.AI.Abstractions` v2.1.0.
+- `Completion.Usage` keeps its existing cumulative meaning.
+
+---
+
 ## v6.1.0
 
 ### Added

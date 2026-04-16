@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: 流式输出
     href: streaming.md
+  - name: Token 用量
+    href: token-usage.md
   - name: 函数调用
     href: function-calling.md
   - name: Agent（ReAct 循环）

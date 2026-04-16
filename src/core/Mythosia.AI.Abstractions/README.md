@@ -64,8 +64,8 @@ All concrete providers (`OpenAIService`, `AnthropicService`, `GoogleAIService`, 
 
 | Type | Description |
 | --- | --- |
-| `StreamingContent` | Streaming chunk with content, type, metadata, and token usage |
-| `StreamingContentType` | Chunk type enum (`Text`, `Reasoning`, `FunctionCall`, `FunctionResult`, `Status`, `Error`, `Completion`) |
+| `StreamingContent` | Streaming chunk with content, type, metadata, token usage, and round information |
+| `StreamingContentType` | Chunk type enum (`Text`, `Reasoning`, `FunctionCall`, `FunctionResult`, `Status`, `Error`, `Completion`, `RoundUsage`) |
 | `StreamOptions` | Streaming behavior options (metadata, function calls, reasoning) |
 | `TokenUsage` | Token count data (input, output, cached, reasoning) |
 

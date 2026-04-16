@@ -10,6 +10,7 @@ public abstract partial class AIServiceTestBase
     /// 기본 텍스트 Completion 테스트
     /// </summary>
     [TestCategory("Core")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task BasicCompletionTest()
     {

@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: Потоковая передача
     href: streaming.md
+  - name: Использование токенов
+    href: token-usage.md
   - name: Вызов функций
     href: function-calling.md
   - name: Агент (цикл ReAct)

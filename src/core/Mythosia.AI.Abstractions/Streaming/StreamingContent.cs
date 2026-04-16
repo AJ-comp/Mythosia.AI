@@ -27,6 +27,16 @@ namespace Mythosia.AI.Models.Streaming
         public TokenUsage? Usage { get; set; }
 
         /// <summary>
+        /// One-based LLM round index for round-scoped events.
+        /// </summary>
+        public int? RoundIndex { get; set; }
+
+        /// <summary>
+        /// True when this event describes the final LLM round in the current stream.
+        /// </summary>
+        public bool IsFinalRound { get; set; }
+
+        /// <summary>
         /// For internal use - accumulating function call data
         /// </summary>
         internal FunctionCallData? FunctionCallData { get; set; }
@@ -40,7 +50,8 @@ namespace Mythosia.AI.Models.Streaming
         FunctionResult, // Function execution result
         Status,         // Status message
         Error,          // Error occurred
-        Completion      // Stream completed
+        Completion,     // Stream completed
+        RoundUsage      // Token usage for one LLM round
     }
 
     /// <summary>

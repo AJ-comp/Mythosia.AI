@@ -124,34 +124,48 @@ namespace Mythosia.AI.Services.Base
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     bool hasFunctionResult = false;
+                    TokenUsage? roundUsage = null;
+
                     await foreach (var content in StreamRoundAsync(
                         options, useFunctions, policy, cancellationToken))
                     {
                         if (content.Type == StreamingContentType.FunctionResult)
                             hasFunctionResult = true;
 
-                        // Accumulate token usage from Completion events
+                        // Providers can attach usage to different chunk types.
+                        // Keep the last usage seen in the round and count it once.
+                        if (content.Usage != null)
+                            roundUsage = CopyTokenUsage(content.Usage);
+
                         if (content.Type == StreamingContentType.Completion)
                         {
-                            if (content.Usage != null)
-                            {
-                                accInputTokens += content.Usage.InputTokens;
-                                accOutputTokens += content.Usage.OutputTokens;
-                                accCachedInputTokens += content.Usage.CachedInputTokens;
-                                accCacheCreationTokens += content.Usage.CacheCreationTokens;
-                                accReasoningTokens += content.Usage.ReasoningTokens;
-
-                                // Update last known input tokens for summary trigger.
-                                // Each round's InputTokens represents the full conversation context,
-                                // so the latest value is the most accurate measure.
-                                LastKnownInputTokens = content.Usage.InputTokens;
-                            }
-
                             // Only yield Completion on the final round (no more function calls)
                             continue;
                         }
 
                         yield return content;
+                    }
+
+                    if (roundUsage != null)
+                    {
+                        accInputTokens += roundUsage.InputTokens;
+                        accOutputTokens += roundUsage.OutputTokens;
+                        accCachedInputTokens += roundUsage.CachedInputTokens;
+                        accCacheCreationTokens += roundUsage.CacheCreationTokens;
+                        accReasoningTokens += roundUsage.ReasoningTokens;
+
+                        // Update last known input tokens for summary trigger.
+                        // Each round's InputTokens represents the full conversation context,
+                        // so the latest value is the most accurate measure.
+                        LastKnownInputTokens = roundUsage.InputTokens;
+
+                        if (!options.TextOnly)
+                        {
+                            yield return CreateRoundUsageContent(
+                                round + 1,
+                                isFinalRound: !hasFunctionResult,
+                                roundUsage);
+                        }
                     }
 
                     if (!hasFunctionResult)
@@ -197,6 +211,33 @@ namespace Mythosia.AI.Services.Base
                 if (originalChat != null)
                     ActivateChat = originalChat;
             }
+        }
+
+        protected static StreamingContent CreateRoundUsageContent(
+            int roundIndex,
+            bool isFinalRound,
+            TokenUsage usage)
+        {
+            return new StreamingContent
+            {
+                Type = StreamingContentType.RoundUsage,
+                RoundIndex = roundIndex,
+                IsFinalRound = isFinalRound,
+                Usage = CopyTokenUsage(usage)
+            };
+        }
+
+        protected static TokenUsage CopyTokenUsage(TokenUsage usage)
+        {
+            return new TokenUsage
+            {
+                InputTokens = usage.InputTokens,
+                OutputTokens = usage.OutputTokens,
+                TotalTokens = usage.InputTokens + usage.OutputTokens,
+                CachedInputTokens = usage.CachedInputTokens,
+                CacheCreationTokens = usage.CacheCreationTokens,
+                ReasoningTokens = usage.ReasoningTokens
+            };
         }
 
         /// <summary>

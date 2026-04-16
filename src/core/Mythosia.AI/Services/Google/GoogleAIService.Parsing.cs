@@ -349,6 +349,7 @@ namespace Mythosia.AI.Services.Google
             var root = doc.RootElement;
 
             var content = new StreamingContent();
+            var usage = TryParseUsageMetadata(root);
 
             if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
                 return BuildUsageOnlyStatusContent(root, options, content);
@@ -362,7 +363,11 @@ namespace Mythosia.AI.Services.Google
                 foreach (var part in parts.EnumerateArray())
                 {
                     if (TryParseFunctionCallPart(part, options, functionCallData, content, out var functionContent))
+                    {
+                        if (usage != null)
+                            functionContent!.Usage = usage;
                         return functionContent;
+                    }
                 }
 
                 // 2) If reasoning is requested, prefer thought chunks over plain text
@@ -389,23 +394,20 @@ namespace Mythosia.AI.Services.Google
                 }
             }
 
-            if (options.IncludeMetadata &&
-                candidate.TryGetProperty("finishReason", out var finishReason))
+            if (candidate.TryGetProperty("finishReason", out var finishReason))
             {
                 var reason = finishReason.GetString();
-                if (reason != null)
+                if (reason != null && (options.IncludeMetadata || usage != null))
                 {
                     content.Type = StreamingContentType.Status;
-                    content.Metadata = new Dictionary<string, object> { ["finish_reason"] = reason };
-                    content.Usage = TryParseUsageMetadata(root);
+                    if (options.IncludeMetadata)
+                        content.Metadata = new Dictionary<string, object> { ["finish_reason"] = reason };
+                    content.Usage = usage;
                     return content;
                 }
             }
 
-            if (options.IncludeMetadata)
-                return BuildUsageOnlyStatusContent(root, options, content);
-
-            return null;
+            return BuildUsageOnlyStatusContent(root, options, content);
         }
 
         private bool TryParseFunctionCallPart(
@@ -483,6 +485,7 @@ namespace Mythosia.AI.Services.Google
 
             content.Type = isThought ? StreamingContentType.Reasoning : StreamingContentType.Text;
             content.Content = text;
+            content.Usage = TryParseUsageMetadata(root);
 
             if (options.IncludeMetadata)
             {
@@ -492,12 +495,10 @@ namespace Mythosia.AI.Services.Google
                     content.Metadata["safety_ratings"] = safetyRatings.GetRawText();
 
                 if (candidate.TryGetProperty("finishReason", out var textFinishReason))
-                    content.Metadata["finish_reason"] = textFinishReason.GetString();
-
-                content.Usage = TryParseUsageMetadata(root);
+                    content.Metadata["finish_reason"] = textFinishReason.GetString() ?? string.Empty;
 
                 if (part.TryGetProperty("thoughtSignature", out var textSigElem))
-                    content.Metadata[MessageMetadataKeys.ThoughtSignature] = textSigElem.GetString();
+                    content.Metadata[MessageMetadataKeys.ThoughtSignature] = textSigElem.GetString() ?? string.Empty;
             }
 
             return content;
@@ -511,7 +512,7 @@ namespace Mythosia.AI.Services.Google
             content.Type = StreamingContentType.Status;
             content.Metadata = new Dictionary<string, object>
             {
-                [MessageMetadataKeys.ThoughtSignature] = emptySigElem.GetString()
+                [MessageMetadataKeys.ThoughtSignature] = emptySigElem.GetString() ?? string.Empty
             };
             return content;
         }
@@ -544,18 +545,13 @@ namespace Mythosia.AI.Services.Google
             StreamOptions options,
             StreamingContent content)
         {
-            if (!options.IncludeMetadata)
-                return null;
-
+            var usage = TryParseUsageMetadata(root);
+            if (usage != null)
             {
-                var usage = TryParseUsageMetadata(root);
-                if (usage != null)
-                {
-                    content.Type = StreamingContentType.Status;
-                    content.Metadata = new Dictionary<string, object>();
-                    content.Usage = usage;
-                    return content;
-                }
+                content.Type = StreamingContentType.Status;
+                content.Metadata = options.IncludeMetadata ? new Dictionary<string, object>() : null;
+                content.Usage = usage;
+                return content;
             }
 
             return null;

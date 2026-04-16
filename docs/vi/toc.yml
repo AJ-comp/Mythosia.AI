@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: Streaming
     href: streaming.md
+  - name: Sử dụng token
+    href: token-usage.md
   - name: Gọi hàm
     href: function-calling.md
   - name: Agent (vòng lặp ReAct)

@@ -120,9 +120,12 @@ public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
     }
 
     /// <summary>
-    /// Gemini 토큰 카운팅 테스트
+    /// Tests Gemini's real provider token counting API for both a single prompt and the
+    /// accumulated active conversation. Guarantees that Gemini exposes usable input-token
+    /// counts for prompt-level and conversation-level context measurement.
     /// </summary>
     [TestCategory("ServiceSpecific")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task GeminiTokenCountingTest()
     {

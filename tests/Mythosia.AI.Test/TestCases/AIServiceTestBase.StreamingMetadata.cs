@@ -386,9 +386,13 @@ public abstract partial class AIServiceTestBase
     }
 
     /// <summary>
-    /// TokenUsage 통일 검증 테스트 — Completion 이벤트의 Usage 프로퍼티에 토큰 정보가 채워지는지 확인
+    /// Tests that provider streaming surfaces official token usage through
+    /// <see cref="StreamingContent.Usage"/> on at least one streamed content item.
+    /// Guarantees that consumers can observe non-empty InputTokens, OutputTokens, and
+    /// TotalTokens from the stream without depending on provider-specific metadata keys.
     /// </summary>
     [TestCategory("StreamingMetadata")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task StreamingTokenUsageTest()
     {

@@ -114,6 +114,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ByToken_SetsCorrectProperties()
     {
@@ -141,6 +142,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ByBoth_SetsCorrectProperties()
     {
@@ -191,6 +193,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ShouldSummarize_ByToken_ExceedsTokenLimit_ReturnsTrue()
     {
@@ -206,6 +209,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ShouldSummarize_ByToken_UsesActualTokens_WhenProvided()
     {
@@ -221,6 +225,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ShouldSummarize_ByToken_FallsBackToEstimation_WhenZero()
     {
@@ -235,6 +240,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ShouldSummarize_ByToken_ActualTokensBelowTrigger_ReturnsFalse()
     {
@@ -249,6 +255,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ShouldSummarize_ByBoth_CountExceeds_ReturnsTrue()
     {
@@ -260,6 +267,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void ShouldSummarize_ByBoth_NeitherExceeds_ReturnsFalse()
     {
@@ -305,6 +313,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void GetMessagesToSummarize_ByToken_KeepsRecentWithinTokenBudget()
     {
@@ -333,6 +342,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public void GetMessagesToSummarize_ByToken_AllFitInBudget_ReturnsEmpty()
     {
@@ -619,6 +629,7 @@ public class SummaryConversationPolicyTests
 
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task TokenBased_TriggersSummarization_RemovesOldMessages()
     {

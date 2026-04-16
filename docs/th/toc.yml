@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: Streaming
     href: streaming.md
+  - name: การใช้ token
+    href: token-usage.md
   - name: การเรียกใช้ฟังก์ชัน
     href: function-calling.md
   - name: Agent (วนซ้ำ ReAct)

@@ -280,8 +280,11 @@ public class PerplexityServiceTests : AIServiceTestBase
     }
 
     /// <summary>
-    /// Sonar 토큰 카운팅 테스트
+    /// Tests Sonar's real provider token counting path for both a single prompt and the
+    /// accumulated active conversation. Guarantees that Sonar exposes usable input-token
+    /// counts for prompt-level and conversation-level context measurement.
     /// </summary>
+    [TestCategory("Token")]
     [TestMethod]
     public async Task SonarTokenCountingTest()
     {

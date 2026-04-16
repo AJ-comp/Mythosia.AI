@@ -13,6 +13,8 @@
     href: generation-params.md
   - name: Streaming
     href: streaming.md
+  - name: Uso de tokens
+    href: token-usage.md
   - name: Function Calling
     href: function-calling.md
   - name: Agente (loop ReAct)

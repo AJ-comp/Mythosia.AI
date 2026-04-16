@@ -168,7 +168,15 @@ public abstract class StreamingMetadataTestModule : TestModuleBase
         catch (Exception ex) { Console.WriteLine($"[Cancellation Metadata Error] {ex.Message}"); Assert.Fail(ex.Message); }
     }
 
-    [TestCategory("StreamingMetadata"), TestMethod]
+    /// <summary>
+    /// Tests that provider streaming surfaces official token usage through
+    /// <see cref="StreamingContent.Usage"/> on at least one streamed content item.
+    /// Guarantees that module-based provider tests cover the same token usage contract
+    /// as the shared AIServiceTestBase streaming metadata tests.
+    /// </summary>
+    [TestCategory("StreamingMetadata")]
+    [TestCategory("Token")]
+    [TestMethod]
     public async Task StreamingTokenUsageTest()
     {
         try

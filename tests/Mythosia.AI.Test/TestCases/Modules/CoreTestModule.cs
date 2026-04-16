@@ -16,6 +16,7 @@ public abstract class CoreTestModule : TestModuleBase
     #region Basic (from AIServiceTestBase.Basic.cs)
 
     [TestCategory("Core")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task BasicCompletionTest()
     {
@@ -176,6 +177,7 @@ public abstract class CoreTestModule : TestModuleBase
     #region Conversation (from AIServiceTestBase.Conversation.cs)
 
     [TestCategory("Conversation")]
+    [TestCategory("Token")]
     [TestMethod]
     public async Task MultiTurnConversationTest()
     {

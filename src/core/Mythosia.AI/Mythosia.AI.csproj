@@ -23,52 +23,35 @@
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-## What's New in v6.1.0
+		## What's New in v6.2.0
 
-### Agent Streaming
-- Added AIService.RunAgentStreamAsync(goal, maxSteps, options, cancellationToken) as the streaming counterpart to RunAgentAsync.
-- Forces function calling on and disables TextOnly so agent runs can emit function call, function result, and completion events.
-- Throws AgentMaxStepsExceededException when the agent exhausts maxSteps without reaching a final completion event.
-- No IAIService contract changes. Continues to use Mythosia.AI.Abstractions v2.0.0.
+		### Round-Level Token Usage
+		- Added StreamingContentType.RoundUsage events for per-LLM-round token usage during streaming.
+		- RoundUsage.Usage reports only the current LLM round, while Completion.Usage remains cumulative for the whole streaming run.
+		- Added StreamingContent.RoundIndex and StreamingContent.IsFinalRound through Mythosia.AI.Abstractions v2.1.0.
+		- Gemini streaming now drains after function-call chunks so late usage metadata can be captured before the next round.
 
----
+		Requires Mythosia.AI.Abstractions v2.1.0.
 
-## What's New in v6.0.0
+		---
 
-### API Consolidation (Breaking Change)
-GetCompletionAsync reduced from 8 overloads to 2 with optional parameters. StreamAsync reduced from 6 overloads to 4.
-
-Migration from v5.2 or earlier -&gt; service class renames (old names still compile as [Obsolete]):
-- ChatGptService -&gt; OpenAIService
-- ClaudeService -&gt; AnthropicService
-- GeminiService -&gt; GoogleAIService
-- GrokService -&gt; XAIService
-- SonarService -&gt; PerplexityService
-
-Migration from v5.x -&gt; API consolidation:
-- GetCompletionAsync(message, context) -&gt; GetCompletionAsync(message, context: context)
-- StreamAsync(message, options, ct) -&gt; StreamAsync(message, options, cancellationToken: ct)
-- Custom AIService subclasses overriding StreamAsync(Message, StreamOptions, CancellationToken) -&gt; rename to StreamCoreAsync (protected)
-
-Requires Mythosia.AI.Abstractions v2.0.0.
-
-## Documentation
-- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
-- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
-- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
-- GitHub: https://github.com/AJ-comp/Mythosia.AI
-    </Description>
+		## Documentation
+		- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
+		- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
+		- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
+		- GitHub: https://github.com/AJ-comp/Mythosia.AI
+	</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.1.0: add AIService.RunAgentStreamAsync(...) as the streaming counterpart to RunAgentAsync. Agent streaming keeps function call, function result, and completion events enabled while preserving AgentMaxStepsExceededException semantics on max-step exhaustion. No Mythosia.AI.Abstractions contract changes.</PackageReleaseNotes>
-    <Version>6.1.0</Version>
+    <PackageReleaseNotes>v6.2.0: add StreamingContentType.RoundUsage events with per-round TokenUsage, RoundIndex, and IsFinalRound. Completion.Usage remains cumulative. Gemini streaming drains after function-call chunks to capture late usage metadata. Requires Mythosia.AI.Abstractions v2.1.0.</PackageReleaseNotes>
+    <Version>6.2.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="NJsonSchema" Version="11.5.2" />
-    <PackageReference Include="System.Threading.Channels" Version="10.0.5" />
+    <PackageReference Include="NJsonSchema" Version="11.6.0" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.6" />
     <PackageReference Include="TiktokenSharp" Version="1.2.1" />
   </ItemGroup>
 
