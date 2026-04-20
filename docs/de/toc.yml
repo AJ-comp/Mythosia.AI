@@ -2,6 +2,8 @@
   items:
   - name: Einführung
     href: introduction.md
+  - name: Grundkonzepte
+    href: core-concepts.md
   - name: Schnellstart
     href: getting-started.md
 

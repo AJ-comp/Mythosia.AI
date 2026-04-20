@@ -2,6 +2,8 @@
   items:
   - name: Introduction
     href: introduction.md
+  - name: Concepts fondamentaux
+    href: core-concepts.md
   - name: Prise en main
     href: getting-started.md
 

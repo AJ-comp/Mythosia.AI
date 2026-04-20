@@ -2,6 +2,8 @@
   items:
   - name: 概要
     href: introduction.md
+  - name: 基本概念
+    href: core-concepts.md
   - name: クイックスタート
     href: getting-started.md
 

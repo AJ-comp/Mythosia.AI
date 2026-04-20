@@ -23,13 +23,22 @@
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-		## What's New in v6.2.0
+		## What's New in v6.3.0
 
-		### Round-Level Token Usage
-		- Added StreamingContentType.RoundUsage events for per-LLM-round token usage during streaming.
-		- RoundUsage.Usage reports only the current LLM round, while Completion.Usage remains cumulative for the whole streaming run.
-		- Added StreamingContent.RoundIndex and StreamingContent.IsFinalRound through Mythosia.AI.Abstractions v2.1.0.
-		- Gemini streaming now drains after function-call chunks so late usage metadata can be captured before the next round.
+		### Agent Path Per-Call Request Context
+		- RunAgentAsync(string, int, AIRequestContext?) and RunAgentStreamAsync(string, int, StreamOptions?, AIRequestContext?, CancellationToken) now accept AIRequestContext.
+		- Context flows through AsyncLocal and is safe for concurrent agent runs on the same service.
+
+		### AIService.SystemMessageProvider for Automatic Context Injection
+		- New Func&lt;CancellationToken, ValueTask&lt;AIRequestContext?&gt;&gt;? property invoked automatically before every outbound call (GetCompletionAsync, StreamAsync, RunAgentAsync, RunAgentStreamAsync).
+		- Register once at service construction; callers no longer need to build and pass AIRequestContext at every entry point.
+		- Async-shaped signature — providers that need IO (database, cache, HTTP) run natively without blocking on .Result/.GetAwaiter().GetResult(). Streaming paths forward the caller's CancellationToken; non-streaming paths pass CancellationToken.None.
+		- When an explicit per-call context is also supplied, the two merge field-by-field: explicit wins on scalar fields; AdditionalMessages concatenates.
+		- Two fluent overloads resolved by lambda arity: service.WithSystemMessageProvider(() =&gt; ctx) for sync, service.WithSystemMessageProvider(async ct =&gt; ctx) for async. Property exposes internal set so fluent helpers are the canonical assignment path.
+
+		### Fixed: AIRequestContext.SystemMessagePrefix / SystemMessageSuffix Now Apply
+		- Previously declared since v5.0.0 but never consumed by any provider. GetEffectiveSystemMessage() now composes prefix + summary + base + suffix in that order.
+		- Purely additive behavior: callers that never set these fields see identical output.
 
 		Requires Mythosia.AI.Abstractions v2.1.0.
 
@@ -43,8 +52,8 @@
 	</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.2.0: add StreamingContentType.RoundUsage events with per-round TokenUsage, RoundIndex, and IsFinalRound. Completion.Usage remains cumulative. Gemini streaming drains after function-call chunks to capture late usage metadata. Requires Mythosia.AI.Abstractions v2.1.0.</PackageReleaseNotes>
-    <Version>6.2.0</Version>
+    <PackageReleaseNotes>v6.3.0: RunAgentAsync/RunAgentStreamAsync now accept an optional AIRequestContext for per-call system message prefix/suffix and request-scoped composition. New AIService.SystemMessageProvider (Func&lt;CancellationToken, ValueTask&lt;AIRequestContext?&gt;&gt;?) auto-injects a baseline context on every outbound call (including agent paths); async-shaped so provider-side IO does not need .Result blocking. Two fluent overloads (WithSystemMessageProvider) resolve sync/async by lambda arity. Explicit per-call contexts merge field-by-field on top. Fixes dormant AIRequestContext.SystemMessagePrefix / SystemMessageSuffix (declared since v5.0.0 but never consumed) — GetEffectiveSystemMessage() now composes prefix + summary + base + suffix. Additive; existing callers unaffected. Requires Mythosia.AI.Abstractions v2.1.0.</PackageReleaseNotes>
+    <Version>6.3.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

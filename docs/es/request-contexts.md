@@ -94,3 +94,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 Consulta [AIRequestProfile](request-profiles.md) para detalles sobre cómo sobrescribir parámetros de generación.
+
+## Inyección automática con `SystemMessageProvider`
+
+### El problema que resuelve
+
+Una app de chat típica tiene varios puntos de entrada al LLM que necesitan la misma baseline — fecha de hoy, carpeta activa, info de sesión. **Sin** `SystemMessageProvider`, cada punto de llamada tiene que acordarse de construir y pasar ese contexto:
+
+```csharp
+// ❌ Sin SystemMessageProvider — cada punto de entrada debe recordar inyectar
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. Respuesta principal del chat
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. Generador de títulos (añadido después)
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. Resumidor (añadido aún más tarde)
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. Llamada al agent — ¡fácil de olvidar! El compilador no te avisa
+var agentResult = await service.RunAgentAsync(goal);  // ← falta fecha, bug silencioso
+```
+
+Problemas de este enfoque:
+
+- El mismo snippet de construcción de contexto se **duplica** en cada punto de llamada
+- Los nuevos puntos de entrada (el `RunAgentAsync` arriba) son **fáciles de omitir** — no hay verificación en tiempo de compilación
+- Cada nueva característica que añade otra llamada al LLM tiene que recordar la convención
+- Los tests tienen que replicar el setup de contexto en cada punto de llamada
+
+Con `SystemMessageProvider`, registras la baseline **una vez** y cada llamada saliente la recoge automáticamente:
+
+```csharp
+// ✅ Con SystemMessageProvider — registrar una vez, aplicado en todas partes
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// Todas estas reciben automáticamente la baseline — sin boilerplate por llamada
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← también recibe la baseline
+
+// Los puntos de entrada streaming también — misma baseline, sin boilerplate por llamada
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### Cómo funciona
+
+Registra el callback una vez mediante el helper fluent `WithSystemMessageProvider`. Cada llamada saliente (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) lo invoca automáticamente para construir un contexto base:
+
+```csharp
+// Típicamente en la construcción del servicio / configuración DI
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### Sobrecarga async para providers basados en IO
+
+Cuando el contexto base proviene de una base de datos, caché o llamada HTTP, usa la sobrecarga async para que el provider no tenga que bloquearse con `.Result` / `.GetAwaiter().GetResult()`. La resolución de sobrecarga elige la correcta por la arity de la lambda — sin argumento para sync, un `CancellationToken` para async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+Las rutas sin streaming (`GetCompletionAsync`, `RunAgentAsync`) no admiten cancelación por diseño — sus firmas no aceptan un `CancellationToken` y siempre se pasa `CancellationToken.None` al provider. Si tu provider necesita cancelación (p. ej. una consulta DB larga), usa las rutas de streaming (`StreamAsync`, `RunAgentStreamAsync`), que propagan el token del llamador hasta el callback del provider.
+
+### Fusión con un contexto per-call explícito
+
+Cuando una llamada tiene un provider registrado **y** también pasa un `AIRequestContext` explícito, los dos se fusionan campo por campo:
+
+| Campo | Regla de fusión |
+|---|---|
+| `SystemMessagePrefix` | explícito gana si non-null, si no provider |
+| `SystemMessageSuffix` | explícito gana si non-null, si no provider |
+| `RequestMessageOverride` | explícito gana si non-null, si no provider |
+| `AdditionalMessages` | concatenados (primero provider, luego explícito) |
+
+Motivación: el caso común es "el provider aporta una base, una llamada específica quiere reemplazar un campo escalar o añadir mensajes extra" — el override a nivel de campo mantiene la semántica predecible sin concatenación sorprendente.
+
+### Invocación por llamada
+
+El provider se invoca **una vez por petición**, de modo que los valores de retorno pueden reflejar el estado en ese mismo instante (timestamp, sesión, etc.). Devolver `null` es un no-op — idéntico a dejar `SystemMessageProvider` sin configurar para esa llamada.
+
+> Disponible en Mythosia.AI v6.3.0+.

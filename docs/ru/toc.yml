@@ -2,6 +2,8 @@
   items:
   - name: Введение
     href: introduction.md
+  - name: Основные понятия
+    href: core-concepts.md
   - name: Быстрый старт
     href: getting-started.md
 

@@ -166,3 +166,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 详见 [AIRequestProfile](request-profiles.md) 了解如何覆盖生成参数。
+
+## 使用 `SystemMessageProvider` 自动注入
+
+### 此功能解决的问题
+
+典型的聊天应用有多个需要相同基线（今日日期、活动文件夹、会话信息等）的 LLM 入口点。**不使用** `SystemMessageProvider` 时，每个调用点都需要记得构建并传递该上下文：
+
+```csharp
+// ❌ 不使用 SystemMessageProvider — 每个入口点都必须记得注入
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. 主聊天响应
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. 标题生成器（后来添加）
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. 摘要器（更晚添加）
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. Agent 调用 — 容易忘记！ 编译器不会警告你
+var agentResult = await service.RunAgentAsync(goal);  // ← 日期缺失，无声 bug
+```
+
+此方式的问题：
+
+- 相同的上下文构建片段在每个调用点**重复**
+- 新入口点（上面的 `RunAgentAsync`）**容易遗漏** — 没有编译时检查
+- 每个添加 LLM 调用的新功能都必须记住此约定
+- 测试也必须在每个调用点复制上下文设置
+
+使用 `SystemMessageProvider`，基线**只需注册一次**，所有外发调用自动接收：
+
+```csharp
+// ✅ 使用 SystemMessageProvider — 注册一次，随处生效
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// 以下所有调用都自动接收基线 — 无需每次调用的样板代码
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← 也接收基线
+
+// 流式入口点也一样 — 相同基线，无需每次调用的样板代码
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### 工作原理
+
+通过 `WithSystemMessageProvider` fluent 辅助方法注册一次回调。每个外发调用（`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）都会自动调用它来构建基线上下文：
+
+```csharp
+// 通常在服务构造 / DI 设置时注册
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### 用于 IO 支持的 provider 的异步重载
+
+当基线上下文来自数据库、缓存或 HTTP 调用时,请使用异步重载,以便 provider 无需通过 `.Result` / `.GetAwaiter().GetResult()` 阻塞。根据 lambda arity 自动进行重载解析 — 无参数为 sync,一个 `CancellationToken` 为 async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+非流式路径（`GetCompletionAsync`、`RunAgentAsync`）在设计上不支持取消 — 其签名不接受 `CancellationToken`，始终向 provider 传递 `CancellationToken.None`。如果您的 provider 需要取消（例如长时间运行的 DB 查询），请使用流式路径（`StreamAsync`、`RunAgentStreamAsync`），它们会将调用者的 token 传递到 provider 回调。
+
+### 与显式 per-call 上下文合并
+
+当一个调用既有已注册的 provider**又**传递了显式的 `AIRequestContext` 时,两者按字段合并:
+
+| 字段 | 合并规则 |
+|---|---|
+| `SystemMessagePrefix` | 显式值非 null 时胜出,否则使用 provider |
+| `SystemMessageSuffix` | 显式值非 null 时胜出,否则使用 provider |
+| `RequestMessageOverride` | 显式值非 null 时胜出,否则使用 provider |
+| `AdditionalMessages` | 拼接(provider 在前,然后是显式) |
+
+原因: 常见场景是"provider 提供基线,特定调用想替换一个标量字段或添加额外消息" — 字段级覆盖使语义可预测,避免意外的拼接。
+
+### 每次调用的 invocation
+
+Provider **每个请求调用一次**,因此返回值可以反映最新状态(时间戳、会话等)。返回 `null` 是 no-op — 相当于该调用未设置 `SystemMessageProvider`。
+
+> 在 Mythosia.AI v6.3.0+ 中可用。

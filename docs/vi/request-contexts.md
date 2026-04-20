@@ -166,3 +166,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 Xem [AIRequestProfile](request-profiles.md) để biết thêm về cách ghi đè tham số tạo nội dung.
+
+## Tự động chèn bằng `SystemMessageProvider`
+
+### Vấn đề nó giải quyết
+
+Một app chat điển hình có nhiều điểm vào LLM đều cần cùng một baseline — ngày hôm nay, thư mục hiện tại, thông tin phiên. **Không có** `SystemMessageProvider`, mỗi nơi gọi phải nhớ dựng và truyền context đó:
+
+```csharp
+// ❌ Không có SystemMessageProvider — mỗi điểm vào phải nhớ chèn
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. Phản hồi chat chính
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. Bộ tạo tiêu đề (thêm vào sau)
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. Bộ tóm tắt (thêm vào muộn hơn nữa)
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. Lệnh gọi agent — dễ quên! Compiler không cảnh báo bạn
+var agentResult = await service.RunAgentAsync(goal);  // ← thiếu ngày, bug âm thầm
+```
+
+Vấn đề của cách tiếp cận này:
+
+- Cùng một snippet dựng context bị **lặp lại** ở mỗi nơi gọi
+- Các điểm vào mới (lệnh `RunAgentAsync` ở trên) **dễ bị bỏ sót** — không có kiểm tra lúc compile
+- Mỗi tính năng mới thêm lệnh gọi LLM đều phải nhớ quy ước này
+- Tests cũng phải sao chép lại việc thiết lập context ở mỗi nơi gọi
+
+Với `SystemMessageProvider`, bạn đăng ký baseline **một lần** và mọi lệnh gọi ra đều tự động nhận được:
+
+```csharp
+// ✅ Với SystemMessageProvider — đăng ký một lần, áp dụng mọi nơi
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// Tất cả những lệnh này đều tự động nhận baseline — không cần boilerplate mỗi lệnh gọi
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← cũng nhận baseline
+
+// Các điểm vào streaming cũng vậy — cùng baseline, không cần boilerplate mỗi lệnh gọi
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### Cách hoạt động
+
+Đăng ký callback một lần qua helper fluent `WithSystemMessageProvider`. Mỗi lệnh gọi ra (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) tự động gọi nó để dựng context cơ sở:
+
+```csharp
+// Thường tại thời điểm tạo service / cấu hình DI
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### Overload async cho provider dùng IO
+
+Khi context cơ sở đến từ database, cache hoặc lệnh gọi HTTP, hãy dùng overload async để provider không phải chặn trên `.Result` / `.GetAwaiter().GetResult()`. Giải quyết overload chọn đúng overload theo arity của lambda — không tham số cho sync, một `CancellationToken` cho async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+Các đường dẫn không streaming (`GetCompletionAsync`, `RunAgentAsync`) không hỗ trợ hủy theo thiết kế — chữ ký của chúng không nhận `CancellationToken`, và `CancellationToken.None` luôn được truyền tới provider. Nếu provider của bạn cần hủy (ví dụ: truy vấn DB lâu), hãy dùng các đường dẫn streaming (`StreamAsync`, `RunAgentStreamAsync`), chúng sẽ truyền token của người gọi tới callback provider.
+
+### Gộp với context per-call tường minh
+
+Khi một lệnh gọi có provider đã đăng ký **và** cũng truyền `AIRequestContext` tường minh, cả hai được gộp theo từng trường:
+
+| Trường | Quy tắc gộp |
+|---|---|
+| `SystemMessagePrefix` | tường minh thắng nếu non-null, nếu không thì provider |
+| `SystemMessageSuffix` | tường minh thắng nếu non-null, nếu không thì provider |
+| `RequestMessageOverride` | tường minh thắng nếu non-null, nếu không thì provider |
+| `AdditionalMessages` | nối chuỗi (provider trước, sau đó tường minh) |
+
+Lý do: trường hợp phổ biến là "provider cung cấp baseline, một lệnh gọi cụ thể muốn thay thế một trường vô hướng hoặc thêm tin nhắn bổ sung" — ghi đè cấp trường giữ cho ngữ nghĩa có thể dự đoán mà không gây nối chuỗi bất ngờ.
+
+### Gọi mỗi request
+
+Provider được gọi **một lần mỗi request**, nên giá trị trả về có thể phản ánh trạng thái tức thời (timestamp, phiên, v.v.). Trả về `null` là no-op — giống với việc để `SystemMessageProvider` không được thiết lập cho lệnh gọi đó.
+
+> Có sẵn trong Mythosia.AI v6.3.0+.

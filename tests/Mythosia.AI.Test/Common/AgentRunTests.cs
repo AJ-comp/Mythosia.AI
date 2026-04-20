@@ -36,6 +36,7 @@ public class AgentRunTests
         private readonly Queue<string> _responses = new();
         public int CompletionCallCount { get; private set; }
         public List<string> ReceivedMessages { get; } = new();
+        public List<string> CapturedEffectiveSystemMessages { get; } = new();
 
         public MockAgentService(params string[] responses)
             : base("fake-key", "https://localhost/", new HttpClient())
@@ -51,6 +52,7 @@ public class AgentRunTests
         {
             CompletionCallCount++;
             ReceivedMessages.Add(message.Content);
+            CapturedEffectiveSystemMessages.Add(GetEffectiveSystemMessage());
 
             if (_responses.Count == 0)
                 throw new AIServiceException("No more mock responses");
@@ -112,6 +114,7 @@ public class AgentRunTests
         public List<string> ReceivedStreamMessages { get; } = new();
         public StreamOptions? LastStreamOptions { get; private set; }
         public int? LastObservedMaxRounds { get; private set; }
+        public string? CapturedEffectiveSystemMessage { get; private set; }
 
         public MockStreamingAgentService(string response)
             : base("fake-key", "https://localhost/", new HttpClient())
@@ -135,6 +138,7 @@ public class AgentRunTests
         {
             LastStreamOptions = options.Clone();
             LastObservedMaxRounds = (CurrentPolicy ?? DefaultPolicy).MaxRounds;
+            CapturedEffectiveSystemMessage = GetEffectiveSystemMessage();
 
             await foreach (var content in base.StreamCoreAsync(message, options, cancellationToken)
                 .WithCancellation(cancellationToken))
@@ -464,6 +468,193 @@ public class AgentRunTests
         Assert.AreEqual("result", result);
     }
 
+    /// <summary>
+    /// context의 SystemMessagePrefix가 effective system message 앞에 붙는지 확인.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_ContextSystemMessagePrefix_IsPrepended()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base system.";
+        var ctx = new AIRequestContext { SystemMessagePrefix = "[runtime-ctx]" };
+
+        await mock.RunAgentAsync("goal", context: ctx);
+
+        Assert.AreEqual(1, mock.CapturedEffectiveSystemMessages.Count);
+        Assert.AreEqual("[runtime-ctx]\n\nBase system.", mock.CapturedEffectiveSystemMessages[0]);
+    }
+
+    /// <summary>
+    /// context의 SystemMessageSuffix가 effective system message 뒤에 붙는지 확인.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_ContextSystemMessageSuffix_IsAppended()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base system.";
+        var ctx = new AIRequestContext { SystemMessageSuffix = "[tail-note]" };
+
+        await mock.RunAgentAsync("goal", context: ctx);
+
+        Assert.AreEqual(1, mock.CapturedEffectiveSystemMessages.Count);
+        Assert.AreEqual("Base system.\n\n[tail-note]", mock.CapturedEffectiveSystemMessages[0]);
+    }
+
+    /// <summary>
+    /// context 미전달 시 기존 동작 (base system message만) 유지 확인.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_NoContext_UsesBaseSystemMessageUnchanged()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base system.";
+
+        await mock.RunAgentAsync("goal");
+
+        Assert.AreEqual("Base system.", mock.CapturedEffectiveSystemMessages[0]);
+    }
+
+    /// <summary>
+    /// context는 per-call — 다음 호출에서는 AsyncLocal이 원복되어 prefix가 사라져야 함.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_ContextScopedToSingleCall_DoesNotLeak()
+    {
+        var mock = new MockAgentService("first", "second");
+        mock.ActivateChat.SystemMessage = "Base.";
+        var ctx = new AIRequestContext { SystemMessagePrefix = "[first-only]" };
+
+        await mock.RunAgentAsync("g1", context: ctx);
+        await mock.RunAgentAsync("g2");
+
+        Assert.AreEqual("[first-only]\n\nBase.", mock.CapturedEffectiveSystemMessages[0]);
+        Assert.AreEqual("Base.", mock.CapturedEffectiveSystemMessages[1]);
+    }
+
+    /// <summary>
+    /// SystemMessageProvider가 등록돼 있으면 explicit context 없이도 자동 주입된다.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_SystemMessageProvider_AutoInjectsWhenNoExplicitContext()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base.";
+        mock.WithSystemMessageProvider(() => new AIRequestContext
+        {
+            SystemMessageSuffix = "[auto-suffix]"
+        });
+
+        await mock.RunAgentAsync("goal");
+
+        Assert.AreEqual("Base.\n\n[auto-suffix]", mock.CapturedEffectiveSystemMessages[0]);
+    }
+
+    /// <summary>
+    /// Provider의 값과 explicit context가 병합된다 — scalar 필드는 explicit이 이김.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_SystemMessageProvider_ExplicitContextOverridesScalars()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base.";
+        mock.WithSystemMessageProvider(() => new AIRequestContext
+        {
+            SystemMessagePrefix = "[provider-prefix]",
+            SystemMessageSuffix = "[provider-suffix]"
+        });
+        var ctx = new AIRequestContext
+        {
+            SystemMessagePrefix = "[explicit-prefix]"
+        };
+
+        await mock.RunAgentAsync("goal", context: ctx);
+
+        Assert.AreEqual(
+            "[explicit-prefix]\n\nBase.\n\n[provider-suffix]",
+            mock.CapturedEffectiveSystemMessages[0]);
+    }
+
+    /// <summary>
+    /// Provider가 null을 반환하면 no-op — explicit context만 적용.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_SystemMessageProvider_ReturnsNull_IsNoOp()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base.";
+        mock.WithSystemMessageProvider(() => null);
+
+        await mock.RunAgentAsync("goal");
+
+        Assert.AreEqual("Base.", mock.CapturedEffectiveSystemMessages[0]);
+    }
+
+    /// <summary>
+    /// Provider는 호출마다 재실행된다 — 동적 값(예: 현재 시각)을 반영할 수 있어야 함.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_SystemMessageProvider_InvokedPerCall()
+    {
+        var mock = new MockAgentService("r1", "r2", "r3");
+        mock.ActivateChat.SystemMessage = "Base.";
+        int callCount = 0;
+        mock.WithSystemMessageProvider(() =>
+        {
+            callCount++;
+            return new AIRequestContext { SystemMessageSuffix = $"[n={callCount}]" };
+        });
+
+        await mock.RunAgentAsync("g1");
+        await mock.RunAgentAsync("g2");
+        await mock.RunAgentAsync("g3");
+
+        Assert.AreEqual(3, callCount);
+        Assert.AreEqual("Base.\n\n[n=1]", mock.CapturedEffectiveSystemMessages[0]);
+        Assert.AreEqual("Base.\n\n[n=2]", mock.CapturedEffectiveSystemMessages[1]);
+        Assert.AreEqual("Base.\n\n[n=3]", mock.CapturedEffectiveSystemMessages[2]);
+    }
+
+    /// <summary>
+    /// Async provider 오버로드가 sync 경로와 동일하게 동작하는지 확인한다.
+    /// IO가 필요한 provider(DB/캐시 조회 등)가 블로킹 없이 자연스럽게 async 체인을 유지할 수 있어야 함.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentAsync_SystemMessageProvider_AsyncOverload_AutoInjects()
+    {
+        var mock = new MockAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base.";
+        mock.WithSystemMessageProvider(async ct =>
+        {
+            await Task.Yield();
+            return new AIRequestContext
+            {
+                SystemMessageSuffix = "[async-suffix]"
+            };
+        });
+
+        await mock.RunAgentAsync("goal");
+
+        Assert.AreEqual("Base.\n\n[async-suffix]", mock.CapturedEffectiveSystemMessages[0]);
+    }
+
     #endregion
 
     #region RunAgentAsync - MaxSteps Exceeded
@@ -630,6 +821,110 @@ public class AgentRunTests
             "RunAgentStreamAsync should force function calling on");
         Assert.IsFalse(mock.LastStreamOptions.TextOnly,
             "RunAgentStreamAsync should disable TextOnly so completion events can be emitted");
+    }
+
+    /// <summary>
+    /// RunAgentStreamAsync에서 context의 SystemMessagePrefix가 effective system message에 반영되는지 확인.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_ContextSystemMessagePrefix_IsPrepended()
+    {
+        var mock = new MockStreamingAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base stream system.";
+        var ctx = new AIRequestContext { SystemMessagePrefix = "[stream-ctx]" };
+
+        await foreach (var _ in mock.RunAgentStreamAsync("goal", context: ctx))
+        {
+        }
+
+        Assert.AreEqual("[stream-ctx]\n\nBase stream system.", mock.CapturedEffectiveSystemMessage);
+    }
+
+    /// <summary>
+    /// RunAgentStreamAsync에서 context의 SystemMessageSuffix가 effective system message 뒤에 붙는지 확인.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_ContextSystemMessageSuffix_IsAppended()
+    {
+        var mock = new MockStreamingAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base stream system.";
+        var ctx = new AIRequestContext { SystemMessageSuffix = "[stream-tail]" };
+
+        await foreach (var _ in mock.RunAgentStreamAsync("goal", context: ctx))
+        {
+        }
+
+        Assert.AreEqual("Base stream system.\n\n[stream-tail]", mock.CapturedEffectiveSystemMessage);
+    }
+
+    /// <summary>
+    /// RunAgentStreamAsync에 context 미전달 시 기존 동작 유지 확인.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_NoContext_UsesBaseSystemMessageUnchanged()
+    {
+        var mock = new MockStreamingAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base stream system.";
+
+        await foreach (var _ in mock.RunAgentStreamAsync("goal"))
+        {
+        }
+
+        Assert.AreEqual("Base stream system.", mock.CapturedEffectiveSystemMessage);
+    }
+
+    /// <summary>
+    /// 스트리밍 경로에서도 SystemMessageProvider가 explicit context 없이 자동 주입된다.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_SystemMessageProvider_AutoInjectsWhenNoExplicitContext()
+    {
+        var mock = new MockStreamingAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base stream system.";
+        mock.WithSystemMessageProvider(() => new AIRequestContext
+        {
+            SystemMessageSuffix = "[stream-auto-suffix]"
+        });
+
+        await foreach (var _ in mock.RunAgentStreamAsync("goal"))
+        {
+        }
+
+        Assert.AreEqual("Base stream system.\n\n[stream-auto-suffix]", mock.CapturedEffectiveSystemMessage);
+    }
+
+    /// <summary>
+    /// 스트리밍 경로의 provider + explicit context 병합도 scalar 필드에서 explicit이 이긴다.
+    /// </summary>
+    [TestCategory("Unit")]
+    [TestCategory("Agent")]
+    [TestMethod]
+    public async Task RunAgentStreamAsync_SystemMessageProvider_ExplicitContextOverridesScalars()
+    {
+        var mock = new MockStreamingAgentService("ok");
+        mock.ActivateChat.SystemMessage = "Base.";
+        mock.WithSystemMessageProvider(() => new AIRequestContext
+        {
+            SystemMessagePrefix = "[provider-prefix]",
+            SystemMessageSuffix = "[provider-suffix]"
+        });
+        var ctx = new AIRequestContext { SystemMessageSuffix = "[explicit-suffix]" };
+
+        await foreach (var _ in mock.RunAgentStreamAsync("goal", context: ctx))
+        {
+        }
+
+        Assert.AreEqual(
+            "[provider-prefix]\n\nBase.\n\n[explicit-suffix]",
+            mock.CapturedEffectiveSystemMessage);
     }
 
     /// <summary>

@@ -74,7 +74,8 @@ namespace Mythosia.AI.Services.Base
             AIRequestContext? context = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            Action restoreContext = context != null ? ApplyRequestContext(context) : () => { };
+            var effectiveContext = await BuildEffectiveContextAsync(context, cancellationToken).ConfigureAwait(false);
+            Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
             try
             {
                 await foreach (var content in StreamCoreAsync(message, options, cancellationToken))

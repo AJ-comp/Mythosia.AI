@@ -1,5 +1,44 @@
 # Mythosia.AI - Release Notes
 
+## v6.3.0
+
+### Added
+
+- **Agent path per-call `AIRequestContext`**
+  - `RunAgentAsync(string, int, AIRequestContext?)` and `RunAgentStreamAsync(string, int, StreamOptions?, AIRequestContext?, CancellationToken)` now accept an optional per-call `AIRequestContext`.
+  - Context flows through `AsyncLocal`, so concurrent agent runs on the same service instance don't compete on a shared field.
+  - Closes a gap where `GetCompletionAsync`/`StreamAsync` already accepted `AIRequestContext` but the agent-loop entry points did not, forcing callers to mutate `ChatBlock.SystemMessage` between calls.
+
+- **`AIService.SystemMessageProvider` for automatic per-request context injection**
+  - New `Func<CancellationToken, ValueTask<AIRequestContext?>>?` property on `AIService`, invoked automatically before every outbound call (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`).
+  - Eliminates the boilerplate of building and passing an `AIRequestContext` at every entry point — register once at service construction and every subsequent call picks up the latest dynamic context (date, session, folder selection, etc.).
+  - Async-shaped signature so providers that need IO (database, cache, HTTP) can run natively without blocking on `.Result`/`.GetAwaiter().GetResult()`. For streaming paths the caller's `CancellationToken` flows through; for non-streaming paths it is `CancellationToken.None`.
+  - When a call also supplies an explicit `AIRequestContext`, the two are merged field-by-field: explicit wins on `SystemMessagePrefix`/`SystemMessageSuffix`/`RequestMessageOverride` when non-null; `AdditionalMessages` is concatenated (provider first, then explicit).
+  - Companion fluent helpers with arity-based overload resolution — `service.WithSystemMessageProvider(() => ctx)` for the sync 90% case and `service.WithSystemMessageProvider(async ct => ctx)` for the async case. The property itself exposes `internal set`, so fluent helpers are the canonical assignment path and direct property assignment is reserved for the library's own composition.
+  - Zero new types — one async delegate, two extension overloads.
+
+### Fixed
+
+- **`AIRequestContext.SystemMessagePrefix` / `SystemMessageSuffix` now actually apply**
+  - These fields have existed on `AIRequestContext` since v5.0.0 but were never read by any provider or by `GetEffectiveSystemMessage()`. Setting them had no effect on the request.
+  - `GetEffectiveSystemMessage()` now composes the effective system message in the order **prefix + summary + base + suffix**, honoring values from the current `AIRequestContext` (if any) on top of the existing summary/base behavior.
+  - Null-safe at every layer: a null context, null prefix, or null suffix all fall through without allocation or joining.
+
+### Tests
+
+- Added 14 unit tests covering the new agent context and provider behavior:
+  - Agent context threading (7): prefix prepending, suffix appending, no-context baseline, per-call scope leak prevention, covering both `RunAgentAsync` and `RunAgentStreamAsync`.
+  - `SystemMessageProvider` (7): auto-injection without explicit context, field-level merge with explicit context, null-return no-op, per-call re-invocation, async-overload auto-inject, plus streaming-path equivalents.
+
+### Compatibility
+
+- Additive public API — each agent method gains one optional parameter; existing positional/named callers compile and run unchanged. `SystemMessageProvider` defaults to `null` so services that never set it behave identically to v6.2.0.
+- No `IAIService` or `Mythosia.AI.Abstractions` contract changes.
+- `Mythosia.AI.Abstractions` remains at v2.1.0.
+- Behavior change is strictly additive: callers that never set `SystemMessagePrefix`/`SystemMessageSuffix` or `SystemMessageProvider` see byte-identical effective system messages to v6.2.0.
+
+---
+
 ## v6.2.0
 
 ### Added

@@ -72,6 +72,43 @@ service.WithFastPolicy();    // 低逾時，少輪數 — 快速任務
 service.WithComplexPolicy(); // 高逾時，多輪數 — 深度調研
 ```
 
+## 每次呼叫的請求內容
+
+`RunAgentAsync` 和 `RunAgentStreamAsync` 接受可選的 `AIRequestContext`，可在**單次 Agent 執行範圍內**注入動態的 system message prefix/suffix、參考文件，或完全替換目標訊息 — 不會修改服務的 system message 或對話歷史。
+
+```csharp
+string result = await service.RunAgentAsync(
+    goal: "查找退款政策，並判斷訂單 #1234 是否符合條件。",
+    maxSteps: 10,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"今天的日期是 {DateTime.UtcNow:yyyy-MM-dd}。\n",
+        SystemMessageSuffix = "\n始終引用你參考的政策條款。"
+    });
+```
+
+串流版本接受相同的參數：
+
+```csharp
+await foreach (var content in service.RunAgentStreamAsync(
+    goal: "調研排名前 3 的 AI 公司的股價。",
+    maxSteps: 10,
+    options: StreamOptions.WithFunctions,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"使用者時區：{userTz}\n"
+    }))
+{
+    // 處理內容
+}
+```
+
+內容透過 `AsyncLocal` 傳遞，因此同一服務實例上並行執行的多個 agent 呼叫不會互相干擾。
+
+完整的可用屬性清單請參閱 [AIRequestContext](request-contexts.md)（`SystemMessagePrefix`、`SystemMessageSuffix`、`AdditionalMessages`、`RequestMessageOverride`）。
+
+> 自 Mythosia.AI v6.3.0 起可用。
+
 ## 運作原理
 
 每一步：

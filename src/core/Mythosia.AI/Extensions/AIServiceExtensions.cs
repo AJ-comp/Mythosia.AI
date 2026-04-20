@@ -3,6 +3,7 @@ using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Extensions
@@ -134,6 +135,36 @@ namespace Mythosia.AI.Extensions
         public static AIService WithSystemMessage(this AIService service, string systemMessage)
         {
             service.ActivateChat.SystemMessage = systemMessage;
+            return service;
+        }
+
+        /// <summary>
+        /// Registers a synchronous <see cref="AIRequestContext"/> provider that the service
+        /// invokes automatically before every outbound request (including agent-path calls),
+        /// so callers do not have to build and pass an <see cref="AIRequestContext"/>
+        /// at every entry point. If a call also supplies an explicit context, the two
+        /// are merged field-by-field (explicit wins on scalar fields; additional
+        /// messages are concatenated).
+        /// </summary>
+        public static AIService WithSystemMessageProvider(this AIService service, Func<AIRequestContext?> provider)
+        {
+            service.SystemMessageProvider = provider == null
+                ? null
+                : (Func<CancellationToken, ValueTask<AIRequestContext?>>)(_ => new ValueTask<AIRequestContext?>(provider()));
+            return service;
+        }
+
+        /// <summary>
+        /// Registers an asynchronous <see cref="AIRequestContext"/> provider. Use this
+        /// overload when the baseline context requires IO (database, cache, HTTP) so that
+        /// the provider does not need to block on <c>.Result</c> or <c>.GetAwaiter().GetResult()</c>.
+        /// The supplied <see cref="CancellationToken"/> is the caller's token for the
+        /// current LLM call (for non-streaming paths it is <see cref="CancellationToken.None"/>).
+        /// Merge semantics are identical to the synchronous overload.
+        /// </summary>
+        public static AIService WithSystemMessageProvider(this AIService service, Func<CancellationToken, ValueTask<AIRequestContext?>> provider)
+        {
+            service.SystemMessageProvider = provider;
             return service;
         }
 

@@ -77,6 +77,43 @@ service.WithFastPolicy();    // 低タイムアウト、少ないラウンド �
 service.WithComplexPolicy(); // 高タイムアウト、多いラウンド — 詳細な調査用
 ```
 
+## 呼び出しごとのリクエストコンテキスト
+
+`RunAgentAsync`と`RunAgentStreamAsync`はオプションの`AIRequestContext`を受け取り、動的なシステムメッセージのprefix/suffix、参照ドキュメント、または目標メッセージの置き換えを**単一のエージェント実行内に限定**して注入できます — サービスのシステムメッセージや会話履歴を変更することはありません。
+
+```csharp
+string result = await service.RunAgentAsync(
+    goal: "返金ポリシーを見つけて、注文 #1234 が対象か確認して。",
+    maxSteps: 10,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"今日の日付は {DateTime.UtcNow:yyyy-MM-dd} です。\n",
+        SystemMessageSuffix = "\n必ず参照したポリシー条項を引用してください。"
+    });
+```
+
+ストリーミング版も同じパラメータを受け取ります:
+
+```csharp
+await foreach (var content in service.RunAgentStreamAsync(
+    goal: "上位3社のAI企業の株価を調査して。",
+    maxSteps: 10,
+    options: StreamOptions.WithFunctions,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"ユーザーのタイムゾーン: {userTz}\n"
+    }))
+{
+    // コンテンツを処理
+}
+```
+
+コンテキストは`AsyncLocal`を介して伝播されるため、同じサービスインスタンスで並行して実行される複数のエージェント呼び出しは互いに干渉しません。
+
+利用可能なプロパティの全リストは [AIRequestContext](request-contexts.md) を参照してください (`SystemMessagePrefix`、`SystemMessageSuffix`、`AdditionalMessages`、`RequestMessageOverride`)。
+
+> Mythosia.AI v6.3.0 以降で利用可能です。
+
 ## 動作の仕組み
 
 各ステップ:

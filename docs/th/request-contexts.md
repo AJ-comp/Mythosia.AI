@@ -164,3 +164,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 ดู [AIRequestProfile](request-profiles.md) สำหรับรายละเอียดการ override พารามิเตอร์
+
+## การ inject อัตโนมัติด้วย `SystemMessageProvider`
+
+### ปัญหาที่แก้ได้
+
+แอปแชททั่วไปมีจุดเข้า LLM หลายจุดที่ต้องการ baseline เดียวกัน — วันที่วันนี้, โฟลเดอร์ที่ใช้งาน, ข้อมูล session **โดยไม่มี** `SystemMessageProvider` ทุกจุดที่เรียกใช้ต้องจำให้สร้างและส่ง context นั้นเอง:
+
+```csharp
+// ❌ ไม่มี SystemMessageProvider — ทุก entry point ต้องจำว่าต้อง inject
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. คำตอบแชทหลัก
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. ตัวสร้างชื่อเรื่อง (เพิ่มทีหลัง)
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. ตัวสรุป (เพิ่มทีหลังอีก)
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. เรียก agent — ลืมง่าย! คอมไพเลอร์ไม่เตือน
+var agentResult = await service.RunAgentAsync(goal);  // ← ไม่มีวันที่ บั๊กเงียบ ๆ
+```
+
+ปัญหาของวิธีนี้:
+
+- Snippet การสร้าง context เดียวกันถูก **ทำซ้ำ** ที่ทุกจุดเรียก
+- Entry point ใหม่ (`RunAgentAsync` ด้านบน) **มองข้ามได้ง่าย** — ไม่มีการตรวจตอน compile
+- ฟีเจอร์ใหม่ทุกตัวที่เพิ่ม LLM call ต้องจำ convention นี้
+- Tests ก็ต้อง replicate การ setup context ที่ทุกจุดเรียก
+
+ด้วย `SystemMessageProvider` คุณลงทะเบียน baseline **ครั้งเดียว** และทุก call ขาออกจะรับไปอัตโนมัติ:
+
+```csharp
+// ✅ ด้วย SystemMessageProvider — ลงทะเบียนครั้งเดียว ใช้ได้ทุกที่
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// ทุก call เหล่านี้ได้รับ baseline อัตโนมัติ — ไม่ต้องเขียน boilerplate ต่อ call
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← ได้รับ baseline ด้วย
+
+// จุดเข้าแบบ streaming ก็เช่นกัน — baseline เดียวกัน ไม่ต้องเขียน boilerplate ต่อ call
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### วิธีการทำงาน
+
+ลงทะเบียน callback ครั้งเดียวผ่าน fluent helper `WithSystemMessageProvider` ทุก call ขาออก (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) จะเรียกมันโดยอัตโนมัติเพื่อสร้าง baseline context:
+
+```csharp
+// โดยทั่วไปตอนสร้าง service / ตั้งค่า DI
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### Async overload สำหรับ provider ที่มี IO
+
+เมื่อ baseline context มาจากฐานข้อมูล, cache หรือการเรียก HTTP ให้ใช้ async overload เพื่อให้ provider ไม่ต้อง block บน `.Result` / `.GetAwaiter().GetResult()` การ resolve overload จะเลือกตัวที่ถูกต้องตาม arity ของ lambda — ไม่มีอาร์กิวเมนต์สำหรับ sync, หนึ่ง `CancellationToken` สำหรับ async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+Path ที่ไม่ใช่ streaming (`GetCompletionAsync`, `RunAgentAsync`) ไม่รองรับการยกเลิกโดยการออกแบบ — ลายเซ็นไม่รับ `CancellationToken` และจะส่ง `CancellationToken.None` ไปยัง provider เสมอ หาก provider ของคุณต้องการการยกเลิก (เช่น query DB ที่ใช้เวลานาน) ให้ใช้ path แบบ streaming (`StreamAsync`, `RunAgentStreamAsync`) ซึ่งจะส่งผ่าน token ของผู้เรียกไปยัง callback ของ provider
+
+### การ merge กับ context per-call ที่ระบุชัดเจน
+
+เมื่อ call มี provider ที่ลงทะเบียนไว้ **และ** ยังส่ง `AIRequestContext` ชัดเจนด้วย ทั้งสองจะถูก merge ทีละ field:
+
+| Field | กฎ merge |
+|---|---|
+| `SystemMessagePrefix` | ชัดเจนชนะถ้า non-null, ไม่เช่นนั้นใช้ provider |
+| `SystemMessageSuffix` | ชัดเจนชนะถ้า non-null, ไม่เช่นนั้นใช้ provider |
+| `RequestMessageOverride` | ชัดเจนชนะถ้า non-null, ไม่เช่นนั้นใช้ provider |
+| `AdditionalMessages` | เชื่อมต่อ (provider ก่อน, แล้วตามด้วยชัดเจน) |
+
+เหตุผล: กรณีทั่วไปคือ "provider ให้ baseline, call เฉพาะต้องการแทนที่ field scalar เดียวหรือเพิ่มข้อความพิเศษ" — override ระดับ field รักษาความหมายให้คาดการณ์ได้โดยไม่เกิดการเชื่อมต่อที่คาดไม่ถึง
+
+### Invocation ต่อ call
+
+Provider ถูกเรียก **ครั้งเดียวต่อ request** ดังนั้นค่าที่ return จึงสะท้อนสถานะ ณ ขณะนั้นได้ (timestamp, session ฯลฯ) การ return `null` เป็น no-op — เหมือนกับการไม่ตั้งค่า `SystemMessageProvider` สำหรับ call นั้น
+
+> ใช้งานได้ใน Mythosia.AI v6.3.0+

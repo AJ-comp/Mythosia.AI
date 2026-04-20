@@ -2,6 +2,8 @@
   items:
   - name: Giới thiệu
     href: introduction.md
+  - name: Khái niệm cốt lõi
+    href: core-concepts.md
   - name: Bắt đầu nhanh
     href: getting-started.md
 

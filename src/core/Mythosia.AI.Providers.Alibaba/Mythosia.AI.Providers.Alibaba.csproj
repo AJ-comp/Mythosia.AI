@@ -14,7 +14,7 @@
     <Description>
 Alibaba Cloud Qwen provider package for Mythosia.AI.
 
-Includes QwenService with expanded Qwen 3 / 3.5 model constants, platform-specific thinking request handling across DashScope, vLLM, and Ollama, token usage streaming support, and Mythosia.AI v6.2.0 compatibility.
+Includes QwenService with expanded Qwen 3 / 3.5 model constants, platform-specific thinking request handling across DashScope, vLLM, and Ollama, token usage streaming support, and Mythosia.AI v6.3.0 compatibility.
 
 Documentation
 - GitHub: https://github.com/AJ-comp/Mythosia.AI
@@ -22,8 +22,8 @@ Documentation
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.2.4: Recompiled for the Mythosia.AI v6.2.0 release line. No API changes.</PackageReleaseNotes>
-    <Version>1.2.4</Version>
+    <PackageReleaseNotes>v1.2.5: Recompiled for the Mythosia.AI v6.3.0 release line. No API changes.</PackageReleaseNotes>
+    <Version>1.2.5</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -2,6 +2,8 @@
   items:
   - name: 소개
     href: introduction.md
+  - name: 핵심 개념
+    href: core-concepts.md
   - name: 빠른 시작
     href: getting-started.md
 

@@ -209,13 +209,18 @@ var response = await service.GetCompletionAsync(
 
 ## `AIRequestContext`
 
-Use request-scoped prompt injection when you need to pass derived prompt data only for the current call without polluting the real conversation history.
+Use request-scoped prompt injection when you need to pass derived prompt data only for the current call without polluting the real conversation history or the service's base system message.
 
-This is especially useful in a query rewriter flow where:
+Available fields:
 
-- the original user question should remain in chat history
-- the rewritten retrieval-friendly question should be sent only for the current request
-- the rewritten text should not be stored as if the user actually typed it
+| Field | Purpose |
+|---|---|
+| `SystemMessagePrefix` | Text prepended to the system message for this request only |
+| `SystemMessageSuffix` | Text appended to the system message for this request only |
+| `AdditionalMessages` | Extra messages injected into the conversation for this request only (reference docs, few-shot examples) |
+| `RequestMessageOverride` | Completely replaces the user message sent to the model while the original prompt stays in chat history |
+
+Example — a query rewriter flow where the original user question should remain in chat history, but a retrieval-friendly rewrite is what actually gets sent to the model:
 
 ```csharp
 var rewrittenQuery = await service.GetCompletionAsync(
@@ -229,6 +234,56 @@ var response = await service.GetCompletionAsync(
         RequestMessageOverride = new Message(ActorRole.User, rewrittenQuery)
     });
 ```
+
+Example — injecting retrieved RAG context as a suffix on the system message, without leaking it into conversation history:
+
+```csharp
+var answer = await service.GetCompletionAsync(userQuestion,
+    new AIRequestContext
+    {
+        SystemMessageSuffix = $"\n\nUse the following context to answer:\n{retrievedDocs}"
+    });
+```
+
+For the full flow and before/after comparisons, see [`docs/request-contexts.md`](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-contexts.md).
+
+## `SystemMessageProvider` — Automatic Baseline Injection
+
+When the same dynamic data (today's date, active folder, session info) must be injected on **every** LLM call, passing an `AIRequestContext` at every entry point gets tedious and error-prone. `AIService.SystemMessageProvider` lets you register a callback once, and every outbound call (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) automatically invokes it to build a baseline context.
+
+```csharp
+// Register once — typically at service construction / DI setup
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+// Every call below automatically receives the baseline context
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+When the baseline comes from a database, cache, or HTTP call, use the async overload so the provider does not have to block on `.Result`. Overload resolution picks the right one by lambda arity — no arg for sync, one `CancellationToken` for async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+Streaming paths (`StreamAsync`, `RunAgentStreamAsync`) forward the caller's `CancellationToken` through to the async provider. Non-streaming paths (`GetCompletionAsync`, `RunAgentAsync`) do not support cancellation — use the streaming counterparts if your provider needs to be cancellable.
+
+When a call also passes an explicit `AIRequestContext`, the two merge field-by-field: explicit values win on scalar fields (`SystemMessagePrefix`, `SystemMessageSuffix`, `RequestMessageOverride`); `AdditionalMessages` concatenates (provider first, then explicit).
+
+Available in Mythosia.AI v6.3.0+. Full details in [`docs/request-contexts.md`](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-contexts.md).
 
 ## Function Calling
 

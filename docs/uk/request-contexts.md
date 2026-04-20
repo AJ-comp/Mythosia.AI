@@ -171,3 +171,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 Детальніше про параметри генерації — в [AIRequestProfile](request-profiles.md).
+
+## Автоматична інʼєкція через `SystemMessageProvider`
+
+### Яку проблему розвʼязує
+
+Типовий чат-застосунок має кілька точок входу в LLM, яким потрібна та сама базова підложка — сьогоднішня дата, активна тека, інформація сесії. **Без** `SystemMessageProvider` кожне місце виклику має памʼятати про побудову й передачу цього контексту:
+
+```csharp
+// ❌ Без SystemMessageProvider — кожна точка входу має памʼятати про інʼєкцію
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. Основна відповідь чату
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. Генератор заголовків (доданий пізніше)
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. Сумаризатор (доданий ще пізніше)
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. Виклик agent — легко забути! Компілятор не попередить
+var agentResult = await service.RunAgentAsync(goal);  // ← дата відсутня, тихий баг
+```
+
+Проблеми такого підходу:
+
+- Той самий сніпет побудови контексту **дублюється** в кожному місці виклику
+- Нові точки входу (`RunAgentAsync` вище) **легко пропустити** — немає перевірки під час компіляції
+- Кожна нова фіча, що додає виклик LLM, має памʼятати про конвенцію
+- Тести також мають відтворювати налаштування контексту в кожному місці виклику
+
+З `SystemMessageProvider` ви реєструєте базову підложку **один раз**, і кожен вихідний виклик отримує її автоматично:
+
+```csharp
+// ✅ З SystemMessageProvider — реєстрація один раз, застосовується всюди
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// Усі ці виклики автоматично отримують підложку — без boilerplate на кожен виклик
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← також отримує підложку
+
+// Потокові точки входу теж — та сама підложка, без boilerplate на кожен виклик
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### Як це працює
+
+Зареєструйте колбек один раз через fluent-хелпер `WithSystemMessageProvider`. Кожен вихідний виклик (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) автоматично викликає його для побудови базового контексту:
+
+```csharp
+// Зазвичай при створенні сервісу / налаштуванні DI
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### Async-перевантаження для IO-провайдерів
+
+Коли базовий контекст надходить з бази даних, кешу чи HTTP-виклику, використовуйте async-перевантаження, щоб провайдеру не довелося блокуватися на `.Result` / `.GetAwaiter().GetResult()`. Вирішення перевантаження обирає потрібну за арністю лямбди — без аргумента для sync, один `CancellationToken` для async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+Непотокові шляхи (`GetCompletionAsync`, `RunAgentAsync`) не підтримують скасування за дизайном — їхні сигнатури не приймають `CancellationToken`, і provider завжди отримує `CancellationToken.None`. Якщо вашому provider потрібне скасування (наприклад, довгий DB-запит), використовуйте потокові шляхи (`StreamAsync`, `RunAgentStreamAsync`), які пробрасують токен того, хто викликає, аж до колбека provider.
+
+### Злиття з явним per-call контекстом
+
+Коли виклик має зареєстрований provider **і** також передає явний `AIRequestContext`, обидва зливаються по полях:
+
+| Поле | Правило злиття |
+|---|---|
+| `SystemMessagePrefix` | явне перемагає, якщо non-null, інакше provider |
+| `SystemMessageSuffix` | явне перемагає, якщо non-null, інакше provider |
+| `RequestMessageOverride` | явне перемагає, якщо non-null, інакше provider |
+| `AdditionalMessages` | конкатенація (спочатку provider, потім явне) |
+
+Обґрунтування: типовий випадок — «provider надає базу, конкретний виклик хоче замінити одне скалярне поле або додати додаткові повідомлення» — поле-рівневий override зберігає семантику передбачуваною без несподіваної конкатенації.
+
+### Виклик на кожен запит
+
+Provider викликається **один раз на запит**, тож значення, що повертаються, можуть відображати актуальний стан (timestamp, сесія тощо). Повернення `null` — no-op, ідентично тому, якби `SystemMessageProvider` не був встановлений для цього виклику.
+
+> Доступно в Mythosia.AI v6.3.0+.

@@ -166,3 +166,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 생성 파라미터 오버라이드에 대한 자세한 내용은 [AIRequestProfile](request-profiles.md)을 참조하세요.
+
+## `SystemMessageProvider`로 자동 주입
+
+### 이 기능이 해결하는 문제
+
+일반적인 채팅 앱은 같은 베이스라인(오늘 날짜, 활성 폴더, 세션 정보 등)을 필요로 하는 LLM 진입점이 여러 개 있습니다. `SystemMessageProvider` **없이**는 모든 호출 지점에서 그 컨텍스트를 매번 만들어 전달하는 것을 기억해야 합니다:
+
+```csharp
+// ❌ SystemMessageProvider 없이 — 모든 진입점에서 주입을 기억해야 함
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. 메인 채팅 응답
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. 제목 생성기 (나중에 추가됨)
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. 요약기 (더 나중에 추가됨)
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. Agent 호출 — 깜빡하기 쉬움! 컴파일러가 경고해주지 않음
+var agentResult = await service.RunAgentAsync(goal);  // ← 날짜 누락, 조용한 버그
+```
+
+이 방식의 문제점:
+
+- 같은 컨텍스트 빌드 조각이 모든 호출 지점에 **중복**됩니다
+- 새 진입점(위의 `RunAgentAsync`)을 **누락하기 쉬우며** 컴파일 시점 체크가 없습니다
+- LLM 호출을 추가하는 모든 새 기능이 이 관례를 기억해야 합니다
+- 테스트에서도 각 호출 지점마다 컨텍스트 설정을 복제해야 합니다
+
+`SystemMessageProvider`를 사용하면 베이스라인을 **한 번만 등록**하고 모든 외부 호출이 자동으로 받아갑니다:
+
+```csharp
+// ✅ SystemMessageProvider 사용 — 한 번 등록하고 모든 곳에 적용됨
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// 아래 모두 자동으로 베이스라인을 받습니다 — per-call 보일러플레이트 없음
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← 이것도 베이스라인 받음
+
+// 스트리밍 엔트리 포인트도 동일 — 같은 베이스라인, per-call 보일러플레이트 없음
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### 동작 방식
+
+`WithSystemMessageProvider` 플루언트 헬퍼로 콜백을 한 번 등록합니다. 모든 외부 호출(`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`)이 자동으로 이를 호출해 베이스라인 컨텍스트를 만듭니다:
+
+```csharp
+// 보통 서비스 생성 / DI 설정 시점에 등록
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### IO를 수반하는 provider를 위한 async 오버로드
+
+베이스라인 컨텍스트가 DB, 캐시, HTTP 호출에서 오는 경우 async 오버로드를 사용하세요. provider가 `.Result` / `.GetAwaiter().GetResult()`로 블로킹할 필요가 없습니다. 오버로드 분기는 람다 arity로 자동 — sync는 인자 없음, async는 `CancellationToken` 하나:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+비스트리밍 경로(`GetCompletionAsync`, `RunAgentAsync`)는 설계상 취소를 지원하지 않습니다 — 시그니처에 `CancellationToken`을 받지 않으며 provider에는 항상 `CancellationToken.None`이 전달됩니다. Provider에서 취소가 필요한 경우(예: 오래 걸리는 DB 쿼리)에는 호출자의 토큰을 provider 콜백까지 전파하는 스트리밍 경로(`StreamAsync`, `RunAgentStreamAsync`)를 사용하세요.
+
+### 명시적 per-call 컨텍스트와의 병합
+
+등록된 provider가 있고 호출 시 명시적 `AIRequestContext`도 함께 전달되면 두 컨텍스트는 필드 단위로 병합됩니다:
+
+| 필드 | 병합 규칙 |
+|---|---|
+| `SystemMessagePrefix` | 명시적 값이 non-null이면 그것이 우선, 아니면 provider |
+| `SystemMessageSuffix` | 명시적 값이 non-null이면 그것이 우선, 아니면 provider |
+| `RequestMessageOverride` | 명시적 값이 non-null이면 그것이 우선, 아니면 provider |
+| `AdditionalMessages` | 연결(provider가 먼저, 그 다음 명시적) |
+
+근거: 일반적인 케이스는 "provider가 베이스라인을 제공하고, 특정 호출이 스칼라 필드 하나를 교체하거나 메시지를 추가하고 싶다"입니다 — 필드 단위 override는 예상치 못한 연결 없이 의미를 예측 가능하게 유지합니다.
+
+### 호출당 invocation
+
+Provider는 **요청당 한 번** 호출되므로 반환 값은 그 순간의 상태(타임스탬프, 세션 등)를 반영할 수 있습니다. `null` 반환은 no-op이며, 해당 호출에 대해 `SystemMessageProvider`를 설정하지 않은 것과 동일합니다.
+
+> Mythosia.AI v6.3.0+에서 사용 가능.

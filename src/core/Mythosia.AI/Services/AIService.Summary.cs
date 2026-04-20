@@ -25,21 +25,38 @@ namespace Mythosia.AI.Services.Base
         private bool _isSummarizing = false;
 
         /// <summary>
-        /// Returns the effective system message including the conversation summary prefix
-        /// (if available) and the original system message.
+        /// Returns the effective system message, composed from (in order):
+        /// the per-request <see cref="AIRequestContext.SystemMessagePrefix"/>,
+        /// the conversation summary (if any), <see cref="Models.ChatBlock.SystemMessage"/>,
+        /// and the per-request <see cref="AIRequestContext.SystemMessageSuffix"/>.
         /// Use this instead of ActivateChat.SystemMessage when building request bodies.
         /// </summary>
         internal string GetEffectiveSystemMessage()
         {
             var baseMsg = ActivateChat?.SystemMessage ?? "";
             var summary = ConversationPolicy?.CurrentSummary;
+            var ctx = _currentRequestContext.Value;
 
             if (!string.IsNullOrEmpty(summary))
             {
                 var summaryPrefix = $"[Previous conversation summary]\n{summary}";
-                if (string.IsNullOrEmpty(baseMsg))
-                    return summaryPrefix;
-                return $"{summaryPrefix}\n\n{baseMsg}";
+                baseMsg = string.IsNullOrEmpty(baseMsg)
+                    ? summaryPrefix
+                    : $"{summaryPrefix}\n\n{baseMsg}";
+            }
+
+            if (!string.IsNullOrEmpty(ctx?.SystemMessagePrefix))
+            {
+                baseMsg = string.IsNullOrEmpty(baseMsg)
+                    ? ctx!.SystemMessagePrefix!
+                    : $"{ctx!.SystemMessagePrefix}\n\n{baseMsg}";
+            }
+
+            if (!string.IsNullOrEmpty(ctx?.SystemMessageSuffix))
+            {
+                baseMsg = string.IsNullOrEmpty(baseMsg)
+                    ? ctx!.SystemMessageSuffix!
+                    : $"{baseMsg}\n\n{ctx!.SystemMessageSuffix}";
             }
 
             return baseMsg;

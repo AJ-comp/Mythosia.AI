@@ -74,6 +74,43 @@ service.WithFastPolicy();    // Baixo timeout, menos rounds — tarefas rápidas
 service.WithComplexPolicy(); // Maior timeout, mais rounds — pesquisa aprofundada
 ```
 
+## Contexto de solicitação por chamada
+
+`RunAgentAsync` e `RunAgentStreamAsync` aceitam um `AIRequestContext` opcional para injetar prefix/suffix dinâmicos no system message, documentos de referência, ou substituir a mensagem de objetivo — **limitado a uma única execução do agent**, sem modificar o system message do serviço ou o histórico de conversa.
+
+```csharp
+string result = await service.RunAgentAsync(
+    goal: "Encontre a política de reembolso e verifique se o pedido #1234 se qualifica.",
+    maxSteps: 10,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"A data de hoje é {DateTime.UtcNow:yyyy-MM-dd}.\n",
+        SystemMessageSuffix = "\nSempre cite a seção da política utilizada."
+    });
+```
+
+A variante streaming aceita o mesmo parâmetro:
+
+```csharp
+await foreach (var content in service.RunAgentStreamAsync(
+    goal: "Pesquise os preços das ações das 3 principais empresas de IA.",
+    maxSteps: 10,
+    options: StreamOptions.WithFunctions,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Fuso horário do usuário: {userTz}\n"
+    }))
+{
+    // lidar com conteúdo
+}
+```
+
+O contexto é propagado através de `AsyncLocal`, então execuções concorrentes de agent na mesma instância de serviço não interferem entre si.
+
+Consulte [AIRequestContext](request-contexts.md) para a lista completa de propriedades disponíveis (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
+
+> Disponível a partir do Mythosia.AI v6.3.0.
+
 ## Como Funciona
 
 Cada etapa:

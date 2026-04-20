@@ -66,6 +66,43 @@ service.WithFastPolicy();    // Малый таймаут, мало раундо
 service.WithComplexPolicy(); // Большой таймаут, много раундов
 ```
 
+## Контекст запроса для отдельного вызова
+
+`RunAgentAsync` и `RunAgentStreamAsync` принимают необязательный `AIRequestContext`, позволяющий внедрить динамический prefix/suffix системного сообщения, справочные документы или заменить сообщение-цель — **ограничено одним запуском агента**, без изменения системного сообщения сервиса или истории диалога.
+
+```csharp
+string result = await service.RunAgentAsync(
+    goal: "Найди политику возврата и проверь, подходит ли под неё заказ #1234.",
+    maxSteps: 10,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Сегодняшняя дата: {DateTime.UtcNow:yyyy-MM-dd}.\n",
+        SystemMessageSuffix = "\nВсегда указывай использованный пункт политики."
+    });
+```
+
+Стримящая версия принимает тот же параметр:
+
+```csharp
+await foreach (var content in service.RunAgentStreamAsync(
+    goal: "Исследуй цены акций трёх ведущих AI-компаний.",
+    maxSteps: 10,
+    options: StreamOptions.WithFunctions,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Часовой пояс пользователя: {userTz}\n"
+    }))
+{
+    // обработать содержимое
+}
+```
+
+Контекст распространяется через `AsyncLocal`, поэтому параллельные запуски агента в одном экземпляре сервиса не мешают друг другу.
+
+Полный список доступных свойств см. в документе [AIRequestContext](request-contexts.md) (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
+
+> Доступно с Mythosia.AI v6.3.0.
+
 ## Как это работает
 
 На каждом шаге:

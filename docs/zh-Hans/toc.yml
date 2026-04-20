@@ -2,6 +2,8 @@
   items:
   - name: 简介
     href: introduction.md
+  - name: 核心概念
+    href: core-concepts.md
   - name: 开始使用
     href: getting-started.md
 

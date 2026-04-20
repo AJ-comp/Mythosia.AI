@@ -29,6 +29,31 @@ namespace Mythosia.AI.Services.Base
 
         protected internal FunctionCallingPolicy CurrentPolicy { get; set; }
 
+        /// <summary>
+        /// Optional async provider that supplies a baseline <see cref="AIRequestContext"/>
+        /// for every outbound request. Invoked automatically right before each call
+        /// to <see cref="GetCompletionAsync(Message, AIRequestProfile, AIRequestContext)"/>
+        /// or <see cref="StreamAsync(Message, StreamOptions, AIRequestContext, CancellationToken)"/>
+        /// (including agent-path calls) so callers no longer need to build and pass
+        /// an <see cref="AIRequestContext"/> at every entry point.
+        /// <para>
+        /// The property is set through the fluent helper
+        /// <see cref="AIServiceExtensions.WithSystemMessageProvider(AIService, Func{AIRequestContext?})"/>
+        /// (sync) or <see cref="AIServiceExtensions.WithSystemMessageProvider(AIService, Func{CancellationToken, System.Threading.Tasks.ValueTask{AIRequestContext?}})"/>
+        /// (async). Both overloads normalize to the async delegate stored here, so the
+        /// runtime only deals with a single invocation shape.
+        /// </para>
+        /// <para>
+        /// If a request also passes an explicit <see cref="AIRequestContext"/>,
+        /// the two are merged field-by-field: the explicit context wins on
+        /// <see cref="AIRequestContext.SystemMessagePrefix"/>, <see cref="AIRequestContext.SystemMessageSuffix"/>,
+        /// and <see cref="AIRequestContext.RequestMessageOverride"/> when non-null; for
+        /// <see cref="AIRequestContext.AdditionalMessages"/>, the provider's list comes first
+        /// and the explicit list is appended.
+        /// </para>
+        /// </summary>
+        public Func<CancellationToken, ValueTask<AIRequestContext?>>? SystemMessageProvider { get; internal set; }
+
         public IReadOnlyCollection<ChatBlock> ChatRequests => _chatRequests;
         public ChatBlock ActivateChat { get; protected set; }
 
@@ -207,11 +232,12 @@ namespace Mythosia.AI.Services.Base
 
         public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)
         {
-            if (profile == null && context == null)
+            var effectiveContext = await BuildEffectiveContextAsync(context, CancellationToken.None).ConfigureAwait(false);
+            if (profile == null && effectiveContext == null)
                 return await GetCompletionAsync(message);
 
             Action restoreProfile = profile != null ? ApplyRequestProfile(profile) : () => { };
-            Action restoreContext = context != null ? ApplyRequestContext(context) : () => { };
+            Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
             try
             {
                 return await GetCompletionAsync(message);
@@ -345,6 +371,54 @@ namespace Mythosia.AI.Services.Base
             var backup = _currentRequestContext.Value;
             _currentRequestContext.Value = context;
             return () => _currentRequestContext.Value = backup;
+        }
+
+        /// <summary>
+        /// Resolves the effective request context by invoking <see cref="SystemMessageProvider"/>
+        /// (if set) and merging its result with the caller-supplied context.
+        /// Returns null when both the provider and the caller produce null, so request
+        /// paths can skip the context-application overhead entirely.
+        /// </summary>
+        internal async ValueTask<AIRequestContext?> BuildEffectiveContextAsync(AIRequestContext? explicitContext, CancellationToken cancellationToken)
+        {
+            var provider = SystemMessageProvider;
+            if (provider == null) return explicitContext;
+
+            var providerContext = await provider(cancellationToken).ConfigureAwait(false);
+            if (providerContext == null) return explicitContext;
+            if (explicitContext == null) return providerContext;
+            return MergeContexts(providerContext, explicitContext);
+        }
+
+        /// <summary>
+        /// Merges a provider-supplied baseline context with a per-call explicit context.
+        /// <para>
+        /// Field-level override: <see cref="AIRequestContext.SystemMessagePrefix"/>,
+        /// <see cref="AIRequestContext.SystemMessageSuffix"/>, and
+        /// <see cref="AIRequestContext.RequestMessageOverride"/> from the explicit context
+        /// win when non-null; otherwise the baseline value is used.
+        /// <see cref="AIRequestContext.AdditionalMessages"/> is concatenated (baseline first,
+        /// then explicit) so callers can layer on top of a provider-supplied list.
+        /// </para>
+        /// </summary>
+        private static AIRequestContext MergeContexts(AIRequestContext baseline, AIRequestContext overlay)
+        {
+            var merged = new AIRequestContext
+            {
+                SystemMessagePrefix = overlay.SystemMessagePrefix ?? baseline.SystemMessagePrefix,
+                SystemMessageSuffix = overlay.SystemMessageSuffix ?? baseline.SystemMessageSuffix,
+                RequestMessageOverride = overlay.RequestMessageOverride ?? baseline.RequestMessageOverride
+            };
+
+            if (baseline.AdditionalMessages != null || overlay.AdditionalMessages != null)
+            {
+                var combined = new List<Message>();
+                if (baseline.AdditionalMessages != null) combined.AddRange(baseline.AdditionalMessages);
+                if (overlay.AdditionalMessages != null) combined.AddRange(overlay.AdditionalMessages);
+                merged.AdditionalMessages = combined;
+            }
+
+            return merged;
         }
 
         protected internal string GetEffectiveSystemMessageWithRequestContext()

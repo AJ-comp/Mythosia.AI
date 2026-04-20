@@ -2,6 +2,8 @@
   items:
   - name: Visão geral
     href: introduction.md
+  - name: Conceitos básicos
+    href: core-concepts.md
   - name: Primeiros passos
     href: getting-started.md
 

@@ -2,6 +2,8 @@
   items:
   - name: Introduction
     href: introduction.md
+  - name: Core Concepts
+    href: core-concepts.md
   - name: Getting Started
     href: getting-started.md
 

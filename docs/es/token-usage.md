@@ -7,27 +7,8 @@ Esto se vuelve especialmente importante cuando una respuesta no termina en una s
 - `RoundUsage` muestra el uso de un único round del LLM.
 - `Completion.Usage` muestra el uso acumulado de todo el stream.
 
-## ¿Qué es un round?
-
-Un «round» es un viaje completo de ida y vuelta al modelo: tu aplicación envía un prompt, el modelo responde y ese intercambio termina. Un mensaje de chat sencillo es exactamente un round.
-
-El function calling y los agentes introducen más rounds automáticamente. Aquí tienes un ejemplo concreto — un usuario pregunta: *«¿Qué tiempo hace ahora en Madrid?»*
-
-**Round 1 — decisión de herramienta**
-
-Tu app envía el mensaje del usuario al modelo. El modelo no conoce el tiempo actual, así que en lugar de responder directamente devuelve una solicitud de llamada a función: *«Por favor, llama a `GetWeather("Madrid")`».* El turno del modelo termina aquí.
-
-**Entre rounds**
-
-Tu app ejecuta `GetWeather("Madrid")` y recibe el resultado: `«15°C, nublado»`.
-
-**Round 2 — respuesta final**
-
-Tu app envía el resultado de la función como nuevo mensaje al modelo. Ahora el modelo tiene toda la información que necesita y escribe la respuesta final: *«En Madrid hay actualmente 15°C y está nublado.»*
-
-Un solo mensaje de usuario generó dos rounds de LLM. Si el modelo hubiera necesitado llamar a otra herramienta, habría habido un tercer round.
-
-`RoundUsage` se dispara después de cada round individual y contiene únicamente los tokens de ese round. `Completion.Usage` se dispara una vez al final y contiene el total de todos los rounds.
+> [!NOTE]
+> Esta página asume que ya sabes qué es un **round de LLM**. En resumen: un round = un intercambio petición–respuesta entre tu app y el modelo. Los flujos de function calling pueden producir varios rounds por cada mensaje de usuario. Para una explicación paso a paso, consulta [Conceptos básicos — ¿Qué es un round?](core-concepts.md#qué-es-un-round).
 
 ## Por qué importa
 

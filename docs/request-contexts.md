@@ -166,3 +166,110 @@ var response = await service.GetCompletionAsync(
 ```
 
 See [AIRequestProfile](request-profiles.md) for details on overriding generation parameters.
+
+## Automatic Injection with `SystemMessageProvider`
+
+### The Problem It Solves
+
+A typical chat app has several LLM entry points that all need the same dynamic baseline — today's date, the active folder, session info. Without `SystemMessageProvider`, every single call site has to remember to build and pass that context:
+
+```csharp
+// ❌ Without SystemMessageProvider — every entry point must remember to inject
+var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
+
+// 1. Main chat answer
+var answer = await service.GetCompletionAsync(userMessage,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 2. Title generator (added later)
+var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 3. Summarizer (added later still)
+var summary = await service.GetCompletionAsync("Summarize: " + conversation,
+    new AIRequestContext { SystemMessageSuffix = today });
+
+// 4. Agent call — easy to forget! The compiler won't warn you.
+var agentResult = await service.RunAgentAsync(goal);  // ← no date, silent bug
+```
+
+Problems with this approach:
+
+- The same context-building snippet is duplicated across every call site
+- New entry points (`RunAgentAsync` above) are easy to miss — there is no compile-time check that the baseline was applied
+- Every new feature that adds another LLM call has to remember the convention
+- Tests have to replicate the context setup at every call site
+
+With `SystemMessageProvider`, you register the baseline **once** and every outbound call picks it up automatically:
+
+```csharp
+// ✅ With SystemMessageProvider — register once, applied everywhere
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}."
+});
+
+// All of these automatically receive the baseline — no per-call boilerplate
+var answer      = await service.GetCompletionAsync(userMessage);
+var title       = await service.GetCompletionAsync("Summarize as a title: " + conversation);
+var summary     = await service.GetCompletionAsync("Summarize: " + conversation);
+var agentResult = await service.RunAgentAsync(goal);  // ← also receives the baseline
+
+// Streaming entry points too — same baseline, no per-call boilerplate
+await foreach (var chunk in service.StreamAsync(userMessage)) { /* ... */ }
+await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
+```
+
+### How It Works
+
+Register the callback once via the `WithSystemMessageProvider` fluent helper. Every outbound call (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) automatically invokes it to build a baseline context:
+
+```csharp
+// Typically at service construction / DI setup
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix =
+        $"Today is {DateTime.UtcNow:yyyy-MM-dd}.\n" +
+        $"Current folder: {_uiContext.CurrentFolder}"
+});
+
+var answer = await service.GetCompletionAsync(userQuery);
+await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
+var agentResult = await service.RunAgentAsync(goal);
+```
+
+### Async overload for IO-backed providers
+
+When the baseline context comes from a database, cache, or HTTP call, use the async overload so the provider does not have to block on `.Result` / `.GetAwaiter().GetResult()`. Overload resolution picks the right one by lambda arity — no arg for sync, one `CancellationToken` for async:
+
+```csharp
+service.WithSystemMessageProvider(async ct =>
+{
+    var prefs = await _db.UserPreferences.FirstOrDefaultAsync(ct);
+    return new AIRequestContext
+    {
+        SystemMessageSuffix = $"User language: {prefs?.Language ?? "en"}"
+    };
+});
+```
+
+Non-streaming paths (`GetCompletionAsync`, `RunAgentAsync`) do not support cancellation by design — their signatures do not accept a `CancellationToken`, and `CancellationToken.None` is always passed to the provider. If your provider needs cancellation (e.g. a long-running DB query), use the streaming paths (`StreamAsync`, `RunAgentStreamAsync`) which forward the caller's token through to the provider callback.
+
+### Merging with an explicit per-call context
+
+When a call has a registered provider **and** also passes an explicit `AIRequestContext`, the two are merged field-by-field:
+
+| Field | Merge rule |
+|---|---|
+| `SystemMessagePrefix` | explicit wins if non-null, else provider |
+| `SystemMessageSuffix` | explicit wins if non-null, else provider |
+| `RequestMessageOverride` | explicit wins if non-null, else provider |
+| `AdditionalMessages` | concatenated (provider first, then explicit) |
+
+Rationale: the common case is "provider supplies a baseline, a specific call wants to replace one scalar field or add extra messages" — field-level override keeps the semantics predictable without surprising concatenation.
+
+### Per-call invocation
+
+The provider is invoked **once per request**, so return values can reflect up-to-the-moment state (timestamp, session, etc.). Returning `null` is a no-op — identical to leaving `SystemMessageProvider` unset for that call.
+
+> Available in Mythosia.AI v6.3.0+.

@@ -77,6 +77,43 @@ service.WithFastPolicy();    // timeout ต่ำ รอบน้อย — ง�
 service.WithComplexPolicy(); // timeout สูง รอบมาก — งานซับซ้อน
 ```
 
+## บริบทคำขอต่อการเรียกใช้
+
+`RunAgentAsync` และ `RunAgentStreamAsync` รับ `AIRequestContext` แบบ optional เพื่อใส่ prefix/suffix ของ system message แบบไดนามิก เอกสารอ้างอิง หรือแทนที่ข้อความเป้าหมายได้ — **จำกัดอยู่ในการรัน agent รอบเดียว** โดยไม่แตะ system message ของ service หรือประวัติการสนทนา
+
+```csharp
+string result = await service.RunAgentAsync(
+    goal: "หานโยบายการคืนเงิน และตรวจว่าคำสั่งซื้อ #1234 เข้าเงื่อนไขหรือไม่",
+    maxSteps: 10,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"วันนี้คือ {DateTime.UtcNow:yyyy-MM-dd}\n",
+        SystemMessageSuffix = "\nอ้างอิงข้อของนโยบายที่ใช้เสมอ"
+    });
+```
+
+เวอร์ชัน streaming รับพารามิเตอร์เดียวกัน:
+
+```csharp
+await foreach (var content in service.RunAgentStreamAsync(
+    goal: "ค้นคว้าราคาหุ้นของ 3 บริษัท AI ชั้นนำ",
+    maxSteps: 10,
+    options: StreamOptions.WithFunctions,
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"โซนเวลาของผู้ใช้: {userTz}\n"
+    }))
+{
+    // ประมวลผลเนื้อหา
+}
+```
+
+Context ส่งผ่าน `AsyncLocal` ดังนั้นการรัน agent พร้อมกันบน service instance เดียวกันจะไม่รบกวนซึ่งกันและกัน
+
+ดูรายชื่อคุณสมบัติทั้งหมดได้ที่ [AIRequestContext](request-contexts.md) (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`)
+
+> มีให้ใช้งานตั้งแต่ Mythosia.AI v6.3.0 ขึ้นไป
+
 ## หลักการทำงาน
 
 แต่ละขั้นตอน:

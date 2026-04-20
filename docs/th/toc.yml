@@ -2,6 +2,8 @@
   items:
   - name: บทนำ
     href: introduction.md
+  - name: แนวคิดหลัก
+    href: core-concepts.md
   - name: เริ่มต้นอย่างรวดเร็ว
     href: getting-started.md
 
