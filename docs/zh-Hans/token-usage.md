@@ -7,6 +7,28 @@ Token 用量表示一次模型请求在输入、输出、缓存和推理上消�
 - `RoundUsage` 表示单个 LLM round 的用量。
 - `Completion.Usage` 表示整个 stream run 的累计用量。
 
+## 什么是 round？
+
+"Round" 是与模型的一次完整来回：你的应用发送一个 prompt，模型回复，这次交互结束。一条普通的聊天消息正好是一个 round。
+
+Function calling 和 agent 会自动引入更多 round。下面是一个具体的例子——用户问道：*「现在北京的天气怎么样？」*
+
+**Round 1 — 决定调用哪个工具**
+
+你的 app 把用户消息发给模型。模型不知道当前天气，所以它不直接回答，而是返回一个函数调用请求：*「请调用 `GetWeather("Beijing")`」*。模型的这一轮就此结束。
+
+**两个 round 之间**
+
+你的 app 执行 `GetWeather("Beijing")` 并获得结果：`「15°C，多云」`。
+
+**Round 2 — 最终回答**
+
+你的 app 把函数结果作为新消息发还给模型。此时模型有了所需的全部信息，写出最终回答：*「北京目前 15°C，多云。」*
+
+用户的一条消息触发了两个 LLM round。如果模型还需要调用另一个工具，就会有第三个 round，依此类推。
+
+`RoundUsage` 在每个 round 结束后触发，只包含该 round 的 token 数量。`Completion.Usage` 在所有内容完成后触发一次，包含所有 round 的汇总数量。
+
 ## 为什么需要它
 
 如果你在做聊天 UI 的上下文 token 计量器，通常应该使用最新的 `RoundUsage.Usage.TotalTokens`。它最接近“如果现在继续对话，下一次模型输入会有多大”这个值。

@@ -7,6 +7,28 @@ Sử dụng token cho biết một request tới model đã tiêu tốn bao nhi�
 - `RoundUsage` là usage của một round LLM vừa kết thúc.
 - `Completion.Usage` là usage cộng dồn của toàn bộ stream.
 
+## Round là gì?
+
+"Round" là một chuyến đi khứ hồi hoàn chỉnh đến model: ứng dụng của bạn gửi một prompt, model trả lời và trao đổi đó kết thúc. Một tin nhắn chat thông thường là đúng một round.
+
+Function calling và agent sẽ tự động tạo ra nhiều round hơn. Dưới đây là ví dụ cụ thể — người dùng hỏi: *«Thời tiết ở Hà Nội hiện tại thế nào?»*
+
+**Round 1 — quyết định công cụ**
+
+App gửi tin nhắn của người dùng cho model. Model không biết thời tiết hiện tại, nên thay vì trả lời trực tiếp, nó trả về một yêu cầu gọi hàm: *«Vui lòng gọi `GetWeather("Hanoi")`».* Lượt của model kết thúc ở đây.
+
+**Giữa các round**
+
+App chạy `GetWeather("Hanoi")` và nhận được kết quả: `«15°C, có mây»`.
+
+**Round 2 — câu trả lời cuối cùng**
+
+App gửi kết quả hàm trở lại cho model dưới dạng tin nhắn mới. Bây giờ model có đủ thông tin cần thiết và viết câu trả lời cuối cùng: *«Hiện tại ở Hà Nội là 15°C và có mây.»*
+
+Một tin nhắn của người dùng đã tạo ra hai round LLM. Nếu model cần gọi thêm một công cụ nữa, sẽ có round thứ ba.
+
+`RoundUsage` được phát ra sau mỗi round riêng lẻ và chỉ chứa số token của round đó. `Completion.Usage` được phát ra một lần khi tất cả xong và chứa tổng của tất cả các round.
+
 ## Vì sao cần quan tâm
 
 Với đồng hồ đo context trong UI chat, thường bạn nên dùng `RoundUsage.Usage.TotalTokens` mới nhất. Giá trị này gần nhất với câu hỏi: "nếu tiếp tục hội thoại ngay bây giờ, input tiếp theo gửi vào model sẽ lớn cỡ nào?"

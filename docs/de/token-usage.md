@@ -7,6 +7,28 @@ Wichtig wird das vor allem, wenn eine Antwort nicht aus genau einem LLM-Aufruf b
 - `RoundUsage` beschreibt die Nutzung eines einzelnen LLM-Rounds.
 - `Completion.Usage` beschreibt die kumulierte Nutzung des gesamten Streams.
 
+## Was ist ein Round?
+
+Ein „Round" ist eine vollständige Anfrage-Antwort-Reise zum Modell: Deine App schickt einen Prompt, das Modell antwortet — das war ein Round. Eine einfache Chat-Nachricht ist genau ein Round.
+
+Function Calling und Agenten erzeugen automatisch mehr Rounds. Hier ein konkretes Beispiel — ein Nutzer fragt: *„Wie ist das Wetter gerade in Berlin?"*
+
+**Round 1 — Tool-Entscheidung**
+
+Deine App schickt die Nutzernachricht an das Modell. Das Modell kennt das aktuelle Wetter nicht, also antwortet es statt einer direkten Antwort mit einer Funktion-Aufrufs-Anfrage: *„Bitte rufe `GetWeather("Berlin")` auf."* Hier endet das Modell.
+
+**Zwischen den Rounds**
+
+Deine App führt `GetWeather("Berlin")` aus und bekommt zurück: `„15°C, bewölkt"`.
+
+**Round 2 — Endgültige Antwort**
+
+Deine App schickt das Ergebnis als neue Nachricht zurück ans Modell. Das Modell hat jetzt alle Informationen und schreibt die finale Antwort: *„In Berlin sind es gerade 15°C und bewölkt."*
+
+Eine einzige Nutzernachricht hat zwei LLM-Rounds ausgelöst. Hätte das Modell noch ein weiteres Tool gebraucht, wäre es ein dritter Round geworden.
+
+`RoundUsage` wird nach jedem einzelnen Round ausgelöst und enthält nur die Tokens dieses Rounds. `Completion.Usage` wird einmal am Ende ausgelöst und enthält die Summe aller Rounds.
+
 ## Warum das wichtig ist
 
 Für eine Kontextanzeige in einer Chat-UI ist normalerweise der letzte `RoundUsage.Usage.TotalTokens` der passende Wert. Er kommt am nächsten an die Frage heran: "Wie groß wäre die nächste Modelleingabe, wenn diese Unterhaltung jetzt weitergeht?"
