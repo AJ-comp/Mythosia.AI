@@ -133,7 +133,7 @@
 
 ## 커스텀 분할기
 
-완전히 커스텀한 분할 로직을 위해 `ITextSplitter`를 구현합니다:
+커스텀하게 동작하는 분할 모듈을 작성해서 연동하고 싶다면 `ITextSplitter`를 구현하세요:
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

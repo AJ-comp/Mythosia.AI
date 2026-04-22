@@ -1,5 +1,17 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## v4.1.1
+
+### Internal
+
+- Recompiled against `System.IO.Hashing` 10.0.6.
+
+### Compatibility
+
+- No behavioral changes. Drop-in upgrade from v4.1.0.
+
+---
+
 ## v4.1.0
 
 ### Changed

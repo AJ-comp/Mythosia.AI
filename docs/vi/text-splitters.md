@@ -133,7 +133,7 @@ Có thể áp dụng splitter khác nhau cho từng tài liệu trong `RagBuilde
 
 ## Splitter tùy chỉnh
 
-Triển khai `ITextSplitter` để có logic chia hoàn toàn tùy chỉnh:
+Nếu bạn muốn viết một module chia tùy chỉnh và tích hợp vào, hãy triển khai `ITextSplitter`:
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

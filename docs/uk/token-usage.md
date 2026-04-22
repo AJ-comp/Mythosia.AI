@@ -115,10 +115,6 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
 | `ReasoningTokens` | Токени прихованого внутрішнього reasoning |
 | `VisibleOutputTokens` | Вихідні токени без reasoning |
 
-## Нотатки щодо provider-ів
+## Навіщо використовувати нормалізовані події
 
-Різні provider-и прикріплюють usage до різних stream-chunk-ів. Mythosia.AI нормалізує це в `RoundUsage` і фінальний `Completion.Usage`.
-
-Gemini має найбільше нюансів: usage може прийти в text або status chunk, іноді навіть після function-call chunk. Бібліотека дочитує stream достатньо довго, щоб зібрати usage перед переходом до наступного раунду.
-
-У клієнтському коді краще використовувати нормалізовані `RoundUsage` і `Completion.Usage`, а не парсити provider-specific metadata вручну.
+Різні provider-и прикріплюють usage до різних stream-chunk-ів. Найбільше нюансів має Gemini: usage може прийти в text або status chunk, іноді навіть після function-call chunk, тому бібліотека дочитує stream достатньо довго, щоб зібрати usage перед переходом до наступного раунду. Mythosia.AI бере на себе ці відмінності між provider-ами й нормалізує їх у події `RoundUsage` і фінальний `Completion.Usage`, тож у клієнтському коді не парсіть provider-specific metadata вручну, а використовуйте нормалізовані `RoundUsage` і `Completion.Usage`.

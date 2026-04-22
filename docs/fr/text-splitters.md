@@ -133,7 +133,7 @@ Différents découpeurs peuvent être appliqués par document dans le `RagBuilde
 
 ## Découpeur personnalisé
 
-Implémentez `ITextSplitter` pour une logique de découpage entièrement sur mesure :
+Si vous souhaitez écrire un module de découpage personnalisé et le brancher, implémentez `ITextSplitter` :
 
 ```csharp
 public class PhraseSplitter : ITextSplitter

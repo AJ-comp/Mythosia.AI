@@ -45,7 +45,7 @@ Dieser Schritt ist **kein** LLM-Aufruf. Die Mythosia.AI-Runtime ruft deine regis
 
 **Round 2 — das Modell schreibt die finale Antwort**
 
-Deine App fügt das Tool-Ergebnis an die Konversation an und ruft das Modell **ein zweites Mal** auf. Das Modell sieht jetzt:
+Deine App hängt **den function_call des Modells aus Round 1 zusammen mit dem Tool-Ergebnis** an die Konversation an und ruft das Modell **ein zweites Mal** auf. Das Modell sieht jetzt:
 
 ```
 system:      Du bist ein Wetter-Assistent. Du kannst GetWeather(city) aufrufen.

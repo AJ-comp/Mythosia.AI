@@ -129,7 +129,7 @@
 
 ## 自訂分割器
 
-實作 `ITextSplitter` 介面：
+如果想撰寫自訂的分割模組並整合使用，請實作 `ITextSplitter` 介面：
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

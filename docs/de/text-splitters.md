@@ -133,7 +133,7 @@ Verschiedene Splitter können pro Dokument im `RagBuilder` angewendet werden:
 
 ## Benutzerdefinierter Splitter
 
-Implementiere `ITextSplitter` für vollständig eigene Trennlogik:
+Wenn du ein eigenes Splitter-Modul schreiben und einbinden möchtest, implementiere `ITextSplitter`:
 
 ```csharp
 public class SatzSplitter : ITextSplitter

@@ -115,10 +115,6 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
 | `ReasoningTokens` | 隱藏內部推理消耗的 token |
 | `VisibleOutputTokens` | 不含推理的可見輸出 token |
 
-## Provider 注意事項
+## 為什麼要使用標準化事件？
 
-不同 provider 會把 usage 資料放在不同的 stream chunk 上。Mythosia.AI 會把它們統一整理成 `RoundUsage` 和最終的 `Completion.Usage`。
-
-Gemini 是最需要留意的情況：usage 可能出現在 text 或 status chunk 上，有時甚至會在 function-call chunk 之後才到達。函式庫會繼續讀取 stream，確保在進入下一 round 前捕捉這些 usage。
-
-作為 consumer，建議優先使用已標準化的 `RoundUsage` 和 `Completion.Usage`，不要自己解析 provider 專屬 metadata。
+不同 provider 會把 usage 資料放在不同的 stream chunk 上。其中 Gemini 最需要留意 —— usage 可能出現在 text 或 status chunk 上，有時甚至會在 function-call chunk 之後才到達 —— 因此 Mythosia.AI 會繼續讀取 stream，確保在進入下一 round 前捕捉這些 usage。函式庫會吸收這些 provider 之間的差異，並把它們統一整理成 `RoundUsage` 和最終的 `Completion.Usage` 事件，所以 consumer 端不要自己解析 provider 專屬 metadata，直接使用已標準化的 `RoundUsage` 和 `Completion.Usage` 即可。

@@ -45,7 +45,7 @@ Bước này **không phải** là lời gọi LLM. Runtime của Mythosia.AI g�
 
 **Round 2 — model viết câu trả lời cuối cùng**
 
-App thêm kết quả tool vào cuộc trò chuyện và gọi model **lần thứ hai**. Bây giờ model nhìn thấy:
+App thêm **function_call mà model đưa ra ở Round 1 cùng với kết quả của tool** vào cuộc trò chuyện và gọi model **lần thứ hai**. Bây giờ model nhìn thấy:
 
 ```
 system:      Bạn là một weather assistant. Bạn có thể gọi GetWeather(city).

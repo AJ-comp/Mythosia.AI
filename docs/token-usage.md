@@ -146,10 +146,6 @@ if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
 | `ReasoningTokens` | Tokens spent on hidden reasoning |
 | `VisibleOutputTokens` | Output tokens excluding reasoning |
 
-## Provider Notes
+## Why use the normalized events
 
-Different providers attach usage data to different stream chunks. Mythosia.AI normalizes that into `RoundUsage` and final `Completion` events.
-
-Gemini is the most important edge case: usage can arrive on text or status chunks, and sometimes after a function-call chunk. The library keeps reading the stream long enough to capture that usage before moving to the next round.
-
-As a consumer, prefer the normalized `RoundUsage` and `Completion.Usage` events instead of parsing provider-specific metadata yourself.
+Different providers attach usage data to different stream chunks. Gemini is the trickiest case — usage can arrive on text or status chunks, and sometimes after a function-call chunk — so Mythosia.AI keeps reading the stream long enough to capture that usage before moving to the next round. The library absorbs these provider-specific differences and normalizes them into `RoundUsage` and final `Completion.Usage` events, so instead of parsing provider-specific metadata yourself, read the normalized `RoundUsage` and `Completion.Usage`.

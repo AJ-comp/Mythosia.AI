@@ -45,7 +45,7 @@ Este paso **no** es una llamada LLM. El runtime de Mythosia.AI invoca tu impleme
 
 **Round 2 — el modelo escribe la respuesta final**
 
-Tu app añade el resultado de la herramienta a la conversación y llama al modelo **por segunda vez**. El modelo ve ahora:
+Tu app añade a la conversación **el function_call que el modelo emitió en el round 1 junto con el resultado de la herramienta** y llama al modelo **por segunda vez**. El modelo ve ahora:
 
 ```
 system:      Eres un asistente meteorológico. Puedes llamar a GetWeather(city).

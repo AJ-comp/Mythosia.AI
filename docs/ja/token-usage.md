@@ -130,10 +130,6 @@ provider が返す場合、`TokenUsage` にはキャッシュや推論に関す�
 | `ReasoningTokens` | 非表示の内部推論に使われたトークン |
 | `VisibleOutputTokens` | 推論トークンを除いた実際の出力トークン |
 
-## Provider ごとの注意点
+## なぜ正規化イベントを使うべきか
 
-provider によって、usage データが付くストリーム chunk は異なります。Mythosia.AI はそれを `RoundUsage` と最終 `Completion.Usage` に正規化して渡します。
-
-Gemini は特に注意が必要です。usage が text や status chunk に付くことがあり、function call chunk の後に遅れて届く場合もあります。ライブラリは次のラウンドへ進む前にストリームを最後まで読み、usage を取りこぼさないようにします。
-
-利用側のコードでは、provider 固有の metadata を直接読むより、正規化された `RoundUsage` と `Completion.Usage` を使うことをおすすめします。
+provider によって、usage データが付くストリーム chunk は異なります。特に Gemini は注意が必要で、usage が text や status chunk に付くことがあり、function call chunk の後に遅れて届く場合もあるため、Mythosia.AI は次のラウンドへ進む前にストリームを最後まで読み、その usage を取りこぼさないようにします。ライブラリはこうした provider ごとの差をすべて吸収し、`RoundUsage` と最終 `Completion.Usage` イベントに正規化して渡すので、利用側のコードでは provider 固有の metadata を直接読むのではなく、正規化された `RoundUsage` と `Completion.Usage` を使ってください。

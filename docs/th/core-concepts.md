@@ -45,7 +45,7 @@ tool_call: GetWeather(city="Bangkok")
 
 **Round 2 — model เขียนคำตอบสุดท้าย**
 
-App เพิ่มผลลัพธ์ของ tool เข้าไปในบทสนทนาและเรียก model **เป็นครั้งที่สอง** ตอนนี้ model เห็นดังนี้:
+App เพิ่ม **function_call ที่ model ส่งออกมาใน Round 1 พร้อมกับผลลัพธ์ของ tool** เข้าไปในบทสนทนา และเรียก model **เป็นครั้งที่สอง** ตอนนี้ model เห็นดังนี้:
 
 ```
 system:      คุณคือ weather assistant คุณสามารถเรียก GetWeather(city) ได้

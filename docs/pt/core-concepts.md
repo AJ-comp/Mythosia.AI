@@ -45,7 +45,7 @@ Esta etapa **não** é uma chamada LLM. O runtime do Mythosia.AI invoca sua impl
 
 **Round 2 — o modelo escreve a resposta final**
 
-Seu app adiciona o resultado da ferramenta à conversa e chama o modelo **pela segunda vez**. O modelo agora vê:
+Seu app adiciona à conversa **o function_call que o modelo emitiu no round 1 junto com o resultado da ferramenta** e chama o modelo **pela segunda vez**. O modelo agora vê:
 
 ```
 system:      Você é um assistente de clima. Você pode chamar GetWeather(city).

@@ -115,10 +115,6 @@ Khi provider cung cấp, `TokenUsage` cũng có các trường liên quan đến
 | `ReasoningTokens` | Token dùng cho reasoning nội bộ ẩn |
 | `VisibleOutputTokens` | Output token không tính reasoning |
 
-## Ghi chú theo provider
+## Vì sao nên dùng các sự kiện đã chuẩn hóa
 
-Mỗi provider gắn usage vào stream chunk theo cách khác nhau. Mythosia.AI chuẩn hóa phần đó thành `RoundUsage` và `Completion.Usage`.
-
-Gemini là trường hợp cần chú ý nhất: usage có thể nằm trên text hoặc status chunk, đôi khi còn đến sau function-call chunk. Thư viện sẽ đọc tiếp stream đủ lâu để lấy usage trước khi chuyển sang round tiếp theo.
-
-Ở phía ứng dụng, nên đọc các sự kiện đã được chuẩn hóa là `RoundUsage` và `Completion.Usage`, thay vì tự parse metadata riêng của từng provider.
+Mỗi provider gắn usage vào stream chunk theo cách khác nhau. Trường hợp cần chú ý nhất là Gemini: usage có thể nằm trên text hoặc status chunk, đôi khi còn đến sau function-call chunk — vì vậy thư viện sẽ đọc tiếp stream đủ lâu để lấy usage trước khi chuyển sang round tiếp theo. Mythosia.AI hấp thụ những khác biệt giữa các provider này và chuẩn hóa chúng thành các sự kiện `RoundUsage` và `Completion.Usage`, nên ở phía ứng dụng, thay vì tự parse metadata riêng của từng provider, hãy dùng các sự kiện đã chuẩn hóa là `RoundUsage` và `Completion.Usage`.

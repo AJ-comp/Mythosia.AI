@@ -115,10 +115,6 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
 | `ReasoningTokens` | Token ที่ใช้กับ reasoning ภายในที่ไม่แสดง |
 | `VisibleOutputTokens` | Output token ที่ไม่นับ reasoning |
 
-## หมายเหตุของแต่ละ provider
+## ทำไมต้องใช้ event ที่ normalize แล้ว
 
-แต่ละ provider แนบ usage data มากับ stream chunk คนละแบบ Mythosia.AI จะ normalize ให้เป็น `RoundUsage` และ `Completion.Usage`
-
-Gemini เป็นเคสที่ต้องระวังที่สุด usage อาจมากับ text หรือ status chunk และบางครั้งอาจมาหลัง function-call chunk ด้วย library จึงอ่าน stream ต่อให้พอเก็บ usage ก่อนขยับไป round ถัดไป
-
-ฝั่ง consumer ควรอ่าน event ที่ normalize แล้วอย่าง `RoundUsage` และ `Completion.Usage` แทนการ parse metadata เฉพาะ provider เอง
+แต่ละ provider แนบ usage data มากับ stream chunk คนละแบบ เคสที่ต้องระวังที่สุดคือ Gemini เพราะ usage อาจมากับ text หรือ status chunk และบางครั้งอาจมาหลัง function-call chunk ด้วย library จึงอ่าน stream ต่อให้พอเก็บ usage ก่อนขยับไป round ถัดไป Mythosia.AI จะรับความแตกต่างระหว่าง provider เหล่านี้ไว้เอง แล้ว normalize ออกมาเป็น event `RoundUsage` และ `Completion.Usage` ดังนั้นฝั่ง consumer ไม่ต้อง parse metadata เฉพาะ provider เอง ให้ใช้ event ที่ normalize แล้วอย่าง `RoundUsage` และ `Completion.Usage` แทน

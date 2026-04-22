@@ -133,7 +133,7 @@ Code fence (`` ``` ``) ถือเป็น **หน่วยที่แบ่
 
 ## Splitter แบบกำหนดเอง
 
-Implement `ITextSplitter` สำหรับ logic การแบ่งแบบ custom:
+หากต้องการเขียนโมดูลการแบ่งแบบกำหนดเองแล้วนำมาเชื่อมต่อ ให้ implement `ITextSplitter`:
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

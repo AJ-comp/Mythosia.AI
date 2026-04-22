@@ -133,7 +133,7 @@ Markdownの構造を理解し保持するスプリッターです。見出し階
 
 ## カスタムスプリッター
 
-完全なカスタム分割ロジックのために`ITextSplitter`を実装します:
+カスタムな分割モジュールを作成して連携したい場合は、`ITextSplitter`を実装してください:
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

@@ -133,7 +133,7 @@
 
 ## 自定义分割器
 
-实现 `ITextSplitter` 接口以使用完全自定义的分割逻辑：
+如果想编写自定义的分割模块并接入使用，请实现 `ITextSplitter` 接口：
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

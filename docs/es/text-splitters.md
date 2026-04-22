@@ -89,7 +89,7 @@ Se pueden aplicar splitters diferentes por documento en `RagBuilder`:
 
 ## Splitter Personalizado
 
-Implementa `ITextSplitter` para lógica de división completamente personalizada:
+Si quieres crear un módulo de división personalizado e integrarlo, implementa `ITextSplitter`:
 
 ```csharp
 public class SentenceSplitter : ITextSplitter

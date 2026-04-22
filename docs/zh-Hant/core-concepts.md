@@ -45,7 +45,7 @@ tool_call: GetWeather(city="Taipei")
 
 **Round 2 — 模型寫出最終回答**
 
-你的 app 把工具結果附加到對話中，並**第二次**呼叫模型。模型現在看到：
+你的 app 把 **Round 1 中模型發出的 function_call 和它的執行結果一起**附加到對話中，並**第二次**呼叫模型。模型現在看到：
 
 ```
 system：     你是一個天氣 assistant，可以呼叫 GetWeather(city)。

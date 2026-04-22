@@ -130,10 +130,6 @@ Cuando el proveedor los ofrece, `TokenUsage` también incluye campos de caché y
 | `ReasoningTokens` | Tokens usados en razonamiento oculto |
 | `VisibleOutputTokens` | Tokens de salida sin contar razonamiento |
 
-## Notas por proveedor
+## Por qué usar los eventos normalizados
 
-Cada proveedor adjunta los datos de usage a chunks distintos. Mythosia.AI normaliza eso en eventos `RoundUsage` y `Completion`.
-
-Gemini es el caso con más matices: el usage puede venir en chunks de texto o de estado, e incluso llegar después de un chunk de function call. La librería sigue leyendo el stream lo suficiente para capturar ese usage antes de pasar al siguiente round.
-
-Como consumidor, es mejor leer `RoundUsage` y `Completion.Usage` que parsear metadata específica de cada proveedor.
+Cada proveedor adjunta los datos de usage a chunks distintos. El caso con más matices es Gemini: el usage puede venir en chunks de texto o de estado, e incluso llegar después de un chunk de function call — por eso la librería sigue leyendo el stream lo suficiente para capturar ese usage antes de pasar al siguiente round. Mythosia.AI absorbe estas diferencias entre proveedores y las normaliza en eventos `RoundUsage` y `Completion.Usage`, así que en el código consumidor, en lugar de parsear metadata específica de cada proveedor, usa los eventos normalizados `RoundUsage` y `Completion.Usage`.

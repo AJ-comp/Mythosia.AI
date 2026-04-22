@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.0.0</Version>
+    <Version>4.0.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with optional PineconeOptions.Namespace for data isolation, metadata filtering, GetBatchAsync, CountAsync, and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v4.0.0: Breaking — Removed DefaultNamespace and _scope reserved metadata key. Added PineconeOptions.Namespace for explicit namespace scoping. All metadata keys are now treated uniformly.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.1: Recompiled against System.IO.Hashing 10.0.6 and System.Text.Json 10.0.6. No behavioral changes.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -20,8 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.IO.Hashing" Version="10.0.5" />
-    <PackageReference Include="System.Text.Json" Version="10.0.5" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.6" />
+    <PackageReference Include="System.Text.Json" Version="10.0.6" />
   </ItemGroup>
 
   <ItemGroup>

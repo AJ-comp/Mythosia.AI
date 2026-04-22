@@ -146,10 +146,6 @@ if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
 | `ReasoningTokens` | 숨겨진 내부 추론에 사용된 토큰 |
 | `VisibleOutputTokens` | 추론 토큰을 제외한 실제 출력 토큰 |
 
-## Provider별 주의점
+## 왜 정규화된 이벤트를 써야 하나요?
 
-provider마다 usage 데이터를 붙여 주는 스트림 chunk가 다릅니다. Mythosia.AI는 이를 `RoundUsage`와 최종 `Completion.Usage` 이벤트로 정규화해서 전달합니다.
-
-Gemini가 가장 까다로운 편입니다. usage가 text나 status chunk에 붙어 올 수 있고, function call chunk 뒤늦게 도착할 수도 있습니다. 라이브러리는 다음 라운드로 넘어가기 전에 스트림을 끝까지 읽어 그 usage를 수집합니다.
-
-소비자 코드는 provider별 metadata를 직접 파싱하기보다 정규화된 `RoundUsage`와 `Completion.Usage`를 읽는 쪽을 권장합니다.
+provider마다 usage 데이터를 붙여 주는 스트림 chunk가 다릅니다. 특히 Gemini가 까다로운데, usage가 text나 status chunk에 붙어 오기도 하고 function call chunk 뒤에 뒤늦게 도착하는 경우도 있어서, Mythosia.AI는 다음 라운드로 넘어가기 전에 스트림을 끝까지 읽어 그 usage를 수집합니다. 라이브러리는 이런 provider별 차이를 모두 흡수해 `RoundUsage`와 최종 `Completion.Usage` 이벤트로 정규화해서 전달하므로, 소비자 코드에서는 provider별 metadata를 직접 파싱하지 말고 정규화된 `RoundUsage`와 `Completion.Usage`를 사용하세요.

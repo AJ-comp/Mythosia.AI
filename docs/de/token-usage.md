@@ -127,10 +127,6 @@ Wenn der Provider sie liefert, enthält `TokenUsage` zusätzliche Werte für Cac
 | `ReasoningTokens` | Tokens für verborgenes internes Reasoning |
 | `VisibleOutputTokens` | Ausgabetokens ohne Reasoning |
 
-## Hinweise zu Providern
+## Warum die normalisierten Events verwenden
 
-Provider hängen Usage-Daten an unterschiedliche Stream-Chunks. Mythosia.AI normalisiert das in `RoundUsage` und das finale `Completion.Usage`.
-
-Gemini ist dabei der kniffligste Fall: Usage kann an Text- oder Status-Chunks hängen und manchmal erst nach einem Function-Call-Chunk eintreffen. Die Bibliothek liest den Stream daher lange genug weiter, um diese Usage einzusammeln, bevor der nächste Round startet.
-
-Als Consumer solltest du die normalisierten Events `RoundUsage` und `Completion.Usage` verwenden, statt provider-spezifische Metadata selbst zu parsen.
+Provider hängen Usage-Daten an unterschiedliche Stream-Chunks. Besonders knifflig ist Gemini: Usage kann an Text- oder Status-Chunks hängen und manchmal erst nach einem Function-Call-Chunk eintreffen — deshalb liest die Bibliothek den Stream lange genug weiter, um diese Usage einzusammeln, bevor der nächste Round startet. Sie fängt diese provider-spezifischen Unterschiede ab und normalisiert sie in `RoundUsage`- und finale `Completion.Usage`-Events. Parse deshalb in deinem Consumer-Code nicht selbst provider-spezifische Metadata, sondern verwende die normalisierten `RoundUsage`- und `Completion.Usage`-Events.

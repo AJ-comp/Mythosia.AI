@@ -130,10 +130,6 @@ Lorsque le provider les fournit, `TokenUsage` contient aussi des champs liés au
 | `ReasoningTokens` | Tokens utilisés pour le raisonnement masqué |
 | `VisibleOutputTokens` | Tokens de sortie hors raisonnement |
 
-## Notes par provider
+## Pourquoi utiliser les événements normalisés
 
-Chaque provider accroche ses données d'usage à des chunks différents. Mythosia.AI normalise tout cela en événements `RoundUsage` et `Completion`.
-
-Gemini est le cas le plus délicat : l'usage peut arriver sur un chunk de texte ou de statut, parfois même après un chunk de function call. La bibliothèque continue donc de lire le stream assez longtemps pour capturer cet usage avant de passer au round suivant.
-
-Côté application, privilégiez les événements normalisés `RoundUsage` et `Completion.Usage` plutôt que le parsing direct des metadata propres à chaque provider.
+Chaque provider accroche ses données d'usage à des chunks différents. Le cas le plus délicat est Gemini : l'usage peut arriver sur un chunk de texte ou de statut, parfois même après un chunk de function call — la bibliothèque continue donc de lire le stream assez longtemps pour capturer cet usage avant de passer au round suivant. Mythosia.AI absorbe ces différences entre providers et les normalise en événements `RoundUsage` et `Completion.Usage`, donc côté application, au lieu de parser vous-même les metadata propres à chaque provider, utilisez les événements normalisés `RoundUsage` et `Completion.Usage`.

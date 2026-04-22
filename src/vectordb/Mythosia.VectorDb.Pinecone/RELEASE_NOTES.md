@@ -1,5 +1,17 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v4.0.1
+
+### Internal
+
+- Recompiled against `System.IO.Hashing` 10.0.6 and `System.Text.Json` 10.0.6.
+
+### Compatibility
+
+- No behavioral changes. Drop-in upgrade from v4.0.0.
+
+---
+
 ## v4.0.0
 
 ### Breaking Changes

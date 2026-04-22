@@ -45,7 +45,7 @@ This step is **not** an LLM call. The Mythosia.AI runtime invokes your registere
 
 **Round 2 — the model writes the final answer**
 
-Your app appends the tool result to the conversation and calls the model **a second time**. The model now sees:
+Your app appends **the model's function_call from round 1 together with the tool result** to the conversation and calls the model **a second time**. The model now sees:
 
 ```
 system:      You are a weather assistant. You can call GetWeather(city).
