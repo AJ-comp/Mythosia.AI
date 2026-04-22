@@ -27,6 +27,10 @@
 ## Commit Message Guidelines
 - Commit messages must always be written in English.
 - 다국어 문서 작성 시 영어를 직역하지 않는다. 내용과 논리는 그대로 유지하면서, 해당 언어 문화권에 친화적인 자연스러운 어투와 문장으로 작성한다.
+- 커밋 메시지의 bullet 항목은 문장 중간에서 줄바꿈(hard wrap)하지 않는다. 한 bullet은 문장이 끝날 때까지 한 줄로 유지한다. 전통적인 72-char wrap은 가독성을 오히려 떨어뜨리므로 적용하지 않는다. 예:
+  - 나쁨: `- core-concepts: make explicit that both the round-1 function_call message\n  and the tool result are appended to the conversation before round 2.`
+  - 좋음: `- core-concepts: make explicit that both the round-1 function_call message and the tool result are appended to the conversation before round 2.`
+- 단, bullet 자체가 너무 장문이 되어서도 안 된다. 문장이 길어지면 줄바꿈 대신 **bullet을 여러 개로 쪼개거나 문장 자체를 압축**한다. 한 bullet = 한 가지 요점이 기본이다.
 
 ## File Editing Guidelines
 - 문서 파일(.md 등)이나 주석을 편집할 때는 절대로 터미널 명령(PowerShell Set-Content, Get-Content -replace 등)을 사용하지 않는다. 인코딩이 깨질 수 있으므로 반드시 replace_string_in_file 또는 create_file 같은 에디터 도구만 사용한다.
