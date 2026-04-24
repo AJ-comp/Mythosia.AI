@@ -76,3 +76,14 @@
     href: vector-filter.md
   - name: 마이그레이션
     href: vectordb-migration.md
+
+- name: 고급
+  items:
+  - name: 문서 파싱 아키텍처
+    items:
+    - name: 기본 개념
+      href: document-architecture-concept.md
+    - name: DoclingDocument 데이터 모델
+      href: document-architecture-data-model.md
+    - name: 원하는 대로 출력 바꾸기
+      href: document-architecture-customization.md

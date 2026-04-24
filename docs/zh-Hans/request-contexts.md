@@ -272,4 +272,37 @@ service.WithSystemMessageProvider(async ct =>
 
 Provider **每个请求调用一次**,因此返回值可以反映最新状态(时间戳、会话等)。返回 `null` 是 no-op — 相当于该调用未设置 `SystemMessageProvider`。
 
+### 小结：何时选择此工具 — 三条件的交集
+
+从上述用例和合并规则退一步看,`SystemMessageProvider` 是以下 **三个条件同时成立** 时的专用工具:
+
+1. **所有 LLM 调用都需要共同** 的基线 — 不想在每个入口点记得手动注入
+2. **值必须在调用时动态计算** — 当前时间、活动文件夹、登录用户等在启动时无法固定的值
+3. **不能污染永久状态(`SystemMessage`、对话历史)** — 该值不能泄漏到后续调用中
+
+三个条件中有任一缺失,更简单的工具就是正解:
+
+| 情境 | 正解 | 原因 |
+|---|---|---|
+| 基线在整个会话中 **固定(不变)** | `service.SystemMessage = "..."` | 一次设置即可,不需要 provider |
+| **仅一次调用** 需要特殊处理 | 在调用时显式传入 `AIRequestContext` | 不是共享基线,而是一次性注入 |
+| 共享 + 动态 + 不污染 **(三条件全部)** | **`SystemMessageProvider`** | 此三者交集的专用工具 |
+
+#### 为何不与 `AIRequestContext` 的"一次性"原则冲突
+
+`AIRequestContext` 的本质不是"只使用一次",而是 **"绝不污染永久状态"**。`SystemMessageProvider` 是一个在每次请求时 **重新执行回调** 以 **生成该请求专用的全新 `AIRequestContext`** 的工厂。生成的上下文仍然是 per-request 作用域,值不会泄漏到对话历史,下一次调用时回调再次执行以反映 **当时的** 值。所以 provider 并未违反 `AIRequestContext` 的设计原则,而是 **将其自动化**。
+
+具体地,如下注册也 **不会** 修改 `service.SystemMessage` 和 `service.Messages`:
+
+```csharp
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}"
+});
+```
+
+- 过了午夜,下一次调用的 provider 重新执行会自动反映 **新日期**(并非静态)
+- 一周后打开对话历史,也不会发现过去的请求中嵌入 "Today is ..."
+- 在多用户环境中使用共享服务,每次调用都生成独立的上下文
+
 > 在 Mythosia.AI v6.3.0+ 中可用。

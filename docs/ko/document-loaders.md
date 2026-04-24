@@ -180,3 +180,13 @@ var service = new AnthropicService(apiKey, http)
 ```
 
 `MarkdownTextSplitter`는 테이블을 행 단위로 분할하고 각 청크에 헤더를 자동 포함하므로, 검색 결과에서도 테이블 데이터가 온전한 형태로 반환됩니다. 자세한 내용은 [텍스트 분할기](text-splitters.md) 문서를 참고하세요.
+
+---
+
+## 더 깊이 알고 싶다면
+
+아래 페이지들은 파싱 내부 동작을 설명합니다 — 표 렌더링을 커스터마이징하거나, 슬라이드/시트 단위로 청크를 나누거나, 새 파일 형식을 지원하고 싶을 때 유용합니다. `LoadAsync()` + `ToMarkdown()`만 쓸 거라면 읽지 않으셔도 됩니다.
+
+- [문서 파싱 — 기본 개념](document-architecture-concept.md) — 왜 두 단계로 나뉘어 있는지
+- [DoclingDocument 데이터 모델](document-architecture-data-model.md) — 각 로더가 만들어내는 트리 구조
+- [원하는 대로 출력 바꾸기](document-architecture-customization.md) — 표 시리얼라이저 교체, 청킹 패턴, 커스텀 파서

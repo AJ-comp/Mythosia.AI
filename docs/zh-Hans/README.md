@@ -337,7 +337,7 @@ dotnet add package System.Linq.Async
 - [基础使用指南](https://github.com/AJ-comp/Mythosia.AI/wiki)
 - [Mythosia.AI README](../../src/core/Mythosia.AI/README.md)  包含函数调用、流式输出和模型配置的完整 API 参考
 - [Mythosia.AI.Rag README](../../src/rag/Mythosia.AI.Rag/README.md)  RAG 管道使用方法和自定义实现
-- 加载器指南: [EN](../../src/loaders/Mythosia.Documents.Abstractions/docs/en/loaders.md) · [KO](../../src/loaders/Mythosia.Documents.Abstractions/docs/ko/loaders.md) · [JA](../../src/loaders/Mythosia.Documents.Abstractions/docs/ja/loaders.md) · [ZH](../../src/loaders/Mythosia.Documents.Abstractions/docs/zh/loaders.md)
+- [加载器指南](document-loaders.md)
 - [发布说明](../../src/core/Mythosia.AI/RELEASE_NOTES.md)
 
 ## 许可证

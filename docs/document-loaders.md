@@ -180,3 +180,13 @@ var service = new AnthropicService(apiKey, http)
 ```
 
 `MarkdownTextSplitter` splits tables at row boundaries and automatically includes headers in each chunk, so table data remains intact in search results. See [Text Splitters](text-splitters.md) for details.
+
+---
+
+## Want to dig deeper?
+
+The pages below explain the parsing internals — useful if you want to customize table rendering, chunk by slide/sheet, or add support for a new file format. Skip them if `LoadAsync()` + `ToMarkdown()` is all you need.
+
+- [Document Parsing — Big Picture](document-architecture-concept.md) — why parsing happens in two stages
+- [DoclingDocument Data Model](document-architecture-data-model.md) — the structured tree each loader produces
+- [Customizing the Output](document-architecture-customization.md) — table strategies, chunking patterns, custom parsers

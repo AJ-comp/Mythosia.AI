@@ -200,4 +200,37 @@ Razão: o caso comum é "provider fornece uma base, uma chamada específica quer
 
 O provider é invocado **uma vez por requisição**, assim os valores de retorno podem refletir o estado no momento (timestamp, sessão, etc.). Retornar `null` é um no-op — idêntico a deixar `SystemMessageProvider` não configurado para aquela chamada.
 
+### Em resumo: quando escolher esta ferramenta — a interseção de três condições
+
+Dando um passo atrás em relação aos exemplos e às regras de fusão acima, `SystemMessageProvider` é a ferramenta dedicada quando **três condições se cumprem simultaneamente**:
+
+1. **Deve haver uma baseline em toda chamada ao LLM** — não se quer lembrar da injeção em cada ponto de entrada
+2. **O valor deve ser avaliado dinamicamente no momento da chamada** — hora atual, pasta ativa, usuário logado e outros valores que não podem ser fixados na inicialização
+3. **O estado permanente (`SystemMessage`, histórico de conversa) não pode ser contaminado** — o valor não pode vazar para chamadas posteriores
+
+Se faltar qualquer uma das três condições, uma ferramenta mais simples é a resposta certa:
+
+| Situação | Ferramenta certa | Motivo |
+|---|---|---|
+| A baseline é **fixa (não muda)** durante toda a sessão | `service.SystemMessage = "..."` | Uma atribuição única basta, provider desnecessário |
+| **Apenas uma chamada específica** precisa de tratamento especial | Passar `AIRequestContext` explicitamente no ponto de chamada | Não é uma baseline compartilhada, é uma injeção pontual |
+| Compartilhada + dinâmica + sem contaminação **(as três)** | **`SystemMessageProvider`** | A ferramenta dedicada para esta interseção tripla |
+
+#### Por que isto não conflita com o princípio de "uso único" do `AIRequestContext`
+
+A essência do `AIRequestContext` não é "usado apenas uma vez", mas **"nunca contamina o estado permanente"**. `SystemMessageProvider` é uma fábrica que **re-executa o callback a cada requisição**, produzindo **um novo `AIRequestContext` escopado para essa requisição**. O contexto resultante continua per-request scoped, o valor nunca vaza para o histórico de conversa, e na próxima chamada o callback é re-executado refletindo o valor **daquele momento**. O provider, portanto, não viola o princípio de design do `AIRequestContext` — apenas **automatiza-o**.
+
+Concretamente, registrar o provider abaixo **não** modifica `service.SystemMessage` nem `service.Messages`:
+
+```csharp
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}"
+});
+```
+
+- Passada a meia-noite, a re-execução do provider na próxima chamada reflete automaticamente a **nova data** (não é estático)
+- Uma semana depois, abrindo o histórico de conversa, não se encontra "Today is ..." incrustado em requisições passadas
+- Mesmo usando um serviço compartilhado em ambiente multi-usuário, cada chamada produz seu próprio contexto independente
+
 > Disponível em Mythosia.AI v6.3.0+.

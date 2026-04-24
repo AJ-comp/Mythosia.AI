@@ -153,3 +153,12 @@ public class SentenceSplitter : ITextSplitter
 // Register:
 .WithTextSplitter(new SentenceSplitter())
 ```
+
+---
+
+## Want to dig deeper?
+
+For RAG, the safest chunking is often done **before** markdown — by walking the `DoclingDocument` tree directly. This avoids cutting tables in half or separating headings from their body text.
+
+- [Customizing the Output — chunking recipes](document-architecture-customization.md#recipe-4-chunking-for-rag--slice-the-tree-not-the-markdown) — slide-by-slide, sheet-by-sheet, and heading-context-preserving chunking patterns
+- [DoclingDocument Data Model](document-architecture-data-model.md) — the tree structure you'd walk for tree-based chunking

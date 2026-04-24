@@ -76,3 +76,14 @@
     href: vector-filter.md
   - name: Migration
     href: vectordb-migration.md
+
+- name: Advanced
+  items:
+  - name: Document Parsing Architecture
+    items:
+    - name: Big Picture
+      href: document-architecture-concept.md
+    - name: DoclingDocument Data Model
+      href: document-architecture-data-model.md
+    - name: Customizing the Output
+      href: document-architecture-customization.md

@@ -272,4 +272,37 @@ Lý do: trường hợp phổ biến là "provider cung cấp baseline, một l�
 
 Provider được gọi **một lần mỗi request**, nên giá trị trả về có thể phản ánh trạng thái tức thời (timestamp, phiên, v.v.). Trả về `null` là no-op — giống với việc để `SystemMessageProvider` không được thiết lập cho lệnh gọi đó.
 
+### Tóm lại: khi nào chọn công cụ này — giao điểm của ba điều kiện
+
+Lùi lại một bước từ các ví dụ và quy tắc hợp nhất ở trên, `SystemMessageProvider` là công cụ chuyên dụng cho trường hợp **ba điều kiện đồng thời thỏa mãn**:
+
+1. **Một baseline cần có mặt ở mọi lệnh gọi LLM** — không muốn phải nhớ inject thủ công tại mỗi điểm vào
+2. **Giá trị phải được tính động tại thời điểm gọi** — thời gian hiện tại, thư mục đang hoạt động, người dùng đã đăng nhập và các giá trị khác không thể cố định khi khởi động
+3. **Trạng thái vĩnh viễn (`SystemMessage`, lịch sử hội thoại) không được bị ô nhiễm** — giá trị không được rò rỉ sang các lệnh gọi sau
+
+Nếu thiếu bất kỳ một trong ba điều kiện, câu trả lời đúng là một công cụ đơn giản hơn:
+
+| Tình huống | Công cụ đúng | Lý do |
+|---|---|---|
+| Baseline **cố định (không thay đổi)** trong suốt phiên | `service.SystemMessage = "..."` | Gán một lần là đủ, không cần provider |
+| **Chỉ một lệnh gọi cụ thể** cần xử lý đặc biệt | Truyền `AIRequestContext` tường minh tại điểm gọi | Không phải baseline dùng chung — một lần inject |
+| Dùng chung + động + không ô nhiễm **(cả ba)** | **`SystemMessageProvider`** | Công cụ chuyên dụng cho giao ba điều kiện này |
+
+#### Tại sao điều này không mâu thuẫn với nguyên tắc "dùng một lần" của `AIRequestContext`
+
+Bản chất của `AIRequestContext` không phải là "chỉ dùng một lần" mà là **"không bao giờ làm ô nhiễm trạng thái vĩnh viễn"**. `SystemMessageProvider` là một factory **chạy lại callback trên mỗi request**, tạo ra **một `AIRequestContext` hoàn toàn mới giới hạn trong request đó**. Ngữ cảnh sinh ra vẫn là per-request scoped, giá trị không bao giờ rò rỉ vào lịch sử hội thoại, và ở lệnh gọi tiếp theo callback lại chạy để phản ánh giá trị **tại thời điểm đó**. Vậy nên provider không vi phạm nguyên tắc thiết kế của `AIRequestContext` — nó chỉ **tự động hóa nguyên tắc đó**.
+
+Cụ thể, đăng ký provider dưới đây **không** sửa đổi `service.SystemMessage` hay `service.Messages`:
+
+```csharp
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}"
+});
+```
+
+- Qua nửa đêm, lần chạy lại provider ở lệnh gọi tiếp theo tự động phản ánh **ngày mới** (không tĩnh)
+- Một tuần sau mở lịch sử hội thoại cũng không thấy "Today is ..." bị gắn vào các request cũ
+- Ngay cả khi dùng service dùng chung trong môi trường đa người dùng, mỗi lệnh gọi đều sinh ra ngữ cảnh độc lập riêng
+
 > Có sẵn trong Mythosia.AI v6.3.0+.

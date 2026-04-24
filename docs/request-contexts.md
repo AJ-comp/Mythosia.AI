@@ -272,4 +272,37 @@ Rationale: the common case is "provider supplies a baseline, a specific call wan
 
 The provider is invoked **once per request**, so return values can reflect up-to-the-moment state (timestamp, session, etc.). Returning `null` is a no-op — identical to leaving `SystemMessageProvider` unset for that call.
 
+### In summary: when to reach for this tool — the intersection of three conditions
+
+Stepping back from the examples and merge rules above, `SystemMessageProvider` is the dedicated tool for when **three conditions hold simultaneously**:
+
+1. **A baseline must be present on every LLM call** — you don't want to remember to inject it at each entry point
+2. **The value must be evaluated dynamically at call time** — current time, active folder, logged-in user, and other things that can't be pinned at startup
+3. **Permanent state (`SystemMessage`, conversation history) must not be contaminated** — the value must not leak into subsequent calls
+
+If any one of the three conditions is missing, a simpler tool is the right answer:
+
+| Situation | Right tool | Why |
+|---|---|---|
+| Baseline is **fixed (never changes)** for the session | `service.SystemMessage = "..."` | One-time assignment is enough, no provider needed |
+| **Only one specific call** needs special treatment | Pass `AIRequestContext` explicitly at the call site | Not a shared baseline — a one-off injection |
+| Shared + dynamic + contamination-free **(all three)** | **`SystemMessageProvider`** | The dedicated tool for this three-way intersection |
+
+#### Why this does not conflict with the "one-off" principle of `AIRequestContext`
+
+The essence of `AIRequestContext` is not "used only once" but **"never contaminates permanent state"**. `SystemMessageProvider` is a factory that **re-runs the callback on every request**, producing **a brand-new `AIRequestContext` scoped to that request**. The resulting context is still per-request scoped, the value never leaks into conversation history, and on the next call the callback fires again to reflect the **then-current** value. So the provider does not violate the design principle of `AIRequestContext` — it simply **automates it**.
+
+Concretely, registering the provider below does **not** modify `service.SystemMessage` or `service.Messages` at all:
+
+```csharp
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}"
+});
+```
+
+- Once the clock rolls past midnight, the next call's provider re-run automatically reflects the **new date** (not static)
+- Opening the conversation history a week later, you will not find "Today is ..." embedded in past requests
+- Even when a shared service is used in a multi-user setting, every call produces its own independent context
+
 > Available in Mythosia.AI v6.3.0+.

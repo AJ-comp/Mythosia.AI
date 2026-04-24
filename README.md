@@ -339,7 +339,7 @@ dotnet add package System.Linq.Async
 - [Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)
 - [Mythosia.AI README](src/core/Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
 - [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
-- Loaders Guide: [EN](src/loaders/Mythosia.Documents.Abstractions/docs/en/loaders.md) · [KO](src/loaders/Mythosia.Documents.Abstractions/docs/ko/loaders.md) · [JA](src/loaders/Mythosia.Documents.Abstractions/docs/ja/loaders.md) · [ZH](src/loaders/Mythosia.Documents.Abstractions/docs/zh/loaders.md)
+- [Document Loaders](docs/document-loaders.md)
 - [Release Notes](src/core/Mythosia.AI/RELEASE_NOTES.md)
 
 ## License

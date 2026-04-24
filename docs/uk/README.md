@@ -337,7 +337,7 @@ dotnet add package System.Linq.Async
 - [Посібник з основ](https://github.com/AJ-comp/Mythosia.AI/wiki)
 - [README Mythosia.AI](../../src/core/Mythosia.AI/README.md)  Повний довідник API: виклик функцій, стрімінг та налаштування моделей
 - [README Mythosia.AI.Rag](../../src/rag/Mythosia.AI.Rag/README.md)  Використання RAG-пайплайну та власні реалізації
-- Посібник із завантажувачів: [EN](../../src/loaders/Mythosia.Documents.Abstractions/docs/en/loaders.md) · [KO](../../src/loaders/Mythosia.Documents.Abstractions/docs/ko/loaders.md) · [JA](../../src/loaders/Mythosia.Documents.Abstractions/docs/ja/loaders.md) · [ZH](../../src/loaders/Mythosia.Documents.Abstractions/docs/zh/loaders.md)
+- [Посібник із завантажувачів](document-loaders.md)
 - [Примітки до релізів](../../src/core/Mythosia.AI/RELEASE_NOTES.md)
 
 ## Ліцензія

@@ -272,4 +272,37 @@ service.WithSystemMessageProvider(async ct =>
 
 Provider는 **요청당 한 번** 호출되므로 반환 값은 그 순간의 상태(타임스탬프, 세션 등)를 반영할 수 있습니다. `null` 반환은 no-op이며, 해당 호출에 대해 `SystemMessageProvider`를 설정하지 않은 것과 동일합니다.
 
+### 정리: 언제 이 도구를 선택하는가 — 세 조건의 교집합
+
+위의 사용 예와 병합 규칙을 한 걸음 물러서서 보면, `SystemMessageProvider`는 다음 **세 조건이 동시에 성립**할 때의 전용 도구입니다:
+
+1. **모든 LLM 호출에 공통으로** 깔려야 하는 베이스라인이다 — 진입점마다 수동 주입을 기억하고 싶지 않음
+2. **호출 시점마다 값이 동적으로 계산**돼야 한다 — 현재 시각, 활성 폴더, 로그인한 유저처럼 부팅 시점에 고정할 수 없는 값
+3. **영구 상태(`SystemMessage`, 대화 기록)를 오염시키지 않아야** 한다 — 그 값이 다음 호출까지 새어 나가면 안 됨
+
+세 조건 중 하나라도 빠지면 더 단순한 도구가 정답입니다:
+
+| 상황 | 정답 | 이유 |
+|---|---|---|
+| 베이스라인이 세션 내내 **고정 (변하지 않음)** | `service.SystemMessage = "..."` | 한 번 설정으로 충분, provider 불필요 |
+| **단 한 번의 호출**에만 특수 처리가 필요 | 호출 시 `AIRequestContext` 명시 전달 | 공통 베이스라인이 아닌 일회성 주입 |
+| 공통 + 동적 + 오염 금지 **(세 조건 모두)** | **`SystemMessageProvider`** | 이 세 가지 교집합의 전용 도구 |
+
+#### `AIRequestContext`의 "일회성" 원칙과 충돌하지 않는 이유
+
+`AIRequestContext`의 본질은 "한 번만 쓴다"가 아니라 **"영구 상태를 오염시키지 않는다"** 입니다. `SystemMessageProvider`는 매 요청마다 콜백을 **재실행**해 **그 요청 전용의 새로운 `AIRequestContext`를 생성**하는 팩토리입니다. 결과로 만들어진 컨텍스트는 여전히 per-request scoped이고, 값은 대화 기록에 새어 들어가지 않으며, 다음 호출에선 콜백이 다시 실행되어 **그 시점의** 값을 반영합니다. 즉 Provider는 `AIRequestContext`의 설계 원칙을 위반하지 않고 **자동화할 뿐**입니다.
+
+구체적으로, 아래처럼 등록해도 `service.SystemMessage`와 `service.Messages`는 전혀 변경되지 않습니다:
+
+```csharp
+service.WithSystemMessageProvider(() => new AIRequestContext
+{
+    SystemMessageSuffix = $"Today is {DateTime.UtcNow:yyyy-MM-dd}"
+});
+```
+
+- 자정이 지나면 다음 호출의 provider 재실행에서 **새 날짜**가 자동 반영됩니다 (정적이 아님)
+- 일주일 뒤 대화 기록을 열어봐도 과거 요청에 "Today is ..."가 박혀 있지 않습니다
+- 멀티유저 환경에서 공유 서비스를 써도 호출마다 독립된 컨텍스트가 생성됩니다
+
 > Mythosia.AI v6.3.0+에서 사용 가능.
