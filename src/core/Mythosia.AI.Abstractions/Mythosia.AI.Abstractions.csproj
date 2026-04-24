@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -19,8 +19,10 @@
 		<Description>Core abstractions and shared models for Mythosia.AI. Defines IAIService interface, Message, ChatBlock, StreamingContent, FunctionDefinition, and other contract types. Zero heavy dependencies.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v2.1.0: add StreamingContentType.RoundUsage plus StreamingContent.RoundIndex and IsFinalRound for per-LLM-round token usage events. Additive API update; Completion.Usage remains cumulative.</PackageReleaseNotes>
-		<Version>2.1.0</Version>
+		<PackageReleaseNotes>v2.2.0-preview1: add streaming diagnostics primitives — StreamDiagnostics (LinesRead, DataLinesProcessed, ParseFailures, AccumulatedTextLength, LastRawLine, Elapsed), StreamReadException (wraps IOException/NotSupportedException/etc. with the diagnostics snapshot taken at failure time), and StreamDiagnosticsBuilder (fluent configurator consumed by the new WithStreamDiagnostics extension in Mythosia.AI). Lets callers observe SSE streams (RawLine trace + OnComplete telemetry) and tell "stream silently ended" apart from "transport error after N chunks" — useful against self-hosted vLLM/ollama and unstable proxies. Additive API update; no existing types changed. Preview release for early adopter validation before the stable 2.2.0.</PackageReleaseNotes>
+
+		<Version>2.2.0-preview1</Version>
+
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -278,6 +278,24 @@ namespace Mythosia.AI.Services.Base
             return await GetCompletionAsync(message);
         }
 
+        /// <summary>
+        /// Copies the source service's state into this instance — conversation,
+        /// function registrations, sampling parameters, conversation policy, and
+        /// service-level callbacks (<see cref="SystemMessageProvider"/>,
+        /// streaming diagnostics).
+        ///
+        /// Service-level delegates are propagated by reference, not deep-copied
+        /// (deep copy of a delegate is not meaningful — its captured target
+        /// objects, e.g. an <c>ILogger</c>, are external infrastructure that the
+        /// library cannot clone). The typical case is callbacks wrapping a shared
+        /// logger/metrics/telemetry sink, where reference sharing is the desired
+        /// behavior.
+        ///
+        /// Caveat: if a callback closure captures the source service itself
+        /// (e.g. <c>line =&gt; Log(sourceService.Provider, line)</c>), the copy will
+        /// still log under the original provider's identity. Prefer capturing
+        /// only stable external resources inside callbacks.
+        /// </summary>
         public AIService CopyFrom(AIService sourceService)
         {
             if (sourceService == null)
@@ -318,6 +336,13 @@ namespace Mythosia.AI.Services.Base
             {
                 ConversationPolicy = null;
             }
+
+            // Service-level callbacks — propagate by reference so cross-provider
+            // switches (e.g. via WithStreamDiagnostics, WithSystemMessageProvider)
+            // do not silently lose configuration.
+            SystemMessageProvider = sourceService.SystemMessageProvider;
+            StreamRawLineCallback = sourceService.StreamRawLineCallback;
+            StreamCompleteCallback = sourceService.StreamCompleteCallback;
 
             return this;
         }

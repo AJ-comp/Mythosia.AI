@@ -40,13 +40,12 @@ namespace Mythosia.AI.Services.Perplexity
                     errorContent);
             }
 
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-
             var allContent = new StringBuilder();
-            while (!reader.EndOfStream)
+            var diagnostics = new StreamDiagnostics();
+            var options = StreamOptions.TextOnlyOptions;
+
+            await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
             {
-                var line = await reader.ReadLineAsync();
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
                     continue;
 
@@ -59,11 +58,14 @@ namespace Mythosia.AI.Services.Perplexity
                     if (!string.IsNullOrEmpty(content))
                     {
                         allContent.Append(content);
+                        diagnostics.AccumulatedTextLength += content.Length;
+                        diagnostics.DataLinesProcessed++;
                         await messageReceivedAsync(content);
                     }
                 }
                 catch (JsonException ex)
                 {
+                    diagnostics.ParseFailures++;
                     ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
                     throw new AIServiceException("Failed to parse streaming response", ex.Message);
                 }
@@ -97,12 +99,11 @@ namespace Mythosia.AI.Services.Perplexity
                         errorContent);
                 }
 
-                using var stream = await response.Content.ReadAsStreamAsync();
-                using var reader = new StreamReader(stream);
+                var diagnostics = new StreamDiagnostics();
+                var options = StreamOptions.TextOnlyOptions;
 
-                while (!reader.EndOfStream)
+                await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
                 {
-                    var line = await reader.ReadLineAsync();
                     if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
                         continue;
 
@@ -114,12 +115,14 @@ namespace Mythosia.AI.Services.Perplexity
                         var content = StreamParseJson(jsonData);
                         if (!string.IsNullOrEmpty(content))
                         {
+                            diagnostics.AccumulatedTextLength += content.Length;
+                            diagnostics.DataLinesProcessed++;
                             await messageReceivedAsync(content);
                         }
                     }
                     catch (JsonException)
                     {
-                        // Ignore parse errors in stateless mode
+                        diagnostics.ParseFailures++;
                     }
                 }
             }
@@ -230,16 +233,13 @@ namespace Mythosia.AI.Services.Perplexity
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-
             var textBuffer = new StringBuilder();
             string? currentModel = null;
             TokenUsage? lastUsage = null;
+            var diagnostics = new StreamDiagnostics();
 
-            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+            await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
             {
-                var line = await reader.ReadLineAsync();
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
                     continue;
 

@@ -673,6 +673,55 @@ await foreach (var content in service.StreamAsync("Query", options))
 }
 ```
 
+### Streaming Diagnostics
+
+When an SSE stream dies mid-flight against a self-hosted backend (vLLM, ollama, internal proxy), you usually need to know exactly where it died. Register diagnostic hooks once on the service — every subsequent `StreamAsync` call picks them up automatically. Same fluent builder pattern as `WithRag`.
+
+```csharp
+using Mythosia.AI.Extensions;
+
+service.WithStreamDiagnostics(d => d
+    .OnRawLine(line => logger.LogDebug("SSE: {Line}", line))
+    .OnComplete(diag => logger.LogInformation("Stream finished: {Diag}", diag)));
+
+await foreach (var chunk in service.StreamAsync(message))
+    Console.Write(chunk.Content);
+```
+
+Each `On*` method is independent — register only what you need:
+
+```csharp
+// Raw line trace only
+service.WithStreamDiagnostics(d => d.OnRawLine(line => logger.LogDebug("SSE: {Line}", line)));
+
+// Clear all hooks
+service.WithStreamDiagnostics(_ => { });
+```
+
+When SSE reading throws, the library wraps the exception in `StreamReadException` with a `StreamDiagnostics` snapshot taken at the moment of failure. This works regardless of whether `WithStreamDiagnostics` was registered:
+
+```csharp
+try
+{
+    await foreach (var chunk in service.StreamAsync(message))
+        Console.Write(chunk.Content);
+}
+catch (StreamReadException ex)
+{
+    logger.LogError(ex,
+        "Stream died after {Lines} lines, {Chars} chars. Last raw line: {Line}",
+        ex.Diagnostics.LinesRead,
+        ex.Diagnostics.AccumulatedTextLength,
+        ex.Diagnostics.LastRawLine);
+
+    // ex.InnerException carries the original exception (IOException, etc.)
+}
+```
+
+`StreamDiagnostics` exposes `LinesRead`, `DataLinesProcessed`, `ParseFailures`, `AccumulatedTextLength`, `LastRawLine`, and `Elapsed`. Hooks are propagated through `CopyFrom`, so cross-provider switches in a multi-provider chat UI keep the registered diagnostics without re-registration.
+
+Available in Mythosia.AI v6.4.0+. Full guide: [`docs/streaming.md`](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/streaming.md).
+
 ### Token Usage
 
 Streaming exposes token usage in two different places, with different meanings:

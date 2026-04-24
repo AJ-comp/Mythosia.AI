@@ -188,5 +188,5 @@ var service = new AnthropicService(apiKey, http)
 아래 페이지들은 파싱 내부 동작을 설명합니다 — 표 렌더링을 커스터마이징하거나, 슬라이드/시트 단위로 청크를 나누거나, 새 파일 형식을 지원하고 싶을 때 유용합니다. `LoadAsync()` + `ToMarkdown()`만 쓸 거라면 읽지 않으셔도 됩니다.
 
 - [문서 파싱 — 기본 개념](document-architecture-concept.md) — 왜 두 단계로 나뉘어 있는지
-- [DoclingDocument 데이터 모델](document-architecture-data-model.md) — 각 로더가 만들어내는 트리 구조
-- [원하는 대로 출력 바꾸기](document-architecture-customization.md) — 표 시리얼라이저 교체, 청킹 패턴, 커스텀 파서
+- [DoclingDocument 안에 무엇이 들어있을까?](document-architecture-data-model.md) — 각 로더가 만들어내는 트리 구조
+- [출력 커스터마이징](document-architecture-customization.md) — 표 시리얼라이저 교체, 청킹 패턴, 커스텀 파서

@@ -60,28 +60,31 @@ namespace Mythosia.AI.Services.Anthropic
             int? accCachedInputTokens = null;
             int? accCacheCreationTokens = null;
 
-            using (var stream = await response.Content.ReadAsStreamAsync())
-            using (var reader = new StreamReader(stream))
+            var diagnostics = new StreamDiagnostics();
+
+            await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
             {
-                string line;
-                while ((line = await reader.ReadLineAsync()) != null && !cancellationToken.IsCancellationRequested)
+                if (!line.StartsWith(SseDataPrefix) && !line.StartsWith(SseEventPrefix))
+                    continue;
+
+                if (line.StartsWith(SseEventPrefix))
                 {
-                    if (!line.StartsWith(SseDataPrefix) && !line.StartsWith(SseEventPrefix))
-                        continue;
+                    var eventType = line.Substring(SseEventPrefix.Length).Trim();
+                    currentToolUse.CurrentEventType = eventType;
+                    continue;
+                }
 
-                    if (line.StartsWith(SseEventPrefix))
-                    {
-                        var eventType = line.Substring(SseEventPrefix.Length).Trim();
-                        currentToolUse.CurrentEventType = eventType;
-                        continue;
-                    }
+                var jsonData = line.Substring(SseDataPrefix.Length).Trim();
+                if (string.IsNullOrEmpty(jsonData))
+                    continue;
 
-                    var jsonData = line.Substring(SseDataPrefix.Length).Trim();
-                    if (string.IsNullOrEmpty(jsonData))
-                        continue;
-
-                    var parseResult = TryParseClaudeStreamChunk(jsonData, currentToolUse, options, policy);
-                    if (parseResult == null) continue;
+                var parseResult = TryParseClaudeStreamChunk(jsonData, currentToolUse, options, policy);
+                if (parseResult == null)
+                {
+                    diagnostics.ParseFailures++;
+                    continue;
+                }
+                diagnostics.DataLinesProcessed++;
 
                     if (currentModel == null && parseResult.Model != null)
                         currentModel = parseResult.Model;
@@ -184,7 +187,6 @@ namespace Mythosia.AI.Services.Anthropic
                         }
                         break;
                     }
-                }
             }
 
             // ── Phase 2: Post-processing (function execution) ──

@@ -45,6 +45,14 @@
       href: document-loaders.md
     - name: 텍스트 분할기
       href: text-splitters.md
+    - name: 고급
+      items:
+      - name: 기본 개념
+        href: document-architecture-concept.md
+      - name: DoclingDocument 안에 무엇이 들어있을까?
+        href: document-architecture-data-model.md
+      - name: 출력 커스터마이징
+        href: document-architecture-customization.md
   - name: 질문 응답
     items:
     - name: 쿼리 재작성
@@ -77,13 +85,3 @@
   - name: 마이그레이션
     href: vectordb-migration.md
 
-- name: 고급
-  items:
-  - name: 문서 파싱 아키텍처
-    items:
-    - name: 기본 개념
-      href: document-architecture-concept.md
-    - name: DoclingDocument 데이터 모델
-      href: document-architecture-data-model.md
-    - name: 원하는 대로 출력 바꾸기
-      href: document-architecture-customization.md

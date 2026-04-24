@@ -1,5 +1,23 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v2.2.0-preview1
+
+> Preview release for early adopter validation before the stable 2.2.0.
+
+### Added
+
+- **Streaming diagnostics primitives** (consumed by `Mythosia.AI`'s new `WithStreamDiagnostics` extension and `ReadSseLinesAsync` helper).
+  - `StreamDiagnostics` — observability snapshot for a single SSE round. Fields: `LinesRead`, `DataLinesProcessed`, `ParseFailures`, `AccumulatedTextLength`, `LastRawLine`, `Elapsed`. Lets callers tell "stream silently ended" apart from "transport error after N chunks".
+  - `StreamReadException` — wraps the underlying read-time exception (`IOException`, `NotSupportedException`, `ObjectDisposedException`, etc.) and attaches a `StreamDiagnostics` snapshot taken at the moment of failure. `InnerException` preserves the original.
+  - `StreamDiagnosticsBuilder` — fluent configurator with independent `OnRawLine(Action<string>)` and `OnComplete(Action<StreamDiagnostics>)` hooks. Consumed by `service.WithStreamDiagnostics(d => d.OnRawLine(...).OnComplete(...))` in `Mythosia.AI`.
+
+### Compatibility
+
+- Additive public API update.
+- No existing types or members were removed, renamed, or changed.
+
+---
+
 ## v2.1.0
 
 ### Added

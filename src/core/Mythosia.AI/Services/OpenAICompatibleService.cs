@@ -69,110 +69,109 @@ namespace Mythosia.AI.Services.Base
             bool functionCallEventSent = false;
             TokenUsage lastUsage = null;
             Dictionary<string, object> completionMetadata = null;
+            var diagnostics = new StreamDiagnostics();
 
-            using (var stream = await response.Content.ReadAsStreamAsync())
-            using (var reader = new StreamReader(stream))
+            await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
             {
-                while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
+                    continue;
+
+                var jsonData = line.Substring("data:".Length).Trim();
+                if (jsonData == "[DONE]")
                 {
-                    var line = await reader.ReadLineAsync();
-                    if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                        continue;
-
-                    var jsonData = line.Substring("data:".Length).Trim();
-                    if (jsonData == "[DONE]")
+                    if (!options.TextOnly)
                     {
-                        if (!options.TextOnly)
+                        var completionContent = new StreamingContent
                         {
-                            var completionContent = new StreamingContent
+                            Type = StreamingContentType.Completion
+                        };
+                        if (options.IncludeMetadata)
+                        {
+                            var meta = completionMetadata ?? new Dictionary<string, object>();
+                            meta["total_length"] = streamData.TextBuffer.Length;
+                            meta["model"] = streamData.Model ?? Model;
+                            completionContent.Metadata = meta;
+                        }
+                        if (lastUsage != null)
+                            completionContent.Usage = lastUsage;
+                        yield return completionContent;
+                    }
+                    // Clear so the post-loop fallback doesn't fire
+                    completionMetadata = null;
+                    lastUsage = null;
+                    break;
+                }
+
+                OpenAIStreamChunk chunk;
+                try
+                {
+                    chunk = ParseStreamChunk(jsonData, options);
+                    diagnostics.DataLinesProcessed++;
+                }
+                catch
+                {
+                    diagnostics.ParseFailures++;
+                    continue;
+                }
+
+                if (chunk.Usage != null)
+                    lastUsage = chunk.Usage;
+
+                if (chunk.Model != null)
+                    streamData.Model = chunk.Model;
+
+                // Provider-specific completion event (e.g., OpenAI response.done)
+                // Capture metadata/usage but don't yield — [DONE] will handle it
+                if (chunk.IsCompletion)
+                {
+                    if (chunk.Metadata != null)
+                        completionMetadata = chunk.Metadata;
+                    continue;
+                }
+
+                // Reasoning — yield immediately
+                if (chunk.Reasoning != null && options.IncludeReasoning)
+                {
+                    streamData.ReasoningBuffer.Append(chunk.Reasoning);
+                    yield return new StreamingContent
+                    {
+                        Type = StreamingContentType.Reasoning,
+                        Content = chunk.Reasoning,
+                        Metadata = chunk.Metadata
+                    };
+                }
+
+                // Text — yield immediately
+                if (chunk.Text != null)
+                {
+                    streamData.TextBuffer.Append(chunk.Text);
+                    diagnostics.AccumulatedTextLength += chunk.Text.Length;
+                    yield return new StreamingContent
+                    {
+                        Type = StreamingContentType.Text,
+                        Content = chunk.Text,
+                        Metadata = chunk.Metadata
+                    };
+                }
+
+                // Function call — collect for post-processing
+                if (chunk.FunctionCall != null)
+                {
+                    streamData.UpdateFunctionCall(chunk.FunctionCall);
+
+                    if (!functionCallEventSent && options.IncludeFunctionCalls &&
+                        streamData.FunctionCall?.Name != null)
+                    {
+                        functionCallEventSent = true;
+                        yield return new StreamingContent
+                        {
+                            Type = StreamingContentType.FunctionCall,
+                            Metadata = new Dictionary<string, object>
                             {
-                                Type = StreamingContentType.Completion
-                            };
-                            if (options.IncludeMetadata)
-                            {
-                                var meta = completionMetadata ?? new Dictionary<string, object>();
-                                meta["total_length"] = streamData.TextBuffer.Length;
-                                meta["model"] = streamData.Model ?? Model;
-                                completionContent.Metadata = meta;
+                                ["function_name"] = streamData.FunctionCall.Name,
+                                ["status"] = "started"
                             }
-                            if (lastUsage != null)
-                                completionContent.Usage = lastUsage;
-                            yield return completionContent;
-                        }
-                        // Clear so the post-loop fallback doesn't fire
-                        completionMetadata = null;
-                        lastUsage = null;
-                        break;
-                    }
-
-                    OpenAIStreamChunk chunk;
-                    try
-                    {
-                        chunk = ParseStreamChunk(jsonData, options);
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-
-                    if (chunk.Usage != null)
-                        lastUsage = chunk.Usage;
-
-                    if (chunk.Model != null)
-                        streamData.Model = chunk.Model;
-
-                    // Provider-specific completion event (e.g., OpenAI response.done)
-                    // Capture metadata/usage but don't yield — [DONE] will handle it
-                    if (chunk.IsCompletion)
-                    {
-                        if (chunk.Metadata != null)
-                            completionMetadata = chunk.Metadata;
-                        continue;
-                    }
-
-                    // Reasoning — yield immediately
-                    if (chunk.Reasoning != null && options.IncludeReasoning)
-                    {
-                        streamData.ReasoningBuffer.Append(chunk.Reasoning);
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.Reasoning,
-                            Content = chunk.Reasoning,
-                            Metadata = chunk.Metadata
                         };
-                    }
-
-                    // Text — yield immediately
-                    if (chunk.Text != null)
-                    {
-                        streamData.TextBuffer.Append(chunk.Text);
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.Text,
-                            Content = chunk.Text,
-                            Metadata = chunk.Metadata
-                        };
-                    }
-
-                    // Function call — collect for post-processing
-                    if (chunk.FunctionCall != null)
-                    {
-                        streamData.UpdateFunctionCall(chunk.FunctionCall);
-
-                        if (!functionCallEventSent && options.IncludeFunctionCalls &&
-                            streamData.FunctionCall?.Name != null)
-                        {
-                            functionCallEventSent = true;
-                            yield return new StreamingContent
-                            {
-                                Type = StreamingContentType.FunctionCall,
-                                Metadata = new Dictionary<string, object>
-                                {
-                                    ["function_name"] = streamData.FunctionCall.Name,
-                                    ["status"] = "started"
-                                }
-                            };
-                        }
                     }
                 }
             }

@@ -1,5 +1,58 @@
 # Mythosia.AI - Release Notes
 
+## v6.4.0-preview1
+
+> Preview release for early adopter validation before the stable 6.4.0.
+
+### Added
+
+- **Streaming diagnostics — service-level `WithStreamDiagnostics`**
+  - New fluent extension on `AIService`: `service.WithStreamDiagnostics(d => d.OnRawLine(...).OnComplete(...))`. Same builder pattern as `WithRag` — register once and every subsequent `StreamAsync` call automatically invokes the hooks.
+  - `OnRawLine(Action<string>)` fires for every SSE line received from the response, before any provider-specific parsing. Wire to a Debug-level logger to see exactly what the server sent.
+  - `OnComplete(Action<StreamDiagnostics>)` fires exactly once on stream exit (success or failure) with a snapshot: `LinesRead`, `DataLinesProcessed`, `ParseFailures`, `AccumulatedTextLength`, `LastRawLine`, `Elapsed`.
+  - Each `On*` method is independent — call only the ones you need. Re-applying replaces; pass `_ => { }` to clear.
+  - Especially useful against self-hosted vLLM/ollama and unstable proxies, where "the stream just stopped" needs to be told apart from "transport error after N chunks".
+
+- **`StreamReadException` for read-time failures**
+  - When SSE reading throws (`IOException`, `NotSupportedException`, `ObjectDisposedException`, etc.), the library now wraps it in `StreamReadException` with the original exception preserved as `InnerException` and a `StreamDiagnostics` snapshot attached as `Diagnostics`. Works regardless of whether `WithStreamDiagnostics` is registered.
+  - `OperationCanceledException` is intentionally not wrapped, so cancellation semantics remain intact for callers using `CancellationToken`.
+
+- **`AIService.ReadSseLinesAsync` instance helper** (`protected internal`)
+  - Extension point for custom provider implementations. Yields raw SSE lines line-by-line with diagnostics tracking, async stream disposal, and structured exception wrapping built in.
+
+### Fixed
+
+- **`NotSupportedException` at `await foreach ... DisposeAsync()`**
+  - Replaced the synchronous `using (var stream = ...)` pattern across all 5 providers (10 SSE-reading loops) with async stream disposal via the new `ReadSseLinesAsync` helper. Eliminates the `NotSupportedException` thrown by HTTP transports whose stream rejects synchronous `Dispose`.
+  - The helper's `finally` block now guards every disposal step with `try/catch` so a Dispose-time failure cannot mask the real read-side exception, and `OnComplete` is guaranteed to fire even when disposal fails.
+
+- **`CopyFrom` now propagates service-level callbacks**
+  - `AIService.CopyFrom(source)` was silently dropping `SystemMessageProvider` (declared in v6.3.0 but missing from `CopyFrom`), `StreamRawLineCallback`, and `StreamCompleteCallback`.
+  - These delegates are now propagated by reference, so cross-provider switches (e.g., `new AnthropicService(...).CopyFrom(openaiService)` in a multi-provider chat UI) keep the registered diagnostics and system-message provider working without re-registration.
+  - Caveat documented in XML doc: closures that capture the source service itself (e.g., `line => Log(source.Provider, line)`) will still reference the original service in the copy. Capturing only external sinks (`logger`, `metrics`, `telemetry`) is the safe pattern.
+
+### Internal
+
+- **5 provider streaming implementations consolidated** to a single `ReadSseLinesAsync` helper:
+  - `OpenAICompatibleService` (covers OpenAI, Grok, Qwen, vLLM)
+  - `AnthropicService.Streaming`
+  - `GoogleAIService.Streaming` (3 loops + removed obsolete private `ReadSseLines(StreamReader)` helper)
+  - `DeepSeekService.Streaming` (3 loops)
+  - `PerplexityService.Streaming` (3 loops)
+- Eliminates 9 duplicate SSE-reading loops and centralizes future SSE behavior changes (timeout, retry, keep-alive) to one place.
+
+### Tests
+
+- 16 new diagnostics unit tests covering: read-time `Exception` wrapping into `StreamReadException`, `OnRawLine`-only and `OnComplete`-only registrations, callback exception isolation (a faulty logger cannot break the stream), `CopyFrom` callback propagation, disposal-failure scenarios where `OnComplete` must still fire, and cancellation-token honoring between reads.
+
+### Compatibility
+
+- Additive public API — `WithStreamDiagnostics` is a new extension; `StreamReadException` is a new type. Existing callers compile and run unchanged.
+- `IAIService` contract unchanged.
+- Requires `Mythosia.AI.Abstractions` v2.2.0-preview1 (which adds `StreamDiagnostics`, `StreamDiagnosticsBuilder`, `StreamReadException`).
+
+---
+
 ## v6.3.0
 
 ### Added

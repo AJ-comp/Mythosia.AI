@@ -160,5 +160,5 @@ public class SentenceSplitter : ITextSplitter
 
 RAG에서 가장 안전한 청킹은 마크다운으로 변환하기 **전에**, `DoclingDocument` 트리에서 직접 자르는 방식입니다 — 표가 중간에서 잘리거나 헤딩이 본문과 분리되는 사고를 막을 수 있습니다.
 
-- [원하는 대로 출력 바꾸기 — 청킹 레시피](document-architecture-customization.md#레시피-4-rag를-위한-청킹--트리에서-직접-자르기) — 슬라이드/시트 단위, 헤딩 컨텍스트 보존 청킹 패턴
-- [DoclingDocument 데이터 모델](document-architecture-data-model.md) — 트리 기반 청킹을 직접 구현할 때 필요한 트리 구조 설명
+- [출력 커스터마이징 — 청킹 레시피](document-architecture-customization.md#레시피-4-rag-청킹--트리에서-직접-분할하기) — 슬라이드/시트 단위, 헤딩 컨텍스트 보존 청킹 패턴
+- [DoclingDocument 안에 무엇이 들어있을까?](document-architecture-data-model.md) — 트리 기반 청킹을 직접 구현할 때 필요한 트리 구조 설명

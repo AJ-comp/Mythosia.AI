@@ -68,6 +68,8 @@ All concrete providers (`OpenAIService`, `AnthropicService`, `GoogleAIService`, 
 | `StreamingContentType` | Chunk type enum (`Text`, `Reasoning`, `FunctionCall`, `FunctionResult`, `Status`, `Error`, `Completion`, `RoundUsage`) |
 | `StreamOptions` | Streaming behavior options (metadata, function calls, reasoning) |
 | `TokenUsage` | Token count data (input, output, cached, reasoning) |
+| `StreamDiagnostics` | SSE round observability snapshot — lines read, accumulated chars, last raw line, elapsed time |
+| `StreamDiagnosticsBuilder` | Fluent configurator for service-level streaming diagnostics; consumed by `Mythosia.AI`'s `WithStreamDiagnostics(d => d.OnRawLine(...).OnComplete(...))` |
 
 ## Functions
 
@@ -84,6 +86,7 @@ All concrete providers (`OpenAIService`, `AnthropicService`, `GoogleAIService`, 
 | --- | --- |
 | `AIServiceException` | Base exception for AI service errors |
 | `AgentMaxStepsExceededException` | Thrown when agent exceeds maximum iteration steps |
+| `StreamReadException` | Thrown when an SSE read fails (transport error, premature stream end, etc.). Wraps the underlying exception in `InnerException` and attaches a `StreamDiagnostics` snapshot via the `Diagnostics` property |
 
 ---
 

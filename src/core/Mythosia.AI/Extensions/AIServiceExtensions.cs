@@ -1,6 +1,7 @@
 ﻿using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using System;
 using System.Threading;
@@ -165,6 +166,38 @@ namespace Mythosia.AI.Extensions
         public static AIService WithSystemMessageProvider(this AIService service, Func<CancellationToken, ValueTask<AIRequestContext?>> provider)
         {
             service.SystemMessageProvider = provider;
+            return service;
+        }
+
+        /// <summary>
+        /// Registers diagnostic callbacks for SSE streaming on this service. Useful for
+        /// observability and post-mortem analysis when a stream dies mid-flight against
+        /// a self-hosted backend (vLLM, ollama, internal proxy). Each <c>On*</c> method
+        /// on the builder is independent — only call the ones you need.
+        ///
+        /// Calling this method overwrites any previously registered diagnostics on the
+        /// service. Pass <c>d =&gt; { }</c> to clear all callbacks.
+        /// </summary>
+        /// <example>
+        /// <code>
+        /// // Wire raw SSE lines to Debug logger and aggregate metrics on completion
+        /// service.WithStreamDiagnostics(d =&gt; d
+        ///     .OnRawLine(line =&gt; logger.LogDebug("SSE: {Line}", line))
+        ///     .OnComplete(diag =&gt; metrics.Record(diag.LinesRead, diag.Elapsed)));
+        /// </code>
+        /// </example>
+        public static T WithStreamDiagnostics<T>(this T service, Action<StreamDiagnosticsBuilder> configure)
+            where T : AIService
+        {
+            if (service == null) throw new ArgumentNullException(nameof(service));
+            if (configure == null) throw new ArgumentNullException(nameof(configure));
+
+            var builder = new StreamDiagnosticsBuilder();
+            configure(builder);
+
+            service.StreamRawLineCallback = builder.RawLineCallback;
+            service.StreamCompleteCallback = builder.CompleteCallback;
+
             return service;
         }
 

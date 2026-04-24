@@ -152,3 +152,85 @@ await service.ApplySummaryPolicyIfNeededAsync();
 await foreach (var chunk in service.StreamAsync("Continue our conversation..."))
     Console.Write(chunk.Content);
 ```
+
+## Streaming Diagnostics
+
+When an SSE connection drops mid-stream or the response ends abnormally, you often need to know exactly where things went wrong. The library exposes diagnostic hooks for this — useful for self-hosted vLLM, internal proxies, and unstable network paths.
+
+### Registering hooks
+
+Register once on the service; all subsequent `StreamAsync` calls pick up the hooks automatically. Same builder pattern as `WithRag`.
+
+```csharp
+using Mythosia.AI.Extensions;
+
+service.WithStreamDiagnostics(d => d
+    .OnRawLine(line => logger.LogDebug("SSE: {Line}", line))
+    .OnComplete(diag => logger.LogInformation("Stream finished: {Diag}", diag)));
+
+// Hooks now apply to every streaming call on this service.
+await foreach (var chunk in service.StreamAsync(message))
+    Console.Write(chunk.Content);
+```
+
+Each `On*` method is independent — call only the ones you need.
+
+```csharp
+// Raw line trace only
+service.WithStreamDiagnostics(d => d.OnRawLine(line => logger.LogDebug("SSE: {Line}", line)));
+
+// Clear all hooks
+service.WithStreamDiagnostics(_ => { });
+```
+
+> **Cross-provider switches (`CopyFrom`)**: Registered callbacks are propagated automatically when you copy state to a new service instance. Callbacks that wrap external sinks (`logger`, `metrics`) keep working as expected. Be careful with closures that capture the service instance itself (e.g. `line => Log(service.Provider, line)`) — the copy will still reference the original service. Capturing only external resources is the safe pattern.
+
+### Available callbacks
+
+| Method | Fires | Use for |
+|---|---|---|
+| `OnRawLine(Action<string>)` | Every SSE line received | Debug-level tracing — see whether the last line before death was truncated or non-standard |
+| `OnComplete(Action<StreamDiagnostics>)` | Once on stream exit (success or failure) | Telemetry — line count, accumulated chars, elapsed time |
+
+### Catching diagnostics on failure
+
+When SSE reading throws an `IOException` or transport error, the library wraps it in `StreamReadException`. The `Diagnostics` property exposes the state at the moment of failure — this works regardless of whether `WithStreamDiagnostics` was registered.
+
+```csharp
+try
+{
+    await foreach (var chunk in service.StreamAsync(message))
+        Console.Write(chunk.Content);
+}
+catch (StreamReadException ex)
+{
+    logger.LogError(ex,
+        "Stream died after {Lines} lines, {Chars} chars. Last raw line: {Line}",
+        ex.Diagnostics.LinesRead,
+        ex.Diagnostics.AccumulatedTextLength,
+        ex.Diagnostics.LastRawLine);
+
+    // ex.InnerException carries the original exception (IOException, etc.)
+}
+```
+
+### `StreamDiagnostics` fields
+
+| Field | Meaning |
+|---|---|
+| `LinesRead` | Total SSE lines received (including blank/comment lines) |
+| `DataLinesProcessed` | Lines accepted as content by the chunk parser |
+| `ParseFailures` | Lines that hit a JSON parse error (silently skipped before this feature existed) |
+| `AccumulatedTextLength` | Total characters appended to the assistant text buffer |
+| `LastRawLine` | Most recent raw SSE line — surfaces the truncated tail when a stream dies mid-line |
+| `Elapsed` | Wall-clock time spent reading the stream |
+
+### Diagnosing self-hosted backends
+
+If you see "turn 1 works, turn 2 fails intermittently" against vLLM, ollama, or other self-hosted endpoints:
+
+1. Register `WithStreamDiagnostics(d => d.OnRawLine(...))` at Debug level and reproduce
+2. On `StreamReadException`, log `Diagnostics.LastRawLine` and `ex.InnerException.GetType().FullName`
+3. Cross-reference the server log (200 OK but truncated response) with the client's last received line
+
+This narrows the issue down to "server finished normally but the client lost the connection mid-line" vs other failure modes very quickly.

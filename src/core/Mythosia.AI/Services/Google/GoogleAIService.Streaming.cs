@@ -36,23 +36,29 @@ namespace Mythosia.AI.Services.Google
             var request = CreateMessageRequest();
             var response = await SendStreamingRequestAsync(request);
 
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-
             var allContent = new StringBuilder();
-            await foreach (var jsonData in ReadSseLines(reader))
+            var diagnostics = new StreamDiagnostics();
+            var options = StreamOptions.TextOnlyOptions;
+
+            await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
             {
+                if (!TryExtractSseData(line, out var jsonData)) continue;
+                if (jsonData == SseDoneSignal) break;
+
                 try
                 {
                     var content = StreamParseJson(jsonData);
                     if (!string.IsNullOrEmpty(content))
                     {
                         allContent.Append(content);
+                        diagnostics.AccumulatedTextLength += content.Length;
+                        diagnostics.DataLinesProcessed++;
                         await messageReceivedAsync(content);
                     }
                 }
                 catch (JsonException ex)
                 {
+                    diagnostics.ParseFailures++;
                     ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
                     throw new AIServiceException("Failed to parse Gemini streaming response", ex.Message);
                 }
@@ -78,19 +84,27 @@ namespace Mythosia.AI.Services.Google
                 var request = CreateMessageRequest();
                 var response = await SendStreamingRequestAsync(request);
 
-                using var stream = await response.Content.ReadAsStreamAsync();
-                using var reader = new StreamReader(stream);
+                var diagnostics = new StreamDiagnostics();
+                var options = StreamOptions.TextOnlyOptions;
 
-                await foreach (var jsonData in ReadSseLines(reader))
+                await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
                 {
+                    if (!TryExtractSseData(line, out var jsonData)) continue;
+                    if (jsonData == SseDoneSignal) break;
+
                     try
                     {
                         var content = StreamParseJson(jsonData);
                         if (!string.IsNullOrEmpty(content))
+                        {
+                            diagnostics.AccumulatedTextLength += content.Length;
+                            diagnostics.DataLinesProcessed++;
                             await messageReceivedAsync(content);
+                        }
                     }
                     catch (JsonException)
                     {
+                        diagnostics.ParseFailures++;
                     }
                 }
             }
@@ -172,15 +186,12 @@ namespace Mythosia.AI.Services.Google
             FunctionCallData functionCallData,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
-            using var stream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(stream);
-
             TokenUsage? lastUsage = null;
             bool functionCallEventSent = false;
+            var diagnostics = new StreamDiagnostics();
 
-            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+            await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
             {
-                var line = await reader.ReadLineAsync();
                 if (!TryExtractSseData(line, out var jsonData))
                     continue;
 
@@ -356,21 +367,6 @@ namespace Mythosia.AI.Services.Google
 
             jsonData = line.Substring(SseDataPrefix.Length).Trim();
             return true;
-        }
-
-        private static async IAsyncEnumerable<string> ReadSseLines(StreamReader reader)
-        {
-            while (!reader.EndOfStream)
-            {
-                var line = await reader.ReadLineAsync();
-                if (!TryExtractSseData(line, out var jsonData))
-                    continue;
-
-                if (jsonData == SseDoneSignal)
-                    yield break;
-
-                yield return jsonData;
-            }
         }
 
         private static StreamingContent CreateErrorContent(HttpResponseMessage response)

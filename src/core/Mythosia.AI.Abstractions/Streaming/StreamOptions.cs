@@ -85,7 +85,7 @@ namespace Mythosia.AI.Models.Streaming
                 IncludeFunctionCalls = this.IncludeFunctionCalls,
 
                 IncludeReasoning = this.IncludeReasoning,
-                TextOnly = this.TextOnly
+                TextOnly = this.TextOnly,
             };
         }
 

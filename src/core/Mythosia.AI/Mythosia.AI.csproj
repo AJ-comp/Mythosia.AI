@@ -23,44 +23,48 @@
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-		## What's New in v6.3.0
+## What's New in v6.4.0-preview1
 
-		### Agent Path Per-Call Request Context
-		- RunAgentAsync(string, int, AIRequestContext?) and RunAgentStreamAsync(string, int, StreamOptions?, AIRequestContext?, CancellationToken) now accept AIRequestContext.
-		- Context flows through AsyncLocal and is safe for concurrent agent runs on the same service.
+> Preview release for early adopter validation before the stable 6.4.0.
 
-		### AIService.SystemMessageProvider for Automatic Context Injection
-		- New Func&lt;CancellationToken, ValueTask&lt;AIRequestContext?&gt;&gt;? property invoked automatically before every outbound call (GetCompletionAsync, StreamAsync, RunAgentAsync, RunAgentStreamAsync).
-		- Register once at service construction; callers no longer need to build and pass AIRequestContext at every entry point.
-		- Async-shaped signature — providers that need IO (database, cache, HTTP) run natively without blocking on .Result/.GetAwaiter().GetResult(). Streaming paths forward the caller's CancellationToken; non-streaming paths pass CancellationToken.None.
-		- When an explicit per-call context is also supplied, the two merge field-by-field: explicit wins on scalar fields; AdditionalMessages concatenates.
-		- Two fluent overloads resolved by lambda arity: service.WithSystemMessageProvider(() =&gt; ctx) for sync, service.WithSystemMessageProvider(async ct =&gt; ctx) for async. Property exposes internal set so fluent helpers are the canonical assignment path.
+### Streaming Diagnostics (service-level)
+- New WithStreamDiagnostics(d =&gt; d.OnRawLine(...).OnComplete(...)) extension on AIService — register once and every subsequent StreamAsync call automatically invokes the hooks. Same fluent builder pattern as WithRag.
+- OnRawLine fires for every SSE line received (Debug-level trace of the wire payload). OnComplete fires exactly once on stream exit, success or failure, with a StreamDiagnostics snapshot (LinesRead, AccumulatedTextLength, LastRawLine, Elapsed).
+- Read-time exceptions are wrapped in StreamReadException with Diagnostics attached and the original exception in InnerException — works regardless of whether WithStreamDiagnostics is registered.
+- Especially useful against self-hosted vLLM / ollama / unstable proxies, where "the stream just stopped" needs to be told apart from "transport error after N chunks".
 
-		### Fixed: AIRequestContext.SystemMessagePrefix / SystemMessageSuffix Now Apply
-		- Previously declared since v5.0.0 but never consumed by any provider. GetEffectiveSystemMessage() now composes prefix + summary + base + suffix in that order.
-		- Purely additive behavior: callers that never set these fields see identical output.
+### Fixed: NotSupportedException at await foreach ... DisposeAsync()
+- Replaced the synchronous using (var stream = ...) pattern across all 5 providers (10 SSE loops) with async stream disposal via the new ReadSseLinesAsync helper. Eliminates NotSupportedException thrown by HTTP transports whose stream rejects synchronous Dispose.
+- The helper's finally block now guards every disposal step with try/catch so a Dispose-time failure cannot mask the real read-side exception, and OnComplete is guaranteed to fire even when disposal fails.
 
-		Requires Mythosia.AI.Abstractions v2.1.0.
+### Fixed: CopyFrom now propagates service-level callbacks
+- AIService.CopyFrom(source) was silently dropping SystemMessageProvider (declared in v6.3.0 but missing from CopyFrom), StreamRawLineCallback, and StreamCompleteCallback.
+- These delegates are now propagated by reference, so cross-provider switches (e.g., new AnthropicService(...).CopyFrom(openaiService) in a multi-provider chat UI) keep the registered diagnostics and system-message provider working without re-registration.
 
-		---
+### Internal
+- 5 provider streaming implementations (OpenAI/Grok/Qwen/vLLM, Anthropic, Google, DeepSeek, Perplexity) consolidated to a single ReadSseLinesAsync helper. Removes 9 duplicate SSE-reading loops.
 
-		## Documentation
-		- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
-		- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
-		- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
-		- GitHub: https://github.com/AJ-comp/Mythosia.AI
-	</Description>
+Requires Mythosia.AI.Abstractions v2.2.0-preview1.
+
+---
+
+## Documentation
+- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
+- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
+- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
+- GitHub: https://github.com/AJ-comp/Mythosia.AI
+    </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.3.0: RunAgentAsync/RunAgentStreamAsync now accept an optional AIRequestContext for per-call system message prefix/suffix and request-scoped composition. New AIService.SystemMessageProvider (Func&lt;CancellationToken, ValueTask&lt;AIRequestContext?&gt;&gt;?) auto-injects a baseline context on every outbound call (including agent paths); async-shaped so provider-side IO does not need .Result blocking. Two fluent overloads (WithSystemMessageProvider) resolve sync/async by lambda arity. Explicit per-call contexts merge field-by-field on top. Fixes dormant AIRequestContext.SystemMessagePrefix / SystemMessageSuffix (declared since v5.0.0 but never consumed) — GetEffectiveSystemMessage() now composes prefix + summary + base + suffix. Additive; existing callers unaffected. Requires Mythosia.AI.Abstractions v2.1.0.</PackageReleaseNotes>
-    <Version>6.3.0</Version>
+    <PackageReleaseNotes>v6.4.0-preview1: streaming diagnostics — new service-level WithStreamDiagnostics(d =&gt; d.OnRawLine(...).OnComplete(...)) extension, StreamReadException wrapping read-time failures with a StreamDiagnostics snapshot (LinesRead, LastRawLine, Elapsed, etc.) for observability against self-hosted vLLM/ollama/unstable proxies. Fixes NotSupportedException at await foreach ... DisposeAsync() across all 5 providers by replacing synchronous using (var stream = ...) with async stream disposal; finally block now guards disposal so a Dispose-time failure cannot mask the real read exception and OnComplete is guaranteed to fire. Fixes CopyFrom silently dropping SystemMessageProvider (v6.3.0 omission) plus the new streaming-diagnostics callbacks — cross-provider switches in multi-provider chat UIs now preserve registered hooks. Internal: 5 providers / 10 SSE loops consolidated to one ReadSseLinesAsync helper. 16 new diagnostics unit tests. Additive; existing callers unaffected. Requires Mythosia.AI.Abstractions v2.2.0-preview1. Preview release for early adopter validation before the stable 6.4.0.</PackageReleaseNotes>
+    <Version>6.4.0-preview1</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="NJsonSchema" Version="11.6.0" />
-    <PackageReference Include="System.Threading.Channels" Version="10.0.6" />
+    <PackageReference Include="NJsonSchema" Version="11.6.1" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.7" />
     <PackageReference Include="TiktokenSharp" Version="1.2.1" />
   </ItemGroup>
 
