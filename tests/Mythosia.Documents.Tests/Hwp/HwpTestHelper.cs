@@ -88,11 +88,13 @@ internal static class HwpTestHelper
         // Add table control
         var tableCtrl = (ControlTable?)tablePara.AddNewControl(ControlType.Table);
 
-        // Create a 2x3 table
+        // Create a 2x3 table. First row cells are explicitly marked as title (header)
+        // cells — HWP relies on the TitleCell flag rather than positional heuristics
+        // because both top-row and left-column header layouts are common.
         var row1 = tableCtrl!.AddNewRow();
-        AddCell(row1, hwpFile, "헤더1", 0, 0);
-        AddCell(row1, hwpFile, "헤더2", 0, 1);
-        AddCell(row1, hwpFile, "헤더3", 0, 2);
+        AddCell(row1, hwpFile, "헤더1", 0, 0, isTitle: true);
+        AddCell(row1, hwpFile, "헤더2", 0, 1, isTitle: true);
+        AddCell(row1, hwpFile, "헤더3", 0, 2, isTitle: true);
 
         var row2 = tableCtrl.AddNewRow();
         AddCell(row2, hwpFile, "데이터A", 1, 0);
@@ -185,13 +187,15 @@ internal static class HwpTestHelper
         return -1;
     }
 
-    private static void AddCell(Row row, HWPFile hwpFile, string text, int rowIndex, int colIndex)
+    private static void AddCell(Row row, HWPFile hwpFile, string text, int rowIndex, int colIndex, bool isTitle = false)
     {
         var cell = row.AddNewCell();
         cell.ListHeader.RowIndex = rowIndex;
         cell.ListHeader.ColIndex = colIndex;
         cell.ListHeader.ColSpan = 1;
         cell.ListHeader.RowSpan = 1;
+        if (isTitle)
+            cell.ListHeader.Property.TitleCell = true;
 
         EmptyParagraphAdder.Add(cell.ParagraphList);
         var cellPara = cell.ParagraphList.GetParagraph(0);

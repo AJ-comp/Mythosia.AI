@@ -5,19 +5,20 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Core document abstractions: DoclingDocument structured model, IDocumentLoader, IDocumentParser, and element types (TextItem, TableItem, CodeItem, etc.). Framework-agnostic ? usable with any RAG pipeline or document processing system.</Description>
-    <PackageTags>Document;DocumentLoader;DocumentParser;Abstractions;DoclingDocument;Structured</PackageTags>
+    <Description>Core document abstractions: DoclingDocument structured model, IDocumentLoader, IDocumentParser, Markdown serialization, and element types (TextItem, TableItem, CodeItem, etc.). Framework-agnostic and usable with any RAG pipeline or document processing system.</Description>
+    <PackageTags>Document;DocumentLoader;DocumentParser;Abstractions;DoclingDocument;Structured;Markdown</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.1.0: Added pluggable table serialization. ITableSerializer strategy interface with GridTableSerializer (pipe table, default) and SemanticTableSerializer (form-style group rendering with bold labels). DoclingDocument.TableSerializer property allows per-document override. TableData and TableSemanticView for structural table analysis.
+    <PackageReleaseNotes>v1.2.0: MarkdownSerializer now escapes Markdown-significant characters in body text by default via EscapeText, clamps heading output to H1-H6, and inserts blank lines when leaving list blocks. RawContent continues to bypass serialization. Updated System.Text.Json to 10.0.7.
+v1.1.0: Added pluggable table serialization. ITableSerializer strategy interface with GridTableSerializer (pipe table, default) and SemanticTableSerializer (form-style group rendering with bold labels). DoclingDocument.TableSerializer property allows per-document override. TableData and TableSemanticView for structural table analysis.
 v1.0.0: Initial release as Mythosia.Documents.Abstractions. DoclingDocument structured model with body tree, RawContent bypass, Metadata, Builder API, and Markdown export. IDocumentLoader returns DoclingDocument. Element types in Mythosia.Documents.Elements namespace.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Text.Json" Version="10.0.5" />
+    <PackageReference Include="System.Text.Json" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>

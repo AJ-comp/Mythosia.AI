@@ -68,72 +68,73 @@ namespace Mythosia.Documents.Office.PowerPoint.Parsers
 
         private void BuildSlide(DoclingDocument doc, SlidePart slidePart, int slideNumber, NodeItem parent)
         {
-            var shapes = slidePart.Slide.Descendants<P.Shape>().ToList();
-
-            foreach (var shape in shapes)
+            // Walk shapes and graphic frames in document order so tables appear
+            // at their actual position relative to text bodies.
+            foreach (var element in slidePart.Slide.Descendants())
             {
-                var nvSpPr = shape.NonVisualShapeProperties;
-                var phType = nvSpPr?.ApplicationNonVisualDrawingProperties?
-                    .GetFirstChild<P.PlaceholderShape>()?.Type?.Value;
+                if (element is P.Shape shape)
+                {
+                    BuildShape(doc, shape, parent);
+                }
+                else if (element is P.GraphicFrame gf)
+                {
+                    var tbl = gf.Descendants<A.Table>().FirstOrDefault();
+                    if (tbl != null)
+                        BuildSlideTable(doc, tbl, parent);
+                }
+            }
+        }
 
-                // Collect all text from paragraphs in this shape
-                var textBody = shape.TextBody;
-                if (textBody == null)
+        private void BuildShape(DoclingDocument doc, P.Shape shape, NodeItem parent)
+        {
+            var nvSpPr = shape.NonVisualShapeProperties;
+            var phType = nvSpPr?.ApplicationNonVisualDrawingProperties?
+                .GetFirstChild<P.PlaceholderShape>()?.Type?.Value;
+
+            var textBody = shape.TextBody;
+            if (textBody == null)
+                return;
+
+            var paragraphs = textBody.Elements<A.Paragraph>().ToList();
+            bool isTitle = phType == PlaceholderValues.Title
+                        || phType == PlaceholderValues.CenteredTitle;
+
+            foreach (var para in paragraphs)
+            {
+                var runs = para.Elements<A.Run>().ToList();
+                var text = string.Join("", runs.Select(r => r.Text?.Text ?? ""));
+
+                if (_options.NormalizeWhitespace && !string.IsNullOrWhiteSpace(text))
+                    text = OfficeParserUtilities.NormalizeWhitespace(text);
+
+                if (string.IsNullOrWhiteSpace(text))
                     continue;
 
-                var paragraphs = textBody.Elements<A.Paragraph>().ToList();
-                bool isTitle = phType == PlaceholderValues.Title
-                            || phType == PlaceholderValues.CenteredTitle;
-
-                foreach (var para in paragraphs)
+                if (isTitle)
                 {
-                    var runs = para.Elements<A.Run>().ToList();
-                    var text = string.Join("", runs.Select(r => r.Text?.Text ?? ""));
+                    doc.AddHeading(text, 2, parent);
+                    isTitle = false; // only first paragraph as title
+                }
+                else
+                {
+                    var pPr = para.ParagraphProperties;
+                    var buChar = pPr?.GetFirstChild<A.CharacterBullet>();
+                    var buAutoNum = pPr?.GetFirstChild<A.AutoNumberedBullet>();
 
-                    if (_options.NormalizeWhitespace && !string.IsNullOrWhiteSpace(text))
-                        text = OfficeParserUtilities.NormalizeWhitespace(text);
-
-                    if (string.IsNullOrWhiteSpace(text))
-                        continue;
-
-                    if (isTitle)
+                    if (buAutoNum != null)
                     {
-                        doc.AddHeading(text, 2, parent);
-                        isTitle = false; // only first paragraph as title
+                        doc.AddListItem(text, enumerated: true, marker: "1.", parent: parent);
+                    }
+                    else if (buChar != null)
+                    {
+                        var marker = buChar.Char?.Value ?? "-";
+                        doc.AddListItem(text, enumerated: false, marker: marker, parent: parent);
                     }
                     else
                     {
-                        // Check for bulleted list
-                        var pPr = para.ParagraphProperties;
-                        var buNone = pPr?.GetFirstChild<A.NoBullet>();
-                        var buChar = pPr?.GetFirstChild<A.CharacterBullet>();
-                        var buAutoNum = pPr?.GetFirstChild<A.AutoNumberedBullet>();
-
-                        if (buAutoNum != null)
-                        {
-                            doc.AddListItem(text, enumerated: true, marker: "1.", parent: parent);
-                        }
-                        else if (buChar != null)
-                        {
-                            var marker = buChar.Char?.Value ?? "-";
-                            doc.AddListItem(text, enumerated: false, marker: marker, parent: parent);
-                        }
-                        else
-                        {
-                            doc.AddParagraph(text, parent);
-                        }
+                        doc.AddParagraph(text, parent);
                     }
                 }
-            }
-
-            // Detect tables in the slide
-            var graphicFrames = slidePart.Slide.Descendants<P.GraphicFrame>().ToList();
-            foreach (var gf in graphicFrames)
-            {
-                var tbl = gf.Descendants<A.Table>().FirstOrDefault();
-                if (tbl == null) continue;
-
-                BuildSlideTable(doc, tbl, parent);
             }
         }
 

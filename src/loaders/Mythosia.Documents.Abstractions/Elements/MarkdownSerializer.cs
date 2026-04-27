@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 
 namespace Mythosia.Documents.Elements
@@ -21,52 +22,63 @@ namespace Mythosia.Documents.Elements
         public ITableSerializer TableSerializer { get; set; } = new GridTableSerializer();
 
         /// <summary>
+        /// When true (default), escapes Markdown-significant characters in body text
+        /// (paragraphs, list items, headings, titles) so source content like "*literal*"
+        /// survives a round trip without being interpreted as emphasis.
+        /// </summary>
+        public bool EscapeText { get; set; } = true;
+
+        /// <summary>
         /// Converts the entire document body to a Markdown string.
         /// </summary>
         public string Serialize(DoclingDocument doc)
         {
             var sb = new StringBuilder();
-            SerializeNode(doc, doc.Body, sb);
+            var ctx = new SerializeContext();
+            SerializeNode(doc, doc.Body, sb, ctx);
             return sb.ToString().TrimEnd('\n', '\r', ' ') + "\n";
         }
 
-        private void SerializeNode(DoclingDocument doc, NodeItem node, StringBuilder sb)
+        private void SerializeNode(DoclingDocument doc, NodeItem node, StringBuilder sb, SerializeContext ctx)
         {
-            // If this node is itself a content item, render it
-            RenderItem(doc, node, sb);
+            RenderItem(doc, node, sb, ctx);
 
-            // Walk children in order
             foreach (var childRef in node.Children)
             {
                 var child = childRef.Resolve(doc);
                 if (child != null)
-                    SerializeNode(doc, child, sb);
+                    SerializeNode(doc, child, sb, ctx);
             }
         }
 
-        private void RenderItem(DoclingDocument doc, NodeItem node, StringBuilder sb)
+        private void RenderItem(DoclingDocument doc, NodeItem node, StringBuilder sb, SerializeContext ctx)
         {
             switch (node)
             {
                 case TitleItem title:
-                    sb.AppendLine($"# {title.Text}");
+                    EndListBlock(sb, ctx);
+                    sb.AppendLine($"# {Escape(title.Text)}");
                     sb.AppendLine();
                     break;
 
                 case SectionHeaderItem header:
-                    var prefix = new string('#', header.Level + 1); // level 1 → ##
-                    sb.AppendLine($"{prefix} {header.Text}");
+                    EndListBlock(sb, ctx);
+                    var level = Math.Min(Math.Max(header.Level, 0) + 1, 6);
+                    var prefix = new string('#', level);
+                    sb.AppendLine($"{prefix} {Escape(header.Text)}");
                     sb.AppendLine();
                     break;
 
                 case DocListItem listItem:
                     if (listItem.Enumerated)
-                        sb.AppendLine($"{listItem.Marker} {listItem.Text}");
+                        sb.AppendLine($"{listItem.Marker} {Escape(listItem.Text)}");
                     else
-                        sb.AppendLine($"- {listItem.Text}");
+                        sb.AppendLine($"- {Escape(listItem.Text)}");
+                    ctx.InsideList = true;
                     break;
 
                 case CodeItem code:
+                    EndListBlock(sb, ctx);
                     sb.AppendLine($"```{code.CodeLanguage}");
                     sb.AppendLine(code.Text);
                     sb.AppendLine("```");
@@ -74,6 +86,7 @@ namespace Mythosia.Documents.Elements
                     break;
 
                 case FormulaItem formula:
+                    EndListBlock(sb, ctx);
                     sb.AppendLine($"$${formula.Text}$$");
                     sb.AppendLine();
                     break;
@@ -82,16 +95,19 @@ namespace Mythosia.Documents.Elements
                                      || text.Label == DocItemLabel.Text:
                     if (!string.IsNullOrWhiteSpace(text.Text))
                     {
-                        sb.AppendLine(text.Text);
+                        EndListBlock(sb, ctx);
+                        sb.AppendLine(Escape(text.Text));
                         sb.AppendLine();
                     }
                     break;
 
                 case TableItem table:
+                    EndListBlock(sb, ctx);
                     TableSerializer.Render(table, sb);
                     break;
 
                 case PictureItem _:
+                    EndListBlock(sb, ctx);
                     sb.AppendLine(ImagePlaceholder);
                     sb.AppendLine();
                     break;
@@ -102,5 +118,53 @@ namespace Mythosia.Documents.Elements
             }
         }
 
+        /// <summary>
+        /// When transitioning out of a list, emit a blank line so subsequent block
+        /// elements (paragraphs, headings, tables) are not absorbed into the list.
+        /// </summary>
+        private static void EndListBlock(StringBuilder sb, SerializeContext ctx)
+        {
+            if (ctx.InsideList)
+            {
+                sb.AppendLine();
+                ctx.InsideList = false;
+            }
+        }
+
+        private string Escape(string text)
+        {
+            if (!EscapeText || string.IsNullOrEmpty(text))
+                return text ?? string.Empty;
+
+            var sb = new StringBuilder(text.Length);
+            foreach (var ch in text)
+            {
+                switch (ch)
+                {
+                    case '\\':
+                    case '`':
+                    case '*':
+                    case '_':
+                    case '[':
+                    case ']':
+                    case '<':
+                    case '>':
+                    case '|':
+                    case '~':
+                        sb.Append('\\');
+                        sb.Append(ch);
+                        break;
+                    default:
+                        sb.Append(ch);
+                        break;
+                }
+            }
+            return sb.ToString();
+        }
+
+        private class SerializeContext
+        {
+            public bool InsideList;
+        }
     }
 }

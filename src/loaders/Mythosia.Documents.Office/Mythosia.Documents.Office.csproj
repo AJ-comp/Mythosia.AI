@@ -5,13 +5,14 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Office</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.0.1</Version>
+    <Version>1.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Office document loaders for Word (.docx), Excel (.xlsx), and PowerPoint (.pptx). Parses documents into DoclingDocument structured models via OpenXml.</Description>
-    <PackageTags>Document;DocumentLoader;Office;OpenXml;Word;Excel;PowerPoint</PackageTags>
+    <Description>Office document loaders for Word (.docx), Excel (.xlsx), and PowerPoint (.pptx). Parses documents into DoclingDocument structured models via OpenXml, preserving heading hierarchy and slide content order.</Description>
+    <PackageTags>Document;DocumentLoader;Office;OpenXml;Word;Excel;PowerPoint;Docx;Xlsx;Pptx</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.0.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
+    <PackageReleaseNotes>v1.1.0: Recompiled against Mythosia.Documents.Abstractions 1.2.0, exposing MarkdownSerializer.EscapeText and default Markdown text escaping to Office consumers. Fixed Word heading hierarchy so same-level headings are siblings, lower-level headings nest correctly, titles reset the stack, and tables attach to the current context. PowerPoint now preserves document order between text shapes and table graphic frames. Added OpenXml-generated parser tests.
+v1.0.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
 v1.0.0: Initial release as Mythosia.Documents.Office. Word/Excel/PowerPoint loaders returning DoclingDocument. OpenXml-based parsers with OfficeParserOptions (IncludeMetadata, NormalizeWhitespace, IncludeSheetNames, IncludeSlideNumbers).</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

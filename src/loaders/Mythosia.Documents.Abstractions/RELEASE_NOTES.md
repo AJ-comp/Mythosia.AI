@@ -1,5 +1,16 @@
 # Mythosia.Documents.Abstractions - Release Notes
 
+## v1.2.0
+
+### Markdown Serialization
+
+- `MarkdownSerializer` now escapes Markdown-significant characters in body text by default, including paragraphs, titles, headings, and list items.
+- Added `MarkdownSerializer.EscapeText` for callers that want to preserve the previous raw Markdown behavior.
+- Heading output is clamped to Markdown H1-H6 so deep source headings do not render as invalid H7+ headings.
+- Lists now emit a blank line before following block elements, preventing paragraphs, headings, tables, code blocks, formulas, and image placeholders from being absorbed into the list.
+- `RawContent` continues to bypass structured Markdown serialization unchanged.
+- Updated `System.Text.Json` to 10.0.7.
+
 ## v1.1.0
 
 ### Pluggable Table Serialization

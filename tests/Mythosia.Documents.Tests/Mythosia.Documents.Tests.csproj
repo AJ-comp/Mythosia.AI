@@ -11,12 +11,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MSTest" Version="4.1.0" />
+    <PackageReference Include="MSTest" Version="4.2.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\loaders\Mythosia.Documents.Hwp\Mythosia.Documents.Hwp.csproj" />
     <ProjectReference Include="..\..\src\loaders\Mythosia.Documents.Abstractions\Mythosia.Documents.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\loaders\Mythosia.Documents.Office\Mythosia.Documents.Office.csproj" />
   </ItemGroup>
 
   <ItemGroup>

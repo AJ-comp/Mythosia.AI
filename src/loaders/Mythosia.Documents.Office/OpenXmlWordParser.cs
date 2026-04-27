@@ -46,7 +46,11 @@ namespace Mythosia.Documents.Office.Word.Parsers
                 return Task.FromResult(result);
 
             var numberingPart = wpDoc.MainDocumentPart?.NumberingDefinitionsPart;
-            NodeItem currentParent = result.Body;
+
+            // Heading hierarchy stack: a new heading at level N becomes a child of the
+            // closest enclosing item at level < N. Title acts as an implicit level 0.
+            var headingStack = new Stack<(int Level, NodeItem Node)>();
+            NodeItem CurrentParent() => headingStack.Count > 0 ? headingStack.Peek().Node : result.Body;
 
             foreach (var element in body.ChildElements)
             {
@@ -54,7 +58,7 @@ namespace Mythosia.Documents.Office.Word.Parsers
 
                 if (element is Table table)
                 {
-                    BuildTable(result, table, currentParent);
+                    BuildTable(result, table, CurrentParent());
                 }
                 else if (element is Paragraph para)
                 {
@@ -67,23 +71,26 @@ namespace Mythosia.Documents.Office.Word.Parsers
 
                     if (headingLevel > 0)
                     {
-                        var heading = result.AddHeading(text, headingLevel, currentParent);
-                        // Subsequent items become children of this heading
-                        currentParent = heading;
+                        while (headingStack.Count > 0 && headingStack.Peek().Level >= headingLevel)
+                            headingStack.Pop();
+
+                        var heading = result.AddHeading(text, headingLevel, CurrentParent());
+                        headingStack.Push((headingLevel, heading));
                     }
                     else if (IsTitle(styleId))
                     {
+                        headingStack.Clear();
                         var title = result.AddTitle(text, result.Body);
-                        currentParent = title;
+                        headingStack.Push((0, title));
                     }
                     else if (IsListParagraph(para, numberingPart))
                     {
                         var (enumerated, marker) = GetListInfo(para, numberingPart);
-                        result.AddListItem(text, enumerated, marker, currentParent);
+                        result.AddListItem(text, enumerated, marker, CurrentParent());
                     }
                     else
                     {
-                        result.AddParagraph(text, currentParent);
+                        result.AddParagraph(text, CurrentParent());
                     }
                 }
             }

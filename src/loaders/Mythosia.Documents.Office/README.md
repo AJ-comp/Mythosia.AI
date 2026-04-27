@@ -40,6 +40,16 @@ var service = new AnthropicService(apiKey, httpClient)
 | `ExcelDocumentLoader` | .xlsx | `Mythosia.Documents.Office.Excel` |
 | `PowerPointDocumentLoader` | .pptx | `Mythosia.Documents.Office.PowerPoint` |
 
+## Structured Extraction
+
+The OpenXml parsers produce a structured `DoclingDocument` that can be serialized to Markdown or consumed directly by a RAG pipeline.
+
+- **Word**: headings are tracked with a hierarchy stack, so equal-level headings stay siblings, lower-level headings nest under the nearest parent heading, and document titles reset the heading stack.
+- **Word tables**: tables are attached to the current heading/title context and preserve basic row, column, and span information.
+- **PowerPoint**: slide text shapes and table graphic frames are read in document order, preserving sequences such as text -> table -> text in Markdown output.
+- **PowerPoint titles and lists**: title placeholders become section headings, and bullet/numbered paragraphs become list items.
+- **Excel**: workbook cells are parsed into structured table data, with optional sheet-name context.
+
 ## Parser Options
 
 ```csharp

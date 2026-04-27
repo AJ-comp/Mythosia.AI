@@ -16,6 +16,7 @@ Unified structured document representation following the [docling](https://githu
 
 ```csharp
 using Mythosia.Documents;
+using Mythosia.Documents.Elements;
 
 var doc = new DoclingDocument
 {
@@ -47,6 +48,29 @@ var doc = new DoclingDocument
     RawContent = rawText, // ToMarkdown() returns this directly
 };
 ```
+
+### Markdown Serialization
+
+`DoclingDocument.ToMarkdown()` uses `MarkdownSerializer` to render the body tree. Body text is escaped by default so source text such as `*literal*`, `[brackets]`, `| pipes`, and backticks stays literal Markdown content instead of becoming formatting.
+
+```csharp
+using Mythosia.Documents.Elements;
+
+var doc = new DoclingDocument();
+doc.AddParagraph("Keep *this* literal and preserve [brackets].");
+
+string safeMarkdown = doc.ToMarkdown();
+// Keep \*this\* literal and preserve \[brackets\].
+
+var serializer = new MarkdownSerializer
+{
+    EscapeText = false,
+};
+
+string rawMarkdown = serializer.Serialize(doc);
+```
+
+`MarkdownSerializer` also clamps heading output to Markdown `#` through `######` and inserts a blank line when a list is followed by another block element, preventing the next paragraph, heading, table, code block, formula, or image placeholder from being absorbed into the list.
 
 ### Table Serialization
 
@@ -94,8 +118,8 @@ public interface IDocumentParser
 | Type | Description |
 |------|-------------|
 | `TextItem` | Paragraph, generic text |
-| `TitleItem` | Document title |
-| `SectionHeaderItem` | Section heading (H1–H6) |
+| `TitleItem` | Document title rendered as Markdown H1 |
+| `SectionHeaderItem` | Section heading rendered as Markdown H2-H6 for standard heading levels |
 | `CodeItem` | Code block with language |
 | `DocListItem` | List item (ordered/unordered) |
 | `TableItem` / `TableData` / `TableCell` | Table structure |
