@@ -1,5 +1,13 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v1.2.6
+
+### Compatibility
+
+- Recompiled for the `Mythosia.AI` v6.4.0 release line. No API changes.
+
+---
+
 ## v1.2.5
 
 ### Compatibility

@@ -1,8 +1,6 @@
 # Mythosia.AI - Release Notes
 
-## v6.4.0-preview1
-
-> Preview release for early adopter validation before the stable 6.4.0.
+## v6.4.0
 
 ### Added
 
@@ -49,7 +47,7 @@
 
 - Additive public API — `WithStreamDiagnostics` is a new extension; `StreamReadException` is a new type. Existing callers compile and run unchanged.
 - `IAIService` contract unchanged.
-- Requires `Mythosia.AI.Abstractions` v2.2.0-preview1 (which adds `StreamDiagnostics`, `StreamDiagnosticsBuilder`, `StreamReadException`).
+- Requires `Mythosia.AI.Abstractions` v2.2.0 (which adds `StreamDiagnostics`, `StreamDiagnosticsBuilder`, `StreamReadException`).
 
 ---
 

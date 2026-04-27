@@ -1,8 +1,6 @@
 # Mythosia.AI.Abstractions - Release Notes
 
-## v2.2.0-preview1
-
-> Preview release for early adopter validation before the stable 2.2.0.
+## v2.2.0
 
 ### Added
 

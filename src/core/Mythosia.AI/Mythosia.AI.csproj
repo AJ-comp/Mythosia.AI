@@ -23,9 +23,7 @@
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-## What's New in v6.4.0-preview1
-
-> Preview release for early adopter validation before the stable 6.4.0.
+## What's New in v6.4.0
 
 ### Streaming Diagnostics (service-level)
 - New WithStreamDiagnostics(d =&gt; d.OnRawLine(...).OnComplete(...)) extension on AIService — register once and every subsequent StreamAsync call automatically invokes the hooks. Same fluent builder pattern as WithRag.
@@ -44,7 +42,7 @@
 ### Internal
 - 5 provider streaming implementations (OpenAI/Grok/Qwen/vLLM, Anthropic, Google, DeepSeek, Perplexity) consolidated to a single ReadSseLinesAsync helper. Removes 9 duplicate SSE-reading loops.
 
-Requires Mythosia.AI.Abstractions v2.2.0-preview1.
+Requires Mythosia.AI.Abstractions v2.2.0.
 
 ---
 
@@ -56,8 +54,8 @@ Requires Mythosia.AI.Abstractions v2.2.0-preview1.
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.4.0-preview1: streaming diagnostics — new service-level WithStreamDiagnostics(d =&gt; d.OnRawLine(...).OnComplete(...)) extension, StreamReadException wrapping read-time failures with a StreamDiagnostics snapshot (LinesRead, LastRawLine, Elapsed, etc.) for observability against self-hosted vLLM/ollama/unstable proxies. Fixes NotSupportedException at await foreach ... DisposeAsync() across all 5 providers by replacing synchronous using (var stream = ...) with async stream disposal; finally block now guards disposal so a Dispose-time failure cannot mask the real read exception and OnComplete is guaranteed to fire. Fixes CopyFrom silently dropping SystemMessageProvider (v6.3.0 omission) plus the new streaming-diagnostics callbacks — cross-provider switches in multi-provider chat UIs now preserve registered hooks. Internal: 5 providers / 10 SSE loops consolidated to one ReadSseLinesAsync helper. 16 new diagnostics unit tests. Additive; existing callers unaffected. Requires Mythosia.AI.Abstractions v2.2.0-preview1. Preview release for early adopter validation before the stable 6.4.0.</PackageReleaseNotes>
-    <Version>6.4.0-preview1</Version>
+    <PackageReleaseNotes>v6.4.0: streaming diagnostics — new service-level WithStreamDiagnostics(d =&gt; d.OnRawLine(...).OnComplete(...)) extension, StreamReadException wrapping read-time failures with a StreamDiagnostics snapshot (LinesRead, LastRawLine, Elapsed, etc.) for observability against self-hosted vLLM/ollama/unstable proxies. Fixes NotSupportedException at await foreach ... DisposeAsync() across all 5 providers by replacing synchronous using (var stream = ...) with async stream disposal; finally block now guards disposal so a Dispose-time failure cannot mask the real read exception and OnComplete is guaranteed to fire. Fixes CopyFrom silently dropping SystemMessageProvider (v6.3.0 omission) plus the new streaming-diagnostics callbacks — cross-provider switches in multi-provider chat UIs now preserve registered hooks. Internal: 5 providers / 10 SSE loops consolidated to one ReadSseLinesAsync helper. 16 new diagnostics unit tests. Additive; existing callers unaffected. Requires Mythosia.AI.Abstractions v2.2.0.</PackageReleaseNotes>
+    <Version>6.4.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
