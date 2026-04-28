@@ -507,6 +507,8 @@ Answer based only on the provided documents.
 });
 ```
 
+`UpdateOptions` applies the delegate to a cloned options snapshot and swaps it into the pipeline when complete, so in-flight queries continue using the previous snapshot instead of observing partially updated settings.
+
 ## Disable RAG Per-Request
 
 ```csharp
@@ -564,6 +566,28 @@ var highRecall = await ragStore.QueryAsync(
     }
 );
 ```
+
+### Cloning a Baseline with `Clone()`
+
+When you maintain a baseline `RagQueryOptions` (e.g. tenant `StoreFilter` + a `ProgressAsync` callback) and want per-query variations on top, use `RagQueryOptions.Clone()` so every other field is preserved:
+
+```csharp
+// Baseline carried across many queries
+var baseline = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter().Where("tenant", currentTenantId),
+    ProgressAsync = stage => { Console.WriteLine($"Stage: {stage}"); return Task.CompletedTask; }
+};
+
+// Per-query override — Clone() keeps StoreFilter and ProgressAsync
+var highRecall = baseline.Clone();
+highRecall.FinalFilter.TopK = 15;
+highRecall.FinalFilter.MinScore = 0.2;
+
+var result = await ragStore.QueryAsync("refund policy?", highRecall);
+```
+
+`Clone()` is a deep copy for the option records (`FinalFilter`, `RetrievalDerivation`, `FinalSelection`) and a reference copy for the handle-typed fields (`ProgressAsync`, `StoreFilter`). Reassign those properties explicitly when you want a different callback or filter for that one call.
 
 ## Store-Level Metadata Filtering (StoreFilter)
 

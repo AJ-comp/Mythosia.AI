@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>7.4.0</Version>
+    <Version>7.5.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
     <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Implements Mythosia.AI.Rag.Abstractions v6.x. Includes RagPipeline, text splitters, context builder, OpenAI/vLLM embedding providers, hybrid search (BM25 + Vector + RRF), re-ranking (Cohere, LLM, vLLM), Agentic RAG tool registration with per-call RagQueryOptions and structured search traces, search gate, keyword extraction, weighted-blend final selection, progress reporting, DoclingDocument-to-RagDocument conversion, and per-query VectorFilter passthrough (StoreFilter). Depends on Mythosia.AI.Abstractions (IAIService) instead of the full Mythosia.AI implementation.</Description>
     <PackageTags>AI;RAG;AgenticRag;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking;MetadataFilter;Observability</PackageTags>
     <PackageProjectUrl>https://aj-comp.github.io/Mythosia.AI/docs/rag.html</PackageProjectUrl>
-    <PackageReleaseNotes>v7.4.0: stable release for Agentic RAG per-call RagQueryOptions via WithAgenticRag(..., queryOptions: ...) and step-level AgenticRagSearchTrace via WithAgenticRagTracing(...) for references, diagnostics, candidates, and failure tracing.</PackageReleaseNotes>
+    <PackageReleaseNotes>v7.5.0: Fixed RagPipeline.QueryAsync(query, topK, ...) silently dropping ProgressAsync and StoreFilter from RagPipelineOptions.DefaultQuery — the convenience overload now clones DefaultQuery via the new RagQueryOptions.Clone() and only overrides FinalFilter.TopK. Removed the PromptTemplate-keyed context builder cache that could tear under concurrent queries, and made RagStore.UpdateOptions configure a cloned options snapshot before atomically swapping it into the pipeline.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

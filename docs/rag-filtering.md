@@ -96,6 +96,30 @@ Final Filter = StoreFilter conditions AND per-query filter conditions
 
 Neither side is silently dropped. The store filter conditions come first (permission/tenant constraints), then per-query conditions are appended.
 
+## Per-Query Overrides via `Clone()`
+
+When you maintain a baseline `RagQueryOptions` (e.g. tenant `StoreFilter` + a `ProgressAsync` callback) and want per-query variations on top, use `RagQueryOptions.Clone()` so every other field is preserved:
+
+```csharp
+// Baseline reused across many queries
+var baseline = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId),
+    ProgressAsync = stage => { Console.WriteLine($"Stage: {stage}"); return Task.CompletedTask; }
+};
+
+// Per-query override — Clone() preserves StoreFilter and ProgressAsync
+var highRecall = baseline.Clone();
+highRecall.FinalFilter.TopK = 15;
+highRecall.FinalFilter.MinScore = 0.2;
+
+await ragStore.QueryAsync("refund policy", highRecall);
+```
+
+`Clone()` deep-copies the option records (`FinalFilter`, `RetrievalDerivation`, `FinalSelection`) and reference-copies handle-typed fields (`ProgressAsync`, `StoreFilter`). Reassign those properties when you want a different callback or filter for that one call.
+
+> Constructing `new RagQueryOptions { FinalFilter = ... }` from scratch silently drops every other field on the baseline. `Clone()` makes the "inherit defaults, override one field" pattern safe.
+
 ## Score Filtering
 
 The `MinScore` threshold discards chunks whose similarity score falls below a certain level. This prevents low-relevance chunks from polluting the context:

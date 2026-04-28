@@ -191,7 +191,9 @@ namespace Mythosia.AI.Rag
             if (ragPipeline == null)
                 return false;
 
-            configure(ragPipeline.Options);
+            var nextOptions = ragPipeline.Options.Clone();
+            configure(nextOptions);
+            ragPipeline.Options = nextOptions;
             return true;
         }
 

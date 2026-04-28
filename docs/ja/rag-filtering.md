@@ -96,6 +96,30 @@ EF CoreのGlobal Query Filterと同じパターンです。StoreFilterは常に�
 
 どちら側も無視されることはありません。StoreFilterの条件（パーミッション/テナント制約）が先に配置され、その後にクエリごとの条件が追加されます。
 
+## `Clone()`によるベースラインからのクエリ別オーバーライド
+
+テナント`StoreFilter`や`ProgressAsync`コールバックなど、複数のクエリで共通利用するベースライン`RagQueryOptions`を保持しつつ、一部のクエリでは特定のフィールドだけ変更したい場合は、`RagQueryOptions.Clone()`を使ってベースラインの他のフィールドを保持してください：
+
+```csharp
+// 多数のクエリで再利用するベースライン
+var baseline = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId),
+    ProgressAsync = stage => { Console.WriteLine($"Stage: {stage}"); return Task.CompletedTask; }
+};
+
+// クエリ別オーバーライド — Clone()がStoreFilterとProgressAsyncを保持
+var highRecall = baseline.Clone();
+highRecall.FinalFilter.TopK = 15;
+highRecall.FinalFilter.MinScore = 0.2;
+
+await ragStore.QueryAsync("返金ポリシー", highRecall);
+```
+
+`Clone()`はオプションレコード（`FinalFilter`、`RetrievalDerivation`、`FinalSelection`）を深いコピーし、ハンドル型フィールド（`ProgressAsync`、`StoreFilter`）は参照コピーします。当該呼び出しで別のコールバック/フィルターを使いたい場合は、クローン後にそのプロパティを明示的に再代入してください。
+
+> `new RagQueryOptions { FinalFilter = ... }`をゼロから構築すると、ベースラインの他のフィールドが暗黙のうちに失われます。`Clone()`は「デフォルトを継承し、1フィールドだけオーバーライドする」パターンを安全にします。
+
 ## スコアフィルタリング
 
 `MinScore`しきい値は、類似度スコアが一定レベル以下のチャンクを除外します。関連性の低いチャンクがコンテキストを汚すのを防ぎます：

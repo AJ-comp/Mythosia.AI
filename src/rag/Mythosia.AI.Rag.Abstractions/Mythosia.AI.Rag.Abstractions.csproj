@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>6.1.0</Version>
+    <Version>6.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, IReranker interfaces, RagDocument, RagQueryOptions (with StoreFilter), and shared models. RagDocument is self-contained.</Description>
+    <Description>Core abstractions for Mythosia.AI RAG pipeline. Defines ITextSplitter, IEmbeddingProvider, IContextBuilder, IRetrievalStrategy, IReranker interfaces, RagDocument, RagQueryOptions (with StoreFilter and Clone), and shared models. RagDocument is self-contained.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking;MetadataFilter</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
-    <PackageReleaseNotes>v6.1.0: Namespace concept removed entirely. RagQueryOptions.Namespace, RagPipelineOptions.DefaultScope, RagQueryDiagnostics.AppliedNamespace, and IRagDiagnosticsStore namespace parameters are all removed. For logical isolation use metadata conditions via VectorFilter.Where("tenant", value) or VectorFilter.Where("category", value).</PackageReleaseNotes>
+    <PackageReleaseNotes>v6.2.0: Added Clone() to RagPipelineOptions, RagQueryOptions, RagFilter, RagRetrievalDerivation, and RagFinalSelectionOptions for snapshot-style runtime updates and safe per-query overrides on top of RagPipelineOptions.DefaultQuery without losing fields like ProgressAsync or StoreFilter.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

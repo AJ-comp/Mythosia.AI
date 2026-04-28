@@ -1,5 +1,21 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.5.0
+
+### Fixed
+
+- **`RagPipeline.QueryAsync(query, topK, filter, ct)` silently dropped `ProgressAsync` and `StoreFilter`** — the convenience overload manually rebuilt `RagQueryOptions` from `Options.DefaultQuery` but only copied `FinalFilter`, `RetrievalDerivation`, and `FinalSelection`. Any tenant/permission scope set on `DefaultQuery.StoreFilter` and any progress callback on `DefaultQuery.ProgressAsync` were lost whenever a caller used the `topK`-only overload. The overload now uses `RagQueryOptions.Clone()` (introduced in `Mythosia.AI.Rag.Abstractions` v6.2.0) and overrides only `FinalFilter.TopK`, preserving every other configured field.
+- **Race condition on `PromptTemplate` cache** — `RagPipeline` cached the resolved `IContextBuilder` against `Options.PromptTemplate` to skip per-query allocation. With `RagStore.UpdateOptions` allowing runtime template changes while queries are in flight, two correlated fields (`_cachedPromptTemplate`, `_resolvedContextBuilder`) could tear, briefly returning the previous builder against the new template. The cache has been removed entirely — `TemplateContextBuilder` construction is a single reference assignment, dwarfed by the embedding/search I/O each query already incurs, so the cache existed for negligible benefit at the cost of a thread-safety hazard.
+
+- **`RagStore.UpdateOptions` snapshot safety** - runtime option updates now configure a cloned `RagPipelineOptions` instance and atomically swap the completed snapshot into the pipeline, so in-flight queries do not observe partially-mutated option objects.
+
+### Compatibility
+
+- Requires `Mythosia.AI.Rag.Abstractions` v6.2.0+.
+- No public API changes in `Mythosia.AI.Rag`. Existing callers see strictly more correct behavior — the previously-lost fields are now honored, and `PromptTemplate` updates take effect deterministically on the next query.
+
+---
+
 ## v7.4.0
 
 ### Added

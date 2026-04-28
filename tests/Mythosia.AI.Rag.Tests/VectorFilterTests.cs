@@ -537,7 +537,7 @@ public class VectorFilterTests
             .WithMinScore(0.7);
 
         Assert.AreSame(filter, result);
-        Assert.AreEqual(9, filter.Conditions.Count);
+        Assert.AreEqual(10, filter.Conditions.Count);
         Assert.IsTrue(filter.Conditions.OfType<MetadataCondition>().Any(c => c.Key == "namespace" && c.Value == "ns"));
         Assert.AreEqual(0.7, filter.MinScore);
     }

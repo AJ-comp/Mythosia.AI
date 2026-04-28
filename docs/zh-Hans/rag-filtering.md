@@ -71,6 +71,30 @@ var options = new RagQueryOptions
 
 `StoreFilter` 与查询过滤器通过 AND 合并——两者都不会被忽略。
 
+## 通过 `Clone()` 进行单次查询覆盖
+
+当你维护一个基线 `RagQueryOptions`（例如租户 `StoreFilter` + `ProgressAsync` 回调），并希望在某些查询上做单字段调整时，使用 `RagQueryOptions.Clone()` 可保留其他所有字段：
+
+```csharp
+// 多次查询复用的基线
+var baseline = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId),
+    ProgressAsync = stage => { Console.WriteLine($"Stage: {stage}"); return Task.CompletedTask; }
+};
+
+// 单次查询覆盖 —— Clone() 保留 StoreFilter 和 ProgressAsync
+var highRecall = baseline.Clone();
+highRecall.FinalFilter.TopK = 15;
+highRecall.FinalFilter.MinScore = 0.2;
+
+await ragStore.QueryAsync("退款政策", highRecall);
+```
+
+`Clone()` 对选项记录（`FinalFilter`、`RetrievalDerivation`、`FinalSelection`）进行深拷贝,对句柄类型字段（`ProgressAsync`、`StoreFilter`）进行引用拷贝。如果该次调用需要不同的回调或过滤器,请在克隆后显式重新赋值这些属性。
+
+> 从零构造 `new RagQueryOptions { FinalFilter = ... }` 会静默丢弃基线上的其他所有字段。`Clone()` 让"继承默认值,仅覆盖单个字段"的模式变得安全。
+
 ## 分数过滤
 
 ```csharp

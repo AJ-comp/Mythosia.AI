@@ -21,5 +21,18 @@ namespace Mythosia.AI.Rag
         /// Maximum number of texts to embed in a single batch call.
         /// </summary>
         public int EmbeddingBatchSize { get; set; } = 100;
+
+        /// <summary>
+        /// Returns a copy of this <see cref="RagPipelineOptions"/> with cloned query options.
+        /// </summary>
+        public RagPipelineOptions Clone()
+        {
+            return new RagPipelineOptions
+            {
+                DefaultQuery = DefaultQuery.Clone(),
+                PromptTemplate = PromptTemplate,
+                EmbeddingBatchSize = EmbeddingBatchSize
+            };
+        }
     }
 }

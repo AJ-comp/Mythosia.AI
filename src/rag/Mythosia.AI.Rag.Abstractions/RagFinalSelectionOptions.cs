@@ -41,5 +41,17 @@ namespace Mythosia.AI.Rag
             if (RetrievalWeight > 1d) return 1d;
             return RetrievalWeight;
         }
+
+        /// <summary>
+        /// Returns a copy of this <see cref="RagFinalSelectionOptions"/> with the same field values.
+        /// </summary>
+        public RagFinalSelectionOptions Clone()
+        {
+            return new RagFinalSelectionOptions
+            {
+                Mode = Mode,
+                RetrievalWeight = RetrievalWeight
+            };
+        }
     }
 }

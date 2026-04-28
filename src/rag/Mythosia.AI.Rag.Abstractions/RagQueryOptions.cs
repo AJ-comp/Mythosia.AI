@@ -64,5 +64,24 @@ namespace Mythosia.AI.Rag
                     FinalFilter.MinScore.HasValue ? FinalFilter.MinScore.Value / divider : (double?)null)
                 : new RagRetrievalFilter(FinalFilter.TopK, FinalFilter.MinScore);
         }
+
+        /// <summary>
+        /// Returns a deep copy of this <see cref="RagQueryOptions"/>. Nested option objects
+        /// (<see cref="FinalFilter"/>, <see cref="RetrievalDerivation"/>, <see cref="FinalSelection"/>)
+        /// are cloned so that mutating the copy does not affect the original.
+        /// <see cref="ProgressAsync"/> and <see cref="StoreFilter"/> are copied by reference —
+        /// callers that intend to override either should reassign the property explicitly.
+        /// </summary>
+        public RagQueryOptions Clone()
+        {
+            return new RagQueryOptions
+            {
+                FinalFilter = FinalFilter.Clone(),
+                RetrievalDerivation = RetrievalDerivation.Clone(),
+                FinalSelection = FinalSelection.Clone(),
+                ProgressAsync = ProgressAsync,
+                StoreFilter = StoreFilter
+            };
+        }
     }
 }

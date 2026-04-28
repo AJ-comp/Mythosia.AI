@@ -96,6 +96,30 @@ EF Core의 Global Query Filter 패턴과 동일합니다. StoreFilter는 항상 
 
 어느 쪽도 무시되지 않습니다. StoreFilter 조건(권한/테넌트 제약)이 먼저 배치되고, 그 뒤에 쿼리별 조건이 추가됩니다.
 
+## `Clone()`으로 베이스라인에서 쿼리별 오버라이드
+
+테넌트 `StoreFilter`나 `ProgressAsync` 콜백처럼 여러 쿼리에 공통으로 쓰는 베이스라인 `RagQueryOptions`를 두고 일부 쿼리에서만 일부 필드를 바꾸고 싶다면, `RagQueryOptions.Clone()`을 사용해 베이스라인의 다른 필드를 모두 보존하세요:
+
+```csharp
+// 여러 쿼리에 재사용되는 베이스라인
+var baseline = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId),
+    ProgressAsync = stage => { Console.WriteLine($"Stage: {stage}"); return Task.CompletedTask; }
+};
+
+// 쿼리별 오버라이드 — Clone()이 StoreFilter와 ProgressAsync를 보존합니다
+var highRecall = baseline.Clone();
+highRecall.FinalFilter.TopK = 15;
+highRecall.FinalFilter.MinScore = 0.2;
+
+await ragStore.QueryAsync("환불 정책", highRecall);
+```
+
+`Clone()`은 옵션 레코드(`FinalFilter`, `RetrievalDerivation`, `FinalSelection`)를 깊은 복사하고, 핸들 타입 필드(`ProgressAsync`, `StoreFilter`)는 참조 복사합니다. 해당 호출에서 다른 콜백/필터를 쓰고 싶다면 클론 후 해당 속성을 명시적으로 재할당하세요.
+
+> `new RagQueryOptions { FinalFilter = ... }`로 처음부터 만들면 베이스라인의 다른 필드가 조용히 사라집니다. `Clone()`은 "기본값 상속 + 한 필드 오버라이드" 패턴을 안전하게 만들어줍니다.
+
 ## 스코어 필터링
 
 `MinScore`는 유사도 점수가 일정 수준 이하인 청크를 제거합니다. 관련성 낮은 청크가 컨텍스트를 오염시키는 것을 방지합니다:

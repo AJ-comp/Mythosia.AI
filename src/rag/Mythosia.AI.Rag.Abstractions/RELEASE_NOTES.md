@@ -1,5 +1,30 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v6.2.0
+
+### Added
+
+- **`RagPipelineOptions.Clone()`** - returns a copy of the pipeline options with cloned `DefaultQuery`, enabling snapshot-style runtime updates.
+
+- **`RagQueryOptions.Clone()`** — returns a deep copy of the options object. Nested option types (`RagFilter`, `RagRetrievalDerivation`, `RagFinalSelectionOptions`) are also cloned. `ProgressAsync` and `StoreFilter` are copied by reference (delegate / external filter handle).
+- **`RagFilter.Clone()`**, **`RagRetrievalDerivation.Clone()`**, **`RagFinalSelectionOptions.Clone()`** — shallow copies of the respective option types.
+
+### Why
+
+Constructing a `RagQueryOptions` from scratch to override a single field (e.g. `TopK`) silently loses all other fields configured on `RagPipelineOptions.DefaultQuery` — most notably `StoreFilter` (tenant/permission scoping) and `ProgressAsync`. `Clone()` makes the "inherit defaults, override one field" pattern safe:
+
+```csharp
+var options = pipeline.Options.DefaultQuery.Clone();
+options.FinalFilter.TopK = 10;
+await pipeline.QueryAsync(query, options);
+```
+
+### Compatibility
+
+- Fully additive. Existing callers that construct `RagQueryOptions` manually continue to work unchanged.
+
+---
+
 ## v6.1.0
 
 ### Breaking Changes

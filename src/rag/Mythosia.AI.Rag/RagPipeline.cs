@@ -22,15 +22,18 @@ namespace Mythosia.AI.Rag
         private readonly IVectorStore _vectorStore;
         private readonly ITextSplitter _textSplitter;
         private readonly IContextBuilder _defaultContextBuilder;
-        private IContextBuilder _resolvedContextBuilder;
-        private string? _cachedPromptTemplate;
         private IRetrievalStrategy _retrievalStrategy;
         private readonly IReranker? _reranker;
+        private RagPipelineOptions _options = null!;
 
         /// <summary>
         /// Pipeline configuration options.
         /// </summary>
-        public RagPipelineOptions Options { get; set; }
+        public RagPipelineOptions Options
+        {
+            get => Volatile.Read(ref _options);
+            set => Volatile.Write(ref _options, value ?? throw new ArgumentNullException(nameof(value)));
+        }
 
         internal IEmbeddingProvider EmbeddingProvider => _embeddingProvider;
         internal IVectorStore VectorStore => _vectorStore;
@@ -65,7 +68,6 @@ namespace Mythosia.AI.Rag
             _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
             _textSplitter = textSplitter ?? throw new ArgumentNullException(nameof(textSplitter));
             _defaultContextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
-            _resolvedContextBuilder = _defaultContextBuilder;
             _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(vectorStore);
             _reranker = reranker;
             Options = options ?? new RagPipelineOptions();
@@ -73,19 +75,13 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Resolves the appropriate context builder based on <see cref="RagPipelineOptions.PromptTemplate"/>.
-        /// Uses the default context builder when no template is set; caches to avoid unnecessary allocations.
+        /// Uses the default context builder when no template is set.
         /// </summary>
-        private IContextBuilder ResolveContextBuilder()
+        private IContextBuilder ResolveContextBuilder(string? promptTemplate)
         {
-            var template = Options.PromptTemplate;
-            if (template != _cachedPromptTemplate)
-            {
-                _cachedPromptTemplate = template;
-                _resolvedContextBuilder = string.IsNullOrWhiteSpace(template)
-                    ? _defaultContextBuilder
-                    : new TemplateContextBuilder(template);
-            }
-            return _resolvedContextBuilder;
+            return string.IsNullOrWhiteSpace(promptTemplate)
+                ? _defaultContextBuilder
+                : new TemplateContextBuilder(promptTemplate);
         }
 
         /// <summary>
@@ -247,30 +243,21 @@ namespace Mythosia.AI.Rag
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
+            var optionsSnapshot = Options;
             RagQueryOptions? queryOptions = null;
             if (topK.HasValue)
             {
-                queryOptions = new RagQueryOptions
-                {
-                    FinalFilter = new RagFilter
-                    {
-                        TopK = topK ?? Options.DefaultQuery.FinalFilter.TopK,
-                        MinScore = Options.DefaultQuery.FinalFilter.MinScore
-                    },
-                    RetrievalDerivation = new RagRetrievalDerivation
-                    {
-                        TopKMultiplier = Options.DefaultQuery.RetrievalDerivation.TopKMultiplier,
-                        MinScoreDivider = Options.DefaultQuery.RetrievalDerivation.MinScoreDivider
-                    },
-                    FinalSelection = new RagFinalSelectionOptions
-                    {
-                        Mode = Options.DefaultQuery.FinalSelection.Mode,
-                        RetrievalWeight = Options.DefaultQuery.FinalSelection.RetrievalWeight
-                    }
-                };
+                queryOptions = optionsSnapshot.DefaultQuery.Clone();
+                queryOptions.FinalFilter.TopK = topK.Value;
             }
 
-            return await QueryAsync(query, queryOptions, filter, cancellationToken);
+            return await QueryAsync(
+                query,
+                null,
+                queryOptions,
+                filter,
+                cancellationToken,
+                optionsSnapshot);
         }
 
         /// <summary>
@@ -283,7 +270,14 @@ namespace Mythosia.AI.Rag
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            return await QueryAsync(query, textSearchQuery: null, queryOptions, filter, cancellationToken);
+            var optionsSnapshot = Options;
+            return await QueryAsync(
+                query,
+                null,
+                queryOptions,
+                filter,
+                cancellationToken,
+                optionsSnapshot);
         }
 
         /// <summary>
@@ -296,9 +290,11 @@ namespace Mythosia.AI.Rag
             string? textSearchQuery,
             RagQueryOptions? queryOptions,
             VectorFilter? filter = null,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            RagPipelineOptions? pipelineOptionsSnapshot = null)
         {
-            var effectiveOptions = queryOptions ?? Options.DefaultQuery;
+            var pipelineOptions = pipelineOptionsSnapshot ?? Options;
+            var effectiveOptions = queryOptions ?? pipelineOptions.DefaultQuery;
 
             var k = effectiveOptions.FinalFilter.TopK;
             var finalMinScore = effectiveOptions.FinalFilter.MinScore;
@@ -358,7 +354,7 @@ namespace Mythosia.AI.Rag
 
             // 6. Build context
             await ReportAsync(RagProgressStage.ContextBuild);
-            var context = ResolveContextBuilder().BuildContext(query, searchResults);
+            var context = ResolveContextBuilder(pipelineOptions.PromptTemplate).BuildContext(query, searchResults);
 
             return new RagQueryResult(query, context, searchResults, retrievalCandidates, rerankedCandidates);
         }
@@ -508,7 +504,8 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
-            var effectiveOptions = options ?? Options.DefaultQuery;
+            var pipelineOptions = Options;
+            var effectiveOptions = options ?? pipelineOptions.DefaultQuery;
 
             var retrievalFilter = effectiveOptions.GetRetrievalFilter(_reranker != null);
             var appliedTopK = effectiveOptions.FinalFilter.TopK;
@@ -517,7 +514,12 @@ namespace Mythosia.AI.Rag
             var retrievalK = retrievalFilter.TopK;
 
             var stopwatch = Stopwatch.StartNew();
-            var result = await QueryAsync(query, textSearchQuery, options, cancellationToken: cancellationToken);
+            var result = await QueryAsync(
+                query,
+                textSearchQuery,
+                effectiveOptions,
+                cancellationToken: cancellationToken,
+                pipelineOptionsSnapshot: pipelineOptions);
             stopwatch.Stop();
 
             // When no references are found, return the original query as-is

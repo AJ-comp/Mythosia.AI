@@ -71,6 +71,30 @@ var options = new RagQueryOptions
 
 `StoreFilter` 與查詢過濾器透過 AND 合併——兩者都不會被忽略。
 
+## 透過 `Clone()` 進行單次查詢覆寫
+
+當你維護一個基線 `RagQueryOptions`（例如租戶 `StoreFilter` + `ProgressAsync` 回呼），並希望在某些查詢上做單欄位調整時，使用 `RagQueryOptions.Clone()` 可保留其他所有欄位：
+
+```csharp
+// 多次查詢重複使用的基線
+var baseline = new RagQueryOptions
+{
+    StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId),
+    ProgressAsync = stage => { Console.WriteLine($"Stage: {stage}"); return Task.CompletedTask; }
+};
+
+// 單次查詢覆寫 —— Clone() 保留 StoreFilter 與 ProgressAsync
+var highRecall = baseline.Clone();
+highRecall.FinalFilter.TopK = 15;
+highRecall.FinalFilter.MinScore = 0.2;
+
+await ragStore.QueryAsync("退款政策", highRecall);
+```
+
+`Clone()` 對選項記錄（`FinalFilter`、`RetrievalDerivation`、`FinalSelection`）進行深拷貝,對句柄型欄位（`ProgressAsync`、`StoreFilter`）進行參考拷貝。若該次呼叫需要不同的回呼或過濾器,請在複製後明確重新指派這些屬性。
+
+> 從零建構 `new RagQueryOptions { FinalFilter = ... }` 會默默丟棄基線上的其他所有欄位。`Clone()` 讓「繼承預設值,僅覆寫單一欄位」的模式變得安全。
+
 ## 分數過濾
 
 ```csharp

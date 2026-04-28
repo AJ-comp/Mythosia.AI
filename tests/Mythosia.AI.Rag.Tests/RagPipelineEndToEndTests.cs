@@ -1,6 +1,7 @@
 using Mythosia.AI.Rag;
 using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Splitters;
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 namespace Mythosia.AI.Rag.Tests;
@@ -135,6 +136,107 @@ public class RagPipelineEndToEndTests
         Assert.AreEqual(0.2, processed.Diagnostics.AppliedFinalMinScore);
         Assert.AreEqual(0.2, processed.Diagnostics.AppliedRetrievalMinScore);
         Assert.IsTrue(processed.Diagnostics.ElapsedMs >= 0);
+    }
+
+    [TestMethod]
+    public async Task QueryAsync_TopKOverride_PreservesDefaultProgressAndStoreFilter()
+    {
+        var progressStages = new List<RagProgressStage>();
+        var pipeline = new RagPipeline(
+            new LocalEmbeddingProvider(dimensions: 256),
+            new InMemoryVectorStore(),
+            new CharacterTextSplitter(chunkSize: 500, chunkOverlap: 0, separator: null),
+            new DefaultContextBuilder(),
+            options: new RagPipelineOptions
+            {
+                DefaultQuery = new RagQueryOptions
+                {
+                    FinalFilter = new RagFilter { TopK = 2 },
+                    StoreFilter = new VectorFilter().Where("tenant", "alpha"),
+                    ProgressAsync = stage =>
+                    {
+                        progressStages.Add(stage);
+                        return Task.CompletedTask;
+                    }
+                }
+            });
+
+        await pipeline.IndexDocumentsAsync(new[]
+        {
+            new RagDocument
+            {
+                Id = "alpha-refund",
+                Content = "Alpha refund policy allows returns within 14 days.",
+                Source = "alpha.txt",
+                Metadata = new Dictionary<string, string> { ["tenant"] = "alpha" }
+            },
+            new RagDocument
+            {
+                Id = "beta-refund",
+                Content = "Beta refund policy allows returns within 30 days.",
+                Source = "beta.txt",
+                Metadata = new Dictionary<string, string> { ["tenant"] = "beta" }
+            }
+        });
+
+        var result = await pipeline.QueryAsync("refund policy", topK: 5);
+
+        Assert.AreEqual(1, result.SearchResults.Count);
+        Assert.AreEqual("alpha", result.SearchResults[0].Record.Metadata["tenant"]);
+        CollectionAssert.Contains(progressStages, RagProgressStage.Embedding);
+        CollectionAssert.Contains(progressStages, RagProgressStage.Filtering);
+        CollectionAssert.Contains(progressStages, RagProgressStage.Retrieval);
+        CollectionAssert.Contains(progressStages, RagProgressStage.ContextBuild);
+    }
+
+    [TestMethod]
+    public void UpdateOptions_ClonesAndSwapsOptionsWithoutMutatingPreviousSnapshot()
+    {
+        var pipeline = new RagPipeline(
+            new LocalEmbeddingProvider(dimensions: 64),
+            new InMemoryVectorStore(),
+            new CharacterTextSplitter(),
+            new DefaultContextBuilder(),
+            options: new RagPipelineOptions
+            {
+                DefaultQuery = new RagQueryOptions
+                {
+                    FinalFilter = new RagFilter { TopK = 2, MinScore = 0.1 },
+                    RetrievalDerivation = new RagRetrievalDerivation { TopKMultiplier = 3 },
+                    StoreFilter = new VectorFilter().Where("tenant", "alpha"),
+                    ProgressAsync = _ => Task.CompletedTask
+                },
+                PromptTemplate = "old {context} {question}",
+                EmbeddingBatchSize = 12
+            });
+        var store = new RagStore(pipeline, pipeline.VectorStore);
+        var previousOptions = pipeline.Options;
+        var previousDefaultQuery = previousOptions.DefaultQuery;
+
+        var updated = store.UpdateOptions(options =>
+        {
+            options.DefaultQuery.FinalFilter.TopK = 7;
+            options.DefaultQuery.FinalFilter.MinScore = 0.4;
+            options.DefaultQuery.RetrievalDerivation.TopKMultiplier = 5;
+            options.PromptTemplate = "new {context} {question}";
+            options.EmbeddingBatchSize = 24;
+        });
+
+        Assert.IsTrue(updated);
+        Assert.AreNotSame(previousOptions, pipeline.Options);
+        Assert.AreNotSame(previousDefaultQuery, pipeline.Options.DefaultQuery);
+        Assert.AreEqual(2, previousDefaultQuery.FinalFilter.TopK);
+        Assert.AreEqual(0.1, previousDefaultQuery.FinalFilter.MinScore);
+        Assert.AreEqual(3, previousDefaultQuery.RetrievalDerivation.TopKMultiplier);
+        Assert.AreEqual("old {context} {question}", previousOptions.PromptTemplate);
+        Assert.AreEqual(12, previousOptions.EmbeddingBatchSize);
+        Assert.AreEqual(7, pipeline.Options.DefaultQuery.FinalFilter.TopK);
+        Assert.AreEqual(0.4, pipeline.Options.DefaultQuery.FinalFilter.MinScore);
+        Assert.AreEqual(5, pipeline.Options.DefaultQuery.RetrievalDerivation.TopKMultiplier);
+        Assert.AreEqual("new {context} {question}", pipeline.Options.PromptTemplate);
+        Assert.AreEqual(24, pipeline.Options.EmbeddingBatchSize);
+        Assert.AreSame(previousDefaultQuery.StoreFilter, pipeline.Options.DefaultQuery.StoreFilter);
+        Assert.AreSame(previousDefaultQuery.ProgressAsync, pipeline.Options.DefaultQuery.ProgressAsync);
     }
 
     /// <summary>
