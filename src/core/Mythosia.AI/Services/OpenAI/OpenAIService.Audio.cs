@@ -30,7 +30,8 @@ namespace Mythosia.AI.Services.OpenAI
             };
             request.Headers.Add("Authorization", $"Bearer {ApiKey}");
 
-            var response = await HttpClient.SendAsync(request);
+            using var cts = CreateRequestTimeoutCts(CurrentPolicy ?? DefaultPolicy);
+            var response = await HttpClient.SendAsync(request, cts.Token);
 
             if (response.IsSuccessStatusCode)
             {
@@ -68,7 +69,8 @@ namespace Mythosia.AI.Services.OpenAI
             };
             request.Headers.Add("Authorization", $"Bearer {ApiKey}");
 
-            var response = await HttpClient.SendAsync(request);
+            using var cts = CreateRequestTimeoutCts(CurrentPolicy ?? DefaultPolicy);
+            var response = await HttpClient.SendAsync(request, cts.Token);
 
             if (response.IsSuccessStatusCode)
             {

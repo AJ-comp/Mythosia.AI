@@ -46,10 +46,28 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
                 );
 
                 Assert.IsNotNull(response);
-                Assert.IsFalse(string.IsNullOrWhiteSpace(claudeService.LastThinkingContent),
-                    "Thinking content should be captured when thinking is enabled.");
 
-                Console.WriteLine($"[Claude Thinking] {claudeService.LastThinkingContent}");
+                // Opus 4.7+ use adaptive thinking: the model decides whether to emit a thinking
+                // block and may legitimately skip it (the manual budget_tokens API used to force
+                // thinking, adaptive thinking does not). Thinking-content capture is already
+                // verified by the manual-thinking models below, so for adaptive models we only
+                // require a valid response and validate thinking content when it is present.
+                var model = claudeService.Model?.ToLowerInvariant() ?? string.Empty;
+                bool adaptiveThinking = model.Contains("opus-4-7") || model.Contains("opus-4-8");
+
+                if (adaptiveThinking)
+                {
+                    Assert.IsTrue(response.Length > 0, "Response should not be empty");
+                    Console.WriteLine(string.IsNullOrWhiteSpace(claudeService.LastThinkingContent)
+                        ? "[INFO] Adaptive-thinking model produced no thinking block (allowed)."
+                        : $"[Claude Thinking] {claudeService.LastThinkingContent}");
+                }
+                else
+                {
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(claudeService.LastThinkingContent),
+                        "Thinking content should be captured when thinking is enabled.");
+                    Console.WriteLine($"[Claude Thinking] {claudeService.LastThinkingContent}");
+                }
             },
             "Claude Thinking"
         );
@@ -82,7 +100,7 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 
         return true;
     }
-    protected override string? GetAlternativeModel() => AIModels.Anthropic.ClaudeSonnet4_250514;
+    protected override string? GetAlternativeModel() => AIModels.Anthropic.ClaudeSonnet4_5_250929;
 
     /// <summary>
     /// ThinkingBudget이 MaxTokens 이상일 때 자동 조정 테스트
@@ -160,7 +178,7 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
             var models = new[]
             {
                AIModels.Anthropic.ClaudeHaiku4_5_251001,
-               AIModels.Anthropic.ClaudeSonnet4_250514
+               AIModels.Anthropic.ClaudeSonnet4_6
            };
 
             foreach (var model in models)
@@ -237,6 +255,18 @@ public class Claude_Sonnet4_6 : AnthropicServiceTestsBase
 }
 
 [TestClass]
+public class Claude_Opus4_8 : AnthropicServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_8;
+}
+
+[TestClass]
+public class Claude_Opus4_7 : AnthropicServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_7;
+}
+
+[TestClass]
 public class Claude_Opus4_1 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_1_250805;
@@ -258,12 +288,6 @@ public class Claude_Opus4_5 : AnthropicServiceTestsBase
 public class Claude_Sonnet4_5 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_5_250929;
-}
-
-[TestClass]
-public class Claude_Sonnet4 : AnthropicServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet4_250514;
 }
 
 [TestClass]

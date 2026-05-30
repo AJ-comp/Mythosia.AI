@@ -314,7 +314,19 @@ public class Gemini_3FlashPreview_Tests : GoogleAIServiceTestsBase
 }
 
 [TestClass]
-public class Gemini_3ProPreview_Tests : GoogleAIServiceTestsBase
+public class Gemini_3_1ProPreview_Tests : GoogleAIServiceTestsBase
 {
-    protected override string ModelToTest => AIModels.Google.Gemini3ProPreview;
+    protected override string ModelToTest => AIModels.Google.Gemini3_1ProPreview;
+}
+
+[TestClass]
+public class Gemini_3_5Flash_Tests : GoogleAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Google.Gemini3_5Flash;
+}
+
+[TestClass]
+public class Gemini_3_1FlashLite_Tests : GoogleAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Google.Gemini3_1FlashLite;
 }

@@ -25,9 +25,9 @@ Tous les fournisseurs sont inclus dans le package principal `Mythosia.AI` (sauf 
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, série o3 |
 | **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
 | **Google** | Gemini 2.5 / série 3 |
-| **xAI** | Grok 3, série Grok 4 |
+| **xAI** | série Grok 4, Grok Build, Grok 3 Mini |
 | **DeepSeek** | Chat, Reasoner |
-| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning |
+| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 
 ## Vue d'ensemble de l'architecture

@@ -12,7 +12,7 @@
 
 ## Навіщо це потрібно
 
-Для індикатора контексту в чат-інтерфейсі зазвичай потрібен останній `RoundUsage.Usage.TotalTokens`. Це значення найближче до відповіді на питання: "яким буде розмір наступного входу моделі, якщо розмова продовжиться зараз?"
+Для індикатора контексту в чат-інтерфейсі зазвичай потрібен останній `RoundUsage.Usage.InputTokens`. Це значення найближче до відповіді на питання: "яким буде розмір наступного входу моделі, якщо розмова продовжиться зараз?"
 
 Для логів, діагностики й аналізу вартості використовуйте `Completion.Usage.TotalTokens`. Це накопичене значення для всього run, включно з усіма раундами function calling або agent.
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-Останній раунд моделі бачить найсвіжіший стан розмови, включно з результатами інструментів, доданими під час run. Тому останній `RoundUsage.TotalTokens` найкраще підходить для чат-інтерфейсу.
+Останній раунд моделі бачить найсвіжіший стан розмови, включно з результатами інструментів, доданими під час run. Тому останній `RoundUsage.Usage.InputTokens` найкраще підходить для чат-інтерфейсу.
+
+<a id="how-context-size-changes"></a>
+
+## Як змінюється розмір контексту
+
+Думайте про розмір контексту як про розмір входу останнього виклику моделі, а не як про накопичувальну суму. Пізніший раунд уже містить елементи розмови, що збереглися з попередніх раундів. Якщо складати входи кількох раундів, той самий prompt, визначення інструментів і історія будуть пораховані двічі.
+
+Наприклад:
+
+| Крок | Що додано перед цим викликом моделі | Приблизні вхідні токени | Індикатор контексту UI |
+|---|---|---:|---:|
+| Раунд 1 | System prompt, інструменти, історія, повідомлення користувача | 20 000 | 20 000 |
+| Між раундами | Вивід tool call — 100 токенів; результат інструмента — 5 000 токенів | немає LLM-виклику | без змін |
+| Раунд 2 | Вхід раунду 1 + повідомлення tool call + результат інструмента | 25 100 + overhead | 25 100 + overhead |
+| Вивід раунду 2 | Модель генерує 3 000 токенів, і потрібен ще один раунд | немає LLM-виклику | без змін |
+| Раунд 3 | Вхід раунду 2 + вивід раунду 2, плюс новий результат інструмента, якщо є | 28 100 + overhead | 28 100 + overhead |
+| Вивід раунду 3 | Модель генерує фінальну відповідь на 2 000 токенів | немає LLM-виклику | без змін |
+| Наступне повідомлення користувача | Попередня фінальна відповідь і нове повідомлення користувача стають частиною наступного входу | приблизно 30 100 + нове повідомлення + overhead | замінюється `InputTokens` нового раунду |
+
+Якщо раунд 3 є фінальним, індикатор контексту має показувати приблизно **28 100 + overhead**, а не 30 100 і не суму всіх раундів. Фінальна відповідь на 2 000 токенів впливає на наступний виклик моделі, бо стає історією розмови.
 
 ## Function Calling та agents
 
@@ -92,7 +112,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 

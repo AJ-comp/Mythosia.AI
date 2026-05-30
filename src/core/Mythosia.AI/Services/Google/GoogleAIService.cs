@@ -45,7 +45,7 @@ namespace Mythosia.AI.Services.Google
         public GoogleAIService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://generativelanguage.googleapis.com/", httpClient)
         {
-            Model = AIModels.Google.Gemini2_5Pro;
+            Model = AIModels.Google.Gemini3_1ProPreview;
             Temperature = 1.0f;
             TopP = 0.8f;
             MaxTokens = 2048;
@@ -291,6 +291,18 @@ namespace Mythosia.AI.Services.Google
             });
         }
 
+        /// <summary>
+        /// Lowest thinking level the current model supports (used when reasoning is disabled).
+        /// Gemini 3 "pro" models do NOT support MINIMAL (their floor is Low); Flash/Lite and others do.
+        /// </summary>
+        private GeminiThinkingLevel LowestThinkingLevel()
+        {
+            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            if (model.Contains("gemini-3") && model.Contains("-pro"))
+                return GeminiThinkingLevel.Low;
+            return GeminiThinkingLevel.Minimal;
+        }
+
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
             if (profile.DisableReasoning != true)
@@ -302,7 +314,7 @@ namespace Mythosia.AI.Services.Google
             // Gemini 2.5 Pro requires thinking mode (minimum budget 128).
             // Flash/Lite models can disable thinking with budget 0.
             ThinkingBudget = IsThinkingRequiredModel() ? 128 : 0;
-            ThinkingLevel = GeminiThinkingLevel.Minimal;
+            ThinkingLevel = LowestThinkingLevel();
 
             return () =>
             {

@@ -81,4 +81,6 @@ Round 2 จบลง `RoundUsage` emit เป็นครั้งที่ส�
 4. App รัน → `«20°C, แดด»`
 5. **Round 3** — model รวมผลทั้งสองเข้าเป็นคำตอบสุดท้าย
 
-รวมสาม round และ `Completion.Usage` จะเป็นผลรวมของทั้งสาม มิเตอร์ context ของ UI ควรใช้ `RoundUsage.TotalTokens` ของ round สุดท้าย — ในตัวอย่างนี้คือ round 3
+รวมสาม round และ `Completion.Usage` จะเป็นผลรวมของทั้งสาม มิเตอร์ context ของ UI ควรใช้ `RoundUsage.Usage.InputTokens` ของ round สุดท้าย — ในตัวอย่างนี้คือ round 3
+
+ดูตัวอย่างตัวเลขของการเปลี่ยนแปลง context meter ในแต่ละ round ได้ที่ [Token Usage — การเปลี่ยนแปลงของขนาด context](token-usage.md#how-context-size-changes)

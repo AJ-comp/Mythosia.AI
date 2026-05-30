@@ -81,4 +81,6 @@ Wenn das Modell mehrere Tool-Aufrufe verketten muss, summieren sich die Rounds. 
 4. App führt es aus → `„18°C, sonnig"`
 5. **Round 3** — Modell kombiniert beide Ergebnisse zur finalen Antwort
 
-Insgesamt drei Rounds, und `Completion.Usage` ist die Summe aller drei. Eine UI-Kontextanzeige sollte den `RoundUsage.TotalTokens` des letzten Rounds verwenden — in diesem Beispiel den Wert von Round 3.
+Insgesamt drei Rounds, und `Completion.Usage` ist die Summe aller drei. Eine UI-Kontextanzeige sollte den `RoundUsage.Usage.InputTokens` des letzten Rounds verwenden — in diesem Beispiel den Wert von Round 3.
+
+Eine numerische Erklärung, wie sich die Kontextanzeige von Round zu Round verändert, findest du unter [Token Usage — Wie sich die Kontextgröße ändert](token-usage.md#how-context-size-changes).

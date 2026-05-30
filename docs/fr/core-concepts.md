@@ -81,4 +81,6 @@ Si le modèle doit enchaîner plusieurs appels d'outils, les rounds s'additionne
 4. L'app l'exécute → `« 18°C, ensoleillé »`
 5. **Round 3** — le modèle combine les deux résultats dans la réponse finale
 
-Trois rounds au total, et `Completion.Usage` est la somme des trois. Un compteur de contexte dans l'UI devrait utiliser le `RoundUsage.TotalTokens` du dernier round — dans cet exemple, celui du round 3.
+Trois rounds au total, et `Completion.Usage` est la somme des trois. Un compteur de contexte dans l'UI devrait utiliser le `RoundUsage.Usage.InputTokens` du dernier round — dans cet exemple, celui du round 3.
+
+Pour un exemple chiffré de l'évolution du compteur de contexte d'un round à l'autre, consultez [Token Usage — Comment la taille du contexte évolue](token-usage.md#how-context-size-changes).

@@ -81,4 +81,6 @@ Nếu model cần gọi liên tiếp nhiều tool, số round sẽ cộng dồn.
 4. App thực thi → `«30°C, nắng»`
 5. **Round 3** — model kết hợp cả hai kết quả vào câu trả lời cuối cùng
 
-Tổng cộng ba round, và `Completion.Usage` cộng tất cả ba lại. Thanh đo ngữ cảnh trên UI nên dùng `RoundUsage.TotalTokens` của round cuối cùng — trong ví dụ này là round 3.
+Tổng cộng ba round, và `Completion.Usage` cộng tất cả ba lại. Thanh đo ngữ cảnh trên UI nên dùng `RoundUsage.Usage.InputTokens` của round cuối cùng — trong ví dụ này là round 3.
+
+Để xem ví dụ bằng số về cách context meter thay đổi qua từng round, hãy xem [Token Usage — Context size thay đổi như thế nào](token-usage.md#how-context-size-changes).

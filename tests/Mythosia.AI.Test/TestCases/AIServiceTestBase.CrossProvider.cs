@@ -84,7 +84,7 @@ public async Task ToClaude()
             string apiKey = await secretFetcher.GetKeyValueAsync();
 
             var newService = new AnthropicService(apiKey, new HttpClient()).CopyFrom(AI);
-            newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_250514);
+            newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
             
             // 메시지가 유지되는지 확인
             var messageCountAfter = newService.ActivateChat.Messages.Count;

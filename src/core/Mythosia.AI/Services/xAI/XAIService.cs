@@ -37,7 +37,7 @@ namespace Mythosia.AI.Services.xAI
         public XAIService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.x.ai/v1/", httpClient)
         {
-            Model = AIModels.xAI.Grok3;
+            Model = AIModels.xAI.Grok4_3;
             MaxTokens = 8000;
         }
 
@@ -274,20 +274,22 @@ namespace Mythosia.AI.Services.xAI
         }
 
         /// <summary>
-        /// Switches to Grok 4 flagship reasoning model
+        /// Switches to the current Grok flagship reasoning model (grok-4.3).
+        /// The legacy grok-4-0709 was retired on 2026-05-15 and now redirects to grok-4.3.
         /// </summary>
         public XAIService UseGrok4Model()
         {
-            ChangeModel(AIModels.xAI.Grok4);
+            ChangeModel(AIModels.xAI.Grok4_3);
             return this;
         }
 
         /// <summary>
-        /// Switches to Grok 4.1 Fast model for speed-optimized tasks
+        /// Switches to the current Grok flagship model (grok-4.3).
+        /// The legacy grok-4-1-fast was retired on 2026-05-15 and now redirects to grok-4.3.
         /// </summary>
         public XAIService UseGrok4FastModel()
         {
-            ChangeModel(AIModels.xAI.Grok4_1Fast);
+            ChangeModel(AIModels.xAI.Grok4_3);
             return this;
         }
 

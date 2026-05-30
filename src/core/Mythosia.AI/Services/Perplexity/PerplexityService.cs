@@ -265,11 +265,13 @@ namespace Mythosia.AI.Services.Perplexity
         }
 
         /// <summary>
-        /// Switches to Sonar Reasoning model for complex reasoning tasks
+        /// Switches to Sonar Reasoning Pro model for complex reasoning tasks.
+        /// The legacy sonar-reasoning model was removed from the Perplexity API on 2025-12-15;
+        /// sonar-reasoning-pro is its official replacement.
         /// </summary>
         public PerplexityService UseSonarReasoning()
         {
-            ChangeModel(AIModels.Perplexity.SonarReasoning);
+            ChangeModel(AIModels.Perplexity.SonarReasoningPro);
             return this;
         }
 

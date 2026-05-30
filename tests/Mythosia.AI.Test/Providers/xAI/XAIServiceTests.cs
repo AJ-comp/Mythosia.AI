@@ -34,8 +34,10 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
     }
 
     protected override bool SupportsMultimodal() =>
-        ModelToTest == AIModels.xAI.Grok4 || ModelToTest == AIModels.xAI.Grok4_1Fast;
+        ModelToTest == AIModels.xAI.Grok4_3 ||
+        ModelToTest.Contains("grok-4.20");
     protected override bool SupportsFunctionCalling() => true;
+    protected override bool SupportsArrayParameter() => true;
     protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsAudio() => false;
     protected override bool SupportsWebSearch() => false;
@@ -81,25 +83,25 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
             Assert.IsNotNull(miniResponse);
             Console.WriteLine($"[Grok Mini] {miniResponse}");
 
-            // Grok 4 모델로 전환
+            // Grok 4.3 flagship 모델로 전환
             grokService.UseGrok4Model();
-            Assert.AreEqual(AIModels.xAI.Grok4, grokService.Model);
+            Assert.AreEqual(AIModels.xAI.Grok4_3, grokService.Model);
 
             var g4Response = await grokService.GetCompletionAsync(
                 "Explain quantum computing in one sentence."
             );
             Assert.IsNotNull(g4Response);
-            Console.WriteLine($"[Grok 4] {g4Response}");
+            Console.WriteLine($"[Grok 4.3] {g4Response}");
 
-            // Grok 4.1 Fast 모델로 전환
+            // Fast 헬퍼도 현재 flagship(grok-4.3)으로 매핑됨
             grokService.UseGrok4FastModel();
-            Assert.AreEqual(AIModels.xAI.Grok4_1Fast, grokService.Model);
+            Assert.AreEqual(AIModels.xAI.Grok4_3, grokService.Model);
 
             var fastResponse = await grokService.GetCompletionAsync(
                 "What is the speed of light?"
             );
             Assert.IsNotNull(fastResponse);
-            Console.WriteLine($"[Grok 4.1 Fast] {fastResponse}");
+            Console.WriteLine($"[Grok 4.3 via Fast helper] {fastResponse}");
         }
         catch (Exception ex)
         {
@@ -319,27 +321,32 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
 // 2. 모델별 구체 클래스
 
 [TestClass]
-public class xAI_Grok4_Tests : XAIServiceTestsBase
+public class xAI_Grok4_3_Tests : XAIServiceTestsBase
 {
-    protected override string ModelToTest => AIModels.xAI.Grok4;
+    protected override string ModelToTest => AIModels.xAI.Grok4_3;
 }
 
 [TestClass]
-public class xAI_Grok4_1Fast_Tests : XAIServiceTestsBase
+public class xAI_Grok4_20Reasoning_Tests : XAIServiceTestsBase
 {
-    protected override string ModelToTest => AIModels.xAI.Grok4_1Fast;
+    protected override string ModelToTest => AIModels.xAI.Grok4_20Reasoning;
 }
 
 [TestClass]
-public class xAI_Grok3_Tests : XAIServiceTestsBase
+public class xAI_Grok4_20NonReasoning_Tests : XAIServiceTestsBase
 {
-    protected override string ModelToTest => AIModels.xAI.Grok3;
-    protected override string? GetAlternativeModel() => AIModels.xAI.Grok3Mini;
+    protected override string ModelToTest => AIModels.xAI.Grok4_20NonReasoning;
+}
+
+[TestClass]
+public class xAI_GrokBuild0_1_Tests : XAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.xAI.GrokBuild0_1;
 }
 
 [TestClass]
 public class xAI_Grok3Mini_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.Grok3Mini;
-    protected override string? GetAlternativeModel() => AIModels.xAI.Grok3;
+    protected override string? GetAlternativeModel() => AIModels.xAI.Grok4_3;
 }

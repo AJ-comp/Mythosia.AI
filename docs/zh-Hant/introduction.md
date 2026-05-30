@@ -25,9 +25,9 @@ Mythosia.AI 是一個模組化的 .NET AI 函式庫，提供統一介面來對�
 | **OpenAI** | GPT-5.x、GPT-4.1、GPT-4o、o3 系列 |
 | **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
 | **Google** | Gemini 2.5 / 3 系列 |
-| **xAI** | Grok 3、Grok 4 系列 |
+| **xAI** | Grok 4 系列、Grok Build、Grok 3 Mini |
 | **DeepSeek** | Chat、Reasoner |
-| **Perplexity** | Sonar、Sonar Pro、Sonar Reasoning |
+| **Perplexity** | Sonar、Sonar Pro、Sonar Reasoning Pro |
 | **阿里巴巴 / 通義千問** | Qwen Max / Plus / Turbo / Qwen3（`Mythosia.AI.Providers.Alibaba`） |
 
 ## 架構概覽

@@ -8,12 +8,12 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 
 ### Supported Providers
 
-- **OpenAI** — GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Codex / 5.1 / 5 (with reasoning), GPT-4.1, GPT-4o, o3
-- **Anthropic** — Claude Opus 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5 / 4, Haiku 4.5
-- **Google** — Gemini 3 Flash/Pro Preview, Gemini 2.5 Pro/Flash/Flash-Lite
+- **OpenAI** — GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.2 Codex / 5.1 / 5 / 5 Pro (with reasoning), GPT-4.1, GPT-4o, o3
+- **Anthropic** — Claude Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5, Haiku 4.5
+- **Google** — Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite
 - **DeepSeek** — Chat and Reasoner models
-- **xAI** — Grok 4, Grok 4.1 Fast, Grok 3, Grok 3 Mini
-- **Perplexity** — Sonar with web search and citations
+- **xAI** — Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build 0.1, Grok 3 Mini
+- **Perplexity** — Sonar / Sonar Pro / Sonar Reasoning Pro with web search and citations
 
 ## 📚 Documentation
 
@@ -92,7 +92,7 @@ var vision = await AIService.QuickAskWithImageAsync(apiKey, "Describe this image
 
 ## GPT-5 Family Configuration
 
-GPT-5 family models (GPT-5 / 5.1 / 5.2 / 5.3 / 5.4) support **type-safe reasoning configuration** with per-model enums.
+GPT-5 family models (GPT-5 / 5.1 / 5.2 / 5.3 / 5.4 / 5.5) support **type-safe reasoning configuration** with per-model enums.
 
 ### Reasoning Effort (Per-Model Enums)
 
@@ -128,9 +128,15 @@ gptService.WithGpt5_4Parameters(
     reasoningEffort: Gpt5_4Reasoning.Auto,
     verbosity: Verbosity.High,
     reasoningSummary: ReasoningSummary.Auto);
+
+// GPT-5.5 / 5.5 Pro: Gpt5_5Reasoning (Auto/None/Low/Medium/High/XHigh) + Verbosity
+gptService.WithGpt5_5Parameters(
+    reasoningEffort: Gpt5_5Reasoning.High,
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Concise);
 ```
 
-`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro/Codex, Medium for GPT-5.3 Codex, None for GPT-5.4, Medium for GPT-5.4 Pro).
+`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro/Codex, Medium for GPT-5.3 Codex, None for GPT-5.4, Medium for GPT-5.4 Pro, None for GPT-5.5, Medium for GPT-5.5 Pro). The `-pro` variants reject `None`/`Low` and are clamped up to `Medium`.
 
 ### Reasoning Summary
 
@@ -185,7 +191,7 @@ grokService.WithGrokParameters(reasoningEffort: GrokReasoning.High);
 
 ### Reasoning Content Streaming
 
-Grok reasoning models (`grok-3-mini`, `grok-4`, `grok-4-1-fast`) stream `reasoning_content` when reasoning is enabled:
+Grok reasoning models (`grok-3-mini`, `grok-4.3`) stream `reasoning_content` when reasoning is enabled:
 
 ```csharp
 await foreach (var content in grokService.StreamAsync(message, new StreamOptions().WithReasoning()))
@@ -735,7 +741,7 @@ the same one-round request. For an agent or function-calling run, each LLM round
 
 This distinction is important for UI context meters. If you want to show "how many tokens the
 current conversation state used when it entered the latest LLM call", use the latest
-`RoundUsage.Usage.TotalTokens`. If you want cost or diagnostics for the full agent run, use
+`RoundUsage.Usage.InputTokens`. If you want cost or diagnostics for the full agent run, use
 `Completion.Usage.TotalTokens`.
 
 `RoundUsage` events also include:
@@ -780,10 +786,10 @@ await foreach (var content in service.RunAgentStreamAsync(
     if (content.Type == StreamingContentType.RoundUsage && content.Usage != null)
     {
         // Best value for a UI context/token meter.
-        contextTokenMeter = content.Usage.TotalTokens;
+        contextTokenMeter = content.Usage.InputTokens;
 
         Console.WriteLine(
-            $"Round {content.RoundIndex}: {content.Usage.TotalTokens} tokens");
+            $"Round {content.RoundIndex}: input={content.Usage.InputTokens}, total={content.Usage.TotalTokens} tokens");
 
         if (content.IsFinalRound)
         {
@@ -851,6 +857,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 
 | Service | Function Calling | Streaming | Reasoning | Notes |
 |---------|-----------------|-----------|-----------|--------|
+| **OpenAI GPT-5.5 / 5.5 Pro / 5 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.4 / 5.4 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.3 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.2 / 5.2 Pro / 5.2 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
@@ -858,12 +865,12 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 | **OpenAI GPT-5 / Mini / Nano** | ✅ | ✅ | ✅ | Reasoning streaming + summary |
 | **OpenAI GPT-4.1 / GPT-4o** | ✅ | ✅ | — | Full function support |
 | **OpenAI o3 / o3-pro** | ✅ | ✅ | ✅ | Advanced reasoning |
-| **Claude Opus 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
-| **Claude Sonnet 4.6 / 4.5 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
+| **Claude Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
+| **Claude Sonnet 4.6 / 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Claude Haiku 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
-| **Gemini 3 Flash/Pro** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
+| **Gemini 3.1 Pro / 3.5 Flash / 3 Flash / 3.1 Flash-Lite** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
 | **Gemini 2.5 Pro/Flash** | ✅ | ✅ | ✅ | ThinkingBudget control |
-| **xAI Grok 4 / 4.1 Fast / 3 / 3 Mini** | ✅ | ✅ | ✅ | `GrokReasoning` effort + reasoning streaming |
+| **xAI Grok 4.3 / 4.20 / Build 0.1 / 3 Mini** | ✅ | ✅ | ✅ | `GrokReasoning` effort + reasoning streaming |
 | **DeepSeek** | ❌ | ✅ | ✅ | Reasoner model streaming |
 | **Perplexity** | ❌ | ✅ | — | Web search + citations |
 

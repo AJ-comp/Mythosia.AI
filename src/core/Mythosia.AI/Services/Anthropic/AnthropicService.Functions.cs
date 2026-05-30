@@ -52,6 +52,7 @@ namespace Mythosia.AI.Services.Anthropic
 
             ApplySystemMessage(requestBody);
             ApplyThinkingConfig(requestBody);
+            ApplyTemperaturePolicy(requestBody);
             ApplyToolsConfig(requestBody);
 
             return requestBody;

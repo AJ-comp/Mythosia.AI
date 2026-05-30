@@ -12,7 +12,7 @@ C'est surtout important quand une réponse ne se limite pas à un seul appel LLM
 
 ## Pourquoi c'est utile
 
-Pour une jauge de contexte dans une interface de chat, utilisez le dernier `RoundUsage.Usage.TotalTokens`. C'est la valeur la plus proche de "combien pèserait l'entrée du prochain appel LLM si la conversation continuait maintenant".
+Pour une jauge de contexte dans une interface de chat, utilisez le dernier `RoundUsage.Usage.InputTokens`. C'est la valeur la plus proche de "combien pèserait l'entrée du prochain appel LLM si la conversation continuait maintenant".
 
 Pour les logs, le diagnostic et l'analyse des coûts, utilisez `Completion.Usage.TotalTokens`. Cette valeur reste cumulative sur tout le run, y compris quand un agent déclenche plusieurs rounds.
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-Le dernier round du modèle voit l'état le plus récent de la conversation, y compris les résultats d'outils ajoutés pendant le run. C'est pourquoi le dernier `RoundUsage.TotalTokens` est la meilleure valeur pour une UI de chat.
+Le dernier round du modèle voit l'état le plus récent de la conversation, y compris les résultats d'outils ajoutés pendant le run. C'est pourquoi le dernier `RoundUsage.Usage.InputTokens` est la meilleure valeur pour une UI de chat.
+
+<a id="how-context-size-changes"></a>
+
+## Comment la taille du contexte évolue
+
+Considérez la taille du contexte comme la taille de l'entrée du dernier appel au modèle, et non comme un total cumulé. Un round ultérieur contient déjà les éléments de conversation conservés depuis les rounds précédents. Additionner les entrées des rounds compterait donc deux fois le même prompt, les mêmes définitions d'outils et le même historique.
+
+Par exemple :
+
+| Étape | Ce qui est ajouté avant cet appel au modèle | Tokens d'entrée approximatifs | Jauge de contexte UI |
+|---|---|---:|---:|
+| Round 1 | Prompt système, outils, historique, message utilisateur | 20 000 | 20 000 |
+| Entre les rounds | La sortie du tool call fait 100 tokens ; le résultat d'outil fait 5 000 tokens | pas d'appel LLM | inchangée |
+| Round 2 | Entrée du round 1 + message de tool call + résultat d'outil | 25 100 + overhead | 25 100 + overhead |
+| Sortie du round 2 | Le modèle génère 3 000 tokens et un autre round est nécessaire | pas d'appel LLM | inchangée |
+| Round 3 | Entrée du round 2 + sortie du round 2, plus tout nouveau résultat d'outil | 28 100 + overhead | 28 100 + overhead |
+| Sortie du round 3 | Le modèle génère une réponse finale de 2 000 tokens | pas d'appel LLM | inchangée |
+| Message utilisateur suivant | La réponse finale précédente et le nouveau message utilisateur font maintenant partie de l'entrée suivante | environ 30 100 + nouveau message + overhead | remplacée par les `InputTokens` du nouveau round |
+
+Si le round 3 est le round final, la jauge de contexte devrait donc afficher environ **28 100 + overhead**, pas 30 100 ni la somme de tous les rounds. La réponse finale de 2 000 tokens influence le prochain appel au modèle parce qu'elle devient de l'historique de conversation.
 
 ## Function Calling et agents
 
@@ -104,7 +124,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 
@@ -112,7 +132,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
         cumulative = chunk.Usage;
 }
 
-Console.WriteLine($"UI meter: {latestRound?.TotalTokens}");
+Console.WriteLine($"UI meter: {latestRound?.InputTokens}");
 Console.WriteLine($"Run total: {cumulative?.TotalTokens}");
 ```
 

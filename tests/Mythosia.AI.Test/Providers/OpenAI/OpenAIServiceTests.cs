@@ -279,3 +279,23 @@ public class O3 : OpenAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.OpenAI.O3;
 }
+
+[TestClass]
+public class Gpt5Pro : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5Pro;
+}
+
+[TestClass]
+public class Gpt5_5 : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_5;
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_5Parameters(reasoningEffort: Gpt5_5Reasoning.Low);
+}
+
+[TestClass]
+public class Gpt5_5Pro : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_5Pro;
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_5Parameters(reasoningEffort: Gpt5_5Reasoning.Medium);
+}

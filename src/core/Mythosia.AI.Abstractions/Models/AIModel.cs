@@ -11,6 +11,7 @@
             public const string Gpt5Mini_250807 = "gpt-5-mini-2025-08-07";
             public const string Gpt5Nano_250807 = "gpt-5-nano-2025-08-07";
             public const string Gpt5ChatLatest = "gpt-5-chat-latest";
+            public const string Gpt5Pro = "gpt-5-pro";
             public const string Gpt5_1 = "gpt-5.1";
             public const string Gpt5_2 = "gpt-5.2";
             public const string Gpt5_2Pro = "gpt-5.2-pro";
@@ -20,6 +21,10 @@
             public const string Gpt5_4Mini = "gpt-5.4-mini";
             public const string Gpt5_4Nano = "gpt-5.4-nano";
             public const string Gpt5_4Pro = "gpt-5.4-pro";
+            public const string Gpt5_5 = "gpt-5.5";
+            public const string Gpt5_5_260423 = "gpt-5.5-2026-04-23";
+            public const string Gpt5_5Pro = "gpt-5.5-pro";
+            public const string Gpt5_5Pro_260423 = "gpt-5.5-pro-2026-04-23";
             public const string O3Pro = "o3-pro";
             public const string O3 = "o3";
             public const string Gpt4_1 = "gpt-4.1";
@@ -35,13 +40,14 @@
 
         public static class Anthropic
         {
+            public const string ClaudeOpus4_8 = "claude-opus-4-8";
+            public const string ClaudeOpus4_7 = "claude-opus-4-7";
             public const string ClaudeOpus4_6 = "claude-opus-4-6";
             public const string ClaudeSonnet4_6 = "claude-sonnet-4-6";
             public const string ClaudeOpus4_1_250805 = "claude-opus-4-1-20250805";
             public const string ClaudeOpus4_250514 = "claude-opus-4-20250514";
             public const string ClaudeOpus4_5_251101 = "claude-opus-4-5-20251101";
             public const string ClaudeSonnet4_5_250929 = "claude-sonnet-4-5-20250929";
-            public const string ClaudeSonnet4_250514 = "claude-sonnet-4-20250514";
             public const string ClaudeHaiku4_5_251001 = "claude-haiku-4-5-20251001";
         }
 
@@ -51,14 +57,17 @@
             public const string Gemini2_5Flash = "gemini-2.5-flash";
             public const string Gemini2_5FlashLite = "gemini-2.5-flash-lite";
             public const string Gemini3FlashPreview = "gemini-3-flash-preview";
-            public const string Gemini3ProPreview = "gemini-3-pro-preview";
+            public const string Gemini3_1ProPreview = "gemini-3.1-pro-preview";
+            public const string Gemini3_5Flash = "gemini-3.5-flash";
+            public const string Gemini3_1FlashLite = "gemini-3.1-flash-lite";
         }
 
         public static class xAI
         {
-            public const string Grok4 = "grok-4-0709";
-            public const string Grok4_1Fast = "grok-4-1-fast";
-            public const string Grok3 = "grok-3";
+            public const string Grok4_3 = "grok-4.3";
+            public const string Grok4_20Reasoning = "grok-4.20-0309-reasoning";
+            public const string Grok4_20NonReasoning = "grok-4.20-0309-non-reasoning";
+            public const string GrokBuild0_1 = "grok-build-0.1";
             public const string Grok3Mini = "grok-3-mini";
         }
 
@@ -72,7 +81,7 @@
         {
             public const string Sonar = "sonar";
             public const string SonarPro = "sonar-pro";
-            public const string SonarReasoning = "sonar-reasoning";
+            public const string SonarReasoningPro = "sonar-reasoning-pro";
         }
     }
 

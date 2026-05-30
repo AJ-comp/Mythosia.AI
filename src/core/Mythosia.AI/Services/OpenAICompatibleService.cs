@@ -47,10 +47,16 @@ namespace Mythosia.AI.Services.Base
             if (policy.EnableLogging)
                 Console.WriteLine($"[{GetType().Name} Stream Round]");
 
-            // 1. Create and send HTTP request
+            // 1. Create and send HTTP request. The connection/headers phase is bounded by the
+            // resolved request timeout (single control point); the SSE body read below is governed
+            // by the caller's token so long legitimate streams are not cut off.
             var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
-            var response = await HttpClient.SendAsync(
-                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            HttpResponseMessage response;
+            using (var connectCts = CreateRequestTimeoutCts(policy, cancellationToken))
+            {
+                response = await HttpClient.SendAsync(
+                    request, HttpCompletionOption.ResponseHeadersRead, connectCts.Token);
+            }
 
             if (!response.IsSuccessStatusCode)
             {

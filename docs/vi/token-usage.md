@@ -12,7 +12,7 @@ Sử dụng token cho biết một request tới model đã tiêu tốn bao nhi�
 
 ## Vì sao cần quan tâm
 
-Với đồng hồ đo context trong UI chat, thường bạn nên dùng `RoundUsage.Usage.TotalTokens` mới nhất. Giá trị này gần nhất với câu hỏi: "nếu tiếp tục hội thoại ngay bây giờ, input tiếp theo gửi vào model sẽ lớn cỡ nào?"
+Với đồng hồ đo context trong UI chat, thường bạn nên dùng `RoundUsage.Usage.InputTokens` mới nhất. Giá trị này gần nhất với câu hỏi: "nếu tiếp tục hội thoại ngay bây giờ, input tiếp theo gửi vào model sẽ lớn cỡ nào?"
 
 Với log, chẩn đoán và phân tích chi phí, hãy dùng `Completion.Usage.TotalTokens`. Giá trị này là tổng của cả run, kể cả khi function calling hoặc agent tạo ra nhiều round.
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-Round cuối cùng của model nhìn thấy trạng thái hội thoại mới nhất, bao gồm cả kết quả tool được thêm trong lúc run. Vì vậy `RoundUsage.TotalTokens` cuối cùng là giá trị hợp lý nhất cho UI chat.
+Round cuối cùng của model nhìn thấy trạng thái hội thoại mới nhất, bao gồm cả kết quả tool được thêm trong lúc run. Vì vậy `RoundUsage.Usage.InputTokens` cuối cùng là giá trị hợp lý nhất cho UI chat.
+
+<a id="how-context-size-changes"></a>
+
+## Context size thay đổi như thế nào
+
+Hãy hiểu context size là kích thước input của lần gọi model mới nhất, không phải tổng cộng dồn. Round sau đã bao gồm các phần hội thoại còn lại từ round trước, nên nếu cộng input của nhiều round lại với nhau, bạn sẽ đếm trùng cùng một prompt, cùng định nghĩa tool và cùng lịch sử.
+
+Ví dụ:
+
+| Bước | Nội dung được thêm trước lần gọi model này | Input token xấp xỉ | UI context meter |
+|---|---|---:|---:|
+| Round 1 | System prompt, tools, history, user message | 20.000 | 20.000 |
+| Giữa các round | Tool call output 100 token; tool result 5.000 token | không có LLM call | không đổi |
+| Round 2 | Input của round 1 + tool-call message + tool result | 25.100 + overhead | 25.100 + overhead |
+| Output của round 2 | Model sinh 3.000 token và cần thêm round nữa | không có LLM call | không đổi |
+| Round 3 | Input của round 2 + output của round 2, cộng thêm tool result mới nếu có | 28.100 + overhead | 28.100 + overhead |
+| Output của round 3 | Model sinh final answer 2.000 token | không có LLM call | không đổi |
+| User message tiếp theo | Final answer trước đó và user message mới trở thành một phần của input tiếp theo | khoảng 30.100 + message mới + overhead | được thay bằng `InputTokens` của round mới |
+
+Vì vậy nếu round 3 là round cuối, context meter nên hiển thị khoảng **28.100 + overhead**, không phải 30.100 và cũng không phải tổng của mọi round. Final answer 2.000 token ảnh hưởng đến lần gọi model tiếp theo vì nó trở thành conversation history.
 
 ## Function Calling và agent
 
@@ -92,7 +112,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 

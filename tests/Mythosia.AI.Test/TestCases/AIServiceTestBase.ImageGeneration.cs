@@ -30,8 +30,11 @@ public abstract partial class AIServiceTestBase
                 );
 
                 Assert.IsNotNull(imageUrl);
-                Assert.IsTrue(imageUrl.StartsWith("http"));
-                Console.WriteLine($"[Image URL] {imageUrl}");
+                // Hosted http URLs (dall-e) or a base64 data: URI (gpt-image models, which don't
+                // provide hosted URLs) are both valid image sources.
+                Assert.IsTrue(imageUrl.StartsWith("http") || imageUrl.StartsWith("data:image"),
+                    $"Expected an http URL or data: URI, got: {imageUrl.Substring(0, Math.Min(32, imageUrl.Length))}");
+                Console.WriteLine($"[Image URL] {imageUrl.Substring(0, Math.Min(48, imageUrl.Length))}...");
             },
             "Image Generation"
         );

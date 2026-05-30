@@ -81,4 +81,6 @@ tool_result: 15°C、くもり
 4. アプリが実行 → `"18°C、晴れ"`
 5. **ラウンド 3** — モデルが両方の結果を統合して最終回答を作成
 
-合計 3 ラウンドで、`Completion.Usage` はその 3 つの合計になります。UI のコンテキストメーターには、最後のラウンド (この例ではラウンド 3) の `RoundUsage.TotalTokens` を使えば十分です。
+合計 3 ラウンドで、`Completion.Usage` はその 3 つの合計になります。UI のコンテキストメーターには、最後のラウンド (この例ではラウンド 3) の `RoundUsage.Usage.InputTokens` を使えば十分です。
+
+コンテキストメーターがラウンドごとにどう変わるかを数値で見るには、[Token Usage — コンテキストサイズの変化](token-usage.md#how-context-size-changes) を参照してください。

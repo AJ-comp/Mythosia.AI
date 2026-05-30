@@ -12,7 +12,7 @@
 
 ## なぜ必要か
 
-チャット UI のコンテキストメーターには、最後に受け取った `RoundUsage.Usage.TotalTokens` が向いています。これは「この会話状態を次の LLM 呼び出しの入力にしたら、どれくらいの大きさになるか」に近い値です。
+チャット UI のコンテキストメーターには、最後に受け取った `RoundUsage.Usage.InputTokens` が向いています。これは「この会話状態を次の LLM 呼び出しの入力にしたら、どれくらいの大きさになるか」に近い値です。
 
 ログ、診断、コスト分析には `Completion.Usage.TotalTokens` を使います。function calling や agent のように複数ラウンドが発生しても、実行全体の累積値として扱えます。
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-最後のモデルラウンドは、関数結果まで反映された最新の会話状態を見ています。そのため、チャット UI では最後の `RoundUsage.TotalTokens` が、応答直後のコンテキストサイズを最もよく表します。
+最後のモデルラウンドは、関数結果まで反映された最新の会話状態を見ています。そのため、チャット UI では最後の `RoundUsage.Usage.InputTokens` が、応答直後のコンテキストサイズを最もよく表します。
+
+<a id="how-context-size-changes"></a>
+
+## コンテキストサイズの変化
+
+コンテキストサイズは累積合計ではなく、直近のモデル呼び出しに入った入力サイズとして考えます。後続のラウンドには、前のラウンドから残った会話要素がすでに含まれます。そのため、ラウンドごとの入力を足し合わせると、同じプロンプト、ツール定義、履歴を二重に数えてしまいます。
+
+例:
+
+| ステップ | このモデル呼び出しの前に追加されるもの | おおよその入力トークン | UI コンテキストメーター |
+|---|---|---:|---:|
+| ラウンド 1 | システムプロンプト、ツール、履歴、ユーザーメッセージ | 20,000 | 20,000 |
+| ラウンド間 | tool call の出力が 100 トークン、ツール結果が 5,000 トークン | LLM 呼び出しなし | 変化なし |
+| ラウンド 2 | ラウンド 1 の入力 + tool call メッセージ + ツール結果 | 25,100 + オーバーヘッド | 25,100 + オーバーヘッド |
+| ラウンド 2 の出力 | モデルが 3,000 トークンを生成し、さらにラウンドが必要 | LLM 呼び出しなし | 変化なし |
+| ラウンド 3 | ラウンド 2 の入力 + ラウンド 2 の出力、必要なら新しいツール結果 | 28,100 + オーバーヘッド | 28,100 + オーバーヘッド |
+| ラウンド 3 の出力 | モデルが 2,000 トークンの最終回答を生成 | LLM 呼び出しなし | 変化なし |
+| 次のユーザーメッセージ | 前回の最終回答と新しいユーザーメッセージが次の入力に含まれる | 約 30,100 + 新しいメッセージ + オーバーヘッド | 新しいラウンドの `InputTokens` に置き換わる |
+
+したがってラウンド 3 が最終ラウンドなら、コンテキストメーターはおおよそ **28,100 + オーバーヘッド** を表示するのが正しく、30,100 でも全ラウンドの合計でもありません。2,000 トークンの最終回答は会話履歴になるため、次のモデル呼び出しで入力に含まれます。
 
 ## Function Calling と Agent
 
@@ -104,7 +124,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 
@@ -112,7 +132,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
         cumulative = chunk.Usage;
 }
 
-Console.WriteLine($"UI meter: {latestRound?.TotalTokens}");
+Console.WriteLine($"UI meter: {latestRound?.InputTokens}");
 Console.WriteLine($"Run total: {cumulative?.TotalTokens}");
 ```
 

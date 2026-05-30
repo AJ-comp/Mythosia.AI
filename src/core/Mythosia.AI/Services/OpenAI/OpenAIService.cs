@@ -41,6 +41,28 @@ namespace Mythosia.AI.Services.OpenAI
         {
             Model = AIModels.OpenAI.Gpt4_1;
             MaxTokens = 16000;
+
+            // The per-request FunctionCallingPolicy timeout (resolved via ResolveRequestTimeoutSeconds)
+            // is the single timeout authority. Disable HttpClient's own timeout so it never caps it.
+            // Every OpenAI request path bounds itself with CreateRequestTimeoutCts.
+            try { HttpClient.Timeout = System.Threading.Timeout.InfiniteTimeSpan; }
+            catch (InvalidOperationException) { /* client already used elsewhere; leave as configured */ }
+        }
+
+        /// <summary>
+        /// OpenAI timeout policy. Slow "pro" reasoning models (gpt-5-pro, o3-pro, gpt-5.x-pro)
+        /// routinely take longer than the 100s default, so when the default is in effect they get
+        /// a longer timeout. Explicit non-default timeouts are respected.
+        /// </summary>
+        protected override int? ResolveRequestTimeoutSeconds(FunctionCallingPolicy policy)
+        {
+            const int DefaultTimeout = 100;
+            const int ProModelTimeout = 300;
+            var seconds = policy?.TimeoutSeconds;
+            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            if (seconds == DefaultTimeout && model.Contains("-pro"))
+                return ProModelTimeout;
+            return seconds;
         }
 
         /// <summary>
@@ -59,9 +81,8 @@ namespace Mythosia.AI.Services.OpenAI
             var policy = CurrentPolicy ?? DefaultPolicy;
             CurrentPolicy = null;
 
-            using var cts = policy.TimeoutSeconds.HasValue
-                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
-                : new CancellationTokenSource();
+            var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
+            using var cts = CreateRequestTimeoutCts(policy);
 
             // Stateless mode handling
             ChatBlock originalChat = null;
@@ -88,7 +109,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
             catch (OperationCanceledException)
             {
-                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
+                throw new AIServiceException($"Request timeout after {timeoutSeconds} seconds");
             }
             finally
             {
@@ -426,6 +447,24 @@ namespace Mythosia.AI.Services.OpenAI
         public Verbosity? Gpt5_4Verbosity { get; set; }
 
         /// <summary>
+        /// GPT-5.5 reasoning effort level.
+        /// GPT-5.5 defaults to None. GPT-5.5 Pro defaults to Medium.
+        /// </summary>
+        public Gpt5_5Reasoning Gpt5_5ReasoningEffort { get; set; } = Gpt5_5Reasoning.Auto;
+
+        /// <summary>
+        /// GPT-5.5 reasoning summary mode.
+        /// Defaults to Auto. Set to null to disable reasoning summaries.
+        /// </summary>
+        public ReasoningSummary? Gpt5_5ReasoningSummary { get; set; } = ReasoningSummary.Auto;
+
+        /// <summary>
+        /// GPT-5.5 verbosity level.
+        /// GPT-5.5 defaults to Medium.
+        /// </summary>
+        public Verbosity? Gpt5_5Verbosity { get; set; }
+
+        /// <summary>
         /// Contains the reasoning summary from the last non-streaming API call.
         /// Only populated when using reasoning models (GPT-5, o3) with reasoning.summary enabled.
         /// </summary>
@@ -504,6 +543,21 @@ namespace Mythosia.AI.Services.OpenAI
             return this;
         }
 
+        /// <summary>
+        /// Sets GPT-5.5 specific parameters.
+        /// Reasoning effort: None (default), Low, Medium, High, XHigh. GPT-5.5 Pro supports Medium, High, XHigh.
+        /// Verbosity: Low, Medium (default), High.
+        /// Reasoning summary: Auto (default), Concise, Detailed, or null to disable.
+        /// </summary>
+        public OpenAIService WithGpt5_5Parameters(Gpt5_5Reasoning reasoningEffort = Gpt5_5Reasoning.None, Verbosity verbosity = Verbosity.Medium, ReasoningSummary? reasoningSummary = ReasoningSummary.Auto)
+        {
+            Gpt5_5ReasoningEffort = reasoningEffort;
+            Gpt5_5Verbosity = verbosity;
+            Gpt5_5ReasoningSummary = reasoningSummary;
+            Console.WriteLine($"[GPT-5.5 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}, Summary: {reasoningSummary?.ToString() ?? "disabled"}");
+            return this;
+        }
+
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
             if (profile.DisableReasoning != true)
@@ -519,6 +573,8 @@ namespace Mythosia.AI.Services.OpenAI
             var backupGpt53Summary = Gpt5_3ReasoningSummary;
             var backupGpt54 = Gpt5_4ReasoningEffort;
             var backupGpt54Summary = Gpt5_4ReasoningSummary;
+            var backupGpt55 = Gpt5_5ReasoningEffort;
+            var backupGpt55Summary = Gpt5_5ReasoningSummary;
 
             Gpt5ReasoningEffort = Gpt5Reasoning.Minimal;
             Gpt5ReasoningSummary = null;
@@ -530,6 +586,8 @@ namespace Mythosia.AI.Services.OpenAI
             Gpt5_3ReasoningSummary = null;
             Gpt5_4ReasoningEffort = Gpt5_4Reasoning.None;
             Gpt5_4ReasoningSummary = null;
+            Gpt5_5ReasoningEffort = Gpt5_5Reasoning.None;
+            Gpt5_5ReasoningSummary = null;
 
             return () =>
             {
@@ -543,6 +601,8 @@ namespace Mythosia.AI.Services.OpenAI
                 Gpt5_3ReasoningSummary = backupGpt53Summary;
                 Gpt5_4ReasoningEffort = backupGpt54;
                 Gpt5_4ReasoningSummary = backupGpt54Summary;
+                Gpt5_5ReasoningEffort = backupGpt55;
+                Gpt5_5ReasoningSummary = backupGpt55Summary;
             };
         }
 

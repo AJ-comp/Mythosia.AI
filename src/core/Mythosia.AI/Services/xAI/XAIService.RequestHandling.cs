@@ -43,6 +43,11 @@ namespace Mythosia.AI.Services.xAI
                     ? new HashSet<string> { "temperature" }
                     : new HashSet<string> { "frequency_penalty", "presence_penalty" };
             }
+            else if (RejectsPenaltyParameters())
+            {
+                // grok-build (coding) models reject frequency_penalty / presence_penalty.
+                p.ExcludeParameters = new HashSet<string> { "frequency_penalty", "presence_penalty" };
+            }
 
             if (SupportsReasoningEffort() && ReasoningEffort != GrokReasoning.Off)
             {
@@ -64,6 +69,16 @@ namespace Mythosia.AI.Services.xAI
             var model = Model?.ToLower() ?? "";
             return model.Contains("grok-3-mini") ||
                    model.Contains("grok-4");
+        }
+
+        /// <summary>
+        /// Returns true for non-reasoning models that still reject frequency_penalty /
+        /// presence_penalty (HTTP 400). grok-build coding models are such a case.
+        /// </summary>
+        private bool RejectsPenaltyParameters()
+        {
+            var model = Model?.ToLower() ?? "";
+            return model.Contains("grok-build");
         }
 
         /// <summary>

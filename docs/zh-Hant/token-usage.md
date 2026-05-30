@@ -12,7 +12,7 @@ Token 用量表示一次模型請求在輸入、輸出、快取與推理上消�
 
 ## 為什麼需要它
 
-如果你在做聊天 UI 的 context token meter，通常應該使用最新的 `RoundUsage.Usage.TotalTokens`。它最接近「如果現在繼續對話，下一次模型輸入會有多大」這個值。
+如果你在做聊天 UI 的 context token meter，通常應該使用最新的 `RoundUsage.Usage.InputTokens`。它最接近「如果現在繼續對話，下一次模型輸入會有多大」這個值。
 
 如果是記錄 log、診斷或成本分析，請使用 `Completion.Usage.TotalTokens`。它會保留整個 run 的累計用量，包括 function calling 或 agent 造成的多個 round。
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-最後一個模型 round 看到的是最新的對話狀態，包括 run 過程中加入的工具結果。因此對聊天 UI 來說，最後一個 `RoundUsage.TotalTokens` 最能代表回應後的 context 大小。
+最後一個模型 round 看到的是最新的對話狀態，包括 run 過程中加入的工具結果。因此對聊天 UI 來說，最後一個 `RoundUsage.Usage.InputTokens` 最能代表回應後的 context 大小。
+
+<a id="how-context-size-changes"></a>
+
+## Context 大小如何變化
+
+請把 context 大小理解成最近一次模型呼叫的輸入大小，而不是累計總和。後續 round 已經包含從前面 round 保留下來的對話項目，所以把多個 round 的 input 相加，會重複計算同一份 prompt、工具定義與歷史紀錄。
+
+例如：
+
+| 步驟 | 這次模型呼叫前新增的內容 | 近似輸入 token | UI context 計量器 |
+|---|---|---:|---:|
+| Round 1 | system prompt、tools、history、user message | 20,000 | 20,000 |
+| Round 之間 | tool call output 為 100 token；tool result 為 5,000 token | 沒有 LLM 呼叫 | 不變 |
+| Round 2 | Round 1 input + tool-call message + tool result | 25,100 + overhead | 25,100 + overhead |
+| Round 2 output | 模型產生 3,000 token，且還需要下一個 round | 沒有 LLM 呼叫 | 不變 |
+| Round 3 | Round 2 input + Round 2 output，如有新的 tool result 也會加入 | 28,100 + overhead | 28,100 + overhead |
+| Round 3 output | 模型產生 2,000 token 的最終回答 | 沒有 LLM 呼叫 | 不變 |
+| 下一則使用者訊息 | 上一次最終回答與新的使用者訊息成為下一次 input 的一部分 | 約 30,100 + 新訊息 + overhead | 替換為新 round 的 `InputTokens` |
+
+因此，如果 Round 3 是最終 round，context 計量器應顯示約 **28,100 + overhead**，不是 30,100，也不是所有 round 的總和。那段 2,000 token 的最終回答會影響下一次模型呼叫，因為它會成為對話歷史。
 
 ## Function Calling 與 Agent
 
@@ -92,7 +112,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 

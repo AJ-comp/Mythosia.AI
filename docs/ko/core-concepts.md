@@ -81,4 +81,6 @@ tool_result: 15°C, 흐림
 4. 앱이 실행 → `"18°C, 맑음"`
 5. **3라운드** — 모델이 두 결과를 종합해 최종 답변 작성
 
-총 3라운드이고, `Completion.Usage`는 세 라운드 토큰의 합입니다. UI 컨텍스트 미터는 마지막 라운드인 3라운드의 `RoundUsage.TotalTokens`를 쓰면 됩니다.
+총 3라운드이고, `Completion.Usage`는 세 라운드 토큰의 합입니다. UI 컨텍스트 미터는 마지막 라운드인 3라운드의 `RoundUsage.Usage.InputTokens`를 쓰면 됩니다. 해당 라운드의 입력과 출력을 합친 값이 필요할 때만 `TotalTokens`를 사용하세요.
+
+컨텍스트 미터가 라운드마다 어떻게 바뀌는지 숫자로 보는 예시는 [토큰 사용량 — 컨텍스트 크기가 변하는 방식](token-usage.md#how-context-size-changes)을 참고하세요.

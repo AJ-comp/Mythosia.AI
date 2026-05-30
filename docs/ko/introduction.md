@@ -25,9 +25,9 @@ Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더,
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, o3 시리즈 |
 | **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
 | **Google** | Gemini 2.5 / 3 시리즈 |
-| **xAI** | Grok 3, Grok 4 시리즈 |
+| **xAI** | Grok 4 시리즈, Grok Build, Grok 3 Mini |
 | **DeepSeek** | Chat, Reasoner |
-| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning |
+| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 
 ## 아키텍처 개요

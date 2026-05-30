@@ -56,7 +56,7 @@ namespace Mythosia.AI.Services.Anthropic
         public AnthropicService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.anthropic.com/v1/", httpClient)
         {
-            Model = AIModels.Anthropic.ClaudeSonnet4_250514;
+            Model = AIModels.Anthropic.ClaudeSonnet4_6;
             MaxTokens = 8192;
             Temperature = 0.7f;
         }
@@ -380,14 +380,25 @@ namespace Mythosia.AI.Services.Anthropic
         private bool IsThinkingEnabled => ThinkingBudget >= 1024 && IsExtendedThinkingModel();
 
         /// <summary>
-        /// Applies thinking configuration to the request body if enabled.
-        /// When thinking is enabled, temperature must be 1 (Claude requirement).
-        /// Also auto-adjusts max_tokens to ensure budget_tokens &lt; max_tokens.
+        /// Applies thinking configuration to the request body when enabled.
+        /// Opus 4.7+ use adaptive thinking (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>);
+        /// older models use manual thinking (<c>thinking.type=enabled</c> + <c>budget_tokens</c>,
+        /// temperature forced to 1, with max_tokens auto-adjusted to keep budget_tokens &lt; max_tokens).
         /// </summary>
         private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
         {
             if (!IsThinkingEnabled) return;
 
+            if (ModelRequiresAdaptiveThinking())
+            {
+                // Opus 4.7+ reject manual budget_tokens thinking (HTTP 400). Thinking is enabled
+                // via adaptive mode and its depth is controlled by output_config.effort.
+                requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
+                requestBody["output_config"] = new Dictionary<string, object> { ["effort"] = MapThinkingBudgetToEffort() };
+                return;
+            }
+
+            // Manual thinking (Opus 4.6 / Sonnet 4.x / Haiku 4.5 and earlier).
             // Claude requires budget_tokens < max_tokens
             var effectiveMaxTokens = GetEffectiveMaxTokens();
             if ((uint)ThinkingBudget >= effectiveMaxTokens)
@@ -403,6 +414,61 @@ namespace Mythosia.AI.Services.Anthropic
                 ["type"] = "enabled",
                 ["budget_tokens"] = ThinkingBudget
             };
+        }
+
+        /// <summary>
+        /// Returns true for models that require adaptive thinking
+        /// (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>) and reject the legacy
+        /// <c>thinking.type=enabled</c> + <c>budget_tokens</c> form (HTTP 400).
+        /// Opus 4.6 and Sonnet 4.6 still accept the legacy form (deprecated), so they stay on it.
+        /// Add future models here as Anthropic retires manual thinking for them.
+        /// </summary>
+        private bool ModelRequiresAdaptiveThinking()
+        {
+            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            return model.Contains("opus-4-7") || model.Contains("opus-4-8");
+        }
+
+        /// <summary>
+        /// Maps the legacy token-based <see cref="ThinkingBudget"/> onto an adaptive-thinking
+        /// effort level. Enabled thinking floors at "high" (the API default, which almost always
+        /// thinks) and scales up with larger budgets so existing "thinking on" callers keep
+        /// producing reasoning. Allowed values: low, medium, high, xhigh, max.
+        /// </summary>
+        private string MapThinkingBudgetToEffort()
+        {
+            if (ThinkingBudget >= 100_000) return "max";
+            if (ThinkingBudget >= 32_768) return "xhigh";
+            return "high";
+        }
+
+        /// <summary>
+        /// Returns true for models that reject a custom <c>temperature</c> value.
+        /// Claude Opus 4.7+ return HTTP 400 ("`temperature` is deprecated for this model.")
+        /// for any non-default temperature, so the parameter must be omitted for them.
+        /// Add future models here as Anthropic extends this behavior.
+        /// </summary>
+        private bool ModelRejectsCustomTemperature()
+        {
+            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            return model.Contains("opus-4-7") || model.Contains("opus-4-8");
+        }
+
+        /// <summary>
+        /// Removes the <c>temperature</c> parameter for models that reject a custom value
+        /// so the API applies its default (1.0). Must run after <see cref="ApplyThinkingConfig"/>.
+        /// </summary>
+        private void ApplyTemperaturePolicy(Dictionary<string, object> requestBody)
+        {
+            if (!ModelRejectsCustomTemperature()) return;
+
+            if (requestBody.TryGetValue("temperature", out var current) &&
+                current is float t && Math.Abs(t - 1.0f) > 0.0001f)
+            {
+                Console.WriteLine($"[Claude] Model '{Model}' does not support a custom temperature; ignoring temperature={t}.");
+            }
+
+            requestBody.Remove("temperature");
         }
 
         /// <summary>
@@ -441,7 +507,7 @@ namespace Mythosia.AI.Services.Anthropic
                 !Model.Contains("claude-4") &&
                 !Model.Contains("opus-4"))
             {
-                ChangeModel(AIModels.Anthropic.ClaudeSonnet4_250514);
+                ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
             }
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);

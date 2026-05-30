@@ -12,7 +12,7 @@
 
 ## ทำไมถึงต้องใช้
 
-ถ้าเป็นตัววัด context ใน UI chat โดยทั่วไปควรใช้ `RoundUsage.Usage.TotalTokens` ล่าสุด ค่านี้ใกล้เคียงที่สุดกับคำถามว่า "ถ้าคุยต่อทันที input รอบถัดไปที่จะส่งเข้า model จะใหญ่แค่ไหน"
+ถ้าเป็นตัววัด context ใน UI chat โดยทั่วไปควรใช้ `RoundUsage.Usage.InputTokens` ล่าสุด ค่านี้ใกล้เคียงที่สุดกับคำถามว่า "ถ้าคุยต่อทันที input รอบถัดไปที่จะส่งเข้า model จะใหญ่แค่ไหน"
 
 ถ้าเป็น log, diagnostics หรือการวิเคราะห์ cost ให้ใช้ `Completion.Usage.TotalTokens` เพราะค่านี้เป็นยอดรวมทั้ง run แม้ function calling หรือ agent จะทำให้เกิดหลาย round ก็ตาม
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-LLM round สุดท้ายจะเห็นสถานะล่าสุดของบทสนทนา รวมถึงผลลัพธ์จาก tool ที่ถูกเพิ่มระหว่าง run ดังนั้น `RoundUsage.TotalTokens` ล่าสุดจึงเหมาะที่สุดสำหรับ UI chat
+LLM round สุดท้ายจะเห็นสถานะล่าสุดของบทสนทนา รวมถึงผลลัพธ์จาก tool ที่ถูกเพิ่มระหว่าง run ดังนั้น `RoundUsage.Usage.InputTokens` ล่าสุดจึงเหมาะที่สุดสำหรับ UI chat
+
+<a id="how-context-size-changes"></a>
+
+## การเปลี่ยนแปลงของขนาด context
+
+ให้คิดว่า context size คือขนาด input ของการเรียก model ครั้งล่าสุด ไม่ใช่ผลรวมสะสม round ถัดไปมีรายการสนทนาที่เหลือมาจาก round ก่อนหน้าอยู่แล้ว ดังนั้นถ้านำ input ของหลาย round มาบวกกัน จะนับ prompt เดิม รายละเอียด tool เดิม และประวัติเดิมซ้ำ
+
+ตัวอย่าง:
+
+| ขั้นตอน | สิ่งที่ถูกเพิ่มก่อนเรียก model ครั้งนี้ | input token โดยประมาณ | UI context meter |
+|---|---|---:|---:|
+| Round 1 | system prompt, tools, history, user message | 20,000 | 20,000 |
+| ระหว่าง round | tool call output 100 token; tool result 5,000 token | ไม่ใช่ LLM call | ไม่เปลี่ยน |
+| Round 2 | input ของ round 1 + tool-call message + tool result | 25,100 + overhead | 25,100 + overhead |
+| output ของ Round 2 | model สร้าง 3,000 token และยังต้องมี round ต่อไป | ไม่ใช่ LLM call | ไม่เปลี่ยน |
+| Round 3 | input ของ round 2 + output ของ round 2 และ tool result ใหม่ถ้ามี | 28,100 + overhead | 28,100 + overhead |
+| output ของ Round 3 | model สร้าง final answer 2,000 token | ไม่ใช่ LLM call | ไม่เปลี่ยน |
+| user message ถัดไป | final answer ก่อนหน้าและ user message ใหม่กลายเป็นส่วนหนึ่งของ input ถัดไป | ประมาณ 30,100 + message ใหม่ + overhead | ถูกแทนที่ด้วย `InputTokens` ของ round ใหม่ |
+
+ดังนั้นถ้า round 3 เป็น round สุดท้าย context meter ควรแสดงประมาณ **28,100 + overhead** ไม่ใช่ 30,100 และไม่ใช่ผลรวมของทุก round ส่วน final answer 2,000 token จะมีผลกับ model call ครั้งถัดไป เพราะมันกลายเป็น conversation history
 
 ## Function Calling และ agent
 
@@ -92,7 +112,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 

@@ -25,9 +25,9 @@ Alle Anbieter sind im Kernpaket `Mythosia.AI` enthalten (außer Alibaba):
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, o3-Serie |
 | **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
 | **Google** | Gemini 2.5 / 3-Serie |
-| **xAI** | Grok 3, Grok 4-Serie |
+| **xAI** | Grok 4-Serie, Grok Build, Grok 3 Mini |
 | **DeepSeek** | Chat, Reasoner |
-| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning |
+| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 
 ## Architekturübersicht

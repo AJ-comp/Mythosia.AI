@@ -81,4 +81,6 @@ Round 2 结束。`RoundUsage` 第二次触发 —— 这次只包含 round 2 的
 4. App 执行 → `「18°C，晴朗」`
 5. **Round 3** — 模型把两个结果整合成最终答案
 
-共 3 个 round，`Completion.Usage` 是三者之和。UI 中的上下文计量器应使用最后一个 round 的 `RoundUsage.TotalTokens`——本例中即 round 3 的值。
+共 3 个 round，`Completion.Usage` 是三者之和。UI 中的上下文计量器应使用最后一个 round 的 `RoundUsage.Usage.InputTokens`——本例中即 round 3 的值。
+
+如需查看上下文计量器如何随 round 变化的数字示例，请参阅 [Token Usage — 上下文大小如何变化](token-usage.md#how-context-size-changes)。

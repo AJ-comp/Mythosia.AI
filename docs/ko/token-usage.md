@@ -14,7 +14,7 @@
 
 토큰 사용량은 목적에 따라 다르게 쓰입니다.
 
-채팅 UI의 컨텍스트 토큰 미터에는 마지막 `RoundUsage.Usage.TotalTokens`가 가장 잘 맞습니다. 이 값은 “지금 대화 상태가 다음 LLM 호출의 입력으로 들어가면 어느 정도 크기인가”에 가장 가깝습니다.
+채팅 UI의 컨텍스트 토큰 미터에는 마지막 `RoundUsage.Usage.InputTokens`가 가장 잘 맞습니다. 이 값은 최신 모델 라운드에 실제 입력/prompt로 들어간 컨텍스트 크기입니다.
 
 로그, 진단, 비용 분석에는 `Completion.Usage.TotalTokens`를 쓰면 됩니다. function calling이나 agent 흐름에서 여러 라운드가 발생해도 전체 실행의 누적값으로 남습니다.
 
@@ -27,7 +27,7 @@
 | `StreamingContentType.RoundUsage` | 방금 끝난 LLM 라운드의 사용량 | UI 토큰 미터, 라운드별 디버깅 |
 | `StreamingContentType.Completion` | 최종 스트림 이벤트와 전체 누적 사용량 | 로그, 진단, 비용 리포트 |
 
-`RoundUsage.Usage`는 누적값이 아닙니다. 예를 들어 1라운드가 10,100 토큰, 2라운드가 14,000 토큰을 썼다면 최종 `Completion.Usage.TotalTokens`는 24,100이 될 수 있지만, 마지막 `RoundUsage.Usage.TotalTokens`는 그대로 14,000입니다.
+`RoundUsage.Usage`는 누적값이 아닙니다. 예를 들어 1라운드가 10,100 토큰, 2라운드가 14,000 토큰을 썼다면 최종 `Completion.Usage.TotalTokens`는 24,100이 될 수 있지만, 마지막 `RoundUsage.Usage.TotalTokens`는 그대로 14,000입니다. 컨텍스트 크기 미터에는 마지막 라운드의 `InputTokens`를 쓰고, `TotalTokens`는 쓰지 마세요.
 
 `RoundUsage`에는 다음 정보도 같이 들어갑니다.
 
@@ -68,7 +68,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -81,7 +81,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-마지막 모델 라운드는 함수 결과까지 반영된 최신 대화 상태를 보고 실행됩니다. 그래서 채팅 UI에서는 마지막 `RoundUsage.TotalTokens`가 응답 직후 컨텍스트 크기를 가장 잘 나타냅니다.
+마지막 모델 라운드는 함수 결과까지 반영된 최신 대화 상태를 보고 실행됩니다. 그래서 채팅 UI에서는 마지막 `RoundUsage.Usage.InputTokens`가 응답 직후 컨텍스트 크기를 가장 잘 나타냅니다. `TotalTokens`에는 해당 라운드에서 모델이 생성한 출력 토큰도 포함됩니다.
+
+<a id="how-context-size-changes"></a>
+
+## 컨텍스트 크기가 변하는 방식
+
+컨텍스트 크기는 누적 합계가 아니라 최신 모델 호출의 입력 크기입니다. 뒤 라운드의 입력에는 앞 라운드에서 유지된 시스템 프롬프트, 도구 정의, 대화 기록, 도구 호출 기록이 이미 다시 들어가므로 라운드별 입력을 더하면 같은 내용을 중복 계산하게 됩니다.
+
+예를 들면 다음과 같습니다.
+
+| 단계 | 이 모델 호출 전에 추가된 내용 | 대략적인 입력 토큰 | UI 컨텍스트 미터 |
+|---|---|---:|---:|
+| 1라운드 | 시스템 프롬프트, 도구, 기록, 사용자 메시지 | 20,000 | 20,000 |
+| 라운드 사이 | 도구 호출 출력 100토큰, 도구 결과 5,000토큰 | LLM 호출 아님 | 그대로 |
+| 2라운드 | 1라운드 입력 + 도구 호출 메시지 + 도구 결과 | 25,100 + 오버헤드 | 25,100 + 오버헤드 |
+| 2라운드 출력 | 모델이 3,000토큰을 생성했고 다음 라운드가 필요함 | LLM 호출 아님 | 그대로 |
+| 3라운드 | 2라운드 입력 + 2라운드 출력, 그리고 새 도구 결과가 있으면 그것까지 | 28,100 + 오버헤드 | 28,100 + 오버헤드 |
+| 3라운드 출력 | 모델이 2,000토큰짜리 최종 답변을 생성함 | LLM 호출 아님 | 그대로 |
+| 다음 사용자 메시지 | 이전 최종 답변과 새 사용자 메시지가 다음 입력에 포함됨 | 약 30,100 + 새 메시지 + 오버헤드 | 새 라운드의 `InputTokens`로 교체 |
+
+따라서 3라운드가 최종 라운드라면 컨텍스트 미터는 대략 **28,100 + 오버헤드**를 보여주는 것이 맞습니다. 30,100도 아니고 모든 라운드의 합도 아닙니다. 3라운드에서 생성된 2,000토큰짜리 최종 답변은 다음 모델 호출 때 대화 기록이 되면서 입력에 포함됩니다.
 
 ## Function Calling과 Agent
 
@@ -108,7 +128,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 
@@ -116,7 +136,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
         cumulative = chunk.Usage;
 }
 
-Console.WriteLine($"UI meter: {latestRound?.TotalTokens}");
+Console.WriteLine($"UI meter: {latestRound?.InputTokens}");
 Console.WriteLine($"Run total: {cumulative?.TotalTokens}");
 ```
 

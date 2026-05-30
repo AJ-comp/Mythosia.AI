@@ -39,7 +39,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
             string apiKey = await secretFetcher.GetKeyValueAsync();
             var newService = new AnthropicService(apiKey, new HttpClient()).CopyFrom(AI);
-            newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_250514);
+            newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
             Assert.AreEqual(messageCountBefore, newService.ActivateChat.Messages.Count);
 
             try

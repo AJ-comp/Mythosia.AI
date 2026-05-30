@@ -1,5 +1,32 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v2.3.0
+
+### Added
+
+- **Model id constants — 2026 refresh** (`AIModels`):
+  - OpenAI: `Gpt5_5`, `Gpt5_5_260423`, `Gpt5_5Pro`, `Gpt5_5Pro_260423`, `Gpt5Pro`.
+  - Anthropic: `ClaudeOpus4_8`, `ClaudeOpus4_7`.
+  - Google: `Gemini3_1ProPreview`, `Gemini3_5Flash`, `Gemini3_1FlashLite`.
+  - xAI: `Grok4_3`, `Grok4_20Reasoning`, `Grok4_20NonReasoning`, `GrokBuild0_1`.
+  - Perplexity: `SonarReasoningPro`.
+- **`Gpt5_5Reasoning`** enum — reasoning effort for GPT-5.5 (None/Low/Medium/High/XHigh).
+
+### Removed
+
+- Constants for retired or non-callable models (the underlying models no longer function at runtime):
+  - xAI: `Grok4` (grok-4-0709), `Grok4_1Fast` (grok-4-1-fast), `Grok3` (grok-3) — retired 2026-05-15; `Grok4_20MultiAgent` (grok-4.20-multi-agent-0309) — multi-agent API, not chat completions.
+  - Anthropic: `ClaudeSonnet4_250514` (claude-sonnet-4-20250514) — retires 2026-06-15.
+  - Perplexity: `SonarReasoning` (sonar-reasoning) — removed from the API 2025-12-15.
+  - Google: `Gemini3ProPreview` (gemini-3-pro-preview) — shut down 2026-03-09.
+  - OpenAI: `Gpt5_3CodexSpark` (gpt-5.3-codex-spark) — not generally accessible via the standard API.
+
+### Compatibility
+
+- Minor release. The removed constants reference models that are already retired/non-functional; code that references them by name requires a one-line update to a current model id.
+
+---
+
 ## v2.2.0
 
 ### Added

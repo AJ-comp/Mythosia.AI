@@ -25,9 +25,9 @@ SDK разных AI-провайдеров сильно отличаются д�
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, серия o3 |
 | **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
 | **Google** | Gemini 2.5 / 3 серии |
-| **xAI** | Grok 3, Grok 4 серии |
+| **xAI** | Grok 4 серии, Grok Build, Grok 3 Mini |
 | **DeepSeek** | Chat, Reasoner |
-| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning |
+| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 
 ## Обзор архитектуры

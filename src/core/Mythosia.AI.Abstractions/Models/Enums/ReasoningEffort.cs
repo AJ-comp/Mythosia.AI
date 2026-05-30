@@ -73,7 +73,23 @@ namespace Mythosia.AI.Models
     }
 
     /// <summary>
-    /// Reasoning effort level for xAI Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast).
+    /// Reasoning effort level for GPT-5.5 models.
+    /// Auto: Uses model default (None for GPT-5.5, Medium for GPT-5.5 Pro).
+    /// GPT-5.5 supports: none (default), low, medium, high, xhigh.
+    /// GPT-5.5 Pro supports: medium, high, xhigh.
+    /// </summary>
+    public enum Gpt5_5Reasoning
+    {
+        Auto,
+        None,
+        Low,
+        Medium,
+        High,
+        XHigh
+    }
+
+    /// <summary>
+    /// Reasoning effort level for xAI Grok reasoning models (grok-3-mini, grok-4.3).
     /// Off: Disables reasoning effort parameter (default).
     /// Low/High: Explicit reasoning effort levels.
     /// </summary>

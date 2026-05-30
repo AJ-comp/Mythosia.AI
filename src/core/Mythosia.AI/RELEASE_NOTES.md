@@ -1,5 +1,52 @@
 # Mythosia.AI - Release Notes
 
+## v6.5.0
+
+### Added
+
+- **New models** (constants live in Mythosia.AI.Abstractions v2.3.0):
+  - OpenAI: GPT-5.5, GPT-5.5 Pro (+ dated snapshots), GPT-5 Pro
+  - Anthropic: Claude Opus 4.8, Claude Opus 4.7
+  - Google: Gemini 3.1 Pro (preview), Gemini 3.5 Flash, Gemini 3.1 Flash-Lite
+  - xAI: Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build 0.1
+  - Perplexity: Sonar Reasoning Pro
+- **GPT-5.5 parameter support** — `WithGpt5_5Parameters(reasoningEffort, verbosity, reasoningSummary)` plus the `Gpt5_5Reasoning` effort enum (none/low/medium/high/xhigh; the `-pro` variant clamps to medium/high/xhigh).
+- **Unified request-timeout control point** — `ResolveRequestTimeoutSeconds` / `CreateRequestTimeoutCts` on the base `AIService`. The `FunctionCallingPolicy` timeout is now authoritative across the completion, streaming, audio, and image paths.
+
+### Fixed
+
+- **Anthropic — Opus 4.7 / 4.8 API-contract changes** (both previously returned HTTP 400):
+  - `temperature` is omitted for these models (they reject any non-default temperature).
+  - Extended thinking now uses adaptive mode (`thinking.type=adaptive` + `output_config.effort`) instead of the rejected `type=enabled` + `budget_tokens`; `ThinkingBudget` is mapped to an effort level (≥100000 → max, ≥32768 → xhigh, else high).
+- **OpenAI — `*-pro` reasoning effort** (HTTP 400 fixes): `gpt-5-pro` is sent its only supported effort `high`; `gpt-5.2-pro` / `gpt-5.4-pro` / `gpt-5.5-pro` clamp `none`/`low` up to `medium`.
+- **OpenAI — image generation**: switched from the retired `dall-e-3` to `gpt-image-1` and removed the unsupported `response_format`. `GenerateImageUrlAsync` now returns a base64 `data:` URI, since gpt-image models do not return hosted URLs.
+- **OpenAI — pro-model timeouts**: slow "pro" reasoning models (`gpt-5-pro`, `o3-pro`, `gpt-5.x-pro`) get a 300s default and the per-request policy timeout is no longer silently capped by `HttpClient.Timeout`.
+- **xAI — `grok-build`** rejects `frequency_penalty` / `presence_penalty`; these are now omitted for it.
+- **Google — Gemini 3 "pro"** rejects the `MINIMAL` thinking level; disabling reasoning now uses `Low` (its floor) for those models.
+
+### Changed
+
+- **Default models updated to current flagships**:
+  - Anthropic: Claude Sonnet 4.6 (was `claude-sonnet-4-20250514`, retiring 2026-06-15); vision fallback also moves to Sonnet 4.6.
+  - xAI: Grok 4.3 (was `grok-3`, retired).
+  - Google: Gemini 3.1 Pro preview (was `gemini-2.5-pro`).
+- **Helper repoints**: xAI `UseGrok4Model()` / `UseGrok4FastModel()` now select `grok-4.3`; Perplexity `UseSonarReasoning()` now selects `sonar-reasoning-pro`.
+
+### Removed
+
+- Retired / incompatible model constants (details in Mythosia.AI.Abstractions v2.3.0): `grok-3`, `grok-4-0709`, `grok-4-1-fast`, `grok-4.20-multi-agent-0309`, `claude-sonnet-4-20250514`, `sonar-reasoning`, `gemini-3-pro-preview`, `gpt-5.3-codex-spark`.
+
+### Internal
+
+- Bumped `System.Threading.Channels` 10.0.7 → 10.0.8 (.NET 10 servicing patch).
+
+### Compatibility
+
+- Requires **Mythosia.AI.Abstractions v2.3.0**.
+- Minor release. The removed model constants reference models that no longer function at runtime; any code referencing them by name needs a one-line update to a current model id.
+
+---
+
 ## v6.4.0
 
 ### Added

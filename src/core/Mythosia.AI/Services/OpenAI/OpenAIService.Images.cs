@@ -13,13 +13,14 @@ namespace Mythosia.AI.Services.OpenAI
 
         public override async Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
         {
+            // dall-e-3 was retired (2026-03-04). gpt-image models return base64 by default and
+            // do NOT accept the legacy 'response_format' parameter.
             var requestBody = new
             {
-                model = "dall-e-3",
+                model = "gpt-image-1",
                 prompt = prompt,
                 n = 1,
-                size = size,
-                response_format = "b64_json"
+                size = size
             };
 
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -29,7 +30,8 @@ namespace Mythosia.AI.Services.OpenAI
             };
             request.Headers.Add("Authorization", $"Bearer {ApiKey}");
 
-            var response = await HttpClient.SendAsync(request);
+            using var cts = CreateRequestTimeoutCts(CurrentPolicy ?? DefaultPolicy);
+            var response = await HttpClient.SendAsync(request, cts.Token);
 
             if (response.IsSuccessStatusCode)
             {
@@ -53,15 +55,19 @@ namespace Mythosia.AI.Services.OpenAI
             }
         }
 
+        /// <summary>
+        /// Generates an image and returns it as a usable image source string.
+        /// gpt-image models do not provide hosted URLs (dall-e-3 was retired 2026-03-04), so this
+        /// returns a base64 <c>data:</c> URI (e.g. usable directly in an &lt;img&gt; src).
+        /// </summary>
         public override async Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
         {
             var requestBody = new
             {
-                model = "dall-e-3",
+                model = "gpt-image-1",
                 prompt = prompt,
                 n = 1,
-                size = size,
-                response_format = "url"
+                size = size
             };
 
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -71,15 +77,18 @@ namespace Mythosia.AI.Services.OpenAI
             };
             request.Headers.Add("Authorization", $"Bearer {ApiKey}");
 
-            var response = await HttpClient.SendAsync(request);
+            using var cts = CreateRequestTimeoutCts(CurrentPolicy ?? DefaultPolicy);
+            var response = await HttpClient.SendAsync(request, cts.Token);
 
             if (response.IsSuccessStatusCode)
             {
                 var responseContent = await response.Content.ReadAsStringAsync();
                 var responseJson = JsonSerializer.Deserialize<JsonElement>(responseContent);
-                var imageUrl = responseJson.GetProperty("data")[0].GetProperty("url").GetString();
+                var imageBase64 = responseJson.GetProperty("data")[0].GetProperty("b64_json").GetString();
 
-                return imageUrl ?? string.Empty;
+                return string.IsNullOrEmpty(imageBase64)
+                    ? string.Empty
+                    : $"data:image/png;base64,{imageBase64}";
             }
             else
             {

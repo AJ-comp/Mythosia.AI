@@ -130,6 +130,32 @@ namespace Mythosia.AI.Services.Base
             AddNewChat(new ChatBlock());
         }
 
+        #region Request Timeout (single control point)
+
+        /// <summary>
+        /// Single source of truth for per-request timeouts. Returns the timeout in seconds for the
+        /// given policy, or <c>null</c> for no timeout. Providers override this to adjust the timeout
+        /// per model (e.g. slow "pro" reasoning models that routinely exceed the default).
+        /// All request paths must obtain their timeout from here via <see cref="CreateRequestTimeoutCts"/>.
+        /// </summary>
+        protected virtual int? ResolveRequestTimeoutSeconds(FunctionCallingPolicy policy) => policy?.TimeoutSeconds;
+
+        /// <summary>
+        /// Creates a <see cref="CancellationTokenSource"/> that fires after the resolved request
+        /// timeout, linked to an optional external cancellation token. This is the one place that
+        /// turns a policy into an effective request timeout.
+        /// </summary>
+        protected CancellationTokenSource CreateRequestTimeoutCts(FunctionCallingPolicy policy, CancellationToken external = default)
+        {
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(external);
+            var seconds = ResolveRequestTimeoutSeconds(policy);
+            if (seconds.HasValue)
+                cts.CancelAfter(TimeSpan.FromSeconds(seconds.Value));
+            return cts;
+        }
+
+        #endregion
+
         #region Chat Management
 
         public void AddNewChat(ChatBlock newChat)

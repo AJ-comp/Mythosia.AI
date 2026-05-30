@@ -81,4 +81,6 @@ If the model needs to chain multiple tool calls, rounds add up. For *"Compare th
 4. App executes it → `"18°C, sunny"`
 5. **Round 3** — model combines both results into the final answer
 
-Three rounds in total, and `Completion.Usage` sums all three. A UI context-size meter should use the last round's `RoundUsage.TotalTokens` — in this example, round 3's value.
+Three rounds in total, and `Completion.Usage` sums all three. A UI context-size meter should use the last round's `RoundUsage.Usage.InputTokens` — in this example, round 3's input token count. Use `TotalTokens` when you want that round's input plus output, not the context size.
+
+For a numeric walkthrough of how the context-size meter changes from round to round, see [Token Usage — How Context Size Changes](token-usage.md#how-context-size-changes).

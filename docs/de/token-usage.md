@@ -12,7 +12,7 @@ Wichtig wird das vor allem, wenn eine Antwort nicht aus genau einem LLM-Aufruf b
 
 ## Warum das wichtig ist
 
-Für eine Kontextanzeige in einer Chat-UI ist normalerweise der letzte `RoundUsage.Usage.TotalTokens` der passende Wert. Er kommt am nächsten an die Frage heran: "Wie groß wäre die nächste Modelleingabe, wenn diese Unterhaltung jetzt weitergeht?"
+Für eine Kontextanzeige in einer Chat-UI ist normalerweise der letzte `RoundUsage.Usage.InputTokens` der passende Wert. Er kommt am nächsten an die Frage heran: "Wie groß wäre die nächste Modelleingabe, wenn diese Unterhaltung jetzt weitergeht?"
 
 Für Logs, Diagnose und Kostenanalyse nimmst du `Completion.Usage.TotalTokens`. Dieser Wert bleibt über den gesamten Run kumuliert, auch wenn Function Calling oder Agenten mehrere Rounds auslösen.
 
@@ -64,7 +64,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 {
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
-        UpdateContextTokenMeter(chunk.Usage.TotalTokens);
+        UpdateContextTokenMeter(chunk.Usage.InputTokens);
 
         if (chunk.IsFinalRound)
             MarkTokenMeterAsFinal();
@@ -77,7 +77,27 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.FullOptio
 }
 ```
 
-Der letzte Modell-Round sieht den neuesten Gesprächszustand, einschließlich Tool-Ergebnissen, die während des Runs hinzugefügt wurden. Deshalb ist der letzte `RoundUsage.TotalTokens` für Chat-UIs der nützlichste Wert.
+Der letzte Modell-Round sieht den neuesten Gesprächszustand, einschließlich Tool-Ergebnissen, die während des Runs hinzugefügt wurden. Deshalb ist der letzte `RoundUsage.Usage.InputTokens` für Chat-UIs der nützlichste Wert.
+
+<a id="how-context-size-changes"></a>
+
+## Wie sich die Kontextgröße ändert
+
+Betrachte die Kontextgröße als Eingabegröße des neuesten Modellaufrufs, nicht als laufende Summe. Ein späterer Round enthält bereits die Gesprächsteile, die aus früheren Rounds erhalten geblieben sind. Wenn du die Eingaben mehrerer Rounds addierst, zählst du denselben Prompt, dieselben Tool-Definitionen und dieselbe Historie doppelt.
+
+Beispiel:
+
+| Schritt | Was vor diesem Modellaufruf hinzukommt | Ungefähre Eingabetokens | UI-Kontextanzeige |
+|---|---|---:|---:|
+| Round 1 | Systemprompt, Tools, Historie, Nutzerfrage | 20.000 | 20.000 |
+| Zwischen den Rounds | Tool-Call-Ausgabe 100 Tokens; Tool-Ergebnis 5.000 Tokens | kein LLM-Aufruf | unverändert |
+| Round 2 | Eingabe aus Round 1 + Tool-Call-Nachricht + Tool-Ergebnis | 25.100 + Overhead | 25.100 + Overhead |
+| Ausgabe von Round 2 | Das Modell erzeugt 3.000 Tokens und ein weiterer Round ist nötig | kein LLM-Aufruf | unverändert |
+| Round 3 | Eingabe aus Round 2 + Ausgabe aus Round 2, plus ggf. neues Tool-Ergebnis | 28.100 + Overhead | 28.100 + Overhead |
+| Ausgabe von Round 3 | Das Modell erzeugt eine finale Antwort mit 2.000 Tokens | kein LLM-Aufruf | unverändert |
+| Nächste Nutzerfrage | Die vorherige finale Antwort und die neue Nutzerfrage gehören nun zur nächsten Eingabe | etwa 30.100 + neue Frage + Overhead | durch die `InputTokens` des neuen Rounds ersetzt |
+
+Wenn Round 3 der finale Round ist, sollte die Kontextanzeige also ungefähr **28.100 + Overhead** zeigen, nicht 30.100 und nicht die Summe aller Rounds. Die finale Antwort mit 2.000 Tokens wirkt sich erst auf den nächsten Modellaufruf aus, weil sie dann Teil der Gesprächshistorie ist.
 
 ## Function Calling und Agenten
 
@@ -104,7 +124,7 @@ await foreach (var chunk in service.StreamAsync(message, StreamOptions.WithFunct
     if (chunk.Type == StreamingContentType.RoundUsage && chunk.Usage is not null)
     {
         latestRound = chunk.Usage;
-        Console.WriteLine($"Round {chunk.RoundIndex}: {latestRound.TotalTokens} tokens");
+        Console.WriteLine($"Round {chunk.RoundIndex}: input={latestRound.InputTokens}, total={latestRound.TotalTokens} tokens");
         continue;
     }
 
