@@ -9,7 +9,7 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 ### Supported Providers
 
 - **OpenAI** — GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.2 Codex / 5.1 / 5 / 5 Pro (with reasoning), GPT-4.1, GPT-4o, o3
-- **Anthropic** — Claude Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5, Haiku 4.5
+- **Anthropic** — Claude Fable 5, Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5, Haiku 4.5
 - **Google** — Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite
 - **DeepSeek** — Chat and Reasoner models
 - **xAI** — Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build 0.1, Grok 3 Mini
@@ -865,6 +865,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 | **OpenAI GPT-5 / Mini / Nano** | ✅ | ✅ | ✅ | Reasoning streaming + summary |
 | **OpenAI GPT-4.1 / GPT-4o** | ✅ | ✅ | — | Full function support |
 | **OpenAI o3 / o3-pro** | ✅ | ✅ | ✅ | Advanced reasoning |
+| **Claude Fable 5** | ✅ | ✅ | ✅ | Adaptive thinking + tool use |
 | **Claude Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Claude Sonnet 4.6 / 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Claude Haiku 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <!-- 크로스-프로바이더 라이브 테스트 재실행용: 병렬 호출로 인한
+       타사 API rate limit(429) 노이즈를 피하기 위해 직렬 실행 -->
+  <MSTest>
+    <Parallelize>
+      <Workers>1</Workers>
+      <Scope>MethodLevel</Scope>
+    </Parallelize>
+  </MSTest>
+</RunSettings>

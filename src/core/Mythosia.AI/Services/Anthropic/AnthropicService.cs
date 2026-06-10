@@ -42,6 +42,9 @@ namespace Mythosia.AI.Services.Anthropic
         protected override uint GetModelMaxOutputTokens()
         {
             var model = Model?.ToLower() ?? "";
+            if (model.Contains("fable-5")) return 128000;
+            if (model.Contains("opus-4-8")) return 128000;
+            if (model.Contains("opus-4-7")) return 128000;
             if (model.Contains("opus-4-6")) return 128000;
             if (model.Contains("sonnet-4-6")) return 65536;
             if (model.Contains("opus-4-5")) return 64000;
@@ -361,13 +364,14 @@ namespace Mythosia.AI.Services.Anthropic
 
         /// <summary>
         /// Returns true if the current model supports extended thinking.
-        /// Supported: Claude Sonnet 4+, Claude Opus 4+, Claude Haiku 4.5+
+        /// Supported: Claude Fable 5, Claude Sonnet 4+, Claude Opus 4+, Claude Haiku 4.5+
         /// </summary>
         public bool SupportsExtendedThinking => IsExtendedThinkingModel();
 
         private bool IsExtendedThinkingModel()
         {
             var model = Model?.ToLower() ?? "";
+            if (model.Contains("fable-5")) return true;
             if (model.Contains("sonnet-4")) return true;
             if (model.Contains("opus-4")) return true;
             if (model.Contains("haiku-4")) return true;
@@ -381,9 +385,11 @@ namespace Mythosia.AI.Services.Anthropic
 
         /// <summary>
         /// Applies thinking configuration to the request body when enabled.
-        /// Opus 4.7+ use adaptive thinking (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>);
+        /// Fable 5 and Opus 4.7+ use adaptive thinking (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>);
         /// older models use manual thinking (<c>thinking.type=enabled</c> + <c>budget_tokens</c>,
         /// temperature forced to 1, with max_tokens auto-adjusted to keep budget_tokens &lt; max_tokens).
+        /// When thinking is disabled the <c>thinking</c> parameter is omitted entirely — Fable 5
+        /// rejects an explicit <c>thinking.type=disabled</c> (HTTP 400).
         /// </summary>
         private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
         {
@@ -391,8 +397,8 @@ namespace Mythosia.AI.Services.Anthropic
 
             if (ModelRequiresAdaptiveThinking())
             {
-                // Opus 4.7+ reject manual budget_tokens thinking (HTTP 400). Thinking is enabled
-                // via adaptive mode and its depth is controlled by output_config.effort.
+                // Fable 5 and Opus 4.7+ reject manual budget_tokens thinking (HTTP 400). Thinking is
+                // enabled via adaptive mode and its depth is controlled by output_config.effort.
                 requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
                 requestBody["output_config"] = new Dictionary<string, object> { ["effort"] = MapThinkingBudgetToEffort() };
                 return;
@@ -426,7 +432,7 @@ namespace Mythosia.AI.Services.Anthropic
         private bool ModelRequiresAdaptiveThinking()
         {
             var model = Model?.ToLowerInvariant() ?? string.Empty;
-            return model.Contains("opus-4-7") || model.Contains("opus-4-8");
+            return model.Contains("fable-5") || model.Contains("opus-4-7") || model.Contains("opus-4-8");
         }
 
         /// <summary>
@@ -444,14 +450,14 @@ namespace Mythosia.AI.Services.Anthropic
 
         /// <summary>
         /// Returns true for models that reject a custom <c>temperature</c> value.
-        /// Claude Opus 4.7+ return HTTP 400 ("`temperature` is deprecated for this model.")
+        /// Claude Fable 5 and Opus 4.7+ return HTTP 400 ("`temperature` is deprecated for this model.")
         /// for any non-default temperature, so the parameter must be omitted for them.
         /// Add future models here as Anthropic extends this behavior.
         /// </summary>
         private bool ModelRejectsCustomTemperature()
         {
             var model = Model?.ToLowerInvariant() ?? string.Empty;
-            return model.Contains("opus-4-7") || model.Contains("opus-4-8");
+            return model.Contains("fable-5") || model.Contains("opus-4-7") || model.Contains("opus-4-8");
         }
 
         /// <summary>
@@ -505,7 +511,10 @@ namespace Mythosia.AI.Services.Anthropic
             // Ensure we're using a vision-capable Claude model
             if (!Model.Contains("claude-3") &&
                 !Model.Contains("claude-4") &&
-                !Model.Contains("opus-4"))
+                !Model.Contains("opus-4") &&
+                !Model.Contains("sonnet-4") &&
+                !Model.Contains("haiku-4") &&
+                !Model.Contains("fable-5"))
             {
                 ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
             }

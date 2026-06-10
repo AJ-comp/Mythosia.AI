@@ -40,6 +40,7 @@
 
         public static class Anthropic
         {
+            public const string ClaudeFable5 = "claude-fable-5";
             public const string ClaudeOpus4_8 = "claude-opus-4-8";
             public const string ClaudeOpus4_7 = "claude-opus-4-7";
             public const string ClaudeOpus4_6 = "claude-opus-4-6";

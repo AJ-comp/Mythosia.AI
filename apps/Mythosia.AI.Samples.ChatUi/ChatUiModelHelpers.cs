@@ -35,6 +35,7 @@ namespace Mythosia.AI.Samples.ChatUi
             ("OpenAI", nameof(AIModels.OpenAI.Gpt4o240806), AIModels.OpenAI.Gpt4o240806),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt4oMini), AIModels.OpenAI.Gpt4oMini),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt4Vision), AIModels.OpenAI.Gpt4Vision),
+            ("Anthropic", nameof(AIModels.Anthropic.ClaudeFable5), AIModels.Anthropic.ClaudeFable5),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeOpus4_8), AIModels.Anthropic.ClaudeOpus4_8),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeOpus4_7), AIModels.Anthropic.ClaudeOpus4_7),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeOpus4_6), AIModels.Anthropic.ClaudeOpus4_6),
@@ -158,6 +159,10 @@ namespace Mythosia.AI.Samples.ChatUi
             // Claude (extended thinking)
             if (name.StartsWith("claude", StringComparison.OrdinalIgnoreCase))
             {
+                // Adaptive-thinking models map ThinkingBudget to effort (<32768 high,
+                // >=32768 xhigh, >=100000 max), so offer budgets that reach every tier.
+                if (name.Contains("fable-5") || name.Contains("opus-4-7") || name.Contains("opus-4-8"))
+                    return new { type = "claude", levels = new[] { "1024", "16384", "32768", "100000" } };
                 if (name.Contains("sonnet-4") || name.Contains("opus-4") || name.Contains("haiku-4-5"))
                     return new { type = "claude", levels = new[] { "1024", "2048", "4096", "8192", "16384" } };
             }
@@ -208,6 +213,7 @@ namespace Mythosia.AI.Samples.ChatUi
                 },
                 "Anthropic" => desc switch
                 {
+                    _ when desc.Contains("fable-5") => 128000,
                     _ when desc.Contains("opus-4-8") => 128000,
                     _ when desc.Contains("opus-4-7") => 128000,
                     _ when desc.Contains("opus-4-6") => 128000,

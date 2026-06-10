@@ -47,13 +47,13 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 
                 Assert.IsNotNull(response);
 
-                // Opus 4.7+ use adaptive thinking: the model decides whether to emit a thinking
-                // block and may legitimately skip it (the manual budget_tokens API used to force
-                // thinking, adaptive thinking does not). Thinking-content capture is already
+                // Fable 5 and Opus 4.7+ use adaptive thinking: the model decides whether to emit a
+                // thinking block and may legitimately skip it (the manual budget_tokens API used to
+                // force thinking, adaptive thinking does not). Thinking-content capture is already
                 // verified by the manual-thinking models below, so for adaptive models we only
                 // require a valid response and validate thinking content when it is present.
                 var model = claudeService.Model?.ToLowerInvariant() ?? string.Empty;
-                bool adaptiveThinking = model.Contains("opus-4-7") || model.Contains("opus-4-8");
+                bool adaptiveThinking = model.Contains("fable-5") || model.Contains("opus-4-7") || model.Contains("opus-4-8");
 
                 if (adaptiveThinking)
                 {
@@ -131,6 +131,30 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
             },
             "Claude Thinking Budget Auto-Adjust"
         );
+    }
+
+    /// <summary>
+    /// 모델 무결성 테스트: 호출 후에도 서비스가 요청된 모델을 유지해야 한다.
+    /// (회귀 방지: 비전 게이트가 모델을 Sonnet 4.6으로 조용히 교체하던 버그 —
+    /// 라이브 통합 테스트는 응답만 검사해서 이런 silent substitution을 놓쳤음)
+    /// </summary>
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task ClaudeModelIntegrityTest()
+    {
+        var claudeService = (AnthropicService)AI;
+
+        var response = await claudeService.GetCompletionAsync("Reply with the single word OK.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(response));
+        Assert.AreEqual(ModelToTest, claudeService.Model,
+            $"Text completion silently changed the model to '{claudeService.Model}'");
+
+        if (SupportsMultimodal())
+        {
+            await claudeService.GetCompletionWithImageAsync("Describe this image in one word.", TestImagePath);
+            Assert.AreEqual(ModelToTest, claudeService.Model,
+                $"Vision completion silently changed the model to '{claudeService.Model}'");
+        }
     }
 
     #region Claude-Specific Tests
@@ -255,6 +279,12 @@ public class Claude_Sonnet4_6 : AnthropicServiceTestsBase
 }
 
 [TestClass]
+public class Claude_Fable5 : AnthropicServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeFable5;
+}
+
+[TestClass]
 public class Claude_Opus4_8 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_8;
@@ -294,4 +324,39 @@ public class Claude_Sonnet4_5 : AnthropicServiceTestsBase
 public class Claude_Haiku4_5 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeHaiku4_5_251001;
+}
+
+/// <summary>
+/// AIService.QuickAskAsync 정적 경로의 라이브 스모크 테스트.
+/// (회귀 방지: 이 경로는 v6.5.0까지 어떤 테스트도 호출하지 않아
+/// 모든 소문자 모델 ID가 ArgumentException을 던지는 버그가 잡히지 않았음)
+/// 가장 저렴한 Haiku로 1회만 호출한다.
+/// </summary>
+[TestClass]
+public class AnthropicQuickAskSmokeTests
+{
+    private static string? apiKey;
+
+    [ClassInitialize]
+    public static async Task ClassInit(TestContext context)
+    {
+        var secretFetcher = new SecretFetcher(
+            "https://mythosia-key-vault.vault.azure.net/",
+            "momedit-antropic-secret"
+        );
+        apiKey = await secretFetcher.GetKeyValueAsync();
+    }
+
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task QuickAskAsync_RoutesLowercaseModelId_AndCompletes()
+    {
+        var response = await AIService.QuickAskAsync(
+            apiKey!,
+            "Reply with the single word OK.",
+            AIModels.Anthropic.ClaudeHaiku4_5_251001);
+
+        Assert.IsFalse(string.IsNullOrWhiteSpace(response),
+            "QuickAskAsync must route a real lowercase Anthropic model id and return a response");
+    }
 }

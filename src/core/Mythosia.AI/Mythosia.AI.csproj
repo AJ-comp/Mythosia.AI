@@ -19,35 +19,24 @@
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
     <PackageTags>AI; Grok; xAI; Grok4.3; Grok4.20; GrokBuild; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Gpt5.5; Gpt5.5Pro; Gpt5Pro; ChatGpt;
-    Claude Opus 4.8; Claude Opus 4.7; Claude Opus 4.6; Claude Sonnet 4.6; Claude Haiku 4.5; Claude;
+    Claude Fable 5; Claude Opus 4.8; Claude Opus 4.7; Claude Opus 4.6; Claude Sonnet 4.6; Claude Haiku 4.5; Claude;
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Gemini3.1; Gemini3.5; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-## What's New in v6.5.0
+## What's New in v6.6.0
 
-### New models (2026 refresh)
-- OpenAI: GPT-5.5, GPT-5.5 Pro (+ dated snapshots), GPT-5 Pro
-- Anthropic: Claude Opus 4.8, Claude Opus 4.7
-- Google: Gemini 3.1 Pro (preview), Gemini 3.5 Flash, Gemini 3.1 Flash-Lite
-- xAI: Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build 0.1
-- Perplexity: Sonar Reasoning Pro
-- GPT-5.5 parameters via WithGpt5_5Parameters (reasoning effort none/low/medium/high/xhigh + verbosity).
+### New model
+- Anthropic: Claude Fable 5 (claude-fable-5) — Anthropic's new top model tier above Opus (1M context window, 128K max output).
 
-### Provider fixes (current model API contracts)
-- Anthropic Opus 4.7/4.8: omit unsupported temperature; extended thinking now uses adaptive mode (thinking.type=adaptive + output_config.effort) instead of the rejected budget_tokens form.
-- OpenAI pro models: gpt-5-pro is sent the only supported "high" effort; gpt-5.2/5.4/5.5-pro clamp none/low to medium.
-- OpenAI image generation: the retired dall-e-3 is replaced with gpt-image-1 and the unsupported response_format is removed. GenerateImageUrlAsync now returns a base64 data: URI (gpt-image models do not provide hosted URLs).
-- Unified request timeout (single control point): the FunctionCallingPolicy timeout is now authoritative across completion/streaming/audio/image and is no longer silently capped by HttpClient.Timeout. Slow "pro" reasoning models get a 300s default.
-- xAI grok-build: omit unsupported frequency_penalty / presence_penalty.
-- Google Gemini 3 "pro": use the Low thinking level (not MINIMAL, which it rejects) when reasoning is disabled.
+### Fable 5 API contract handled automatically
+- Unsupported temperature is omitted; extended thinking uses adaptive mode (thinking.type=adaptive + output_config.effort); the thinking parameter is omitted entirely when disabled (Fable 5 rejects an explicit thinking.type=disabled).
 
-### Default models updated to current flagships
-- Anthropic Claude Sonnet 4.6, xAI Grok 4.3, Google Gemini 3.1 Pro (preview).
+### Fixed
+- Opus 4.7 / 4.8 max output tokens corrected to 128K (previously fell into the generic opus-4 32K bucket, which capped the thinking-budget max_tokens auto-adjustment).
+- QuickAskAsync / QuickAskWithImageAsync: provider routing now matches real lowercase model ids (previously every model except o3* threw ArgumentException), and the requested model is actually applied to the created service instead of the provider default.
+- Vision calls no longer silently swap claude-sonnet-4-x / claude-haiku-4-5 to Sonnet 4.6 (the vision-capability gate now recognizes all vision-capable model families).
 
-### Removed (retired / incompatible models)
-- grok-3, grok-4-0709, grok-4-1-fast, grok-4.20-multi-agent-0309, claude-sonnet-4-20250514, sonar-reasoning, gemini-3-pro-preview, gpt-5.3-codex-spark. These reference models that no longer function; update any by-name references to a current model.
-
-Requires Mythosia.AI.Abstractions v2.3.0.
+Requires Mythosia.AI.Abstractions v2.4.0.
 
 ---
 
@@ -59,8 +48,8 @@ Requires Mythosia.AI.Abstractions v2.3.0.
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.5.0: 2026 model refresh + provider API-contract fixes. New models — OpenAI gpt-5.5 / gpt-5.5-pro (+ dated snapshots) / gpt-5-pro, Anthropic claude-opus-4-8 / claude-opus-4-7, Google gemini-3.1-pro-preview / gemini-3.5-flash / gemini-3.1-flash-lite, xAI grok-4.3 / grok-4.20 (reasoning, non-reasoning) / grok-build-0.1, Perplexity sonar-reasoning-pro; plus WithGpt5_5Parameters for GPT-5.5 reasoning effort/verbosity. Fixes: Anthropic Opus 4.7/4.8 omit unsupported temperature and use adaptive thinking (thinking.type=adaptive + output_config.effort) instead of the rejected budget_tokens form; OpenAI gpt-5-pro is sent the only-supported high effort and gpt-5.2/5.4/5.5-pro clamp none/low to medium; OpenAI image generation moves off the retired dall-e-3 to gpt-image-1 (drops response_format; GenerateImageUrlAsync returns a base64 data: URI); request timeout is unified to a single control point (FunctionCallingPolicy timeout authoritative, no longer capped by HttpClient.Timeout, 300s default for slow pro models); xAI grok-build omits unsupported frequency/presence penalties; Google Gemini 3 pro uses Low (not MINIMAL) thinking when reasoning is disabled. Default models updated to current flagships (Anthropic claude-sonnet-4-6, xAI grok-4.3, Google gemini-3.1-pro-preview). Removed retired/incompatible model constants: grok-3, grok-4-0709, grok-4-1-fast, grok-4.20-multi-agent-0309, claude-sonnet-4-20250514, sonar-reasoning, gemini-3-pro-preview, gpt-5.3-codex-spark — these reference models that no longer function. Requires Mythosia.AI.Abstractions v2.3.0.</PackageReleaseNotes>
-    <Version>6.5.0</Version>
+    <PackageReleaseNotes>v6.6.0: Claude Fable 5 support. Adds Anthropic claude-fable-5 — Anthropic's new top model tier above Opus (1M context window, 128K max output) — with its API contract handled automatically: unsupported temperature omitted, extended thinking via adaptive mode (thinking.type=adaptive + output_config.effort), and the thinking parameter omitted entirely when disabled (Fable 5 rejects an explicit thinking.type=disabled). Fixes Opus 4.7/4.8 max output tokens to 128K (previously capped at the generic opus-4 32K bucket), QuickAskAsync provider routing (case-insensitive model-id matching; the requested model is now actually applied instead of the provider default), and the vision gate silently swapping sonnet-4-x/haiku-4-5 models to Sonnet 4.6. Requires Mythosia.AI.Abstractions v2.4.0.</PackageReleaseNotes>
+    <Version>6.6.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

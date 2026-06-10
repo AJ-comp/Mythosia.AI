@@ -1,5 +1,17 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v2.4.0
+
+### Added
+
+- **`AIModels.Anthropic.ClaudeFable5`** — `claude-fable-5`, Anthropic's new top model tier above Opus (1M context window, 128K max output).
+
+### Compatibility
+
+- Additive minor release; no breaking changes.
+
+---
+
 ## v2.3.0
 
 ### Added

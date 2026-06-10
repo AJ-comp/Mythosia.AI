@@ -1,5 +1,32 @@
 # Mythosia.AI - Release Notes
 
+## v6.6.0
+
+### Added
+
+- **Claude Fable 5** (`claude-fable-5`, constant in Mythosia.AI.Abstractions v2.4.0) — Anthropic's new top model tier above Opus (1M context window, 128K max output). Its API contract is handled automatically:
+  - `temperature` is omitted (Fable 5 rejects any non-default temperature, like Opus 4.7/4.8).
+  - Extended thinking uses adaptive mode (`thinking.type=adaptive` + `output_config.effort`); the legacy `budget_tokens` form is rejected.
+  - When thinking is disabled the `thinking` parameter is omitted entirely — Fable 5 rejects an explicit `thinking.type=disabled` (Opus 4.7/4.8 accept it).
+  - Vision, extended-thinking support detection, and the 128K max-output ceiling are wired into the existing model gates.
+
+### Fixed
+
+- **Opus 4.7 / 4.8 max output tokens** — `GetModelMaxOutputTokens()` now returns 128K for these models; they previously fell into the generic `opus-4` 32K bucket, which capped the thinking-budget `max_tokens` auto-adjustment.
+- **`QuickAskAsync` / `QuickAskWithImageAsync` provider routing** — `GetProviderFromModel` compared model ids against uppercase prefixes (`"Claude"`, `"Gpt"`, …) while real model ids are lowercase, so every model except `o3*` threw `ArgumentException`. Matching is now case-insensitive on real id prefixes (`claude`, `gpt`/`chatgpt`/`o3`, `grok`, `gemini`, `deepseek`, `sonar`). In addition, `CreateService` now applies the requested model via `ChangeModel` — previously the created service silently ran on its provider default model.
+- **Vision gate silently swapped Sonnet/Haiku models** — `GetCompletionWithImageAsync`'s vision-capability check only recognized `claude-3` / `claude-4` / `opus-4` patterns, so vision calls on `claude-sonnet-4-x` / `claude-haiku-4-5` (and Fable 5 before this release) were silently switched to Sonnet 4.6. The gate now recognizes all vision-capable families (`sonnet-4`, `haiku-4`, `fable-5` added).
+
+### Internal
+
+- **Offline unit tests added** (`tests/.../Common`, `[TestCategory("Unit")]`, no API key required): Anthropic request-shape tests pin the per-model API contract via a fake `HttpMessageHandler` (temperature omission, adaptive-vs-manual thinking, effort mapping, max_tokens ceilings, auto-adjust, vision model integrity), and a reflection sweep asserts every `AIModels` constant routes to its provider through `QuickAskAsync`'s factory. Live tests gained `ClaudeModelIntegrityTest` (detects silent model substitution) and a `QuickAskAsync` smoke test. `GetProviderFromModel` / `CreateService` are now `internal` (visible to the test assembly) to make the factory path testable.
+
+### Compatibility
+
+- Requires **Mythosia.AI.Abstractions v2.4.0**.
+- Additive minor release; no breaking changes.
+
+---
+
 ## v6.5.0
 
 ### Added

@@ -35,10 +35,10 @@ namespace Mythosia.AI.Services.Base
             return await service.GetCompletionWithImageAsync(prompt, imagePath);
         }
 
-        private static AIService CreateService(string model, string apiKey, HttpClient httpClient)
+        internal static AIService CreateService(string model, string apiKey, HttpClient httpClient)
         {
             var provider = GetProviderFromModel(model);
-            return provider switch
+            AIService service = provider switch
             {
                 nameof(AIProvider.OpenAI) => new OpenAIService(apiKey, httpClient),
                 nameof(AIProvider.Anthropic) => new AnthropicService(apiKey, httpClient),
@@ -48,17 +48,22 @@ namespace Mythosia.AI.Services.Base
                 nameof(AIProvider.Perplexity) => new PerplexityService(apiKey, httpClient),
                 _ => throw new NotSupportedException($"Provider {provider} not supported")
             };
+            service.ChangeModel(model);
+            return service;
         }
 
-        private static string GetProviderFromModel(string model)
+        internal static string GetProviderFromModel(string model)
         {
             var modelName = model.ToString();
-            if (modelName.StartsWith("Claude")) return nameof(AIProvider.Anthropic);
-            if (modelName.StartsWith("Gpt") || modelName.StartsWith("GPT") || modelName.StartsWith("o3")) return nameof(AIProvider.OpenAI);
-            if (modelName.StartsWith("Grok")) return nameof(AIProvider.xAI);
-            if (modelName.StartsWith("Gemini")) return nameof(AIProvider.Google);
-            if (modelName.StartsWith("DeepSeek")) return nameof(AIProvider.DeepSeek);
-            if (modelName.StartsWith("Perplexity")) return nameof(AIProvider.Perplexity);
+            if (modelName.StartsWith("claude", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Anthropic);
+            if (modelName.StartsWith("gpt", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("chatgpt", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("o3", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.OpenAI);
+            if (modelName.StartsWith("grok", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.xAI);
+            if (modelName.StartsWith("gemini", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Google);
+            if (modelName.StartsWith("deepseek", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.DeepSeek);
+            if (modelName.StartsWith("sonar", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("perplexity", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Perplexity);
 
             throw new ArgumentException($"Cannot determine provider for model {model}");
         }

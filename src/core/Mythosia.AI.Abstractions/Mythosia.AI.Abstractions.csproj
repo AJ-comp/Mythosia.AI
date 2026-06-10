@@ -19,9 +19,9 @@
 		<Description>Core abstractions and shared models for Mythosia.AI. Defines IAIService interface, Message, ChatBlock, StreamingContent, FunctionDefinition, and other contract types. Zero heavy dependencies.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v2.3.0: 2026 model-id refresh of AIModels. Adds OpenAI gpt-5.5 / gpt-5.5-pro (+ dated snapshots) / gpt-5-pro, Anthropic claude-opus-4-8 / claude-opus-4-7, Google gemini-3.1-pro-preview / gemini-3.5-flash / gemini-3.1-flash-lite, xAI grok-4.3 / grok-4.20 (reasoning, non-reasoning) / grok-build-0.1, Perplexity sonar-reasoning-pro; adds the Gpt5_5Reasoning effort enum. Removes constants for retired or non-callable models: xAI grok-4-0709 / grok-4-1-fast / grok-3 / grok-4.20-multi-agent-0309, Anthropic claude-sonnet-4-20250514, Perplexity sonar-reasoning, Google gemini-3-pro-preview, OpenAI gpt-5.3-codex-spark. Minor release; the removed constants name models that no longer function at runtime, so referencing them needs a one-line update to a current model.</PackageReleaseNotes>
+		<PackageReleaseNotes>v2.4.0: Adds the Anthropic Claude Fable 5 model id constant (AIModels.Anthropic.ClaudeFable5 = claude-fable-5) — Anthropic's new top model tier above Opus (1M context window, 128K max output). Additive minor release; no breaking changes.</PackageReleaseNotes>
 
-		<Version>2.3.0</Version>
+		<Version>2.4.0</Version>
 
 	</PropertyGroup>
 
