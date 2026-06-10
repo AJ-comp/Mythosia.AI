@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <PackageReference Include="Qdrant.Client" Version="1.17.0" />
-    <PackageReference Include="System.IO.Hashing" Version="10.0.6" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.7" />
   </ItemGroup>
 
   <ItemGroup>
