@@ -60,6 +60,10 @@ graph TD
         Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v1.2.6</i>"]
     end
 
+    subgraph "🛰️ Serving — Control Plane"
+        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
@@ -284,6 +288,14 @@ var response = await service.GetCompletionAsync("Chính sách hoàn tiền là g
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — index HNSW / IVFFlat, sẵn sàng production |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot, tự động provision |
 
+### Serving — Control Plane
+
+> Client quản lý/introspection cho các runtime phục vụ model. Chat vẫn nằm ở các package provider: `Providers.*` = data plane cho chat, `Serving.*` = control plane cho server.
+
+| Package | NuGet | Mô tả |
+| --- | --- | --- |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | Client control-plane cho vLLM — model card (model thực sự được nạp qua `root`), health, phiên bản server, metrics Prometheus |
+
 ## Cấu trúc repository
 
 ```text
@@ -299,6 +311,8 @@ src/
   rag/
     Mythosia.AI.Rag/                    # RAG Fluent API và pipeline
     Mythosia.AI.Rag.Abstractions/       # Interface và model RAG (RagDocument)
+  serving/
+    Mythosia.AI.Serving.Vllm/           # Client control-plane cho vLLM (models/health/version/metrics)
   vectordb/
     Mythosia.VectorDb.Abstractions/     # Contract vector store
     Mythosia.VectorDb.InMemory/         # Vector store trong bộ nhớ

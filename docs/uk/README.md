@@ -60,6 +60,10 @@ graph TD
         Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v1.2.6</i>"]
     end
 
+    subgraph "🛰️ Serving — площина керування"
+        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
@@ -295,6 +299,14 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — індекси HNSW / IVFFlat, готово для продакшену |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC-клієнт — Cosine / Euclidean / Dot, автоматичне розгортання |
 
+### Сервінг — площина керування
+
+> Клієнти керування/інтроспекції для середовищ обслуговування моделей. Чат залишається на пакетах провайдерів: `Providers.*` = площина даних чату, `Serving.*` = площина керування сервером.
+
+| Пакет | NuGet | Опис |
+| --- | --- | --- |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | Клієнт площини керування vLLM — картки моделей (фактично завантажена модель через `root`), перевірка стану, версія сервера, метрики Prometheus |
+
 ## Структура репозиторію
 
 ```text
@@ -310,6 +322,8 @@ src/
   rag/
     Mythosia.AI.Rag/                    # RAG Fluent API та пайплайн
     Mythosia.AI.Rag.Abstractions/       # Інтерфейси та моделі RAG (RagDocument)
+  serving/
+    Mythosia.AI.Serving.Vllm/           # Клієнт площини керування vLLM (моделі/стан/версія/метрики)
   vectordb/
     Mythosia.VectorDb.Abstractions/     # Контракти векторних сховищ
     Mythosia.VectorDb.InMemory/         # Векторне сховище в пам'яті

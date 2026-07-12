@@ -101,7 +101,11 @@ Mythosia.AI.Abstractions      # 핵심 인터페이스/모델 (zero dependency)
 Mythosia.AI                   # 핵심 구현체 (provider 서비스 클래스)
     ↑                    ↑
 Mythosia.AI.Rag        Mythosia.AI.Providers.Alibaba
+
+Mythosia.AI.Serving.Vllm      # vLLM 서버 control-plane 클라이언트 (Newtonsoft.Json만 의존, core 미참조)
 ```
 
 - `Mythosia.AI.Rag`는 `Mythosia.AI.Abstractions`에만 의존 (`Mythosia.AI` 직접 참조 없음)
 - `Mythosia.AI.Providers.Alibaba`는 `Mythosia.AI`에 직접 의존
+- **Serving 패밀리 taxonomy**: `Providers.*` = 챗 **data plane** (구체 AI 서비스), `Serving.*` = 모델서버 **control plane** (관리/introspection 클라이언트, 챗 없음). vLLM 챗은 계속 `QwenService(EndpointPlatform.Vllm)`.
+- `Mythosia.AI.Serving.Abstractions`는 **지금 만들지 않는다** — `Serving.Ollama` 구현이 실제로 생길 때 두 concrete에서 추출한다 (FDG: 구현 여러 개로 검증되기 전 추상화 금지). `VllmServer`의 메서드명은 런타임 중립으로, DTO는 `Vllm` 접두로 유지해 추출이 additive(minor)가 되게 한다.

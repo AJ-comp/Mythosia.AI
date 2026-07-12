@@ -60,6 +60,10 @@ graph TD
         Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v1.2.6</i>"]
     end
 
+    subgraph "🛰️ Serving — 컨트롤 플레인"
+        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
@@ -295,6 +299,14 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat 인덱스, 프로덕션 환경에 적합 |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC 클라이언트 — Cosine / Euclidean / Dot, 자동 프로비저닝 |
 
+### 서빙 — 컨트롤 플레인
+
+> 모델 서빙 런타임을 위한 관리/인트로스펙션 클라이언트입니다. 채팅은 프로바이더 패키지가 담당합니다: `Providers.*` = 채팅 데이터 플레인, `Serving.*` = 서버 컨트롤 플레인.
+
+| 패키지 | NuGet | 설명 |
+| --- | --- | --- |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM 컨트롤 플레인 클라이언트 — 모델 카드(`root`로 실제 로드된 모델 확인), 헬스, 서버 버전, Prometheus 메트릭 |
+
 ## 저장소 구조
 
 ```text
@@ -310,6 +322,8 @@ src/
   rag/
     Mythosia.AI.Rag/                    # RAG Fluent API 및 파이프라인
     Mythosia.AI.Rag.Abstractions/       # RAG 인터페이스 및 모델 (RagDocument)
+  serving/
+    Mythosia.AI.Serving.Vllm/           # vLLM 컨트롤 플레인 클라이언트 (모델/헬스/버전/메트릭)
   vectordb/
     Mythosia.VectorDb.Abstractions/     # 벡터 저장소 계약
     Mythosia.VectorDb.InMemory/         # 인메모리 벡터 저장소

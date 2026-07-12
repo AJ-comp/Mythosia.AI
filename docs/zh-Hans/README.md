@@ -60,6 +60,10 @@ graph TD
         Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v1.2.6</i>"]
     end
 
+    subgraph "🛰️ Serving — 控制平面"
+        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
@@ -295,6 +299,14 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat 索引，可用于生产环境 |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC 客户端 — Cosine / Euclidean / Dot，自动配置 |
 
+### Serving — 控制平面
+
+> 面向模型服务运行时的管理/内省客户端。聊天仍由提供商包负责：`Providers.*` = 聊天数据平面，`Serving.*` = 服务器控制平面。
+
+| 包 | NuGet | 描述 |
+| --- | --- | --- |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM 控制平面客户端 — 模型卡（通过 `root` 获取实际加载的模型）、健康检查、服务器版本、Prometheus 指标 |
+
 ## 仓库结构
 
 ```text
@@ -310,6 +322,8 @@ src/
   rag/
     Mythosia.AI.Rag/                    # RAG Fluent API 和管道
     Mythosia.AI.Rag.Abstractions/       # RAG 接口和模型 (RagDocument)
+  serving/
+    Mythosia.AI.Serving.Vllm/           # vLLM 控制平面客户端 (模型/健康/版本/指标)
   vectordb/
     Mythosia.VectorDb.Abstractions/     # 向量存储契约
     Mythosia.VectorDb.InMemory/         # 内存向量存储

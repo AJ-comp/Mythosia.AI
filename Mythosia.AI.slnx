@@ -18,6 +18,9 @@
     <Project Path="src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
     <Project Path="src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
   </Folder>
+  <Folder Name="/src/serving/">
+    <Project Path="src/serving/Mythosia.AI.Serving.Vllm/Mythosia.AI.Serving.Vllm.csproj" />
+  </Folder>
   <Folder Name="/src/vectordb/">
     <Project Path="src/vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj" />
     <Project Path="src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj" />
@@ -33,6 +36,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Serving.Vllm.Tests/Mythosia.AI.Serving.Vllm.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
     <Project Path="tests/Mythosia.Documents.Tests/Mythosia.Documents.Tests.csproj" />
     <Project Path="tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj" />
