@@ -10,8 +10,10 @@ service.TopP = 1.0f;               // 核サンプリング閾値
 service.MaxTokens = 1024;          // 最大出力トークン数
 service.FrequencyPenalty = 0.0f;   // 繰り返しトークンペナルティ
 service.PresencePenalty = 0.0f;    // 既出トークンペナルティ
-service.MaxMessageCount = 20;      // 会話ウィンドウサイズ
+service.MaxMessageCount = 20;      // 会話ウィンドウサイズ（非推奨 — v7.0 で削除）
 ```
+
+> **非推奨:** `MaxMessageCount`（メッセージ数ベースのスライディングウィンドウ）は廃止予定で、v7.0 で削除されます — コンテキスト管理は `ConversationPolicy` によるトークンベースのみになります。削除までの間、このウィンドウは直近のユーザーメッセージを決して破棄しないことが保証されているため、エージェント的なツール実行中に処理対象のクエリが失われることはありません。
 
 ## フルーエント拡張メソッド
 

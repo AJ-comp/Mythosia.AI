@@ -10,8 +10,10 @@ service.TopP = 1.0f;               // Seuil d'échantillonnage nucleus
 service.MaxTokens = 1024;          // Tokens de sortie maximum
 service.FrequencyPenalty = 0.0f;   // Pénalise les tokens répétés
 service.PresencePenalty = 0.0f;    // Pénalise les tokens déjà présents
-service.MaxMessageCount = 20;      // Taille de la fenêtre de conversation
+service.MaxMessageCount = 20;      // Taille de la fenêtre de conversation (obsolète — supprimé en v7.0)
 ```
+
+> **Obsolète :** `MaxMessageCount` (la fenêtre glissante basée sur le nombre de messages) est obsolète et sera supprimé en v7.0 — la gestion du contexte devient exclusivement basée sur les tokens via `ConversationPolicy`. Jusqu'à sa suppression, la fenêtre garantit de ne jamais écarter le message utilisateur le plus récent, afin que les exécutions d'outils agentiques ne puissent pas perdre la requête sur laquelle elles travaillent.
 
 ## Méthodes d'extension fluentes
 

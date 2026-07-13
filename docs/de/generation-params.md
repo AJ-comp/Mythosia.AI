@@ -10,8 +10,10 @@ service.TopP = 1.0f;               // Schwellenwert für Nucleus-Sampling
 service.MaxTokens = 1024;          // Maximale Ausgabe-Tokens
 service.FrequencyPenalty = 0.0f;   // Wiederholte Tokens bestrafen
 service.PresencePenalty = 0.0f;    // Bereits vorhandene Tokens bestrafen
-service.MaxMessageCount = 20;      // Größe des Gesprächsfensters
+service.MaxMessageCount = 20;      // Größe des Gesprächsfensters (veraltet — wird in v7.0 entfernt)
 ```
+
+> **Veraltet:** `MaxMessageCount` (das gleitende Fenster nach Nachrichtenanzahl) ist obsolet und wird in v7.0 entfernt — die Kontextverwaltung erfolgt dann ausschließlich tokenbasiert über `ConversationPolicy`. Bis zur Entfernung ist garantiert, dass das Fenster niemals die neueste Benutzernachricht verwirft, sodass agentische Tool-Läufe die Anfrage, an der sie gerade arbeiten, nicht verlieren können.
 
 ## Fluent-Erweiterungsmethoden
 

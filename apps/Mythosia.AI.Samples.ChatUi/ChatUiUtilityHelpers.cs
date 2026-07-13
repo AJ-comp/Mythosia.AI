@@ -1,3 +1,5 @@
+// 샘플앱은 진단 목적상 deprecated 노브(MaxMessageCount 등)도 그대로 노출한다 — v7.0 제거 시 함께 정리.
+#pragma warning disable CS0618
 using Mythosia.AI.Extensions;
 using Mythosia.Documents;
 using Mythosia.Documents.Office.Excel;

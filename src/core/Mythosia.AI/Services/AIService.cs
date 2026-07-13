@@ -91,6 +91,16 @@ namespace Mythosia.AI.Services.Base
         public float PresencePenalty { get; set; } = 0.0f;
         public uint MaxTokens { get; set; } = 1024;
         public bool Stream { get; set; }
+
+        /// <summary>
+        /// Message-count sliding window applied to each outgoing request.
+        /// Deprecated: a count-based window is a poor proxy for context size and can silently
+        /// interfere with token-based management (<see cref="ConversationPolicy"/>). It will be
+        /// removed in v7.0, after which the full conversation history is sent unless a
+        /// ConversationPolicy trims it. Until removal, the window is guaranteed to never drop
+        /// the most recent user message (see <see cref="GetLatestMessages"/>).
+        /// </summary>
+        [Obsolete("The message-count sliding window will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). To opt out of windowing today, set this to a large value.")]
         public uint MaxMessageCount { get; set; } = 20;
 
         /// <summary>
@@ -182,13 +192,31 @@ namespace Mythosia.AI.Services.Base
         }
 
         /// <summary>
-        /// Gets the latest messages from the active chat up to MaxMessageCount
+        /// Gets the latest messages from the active chat up to MaxMessageCount.
+        /// The window never drops the user turn that anchors the current run: agentic tool
+        /// rounds append two messages per round, so a long run can push the originating user
+        /// query out of a count-based window, producing a request with no user message at all —
+        /// which some OpenAI-compatible servers reject outright (e.g. vLLM/Qwen:
+        /// "No user query found in messages"). If the sliced window contains no user message,
+        /// the most recent user message that was cut off is re-anchored at the front.
         /// </summary>
         protected internal IEnumerable<Message> GetLatestMessages()
         {
+#pragma warning disable CS0618 // MaxMessageCount — deprecated window kept until v7.0
+            var skipped = Math.Max(0, ActivateChat.Messages.Count - (int)MaxMessageCount);
+#pragma warning restore CS0618
             var messages = ActivateChat.Messages
-                .Skip(Math.Max(0, ActivateChat.Messages.Count - (int)MaxMessageCount))
+                .Skip(skipped)
                 .ToList();
+
+            if (skipped > 0 && !messages.Any(m => m.Role == ActorRole.User))
+            {
+                var anchor = ActivateChat.Messages
+                    .Take(skipped)
+                    .LastOrDefault(m => m.Role == ActorRole.User);
+                if (anchor != null)
+                    messages.Insert(0, anchor);
+            }
 
             var requestMessageOverride = _currentRequestContext.Value?.RequestMessageOverride;
             if (requestMessageOverride != null && messages.Count > 0)
@@ -340,7 +368,9 @@ namespace Mythosia.AI.Services.Base
             MaxTokens = sourceService.MaxTokens;
             FrequencyPenalty = sourceService.FrequencyPenalty;
             PresencePenalty = sourceService.PresencePenalty;
+#pragma warning disable CS0618 // MaxMessageCount — deprecated window kept until v7.0
             MaxMessageCount = sourceService.MaxMessageCount;
+#pragma warning restore CS0618
             Stream = sourceService.Stream;
 
             StatelessMode = sourceService.StatelessMode;

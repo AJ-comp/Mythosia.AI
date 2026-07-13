@@ -1,5 +1,25 @@
 # Mythosia.AI - Release Notes
 
+## v6.7.0
+
+### Fixed
+
+- **The message-count window can no longer drop the anchoring user message.** `GetLatestMessages()`'s sliding window (`MaxMessageCount`, default 20) sliced off the oldest messages purely by count. Agentic runs (`RunAgentAsync` / `RunAgentStreamAsync`) append two messages per tool round, so a long run could push the originating user query out of the window — producing a request with **no user message at all**, which some OpenAI-compatible servers reject outright (e.g. vLLM/Qwen: `400 "No user query found in messages"`). The window now re-anchors the most recent cut-off user message at the front whenever the sliced window contains no user turn, so the model never loses the query it is working on. (A related guard, `EnsureUserFirstMessage`, existed but only ran on the Anthropic/Google paths and inserted a synthetic placeholder rather than the real query.)
+
+### Deprecated
+
+- **`AIService.MaxMessageCount` is now `[Obsolete]` and will be removed in v7.0.** A count-based window is a poor proxy for context size and silently interferes with token-based management — two competing sources of truth. From v7.0 the full conversation history is sent unless a `ConversationPolicy` (token-based summary/trim) manages it, matching mainstream SDK behavior. To opt out of windowing today, set the property to a large value.
+
+### Internal
+
+- Offline unit tests for the window behavior (`Common/MessageWindowTests.cs`, no API key): re-anchoring when the user turn is sliced off, most-recent-user selection, and no-op behavior for normal/untruncated/user-less conversations.
+
+### Compatibility
+
+- No API surface changes other than the `[Obsolete]` attribute (compile-time warning only). Behavior change is limited to the previously-broken case where the window emitted a request without any user message.
+
+---
+
 ## v6.6.0
 
 ### Added

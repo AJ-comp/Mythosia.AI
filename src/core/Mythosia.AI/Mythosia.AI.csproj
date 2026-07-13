@@ -23,18 +23,13 @@
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Gemini3.1; Gemini3.5; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-## What's New in v6.6.0
-
-### New model
-- Anthropic: Claude Fable 5 (claude-fable-5) — Anthropic's new top model tier above Opus (1M context window, 128K max output).
-
-### Fable 5 API contract handled automatically
-- Unsupported temperature is omitted; extended thinking uses adaptive mode (thinking.type=adaptive + output_config.effort); the thinking parameter is omitted entirely when disabled (Fable 5 rejects an explicit thinking.type=disabled).
+## What's New in v6.7.0
 
 ### Fixed
-- Opus 4.7 / 4.8 max output tokens corrected to 128K (previously fell into the generic opus-4 32K bucket, which capped the thinking-budget max_tokens auto-adjustment).
-- QuickAskAsync / QuickAskWithImageAsync: provider routing now matches real lowercase model ids (previously every model except o3* threw ArgumentException), and the requested model is actually applied to the created service instead of the provider default.
-- Vision calls no longer silently swap claude-sonnet-4-x / claude-haiku-4-5 to Sonnet 4.6 (the vision-capability gate now recognizes all vision-capable model families).
+- The message-count sliding window (MaxMessageCount) can no longer drop the anchoring user message. Long agentic runs (RunAgentAsync/RunAgentStreamAsync) append two messages per tool round and could push the originating user query out of the window, producing requests with no user message that some OpenAI-compatible servers reject (e.g. vLLM/Qwen 400 "No user query found in messages"). The window now re-anchors the most recent cut-off user message whenever the sliced window has no user turn.
+
+### Deprecated
+- AIService.MaxMessageCount is now [Obsolete] and will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). Until then the window is guaranteed to preserve the most recent user message.
 
 Requires Mythosia.AI.Abstractions v2.4.0.
 
@@ -48,8 +43,8 @@ Requires Mythosia.AI.Abstractions v2.4.0.
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.6.0: Claude Fable 5 support. Adds Anthropic claude-fable-5 — Anthropic's new top model tier above Opus (1M context window, 128K max output) — with its API contract handled automatically: unsupported temperature omitted, extended thinking via adaptive mode (thinking.type=adaptive + output_config.effort), and the thinking parameter omitted entirely when disabled (Fable 5 rejects an explicit thinking.type=disabled). Fixes Opus 4.7/4.8 max output tokens to 128K (previously capped at the generic opus-4 32K bucket), QuickAskAsync provider routing (case-insensitive model-id matching; the requested model is now actually applied instead of the provider default), and the vision gate silently swapping sonnet-4-x/haiku-4-5 models to Sonnet 4.6. Requires Mythosia.AI.Abstractions v2.4.0.</PackageReleaseNotes>
-    <Version>6.6.0</Version>
+    <PackageReleaseNotes>v6.7.0: Sliding-window user-anchor fix + MaxMessageCount deprecation. The message-count window (MaxMessageCount, default 20) could drop the originating user query during long agentic runs (two tool messages appended per round), producing requests with no user message that some OpenAI-compatible servers reject (e.g. vLLM/Qwen 400 "No user query found in messages"); the window now re-anchors the most recent cut-off user message whenever the sliced window contains no user turn. AIService.MaxMessageCount is now [Obsolete] and will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). Requires Mythosia.AI.Abstractions v2.4.0.</PackageReleaseNotes>
+    <Version>6.7.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
