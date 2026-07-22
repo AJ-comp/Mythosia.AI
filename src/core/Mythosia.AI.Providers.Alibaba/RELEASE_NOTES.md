@@ -1,5 +1,26 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v1.2.7
+
+### Fixed
+
+- **Thinking-off was silently dropped for models whose id does not literally contain `qwen3`.** The request builder gated the "thinking off" signal behind a model-name check (`modelId.Contains("qwen3")`), while "thinking on" was always sent. Because a served model name is chosen freely by the operator (vLLM `--served-model-name`, aliases), a Qwen 3 model served under any other name never received `enable_thinking = false` — the caller believed reasoning was disabled while the server kept its default (reasoning **on**). This surfaced as summarization requests emitting long reasoning traces and hitting request timeouts.
+- **`enable_thinking` was sent in the wrong shape on vLLM for models outside the `qwen3.5` name path.** It was emitted as a top-level parameter instead of `chat_template_kwargs.enable_thinking`, so vLLM never applied it. Both the on and off signals are now sent in the documented per-platform format for every model.
+
+### Changed
+
+- Thinking parameters are now derived solely from the configured `ThinkingMode` and translated per platform (DashScope / vLLM / Ollama). The provider no longer inspects the model id to infer capability — an unsupported model is expected to ignore the parameter or surface an error, which is preferable to a directive disappearing silently.
+
+### Internal
+
+- Removed the duplicated Qwen 3.5-specific request path and the `IsQwen35` / `IsQwen3ThinkingCapable` name heuristics; both request paths are unified into a single `ApplyThinkingParameters` step. No public API change.
+
+### Compatibility
+
+- No API changes. Callers that set `ThinkingMode` (directly or via `AIRequestProfile.DisableReasoning`) will now actually have that setting reach the server; this can change model behavior where the directive was previously being dropped.
+
+---
+
 ## v1.2.6
 
 ### Compatibility

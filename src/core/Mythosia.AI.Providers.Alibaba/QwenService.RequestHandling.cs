@@ -19,89 +19,57 @@ namespace Mythosia.AI.Providers.Alibaba
         private ProtocolRequestParams CreateRequestParams(IEnumerable<Message> messages, bool forFunctionCalling = false)
         {
             var systemMsg = GetEffectiveSystemMessageWithRequestContext();
-
             var modelId = GetEffectiveModelId();
-            if (IsQwen35(modelId))
-                return CreateQwen35RequestParams(messages, systemMsg, modelId);
 
             var p = CreateBaseRequestParams(messages, systemMsg, modelId);
-            if (ThinkingMode == QwenThinking.On)
-            {
-                if (_endpointPlatform == EndpointPlatform.Ollama)
-                {
-                    p.ExtraParameters = new Dictionary<string, object>
-                    {
-                        ["reasoning"] = new Dictionary<string, object> { ["effort"] = "high" }
-                    };
-                }
-                else
-                {
-                    p.ExtraParameters = new Dictionary<string, object>
-                    {
-                        ["enable_thinking"] = true
-                    };
-                }
-            }
-            else if (_endpointPlatform != EndpointPlatform.Ollama && IsQwen3ThinkingCapable(modelId))
-            {
-                p.ExtraParameters = new Dictionary<string, object>
-                {
-                    ["enable_thinking"] = false
-                };
-            }
-
+            ApplyThinkingParameters(p);
             return p;
         }
 
-        private ProtocolRequestParams CreateQwen35RequestParams(IEnumerable<Message> messages, string systemMsg, string modelId)
+        /// <summary>
+        /// 호출자가 지정한 <see cref="ThinkingMode"/> 를 플랫폼 표현으로 번역해 그대로 싣는다.
+        ///
+        /// 모델명으로 "이 모델이 추론을 지원하나"를 추측하지 않는다. 서빙 이름(vLLM --served-model-name, 별칭 등)은
+        /// 운영자가 자유롭게 정하므로 능력의 근거가 될 수 없고, 추측이 빗나가면 호출자는 껐다고 믿는데 실제로는 켜져
+        /// 있는 '조용한 실패'가 된다 — 요약(RequestProfiles.Summarization → DisableReasoning) 요청이 추론까지
+        /// 생성해 타임아웃 나던 원인이 정확히 이것이었다. 모델이 지원하지 않으면 서버가 무시하거나 에러로 드러나는
+        /// 편이, 지정이 조용히 사라지는 것보다 옳다.
+        /// </summary>
+        private void ApplyThinkingParameters(ProtocolRequestParams p)
         {
-            var p = CreateBaseRequestParams(messages, systemMsg, modelId);
-            if (ThinkingMode == QwenThinking.On)
+            var enableThinking = ThinkingMode == QwenThinking.On;
+
+            if (_endpointPlatform == EndpointPlatform.Ollama)
             {
-                if (_endpointPlatform == EndpointPlatform.Ollama)
+                // Ollama 는 끄기를 위한 별도 표현이 없다 — 켤 때만 reasoning effort 를 싣는다.
+                if (enableThinking)
                 {
                     p.ExtraParameters = new Dictionary<string, object>
                     {
                         ["reasoning"] = new Dictionary<string, object> { ["effort"] = "high" }
                     };
                 }
-                else if (_endpointPlatform == EndpointPlatform.Vllm)
-                {
-                    p.ExtraParameters = new Dictionary<string, object>
-                    {
-                        ["chat_template_kwargs"] = new Dictionary<string, object>
-                        {
-                            ["enable_thinking"] = true
-                        }
-                    };
-                }
-                else
-                {
-                    p.ExtraParameters = new Dictionary<string, object>
-                    {
-                        ["enable_thinking"] = true
-                    };
-                }
+                return;
             }
-            else if (_endpointPlatform == EndpointPlatform.Vllm)
+
+            if (_endpointPlatform == EndpointPlatform.Vllm)
             {
+                // vLLM 은 채팅 템플릿 변수로 전달해야 한다 — top-level 로 보내면 템플릿에 닿지 않아 무시된다.
                 p.ExtraParameters = new Dictionary<string, object>
                 {
                     ["chat_template_kwargs"] = new Dictionary<string, object>
                     {
-                        ["enable_thinking"] = false
+                        ["enable_thinking"] = enableThinking
                     }
                 };
-            }
-            else if (_endpointPlatform != EndpointPlatform.Ollama)
-            {
-                p.ExtraParameters = new Dictionary<string, object>
-                {
-                    ["enable_thinking"] = false
-                };
+                return;
             }
 
-            return p;
+            // DashScope 등 — top-level 파라미터로 전달.
+            p.ExtraParameters = new Dictionary<string, object>
+            {
+                ["enable_thinking"] = enableThinking
+            };
         }
 
         private ProtocolRequestParams CreateBaseRequestParams(IEnumerable<Message> messages, string systemMsg, string modelId)
@@ -121,10 +89,5 @@ namespace Mythosia.AI.Providers.Alibaba
             };
         }
 
-        private static bool IsQwen35(string modelId)
-            => modelId.Contains("qwen3.5", System.StringComparison.OrdinalIgnoreCase);
-
-        private static bool IsQwen3ThinkingCapable(string modelId)
-            => modelId.Contains("qwen3", System.StringComparison.OrdinalIgnoreCase);
     }
 }

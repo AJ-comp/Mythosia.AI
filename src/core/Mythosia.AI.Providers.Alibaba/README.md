@@ -12,7 +12,7 @@ It is intended for projects that want to keep using the common `AIService` abstr
 - Streaming response support with token usage reporting (`TokenUsage`)
 - Function calling support
 - Shared `Mythosia.AI` conversation and message abstractions
-- Optional thinking-mode control for supported Qwen models
+- Thinking-mode control that is sent as configured, without model-name guessing
 - Compatible endpoint handling for `DashScope`, `vLLM`, and `Ollama`
 
 ## Installation
@@ -33,7 +33,7 @@ service.ChangeModel(AlibabaModels.Qwen3_5_397B);
 
 ## Thinking Mode Behavior
 
-`QwenService` applies platform-specific thinking request formatting for Qwen 3-family models.
+`QwenService` sends whatever `ThinkingMode` you configured, translated into the platform's request format.
 
 | Platform | Thinking On | Thinking Off |
 |---|---|---|
@@ -42,6 +42,8 @@ service.ChangeModel(AlibabaModels.Qwen3_5_397B);
 | Ollama | `reasoning.effort = "high"` | _(파라미터 생략)_ |
 
 Thinking off 시 DashScope / vLLM에는 명시적으로 `enable_thinking = false`가 전송되어 서버 기본값에 의한 의도치 않은 thinking 활성화를 방지합니다.
+
+**모델 이름은 판단 근거가 아닙니다.** 서빙 이름(vLLM `--served-model-name`, 별칭 등)은 운영자가 자유롭게 정하므로 모델의 능력을 나타내지 않습니다. 따라서 `QwenService`는 모델 ID를 검사해 "이 모델이 thinking을 지원하는지" 추측하지 않고, 지정된 `ThinkingMode`를 그대로 전송합니다 — 지원하지 않는 모델이라면 서버가 무시하거나 오류로 드러나는 편이, 지정이 조용히 사라지는 것보다 안전하기 때문입니다.
 
 ## Request-Scoped Reasoning Control
 
