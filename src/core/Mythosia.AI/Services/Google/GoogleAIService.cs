@@ -192,9 +192,8 @@ namespace Mythosia.AI.Services.Google
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException(
-                    $"Gemini API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                    errorContent);
+                throw AIHttpErrorFactory.FromHttp(
+                    (int)response.StatusCode, response.ReasonPhrase, errorContent, "Gemini API request failed");
             }
 
             return await response.Content.ReadAsStringAsync();

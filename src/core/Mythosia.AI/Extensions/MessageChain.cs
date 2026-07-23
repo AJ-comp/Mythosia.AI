@@ -120,7 +120,10 @@ namespace Mythosia.AI.Extensions
 
             try
             {
-                return await _service.GetCompletionAsync(message);
+                // The three-argument overload, explicitly: the one-argument abstract wins overload
+                // resolution otherwise, and it is the raw provider call — no context-overflow
+                // recovery. A history-keeping send is exactly the case that needs recovery.
+                return await _service.GetCompletionAsync(message, null, null);
             }
             finally
             {

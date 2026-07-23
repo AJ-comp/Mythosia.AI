@@ -71,9 +71,7 @@ namespace Mythosia.AI.Services.DeepSeek
                             TimeSpan.FromSeconds(60));
                     }
 
-                    throw new AIServiceException(
-                        $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                        errorContent);
+                    throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
                 }
 
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -119,9 +117,7 @@ namespace Mythosia.AI.Services.DeepSeek
                 else
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException(
-                        $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                        errorContent);
+                    throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
                 }
             }
             finally

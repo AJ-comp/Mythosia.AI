@@ -10,6 +10,11 @@
     <InternalsVisibleTo Include="Mythosia.AI.Test" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
 	<PropertyGroup>
 		<PackageId>Mythosia.AI.Abstractions</PackageId>
 		<IsPackable>true</IsPackable>
@@ -19,9 +24,9 @@
 		<Description>Core abstractions and shared models for Mythosia.AI. Defines IAIService interface, Message, ChatBlock, StreamingContent, FunctionDefinition, and other contract types. Zero heavy dependencies.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions</PackageProjectUrl>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v2.4.0: Adds the Anthropic Claude Fable 5 model id constant (AIModels.Anthropic.ClaudeFable5 = claude-fable-5) — Anthropic's new top model tier above Opus (1M context window, 128K max output). Additive minor release; no breaking changes.</PackageReleaseNotes>
+		<PackageReleaseNotes>v2.5.0: Adds the context-overflow vocabulary shared by every provider. ContextLengthExceededException carries the model's window, the rejected prompt's size, the HTTP status and why recovery could not save the request. AIHttpErrorFactory translates a provider's HTTP failure into that exception (or a plain AIServiceException when the body says something else) and builds the metadata for streaming error chunks, so a consuming app learns that the context overflowed without learning how any particular vendor phrases it. Detection covers OpenAI, vLLM, Anthropic — including the combined "input length and `max_tokens` exceed context limit" form — and Google, and is gated to 400/413 so a rate limit or a server error is never mistaken for one. ChatBlock.RemoveFunctionMessages() is now marked for removal in v7.0. Additive minor release; no breaking changes.</PackageReleaseNotes>
 
-		<Version>2.4.0</Version>
+		<Version>2.5.0</Version>
 
 	</PropertyGroup>
 

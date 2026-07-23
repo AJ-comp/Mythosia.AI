@@ -1,4 +1,5 @@
 ﻿using Mythosia.AI.Models;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
@@ -78,6 +79,10 @@ namespace Mythosia.AI.Services.Base
             Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
             try
             {
+                // Context-overflow recovery is not here — it lives inside StreamCoreAsync's round
+                // loop, where a failed round can be replayed on its own. Recovering at this level
+                // would have to discard every round already streamed, and cannot help at all once
+                // any chunk has gone out.
                 await foreach (var content in StreamCoreAsync(message, options, cancellationToken))
                     yield return content;
             }
@@ -86,6 +91,16 @@ namespace Mythosia.AI.Services.Base
                 restoreContext();
             }
         }
+
+        /// <summary>
+        /// True when a streaming error chunk carries the provider-agnostic context-overflow flag
+        /// set by <see cref="Exceptions.AIHttpErrorFactory.BuildErrorMetadata"/>.
+        /// </summary>
+        private static bool IsContextOverflowChunk(StreamingContent content)
+            => content.Type == StreamingContentType.Error &&
+               content.Metadata != null &&
+               content.Metadata.TryGetValue(AIHttpErrorFactory.ContextLengthExceededKey, out var flag) &&
+               flag is bool isOverflow && isOverflow;
 
         /// <summary>
         /// Core streaming loop. Override this method to replace the full streaming pipeline
@@ -127,24 +142,79 @@ namespace Mythosia.AI.Services.Base
                     bool hasFunctionResult = false;
                     TokenUsage? roundUsage = null;
 
-                    await foreach (var content in StreamRoundAsync(
-                        options, useFunctions, policy, cancellationToken))
+                    // Context-overflow recovery lives here, per round, rather than around the whole
+                    // turn. A round that overflows has emitted nothing yet — the rejection is a
+                    // pre-inference validation failure, so the error is that round's first chunk —
+                    // which means the round can be compacted and replayed with no duplicate output
+                    // and without discarding the tool results earlier rounds already produced.
+                    for (int attempt = 0; ; attempt++)
                     {
-                        if (content.Type == StreamingContentType.FunctionResult)
-                            hasFunctionResult = true;
+                        hasFunctionResult = false;
+                        roundUsage = null;
 
-                        // Providers can attach usage to different chunk types.
-                        // Keep the last usage seen in the round and count it once.
-                        if (content.Usage != null)
-                            roundUsage = CopyTokenUsage(content.Usage);
+                        bool roundEmittedAny = false;
+                        StreamingContent? withheld = null;
 
-                        if (content.Type == StreamingContentType.Completion)
+                        await using (var enumerator = StreamRoundAsync(
+                            options, useFunctions, policy, cancellationToken)
+                            .GetAsyncEnumerator(cancellationToken))
                         {
-                            // Only yield Completion on the final round (no more function calls)
-                            continue;
+                            while (await enumerator.MoveNextAsync())
+                            {
+                                var content = enumerator.Current;
+
+                                if (!roundEmittedAny && attempt < ContextRecoveryMaxRetries &&
+                                    !_isSummarizing && !StatelessMode && IsContextOverflowChunk(content))
+                                {
+                                    withheld = content;
+                                    break;
+                                }
+
+                                roundEmittedAny = true;
+
+                                if (content.Type == StreamingContentType.FunctionResult)
+                                    hasFunctionResult = true;
+
+                                // Providers can attach usage to different chunk types.
+                                // Keep the last usage seen in the round and count it once.
+                                if (content.Usage != null)
+                                    roundUsage = CopyTokenUsage(content.Usage);
+
+                                if (content.Type == StreamingContentType.Completion)
+                                {
+                                    // Only yield Completion on the final round (no more function calls)
+                                    continue;
+                                }
+
+                                yield return content;
+                            }
                         }
 
-                        yield return content;
+                        if (withheld == null) break;
+
+                        // C# forbids yielding from a catch block, so record the outcome and act below.
+                        var compaction = SummaryCompactionResult.Skipped("compaction-threw");
+                        try
+                        {
+                            compaction = await ForceCompactAsync();
+                        }
+                        catch
+                        {
+                            // fall through with the skipped result
+                        }
+
+                        // Compaction that does not shrink the outgoing request would replay the exact
+                        // payload the server just refused. Release the error chunk and leave the
+                        // attempt loop: with no function result and no usage recorded, this counts as
+                        // the final round, so the stream still ends through the normal terminator —
+                        // Completion chunk, accumulated usage, summary policy. Ending the iterator
+                        // here instead would make the termination contract depend on whether recovery
+                        // happened to be enabled.
+                        if (!compaction.IsApplied)
+                        {
+                            yield return withheld;
+                            break;
+                        }
                     }
 
                     if (roundUsage != null)

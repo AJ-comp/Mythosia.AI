@@ -1,5 +1,17 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v1.2.8
+
+### Fixed
+
+- **Context-overflow rejections reach the core's recovery.** `QwenService` builds and throws its own HTTP failure, so it did not produce the `ContextLengthExceededException` that Mythosia.AI v6.8.0 reacts to — a Qwen model, or any vLLM deployment served through this provider, would have been refused for exceeding the context window and never compacted or re-sent, while every other provider recovered. The rejection now goes through `AIHttpErrorFactory`, which is also where vLLM's wording is recognised.
+
+### Compatibility
+
+- Requires `Mythosia.AI` v6.8.0. No API changes.
+
+---
+
 ## v1.2.7
 
 ### Fixed

@@ -1,3 +1,4 @@
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -65,7 +66,7 @@ namespace Mythosia.AI.Services.Base
                 {
                     Type = StreamingContentType.Error,
                     Content = $"API error ({(int)response.StatusCode}): {error}",
-                    Metadata = new Dictionary<string, object> { ["error"] = error }
+                    Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, error)
                 };
                 yield break;
             }

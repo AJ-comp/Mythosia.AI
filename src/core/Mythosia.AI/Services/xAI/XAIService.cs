@@ -119,9 +119,7 @@ namespace Mythosia.AI.Services.xAI
                         TimeSpan.FromSeconds(60));
                 }
 
-                throw new AIServiceException(
-                    $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                    errorContent);
+                throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
             }
 
             var responseContent = await response.Content.ReadAsStringAsync();

@@ -266,8 +266,9 @@ namespace Mythosia.AI.Extensions
             if (lastUserMessage == null)
                 throw new InvalidOperationException("No user message found to retry");
 
-            // Resend the message
-            return await service.GetCompletionAsync(lastUserMessage);
+            // Resend the message. The three-argument overload, explicitly — the one-argument abstract
+            // wins overload resolution otherwise and skips context-overflow recovery.
+            return await service.GetCompletionAsync(lastUserMessage, null, null);
         }
 
         /// <summary>

@@ -23,15 +23,31 @@
     DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Gemini3.1; Gemini3.5; Reasoning; Multi modal;</PackageTags>
     <Authors>JJW</Authors>
     <Description>
-## What's New in v6.7.0
+## What's New in v6.8.0
+
+### Added
+- Reactive context-overflow recovery. When the server rejects a request for exceeding the model's context window, the conversation is compacted and the request is re-sent — no client-side token estimation, and it follows the deployment's real limit automatically. Providers now translate that rejection into ContextLengthExceededException (non-streaming) or a context_length_exceeded-flagged error chunk (streaming). Streaming recovers inside the round loop, replaying only the round that overflowed and keeping the tool results earlier rounds produced. Tunable via AIService.ContextRecoveryMaxRetries (default 1, set 0 to disable).
 
 ### Fixed
-- The message-count sliding window (MaxMessageCount) can no longer drop the anchoring user message. Long agentic runs (RunAgentAsync/RunAgentStreamAsync) append two messages per tool round and could push the originating user query out of the window, producing requests with no user message that some OpenAI-compatible servers reject (e.g. vLLM/Qwen 400 "No user query found in messages"). The window now re-anchors the most recent cut-off user message whenever the sliced window has no user turn.
+- Forced compaction decided "this would not shrink the request" only after paying for a summary and irreversibly deleting messages. With the default MaxMessageCount of 20 a long agentic run hits this every time — the deletable history sits outside the window and cannot shrink anything — so recovery destroyed conversation history, spent a summary call, and still returned the original error. The check is now pure arithmetic performed before either.
+- The summarization request inherited the caller's AIRequestContext. RequestMessageOverride replaces the last message of every outgoing request and a summarization request is one message long, so the prompt was swapped for the caller's own message and an ordinary answer was stored as the conversation summary.
+- Recovery no longer retries a turn whose tools already ran. A retry restarts the provider's round loop from zero, which would execute side-effecting tools a second time.
+- The rewind baseline is captured per attempt instead of per turn. Once compaction shortened the history the old baseline could never be reached again, so failed attempts past the first left duplicate user messages behind (reachable with ContextRecoveryMaxRetries of 2 or more).
+- A stream that gave up on recovery ended without its terminating Completion chunk or accumulated usage, making the termination contract depend on whether recovery was enabled.
+- Anthropic's combined form — "input length and `max_tokens` exceed context limit: X + Y > Z" — is now detected. Since max_tokens rides on every request, this is the wording that actually appears, and it previously went unrecognised so recovery never engaged on Anthropic.
+- MessageChain.SendAsync() and RetryLastMessageAsync() bound to the raw provider overload and bypassed recovery entirely.
+- Gemini's legacy streaming path was the last HTTP failure site still throwing an untranslated AIServiceException.
+- RecoverySkipReason now distinguishes recovery-disabled, retries-exhausted, stateless and summarizing, which previously all reported null. Compaction failures preserve the provider's original stack trace.
+
+### Known limitations
+- DeepSeek and Perplexity do not recover **while streaming**. Both replace the streaming pipeline wholesale (neither supports function calling, so neither needs a round loop) and recovery lives in that loop; an overflow surfaces as a flagged error chunk instead. Their non-streaming path recovers normally.
+- Non-streaming recovery restarts the provider's round loop, so it stops rather than replaying completed tool rounds. Streaming replays per round and has no such restriction.
+- A summarization request still consults `SystemMessageProvider`, so a service configured with one contributes its system message to the summary prompt as well.
 
 ### Deprecated
-- AIService.MaxMessageCount is now [Obsolete] and will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). Until then the window is guaranteed to preserve the most recent user message.
+- AIService.MaxMessageCount and ChatBlock.RemoveFunctionMessages() are [Obsolete] and will be removed in v7.0 — context management becomes token-based only (ConversationPolicy).
 
-Requires Mythosia.AI.Abstractions v2.4.0.
+Requires Mythosia.AI.Abstractions v2.5.0.
 
 ---
 
@@ -43,8 +59,8 @@ Requires Mythosia.AI.Abstractions v2.4.0.
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.7.0: Sliding-window user-anchor fix + MaxMessageCount deprecation. The message-count window (MaxMessageCount, default 20) could drop the originating user query during long agentic runs (two tool messages appended per round), producing requests with no user message that some OpenAI-compatible servers reject (e.g. vLLM/Qwen 400 "No user query found in messages"); the window now re-anchors the most recent cut-off user message whenever the sliced window contains no user turn. AIService.MaxMessageCount is now [Obsolete] and will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). Requires Mythosia.AI.Abstractions v2.4.0.</PackageReleaseNotes>
-    <Version>6.7.0</Version>
+    <PackageReleaseNotes>v6.8.0: Reactive context-overflow recovery. When the server rejects a request for exceeding the model's context window, the conversation is compacted and the request re-sent — the limit is the server's to report, so nothing is estimated client-side. Providers translate the rejection into ContextLengthExceededException (non-streaming) or a context_length_exceeded-flagged error chunk (streaming); streaming recovers inside the round loop, replaying only the round that overflowed and keeping earlier rounds' tool results. Tunable via AIService.ContextRecoveryMaxRetries (default 1, 0 disables). Also fixed: compaction that could not shrink the request used to discover that only after billing a summary and deleting history (routine at the default MaxMessageCount of 20); the summarization request inherited the caller's AIRequestContext and had its prompt overwritten by RequestMessageOverride; recovery retried turns whose side-effecting tools had already run; the rewind baseline was captured per turn instead of per attempt; streams that gave up ended without their Completion chunk; Anthropic's "input length and `max_tokens` exceed context limit" wording went undetected; MessageChain.SendAsync and RetryLastMessageAsync bypassed recovery; Gemini's legacy streaming path threw untranslated errors. ChatBlock.RemoveFunctionMessages() joins MaxMessageCount as [Obsolete] for removal in v7.0. Requires Mythosia.AI.Abstractions v2.5.0.</PackageReleaseNotes>
+    <Version>6.8.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

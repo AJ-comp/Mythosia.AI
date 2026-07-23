@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -102,6 +103,25 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         [Obsolete("The message-count sliding window will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). To opt out of windowing today, set this to a large value.")]
         public uint MaxMessageCount { get; set; } = 20;
+
+        /// <summary>
+        /// How many times a rejected-for-context-length request may be compacted and re-sent.
+        /// Default 1. Set to 0 to disable reactive recovery entirely — the rejection then propagates
+        /// to the caller unchanged, which is the pre-6.8 behaviour.
+        /// <para>
+        /// The budget is per attempt unit, and the two paths count differently. Non-streaming counts
+        /// whole turns: one provider call covers all of its function-calling rounds, so a turn issues
+        /// at most <c>1 + ContextRecoveryMaxRetries</c> calls. Streaming counts rounds, replaying only
+        /// the round that overflowed, so a turn can compact up to
+        /// <c>MaxRounds × ContextRecoveryMaxRetries</c> times.
+        /// </para>
+        /// <para>
+        /// Recovery only ever runs when the server itself reports the overflow. It does not require
+        /// that nothing has reached the caller yet — a streaming round that already emitted chunks is
+        /// left alone, but earlier rounds in the same turn may well have streamed.
+        /// </para>
+        /// </summary>
+        public int ContextRecoveryMaxRetries { get; set; } = 1;
 
         /// <summary>
         /// Returns the maximum output tokens allowed for the current model.
@@ -288,19 +308,146 @@ namespace Mythosia.AI.Services.Base
         {
             var effectiveContext = await BuildEffectiveContextAsync(context, CancellationToken.None).ConfigureAwait(false);
             if (profile == null && effectiveContext == null)
-                return await GetCompletionAsync(message);
+                return await SendWithContextRecoveryAsync(message);
 
             Action restoreProfile = profile != null ? ApplyRequestProfile(profile) : () => { };
             Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
             try
             {
-                return await GetCompletionAsync(message);
+                return await SendWithContextRecoveryAsync(message);
             }
             finally
             {
                 restoreContext();
                 restoreProfile();
             }
+        }
+
+        /// <summary>
+        /// Sends the request, and if the server rejects it for exceeding the context window,
+        /// compacts the conversation and sends again.
+        /// <para>
+        /// The context limit belongs to the server, so being told "that did not fit" is the only
+        /// authoritative signal there is — more reliable than any client-side token estimate, and
+        /// it follows the server automatically when the deployment's limit changes.
+        /// </para>
+        /// <para>
+        /// Recovery is skipped for the summarization request itself (it runs stateless and with
+        /// <c>_isSummarizing</c> set), which is what stops a summary that overflows from
+        /// recursively summarizing itself.
+        /// </para>
+        /// </summary>
+        private async Task<string> SendWithContextRecoveryAsync(Message message)
+        {
+            var capturedPolicy = CurrentPolicy;
+
+            for (int attempt = 0; ; attempt++)
+            {
+                // Per attempt, not per turn: compaction shortens the history between attempts, so a
+                // baseline captured once would sit above the message count forever after and rewind
+                // nothing.
+                int baseline = ActivateChat.Messages.Count;
+
+                try
+                {
+                    return await GetCompletionAsync(message);
+                }
+                catch (ContextLengthExceededException ex)
+                {
+                    if (attempt >= ContextRecoveryMaxRetries)
+                    {
+                        ex.RecoveryAttempts = attempt;
+                        ex.RecoverySkipReason = attempt == 0 ? "recovery-disabled" : "retries-exhausted";
+                        throw;
+                    }
+
+                    if (_isSummarizing || StatelessMode)
+                    {
+                        ex.RecoveryAttempts = attempt;
+                        ex.RecoverySkipReason = _isSummarizing ? "summarizing" : "stateless";
+                        throw;
+                    }
+
+                    // A retry re-enters the provider's round loop from zero, so any tool the failed
+                    // attempt already executed would run a second time — a duplicate mail, a second
+                    // record. Nothing here can tell a read-only tool from a destructive one, so the
+                    // only honest move is to stop and report why. (The streaming path replays a
+                    // single round in place and is not affected.)
+                    if (HasFunctionMessagesPast(baseline))
+                    {
+                        ex.RecoveryAttempts = attempt;
+                        ex.RecoverySkipReason = "tool-side-effects";
+                        throw;
+                    }
+
+                    // The failed attempt already appended the user message. Rewind to where this
+                    // attempt started so the retry does not send a duplicated conversation.
+                    TruncateMessagesTo(baseline);
+
+                    SummaryCompactionResult compaction;
+                    try
+                    {
+                        compaction = await ForceCompactAsync();
+                    }
+                    catch
+                    {
+                        // A failure while summarizing must not replace the diagnosis the caller
+                        // needs — the original rejection is the real story. Capture-and-rethrow keeps
+                        // the provider's throw site, which a plain `throw ex` would overwrite.
+                        ex.RecoveryAttempts = attempt;
+                        ex.RecoverySkipReason = "compaction-threw";
+                        ExceptionDispatchInfo.Capture(ex).Throw();
+                        throw; // unreachable — Throw() never returns
+                    }
+
+                    if (!compaction.IsApplied)
+                    {
+                        ex.RecoveryAttempts = attempt;
+                        ex.RecoverySkipReason = compaction.SkipReason;
+                        throw;
+                    }
+
+                    // Re-arm *after* compaction: providers consume CurrentPolicy on entry and null
+                    // it out, and the summarization request is itself a provider call — restoring
+                    // before it would let the summary eat the policy and leave the retry running on
+                    // DefaultPolicy (a different MaxRounds) without a word.
+                    CurrentPolicy = capturedPolicy;
+                }
+            }
+        }
+
+        /// <summary>Drops everything appended past <paramref name="baseline"/>.</summary>
+        private protected void TruncateMessagesTo(int baseline)
+        {
+            while (ActivateChat.Messages.Count > baseline)
+                ActivateChat.Messages.RemoveAt(ActivateChat.Messages.Count - 1);
+        }
+
+        /// <summary>
+        /// Whether a function result was appended past <paramref name="baseline"/> — i.e. whether the
+        /// attempt that just failed had already run a tool.
+        /// </summary>
+        private bool HasFunctionMessagesPast(int baseline)
+        {
+            for (int i = Math.Max(0, baseline); i < ActivateChat.Messages.Count; i++)
+            {
+                if (ActivateChat.Messages[i].Role == ActorRole.Function) return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Detaches the ambient <see cref="AIRequestContext"/> for the duration of a request the
+        /// library issues on its own behalf. Summarization is such a request: it is not a
+        /// continuation of the caller's turn, and inheriting the caller's context would let
+        /// <see cref="AIRequestContext.RequestMessageOverride"/> replace the summarization prompt
+        /// outright.
+        /// </summary>
+        private protected Action SuppressRequestContext()
+        {
+            var backup = _currentRequestContext.Value;
+            _currentRequestContext.Value = null;
+            return () => _currentRequestContext.Value = backup;
         }
 
         #endregion
@@ -318,7 +465,11 @@ namespace Mythosia.AI.Services.Base
                 new ImageContent(imageBytes, mimeType)
             });
 
-            return await GetCompletionAsync(message);
+            // Route through the 3-arg overload so context-overflow recovery applies here too. Passing
+            // null for both arguments does not mean "no context": the overload still consults
+            // SystemMessageProvider, so a service configured with WithSystemMessageProvider now gets
+            // that context here as well — the same as GetCompletionAsync(string) has always done.
+            return await GetCompletionAsync(message, null, null);
         }
 
         public virtual async Task<string> GetCompletionWithImageUrlAsync(string prompt, string imageUrl)
@@ -329,7 +480,7 @@ namespace Mythosia.AI.Services.Base
                 new ImageContent(imageUrl)
             });
 
-            return await GetCompletionAsync(message);
+            return await GetCompletionAsync(message, null, null);
         }
 
         /// <summary>

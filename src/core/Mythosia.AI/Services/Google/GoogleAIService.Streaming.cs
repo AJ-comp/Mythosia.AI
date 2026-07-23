@@ -351,9 +351,11 @@ namespace Mythosia.AI.Services.Google
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException(
-                    $"Gemini streaming request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                    errorContent);
+                throw AIHttpErrorFactory.FromHttp(
+                    (int)response.StatusCode,
+                    response.ReasonPhrase,
+                    errorContent,
+                    "Gemini streaming request failed");
             }
 
             return response;
@@ -376,11 +378,7 @@ namespace Mythosia.AI.Services.Google
             {
                 Type = StreamingContentType.Error,
                 Content = $"API error ({(int)response.StatusCode}): {error}",
-                Metadata = new Dictionary<string, object>
-                {
-                    ["error"] = error,
-                    ["status_code"] = (int)response.StatusCode
-                }
+                Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, error)
             };
         }
 

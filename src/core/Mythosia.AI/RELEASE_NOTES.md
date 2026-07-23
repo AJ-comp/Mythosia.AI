@@ -1,5 +1,49 @@
 # Mythosia.AI - Release Notes
 
+## v6.8.0
+
+### Added
+
+- **Reactive context-overflow recovery.** When the server rejects a request for exceeding the model's context window, the conversation is compacted and the request is sent again. The limit belongs to the server, so being told "that did not fit" is the only authoritative signal there is — more reliable than any client-side token estimate, and it follows the deployment automatically when its limit changes. Providers translate the rejection into `ContextLengthExceededException` (non-streaming) or an error chunk flagged `context_length_exceeded` (streaming).
+- **Streaming recovers inside the round loop.** A round that overflows has emitted nothing yet — the server rejects before inference, so the error is that round's first chunk. That round alone is compacted and replayed: no duplicate output, and the tool results earlier rounds produced are kept rather than discarded.
+- **`AIService.ContextRecoveryMaxRetries`** (default `1`, `0` disables). The budget is per attempt unit and the two paths count differently: non-streaming counts whole turns, streaming counts rounds.
+- **`AIHttpErrorFactory`** (Abstractions) centralises "did the prompt fit?" across OpenAI, vLLM, Anthropic and Google. Gated to HTTP 400/413 — a rate limit or a server error is never mistaken for an overflow, because a false positive would delete conversation history in response to an unrelated failure.
+
+### Fixed
+
+- **Compaction that could not shrink the request discovered it too late.** The "did this actually shrink?" test ran *after* the summary call and *after* messages were deleted. At the default `MaxMessageCount` of 20 a long agentic run reaches this every time: each tool round appends two messages, so the window fills with material the cut point is not allowed to touch, and everything deletable sits outside the window — where it was never being sent and so cannot shrink anything. Recovery therefore destroyed conversation history, paid for a summary, and returned the original error anyway. The test is pure arithmetic and now runs before either.
+- **The summarization request inherited the caller's `AIRequestContext`.** `RequestMessageOverride` replaces the last message of every outgoing request, and a summarization request is exactly one message long — the prompt. The summary that came back was an ordinary answer to the caller's own question, stored as the conversation summary while the messages it was meant to summarize were deleted. Internally-issued requests now run with the ambient context detached.
+- **Recovery no longer retries a turn whose tools already ran.** A retry re-enters the provider's round loop from zero, so a tool that sent a mail or created a record would do it again. Nothing at that layer can tell a read-only tool from a destructive one, so it stops and reports `tool-side-effects`.
+- **The rewind baseline is captured per attempt, not per turn.** Compaction shortens the history between attempts, so a baseline taken once sat above the message count from then on and rewound nothing — leaving the failed attempt's user message in place for the next attempt to duplicate. Reachable with `ContextRecoveryMaxRetries` of 2 or more.
+- **A stream that gave up on recovery ended without its terminating `Completion` chunk** (and its accumulated usage, and the end-of-turn summary policy), which made the termination contract depend on whether recovery happened to be enabled. It now ends the same way regardless.
+- **Anthropic's combined overflow wording is detected**: `input length and \`max_tokens\` exceed context limit: X + Y > Z`. Because `max_tokens` rides on every request, the sum crosses the window before the input does on its own — so this, not `prompt is too long`, is the message that actually arrives, and recovery never engaged on Anthropic without it.
+- **`MessageChain.SendAsync()` and `RetryLastMessageAsync()` bypassed recovery**, binding to the raw provider overload through ordinary overload resolution. Both now route explicitly.
+- **Gemini's legacy streaming path** was the last HTTP failure site still throwing an untranslated `AIServiceException`.
+- **`RecoverySkipReason` distinguishes its causes.** `recovery-disabled`, `retries-exhausted`, `stateless` and `summarizing` previously all reported null. Compaction failures now preserve the provider's original stack trace instead of resetting it.
+
+### Known limitations
+
+- **DeepSeek and Perplexity do not recover while streaming.** Both replace `StreamCoreAsync` wholesale — neither supports function calling, so neither needs a round loop — and recovery lives in that loop. An overflow still surfaces as an error chunk carrying the `context_length_exceeded` flag, so a consuming app can identify it. Their non-streaming path recovers normally: both override only the raw provider overload, so the request still travels through the recovery wrapper.
+- **A summarization request still consults `SystemMessageProvider`.** Detaching the caller's per-request context does not stop the service-level provider from being asked again for the summarization call, so a service configured with one contributes its system message to the summary prompt too. Harmless for a provider that returns a system prefix or suffix; a provider that statically supplies a `RequestMessageOverride` would still displace the prompt.
+- **Non-streaming stops instead of replaying completed tool rounds**, per the fix above. Making it replay per round the way streaming does would mean moving the round loop out of each provider; that is a v7.0-scale change.
+- **The window can still make recovery impossible.** When `MaxMessageCount` clips everything the cut point may remove, there is nothing to compact and recovery reports `window-clipped` — correctly, and now for free. Removing the window in v7.0 removes the situation; until then, setting `MaxMessageCount` to a large value avoids it.
+
+### Deprecated
+
+- **`ChatBlock.RemoveFunctionMessages()`** joins `AIService.MaxMessageCount` as `[Obsolete]` for removal in **v7.0**, and its message now says which version. Dropping function messages leaves function results without their originating call, which the chat/completions wire format rejects.
+
+### Internal
+
+- Offline unit tests for the whole feature (`Common/ContextLengthRecoveryTests.cs`, `ContextLengthStreamingRecoveryTests.cs`, `ContextLengthErrorTranslationTests.cs`) — no API key needed. The non-streaming fixture now appends the user message *before* failing, the way every real provider does, so the rewind is actually observable; the streaming fixture snapshots the summary-call count at the moment the error surfaces, so the end-of-turn summary cannot be mistaken for a recovery compaction.
+
+### Compatibility
+
+- Additive. Recovery engages only on failures that previously propagated as errors; set `ContextRecoveryMaxRetries = 0` for the pre-6.8 behaviour.
+- **One behaviour change beyond recovery, for services configured with `WithSystemMessageProvider`.** Routing `MessageChain.SendAsync()`, `RetryLastMessageAsync()` and `GetCompletionWithImage*Async()` through the three-argument overload also makes them consult `SystemMessageProvider`, which they previously skipped. `GetCompletionAsync(string)` has always consulted it, so this removes an asymmetry rather than introducing one — but a caller who relied on those paths *not* receiving the provider's system message will see different system content. Services without a provider are unaffected.
+- Requires `Mythosia.AI.Abstractions` v2.5.0.
+
+---
+
 ## v6.7.0
 
 ### Fixed

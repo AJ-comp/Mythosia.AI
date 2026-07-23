@@ -16,6 +16,10 @@ Alibaba Cloud Qwen provider package for Mythosia.AI.
 
 Includes QwenService with expanded Qwen 3 / 3.5 model constants, platform-specific thinking request handling across DashScope, vLLM, and Ollama, token usage streaming support, and Mythosia.AI v6.4.0 compatibility.
 
+What's New in v1.2.8
+- Context-overflow rejections are now translated through AIHttpErrorFactory, so a request refused for exceeding the model's context window raises ContextLengthExceededException and Mythosia.AI v6.8.0's reactive recovery engages. QwenService owns its own error path, so without this the recovery released in v6.8.0 could not reach Qwen or a vLLM deployment served through it.
+- Requires Mythosia.AI v6.8.0.
+
 What's New in v1.2.7
 - Fixed: a configured "thinking off" was silently dropped unless the model id literally contained "qwen3", so a Qwen model served under an alias kept reasoning enabled.
 - Fixed: on vLLM, enable_thinking is now always sent as chat_template_kwargs.enable_thinking instead of a top-level parameter that the server ignored.
@@ -27,8 +31,8 @@ Documentation
     </Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.2.7: Fixed thinking-off being silently dropped for models whose id does not contain "qwen3", and fixed enable_thinking being sent as a top-level parameter (instead of chat_template_kwargs) on vLLM. Thinking parameters now follow the configured ThinkingMode without model-name guessing. No API changes.</PackageReleaseNotes>
-    <Version>1.2.7</Version>
+    <PackageReleaseNotes>v1.2.8: Context-overflow rejections are translated through AIHttpErrorFactory, raising ContextLengthExceededException so the reactive recovery released in Mythosia.AI v6.8.0 engages for Qwen and for vLLM deployments served through this provider. QwenService owns its own HTTP error path, so recovery could not reach it otherwise. No API changes. Requires Mythosia.AI v6.8.0.</PackageReleaseNotes>
+    <Version>1.2.8</Version>
   </PropertyGroup>
 
   <ItemGroup>

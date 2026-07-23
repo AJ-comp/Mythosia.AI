@@ -4,7 +4,7 @@
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, **round-level token usage**, and **advanced streaming capabilities**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, **round-level token usage**, **automatic context-overflow recovery**, and **advanced streaming capabilities**.
 
 ### Supported Providers
 
@@ -633,6 +633,27 @@ policy.LoadSummary(saved);
 - **Backward compatible** — `ConversationPolicy` defaults to `null`; existing behavior is unchanged
 - **Provider-agnostic** — Works with all providers (OpenAI, Claude, Gemini, Grok, DeepSeek, Perplexity)
 - **Incremental summarization** — When re-summarizing, existing summary is included as context for the new summary
+
+## Context-Overflow Recovery
+
+*(Since v6.8.0)* When the server rejects a request for exceeding the model's context window, the conversation is compacted and the request is sent again — automatically. The limit belongs to the server, so being told "that did not fit" is the authoritative signal, more reliable than a client-side token estimate and always in step with the deployment's real limit.
+
+```csharp
+// On by default (ContextRecoveryMaxRetries = 1). Nothing to configure — a request that
+// overflows the window is compacted and retried once instead of failing outright.
+service.ConversationPolicy = SummaryConversationPolicy.ByToken(triggerTokens: 3000);
+var response = await service.GetCompletionAsync("…a very long conversation…");
+
+// Opt out (pre-6.8.0 behavior — the rejection propagates unchanged):
+service.ContextRecoveryMaxRetries = 0;
+```
+
+- **Server-driven** — Detection reads the provider's actual 400/413 rejection (OpenAI, vLLM, Anthropic, Google), never a guessed token count. A rate limit or a server error is never mistaken for an overflow.
+- **Costs nothing when it cannot help** — If there is nothing left to compact, recovery gives up *before* issuing a summary call or deleting any message; it never spends a summary or destroys history to arrive at the same rejection.
+- **Streaming recovers per round** — An overflow mid-run recompacts and replays only the round that overflowed, keeping the tool results earlier rounds produced.
+- **Diagnostics** — When recovery cannot save the request, the thrown `ContextLengthExceededException` carries `RecoverySkipReason` (`no-policy`, `nothing-to-cut`, `window-clipped`, `tool-side-effects`, `retries-exhausted`, …) and the server-reported `MaxContextTokens` / `RequestedTokens` when available.
+
+See [`RELEASE_NOTES.md`](RELEASE_NOTES.md) for the full behavior, including per-provider limitations (DeepSeek/Perplexity recover only on the non-streaming path).
 
 ## Enhanced Streaming
 

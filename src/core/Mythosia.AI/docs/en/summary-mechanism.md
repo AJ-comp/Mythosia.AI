@@ -7,7 +7,7 @@ When `SummaryConversationPolicy` detects a trigger condition, it compresses old 
 
 ## Core Design Principles
 
-1. **Summary timing**: Summarization fires only after all function-calling rounds complete, never mid-chain
+1. **Summary timing**: Trigger-based summarization fires only after all function-calling rounds complete, never mid-chain. Context-overflow recovery is the one exception, and even there the current question and earlier rounds' results are preserved (see [Context-overflow recovery](#context-overflow-recovery-a-different-path-from-trigger-summarization))
 2. **Summary policy is API-agnostic**: `GetMessagesToSummarize` trims by rules only. API constraints like user-first are handled by each provider
 3. **Original immutability**: Summary text is stored in `CurrentSummary` and injected into the system prompt. API request message lists are copies
 
@@ -172,3 +172,36 @@ O Post-completion summarization:
   Round 2: LLM generates text using all FC results (complete)
   [summary fires here] → cleanup for next turn, no impact on current response
 ```
+
+## Context-overflow recovery: a different path from trigger summarization
+
+Trigger-based summarization is housekeeping for the *next* turn, so it has no reason to run mid-chain.
+But when the server rejects **round 3** with "context length exceeded", waiting is not an option: without
+shrinking the request right now, this turn simply fails.
+
+So recovery compaction does run inside the round loop. What the X case above worries about — deleting the
+function-call results — is prevented by clamping the cut point no further than the **last user message**.
+
+```
+Round 0: FC call → result saved
+Round 1: FC call → result saved
+Round 2: [server rejects with 400]
+         → fold only the history that precedes the current question
+         → the current question and rounds 0-1's FC results stay
+         → replay round 2 alone (rounds 0-1 are not re-run, so no tool runs twice)
+```
+
+When there is no older history to fold, it gives up **without even issuing the summary request** —
+deleting anyway would not shrink the request and would cost history for nothing. Three guards stop it:
+
+| Reason | Meaning |
+|---|---|
+| `nothing-to-cut` | Nothing before the current question to remove |
+| `window-clipped` | What would be cut is already outside the `MaxMessageCount` window, so removing it changes nothing |
+| `retries-exhausted` | `ContextRecoveryMaxRetries` used up |
+
+In all three the original error propagates with **no summary call and no deletion**.
+
+> **Non-streaming differs.** A retry there re-enters the provider's round loop from zero, so a tool that
+> already ran would run again. Recovery therefore stops with the reason `tool-side-effects` in that case.
+> Per-round replay exists only on the streaming path.

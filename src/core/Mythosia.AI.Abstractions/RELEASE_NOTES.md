@@ -1,5 +1,24 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v2.5.0
+
+### Added
+
+- **`ContextLengthExceededException`** — the provider rejected the request because the prompt exceeded the model's context window. Carries the window and the rejected prompt's size when the provider reported them, the HTTP status, how many compaction attempts were made, and `RecoverySkipReason` — why recovery could not save it. `StreamAsync` never throws it; there the overflow arrives as an error chunk instead. The legacy callback API `StreamCompletionAsync`, which has no round loop, does throw it.
+- **`AIHttpErrorFactory`** — translates a provider's HTTP failure into that exception, or a plain `AIServiceException` when the body says something else, and builds the metadata for streaming error chunks. Every provider words its errors differently, so detection belongs here rather than in the core or the consuming app: the app should only ever learn *that* the context overflowed, never how a particular vendor phrases it. Recognises OpenAI's `context_length_exceeded` code, the OpenAI/vLLM `maximum context length is N tokens` wording, Anthropic's `prompt is too long` and combined `input length and \`max_tokens\` exceed context limit` forms, and Google's `input token count (N) exceeds …`.
+  - Detection is deliberately narrow and gated to HTTP 400/413. A false positive is worse than a miss: it makes the core compact the conversation, which deletes messages irreversibly, in response to an unrelated failure. Rate limits and server errors are never considered.
+  - `BuildErrorMetadata` only adds keys — `error` and `status_code` are always present, so existing readers are unaffected.
+
+### Deprecated
+
+- **`ChatBlock.RemoveFunctionMessages()`** now names its removal version (**v7.0**) instead of "future versions". Dropping function messages leaves function results without their originating call, which the chat/completions wire format rejects.
+
+### Compatibility
+
+- Additive minor release; no breaking changes.
+
+---
+
 ## v2.4.0
 
 ### Added

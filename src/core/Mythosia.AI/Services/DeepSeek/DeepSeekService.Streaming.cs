@@ -35,9 +35,7 @@ namespace Mythosia.AI.Services.DeepSeek
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                throw new AIServiceException(
-                    $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                    errorContent);
+                throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
             }
 
             var allContent = new StringBuilder();
@@ -94,9 +92,7 @@ namespace Mythosia.AI.Services.DeepSeek
                 if (!response.IsSuccessStatusCode)
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new AIServiceException(
-                        $"API request failed ({(int)response.StatusCode}): {(string.IsNullOrEmpty(response.ReasonPhrase) ? errorContent : response.ReasonPhrase)}",
-                        errorContent);
+                    throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
                 }
 
                 var diagnostics = new StreamDiagnostics();
@@ -132,6 +128,15 @@ namespace Mythosia.AI.Services.DeepSeek
             }
         }
 
+        /// <summary>
+        /// Replaces the base pipeline outright because DeepSeek has no function calling and so needs
+        /// no round loop.
+        /// <para>
+        /// Consequence: context-overflow recovery, which lives in that loop, does not run here. An
+        /// overflow surfaces as an error chunk — flagged <c>context_length_exceeded</c> so the caller
+        /// can still identify it — but the conversation is not compacted and nothing is re-sent.
+        /// </para>
+        /// </summary>
         protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
             Message message,
             StreamOptions options,
@@ -165,11 +170,7 @@ namespace Mythosia.AI.Services.DeepSeek
                 {
                     Type = StreamingContentType.Error,
                     Content = $"API error ({(int)response.StatusCode}): {error}",
-                    Metadata = new Dictionary<string, object>
-                    {
-                        ["error"] = error,
-                        ["status_code"] = (int)response.StatusCode
-                    }
+                    Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, error)
                 };
                 yield break;
             }
@@ -211,11 +212,7 @@ namespace Mythosia.AI.Services.DeepSeek
                     {
                         Type = StreamingContentType.Error,
                         Content = $"API error ({(int)response.StatusCode}): {error}",
-                        Metadata = new Dictionary<string, object>
-                        {
-                            ["error"] = error,
-                            ["status_code"] = (int)response.StatusCode
-                        }
+                        Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, error)
                     };
                     yield break;
                 }
