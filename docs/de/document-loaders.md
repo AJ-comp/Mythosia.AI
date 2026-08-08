@@ -25,7 +25,7 @@ dotnet add package Mythosia.Documents.Pdf
 ## PDF
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions
+var loader = new PdfDocumentLoader(options: new PdfParserOptions
 {
     Password = "geheim",            // Für verschlüsselte PDFs
     IncludeMetadata = true,         // Titel, Autor extrahieren
@@ -39,7 +39,7 @@ var docs = await loader.LoadAsync("bericht.pdf");
 ## Word (.docx)
 
 ```csharp
-var loader = new WordDocumentLoader(new OfficeParserOptions
+var loader = new WordDocumentLoader(options: new OfficeParserOptions
 {
     IncludeMetadata = true,
     NormalizeWhitespace = true
@@ -51,7 +51,7 @@ var docs = await loader.LoadAsync("dokument.docx");
 ## Excel (.xlsx)
 
 ```csharp
-var loader = new ExcelDocumentLoader(new OfficeParserOptions
+var loader = new ExcelDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSheetNames = true,  // Tabellenblattname jedem Abschnitt voranstellen
     NormalizeWhitespace = true
@@ -63,7 +63,7 @@ var docs = await loader.LoadAsync("tabelle.xlsx");
 ## PowerPoint (.pptx)
 
 ```csharp
-var loader = new PowerPointDocumentLoader(new OfficeParserOptions
+var loader = new PowerPointDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSlideNumbers = true,  // Foliennummer jedem Abschnitt voranstellen
     NormalizeWhitespace = true
@@ -98,7 +98,7 @@ Der HWP-Loader wandelt Text, Tabellen und Überschriftenstruktur in ein `Docling
 Loader werden automatisch integriert, wenn `.AddDocument()` im `RagBuilder` verwendet wird. Um manuell zu laden und das Ergebnis hinzuzufügen:
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
+var loader = new PdfDocumentLoader(options: new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("bericht.pdf");
 
 var service = new AnthropicService(apiKey, http)

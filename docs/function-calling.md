@@ -57,39 +57,58 @@ For more complex functions, use `[AiFunction]` and `[AiParameter]` attributes:
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "Search the product catalog")]
-public static string SearchProducts(
-    [AiParameter("Search query", required: true)] string query,
-    [AiParameter("Maximum results to return")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... your implementation
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "Search the product catalog")]
+    public string SearchProducts(
+        [AiParameter("Search query", required: true)] string query,
+        [AiParameter("Maximum results to return")] int limit = 5)
+    {
+        // ... your implementation
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 Then register it:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Function Calling Policy
 
-Control when the model is allowed to call functions:
+Registered functions are available to the model by default. Disable them globally, or force one named function when a provider supports forced tool selection:
 
 ```csharp
 using Mythosia.AI.Models.Functions;
 
 // Let the model decide (default)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
+service.ForceFunctionName = null;
 
-// Force the model to always call a function
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+// Force a specific registered function
+service.ForceFunctionName = "search_products";
 
 // Disable function calling
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
+
+`FunctionCallingPolicy` controls the multi-round loop and local handler scheduling; it does not select whether the provider may call a function. Calls from one assistant response execute sequentially by default. Opt in to bounded parallel execution only for independent, thread-safe handlers:
+
+```csharp
+service.DefaultPolicy = new FunctionCallingPolicy
+{
+    MaxRounds = 20,
+    TimeoutSeconds = 120,
+    ExecutionMode = FunctionExecutionMode.Parallel,
+    MaxConcurrency = 4
+};
+```
+
+Parallel handlers may finish out of order, but Mythosia preserves the provider's original call order in the `FunctionCallResultBatch`. Once a validated batch starts, its handlers run to completion so conversation history cannot contain calls without matching results; registered handlers do not currently receive a `CancellationToken`.
 
 ## Bulk Registration from a Class
 
@@ -143,11 +162,14 @@ Build function definitions programmatically:
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "Returns the current stock price")
-    .AddParameter("ticker", "Stock ticker symbol", required: true)
+    .Create("get_stock_price")
+    .WithDescription("Returns the current stock price")
+    .AddParameter("ticker", "string", "Stock ticker symbol", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

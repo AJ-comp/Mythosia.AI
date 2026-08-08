@@ -13,7 +13,7 @@ var reply = await service.GetCompletionAsync("我最喜歡的顏色是什麼？"
 重新開始：
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## 摘要策略

@@ -228,7 +228,6 @@ export const setSystem     = $('#set-system');
 export const setTemp       = $('#set-temp');
 export const setTopp       = $('#set-topp');
 export const setMaxTokens  = $('#set-maxtokens');
-export const setMaxMsg     = $('#set-maxmsg');
 export const setStateless  = $('#set-stateless');
 export const setReasoning  = $('#set-reasoning');
 export const reasoningOpts = $('#reasoning-options');

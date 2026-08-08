@@ -14,7 +14,7 @@ Console.WriteLine(response); // 파리
 모델에 역할이나 지침을 부여하는 시스템 프롬프트를 설정합니다:
 
 ```csharp
-service.SystemPrompt = "당신은 간결한 어시스턴트입니다. 한 문장으로 답하세요.";
+service.SystemMessage = "당신은 간결한 어시스턴트입니다. 한 문장으로 답하세요.";
 
 var response = await service.GetCompletionAsync("재귀를 설명해 주세요.");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("제 이름이 뭔가요?");
 대화 기록을 초기화하려면:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## 메시지 직접 구성
@@ -42,7 +42,7 @@ service.ClearMessages();
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("이 텍스트를 요약해 주세요: ...")
+var message = MessageBuilder.Create().AddText("이 텍스트를 요약해 주세요: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ var response = await service.GetCompletionAsync(message);
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("이 다이어그램은 무엇을 보여주나요?")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("이 다이어그램은 무엇을 보여주나요?")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "이 이미지를 설명해주세요",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

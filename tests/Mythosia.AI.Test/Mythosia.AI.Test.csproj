@@ -23,6 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\apps\Mythosia.AI.Samples.ChatUi\Mythosia.AI.Samples.ChatUi.csproj" />
+    <ProjectReference Include="..\..\src\core\Mythosia.AI.Providers.Alibaba\Mythosia.AI.Providers.Alibaba.csproj" />
     <ProjectReference Include="..\..\src\core\Mythosia.AI\Mythosia.AI.csproj" />
     <PackageReference Include="Mythosia.Azure" Version="1.2.0" />
   </ItemGroup>

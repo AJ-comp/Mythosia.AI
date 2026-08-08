@@ -17,6 +17,8 @@ public abstract partial class AIServiceTestBase
 
             int processedChunks = 0;
             long totalCharsProcessed = 0;
+            const int targetChunkSample = 48;
+            const int targetCharacterSample = 512;
 
             await foreach (var chunk in AI.StreamAsync(
                 "Generate a detailed technical documentation about distributed systems"))
@@ -29,6 +31,15 @@ public abstract partial class AIServiceTestBase
                     long currentMemory = GC.GetTotalMemory(false);
                     Console.WriteLine($"[Memory] After {processedChunks} chunks: {(currentMemory - startMemory) / 1024}KB");
                 }
+
+                // This test measures incremental streaming memory, not the provider's ability to
+                // finish an arbitrarily long document. Stop after a representative sample so slow
+                // models do not turn the memory check into a request-timeout test.
+                if (processedChunks >= targetChunkSample ||
+                    totalCharsProcessed >= targetCharacterSample)
+                {
+                    break;
+                }
             }
 
             long endMemory = GC.GetTotalMemory(true);
@@ -38,7 +49,7 @@ public abstract partial class AIServiceTestBase
             Console.WriteLine($"  Processed Chunks: {processedChunks}");
             Console.WriteLine($"  Total Characters: {totalCharsProcessed:N0}");
             Console.WriteLine($"  Memory Used: {memoryUsed}KB");
-            Console.WriteLine($"  Bytes per Character: {(double)(endMemory - startMemory) / totalCharsProcessed:F2}");
+            Console.WriteLine($"  Bytes per Character: {(totalCharsProcessed == 0 ? 0 : (double)(endMemory - startMemory) / totalCharsProcessed):F2}");
 
             Assert.IsTrue(processedChunks > 0);
             Assert.IsTrue(totalCharsProcessed > 0);

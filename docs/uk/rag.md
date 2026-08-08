@@ -61,14 +61,14 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // локальний файл
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("Inline content can go here too.")   // текст напряму
 )
 ```
 
 ## Власний провайдер ембеддингів
 
-За замовчуванням RAG використовує провайдера самого сервісу для ембеддингів. Щоб використати окрему модель ембеддингів:
+За замовчуванням RAG використовує вбудований локальний провайдер ембеддингів. Щоб використати окрему модель ембеддингів:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -77,7 +77,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -93,11 +93,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -109,11 +113,14 @@ var service = new OpenAIService(apiKey, http)
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,              // кількість чанків для витягування
-    ScoreThreshold = 0.7f  // мінімальна оцінка схожості
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,          // кількість чанків для витягування
+        MinScore = 0.7     // мінімальна оцінка схожості
+    }
 };
 
-var response = await service.GetCompletionAsync("Your question", ragOptions: options);
+var response = await service.GetCompletionAsync("Your question", options: options);
 ```
 
 ## Наступні кроки

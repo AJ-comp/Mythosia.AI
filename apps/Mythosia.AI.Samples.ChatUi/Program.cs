@@ -1,5 +1,3 @@
-// 샘플앱은 진단 목적상 deprecated 노브(MaxMessageCount 등)도 그대로 노출한다 — v7.0 제거 시 함께 정리.
-#pragma warning disable CS0618
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Messages;
@@ -55,8 +53,15 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
 
     var provider = GetProviderForModel(selectedModel);
 
-    if (provider != "Alibaba" && string.IsNullOrWhiteSpace(req.ApiKey))
+    if (provider == "Alibaba")
+    {
+        if (string.IsNullOrWhiteSpace(req.ApiKey) && string.IsNullOrWhiteSpace(req.BaseUrl))
+            return Results.BadRequest(new { error = "apiKey or baseUrl is required for Alibaba" });
+    }
+    else if (string.IsNullOrWhiteSpace(req.ApiKey))
+    {
         return Results.BadRequest(new { error = "apiKey is required" });
+    }
 
     var desc = selectedModel;
 
@@ -66,15 +71,15 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
         var httpClient = new HttpClient();
         currentService = provider switch
         {
-            "OpenAI" => new OpenAIService(req.ApiKey, httpClient),
-            "Anthropic" => new AnthropicService(req.ApiKey, httpClient),
-            "Google" => new GoogleAIService(req.ApiKey, httpClient),
-            "DeepSeek" => new DeepSeekService(req.ApiKey, httpClient),
-            "xAI" => new XAIService(req.ApiKey, httpClient),
-            "Perplexity" => new PerplexityService(req.ApiKey, httpClient),
+            "OpenAI" => new OpenAIService(req.ApiKey!, httpClient),
+            "Anthropic" => new AnthropicService(req.ApiKey!, httpClient),
+            "Google" => new GoogleAIService(req.ApiKey!, httpClient),
+            "DeepSeek" => new DeepSeekService(req.ApiKey!, httpClient),
+            "xAI" => new XAIService(req.ApiKey!, httpClient),
+            "Perplexity" => new PerplexityService(req.ApiKey!, httpClient),
             "Alibaba" => string.IsNullOrWhiteSpace(req.BaseUrl)
-                ? new QwenService(req.ApiKey, httpClient)
-                : new QwenService(req.BaseUrl, ParsePlatform(req.Platform), httpClient),
+                ? new QwenService(req.ApiKey!, httpClient)
+                : new QwenService(req.BaseUrl!, ParsePlatform(req.Platform), httpClient),
             _ => throw new NotSupportedException($"Provider {provider} not supported")
         };
         if (currentService is QwenService qwenService)
@@ -554,112 +559,13 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     if (req.Temperature.HasValue) currentService.Temperature = req.Temperature.Value;
     if (req.TopP.HasValue) currentService.TopP = req.TopP.Value;
     if (req.MaxTokens.HasValue) currentService.MaxTokens = (uint)req.MaxTokens.Value;
-    if (req.MaxMessageCount.HasValue) currentService.MaxMessageCount = (uint)req.MaxMessageCount.Value;
     if (req.FrequencyPenalty.HasValue) currentService.FrequencyPenalty = req.FrequencyPenalty.Value;
     if (req.PresencePenalty.HasValue) currentService.PresencePenalty = req.PresencePenalty.Value;
     if (req.StatelessMode.HasValue) currentService.StatelessMode = req.StatelessMode.Value;
     if (req.SystemMessage != null) currentService.SystemMessage = req.SystemMessage;
     if (req.ReasoningEnabled.HasValue) streamIncludeReasoning = req.ReasoningEnabled.Value;
 
-    // Apply reasoning settings
-    if (req.ReasoningEnabled == true && req.ReasoningType == "qwen_thinking"
-        && currentService is QwenService qwenOn)
-    {
-        qwenOn.ThinkingMode = Mythosia.AI.Providers.Alibaba.QwenThinking.On;
-    }
-    else if (req.ReasoningEnabled == true && req.ReasoningLevel != null && req.ReasoningType != null)
-    {
-        if (currentService is OpenAIService gpt)
-        {
-            switch (req.ReasoningType)
-            {
-                case "gpt5":
-                    if (Enum.TryParse<Gpt5Reasoning>(req.ReasoningLevel, out var g5))
-                        gpt.Gpt5ReasoningEffort = g5;
-                    gpt.Gpt5ReasoningSummary = ReasoningSummary.Detailed;
-                    break;
-                case "gpt5_1":
-                    if (Enum.TryParse<Gpt5_1Reasoning>(req.ReasoningLevel, out var g51))
-                        gpt.Gpt5_1ReasoningEffort = g51;
-                    gpt.Gpt5_1ReasoningSummary = ReasoningSummary.Detailed;
-                    break;
-                case "gpt5_2":
-                    if (Enum.TryParse<Gpt5_2Reasoning>(req.ReasoningLevel, out var g52))
-                        gpt.Gpt5_2ReasoningEffort = g52;
-                    gpt.Gpt5_2ReasoningSummary = ReasoningSummary.Detailed;
-                    break;
-                case "gpt5_3":
-                    if (Enum.TryParse<Gpt5_3Reasoning>(req.ReasoningLevel, out var g53))
-                        gpt.Gpt5_3ReasoningEffort = g53;
-                    gpt.Gpt5_3ReasoningSummary = ReasoningSummary.Detailed;
-                    break;
-                case "gpt5_4":
-                    if (Enum.TryParse<Gpt5_4Reasoning>(req.ReasoningLevel, out var g54))
-                        gpt.Gpt5_4ReasoningEffort = g54;
-                    gpt.Gpt5_4ReasoningSummary = ReasoningSummary.Detailed;
-                    break;
-            }
-        }
-        else if (currentService is AnthropicService claude)
-        {
-            if (int.TryParse(req.ReasoningLevel, out var budget))
-                claude.ThinkingBudget = budget;
-        }
-        else if (currentService is XAIService grok)
-        {
-            if (Enum.TryParse<GrokReasoning>(req.ReasoningLevel, out var grokEffort))
-                grok.ReasoningEffort = grokEffort;
-        }
-        else if (currentService is GoogleAIService gemini)
-        {
-            switch (req.ReasoningType)
-            {
-                case "gemini3":
-                    if (Enum.TryParse<GeminiThinkingLevel>(req.ReasoningLevel, out var thinkingLevel))
-                        gemini.ThinkingLevel = thinkingLevel;
-                    gemini.ThinkingBudget = -1;
-                    break;
-                case "gemini25":
-                    if (int.TryParse(req.ReasoningLevel, out var thinkingBudget))
-                        gemini.ThinkingBudget = thinkingBudget;
-                    gemini.ThinkingLevel = GeminiThinkingLevel.Auto;
-                    break;
-            }
-        }
-    }
-    else if (req.ReasoningEnabled == false)
-    {
-        if (currentService is OpenAIService gptOff)
-        {
-            gptOff.Gpt5ReasoningEffort = Gpt5Reasoning.Auto;
-            gptOff.Gpt5ReasoningSummary = null;
-            gptOff.Gpt5_1ReasoningEffort = Gpt5_1Reasoning.Auto;
-            gptOff.Gpt5_1ReasoningSummary = null;
-            gptOff.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Auto;
-            gptOff.Gpt5_2ReasoningSummary = null;
-            gptOff.Gpt5_3ReasoningEffort = Gpt5_3Reasoning.Auto;
-            gptOff.Gpt5_3ReasoningSummary = null;
-            gptOff.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.Auto;
-            gptOff.Gpt5_4ReasoningSummary = null;
-        }
-        else if (currentService is AnthropicService claudeOff)
-        {
-            claudeOff.ThinkingBudget = -1;
-        }
-        else if (currentService is XAIService grokOff)
-        {
-            grokOff.ReasoningEffort = GrokReasoning.Off;
-        }
-        else if (currentService is GoogleAIService geminiOff)
-        {
-            geminiOff.ThinkingLevel = GeminiThinkingLevel.Auto;
-            geminiOff.ThinkingBudget = -1;
-        }
-        else if (currentService is QwenService qwenOff)
-        {
-            qwenOff.ThinkingMode = Mythosia.AI.Providers.Alibaba.QwenThinking.Off;
-        }
-    }
+    ChatUiSettingsHelpers.ApplyReasoningSettings(currentService, req);
 
     return Results.Ok(new { status = "updated" });
 });
@@ -707,6 +613,7 @@ app.MapGet("/api/state", async () =>
     {
         maxRounds = policy.MaxRounds,
         timeoutSeconds = policy.TimeoutSeconds,
+        executionMode = policy.ExecutionMode.ToString(),
         maxConcurrency = policy.MaxConcurrency,
         enableLogging = policy.EnableLogging
     };
@@ -739,7 +646,6 @@ app.MapGet("/api/state", async () =>
         maxTokens = svc.MaxTokens,
         frequencyPenalty = svc.FrequencyPenalty,
         presencePenalty = svc.PresencePenalty,
-        maxMessageCount = svc.MaxMessageCount,
         stream = svc.Stream,
 
         // Modes
@@ -764,7 +670,6 @@ app.MapGet("/api/state", async () =>
         systemMessage = svc.ActivateChat.SystemMessage,
         messageCount = svc.ActivateChat.Messages.Count,
         conversationTokenCount,
-        sentMessageCount = Math.Min(svc.ActivateChat.Messages.Count, (int)svc.MaxMessageCount),
         chatBlockCount = svc.ChatRequests.Count,
 
         // Messages

@@ -1,8 +1,11 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Functions;
 
 namespace Mythosia.AI.Models.Messages
 {
@@ -20,7 +23,17 @@ namespace Mythosia.AI.Models.Messages
         /// <summary>
         /// Optional metadata for the message (e.g., function call info)
         /// </summary>
-        public Dictionary<string, object> Metadata { get; set; }
+        public Dictionary<string, object>? Metadata { get; set; }
+
+        /// <summary>
+        /// Function calls requested in this assistant turn, if any.
+        /// </summary>
+        public FunctionCallBatch? FunctionCallBatch { get; set; }
+
+        /// <summary>
+        /// Function results returned in this tool turn, if any.
+        /// </summary>
+        public FunctionCallResultBatch? FunctionCallResultBatch { get; set; }
 
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 
@@ -65,6 +78,21 @@ namespace Mythosia.AI.Models.Messages
         /// </summary>
         public string GetDisplayText()
         {
+            if (FunctionCallBatch != null)
+            {
+                var calls = string.Join(", ", FunctionCallBatch.Calls.Select(call => call.Name));
+                return string.IsNullOrEmpty(Content)
+                    ? $"[함수 호출: {calls}]"
+                    : $"{Content} [함수 호출: {calls}]";
+            }
+
+            if (FunctionCallResultBatch != null)
+            {
+                var results = string.Join("; ", FunctionCallResultBatch.Results.Select(result =>
+                    $"{result.Call.Name}: {result.Content}"));
+                return $"[함수 결과: {results}]";
+            }
+
             if (HasMultimodalContent)
             {
                 var parts = Contents.Select(c =>
@@ -132,11 +160,133 @@ namespace Mythosia.AI.Models.Messages
         /// </summary>
         public uint EstimateTokens()
         {
+            if (FunctionCallBatch != null)
+            {
+                long estimatedLength = Content?.Length ?? 0;
+                foreach (var call in FunctionCallBatch.Calls)
+                {
+                    estimatedLength += call.Id?.Length ?? 0;
+                    estimatedLength += call.Name?.Length ?? 0;
+                    estimatedLength += EstimateSerializedLength(call.Arguments);
+                    estimatedLength += 16; // Tool-call fields and JSON punctuation.
+                }
+
+                return ToTokenEstimate(estimatedLength);
+            }
+
+            if (FunctionCallResultBatch != null)
+            {
+                long estimatedLength = 0;
+                foreach (var result in FunctionCallResultBatch.Results)
+                {
+                    estimatedLength += result.Call.Id?.Length ?? 0;
+                    estimatedLength += result.Call.Name?.Length ?? 0;
+                    estimatedLength += result.Content?.Length ?? 0;
+                    estimatedLength += 12; // Result fields and JSON punctuation.
+                }
+
+                return ToTokenEstimate(estimatedLength);
+            }
+
             if (HasMultimodalContent)
             {
                 return (uint)Contents.Sum(c => c.EstimateTokens());
             }
             return (uint)(Content.Length / 4); // Rough estimate for text
+        }
+
+        private static int EstimateSerializedLength(object? value)
+        {
+            return (int)Math.Min(
+                int.MaxValue,
+                EstimateSerializedLengthCore(
+                    value,
+                    new HashSet<object>(ReferenceIdentityComparer.Instance),
+                    0));
+        }
+
+        private static long EstimateSerializedLengthCore(
+            object? value,
+            HashSet<object> traversalPath,
+            int depth)
+        {
+            if (value == null)
+                return 4;
+
+            if (value is string text)
+                return text.Length + 2;
+
+            if (depth >= 64)
+                return 16;
+
+            var tracksReference = !value.GetType().IsValueType;
+            if (tracksReference && !traversalPath.Add(value))
+                return 4;
+
+            try
+            {
+                if (value is IDictionary dictionary)
+                {
+                    long length = 2;
+                    foreach (DictionaryEntry item in dictionary)
+                    {
+                        length += SafeStringLength(item.Key);
+                        length += EstimateSerializedLengthCore(
+                            item.Value,
+                            traversalPath,
+                            depth + 1) + 4;
+                    }
+
+                    return length;
+                }
+
+                if (value is IEnumerable sequence)
+                {
+                    long length = 2;
+                    var count = 0;
+                    foreach (var item in sequence)
+                    {
+                        if (count++ >= 10_000)
+                        {
+                            length += 16;
+                            break;
+                        }
+
+                        length += EstimateSerializedLengthCore(
+                            item,
+                            traversalPath,
+                            depth + 1) + 1;
+                    }
+                    return length;
+                }
+
+                return SafeStringLength(value);
+            }
+            finally
+            {
+                if (tracksReference)
+                    traversalPath.Remove(value);
+            }
+        }
+
+        private static int SafeStringLength(object? value)
+        {
+            try
+            {
+                return value?.ToString()?.Length ?? 0;
+            }
+            catch
+            {
+                return 16;
+            }
+        }
+
+        private static uint ToTokenEstimate(long estimatedLength)
+        {
+            if (estimatedLength <= 0)
+                return 0;
+
+            return (uint)Math.Min(uint.MaxValue, estimatedLength / 4);
         }
 
         /// <summary>
@@ -163,10 +313,22 @@ namespace Mythosia.AI.Models.Messages
 
             if (Metadata != null)
             {
-                cloned.Metadata = new Dictionary<string, object>(Metadata);
+                cloned.Metadata = ObjectGraphSnapshot.CloneDictionary(Metadata);
             }
 
+            cloned.FunctionCallBatch = FunctionCallBatch?.Clone();
+            cloned.FunctionCallResultBatch = FunctionCallResultBatch?.Clone();
+
             return cloned;
+        }
+
+        private sealed class ReferenceIdentityComparer : IEqualityComparer<object>
+        {
+            public static ReferenceIdentityComparer Instance { get; } = new ReferenceIdentityComparer();
+
+            public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+            public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
         }
 
 

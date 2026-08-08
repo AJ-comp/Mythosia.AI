@@ -52,21 +52,25 @@ Para funciones más complejas, usa los atributos `[AiFunction]` y `[AiParameter]
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "Busca en el catálogo de productos")]
-public static string SearchProducts(
-    [AiParameter("Consulta de búsqueda", required: true)] string query,
-    [AiParameter("Número máximo de resultados")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... tu implementación
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "Busca en el catálogo de productos")]
+    public string SearchProducts(
+        [AiParameter("Consulta de búsqueda", required: true)] string query,
+        [AiParameter("Número máximo de resultados")] int limit = 5)
+    {
+        // ... tu implementación
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 Luego regístrala:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Política de Llamada de Funciones
@@ -77,13 +81,13 @@ Controla cuándo el modelo puede llamar funciones:
 using Mythosia.AI.Models.Functions;
 
 // Deja que el modelo decida (predeterminado)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // Fuerza al modelo a siempre llamar una función
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // Desactiva la llamada de funciones
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## Registro Masivo desde una Clase
@@ -135,11 +139,14 @@ Construye definiciones de funciones de forma programática:
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "Devuelve el precio actual de una acción")
-    .AddParameter("ticker", "Símbolo del ticker", required: true)
+    .Create("get_stock_price")
+    .WithDescription("Devuelve el precio actual de una acción")
+    .AddParameter("ticker", "string", "Símbolo del ticker", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

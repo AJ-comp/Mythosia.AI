@@ -87,10 +87,9 @@ var embedder = new VllmEmbeddingProvider(
 문서 인덱싱 시, 파이프라인은 수천 개의 텍스트를 한 번에 보내는 대신 배치 단위로 임베딩합니다. 배치 크기는 설정 가능합니다:
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // 기본값: API 호출 1회당 100개 청크
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // 기본값: API 호출 1회당 100개 청크
+pipeline.Options = options;
 ```
 
 배치 크기가 클수록 API 호출 횟수는 줄지만, 호출당 메모리 사용량이 늘어납니다. API 속도 제한이나 메모리 문제가 발생하면 이 값을 줄여보세요.

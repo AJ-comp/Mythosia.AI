@@ -14,7 +14,7 @@ Console.WriteLine(response); // Paris
 Set a system prompt to give the model a persona or instructions:
 
 ```csharp
-service.SystemPrompt = "You are a concise assistant. Answer in one sentence.";
+service.SystemMessage = "You are a concise assistant. Answer in one sentence.";
 
 var response = await service.GetCompletionAsync("Explain recursion.");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("What is my name?");
 To clear the conversation history:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Building Messages Manually
@@ -42,7 +42,7 @@ Use `MessageBuilder` to construct messages explicitly:
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("Summarize this text: ...")
+var message = MessageBuilder.Create().AddText("Summarize this text: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ Providers that support vision accept image content alongside text:
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("What does this diagram show?")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("What does this diagram show?")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "Describe this image",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

@@ -1,16 +1,20 @@
 # Mythosia.AI.Providers.Alibaba
 
+> **Upgrading to v2?** This release targets `Mythosia.AI` v7 and removes the unsupported legacy image methods. See the [v2.0 release notes and migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200).
+
 ## Package Summary
 
 `Mythosia.AI.Providers.Alibaba` adds Alibaba Cloud / Qwen provider support for `Mythosia.AI` through `QwenService`.
 
 It is intended for projects that want to keep using the common `AIService` abstraction while calling Qwen-compatible chat completion endpoints through `DashScope`, `vLLM`, or `Ollama`.
 
+Version 2.0.0 requires `Mythosia.AI` 7.0.0 or later and is built for the v7 API surface. `QwenService` is a chat-completion provider and does not implement the optional `IImageGenerationService` capability; the unsupported legacy image-method stubs were removed in v2.0.0.
+
 ## Features
 
 - Qwen chat completion support through `QwenService`
 - Streaming response support with token usage reporting (`TokenUsage`)
-- Function calling support
+- Ordered multi-function calling in non-streaming and streaming flows, with sequential or bounded-parallel local handler execution inherited from the core policy
 - Shared `Mythosia.AI` conversation and message abstractions
 - Thinking-mode control that is sent as configured, without model-name guessing
 - Compatible endpoint handling for `DashScope`, `vLLM`, and `Ollama`
@@ -36,14 +40,14 @@ service.ChangeModel(AlibabaModels.Qwen3_5_397B);
 `QwenService` sends whatever `ThinkingMode` you configured, translated into the platform's request format.
 
 | Platform | Thinking On | Thinking Off |
-|---|---|---|
+| --- | --- | --- |
 | DashScope | `enable_thinking = true` | `enable_thinking = false` |
 | vLLM | `chat_template_kwargs.enable_thinking = true` | `chat_template_kwargs.enable_thinking = false` |
-| Ollama | `reasoning.effort = "high"` | _(파라미터 생략)_ |
+| Ollama | `reasoning.effort = "high"` | _(parameter omitted)_ |
 
-Thinking off 시 DashScope / vLLM에는 명시적으로 `enable_thinking = false`가 전송되어 서버 기본값에 의한 의도치 않은 thinking 활성화를 방지합니다.
+When thinking is off, DashScope and vLLM receive an explicit `enable_thinking = false`, preventing the server default from enabling reasoning unexpectedly.
 
-**모델 이름은 판단 근거가 아닙니다.** 서빙 이름(vLLM `--served-model-name`, 별칭 등)은 운영자가 자유롭게 정하므로 모델의 능력을 나타내지 않습니다. 따라서 `QwenService`는 모델 ID를 검사해 "이 모델이 thinking을 지원하는지" 추측하지 않고, 지정된 `ThinkingMode`를 그대로 전송합니다 — 지원하지 않는 모델이라면 서버가 무시하거나 오류로 드러나는 편이, 지정이 조용히 사라지는 것보다 안전하기 때문입니다.
+**The model name is not treated as a capability signal.** Operators can choose any served name through vLLM `--served-model-name`, aliases, or a gateway. `QwenService` therefore sends the configured `ThinkingMode` without guessing from the model ID; an unsupported endpoint can ignore or reject the setting instead of the caller's instruction disappearing silently.
 
 ## Request-Scoped Reasoning Control
 
@@ -61,6 +65,7 @@ var answer = await service.GetCompletionAsync(
 ## Quick Start with vLLM
 
 ```csharp
+using System.Net.Http;
 using Mythosia.AI.Providers.Alibaba;
 
 var httpClient = new HttpClient();
@@ -74,6 +79,7 @@ Console.WriteLine(response);
 ## Quick Start with Ollama
 
 ```csharp
+using System.Net.Http;
 using Mythosia.AI.Providers.Alibaba;
 
 var httpClient = new HttpClient();
@@ -87,8 +93,10 @@ Console.WriteLine(response);
 ## Configure Thinking Mode
 
 ```csharp
+using System.Net.Http;
 using Mythosia.AI.Providers.Alibaba;
 
+var httpClient = new HttpClient();
 var service = new QwenService("http://localhost:11434", EndpointPlatform.Ollama, httpClient)
 {
     ThinkingMode = QwenThinking.On
@@ -108,8 +116,10 @@ Examples:
 In those cases, keep the service configured normally and set `ModelIdOverride` to the exact deployed model name that your endpoint expects.
 
 ```csharp
+using System.Net.Http;
 using Mythosia.AI.Providers.Alibaba;
 
+var httpClient = new HttpClient();
 var service = new QwenService("http://localhost:11434", EndpointPlatform.Ollama, httpClient)
 {
     ThinkingMode = QwenThinking.On,
@@ -122,6 +132,10 @@ var response = await service.GetCompletionAsync("Summarize this document.");
 You can also combine a built-in base model selection with a different runtime model ID:
 
 ```csharp
+using System.Net.Http;
+using Mythosia.AI.Providers.Alibaba;
+
+var httpClient = new HttpClient();
 var service = new QwenService("http://localhost:8000", EndpointPlatform.Vllm, httpClient)
     .UseQwen3_32BModel();
 
@@ -149,19 +163,28 @@ If your Ollama model name is not the default converted name, set `ModelIdOverrid
 ## Streaming Example
 
 ```csharp
+using System.Net.Http;
+using Mythosia.AI.Providers.Alibaba;
+
+var httpClient = new HttpClient();
 var service = new QwenService("http://localhost:8000", EndpointPlatform.Vllm, httpClient)
     .UseQwen3_32BModel();
 
 await foreach (var chunk in service.StreamAsync("Explain transformers simply."))
 {
-    if (!string.IsNullOrWhiteSpace(chunk.Content))
-        Console.Write(chunk.Content);
+    if (!string.IsNullOrWhiteSpace(chunk))
+        Console.Write(chunk);
 }
 ```
 
 ## Function Calling Example
 
 ```csharp
+using System.Net.Http;
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Providers.Alibaba;
+
+var httpClient = new HttpClient();
 var service = new QwenService("http://localhost:8000", EndpointPlatform.Vllm, httpClient)
     .UseQwen3_32BModel()
     .WithFunction(
@@ -184,5 +207,5 @@ var result = await service.GetCompletionAsync("What's the weather in Seoul?");
 ## Documentation
 
 - Main package: [GitHub Repository](https://github.com/AJ-comp/Mythosia.AI)
-- Core package docs: [Mythosia.AI Core Package](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI)
-- Release notes: [RELEASE_NOTES.md](RELEASE_NOTES.md)
+- Core documentation: [Mythosia.AI Provider Guide](https://aj-comp.github.io/Mythosia.AI/docs/providers.html)
+- Release notes: [Mythosia.AI.Providers.Alibaba v2.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200)

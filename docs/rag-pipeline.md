@@ -57,11 +57,9 @@ Build the index once and reuse it across multiple service instances — useful w
 
 ```csharp
 // Build once
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // Reuse across services
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -105,7 +103,7 @@ ragService.GetCompletionAsync("What is the return policy?")
 ③ RagEnabledService creates an AIRequestContext
    RequestMessageOverride = assembled prompt
     ↓
-④ _innerService.GetCompletionAsync(original message, context) is called
+④ _innerService.GetCompletionAsync(original message, context: context) is called
    → AIService stores context in AsyncLocal
    → Original question is added to conversation history
     ↓

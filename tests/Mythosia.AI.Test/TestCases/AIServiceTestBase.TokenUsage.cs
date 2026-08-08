@@ -102,7 +102,8 @@ public abstract partial class AIServiceTestBase
                             unit = "celsius",
                             condition = "sunny"
                         });
-                    });
+                        });
+                ConfigureRequiredFunctionCall("get_token_meter_weather");
 
                 var events = new List<StreamingContent>();
 

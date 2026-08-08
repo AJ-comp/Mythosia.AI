@@ -22,6 +22,8 @@ v1.0.0: Initial release. HWP document loader returning DoclingDocument. Section-
 
   <ItemGroup>
     <PackageReference Include="HwpLibSharp" Version="1.1.10.5" />
+    <!-- Override HwpLibSharp's vulnerable OpenMcdf 3.1.0 transitive floor. -->
+    <PackageReference Include="OpenMcdf" Version="3.1.4" />
   </ItemGroup>
 
   <ItemGroup>

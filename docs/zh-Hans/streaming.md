@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("讲个故事吧"))
 `StreamAsync` 可以返回 `StreamingContent` 对象，携带文本及其类型：
 
 ```csharp
-await foreach (var content in service.StreamAsync("解释一下量子计算"))
+await foreach (var content in service.StreamAsync("解释一下量子计算", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 流式输出完成时，最后的 `Completion` 事件携带 `TokenUsage` 对象，包含详细的使用指标：
 
 ```csharp
-await foreach (var content in service.StreamAsync("解释一下量子计算"))
+await foreach (var content in service.StreamAsync("解释一下量子计算", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,6 +149,6 @@ await foreach (var chunk in service.StreamOnceAsync(message))
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("继续我们的对话..."))
+await foreach (var chunk in service.StreamAsync("继续我们的对话...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

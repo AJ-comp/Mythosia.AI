@@ -22,7 +22,8 @@ public class AgenticRagExtensionsTests
             });
 
         var tool = service.Functions.Single(f => f.Name == "search_documents");
-        var response = await tool.Handler(new Dictionary<string, object>
+        Assert.IsNotNull(tool.Handler);
+        var response = await tool.Handler!(new Dictionary<string, object>
         {
             ["query"] = "refund policy"
         });
@@ -51,7 +52,8 @@ public class AgenticRagExtensionsTests
             });
 
         var tool = service.Functions.Single(f => f.Name == "search_documents");
-        _ = await tool.Handler(new Dictionary<string, object>
+        Assert.IsNotNull(tool.Handler);
+        _ = await tool.Handler!(new Dictionary<string, object>
         {
             ["query"] = "refund policy"
         });
@@ -86,7 +88,8 @@ public class AgenticRagExtensionsTests
             });
 
         var tool = service.Functions.Single(f => f.Name == "search_documents");
-        var response = await tool.Handler(new Dictionary<string, object>
+        Assert.IsNotNull(tool.Handler);
+        var response = await tool.Handler!(new Dictionary<string, object>
         {
             ["query"] = "refund policy"
         });

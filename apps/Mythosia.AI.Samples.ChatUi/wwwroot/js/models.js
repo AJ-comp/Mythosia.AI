@@ -12,7 +12,7 @@ import {
 } from './state.js';
 import { openKeyModal } from './apikey-modal.js';
 import { openAlibabaSettingsModal } from './alibaba-settings.js';
-import { updateReasoningUI } from './settings.js';
+import { updateReasoningUI, updateSamplingUI } from './settings.js';
 import { startStatePolling, stopStatePolling, refreshState } from './state-panel.js';
 import { refreshFunctions } from './functions-panel.js';
 
@@ -70,7 +70,7 @@ function renderModelList(groups) {
       btn.dataset.desc = m.description;
       btn.dataset.reasoning = m.reasoning ? JSON.stringify(m.reasoning) : '';
       btn.dataset.maxOutputTokens = m.maxOutputTokens || '';
-      btn.addEventListener('click', () => onModelSelect(m.name, g.provider, m.description, m.reasoning, m.maxOutputTokens));
+      btn.addEventListener('click', () => onModelSelect(m.name, g.provider, m.description, m.reasoning, m.maxOutputTokens, m.sampling));
       modelsEl.appendChild(btn);
     });
 
@@ -106,7 +106,7 @@ export function refreshProviderGroup(provider) {
 // ── Model selection ──────────────────────────────────────────
 import { setMaxTokens } from './dom.js';
 
-function onModelSelect(modelName, provider, desc, reasoning, maxOutputTokens) {
+function onModelSelect(modelName, provider, desc, reasoning, maxOutputTokens, sampling) {
   if (app.isSending) return;
 
   if (app.selectedModel === modelName) {
@@ -121,7 +121,9 @@ function onModelSelect(modelName, provider, desc, reasoning, maxOutputTokens) {
   app.selectedModel = modelName;
   app.selectedProvider = provider;
   app.modelReasoningInfo = reasoning || null;
+  app.modelSamplingInfo = sampling || null;
   updateReasoningUI();
+  updateSamplingUI();
   if (maxOutputTokens) setMaxTokens.value = maxOutputTokens;
   const btn = document.querySelector(`.model-item[data-model="${modelName}"]`);
   if (btn) btn.classList.add('selected');
@@ -135,7 +137,9 @@ export function deselectModel() {
   app.selectedModel = null;
   app.selectedProvider = null;
   app.modelReasoningInfo = null;
+  app.modelSamplingInfo = null;
   updateReasoningUI();
+  updateSamplingUI();
   $$('.model-item.selected').forEach(el => el.classList.remove('selected'));
   settingsArea.classList.add('hidden');
   chatStatus.textContent = 'No model selected';

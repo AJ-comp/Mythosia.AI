@@ -15,7 +15,7 @@ _disableAffix: true
     <div class="hero-actions">
       <a href="#" id="btn-get-started" class="btn-primary-hero">Get Started</a>
       <a href="api/index.md" class="btn-secondary-hero">API Reference</a>
-      <a href="https://github.com/AJ-comp/Mythosia.AI" class="btn-ghost-hero" target="_blank">GitHub ↗</a>
+      <a href="https://github.com/AJ-comp/Mythosia.AI" class="btn-ghost-hero" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
     </div>
   </div>
 </div>
@@ -24,35 +24,30 @@ _disableAffix: true
   <div class="section-label">What's Included</div>
   <h2 class="section-title">Everything you need to build AI apps</h2>
   <div class="features-grid">
-
     <div class="feature-card">
       <div class="feature-icon feature-icon-blue">⚡</div>
       <h3>Core</h3>
       <p>Unified AI abstractions with implementations for OpenAI, Claude, Gemini, DeepSeek, Grok, and more. One interface, any provider.</p>
       <a href="docs/completions.md" class="feature-link">Explore Core →</a>
     </div>
-
     <div class="feature-card">
       <div class="feature-icon feature-icon-purple">🔍</div>
       <h3>RAG</h3>
       <p>Full retrieval-augmented generation pipeline — document splitting, embeddings, vector search, reranking, and diagnostics.</p>
       <a href="docs/rag.md" class="feature-link">Explore RAG →</a>
     </div>
-
     <div class="feature-card">
       <div class="feature-icon feature-icon-green">📄</div>
       <h3>Document Loaders</h3>
       <p>Extract and normalize content from Word, Excel, PowerPoint, and PDF files with a simple, consistent loader API.</p>
       <a href="docs/document-loaders.md" class="feature-link">Explore Loaders →</a>
     </div>
-
     <div class="feature-card">
       <div class="feature-icon feature-icon-orange">🗄️</div>
       <h3>Vector Database</h3>
       <p>Pluggable vector store layer supporting Qdrant, Pinecone, PostgreSQL, and in-memory backends.</p>
-      <a href="docs/rag-advanced.md" class="feature-link">Explore VectorDB →</a>
+      <a href="docs/vectordb-overview.md" class="feature-link">Explore VectorDB →</a>
     </div>
-
   </div>
 </div>
 
@@ -120,6 +115,12 @@ _disableAffix: true
   const LANG_MAP = {
     ko: { intro: 'docs/ko/introduction.html', start: 'docs/ko/getting-started.html' },
     ja: { intro: 'docs/ja/introduction.html', start: 'docs/ja/getting-started.html' },
+    'zh-Hans': { intro: 'docs/zh-Hans/introduction.html', start: 'docs/zh-Hans/getting-started.html' },
+    'zh-Hant': { intro: 'docs/zh-Hant/introduction.html', start: 'docs/zh-Hant/getting-started.html' },
+    de: { intro: 'docs/de/introduction.html', start: 'docs/de/getting-started.html' },
+    fr: { intro: 'docs/fr/introduction.html', start: 'docs/fr/getting-started.html' },
+    ru: { intro: 'docs/ru/introduction.html', start: 'docs/ru/getting-started.html' },
+    uk: { intro: 'docs/uk/introduction.html', start: 'docs/uk/getting-started.html' },
     vi: { intro: 'docs/vi/introduction.html', start: 'docs/vi/getting-started.html' },
     th: { intro: 'docs/th/introduction.html', start: 'docs/th/getting-started.html' },
     pt: { intro: 'docs/pt/introduction.html', start: 'docs/pt/getting-started.html' },

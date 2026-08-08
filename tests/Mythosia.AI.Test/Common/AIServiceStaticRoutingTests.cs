@@ -65,13 +65,15 @@ public class AIServiceStaticRoutingTests
     /// 회귀 테스트: 실제 소문자 모델 ID가 정상 라우팅돼야 한다
     /// (기존 버그: "Claude"/"Gpt" 대문자 접두사 비교로 전부 예외 발생).
     /// </summary>
-    [DataTestMethod]
+    [TestMethod]
     [DataRow("claude-fable-5", nameof(AIProvider.Anthropic))]
+    [DataRow("claude-mythos-5", nameof(AIProvider.Anthropic))]
     [DataRow("gpt-4o-mini", nameof(AIProvider.OpenAI))]
-    [DataRow("chatgpt-4o-latest", nameof(AIProvider.OpenAI))]
+    [DataRow("gpt-5.6-sol", nameof(AIProvider.OpenAI))]
     [DataRow("o3-pro", nameof(AIProvider.OpenAI))]
     [DataRow("grok-4.3", nameof(AIProvider.xAI))]
     [DataRow("gemini-2.5-flash", nameof(AIProvider.Google))]
+    [DataRow("gemini-3.6-flash", nameof(AIProvider.Google))]
     [DataRow("deepseek-chat", nameof(AIProvider.DeepSeek))]
     [DataRow("sonar-pro", nameof(AIProvider.Perplexity))]
     public void LowercaseModelIds_RouteCorrectly(string model, string expectedProvider)
@@ -93,13 +95,15 @@ public class AIServiceStaticRoutingTests
     /// 회귀 테스트: CreateService는 올바른 서비스 타입을 만들고
     /// 요청된 모델을 실제로 적용해야 한다 (기존 버그: provider 기본 모델로 무시).
     /// </summary>
-    [DataTestMethod]
+    [TestMethod]
     [DataRow(AIModels.Anthropic.ClaudeFable5, typeof(AnthropicService))]
+    [DataRow(AIModels.Anthropic.ClaudeMythos5, typeof(AnthropicService))]
     [DataRow(AIModels.Anthropic.ClaudeOpus4_8, typeof(AnthropicService))]
     [DataRow(AIModels.OpenAI.Gpt4oMini, typeof(OpenAIService))]
     [DataRow(AIModels.OpenAI.O3, typeof(OpenAIService))]
     [DataRow(AIModels.Google.Gemini2_5Flash, typeof(GoogleAIService))]
-    [DataRow(AIModels.xAI.Grok3Mini, typeof(XAIService))]
+    [DataRow(AIModels.Google.Gemini3_6Flash, typeof(GoogleAIService))]
+    [DataRow(AIModels.xAI.Grok4_5, typeof(XAIService))]
     [DataRow(AIModels.DeepSeek.Chat, typeof(DeepSeekService))]
     [DataRow(AIModels.Perplexity.Sonar, typeof(PerplexityService))]
     public void CreateService_AppliesRequestedModel(string model, Type expectedServiceType)

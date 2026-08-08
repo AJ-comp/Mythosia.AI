@@ -56,7 +56,7 @@ Cohereの専用Rerank APIを呼び出します。再ランキングに特化し�
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -69,7 +69,7 @@ Cohereの専用Rerank APIを呼び出します。再ランキングに特化し�
 .WithRag(rag => rag
     .WithTopK(5)                   // 最終的にAIに渡すチャンク数
     .WithRetrievalMultiplier(3)    // 再ランキング前に取得する候補の倍数（5 × 3 = 15個）
-    .WithMinScore(0.6)             // このスコア未満のチャンクは破棄
+    .WithScoreThreshold(0.6)       // このスコア未満のチャンクは破棄
     .AddDocument("corpus.txt")
 )
 ```
@@ -78,7 +78,7 @@ Cohereの専用Rerank APIを呼び出します。再ランキングに特化し�
 
 - **`TopK`** — 最終的にAIのプロンプトに含まれるチャンク数です
 - **`RetrievalMultiplier`** — 再ランカーがより良い結果を選べるよう、広い候補群を提供します。たとえばTopK=5で倍数3なら、まず15個を取得してから再ランキングで上位5個だけを残します
-- **`MinScore`** — 類似度が低すぎる結果は完全に除外します。TopKより少ない数になっても品質を優先します
+- **`WithScoreThreshold`** — 類似度が低すぎる結果は完全に除外します。TopKより少ない数になっても品質を優先します
 
 ## 最終選択モード
 

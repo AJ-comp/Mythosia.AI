@@ -32,7 +32,7 @@ service.SystemMessage = originalSystem;
 ```csharp
 // ✅ 有 AIRequestContext — 简洁、作用域隔离、无副作用
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\n请根据以下信息回答：\n{retrievedDocs}"
     });
@@ -52,7 +52,7 @@ var context = new AIRequestContext
     SystemMessagePrefix = "今天的日期是 2026-03-31。\n"
 };
 
-var response = await service.GetCompletionAsync("今天是几号？", context);
+var response = await service.GetCompletionAsync("今天是几号？", context: context);
 ```
 
 **适用场景：** 注入每次请求都不同的动态元数据（日期、用户时区、会话信息）。
@@ -67,7 +67,7 @@ var context = new AIRequestContext
     SystemMessageSuffix = "\n请始终用中文回答。"
 };
 
-var response = await service.GetCompletionAsync("Hello!", context);
+var response = await service.GetCompletionAsync("Hello!", context: context);
 ```
 
 **适用场景：** 添加每次请求的行为指令、RAG 上下文或语言偏好。
@@ -81,11 +81,11 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("参考资料：退款政策允许 30 天内退货。").Build()
+        MessageBuilder.Create().AddText("参考资料：退款政策允许 30 天内退货。").Build()
     }
 };
 
-var response = await service.GetCompletionAsync("我是否有资格退款？", context);
+var response = await service.GetCompletionAsync("我是否有资格退款？", context: context);
 ```
 
 **适用场景：** 提供不应持久化到对话历史中的参考资料、少样本示例或辅助上下文。
@@ -102,12 +102,12 @@ var context = new AIRequestContext
         .Build()
 };
 
-await service.GetCompletionAsync(userQuery, context);
+await service.GetCompletionAsync(userQuery, context: context);
 ```
 
 **适用场景：** 当中间件层（RAG、查询改写）需要在发送给模型前完全重构提示词，同时保留原始用户输入在对话历史中。
 
-> **💡 提示：** 使用 `.WithRag()` 时，RAG 管道会自动利用此属性。详见 [管道自定义 — 内部工作原理](rag-pipeline.md#how-it-works-internally)。
+> **💡 提示：** 使用 `.WithRag()` 时，RAG 管道会自动利用此属性。详见 [管道自定义 — 内部工作原理](rag-pipeline.md#内部工作原理)。
 
 ## 前后对比
 
@@ -122,12 +122,13 @@ service.SystemMessage = origSys
     + $"\n今天：{DateTime.Now:yyyy-MM-dd}"
     + $"\n\n上下文：\n{retrievedChunks}";
 
-service.Messages.Add(MessageBuilder.User(fewShotExample).Build());
+var fewShotIndex = service.ActivateChat.Messages.Count;
+service.ActivateChat.Messages.Add(MessageBuilder.Create().AddText(fewShotExample).Build());
 
 var answer = await service.GetCompletionAsync(userQuery);
 
 service.SystemMessage = origSys;
-service.Messages.RemoveAt(service.Messages.Count - 2); // 移除少样本示例
+service.ActivateChat.Messages.RemoveAt(fewShotIndex); // 移除少样本示例
 ```
 
 **有 AIRequestContext：**
@@ -135,13 +136,13 @@ service.Messages.RemoveAt(service.Messages.Count - 2); // 移除少样本示例
 ```csharp
 // ✅ 简洁、无状态、无副作用
 var answer = await service.GetCompletionAsync(userQuery,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessagePrefix = $"今天：{DateTime.Now:yyyy-MM-dd}\n",
         SystemMessageSuffix = $"\n\n上下文：\n{retrievedChunks}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User(fewShotExample).Build()
+            MessageBuilder.Create().AddText(fewShotExample).Build()
         }
     });
 ```
@@ -159,7 +160,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\n上下文：\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("示例：...").Build()
+            MessageBuilder.Create().AddText("示例：...").Build()
         }
     }
 );
@@ -179,15 +180,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. 主聊天响应
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. 标题生成器（后来添加）
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. 摘要器（更晚添加）
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Agent 调用 — 容易忘记！ 编译器不会警告你
 var agentResult = await service.RunAgentAsync(goal);  // ← 日期缺失，无声 bug
@@ -292,7 +293,7 @@ Provider **每个请求调用一次**,因此返回值可以反映最新状态(�
 
 `AIRequestContext` 的本质不是"只使用一次",而是 **"绝不污染永久状态"**。`SystemMessageProvider` 是一个在每次请求时 **重新执行回调** 以 **生成该请求专用的全新 `AIRequestContext`** 的工厂。生成的上下文仍然是 per-request 作用域,值不会泄漏到对话历史,下一次调用时回调再次执行以反映 **当时的** 值。所以 provider 并未违反 `AIRequestContext` 的设计原则,而是 **将其自动化**。
 
-具体地,如下注册也 **不会** 修改 `service.SystemMessage` 和 `service.Messages`:
+具体地,如下注册也 **不会** 修改 `service.SystemMessage` 和 `service.ActivateChat.Messages`:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

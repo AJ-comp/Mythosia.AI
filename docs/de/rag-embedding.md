@@ -81,10 +81,9 @@ Leichtgewichtiger Anbieter basierend auf Feature-Hashing. Kein API-Schlüssel od
 Bei der Indexierung werden Chunks in Batches verarbeitet:
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // Standard: 100 Chunks pro API-Aufruf
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // Standard: 100 Chunks pro API-Aufruf
+pipeline.Options = options;
 ```
 
 ## Dimensionen

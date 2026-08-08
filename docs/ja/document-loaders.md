@@ -25,7 +25,7 @@ dotnet add package Mythosia.Documents.Pdf
 ## PDF
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions
+var loader = new PdfDocumentLoader(options: new PdfParserOptions
 {
     Password = "secret",           // 暗号化されたPDF用
     IncludeMetadata = true,        // タイトル、著者を抽出
@@ -39,7 +39,7 @@ var docs = await loader.LoadAsync("report.pdf");
 ## Word (.docx)
 
 ```csharp
-var loader = new WordDocumentLoader(new OfficeParserOptions
+var loader = new WordDocumentLoader(options: new OfficeParserOptions
 {
     IncludeMetadata = true,
     NormalizeWhitespace = true
@@ -51,7 +51,7 @@ var docs = await loader.LoadAsync("document.docx");
 ## Excel (.xlsx)
 
 ```csharp
-var loader = new ExcelDocumentLoader(new OfficeParserOptions
+var loader = new ExcelDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSheetNames = true,  // 各セクションにシート名を先頭に追加
     NormalizeWhitespace = true
@@ -63,7 +63,7 @@ var docs = await loader.LoadAsync("spreadsheet.xlsx");
 ## PowerPoint (.pptx)
 
 ```csharp
-var loader = new PowerPointDocumentLoader(new OfficeParserOptions
+var loader = new PowerPointDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSlideNumbers = true,  // 各セクションにスライド番号を先頭に追加
     NormalizeWhitespace = true
@@ -98,7 +98,7 @@ HWPローダーはテキスト、テーブル、見出し構造を`DoclingDocume
 ローダーは`RagBuilder`で`.AddDocument()`を使用する際に自動的に統合されます。手動でロードして結果を追加するには:
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
+var loader = new PdfDocumentLoader(options: new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("report.pdf");
 
 var service = new AnthropicService(apiKey, http)

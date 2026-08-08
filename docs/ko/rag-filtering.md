@@ -81,7 +81,7 @@ var options = new RagQueryOptions
     StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId)
 };
 
-var response = await ragService.GetCompletionAsync("질문", ragOptions: options);
+var response = await ragService.GetCompletionAsync("질문", options: options);
 ```
 
 EF Core의 Global Query Filter 패턴과 동일합니다. StoreFilter는 항상 적용되고, 쿼리별 필터가 그 위에 추가 조건을 덧붙입니다.

@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("Kể cho tôi một câu chuy�
 `StreamAsync` có thể trả về đối tượng `StreamingContent` chứa cả text lẫn loại nội dung:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Giải thích điện toán lượng tử"))
+await foreach (var content in service.StreamAsync("Giải thích điện toán lượng tử", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 Khi streaming hoàn tất, sự kiện `Completion` cuối cùng mang đối tượng `TokenUsage` với thông tin sử dụng chi tiết:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Giải thích điện toán lượng tử"))
+await foreach (var content in service.StreamAsync("Giải thích điện toán lượng tử", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,6 +149,6 @@ Policy tóm tắt tự động không kích hoạt trong lúc streaming. Gọi `
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("Tiếp tục câu chuyện của chúng ta..."))
+await foreach (var chunk in service.StreamAsync("Tiếp tục câu chuyện của chúng ta...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

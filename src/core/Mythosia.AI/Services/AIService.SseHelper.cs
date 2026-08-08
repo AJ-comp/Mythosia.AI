@@ -34,7 +34,9 @@ namespace Mythosia.AI.Services.Base
         ///    cannot break the stream.
         ///  - Invokes the service-level OnComplete callback exactly once on iterator exit,
         ///    regardless of how the iteration ended.
-        ///  - Honors <paramref name="cancellationToken"/> between reads.
+        ///  - Honors <paramref name="cancellationToken"/> while a read is pending as well as
+        ///    between reads. A losing pending read is observed and the iterator's finally block
+        ///    disposes the reader and response stream.
         ///
         /// The caller owns the <paramref name="diagnostics"/> object and may mutate
         /// fields like <see cref="StreamDiagnostics.DataLinesProcessed"/> or
@@ -52,8 +54,8 @@ namespace Mythosia.AI.Services.Base
             var completeCallback = StreamCompleteCallback;
 
             var sw = Stopwatch.StartNew();
-            Stream stream = null;
-            StreamReader reader = null;
+            Stream? stream = null;
+            StreamReader? reader = null;
 
             try
             {
@@ -69,7 +71,11 @@ namespace Mythosia.AI.Services.Base
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    string line = await ReadOneLineAsync(reader, diagnostics, sw).ConfigureAwait(false);
+                    string? line = await ReadOneLineAsync(
+                        reader,
+                        diagnostics,
+                        sw,
+                        cancellationToken).ConfigureAwait(false);
                     if (line == null) break; // graceful end of stream
 
                     diagnostics.LinesRead++;
@@ -112,14 +118,38 @@ namespace Mythosia.AI.Services.Base
             }
         }
 
-        private static async Task<string> ReadOneLineAsync(
+        private static async Task<string?> ReadOneLineAsync(
             StreamReader reader,
             StreamDiagnostics diagnostics,
-            Stopwatch sw)
+            Stopwatch sw,
+            CancellationToken cancellationToken)
         {
             try
             {
-                return await reader.ReadLineAsync().ConfigureAwait(false);
+                var readTask = reader.ReadLineAsync();
+                if (!cancellationToken.CanBeCanceled)
+                    return await readTask.ConfigureAwait(false);
+
+                var cancellationSignal = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                Task completedTask;
+                using (cancellationToken.Register(
+                    state => ((TaskCompletionSource<bool>)state).TrySetResult(true),
+                    cancellationSignal))
+                {
+                    completedTask = await Task.WhenAny(
+                        readTask,
+                        cancellationSignal.Task).ConfigureAwait(false);
+                }
+
+                if (completedTask == readTask)
+                    return await readTask.ConfigureAwait(false);
+
+                // StreamReader's netstandard2.1 ReadLineAsync overload has no token. The
+                // enclosing iterator will now dispose the reader/stream in finally; observe the
+                // abandoned read so a disposal fault can never surface as an unobserved exception.
+                ObservePendingRead(readTask);
+                throw new OperationCanceledException(cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -133,6 +163,19 @@ namespace Mythosia.AI.Services.Base
                     diagnostics,
                     ex);
             }
+        }
+
+        private static void ObservePendingRead(Task<string> pendingRead)
+        {
+            _ = pendingRead.ContinueWith(
+                task =>
+                {
+                    if (task.IsFaulted)
+                        _ = task.Exception;
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
     }
 }

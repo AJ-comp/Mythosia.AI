@@ -1,6 +1,6 @@
 ﻿// Mythosia.AI/Models/Streaming/StreamingContent.cs
 using System.Collections.Generic;
-using System.Text;
+using Mythosia.AI.Models.Functions;
 
 namespace Mythosia.AI.Models.Streaming
 {
@@ -37,9 +37,20 @@ namespace Mythosia.AI.Models.Streaming
         public bool IsFinalRound { get; set; }
 
         /// <summary>
-        /// For internal use - accumulating function call data
+        /// Typed function call associated with this event, when applicable.
         /// </summary>
-        internal FunctionCallData? FunctionCallData { get; set; }
+        public FunctionCall? FunctionCall { get; set; }
+
+        /// <summary>
+        /// Typed function result associated with this event, when applicable.
+        /// </summary>
+        public FunctionCallResult? FunctionResult { get; set; }
+
+        /// <summary>
+        /// Identifies all calls and results that belong to the same assistant turn.
+        /// </summary>
+        public string? FunctionCallBatchId { get; set; }
+
     }
 
     public enum StreamingContentType
@@ -54,18 +65,4 @@ namespace Mythosia.AI.Models.Streaming
         RoundUsage      // Token usage for one LLM round
     }
 
-    /// <summary>
-    /// Internal class for accumulating function call data
-    /// </summary>
-    internal class FunctionCallData
-    {
-        public string? Name { get; set; }
-        public StringBuilder Arguments { get; } = new StringBuilder();
-        public bool IsComplete { get; set; }
-        /// <summary>
-        /// Gemini 3 thought signature attached to this function call part.
-        /// Must be circulated back in the next request for strict validation.
-        /// </summary>
-        public string? ThoughtSignature { get; set; }
-    }
 }

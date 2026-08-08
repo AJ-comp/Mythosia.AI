@@ -2,7 +2,7 @@
 
 ## Pourquoi une boucle agentique ?
 
-Avec l'appel de fonctions classique, le modèle effectue **un seul** appel de fonction par requête, vous l'exécutez, et la conversation continue. Mais beaucoup de tâches réelles nécessitent **plusieurs étapes** que le modèle doit planifier et exécuter de manière autonome :
+L'appel de fonctions classique peut exécuter **plusieurs fonctions d'une même réponse du modèle sous forme de lot ordonné** et poursuivre les cycles d'outils. L'API Agent encapsule ce mécanisme dans une boucle ReAct orientée objectif avec une **limite d'étapes** explicite, en renvoyant au modèle les résultats de chaque lot jusqu'à ce qu'il produise une réponse finale :
 
 - « Recherche les 3 principales entreprises d'IA et compare leurs cours boursiers » — nécessite plusieurs recherches web et récupérations de cours
 - « Trouve la politique applicable, vérifie le statut de la commande, puis dis-moi si j'ai droit à un remboursement » — nécessite d'enchaîner différents outils dans un ordre logique
@@ -60,7 +60,7 @@ catch (AgentMaxStepsExceededException ex)
 Contrôlez le comportement de la boucle agentique à chaque cycle :
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

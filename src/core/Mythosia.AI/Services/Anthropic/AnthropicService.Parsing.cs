@@ -1,5 +1,6 @@
 ﻿using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -100,6 +101,40 @@ namespace Mythosia.AI.Services.Anthropic
         #endregion
 
         #region Response Parsing
+
+        private static bool TryCreateRefusalException(
+            string responseContent,
+            out AIServiceException? exception)
+        {
+            exception = null;
+
+            try
+            {
+                using var document = JsonDocument.Parse(responseContent);
+                var root = document.RootElement;
+
+                if (!root.TryGetProperty("stop_reason", out var stopReason) ||
+                    !string.Equals(stopReason.GetString(), "refusal", StringComparison.Ordinal))
+                {
+                    return false;
+                }
+
+                var details = root.TryGetProperty("stop_details", out var stopDetails) &&
+                              stopDetails.ValueKind != JsonValueKind.Null
+                    ? stopDetails.GetRawText()
+                    : "{\"stop_reason\":\"refusal\"}";
+
+                exception = new AIServiceException(
+                    "Claude declined to process the request (stop_reason=refusal).",
+                    details,
+                    nameof(AIProvider.Anthropic));
+                return true;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
+        }
 
         protected override string ExtractResponseContent(string responseContent)
         {

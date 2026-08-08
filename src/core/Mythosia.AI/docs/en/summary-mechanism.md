@@ -197,10 +197,9 @@ deleting anyway would not shrink the request and would cost history for nothing.
 | Reason | Meaning |
 |---|---|
 | `nothing-to-cut` | Nothing before the current question to remove |
-| `window-clipped` | What would be cut is already outside the `MaxMessageCount` window, so removing it changes nothing |
 | `retries-exhausted` | `ContextRecoveryMaxRetries` used up |
 
-In all three the original error propagates with **no summary call and no deletion**.
+In both cases the original error propagates with **no summary call and no deletion**.
 
 > **Non-streaming differs.** A retry there re-enters the provider's round loop from zero, so a tool that
 > already ran would run again. Recovery therefore stops with the reason `tool-side-effects` in that case.

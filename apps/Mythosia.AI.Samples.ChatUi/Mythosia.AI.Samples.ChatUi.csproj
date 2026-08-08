@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Mythosia.AI.Test" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\rag\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
     <ProjectReference Include="..\..\src\core\Mythosia.AI\Mythosia.AI.csproj" />
     <ProjectReference Include="..\..\src\core\Mythosia.AI.Providers.Alibaba\Mythosia.AI.Providers.Alibaba.csproj" />

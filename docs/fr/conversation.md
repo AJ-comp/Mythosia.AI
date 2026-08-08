@@ -13,7 +13,7 @@ var reply = await service.GetCompletionAsync("Quelle est ma couleur préférée 
 Pour repartir à zéro :
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Politique de résumé

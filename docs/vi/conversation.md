@@ -13,7 +13,7 @@ var reply = await service.GetCompletionAsync("Màu yêu thích của tôi là m�
 Để bắt đầu lại từ đầu:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Summary Policy

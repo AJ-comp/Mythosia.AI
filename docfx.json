@@ -4,11 +4,30 @@
     {
       "src": [
         {
-          "src": "src",
+          "src": ".",
           "files": [
-            "**/*.csproj"
+            "src/core/Mythosia.AI.Abstractions/bin/Release/netstandard2.1/Mythosia.AI.Abstractions.dll",
+            "src/core/Mythosia.AI/bin/Release/netstandard2.1/Mythosia.AI.dll",
+            "src/core/Mythosia.AI.Providers.Alibaba/bin/Release/netstandard2.1/Mythosia.AI.Providers.Alibaba.dll",
+            "src/integrations/Mythosia.AI.Mcp/bin/Release/netstandard2.1/Mythosia.AI.Mcp.dll",
+            "src/loaders/Mythosia.Documents.Abstractions/bin/Release/netstandard2.1/Mythosia.Documents.Abstractions.dll",
+            "src/loaders/Mythosia.Documents.Hwp/bin/Release/netstandard2.1/Mythosia.Documents.Hwp.dll",
+            "src/loaders/Mythosia.Documents.Office/bin/Release/netstandard2.1/Mythosia.Documents.Office.dll",
+            "src/loaders/Mythosia.Documents.Pdf/bin/Release/netstandard2.1/Mythosia.Documents.Pdf.dll",
+            "src/rag/Mythosia.AI.Rag.Abstractions/bin/Release/netstandard2.1/Mythosia.AI.Rag.Abstractions.dll",
+            "src/rag/Mythosia.AI.Rag/bin/Release/netstandard2.1/Mythosia.AI.Rag.dll",
+            "src/serving/Mythosia.AI.Serving.Vllm/bin/Release/netstandard2.1/Mythosia.AI.Serving.Vllm.dll",
+            "src/vectordb/Mythosia.VectorDb.Abstractions/bin/Release/netstandard2.1/Mythosia.VectorDb.Abstractions.dll",
+            "src/vectordb/Mythosia.VectorDb.InMemory/bin/Release/netstandard2.1/Mythosia.VectorDb.InMemory.dll",
+            "src/vectordb/Mythosia.VectorDb.Pinecone/bin/Release/netstandard2.1/Mythosia.VectorDb.Pinecone.dll",
+            "src/vectordb/Mythosia.VectorDb.Postgres/bin/Release/net10.0/Mythosia.VectorDb.Postgres.dll",
+            "src/vectordb/Mythosia.VectorDb.Qdrant/bin/Release/netstandard2.1/Mythosia.VectorDb.Qdrant.dll",
+            "src/vectordb/Mythosia.VectorDb.Tools/bin/Release/net10.0/Mythosia.VectorDb.Tools.dll"
           ]
         }
+      ],
+      "references": [
+        "artifacts/docfx-references/*.dll"
       ],
       "dest": "api"
     }
@@ -17,17 +36,22 @@
     "content": [
       {
         "files": [
-          "**/*.{md,yml}"
+          "index.md",
+          "toc.yml",
+          "README.md",
+          "docs/**/*.{md,yml}",
+          "api/**/*.{md,yml}",
+          "src/**/README.md",
+          "src/**/RELEASE_NOTES.md"
         ],
         "exclude": [
-          "_site/**"
-        ]
-      }
-    ],
-    "resource": [
-      {
-        "files": [
-          "images/**"
+          "_site/**",
+          ".github/**",
+          "build/**",
+          "tests/**",
+          "**/CLAUDE.md",
+          "**/bin/**",
+          "**/obj/**"
         ]
       }
     ],

@@ -25,7 +25,7 @@ dotnet add package Mythosia.Documents.Pdf
 ## PDF
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions
+var loader = new PdfDocumentLoader(options: new PdfParserOptions
 {
     Password = "secret",           // Cho PDF được mã hóa
     IncludeMetadata = true,        // Trích xuất tiêu đề, tác giả
@@ -39,7 +39,7 @@ var docs = await loader.LoadAsync("report.pdf");
 ## Word (.docx)
 
 ```csharp
-var loader = new WordDocumentLoader(new OfficeParserOptions
+var loader = new WordDocumentLoader(options: new OfficeParserOptions
 {
     IncludeMetadata = true,
     NormalizeWhitespace = true
@@ -51,7 +51,7 @@ var docs = await loader.LoadAsync("document.docx");
 ## Excel (.xlsx)
 
 ```csharp
-var loader = new ExcelDocumentLoader(new OfficeParserOptions
+var loader = new ExcelDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSheetNames = true,  // Thêm tên sheet trước mỗi section
     NormalizeWhitespace = true
@@ -63,7 +63,7 @@ var docs = await loader.LoadAsync("spreadsheet.xlsx");
 ## PowerPoint (.pptx)
 
 ```csharp
-var loader = new PowerPointDocumentLoader(new OfficeParserOptions
+var loader = new PowerPointDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSlideNumbers = true,  // Thêm số slide trước mỗi section
     NormalizeWhitespace = true
@@ -98,7 +98,7 @@ HWP loader chuyển đổi văn bản, bảng và cấu trúc heading thành `Do
 Loader được tích hợp tự động khi dùng `.AddDocument()` trong `RagBuilder`. Để load thủ công và thêm kết quả:
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
+var loader = new PdfDocumentLoader(options: new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("report.pdf");
 
 var service = new AnthropicService(apiKey, http)

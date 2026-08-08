@@ -67,12 +67,6 @@ public class SummaryConversationPolicyTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         public int StreamCallCount { get; private set; }
 
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
@@ -104,8 +98,8 @@ public class SummaryConversationPolicyTests
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
     }
 
     #endregion
@@ -573,6 +567,49 @@ public class SummaryConversationPolicyTests
         // Verify recent messages were kept
         Assert.IsTrue(messages.Any(m => m.Content == "msg3"), "msg3 should be kept");
         Assert.IsTrue(messages.Any(m => m.Content == "msg4"), "msg4 should be kept");
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public async Task Summarization_DoesNotSplitFunctionCallAndResultBatch()
+    {
+        var mock = new MockAIService("Summary text");
+        mock.ConversationPolicy = SummaryConversationPolicy.ByMessage(
+            triggerCount: 2,
+            keepRecentCount: 1);
+        var call = new FunctionCall
+        {
+            Id = "call-a",
+            Name = "lookup",
+            Source = IdSource.OpenAI,
+            Index = 0
+        };
+        var batch = new FunctionCallBatch(new[] { call });
+        var resultBatch = new FunctionCallResultBatch(batch.Id, new[]
+        {
+            new FunctionCallResult { Call = call, Content = "result" }
+        });
+        mock.ActivateChat.Messages.Add(new Message(ActorRole.User, "old message"));
+        mock.ActivateChat.Messages.Add(new Message(ActorRole.Assistant, string.Empty)
+        {
+            FunctionCallBatch = batch
+        });
+        mock.ActivateChat.Messages.Add(new Message(ActorRole.Function, "result")
+        {
+            FunctionCallResultBatch = resultBatch
+        });
+
+        await mock.ApplySummaryPolicyIfNeededAsync();
+
+        var retainedMessages = mock.ActivateChat.Messages.ToList();
+        var callIndex = retainedMessages.FindIndex(message =>
+            message.FunctionCallBatch?.Id == batch.Id);
+        var resultIndex = retainedMessages.FindIndex(message =>
+            message.FunctionCallResultBatch?.FunctionCallBatchId == batch.Id);
+        Assert.IsTrue(callIndex >= 0, "The assistant function-call batch must be retained.");
+        Assert.AreEqual(callIndex + 1, resultIndex,
+            "The function result must remain immediately after its assistant call batch.");
     }
 
     [TestCategory("Unit")]

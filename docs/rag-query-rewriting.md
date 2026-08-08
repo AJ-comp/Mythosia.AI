@@ -19,8 +19,7 @@ A `LlmQueryRewriter` uses the AI service itself to rewrite the query before embe
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // Uses the same AI service
-    .WithQueryRewriteMaxTokens(250)  // Token budget for rewriting
+    .WithQueryRewriter(250)          // Uses the same AI service
     .AddDocument("docs.txt")
 )
 ```

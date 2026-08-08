@@ -12,10 +12,9 @@ namespace Mythosia.AI.Providers.Alibaba
             return _protocol.CreateFunctionRequest(ApiKey, body);
         }
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
         {
-            var (content, functionCall) = _protocol.ExtractFunctionCall(response);
-            return (content, functionCall!);
+            return _protocol.ExtractFunctionCalls(response);
         }
     }
 }

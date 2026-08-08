@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // เกณฑ์ nucleus sampling
 service.MaxTokens = 1024;          // จำนวน token output สูงสุด
 service.FrequencyPenalty = 0.0f;   // ลดโทษ token ที่ซ้ำกัน
 service.PresencePenalty = 0.0f;    // ลดโทษ token ที่เคยปรากฏแล้ว
-service.MaxMessageCount = 20;      // ขนาด context window ของการสนทนา (เลิกใช้แล้ว — จะถูกลบใน v7.0)
 ```
 
-> **เลิกใช้แล้ว:** `MaxMessageCount` (sliding window แบบนับจำนวนข้อความ) ถูกยกเลิกการใช้งานแล้วและจะถูกลบใน v7.0 — การจัดการ context จะเปลี่ยนเป็นแบบอิง token เท่านั้นผ่าน `ConversationPolicy` ก่อนที่จะถูกลบ window นี้รับประกันว่าจะไม่ทิ้งข้อความล่าสุดของ user ดังนั้นการรัน tool แบบ agentic จะไม่สูญเสีย query ที่กำลังทำงานอยู่
 
 ## Fluent Extension Methods
 
@@ -79,7 +77,8 @@ Service instance เดียวรองรับหลาย conversation thre
 
 ```csharp
 // เริ่ม conversation block ใหม่
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // สลับไปยัง block อื่น
 service.SetActivateChat(chat2Id);

@@ -24,93 +24,9 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
-            if (StatelessMode)
+            await foreach (var chunk in StreamAsync(message, cancellationToken: default))
             {
-                await ProcessStatelessStreamAsync(message, messageReceivedAsync);
-                return;
-            }
-
-            Stream = true;
-            ActivateChat.Messages.Add(message);
-
-            var request = CreateMessageRequest();
-            var response = await SendStreamingRequestAsync(request);
-
-            var allContent = new StringBuilder();
-            var diagnostics = new StreamDiagnostics();
-            var options = StreamOptions.TextOnlyOptions;
-
-            await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
-            {
-                if (!TryExtractSseData(line, out var jsonData)) continue;
-                if (jsonData == SseDoneSignal) break;
-
-                try
-                {
-                    var content = StreamParseJson(jsonData);
-                    if (!string.IsNullOrEmpty(content))
-                    {
-                        allContent.Append(content);
-                        diagnostics.AccumulatedTextLength += content.Length;
-                        diagnostics.DataLinesProcessed++;
-                        await messageReceivedAsync(content);
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    diagnostics.ParseFailures++;
-                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
-                    throw new AIServiceException("Failed to parse Gemini streaming response", ex.Message);
-                }
-            }
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
-        }
-
-        private async Task ProcessStatelessStreamAsync(Message message, Func<string, Task> messageReceivedAsync)
-        {
-            Stream = true;
-            var tempChat = new ChatBlock
-            {
-                SystemMessage = ActivateChat.SystemMessage
-            };
-            tempChat.Messages.Add(message);
-
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
-
-            try
-            {
-                var request = CreateMessageRequest();
-                var response = await SendStreamingRequestAsync(request);
-
-                var diagnostics = new StreamDiagnostics();
-                var options = StreamOptions.TextOnlyOptions;
-
-                await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
-                {
-                    if (!TryExtractSseData(line, out var jsonData)) continue;
-                    if (jsonData == SseDoneSignal) break;
-
-                    try
-                    {
-                        var content = StreamParseJson(jsonData);
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            diagnostics.AccumulatedTextLength += content.Length;
-                            diagnostics.DataLinesProcessed++;
-                            await messageReceivedAsync(content);
-                        }
-                    }
-                    catch (JsonException)
-                    {
-                        diagnostics.ParseFailures++;
-                    }
-                }
-            }
-            finally
-            {
-                ActivateChat = backup;
+                await messageReceivedAsync(chunk);
             }
         }
 
@@ -136,12 +52,12 @@ namespace Mythosia.AI.Services.Google
                 yield break;
             }
 
-            // Read stream and yield chunks in real-time
             var textBuffer = new StringBuilder();
-            var functionCallData = new FunctionCallData();
+            var functionCalls = new GeminiFunctionCallCollector(IsGemini3Model());
+            var streamState = new GeminiStreamState();
 
             await foreach (var content in ReadGeminiStreamChunks(
-                response, options, functionCallData, cancellationToken))
+                response, options, functionCalls, streamState, cancellationToken))
             {
                 if (content.Type == StreamingContentType.Text)
                     textBuffer.Append(content.Content);
@@ -149,27 +65,70 @@ namespace Mythosia.AI.Services.Google
                 yield return content;
             }
 
-            // Execute function if detected — yield FunctionResult to signal next round
-            if (functionCallData.IsComplete && functionCallData.Name != null && useFunctions)
+            if (!streamState.IsSuccessful)
+                yield break;
+
+            if (functionCalls.Calls.Count > 0 && useFunctions)
             {
-                var funcId = Guid.NewGuid().ToString();
-                var argsJson = functionCallData.Arguments.ToString();
+                var batch = functionCalls.ToBatch();
+                FunctionCallResultBatch? results = null;
+                AIServiceException? batchException = null;
 
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {functionCallData.Name}");
+                try
+                {
+                    results = await ProcessFunctionCallsAsync(
+                        batch,
+                        policy,
+                        cancellationToken);
+                    AddFunctionCallBatchToHistory(textBuffer.ToString(), batch);
+                }
+                catch (AIServiceException exception)
+                {
+                    batchException = exception;
+                }
 
-                AddStreamFunctionCallMessage(funcId, functionCallData, argsJson);
+                if (batchException != null)
+                {
+                    yield return CreateGeminiStreamError(
+                        "Gemini emitted an invalid function-call batch; no functions were executed.",
+                        "malformed_function_call",
+                        batchException.Message);
+                    yield break;
+                }
 
-                var functionResult = await ExecuteFunctionCallAsync(
-                    functionCallData, options, cancellationToken);
-                yield return functionResult;
+                AddFunctionResultBatchToHistory(results!);
 
-                AddStreamFunctionResultMessage(funcId, functionCallData,
-                    functionResult.Metadata?["result"]?.ToString() ?? "");
+                foreach (var result in results!.Results)
+                {
+                    var resultContent = new StreamingContent
+                    {
+                        Type = StreamingContentType.FunctionResult,
+                        Content = result.Content,
+                        FunctionResult = result,
+                        FunctionCallBatchId = batch.Id
+                    };
+
+                    if (options.IncludeMetadata)
+                    {
+                        resultContent.Metadata = new Dictionary<string, object>
+                        {
+                            ["function_calling"] = false,
+                            ["function_name"] = result.Call.Name,
+                            ["function_index"] = result.Call.Index,
+                            ["status"] = result.IsError ? "error" : "completed",
+                            ["result"] = result.Content
+                        };
+                    }
+
+                    yield return resultContent;
+                }
             }
-            else if (textBuffer.Length > 0)
+            else
             {
-                // Text-only response — save assistant message
+                // A successful no-tool terminal response is still an assistant turn even when
+                // Gemini emits only thought parts and no visible text. The non-streaming path
+                // already records that empty terminal turn; streaming must preserve the same
+                // conversation state so the history cannot end on a stale function result.
                 ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
             }
         }
@@ -183,11 +142,11 @@ namespace Mythosia.AI.Services.Google
         private async IAsyncEnumerable<StreamingContent> ReadGeminiStreamChunks(
             HttpResponseMessage response,
             StreamOptions options,
-            FunctionCallData functionCallData,
+            GeminiFunctionCallCollector functionCalls,
+            GeminiStreamState streamState,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             TokenUsage? lastUsage = null;
-            bool functionCallEventSent = false;
             var diagnostics = new StreamDiagnostics();
 
             await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
@@ -196,170 +155,193 @@ namespace Mythosia.AI.Services.Google
                     continue;
 
                 if (jsonData == SseDoneSignal)
-                {
-                    if (!options.TextOnly)
-                    {
-                        var completionContent = new StreamingContent
-                        {
-                            Type = StreamingContentType.Completion
-                        };
-                        if (options.IncludeMetadata)
-                        {
-                            completionContent.Metadata = new Dictionary<string, object>
-                            {
-                                ["total_length"] = 0
-                            };
-                        }
-                        if (lastUsage != null)
-                            completionContent.Usage = lastUsage;
-                        yield return completionContent;
-                    }
                     break;
-                }
 
-                StreamingContent? parsedContent;
+                diagnostics.DataLinesProcessed++;
+
+                IReadOnlyList<StreamingContent>? parsedContents = null;
+                StreamingContent? envelopeError = null;
+                Exception? parseException = null;
                 try
                 {
-                    parsedContent = ParseGeminiStreamChunk(jsonData, options, functionCallData);
+                    using var document = JsonDocument.Parse(jsonData);
+                    envelopeError = InspectGeminiStreamEnvelope(document.RootElement, streamState);
+                    if (envelopeError == null)
+                        parsedContents = ParseGeminiStreamChunk(jsonData, options, functionCalls);
                 }
-                catch (JsonException)
+                catch (Exception exception) when (
+                    exception is JsonException ||
+                    exception is InvalidOperationException ||
+                    exception is KeyNotFoundException)
                 {
-                    continue;
+                    parseException = exception;
                 }
 
-                if (parsedContent == null)
+                if (envelopeError != null)
+                {
+                    yield return envelopeError;
+                    yield break;
+                }
+
+                if (parseException != null)
+                {
+                    diagnostics.ParseFailures++;
+                    streamState.Failed = true;
+                    yield return CreateGeminiStreamError(
+                        "Gemini emitted a malformed streaming response; the partial stream was not saved.",
+                        "malformed_stream",
+                        parseException.Message);
+                    yield break;
+                }
+
+                if (parsedContents == null)
                     continue;
 
-                if (parsedContent.Usage != null)
-                    lastUsage = CopyTokenUsage(parsedContent.Usage);
-
-                if (parsedContent.Type == StreamingContentType.FunctionCall)
+                foreach (var parsedContent in parsedContents)
                 {
-                    if (!functionCallEventSent)
+                    if (parsedContent.Usage != null)
+                        lastUsage = CopyTokenUsage(parsedContent.Usage);
+
+                    if (parsedContent.Type == StreamingContentType.FunctionCall)
                     {
-                        functionCallEventSent = true;
+                        yield return parsedContent;
+                    }
+                    else if (parsedContent.Type == StreamingContentType.Text)
+                    {
+                        if (!options.TextOnly || parsedContent.Content != null)
+                            yield return parsedContent;
+                    }
+                    else if (parsedContent.Type == StreamingContentType.Reasoning)
+                    {
+                        if (!options.TextOnly)
+                            yield return parsedContent;
+                    }
+                    else if (!options.TextOnly && (options.IncludeMetadata || parsedContent.Usage != null))
+                    {
                         yield return parsedContent;
                     }
                 }
-                else if (parsedContent.Type == StreamingContentType.Text)
-                {
-                    if (functionCallEventSent && functionCallData.IsComplete)
-                        continue;
-
-                    if (!options.TextOnly || parsedContent.Content != null)
-                        yield return parsedContent;
-                }
-                else if (parsedContent.Type == StreamingContentType.Reasoning)
-                {
-                    if (functionCallEventSent && functionCallData.IsComplete)
-                        continue;
-
-                    if (!options.TextOnly)
-                        yield return parsedContent;
-                }
-                else if (!options.TextOnly && (options.IncludeMetadata || parsedContent.Usage != null))
-                {
-                    yield return parsedContent;
-                }
             }
-        }
 
-        private void AddStreamFunctionCallMessage(string functionId, FunctionCallData functionCallData, string argsJson)
-        {
-            var fcMetadata = new Dictionary<string, object>
+            if (streamState.Failed)
+                yield break;
+
+            if (!streamState.TerminalSeen)
             {
-                [MessageMetadataKeys.MessageType] = "function_call",
-                [MessageMetadataKeys.FunctionId] = functionId,
-                [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
-                [MessageMetadataKeys.FunctionName] = functionCallData.Name ?? string.Empty,
-                [MessageMetadataKeys.FunctionArguments] = argsJson
-            };
+                streamState.Failed = true;
+                yield return CreateGeminiStreamError(
+                    "Gemini stream ended before a successful terminal finish reason was received; the partial stream was not saved.",
+                    "incomplete_stream");
+                yield break;
+            }
 
-            if (functionCallData.ThoughtSignature != null)
-                fcMetadata[MessageMetadataKeys.ThoughtSignature] = functionCallData.ThoughtSignature;
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "") { Metadata = fcMetadata });
-        }
-
-        private void AddStreamFunctionResultMessage(string functionId, FunctionCallData functionCallData, string result)
-        {
-            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
+            if (!options.TextOnly)
             {
-                Metadata = new Dictionary<string, object>
+                var completionContent = new StreamingContent
                 {
-                    [MessageMetadataKeys.MessageType] = "function_result",
-                    [MessageMetadataKeys.FunctionId] = functionId,
-                    [MessageMetadataKeys.FunctionSource] = IdSource.Gemini,
-                    [MessageMetadataKeys.FunctionName] = functionCallData.Name ?? string.Empty
-                }
-            });
-        }
-
-        private async Task<StreamingContent> ExecuteFunctionCallAsync(
-            FunctionCallData functionCallData,
-            StreamOptions options,
-            CancellationToken cancellationToken)
-        {
-            var content = new StreamingContent
-            {
-                Type = StreamingContentType.FunctionResult
-            };
-
-            try
-            {
-                var arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                    functionCallData.Arguments.ToString()) ?? new Dictionary<string, object>();
-
-                var result = await ProcessFunctionCallAsync(
-                    functionCallData.Name ?? "",
-                    arguments);
-
+                    Type = StreamingContentType.Completion,
+                    Usage = lastUsage
+                };
                 if (options.IncludeMetadata)
                 {
-                    content.Metadata = new Dictionary<string, object>
+                    completionContent.Metadata = new Dictionary<string, object>
                     {
-                        ["function_calling"] = false,
-                        ["function_name"] = functionCallData.Name ?? "",
-                        ["status"] = "completed",
-                        ["result"] = result
+                        ["finish_reason"] = streamState.FinishReason ?? SuccessfulFinishReason
                     };
                 }
+                yield return completionContent;
             }
-            catch (Exception ex)
+        }
+
+        private sealed class GeminiFunctionCallCollector
+        {
+            private readonly bool _requireProviderCallId;
+            private readonly List<FunctionCall> _calls = new List<FunctionCall>();
+            private readonly Dictionary<string, FunctionCall> _callsById =
+                new Dictionary<string, FunctionCall>(StringComparer.Ordinal);
+            private readonly Dictionary<string, string> _rawPartsById =
+                new Dictionary<string, string>(StringComparer.Ordinal);
+            private readonly Dictionary<string, int> _chunkById =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            private readonly List<JsonElement> _responseParts = new List<JsonElement>();
+            private int _chunkSequence;
+
+            public string BatchId { get; } = Guid.NewGuid().ToString();
+
+            public IReadOnlyList<FunctionCall> Calls => _calls;
+
+            public GeminiFunctionCallCollector(bool requireProviderCallId)
             {
-                content.Type = StreamingContentType.Error;
-                content.Metadata = new Dictionary<string, object>
-                {
-                    ["function_calling"] = false,
-                    ["function_name"] = functionCallData.Name ?? "",
-                    ["status"] = "error",
-                    ["error"] = ex.Message
-                };
+                _requireProviderCallId = requireProviderCallId;
             }
 
-            return content;
+            public void BeginChunk()
+            {
+                _chunkSequence++;
+            }
+
+            public bool TryCollectPart(JsonElement part, out FunctionCall? functionCall)
+            {
+                functionCall = null;
+                if (!part.TryGetProperty("functionCall", out _))
+                {
+                    _responseParts.Add(part.Clone());
+                    return false;
+                }
+
+                var parsedCall = ParseGeminiFunctionCallPart(
+                    part,
+                    _calls.Count,
+                    _responseParts.Count,
+                    _requireProviderCallId);
+
+                if (_callsById.TryGetValue(parsedCall.Id, out var existingCall))
+                {
+                    var rawPart = part.GetRawText();
+                    if (_chunkById[parsedCall.Id] != _chunkSequence &&
+                        string.Equals(_rawPartsById[parsedCall.Id], rawPart, StringComparison.Ordinal))
+                    {
+                        // Defensive idempotency for a transport/provider retry of an already
+                        // complete snapshot. Two parts in one envelope still mean two calls and
+                        // must not collapse into one execution.
+                        return true;
+                    }
+
+                    throw new InvalidOperationException(
+                        $"Gemini emitted duplicate function-call ID '{existingCall.Id}'.");
+                }
+
+                _responseParts.Add(part.Clone());
+                _calls.Add(parsedCall);
+                _callsById.Add(parsedCall.Id, parsedCall);
+                _rawPartsById.Add(parsedCall.Id, part.GetRawText());
+                _chunkById.Add(parsedCall.Id, _chunkSequence);
+                functionCall = parsedCall;
+                return true;
+            }
+
+            public FunctionCallBatch ToBatch()
+            {
+                var batch = new FunctionCallBatch(_calls)
+                {
+                    Id = BatchId
+                };
+
+                if (_calls.Count > 0)
+                {
+                    batch.Metadata = new Dictionary<string, object>
+                    {
+                        [GeminiResponsePartsMetadataKey] = new List<JsonElement>(_responseParts)
+                    };
+                }
+
+                return batch;
+            }
         }
 
         #endregion
 
         #region SSE Helpers
-
-        private async Task<HttpResponseMessage> SendStreamingRequestAsync(HttpRequestMessage request)
-        {
-            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw AIHttpErrorFactory.FromHttp(
-                    (int)response.StatusCode,
-                    response.ReasonPhrase,
-                    errorContent,
-                    "Gemini streaming request failed");
-            }
-
-            return response;
-        }
 
         private static bool TryExtractSseData(string? line, out string jsonData)
         {

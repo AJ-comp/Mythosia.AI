@@ -52,20 +52,24 @@ var response = await service.GetCompletionAsync("Какая погода в Мо
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "Поиск по каталогу товаров")]
-public static string SearchProducts(
-    [AiParameter("Поисковый запрос", required: true)] string query,
-    [AiParameter("Максимум результатов")] int limit = 5)
+public sealed class ProductFunctions
 {
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "Поиск по каталогу товаров")]
+    public string SearchProducts(
+        [AiParameter("Поисковый запрос", required: true)] string query,
+        [AiParameter("Максимум результатов")] int limit = 5)
+    {
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 Затем зарегистрируйте:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Политика вызова функций
@@ -76,13 +80,13 @@ service.AddFunction(SearchProducts);
 using Mythosia.AI.Models.Functions;
 
 // Модель решает сама (по умолчанию)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // Всегда вызывать функцию
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // Отключить вызов функций
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## Массовая регистрация из класса
@@ -132,11 +136,14 @@ service.WithoutFunctions();  // FunctionsDisabled = true
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "Возвращает текущую цену акции")
-    .AddParameter("ticker", "Тикер акции", required: true)
+    .Create("get_stock_price")
+    .WithDescription("Возвращает текущую цену акции")
+    .AddParameter("ticker", "string", "Тикер акции", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

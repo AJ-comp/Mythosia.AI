@@ -33,14 +33,14 @@ Mehrere Quellentypen werden unterstützt:
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // lokale Datei
-    .AddDocument("https://example.com/dok.txt")   // URL
+    .AddUrl("https://example.com/dok.txt")        // URL
     .AddText("Inline-Inhalt kann hier rein.")      // direkte Zeichenkette
 )
 ```
 
 ## Benutzerdefinierter Embedding-Anbieter
 
-Standardmäßig nutzt RAG den eigenen Anbieter des Services für Embeddings. Für ein dediziertes Embedding-Modell:
+Standardmäßig nutzt RAG den integrierten lokalen Embedding-Anbieter. Für ein dediziertes Embedding-Modell:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("wissensdatenbank.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("grosser-korpus.txt")
     );
 ```
@@ -81,11 +85,14 @@ Das Retrieval-Verhalten pro Abfrage feinjustieren:
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,                  // Anzahl der abzurufenden Abschnitte
-    ScoreThreshold = 0.7f      // Minimale Ähnlichkeitsbewertung
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,              // Anzahl der abzurufenden Abschnitte
+        MinScore = 0.7         // Minimale Ähnlichkeitsbewertung
+    }
 };
 
-var response = await service.GetCompletionAsync("Deine Frage", ragOptions: options);
+var response = await service.GetCompletionAsync("Deine Frage", options: options);
 ```
 
 ## Nächste Schritte

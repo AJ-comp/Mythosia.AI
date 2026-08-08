@@ -95,17 +95,11 @@ public class StructuredStreamRunTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
     }
 
     #endregion

@@ -28,7 +28,7 @@ namespace Mythosia.AI.Services.Base
 
         public FunctionCallingPolicy DefaultPolicy { get; set; } = FunctionCallingPolicy.Default;
 
-        protected internal FunctionCallingPolicy CurrentPolicy { get; set; }
+        protected internal FunctionCallingPolicy? CurrentPolicy { get; set; }
 
         /// <summary>
         /// Optional async provider that supplies a baseline <see cref="AIRequestContext"/>
@@ -56,7 +56,7 @@ namespace Mythosia.AI.Services.Base
         public Func<CancellationToken, ValueTask<AIRequestContext?>>? SystemMessageProvider { get; internal set; }
 
         public IReadOnlyCollection<ChatBlock> ChatRequests => _chatRequests;
-        public ChatBlock ActivateChat { get; protected set; }
+        public ChatBlock ActivateChat { get; protected set; } = null!;
 
         /// <summary>
         /// When true, each request is processed independently without maintaining conversation history
@@ -75,7 +75,7 @@ namespace Mythosia.AI.Services.Base
 
         #region Model & Generation Settings
 
-        public string Model { get; protected set; }
+        public string Model { get; protected set; } = string.Empty;
 
         /// <summary>
         /// Convenience property for ActivateChat.SystemMessage
@@ -92,17 +92,6 @@ namespace Mythosia.AI.Services.Base
         public float PresencePenalty { get; set; } = 0.0f;
         public uint MaxTokens { get; set; } = 1024;
         public bool Stream { get; set; }
-
-        /// <summary>
-        /// Message-count sliding window applied to each outgoing request.
-        /// Deprecated: a count-based window is a poor proxy for context size and can silently
-        /// interfere with token-based management (<see cref="ConversationPolicy"/>). It will be
-        /// removed in v7.0, after which the full conversation history is sent unless a
-        /// ConversationPolicy trims it. Until removal, the window is guaranteed to never drop
-        /// the most recent user message (see <see cref="GetLatestMessages"/>).
-        /// </summary>
-        [Obsolete("The message-count sliding window will be removed in v7.0 — context management becomes token-based only (ConversationPolicy). To opt out of windowing today, set this to a large value.")]
-        public uint MaxMessageCount { get; set; } = 20;
 
         /// <summary>
         /// How many times a rejected-for-context-length request may be compacted and re-sent.
@@ -142,7 +131,7 @@ namespace Mythosia.AI.Services.Base
         public List<FunctionDefinition> Functions { get; set; } = new List<FunctionDefinition>();
         public bool EnableFunctions { get; set; } = true;
         public FunctionCallMode FunctionCallMode { get; set; } = FunctionCallMode.Auto;
-        public string ForceFunctionName { get; set; }
+        public string? ForceFunctionName { get; set; }
         public bool ShouldUseFunctions => Functions.Count > 0 && EnableFunctions && !FunctionsDisabled;
 
         /// <inheritdoc/>
@@ -150,9 +139,9 @@ namespace Mythosia.AI.Services.Base
 
         #endregion
 
-        protected AIService(string apiKey, string baseUrl, HttpClient httpClient)
+        protected AIService(string? apiKey, string baseUrl, HttpClient httpClient)
         {
-            ApiKey = apiKey;
+            ApiKey = apiKey ?? string.Empty;
             HttpClient = httpClient;
             if (!baseUrl.EndsWith("/"))
                 baseUrl += "/";
@@ -212,31 +201,12 @@ namespace Mythosia.AI.Services.Base
         }
 
         /// <summary>
-        /// Gets the latest messages from the active chat up to MaxMessageCount.
-        /// The window never drops the user turn that anchors the current run: agentic tool
-        /// rounds append two messages per round, so a long run can push the originating user
-        /// query out of a count-based window, producing a request with no user message at all —
-        /// which some OpenAI-compatible servers reject outright (e.g. vLLM/Qwen:
-        /// "No user query found in messages"). If the sliced window contains no user message,
-        /// the most recent user message that was cut off is re-anchored at the front.
+        /// Gets the active conversation messages for an outgoing request.
+        /// Conversation trimming is handled exclusively by <see cref="ConversationPolicy"/>.
         /// </summary>
         protected internal IEnumerable<Message> GetLatestMessages()
         {
-#pragma warning disable CS0618 // MaxMessageCount — deprecated window kept until v7.0
-            var skipped = Math.Max(0, ActivateChat.Messages.Count - (int)MaxMessageCount);
-#pragma warning restore CS0618
-            var messages = ActivateChat.Messages
-                .Skip(skipped)
-                .ToList();
-
-            if (skipped > 0 && !messages.Any(m => m.Role == ActorRole.User))
-            {
-                var anchor = ActivateChat.Messages
-                    .Take(skipped)
-                    .LastOrDefault(m => m.Role == ActorRole.User);
-                if (anchor != null)
-                    messages.Insert(0, anchor);
-            }
+            var messages = ActivateChat.Messages.ToList();
 
             var requestMessageOverride = _currentRequestContext.Value?.RequestMessageOverride;
             if (requestMessageOverride != null && messages.Count > 0)
@@ -272,6 +242,22 @@ namespace Mythosia.AI.Services.Base
         {
             foreach (var message in GetLatestMessages())
             {
+                if (message.FunctionCallBatch != null)
+                {
+                    var calls = string.Join(", ", message.FunctionCallBatch.Calls.Select(call =>
+                        $"{call.Name}({JsonSerializer.Serialize(call.Arguments)})"));
+                    yield return new Message(ActorRole.Assistant, $"[Called {calls}]");
+                    continue;
+                }
+
+                if (message.FunctionCallResultBatch != null)
+                {
+                    var results = string.Join("; ", message.FunctionCallResultBatch.Results.Select(result =>
+                        $"{result.Call.Name}: {result.Content}"));
+                    yield return new Message(ActorRole.User, $"[Function results: {results}]");
+                    continue;
+                }
+
                 if (message.Role == ActorRole.Assistant &&
                     message.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() == "function_call")
                 {
@@ -519,9 +505,6 @@ namespace Mythosia.AI.Services.Base
             MaxTokens = sourceService.MaxTokens;
             FrequencyPenalty = sourceService.FrequencyPenalty;
             PresencePenalty = sourceService.PresencePenalty;
-#pragma warning disable CS0618 // MaxMessageCount — deprecated window kept until v7.0
-            MaxMessageCount = sourceService.MaxMessageCount;
-#pragma warning restore CS0618
             Stream = sourceService.Stream;
 
             StatelessMode = sourceService.StatelessMode;
@@ -699,16 +682,6 @@ namespace Mythosia.AI.Services.Base
         /// Gets the token count for a specific prompt
         /// </summary>
         public abstract Task<uint> GetInputTokenCountAsync(string prompt);
-
-        /// <summary>
-        /// Generates an image from a text prompt
-        /// </summary>
-        public abstract Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024");
-
-        /// <summary>
-        /// Generates an image URL from a text prompt
-        /// </summary>
-        public abstract Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024");
 
         #endregion
     }

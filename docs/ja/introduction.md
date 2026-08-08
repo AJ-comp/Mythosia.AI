@@ -23,9 +23,9 @@ Mythosia.AIは、複数のAIプロバイダー、RAGパイプライン、ドキ�
 | プロバイダー | モデル |
 |------------|--------|
 | **OpenAI** | GPT-5.x、GPT-4.1、GPT-4o、o3シリーズ |
-| **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
+| **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3シリーズ |
-| **xAI** | Grok 4シリーズ、Grok Build、Grok 3 Mini |
+| **xAI** | Grok 4シリーズ、Grok Build |
 | **DeepSeek** | Chat、Reasoner |
 | **Perplexity** | Sonar、Sonar Pro、Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
@@ -33,9 +33,18 @@ Mythosia.AIは、複数のAIプロバイダー、RAGパイプライン、ドキ�
 ## アーキテクチャ概要
 
 ```
+Mythosia.AI                     ← コアAIサービス（全プロバイダー）
+    └── Mythosia.AI.Abstractions   ← IAIServiceインターフェース
+
 Mythosia.AI.Rag                 ← RAGパイプライン、オーケストレーション
-    └── Mythosia.AI             ← コアAIサービス（全プロバイダー）
-        └── Mythosia.AI.Abstractions   ← IAIServiceインターフェース
+    ├── Mythosia.AI.Abstractions
+    ├── Mythosia.AI.Rag.Abstractions
+    │   └── Mythosia.VectorDb.Abstractions
+    ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
+    │   └── Mythosia.Documents.Abstractions
+    └── Mythosia.VectorDb.InMemory
+        ├── Mythosia.VectorDb.Abstractions
+        └── Mythosia.AI.Rag.Abstractions
 
 Mythosia.VectorDb.*             ← ベクターストア（1つ以上選択）
     └── Mythosia.VectorDb.Abstractions

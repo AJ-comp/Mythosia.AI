@@ -81,7 +81,7 @@ var options = new RagQueryOptions
     StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId)
 };
 
-var response = await ragService.GetCompletionAsync("คำถาม", ragOptions: options);
+var response = await ragService.GetCompletionAsync("คำถาม", options: options);
 ```
 
 ### วิธีที่ Filter รวมกัน

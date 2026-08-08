@@ -23,9 +23,9 @@ SDK разных AI-провайдеров сильно отличаются д�
 | Провайдер | Модели |
 |-----------|--------|
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, серия o3 |
-| **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
+| **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3 серии |
-| **xAI** | Grok 4 серии, Grok Build, Grok 3 Mini |
+| **xAI** | Grok 4 серии, Grok Build |
 | **DeepSeek** | Chat, Reasoner |
 | **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
@@ -33,9 +33,18 @@ SDK разных AI-провайдеров сильно отличаются д�
 ## Обзор архитектуры
 
 ```
+Mythosia.AI                     ← Основные AI-сервисы (все провайдеры)
+    └── Mythosia.AI.Abstractions   ← Интерфейс IAIService
+
 Mythosia.AI.Rag                 ← RAG-пайплайн, оркестрация
-    └── Mythosia.AI             ← Основные AI-сервисы (все провайдеры)
-        └── Mythosia.AI.Abstractions   ← Интерфейс IAIService
+    ├── Mythosia.AI.Abstractions
+    ├── Mythosia.AI.Rag.Abstractions
+    │   └── Mythosia.VectorDb.Abstractions
+    ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
+    │   └── Mythosia.Documents.Abstractions
+    └── Mythosia.VectorDb.InMemory
+        ├── Mythosia.VectorDb.Abstractions
+        └── Mythosia.AI.Rag.Abstractions
 
 Mythosia.VectorDb.*             ← Векторные хранилища (выберите одно или несколько)
     └── Mythosia.VectorDb.Abstractions

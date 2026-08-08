@@ -25,7 +25,7 @@ dotnet add package Mythosia.Documents.Pdf
 ## PDF
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions
+var loader = new PdfDocumentLoader(options: new PdfParserOptions
 {
     Password = "secret",           // Для зашифрованих PDF
     IncludeMetadata = true,        // Витяг заголовка, автора
@@ -39,7 +39,7 @@ var docs = await loader.LoadAsync("report.pdf");
 ## Word (.docx)
 
 ```csharp
-var loader = new WordDocumentLoader(new OfficeParserOptions
+var loader = new WordDocumentLoader(options: new OfficeParserOptions
 {
     IncludeMetadata = true,
     NormalizeWhitespace = true
@@ -51,7 +51,7 @@ var docs = await loader.LoadAsync("document.docx");
 ## Excel (.xlsx)
 
 ```csharp
-var loader = new ExcelDocumentLoader(new OfficeParserOptions
+var loader = new ExcelDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSheetNames = true,  // Додавати назву аркуша перед кожною секцією
     NormalizeWhitespace = true
@@ -63,7 +63,7 @@ var docs = await loader.LoadAsync("spreadsheet.xlsx");
 ## PowerPoint (.pptx)
 
 ```csharp
-var loader = new PowerPointDocumentLoader(new OfficeParserOptions
+var loader = new PowerPointDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSlideNumbers = true,  // Додавати номер слайда перед кожною секцією
     NormalizeWhitespace = true
@@ -98,7 +98,7 @@ HWP-завантажувач перетворює текст, таблиці т�
 Завантажувачі автоматично інтегруються при виклику `.AddDocument()` у `RagBuilder`. Для ручного завантаження:
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
+var loader = new PdfDocumentLoader(options: new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("report.pdf");
 
 var service = new AnthropicService(apiKey, http)

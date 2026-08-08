@@ -31,8 +31,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // 同じAIサービスを使用
-    .WithQueryRewriteMaxTokens(250)  // 書き換えのトークン予算
+    .WithQueryRewriter(250)          // 同じAIサービスを使用
     .AddDocument("docs.txt")
 )
 ```

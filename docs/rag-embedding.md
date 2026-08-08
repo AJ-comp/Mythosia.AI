@@ -87,10 +87,9 @@ A lightweight, zero-configuration provider based on feature hashing. No API key,
 When indexing documents, the pipeline embeds chunks in batches to avoid sending thousands of texts in a single API call. The batch size is configurable:
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // default: 100 chunks per API call
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // default: 100 chunks per API call
+pipeline.Options = options;
 ```
 
 A larger batch size means fewer API calls but higher memory usage per call. If you're hitting API rate limits or memory issues, try reducing this value.

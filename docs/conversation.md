@@ -13,7 +13,7 @@ var reply = await service.GetCompletionAsync("What is my favorite color?");
 To start fresh:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Summary Policy

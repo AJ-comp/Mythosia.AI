@@ -17,7 +17,7 @@ service.SystemMessage = originalSystem;
 ```csharp
 // ✅ З AIRequestContext — чисто й без побічних ефектів
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\nВідповідайте за контекстом:\n{retrievedDocs}"
     });
@@ -35,7 +35,7 @@ var context = new AIRequestContext
     SystemMessagePrefix = "Сьогодні 2026-03-31.\n"
 };
 
-var response = await service.GetCompletionAsync("Яка сьогодні дата?", context);
+var response = await service.GetCompletionAsync("Яка сьогодні дата?", context: context);
 ```
 
 **Коли використовувати:** Для впровадження динамічних метаданих (дата, часовий пояс користувача, інформація про сесію), що змінюються від запиту до запиту.
@@ -50,7 +50,7 @@ var context = new AIRequestContext
     SystemMessageSuffix = "\nЗавжди відповідайте українською мовою."
 };
 
-var response = await service.GetCompletionAsync("Hello!", context);
+var response = await service.GetCompletionAsync("Hello!", context: context);
 ```
 
 **Коли використовувати:** Для додавання поведінкових інструкцій, контексту RAG або мовних уподобань до конкретного запиту.
@@ -64,11 +64,11 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("Довідка: повернення можливе протягом 30 днів.").Build()
+        MessageBuilder.Create().AddText("Довідка: повернення можливе протягом 30 днів.").Build()
     }
 };
 
-var response = await service.GetCompletionAsync("Чи можу я повернути товар?", context);
+var response = await service.GetCompletionAsync("Чи можу я повернути товар?", context: context);
 ```
 
 **Коли використовувати:** Для надання довідкових матеріалів, few-shot прикладів або допоміжного контексту, який не повинен зберігатися в історії діалогу.
@@ -85,12 +85,12 @@ var context = new AIRequestContext
         .Build()
 };
 
-await service.GetCompletionAsync(userQuery, context);
+await service.GetCompletionAsync(userQuery, context: context);
 ```
 
 **Коли використовувати:** Коли проміжний шар (RAG, переписування запитів) повинен повністю переформулювати промпт перед відправкою моделі, зберігаючи при цьому оригінальне введення користувача в історії діалогу.
 
-> **💡 Примітка:** При використанні `.WithRag()` RAG-пайплайн автоматично задіює цю властивість. Докладніше про внутрішній механізм див. [Налаштування пайплайну — Внутрішній механізм](rag-pipeline.md#внутрішній-механізм).
+> **💡 Примітка:** При використанні `.WithRag()` RAG-пайплайн автоматично задіює цю властивість. Докладніше про внутрішній механізм див. [Налаштування пайплайну — Внутрішній механізм](rag-pipeline.md#як-це-працює-зсередини).
 
 ## Порівняння «до» та «після»
 
@@ -105,12 +105,13 @@ service.SystemMessage = origSys
     + $"\nСьогодні: {DateTime.Now:yyyy-MM-dd}"
     + $"\n\nКонтекст:\n{retrievedChunks}";
 
-service.Messages.Add(MessageBuilder.User(fewShotExample).Build());
+var fewShotIndex = service.ActivateChat.Messages.Count;
+service.ActivateChat.Messages.Add(MessageBuilder.Create().AddText(fewShotExample).Build());
 
 var answer = await service.GetCompletionAsync(userQuery);
 
 service.SystemMessage = origSys;
-service.Messages.RemoveAt(service.Messages.Count - 2); // видалити few-shot приклад
+service.ActivateChat.Messages.RemoveAt(fewShotIndex); // видалити few-shot приклад
 ```
 
 **З AIRequestContext:**
@@ -118,13 +119,13 @@ service.Messages.RemoveAt(service.Messages.Count - 2); // видалити few-s
 ```csharp
 // ✅ Чисто, без зміни стану, без побічних ефектів
 var answer = await service.GetCompletionAsync(userQuery,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessagePrefix = $"Сьогодні: {DateTime.Now:yyyy-MM-dd}\n",
         SystemMessageSuffix = $"\n\nКонтекст:\n{retrievedChunks}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User(fewShotExample).Build()
+            MessageBuilder.Create().AddText(fewShotExample).Build()
         }
     });
 ```
@@ -142,16 +143,15 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\nКонтекст:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("Приклад: ...").Build()
+            MessageBuilder.Create().AddText("Приклад: ...").Build()
         }
     }
 );
 ```
 
 Докладніше про перевизначення параметрів генерації див. [AIRequestProfile](request-profiles.md).
-```
 
-> **💡 Примітка:** При використанні `.WithRag()` RAG-пайплайн задіює цю властивість автоматично. Деталі — в розділі [Налаштування пайплайну — Внутрішня будова](rag-pipeline.md#внутрішня-будова).
+> **💡 Примітка:** При використанні `.WithRag()` RAG-пайплайн задіює цю властивість автоматично. Деталі — в розділі [Налаштування пайплайну — Внутрішня будова](rag-pipeline.md#як-це-працює-зсередини).
 
 ## Поєднання з AIRequestProfile
 
@@ -164,7 +164,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\nКонтекст:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("Приклад: ...").Build()
+            MessageBuilder.Create().AddText("Приклад: ...").Build()
         }
     }
 );
@@ -184,15 +184,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. Основна відповідь чату
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. Генератор заголовків (доданий пізніше)
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. Сумаризатор (доданий ще пізніше)
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Виклик agent — легко забути! Компілятор не попередить
 var agentResult = await service.RunAgentAsync(goal);  // ← дата відсутня, тихий баг
@@ -297,7 +297,7 @@ Provider викликається **один раз на запит**, тож з
 
 Суть `AIRequestContext` — не в тому, що він «використовується лише раз», а в тому, що **«ніколи не забруднює постійний стан»**. `SystemMessageProvider` — це фабрика, яка **повторно виконує колбек на кожному запиті**, створюючи **абсолютно новий `AIRequestContext`, обмежений цим запитом**. Отриманий контекст усе ще per-request scoped, значення ніколи не просочується в історію розмови, а на наступному виклику колбек виконується знову, відображаючи **актуальне на той момент** значення. Тобто provider не порушує принцип дизайну `AIRequestContext` — він лише **автоматизує його**.
 
-Конкретно: реєстрація provider нижче **не** змінює ні `service.SystemMessage`, ні `service.Messages`:
+Конкретно: реєстрація provider нижче **не** змінює ні `service.SystemMessage`, ні `service.ActivateChat.Messages`:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

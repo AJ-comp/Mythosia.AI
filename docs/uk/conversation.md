@@ -13,7 +13,7 @@ var reply = await service.GetCompletionAsync("Який мій улюблений
 Щоб почати заново:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Політика сумаризації

@@ -89,14 +89,66 @@ namespace Mythosia.AI.Models
     }
 
     /// <summary>
-    /// Reasoning effort level for xAI Grok reasoning models (grok-3-mini, grok-4.3).
-    /// Off: Disables reasoning effort parameter (default).
-    /// Low/High: Explicit reasoning effort levels.
+    /// Reasoning effort level for GPT-5.6 models.
+    /// Auto uses the model default (Medium).
+    /// GPT-5.6 supports: none, low, medium (default), high, xhigh, max.
+    /// </summary>
+    public enum Gpt5_6Reasoning
+    {
+        Auto,
+        None,
+        Low,
+        Medium,
+        High,
+        XHigh,
+        Max
+    }
+
+    /// <summary>
+    /// Reasoning execution mode for GPT-5.6 models.
+    /// Standard omits the API mode parameter; Pro sends reasoning.mode as pro.
+    /// </summary>
+    public enum Gpt5_6ReasoningMode
+    {
+        Standard,
+        Pro
+    }
+
+    /// <summary>
+    /// Adaptive-thinking effort for current Claude models.
+    /// Auto preserves the legacy <c>ThinkingBudget</c>-to-effort mapping.
+    /// </summary>
+    public enum ClaudeReasoningEffort
+    {
+        Auto,
+        Low,
+        Medium,
+        High,
+        XHigh,
+        Max
+    }
+
+    /// <summary>
+    /// Controls whether Claude returns a readable summary of its adaptive thinking.
+    /// Omitted keeps the provider default and Summarized requests summarized reasoning blocks.
+    /// </summary>
+    public enum ClaudeThinkingDisplay
+    {
+        Omitted,
+        Summarized
+    }
+
+    /// <summary>
+    /// Reasoning effort for xAI Grok models.
+    /// Auto omits the provider parameter. Grok 4.3 supports None through High;
+    /// Grok 4.5 supports Low through High and cannot disable reasoning.
     /// </summary>
     public enum GrokReasoning
     {
-        Off,
+        Auto,
+        None,
         Low,
+        Medium,
         High
     }
 }

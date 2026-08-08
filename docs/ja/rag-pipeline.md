@@ -85,11 +85,9 @@ var response = await ragService.GetCompletionAsync("質問", options);
 
 ```csharp
 // インデックスを一度だけビルド
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // 異なるAIサービスで同じインデックスを再利用
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -133,7 +131,7 @@ ragService.GetCompletionAsync("返品ポリシーは何ですか？")
 ③ RagEnabledServiceがAIRequestContextを生成
    RequestMessageOverride = 組み立てられたプロンプト
     ↓
-④ _innerService.GetCompletionAsync(元のメッセージ, context)を呼び出し
+④ _innerService.GetCompletionAsync(元のメッセージ, context: context)を呼び出し
    → AIServiceがAsyncLocalにcontextを保存
    → 元の質問を会話履歴に追加
     ↓

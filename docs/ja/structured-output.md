@@ -94,11 +94,12 @@ ProductDto product = await run.Result;
 モデルが構造化出力を生成する厳密さを制御します:
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-// デフォルト: スキーマに合ったJSONを返すよう要求
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
+// Strict: 自動修復を最大3回まで試行
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 
-// 緩和: モデルにより多くの自由を与え、自動修復に依存
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+// NoRetry: 修復を再試行せず、最初の検証エラーを返す
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

@@ -2,7 +2,7 @@
 
 ## ¿Por qué un Bucle de Agent?
 
-Con la llamada de funciones normal, el modelo hace **una** llamada de función por solicitud. Pero muchas tareas del mundo real requieren **múltiples pasos** que el modelo debe planificar y ejecutar de forma autónoma:
+La llamada de funciones normal puede ejecutar **varias funciones de una respuesta del modelo como un lote ordenado** y continuar durante más rondas de herramientas. La API de Agent empaqueta ese mecanismo como un bucle ReAct orientado a objetivos con un **límite de pasos** explícito y devuelve al modelo los resultados de cada lote hasta que produce una respuesta final:
 
 - "Investiga las 3 principales empresas de IA y compara sus precios de acciones" — requiere múltiples búsquedas
 - "Encuentra la política relevante, verifica el estado del pedido y dime si tengo derecho al reembolso" — requiere encadenar herramientas lógicamente
@@ -57,7 +57,7 @@ catch (AgentMaxStepsExceededException ex)
 Controla el comportamiento del bucle de agent por ronda:
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

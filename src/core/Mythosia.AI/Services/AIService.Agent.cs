@@ -125,6 +125,7 @@ namespace Mythosia.AI.Services.Base
             var lastResponse = ActivateChat.Messages
                 .LastOrDefault(m => m.Role == ActorRole.Assistant &&
                                    !string.IsNullOrEmpty(m.Content) &&
+                                   m.FunctionCallBatch == null &&
                                    m.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() != "function_call");
 
             return new AgentMaxStepsExceededException(maxSteps, lastResponse?.Content);

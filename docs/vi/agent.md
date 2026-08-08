@@ -2,7 +2,7 @@
 
 ## Tại sao cần Agent Loop?
 
-Với function calling thông thường, model thực hiện **một** lần gọi hàm mỗi request, bạn thực thi nó và hội thoại tiếp tục. Nhưng nhiều tác vụ thực tế yêu cầu **nhiều bước** mà model phải tự lên kế hoạch và thực hiện:
+Function calling thông thường có thể thực thi **nhiều hàm từ một phản hồi của model dưới dạng batch có thứ tự** và tiếp tục qua các vòng dùng công cụ. API Agent đóng gói cơ chế đó thành vòng lặp ReAct hướng mục tiêu với **giới hạn số bước** rõ ràng, gửi kết quả của từng batch lại cho model cho đến khi tạo ra câu trả lời cuối cùng:
 
 - "Nghiên cứu 3 công ty AI hàng đầu và so sánh giá cổ phiếu của họ" — cần nhiều lần tìm kiếm web và tra cứu giá
 - "Tìm chính sách liên quan, kiểm tra trạng thái đơn hàng, rồi cho tôi biết tôi có đủ điều kiện hoàn tiền không" — cần nối chuỗi các công cụ khác nhau theo thứ tự logic
@@ -60,7 +60,7 @@ catch (AgentMaxStepsExceededException ex)
 Kiểm soát hành vi của mỗi vòng trong agent loop:
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

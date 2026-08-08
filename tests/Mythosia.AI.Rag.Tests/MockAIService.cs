@@ -42,10 +42,9 @@ internal class MockAIService : AIService
     protected override HttpRequestMessage CreateMessageRequest() => new();
     protected override HttpRequestMessage CreateFunctionMessageRequest() => new();
     protected override string ExtractResponseContent(string responseContent) => responseContent;
-    protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string responseContent) => (string.Empty, default!);
+    protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string responseContent)
+        => (string.Empty, new FunctionCallBatch());
     protected override string StreamParseJson(string jsonData) => jsonData;
     public override Task<uint> GetInputTokenCountAsync() => Task.FromResult(0u);
     public override Task<uint> GetInputTokenCountAsync(string prompt) => Task.FromResult(0u);
-    public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024") => Task.FromResult(Array.Empty<byte>());
-    public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024") => Task.FromResult(string.Empty);
 }

@@ -18,33 +18,7 @@ public abstract partial class AIServiceTestBase
             () => SupportsArrayParameter(),
             async () =>
             {
-                // 1. JSON 문자열로 배열 받기 (현재 작동하는 방법)
-                AI.WithFunction<string>(
-                    "process_items_json",
-                    "Process a list of items",
-                    ("items_json", "JSON array of items", true),
-                    itemsJson => {
-                        try
-                        {
-                            var items = JsonSerializer.Deserialize<List<string>>(itemsJson);
-                            return $"Successfully processed {items?.Count ?? 0} items";
-                        }
-                        catch
-                        {
-                            return "Failed to parse items";
-                        }
-                    }
-                );
-
-                var response1 = await AI.GetCompletionAsync(
-                    "Process these items: apple, banana, orange"
-                );
-
-                Assert.IsNotNull(response1);
-                Assert.IsTrue(response1.Contains("processed") || response1.Contains("items"));
-                Console.WriteLine($"[JSON Array Test] {response1}");
-
-                // 2. 직접 배열 파라미터 정의 (Items 속성 추가 필요)
+                List<string>? handledItems = null;
                 var stringArrayFunction = new FunctionDefinition
                 {
                     Name = "process_string_array",
@@ -63,48 +37,43 @@ public abstract partial class AIServiceTestBase
                         },
                         Required = new List<string> { "items" }
                     },
-                    Handler = async (args) => {
-                        if (args.TryGetValue("items", out var itemsObj))
+                    Handler = args =>
+                    {
+                        if (args.TryGetValue("items", out var itemsObj) &&
+                            itemsObj is JsonElement jsonElement &&
+                            jsonElement.ValueKind == JsonValueKind.Array)
                         {
-                            if (itemsObj is JsonElement jsonElement)
-                            {
-                                var count = jsonElement.GetArrayLength();
-                                return $"Received array with {count} items";
-                            }
-                            else if (itemsObj is List<object> list)
-                            {
-                                return $"Received list with {list.Count} items";
-                            }
+                            handledItems = jsonElement.EnumerateArray()
+                                .Select(item => item.GetString() ?? string.Empty)
+                                .ToList();
                         }
-                        return "No items received";
+
+                        return Task.FromResult(
+                            handledItems == null
+                                ? "ARRAY_ERROR:no-array"
+                                : $"ARRAY_OK:{string.Join("|", handledItems)}");
                     }
                 };
 
                 AI.WithFunction(stringArrayFunction);
+                ConfigureRequiredFunctionCall("process_string_array");
 
-                var response2 = await AI.GetCompletionAsync(
+                var response = await AI.GetCompletionAsync(
                     "Use process_string_array with these: hello, world, test"
                 );
 
-                Assert.IsNotNull(response2);
-                Console.WriteLine($"[Direct Array Test] {response2}");
+                Assert.IsNotNull(response);
+                CollectionAssert.AreEqual(
+                    new[] { "hello", "world", "test" },
+                    handledItems,
+                    "The function handler must receive a real JSON array, not a JSON string.");
 
-                // Function이 실제로 호출되었는지 확인
-                var functionMessages = AI.ActivateChat.Messages
-                    .Where(m => m.Role == ActorRole.Function)
-                    .ToList();
-
-                Assert.IsTrue(functionMessages.Count > 0, "At least one function should have been called");
-
-                Console.WriteLine($"\n[Test Summary]");
-                Console.WriteLine($"  Functions called: {functionMessages.Count}");
-                foreach (var msg in functionMessages)
-                {
-                    if (msg.Metadata?.TryGetValue("function_name", out var fname) == true)
-                    {
-                        Console.WriteLine($"  - {fname}: {msg.Content?.Substring(0, Math.Min(50, msg.Content.Length))}");
-                    }
-                }
+                var lastFunction = AI.ActivateChat.Messages.LastOrDefault(m => m.Role == ActorRole.Function);
+                Assert.IsNotNull(lastFunction, "process_string_array was not called.");
+                Assert.AreEqual(
+                    "process_string_array",
+                    lastFunction.Metadata?.GetValueOrDefault("function_name")?.ToString());
+                Assert.AreEqual("ARRAY_OK:hello|world|test", lastFunction.Content);
             },
             "Array Parameter Functions"
         );
@@ -121,38 +90,64 @@ public abstract partial class AIServiceTestBase
             () => SupportsArrayParameter(),
             async () =>
             {
-                AI.WithFunction<string>(
-                    "calculate_sum",
-                    "Calculate sum of numbers",
-                    ("numbers_json", "JSON array of numbers", true),
-                    numbersJson => {
-                        try
+                List<double>? handledNumbers = null;
+                var numberArrayFunction = new FunctionDefinition
+                {
+                    Name = "calculate_sum",
+                    Description = "Calculate the sum of an array of numbers",
+                    Parameters = new FunctionParameters
+                    {
+                        Type = "object",
+                        Properties = new Dictionary<string, ParameterProperty>
                         {
-                            var numbers = JsonSerializer.Deserialize<List<double>>(numbersJson);
-                            var sum = numbers?.Sum() ?? 0;
-                            return $"Sum of {numbers?.Count ?? 0} numbers is {sum}";
-                        }
-                        catch
+                            ["numbers"] = new ParameterProperty
+                            {
+                                Type = "array",
+                                Description = "Numbers to add",
+                                Items = new ParameterProperty { Type = "number" }
+                            }
+                        },
+                        Required = new List<string> { "numbers" }
+                    },
+                    Handler = args =>
+                    {
+                        if (args.TryGetValue("numbers", out var numbersObj) &&
+                            numbersObj is JsonElement jsonElement &&
+                            jsonElement.ValueKind == JsonValueKind.Array)
                         {
-                            return "Invalid number array";
+                            handledNumbers = jsonElement.EnumerateArray()
+                                .Select(item => item.GetDouble())
+                                .ToList();
                         }
+
+                        return Task.FromResult(
+                            handledNumbers == null
+                                ? "ARRAY_ERROR:no-array"
+                                : $"ARRAY_SUM:{handledNumbers.Sum():0.################}");
                     }
-                );
+                };
+
+                AI.WithFunction(numberArrayFunction);
+                ConfigureRequiredFunctionCall("calculate_sum");
 
                 var response = await AI.GetCompletionAsync(
                     "Calculate the sum of: 10, 20, 30, 40"
                 );
 
                 Assert.IsNotNull(response);
-                Assert.IsTrue(response.Contains("100") || response.Contains("sum"));
-                Console.WriteLine($"[Number Array] {response}");
+                CollectionAssert.AreEqual(
+                    new[] { 10d, 20d, 30d, 40d },
+                    handledNumbers,
+                    "The function handler must receive a real JSON number array.");
 
-                // Verify function was called
                 var lastFunction = AI.ActivateChat.Messages
                     .LastOrDefault(m => m.Role == ActorRole.Function);
 
-                Assert.IsNotNull(lastFunction);
-                Assert.IsTrue(lastFunction.Content.Contains("100"));
+                Assert.IsNotNull(lastFunction, "calculate_sum was not called.");
+                Assert.AreEqual(
+                    "calculate_sum",
+                    lastFunction.Metadata?.GetValueOrDefault("function_name")?.ToString());
+                Assert.AreEqual("ARRAY_SUM:100", lastFunction.Content);
             },
             "Number Array Function"
         );

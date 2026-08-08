@@ -94,11 +94,12 @@ ProductDto product = await run.Result;
 Kiểm soát mức độ nghiêm ngặt yêu cầu model tạo structured output:
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-// Mặc định: yêu cầu model trả về JSON khớp schema
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
+// Strict: cho phép tối đa ba lần tự động sửa
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 
-// Linh hoạt: cho model nhiều tự do hơn, dựa vào auto-repair
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+// NoRetry: trả về lỗi xác thực đầu tiên mà không thử sửa lại
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

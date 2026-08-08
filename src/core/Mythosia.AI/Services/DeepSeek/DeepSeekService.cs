@@ -1,6 +1,6 @@
-﻿using Mythosia.AI.Exceptions;
-using Mythosia.AI.Models;
+﻿using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
 using System;
@@ -170,22 +170,6 @@ namespace Mythosia.AI.Services.DeepSeek
         {
             Console.WriteLine("Warning: DeepSeek doesn't support image inputs. Processing text only.");
             return await GetCompletionAsync(prompt);
-        }
-
-        /// <summary>
-        /// DeepSeek doesn't support image generation
-        /// </summary>
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("DeepSeek", "Image Generation");
-        }
-
-        /// <summary>
-        /// DeepSeek doesn't support image generation
-        /// </summary>
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("DeepSeek", "Image Generation");
         }
 
         /// <summary>

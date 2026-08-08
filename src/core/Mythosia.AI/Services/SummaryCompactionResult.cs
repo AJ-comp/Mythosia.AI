@@ -4,12 +4,11 @@ namespace Mythosia.AI.Services.Base
     /// Outcome of a forced conversation compaction.
     /// <para>
     /// <see cref="IsApplied"/> answers the only question the caller actually has: is it worth
-    /// re-sending? Summarizing is not the same as shrinking — when the recent-window already covers
-    /// every message, or when <c>MaxMessageCount</c> is already clipping everything the cut point
-    /// would remove, the next request is identical to the one the server just rejected.
+    /// re-sending? Summarizing is not the same as shrinking when the retained recent messages
+    /// already cover the whole conversation.
     /// </para>
     /// <para>
-    /// Both of those are decided before the summary call, so a skipped compaction costs nothing and
+    /// This is decided before the summary call, so a skipped compaction costs nothing and
     /// leaves the conversation untouched. Only <see cref="Applied"/> deletes messages.
     /// </para>
     /// </summary>

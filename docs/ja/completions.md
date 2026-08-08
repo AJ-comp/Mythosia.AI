@@ -14,7 +14,7 @@ Console.WriteLine(response); // パリ
 モデルにペルソナや指示を与えるシステムプロンプトを設定します:
 
 ```csharp
-service.SystemPrompt = "あなたは簡潔なアシスタントです。一文で答えてください。";
+service.SystemMessage = "あなたは簡潔なアシスタントです。一文で答えてください。";
 
 var response = await service.GetCompletionAsync("再帰を説明してください。");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("私の名前は何ですか？"
 会話履歴をクリアするには:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## メッセージの手動構築
@@ -42,7 +42,7 @@ service.ClearMessages();
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("このテキストを要約してください: ...")
+var message = MessageBuilder.Create().AddText("このテキストを要約してください: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ var response = await service.GetCompletionAsync(message);
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("この図は何を示していますか？")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("この図は何を示していますか？")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "この画像を説明してください",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

@@ -4,7 +4,7 @@ namespace Mythosia.AI.Models.Streaming
 {
     /// <summary>
     /// Captures observability data about a single SSE streaming round.
-    /// Populated by the SSE reader and surfaced via <see cref="StreamOptions.DiagnosticsCallback"/>
+    /// Populated by the SSE reader and surfaced through <c>WithStreamDiagnostics</c>
     /// or attached to <see cref="StreamReadException"/> when a read fails. Lets callers tell
     /// "stream silently ended" apart from "transport error after N chunks".
     /// </summary>

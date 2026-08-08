@@ -63,8 +63,9 @@ ProductDto product = await run.Result;
 ## Політика структурованого виводу
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;  // Суворе дотримання схеми
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient; // Більше свободи моделі
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);  // До 3 спроб автовиправлення
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry); // Без повторних спроб виправлення
 ```

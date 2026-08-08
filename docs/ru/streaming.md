@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("Расскажите истор
 `StreamAsync` возвращает объекты `StreamingContent` с текстом и информацией о типе:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Объясните квантовые вычисления"))
+await foreach (var content in service.StreamAsync("Объясните квантовые вычисления", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 По завершении стриминга последнее событие `Completion` содержит объект `TokenUsage` с подробной статистикой:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Объясните квантовые вычисления"))
+await foreach (var content in service.StreamAsync("Объясните квантовые вычисления", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,6 +149,6 @@ await foreach (var chunk in service.StreamOnceAsync(message))
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("Продолжим наш разговор..."))
+await foreach (var chunk in service.StreamAsync("Продолжим наш разговор...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

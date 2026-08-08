@@ -23,9 +23,9 @@ All providers are included in the core `Mythosia.AI` package (except Alibaba):
 | Provider | Models |
 |----------|--------|
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, o3 series |
-| **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
+| **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3 series |
-| **xAI** | Grok 4 series, Grok Build, Grok 3 Mini |
+| **xAI** | Grok 4 series, Grok Build |
 | **DeepSeek** | Chat, Reasoner |
 | **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
@@ -33,9 +33,18 @@ All providers are included in the core `Mythosia.AI` package (except Alibaba):
 ## Architecture Overview
 
 ```
+Mythosia.AI                     ← Core AI services (all providers)
+    └── Mythosia.AI.Abstractions   ← IAIService interface
+
 Mythosia.AI.Rag                 ← RAG pipeline, orchestration
-    └── Mythosia.AI             ← Core AI services (all providers)
-        └── Mythosia.AI.Abstractions   ← IAIService interface
+    ├── Mythosia.AI.Abstractions
+    ├── Mythosia.AI.Rag.Abstractions
+    │   └── Mythosia.VectorDb.Abstractions
+    ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
+    │   └── Mythosia.Documents.Abstractions
+    └── Mythosia.VectorDb.InMemory
+        ├── Mythosia.VectorDb.Abstractions
+        └── Mythosia.AI.Rag.Abstractions
 
 Mythosia.VectorDb.*             ← Vector stores (pick one or more)
     └── Mythosia.VectorDb.Abstractions

@@ -54,6 +54,10 @@ namespace Mythosia.AI.Exceptions
         private static readonly Regex GoogleTokenCount = new Regex(
             @"input\s+token\s+count\s*\((\d+)\).*?exceeds.*?\((\d+)\)", Opts | RegexOptions.Singleline);
 
+        // xAI: "This model's maximum prompt length is 256000 but the request contains 280193 tokens."
+        private static readonly Regex XaiPromptLength = new Regex(
+            @"maximum\s+prompt\s+length\s+is\s+(\d+)\s+but\s+the\s+request\s+contains\s+(\d+)\s+tokens", Opts);
+
         /// <summary>
         /// Does this HTTP failure mean "the prompt did not fit"? Only 400 and 413 are considered —
         /// 429/5xx are transport or quota problems that compaction cannot fix.
@@ -97,6 +101,14 @@ namespace Mythosia.AI.Exceptions
                 return true;
             }
 
+            var xai = XaiPromptLength.Match(body);
+            if (xai.Success)
+            {
+                maxContextTokens = ParseOrNull(xai.Groups[1].Value);
+                requestedTokens = ParseOrNull(xai.Groups[2].Value);
+                return true;
+            }
+
             var max = MaxContextPhrase.Match(body);
             var hasCode = OpenAiCode.IsMatch(body);
             if (!max.Success && !hasCode) return false;
@@ -126,9 +138,30 @@ namespace Mythosia.AI.Exceptions
         /// </summary>
         public static AIServiceException FromHttp(
             int statusCode, string? reasonPhrase, string? errorBody, string messagePrefix = "API request failed")
+            => FromHttp(statusCode, reasonPhrase, errorBody, messagePrefix, false);
+
+        /// <summary>
+        /// Builds the exception for a failed request and optionally includes the provider body in
+        /// the exception message. Providers can opt in when their HTTP reason phrase is generic and
+        /// callers would otherwise lose the actionable diagnostic when logging only
+        /// <see cref="System.Exception.Message"/>. The body is always retained in
+        /// <see cref="AIServiceException.ErrorDetails"/>.
+        /// </summary>
+        public static AIServiceException FromHttp(
+            int statusCode,
+            string? reasonPhrase,
+            string? errorBody,
+            string messagePrefix,
+            bool includeErrorBodyInMessage)
         {
             var body = errorBody ?? string.Empty;
             var detail = string.IsNullOrEmpty(reasonPhrase) ? body : reasonPhrase!;
+            if (includeErrorBodyInMessage &&
+                !string.IsNullOrWhiteSpace(body) &&
+                !string.Equals(detail, body, System.StringComparison.Ordinal))
+            {
+                detail = $"{detail} - {body}";
+            }
             var message = $"{messagePrefix} ({statusCode}): {detail}";
 
             return IsContextLengthExceeded(statusCode, body, out var max, out var requested)

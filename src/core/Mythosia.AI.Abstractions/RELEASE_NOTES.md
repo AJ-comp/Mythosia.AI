@@ -1,5 +1,44 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v3.0.0
+
+> This is the abstractions release paired with Mythosia.AI v7. Follow the [v7 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) before upgrading.
+
+### Added
+
+- **Claude adaptive-thinking controls** — `ClaudeReasoningEffort` represents `Auto`, `Low`, `Medium`, `High`, `XHigh`, and `Max`; `ClaudeThinkingDisplay` represents omitted or summarized reasoning output.
+
+- **GPT-5.6 model contract** — `AIModels.OpenAI` now includes `Gpt5_6` (the Sol alias), `Gpt5_6Sol`, `Gpt5_6Terra`, and `Gpt5_6Luna`. `Gpt5_6Reasoning` adds the model family's `Max` effort, and `Gpt5_6ReasoningMode` represents standard or pro reasoning execution without inventing a `gpt-5.6-pro` model ID.
+- **Claude 5 model IDs** — `AIModels.Anthropic.ClaudeOpus5` and `ClaudeSonnet5` expose the generally available `claude-opus-5` and `claude-sonnet-5` API models.
+- **Claude Mythos 5 model ID** — `AIModels.Anthropic.ClaudeMythos5` exposes `claude-mythos-5` for approved Project Glasswing customers. Mythos 5 is limited availability, not generally available.
+
+- **`IImageGenerationService`** is an optional, provider-neutral contract for services that generate or edit images. Its `DefaultImageModel` is deliberately independent from `IAIService.Model`, so selecting a chat model cannot accidentally select an image model.
+- **Image request and result models** — `ImageGenerationRequest`, `ImageEditRequest`, `ImageInput`, `GeneratedImage`, and `ImageGenerationResult` describe multi-image generation, ordered reference images, optional masks, output controls, provider/model provenance, request IDs, and token usage without adding a provider dependency.
+- **Current OpenAI image model IDs** — `AIModels.OpenAI.GptImage2` exposes the `gpt-image-2` alias and `GptImage2_260421` exposes its current `2026-04-21` snapshot without adding either image model to chat-model selectors.
+- **Current Gemini model IDs** — `AIModels.Google` adds Gemini 3.6 Flash and Gemini 3.5 Flash-Lite, plus an image-specific catalogue for Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, and Gemini 3 Pro Image.
+- **Current xAI model IDs** — `AIModels.xAI` adds Grok 4.5, its `grok-4.5-latest` alias, `grok-build-latest`, and the current Grok 4.3 aliases `grok-4.3-latest` and `grok-latest`.
+- **Current Grok reasoning contract** — `GrokReasoning` now represents `Auto`, `None`, `Low`, `Medium`, and `High`. `Auto` omits the provider parameter, Grok 4.3 supports `None` through `High`, and Grok 4.5 supports `Low` through `High` and cannot disable reasoning.
+- **Gemini safety controls** — `GeminiSafetyThreshold` represents provider-default, disabled, and the supported blocking thresholds without coupling the common image or chat contracts to Google request types.
+- **Typed function-call batches** — `FunctionCallBatch`, `FunctionCallResult`, and `FunctionCallResultBatch` preserve every call from one assistant response, its provider correlation data, and the matching ordered results. `Message` and `StreamingContent` expose typed function call/result fields instead of requiring consumers to reconstruct them from metadata.
+- **Function execution modes** — `FunctionExecutionMode` and `FunctionCallingPolicy.ExecutionMode` select sequential or bounded-parallel handler execution. Sequential remains the default; `MaxConcurrency` limits parallel handlers while result ordering remains stable.
+
+### Changed
+
+- **Nullable annotations match the actual contracts** — optional attribute overrides, function handlers, schema descriptions/defaults/enums/items, and other provider-populated values are explicitly nullable. Required names and type identifiers retain non-null defaults, eliminating false consumer warnings without changing the CLR signatures.
+
+### Removed
+
+- **`ChatBlock.RemoveFunctionMessages()`** — removing function calls while retaining their results creates an invalid conversation. Clear or rebuild the conversation explicitly when a model switch requires a new history.
+- **Retired or deprecated OpenAI model IDs** — `Gpt4Vision`, `Gpt4oLatest`, `Gpt5ChatLatest`, `Gpt5_2Codex`, `Gpt5_250807`, `Gpt5Mini_250807`, `Gpt5Nano_250807`, and `Gpt4_1Nano` were removed instead of being retained as obsolete aliases.
+- **Retired Claude Opus snapshots** — `AIModels.Anthropic.ClaudeOpus4_250514` (`claude-opus-4-20250514`) and `ClaudeOpus4_1_250805` (`claude-opus-4-1-20250805`) were removed. Opus 4 retired on June 15, 2026, and Opus 4.1 retired on August 5, 2026. Use `ClaudeOpus4_8` for the official direct replacement.
+- **`GrokReasoning.Off`** — use `Auto` to preserve the provider default without serializing `reasoning_effort`, or `None` for an explicit non-reasoning Grok 4.3 request. `None` is invalid for always-reasoning Grok 4.5.
+
+### Compatibility
+
+- Breaking release for the removed `ChatBlock` member, retired or deprecated model constants, and `GrokReasoning.Off`. Consumers of the new image contract and typed function batches require `Mythosia.AI.Abstractions` v3.0.0 or later.
+
+---
+
 ## v2.5.0
 
 ### Added

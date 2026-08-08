@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.301
+
+      - name: Install DocFX
+        run: dotnet tool install -g docfx --version 2.78.5
+
+      - name: Restore
+        run: dotnet restore Mythosia.AI.slnx
+
+      - name: Audit direct and transitive NuGet packages
+        shell: pwsh
+        run: ./build/test-package-vulnerabilities.ps1
+
+      - name: Verify NuGet publication safety contracts
+        shell: pwsh
+        run: ./build/test-publish-nuget-safety.ps1
+
+      - name: Verify release documentation and package metadata
+        shell: pwsh
+        run: ./build/test-release-documentation.ps1
+
+      - name: Verify test category coverage
+        shell: pwsh
+        run: ./build/test-test-categories.ps1
+
+      - name: Build the complete solution
+        run: dotnet build Mythosia.AI.slnx --configuration Release --no-restore -p:TreatWarningsAsErrors=true
+
+      - name: Prepare DocFX reference assemblies
+        shell: pwsh
+        run: ./build/prepare-docfx-references.ps1 -NoRestore
+
+      - name: Build documentation with warnings as errors
+        run: docfx docfx.json --warningsAsErrors
+
+      - name: Verify committed API manifest
+        run: git diff --exit-code -- api/.manifest
+
+      - name: Run deterministic unit tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj
+          --configuration Release
+          --no-build
+          --settings tests/Mythosia.AI.Test/serial.runsettings
+          --filter "TestCategory=Unit"
+
+      - name: Run RAG regression tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run document loader tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.Documents.Tests/Mythosia.Documents.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run MCP integration tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run vLLM serving tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Serving.Vllm.Tests/Mythosia.AI.Serving.Vllm.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run vector database tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Pack and validate release packages
+        shell: pwsh
+        run: ./build/publish-nuget.ps1 -Mode Pack -ArtifactsDirectory ./artifacts
+
+      - name: Test packages from isolated consumers
+        shell: pwsh
+        run: ./build/test-nuget-packages.ps1 -ArtifactsDirectory ./artifacts
+
+      - name: Check patch whitespace
+        run: git show --check --oneline --no-renames --format=oneline HEAD

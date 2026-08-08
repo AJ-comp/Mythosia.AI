@@ -18,56 +18,26 @@
     <PackageId>Mythosia.AI</PackageId>
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
-    <PackageTags>AI; Grok; xAI; Grok4.3; Grok4.20; GrokBuild; Gpt5; Gpt5.1; Gpt5.2; Gpt5.2Codex; Gpt5.3Codex; Gpt5.4; Gpt5.4Pro; Gpt5.5; Gpt5.5Pro; Gpt5Pro; ChatGpt;
-    Claude Fable 5; Claude Opus 4.8; Claude Opus 4.7; Claude Opus 4.6; Claude Sonnet 4.6; Claude Haiku 4.5; Claude;
-    DeepSeek; Sonar; Gemini; Gemini2.5; Gemini3; Gemini3.1; Gemini3.5; Reasoning; Multi modal;</PackageTags>
+    <PackageTags>AI;LLM;OpenAI;Anthropic;Claude;Google;Gemini;xAI;Grok;DeepSeek;Perplexity;ImageGeneration;ImageEditing;Multimodal;Reasoning;FunctionCalling;ParallelFunctionCalling;StructuredOutput;Streaming</PackageTags>
     <Authors>JJW</Authors>
-    <Description>
-## What's New in v6.8.0
-
-### Added
-- Reactive context-overflow recovery. When the server rejects a request for exceeding the model's context window, the conversation is compacted and the request is re-sent — no client-side token estimation, and it follows the deployment's real limit automatically. Providers now translate that rejection into ContextLengthExceededException (non-streaming) or a context_length_exceeded-flagged error chunk (streaming). Streaming recovers inside the round loop, replaying only the round that overflowed and keeping the tool results earlier rounds produced. Tunable via AIService.ContextRecoveryMaxRetries (default 1, set 0 to disable).
-
-### Fixed
-- Forced compaction decided "this would not shrink the request" only after paying for a summary and irreversibly deleting messages. With the default MaxMessageCount of 20 a long agentic run hits this every time — the deletable history sits outside the window and cannot shrink anything — so recovery destroyed conversation history, spent a summary call, and still returned the original error. The check is now pure arithmetic performed before either.
-- The summarization request inherited the caller's AIRequestContext. RequestMessageOverride replaces the last message of every outgoing request and a summarization request is one message long, so the prompt was swapped for the caller's own message and an ordinary answer was stored as the conversation summary.
-- Recovery no longer retries a turn whose tools already ran. A retry restarts the provider's round loop from zero, which would execute side-effecting tools a second time.
-- The rewind baseline is captured per attempt instead of per turn. Once compaction shortened the history the old baseline could never be reached again, so failed attempts past the first left duplicate user messages behind (reachable with ContextRecoveryMaxRetries of 2 or more).
-- A stream that gave up on recovery ended without its terminating Completion chunk or accumulated usage, making the termination contract depend on whether recovery was enabled.
-- Anthropic's combined form — "input length and `max_tokens` exceed context limit: X + Y > Z" — is now detected. Since max_tokens rides on every request, this is the wording that actually appears, and it previously went unrecognised so recovery never engaged on Anthropic.
-- MessageChain.SendAsync() and RetryLastMessageAsync() bound to the raw provider overload and bypassed recovery entirely.
-- Gemini's legacy streaming path was the last HTTP failure site still throwing an untranslated AIServiceException.
-- RecoverySkipReason now distinguishes recovery-disabled, retries-exhausted, stateless and summarizing, which previously all reported null. Compaction failures preserve the provider's original stack trace.
-
-### Known limitations
-- DeepSeek and Perplexity do not recover **while streaming**. Both replace the streaming pipeline wholesale (neither supports function calling, so neither needs a round loop) and recovery lives in that loop; an overflow surfaces as a flagged error chunk instead. Their non-streaming path recovers normally.
-- Non-streaming recovery restarts the provider's round loop, so it stops rather than replaying completed tool rounds. Streaming replays per round and has no such restriction.
-- A summarization request still consults `SystemMessageProvider`, so a service configured with one contributes its system message to the summary prompt as well.
-
-### Deprecated
-- AIService.MaxMessageCount and ChatBlock.RemoveFunctionMessages() are [Obsolete] and will be removed in v7.0 — context management becomes token-based only (ConversationPolicy).
-
-Requires Mythosia.AI.Abstractions v2.5.0.
-
----
-
-## Documentation
-- Basic Usage: https://github.com/AJ-comp/Mythosia.AI/wiki
-- Advanced Features: https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features
-- Release Notes: https://github.com/AJ-comp/Mythosia.AI/wiki/Release-Notes
-- GitHub: https://github.com/AJ-comp/Mythosia.AI
-    </Description>
+    <Description>Provider-neutral .NET library for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, DeepSeek, and Perplexity. Provides text and multimodal completions, streaming, reasoning, structured output, token usage, context recovery, ordered function-call batches with sequential or bounded-parallel handler execution, and optional OpenAI/Gemini image generation and editing. Targets .NET Standard 2.1.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v6.8.0: Reactive context-overflow recovery. When the server rejects a request for exceeding the model's context window, the conversation is compacted and the request re-sent — the limit is the server's to report, so nothing is estimated client-side. Providers translate the rejection into ContextLengthExceededException (non-streaming) or a context_length_exceeded-flagged error chunk (streaming); streaming recovers inside the round loop, replaying only the round that overflowed and keeping earlier rounds' tool results. Tunable via AIService.ContextRecoveryMaxRetries (default 1, 0 disables). Also fixed: compaction that could not shrink the request used to discover that only after billing a summary and deleting history (routine at the default MaxMessageCount of 20); the summarization request inherited the caller's AIRequestContext and had its prompt overwritten by RequestMessageOverride; recovery retried turns whose side-effecting tools had already run; the rewind baseline was captured per turn instead of per attempt; streams that gave up ended without their Completion chunk; Anthropic's "input length and `max_tokens` exceed context limit" wording went undetected; MessageChain.SendAsync and RetryLastMessageAsync bypassed recovery; Gemini's legacy streaming path threw untranslated errors. ChatBlock.RemoveFunctionMessages() joins MaxMessageCount as [Obsolete] for removal in v7.0. Requires Mythosia.AI.Abstractions v2.5.0.</PackageReleaseNotes>
-    <Version>6.8.0</Version>
+    <PackageReleaseNotes>v7.0.0 is a breaking major release. Adds current OpenAI, Anthropic, Gemini, and xAI model contracts; provider-neutral image generation/editing; and ordered multi-function batches with sequential or bounded-parallel local handler execution. Strengthens terminal-response, continuation, refusal, malformed-tool, and usage handling across providers. Removes the legacy image methods, message-count windowing, unsafe function-message removal, retired model constants, GrokReasoning.Off, and single-function custom-provider extension signatures. Requires Mythosia.AI.Abstractions v3.0.0. Full notes and migration guide: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v700</PackageReleaseNotes>
+    <Version>7.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Azure.AI.OpenAI" Version="2.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="NJsonSchema" Version="11.6.1" />
-    <PackageReference Include="System.Threading.Channels" Version="10.0.8" />
+    <PackageReference Include="System.Threading.Channels" Version="10.0.10" />
     <PackageReference Include="TiktokenSharp" Version="1.2.1" />
   </ItemGroup>
 
@@ -77,6 +47,10 @@ Requires Mythosia.AI.Abstractions v2.5.0.
 
   <ItemGroup>
     <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="RELEASE_NOTES.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

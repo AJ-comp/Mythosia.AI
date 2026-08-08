@@ -32,7 +32,7 @@ Problems with this approach:
 ```csharp
 // ✅ With AIRequestContext — clean, scoped, no side effects
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\nUse the following context to answer:\n{retrievedDocs}"
     });
@@ -52,7 +52,7 @@ var context = new AIRequestContext
     SystemMessagePrefix = "Today's date is 2026-03-31.\n"
 };
 
-var response = await service.GetCompletionAsync("What day is it?", context);
+var response = await service.GetCompletionAsync("What day is it?", context: context);
 ```
 
 **When to use:** Injecting dynamic metadata (date, user timezone, session info) that changes per request.
@@ -67,7 +67,7 @@ var context = new AIRequestContext
     SystemMessageSuffix = "\nAlways respond in Korean."
 };
 
-var response = await service.GetCompletionAsync("Hello!", context);
+var response = await service.GetCompletionAsync("Hello!", context: context);
 ```
 
 **When to use:** Adding per-request behavioral instructions, RAG context, or language preferences.
@@ -81,11 +81,11 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("Reference doc: The refund policy allows returns within 30 days.").Build()
+        MessageBuilder.Create().AddText("Reference doc: The refund policy allows returns within 30 days.").Build()
     }
 };
 
-var response = await service.GetCompletionAsync("Am I eligible for a refund?", context);
+var response = await service.GetCompletionAsync("Am I eligible for a refund?", context: context);
 ```
 
 **When to use:** Providing reference material, few-shot examples, or auxiliary context that shouldn't persist in conversation history.
@@ -102,7 +102,7 @@ var context = new AIRequestContext
         .Build()
 };
 
-await service.GetCompletionAsync(userQuery, context);
+await service.GetCompletionAsync(userQuery, context: context);
 ```
 
 **When to use:** When a middleware layer (RAG, query rewriting) needs to reformulate the prompt entirely before sending it to the model, while keeping the original user input in the conversation history.
@@ -122,12 +122,13 @@ service.SystemMessage = origSys
     + $"\nToday: {DateTime.Now:yyyy-MM-dd}"
     + $"\n\nContext:\n{retrievedChunks}";
 
-service.Messages.Add(MessageBuilder.User(fewShotExample).Build());
+var fewShotIndex = service.ActivateChat.Messages.Count;
+service.ActivateChat.Messages.Add(MessageBuilder.Create().AddText(fewShotExample).Build());
 
 var answer = await service.GetCompletionAsync(userQuery);
 
 service.SystemMessage = origSys;
-service.Messages.RemoveAt(service.Messages.Count - 2); // remove the few-shot example
+service.ActivateChat.Messages.RemoveAt(fewShotIndex); // remove the few-shot example
 ```
 
 **With AIRequestContext:**
@@ -135,13 +136,13 @@ service.Messages.RemoveAt(service.Messages.Count - 2); // remove the few-shot ex
 ```csharp
 // ✅ Clean, stateless, no side effects
 var answer = await service.GetCompletionAsync(userQuery,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessagePrefix = $"Today: {DateTime.Now:yyyy-MM-dd}\n",
         SystemMessageSuffix = $"\n\nContext:\n{retrievedChunks}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User(fewShotExample).Build()
+            MessageBuilder.Create().AddText(fewShotExample).Build()
         }
     });
 ```
@@ -159,7 +160,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\nContext:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("Example: ...").Build()
+            MessageBuilder.Create().AddText("Example: ...").Build()
         }
     }
 );
@@ -179,15 +180,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. Main chat answer
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. Title generator (added later)
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. Summarizer (added later still)
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Agent call — easy to forget! The compiler won't warn you.
 var agentResult = await service.RunAgentAsync(goal);  // ← no date, silent bug
@@ -292,7 +293,7 @@ If any one of the three conditions is missing, a simpler tool is the right answe
 
 The essence of `AIRequestContext` is not "used only once" but **"never contaminates permanent state"**. `SystemMessageProvider` is a factory that **re-runs the callback on every request**, producing **a brand-new `AIRequestContext` scoped to that request**. The resulting context is still per-request scoped, the value never leaks into conversation history, and on the next call the callback fires again to reflect the **then-current** value. So the provider does not violate the design principle of `AIRequestContext` — it simply **automates it**.
 
-Concretely, registering the provider below does **not** modify `service.SystemMessage` or `service.Messages` at all:
+Concretely, registering the provider below does **not** modify `service.SystemMessage` or `service.ActivateChat.Messages` at all:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

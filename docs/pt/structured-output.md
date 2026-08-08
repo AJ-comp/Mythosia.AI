@@ -55,11 +55,12 @@ ProductDto product = await run.Result;
 Controle o rigor com que o modelo é solicitado a produzir saída estruturada:
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-// Padrão: peça ao modelo para retornar JSON correspondente ao schema
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
+// Strict: permite até três tentativas de reparo automático
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 
-// Leniente: permita mais liberdade ao modelo, confie no reparo automático
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+// NoRetry: retorna o primeiro erro de validação sem repetir o reparo
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

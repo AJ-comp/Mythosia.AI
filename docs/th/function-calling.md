@@ -57,21 +57,25 @@ var response = await service.GetCompletionAsync("อากาศที่โซ�
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "ค้นหาในแคตาล็อกสินค้า")]
-public static string SearchProducts(
-    [AiParameter("คำค้นหา", required: true)] string query,
-    [AiParameter("จำนวนผลลัพธ์สูงสุด")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... การ implement ของคุณ
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "ค้นหาในแคตาล็อกสินค้า")]
+    public string SearchProducts(
+        [AiParameter("คำค้นหา", required: true)] string query,
+        [AiParameter("จำนวนผลลัพธ์สูงสุด")] int limit = 5)
+    {
+        // ... การ implement ของคุณ
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 จากนั้น register:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Policy การเรียกฟังก์ชัน
@@ -82,13 +86,13 @@ service.AddFunction(SearchProducts);
 using Mythosia.AI.Models.Functions;
 
 // ให้ model ตัดสินใจเอง (ค่าเริ่มต้น)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // บังคับให้ model เรียกฟังก์ชันทุกครั้ง
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // ปิด function calling
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## Register แบบกลุ่มจาก Class
@@ -143,11 +147,14 @@ service.WithoutFunctions();  // ตั้งค่า FunctionsDisabled = true
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "ดึงราคาหุ้นปัจจุบัน")
-    .AddParameter("ticker", "สัญลักษณ์หุ้น", required: true)
+    .Create("get_stock_price")
+    .WithDescription("ดึงราคาหุ้นปัจจุบัน")
+    .AddParameter("ticker", "string", "สัญลักษณ์หุ้น", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

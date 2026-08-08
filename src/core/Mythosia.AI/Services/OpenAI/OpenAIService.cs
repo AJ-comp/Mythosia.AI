@@ -17,17 +17,19 @@ using TiktokenSharp;
 
 namespace Mythosia.AI.Services.OpenAI
 {
-    public partial class OpenAIService : OpenAICompatibleService
+    public partial class OpenAIService : OpenAICompatibleService, IImageGenerationService
     {
+        private const uint MinimumGpt5ProInternalProfileOutputTokens = 4096;
+
         public override string Provider => nameof(AIProvider.OpenAI);
 
         protected override uint GetModelMaxOutputTokens()
         {
             var model = Model?.ToLower() ?? "";
             if (model.StartsWith("o3")) return 100000;
+            if (model == "gpt-5-pro") return 272000;
             if (model.StartsWith("gpt-5.4")) return 128000;
             if (model.StartsWith("gpt-5.3")) return 128000;
-            if (model.StartsWith("gpt-5") && model.Contains("chat")) return 16384;
             if (model.StartsWith("gpt-5")) return 128000;
             if (model.StartsWith("gpt-4.1")) return 32768;
             if (model.Contains("4o-mini")) return 16384;
@@ -50,18 +52,31 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// OpenAI timeout policy. Slow "pro" reasoning models (gpt-5-pro, o3-pro, gpt-5.x-pro)
-        /// routinely take longer than the 100s default, so when the default is in effect they get
-        /// a longer timeout. Explicit non-default timeouts are respected.
+        /// OpenAI timeout policy. GPT-5 and slow pro reasoning workloads (legacy *-pro model IDs
+        /// and GPT-5.6 reasoning.mode=pro) can legitimately take longer than the 100s default, so
+        /// when the default is in effect they get longer timeouts. Explicit non-default timeouts
+        /// are respected.
         /// </summary>
         protected override int? ResolveRequestTimeoutSeconds(FunctionCallingPolicy policy)
         {
             const int DefaultTimeout = 100;
-            const int ProModelTimeout = 300;
+            const int Gpt5Timeout = 300;
+            const int ProModelTimeout = 600;
             var seconds = policy?.TimeoutSeconds;
             var model = Model?.ToLowerInvariant() ?? string.Empty;
-            if (seconds == DefaultTimeout && model.Contains("-pro"))
-                return ProModelTimeout;
+            if (seconds == DefaultTimeout)
+            {
+                if (model.Contains("-pro") ||
+                    (model.StartsWith("gpt-5.6", StringComparison.OrdinalIgnoreCase) &&
+                     Gpt5_6ReasoningMode == global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Pro))
+                {
+                    return ProModelTimeout;
+                }
+
+                if (string.Equals(model, "gpt-5", StringComparison.OrdinalIgnoreCase))
+                    return Gpt5Timeout;
+            }
+
             return seconds;
         }
 
@@ -78,14 +93,16 @@ namespace Mythosia.AI.Services.OpenAI
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            LastReasoningSummary = null;
+
+            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
 
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
             using var cts = CreateRequestTimeoutCts(policy);
 
             // Stateless mode handling
-            ChatBlock originalChat = null;
+            ChatBlock? originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
@@ -134,14 +151,24 @@ namespace Mythosia.AI.Services.OpenAI
 
             // 2. Process response
             var responseContent = await response.Content.ReadAsStringAsync();
+            bool isResponsesApi = IsNewApiModel(Model);
+
+            // A Responses API payload is not safe to consume until the top-level response has
+            // completed successfully. Validate before extracting or executing any tool call.
+            if (isResponsesApi)
+                EnsureCompletedResponsesApiResponse(responseContent);
 
             // 3. Handle based on function support
             bool useFunctions = ShouldUseFunctions;
 
             if (useFunctions)
-                return await ProcessFunctionResponseAsync(responseContent, policy);
+                return await ProcessFunctionResponseAsync(
+                    responseContent,
+                    policy,
+                    isResponsesApi,
+                    cancellationToken);
 
-            return ProcessRegularResponseAsync(responseContent);
+            return ProcessRegularResponseAsync(responseContent, isResponsesApi);
         }
 
         /// <summary>
@@ -171,83 +198,97 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private async Task<RoundResult> ProcessFunctionResponseAsync(
             string responseContent,
-            FunctionCallingPolicy policy)
+            FunctionCallingPolicy policy,
+            bool isResponsesApi,
+            CancellationToken cancellationToken)
         {
-            var (content, functionCall) = ExtractFunctionCall(responseContent);
+            var (content, functionCalls) = ExtractFunctionCalls(responseContent);
 
-            if (functionCall != null)
+            if (functionCalls.Calls.Count > 0)
             {
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {functionCall.Name}");
-
-                await ExecuteFunctionAsync(functionCall);
+                var results = await ProcessFunctionCallsAsync(
+                    functionCalls,
+                    policy,
+                    cancellationToken);
+                var functionMessageMetadata = new Dictionary<string, object>
+                {
+                    ["model"] = Model
+                };
+                if (functionCalls.Metadata?.TryGetValue(
+                        "function_finish_reason_mismatch",
+                        out var finishReasonMismatch) == true)
+                {
+                    functionMessageMetadata["function_finish_reason_mismatch"] =
+                        finishReasonMismatch;
+                }
+                AddFunctionCallBatchToHistory(
+                    content,
+                    functionCalls,
+                    functionMessageMetadata);
+                AddFunctionResultBatchToHistory(
+                    results,
+                    new Dictionary<string, object> { ["model"] = Model });
                 return RoundResult.Continue();
             }
 
-            if (string.IsNullOrEmpty(content))
+            if (!isResponsesApi)
+            {
+                var finishReason = ExtractLegacyFinishReason(responseContent);
+                if (!string.IsNullOrEmpty(finishReason))
+                {
+                    if (!string.Equals(finishReason, "stop", StringComparison.Ordinal))
+                    {
+                        throw new AIServiceException(
+                            $"OpenAI Chat Completions ended with finish_reason={finishReason}; the partial response was not saved.");
+                    }
+
+                    if (!string.IsNullOrEmpty(content))
+                        ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+                    return RoundResult.Complete(content ?? string.Empty);
+                }
+            }
+
+            if (string.IsNullOrEmpty(content) && !isResponsesApi)
                 return RoundResult.Continue();
 
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
-            return RoundResult.Complete(content);
+            if (!string.IsNullOrEmpty(content))
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+
+            // A completed empty Responses result is terminal. Retrying it would only repeat
+            // billing and cannot manufacture text or a missing function call.
+            return RoundResult.Complete(content ?? string.Empty);
         }
 
         /// <summary>
         /// Process regular response (no functions)
         /// </summary>
-        private RoundResult ProcessRegularResponseAsync(string responseContent)
+        private RoundResult ProcessRegularResponseAsync(string responseContent, bool isResponsesApi)
         {
             var result = ExtractResponseContent(responseContent);
-            if (string.IsNullOrEmpty(result))
-                return RoundResult.Continue();
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
-            return RoundResult.Complete(result);
-        }
-
-        /// <summary>
-        /// Execute function and save results
-        /// </summary>
-        private async Task ExecuteFunctionAsync(FunctionCall functionCall)
-        {
-            // 1. Save function call message
-            var functionCallMessage = new Message(ActorRole.Assistant, string.Empty)
+            if (!isResponsesApi)
             {
-                Metadata = new Dictionary<string, object>
+                var finishReason = ExtractLegacyFinishReason(responseContent);
+                if (!string.IsNullOrEmpty(finishReason) &&
+                    !string.Equals(finishReason, "stop", StringComparison.Ordinal))
                 {
-                    [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
-                    ["model"] = Model
+                    throw new AIServiceException(
+                        $"OpenAI Chat Completions ended with finish_reason={finishReason}; the partial response was not saved.");
                 }
-            };
 
-            ActivateChat.Messages.Add(functionCallMessage);
-
-            // 2. Execute function
-            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-            if (string.IsNullOrEmpty(result))
-            {
-                Console.WriteLine($"[WARNING] Function {functionCall.Name} returned empty result");
-                result = "Function executed successfully";
+                if (string.Equals(finishReason, "stop", StringComparison.Ordinal) &&
+                    string.IsNullOrEmpty(result))
+                {
+                    return RoundResult.Complete(string.Empty);
+                }
             }
 
-            // 3. Save function result
-            var metadata = new Dictionary<string, object>
-            {
-                [MessageMetadataKeys.MessageType] = "function_result",
-                [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                ["model"] = Model
-            };
+            if (string.IsNullOrEmpty(result) && !isResponsesApi)
+                return RoundResult.Continue();
 
-            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-            {
-                Metadata = metadata
-            });
+            if (!string.IsNullOrEmpty(result))
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+
+            return RoundResult.Complete(result ?? string.Empty);
         }
 
         #endregion
@@ -333,13 +374,15 @@ namespace Mythosia.AI.Services.OpenAI
             var currentModel = Model;
 
             bool supportsVision = currentModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
+                                 currentModel.StartsWith("o3", StringComparison.OrdinalIgnoreCase) ||
+                                 currentModel.StartsWith("gpt-4.1", StringComparison.OrdinalIgnoreCase) ||
                                  currentModel.Contains("gpt-4o") ||
                                  currentModel.Contains("gpt-4-turbo") ||
                                  currentModel.Contains("vision");
 
             if (!supportsVision)
             {
-                ChangeModel(AIModels.OpenAI.Gpt4oLatest);
+                ChangeModel(AIModels.OpenAI.Gpt4_1);
                 Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {Model} for vision support");
             }
 
@@ -371,6 +414,13 @@ namespace Mythosia.AI.Services.OpenAI
         /// Defaults to Auto. Set to null to disable reasoning summaries.
         /// </summary>
         public ReasoningSummary? Gpt5ReasoningSummary { get; set; } = ReasoningSummary.Auto;
+
+        /// <summary>
+        /// o3 reasoning summary mode. This is opt-in because OpenAI requires a verified
+        /// organization for reasoning summaries. Leave null to request ordinary o3 reasoning
+        /// without a summary.
+        /// </summary>
+        public ReasoningSummary? O3ReasoningSummary { get; set; }
 
         /// <summary>
         /// GPT-5.1 reasoning effort level.
@@ -446,7 +496,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// GPT-5.5 reasoning effort level.
-        /// GPT-5.5 defaults to None. GPT-5.5 Pro defaults to Medium.
+        /// GPT-5.5 defaults to Medium. GPT-5.5 Pro defaults to High.
         /// </summary>
         public Gpt5_5Reasoning Gpt5_5ReasoningEffort { get; set; } = Gpt5_5Reasoning.Auto;
 
@@ -463,8 +513,30 @@ namespace Mythosia.AI.Services.OpenAI
         public Verbosity? Gpt5_5Verbosity { get; set; }
 
         /// <summary>
-        /// Contains the reasoning summary from the last non-streaming API call.
-        /// Only populated when using reasoning models (GPT-5, o3) with reasoning.summary enabled.
+        /// GPT-5.6 reasoning effort level. The model default is Medium.
+        /// </summary>
+        public Gpt5_6Reasoning Gpt5_6ReasoningEffort { get; set; } = Gpt5_6Reasoning.Auto;
+
+        /// <summary>
+        /// GPT-5.6 reasoning summary mode.
+        /// Defaults to Auto. Set to null to disable reasoning summaries.
+        /// </summary>
+        public ReasoningSummary? Gpt5_6ReasoningSummary { get; set; } = ReasoningSummary.Auto;
+
+        /// <summary>
+        /// GPT-5.6 verbosity level. The model default is Medium.
+        /// </summary>
+        public Verbosity? Gpt5_6Verbosity { get; set; }
+
+        /// <summary>
+        /// GPT-5.6 reasoning execution mode. Pro mode is an API parameter, not a separate model ID.
+        /// </summary>
+        public Gpt5_6ReasoningMode Gpt5_6ReasoningMode { get; set; } = global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Standard;
+
+        /// <summary>
+        /// Contains the reasoning summary from the last non-streaming API call when the provider
+        /// returns a reasoning output item. Remains null when summaries are disabled or the
+        /// provider omits the optional summary output despite accepting reasoning.summary.
         /// </summary>
         public string? LastReasoningSummary { get; private set; }
 
@@ -478,6 +550,19 @@ namespace Mythosia.AI.Services.OpenAI
             Gpt5ReasoningEffort = reasoningEffort;
             Gpt5ReasoningSummary = reasoningSummary;
             Console.WriteLine($"[GPT-5 Config] Reasoning: {reasoningEffort}, Summary: {reasoningSummary?.ToString() ?? "disabled"}");
+            return this;
+        }
+
+        /// <summary>
+        /// Sets o3 reasoning parameters. Reasoning summaries are disabled by default and require
+        /// an OpenAI organization that is verified for summary generation.
+        /// </summary>
+        public OpenAIService WithO3Parameters(
+            Gpt5Reasoning reasoningEffort = Gpt5Reasoning.Medium,
+            ReasoningSummary? reasoningSummary = null)
+        {
+            Gpt5ReasoningEffort = reasoningEffort;
+            O3ReasoningSummary = reasoningSummary;
             return this;
         }
 
@@ -543,16 +628,36 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// Sets GPT-5.5 specific parameters.
-        /// Reasoning effort: None (default), Low, Medium, High, XHigh. GPT-5.5 Pro supports Medium, High, XHigh.
+        /// Reasoning effort: None, Low, Medium (default), High, XHigh. GPT-5.5 Pro defaults to High.
         /// Verbosity: Low, Medium (default), High.
         /// Reasoning summary: Auto (default), Concise, Detailed, or null to disable.
         /// </summary>
-        public OpenAIService WithGpt5_5Parameters(Gpt5_5Reasoning reasoningEffort = Gpt5_5Reasoning.None, Verbosity verbosity = Verbosity.Medium, ReasoningSummary? reasoningSummary = ReasoningSummary.Auto)
+        public OpenAIService WithGpt5_5Parameters(Gpt5_5Reasoning reasoningEffort = Gpt5_5Reasoning.Auto, Verbosity verbosity = Verbosity.Medium, ReasoningSummary? reasoningSummary = ReasoningSummary.Auto)
         {
             Gpt5_5ReasoningEffort = reasoningEffort;
             Gpt5_5Verbosity = verbosity;
             Gpt5_5ReasoningSummary = reasoningSummary;
             Console.WriteLine($"[GPT-5.5 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}, Summary: {reasoningSummary?.ToString() ?? "disabled"}");
+            return this;
+        }
+
+        /// <summary>
+        /// Sets GPT-5.6 specific parameters.
+        /// Reasoning effort: None, Low, Medium (default), High, XHigh, Max.
+        /// Verbosity: Low, Medium (default), High.
+        /// Pro is a reasoning mode and does not change the selected model ID.
+        /// </summary>
+        public OpenAIService WithGpt5_6Parameters(
+            Gpt5_6Reasoning reasoningEffort = Gpt5_6Reasoning.Medium,
+            Verbosity verbosity = Verbosity.Medium,
+            ReasoningSummary? reasoningSummary = ReasoningSummary.Auto,
+            Gpt5_6ReasoningMode reasoningMode = Gpt5_6ReasoningMode.Standard)
+        {
+            Gpt5_6ReasoningEffort = reasoningEffort;
+            Gpt5_6Verbosity = verbosity;
+            Gpt5_6ReasoningSummary = reasoningSummary;
+            Gpt5_6ReasoningMode = reasoningMode;
+            Console.WriteLine($"[GPT-5.6 Config] Reasoning: {reasoningEffort}, Verbosity: {verbosity}, Summary: {reasoningSummary?.ToString() ?? "disabled"}, Mode: {reasoningMode}");
             return this;
         }
 
@@ -563,6 +668,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             var backupGpt5 = Gpt5ReasoningEffort;
             var backupGpt5Summary = Gpt5ReasoningSummary;
+            var backupO3Summary = O3ReasoningSummary;
             var backupGpt51 = Gpt5_1ReasoningEffort;
             var backupGpt51Summary = Gpt5_1ReasoningSummary;
             var backupGpt52 = Gpt5_2ReasoningEffort;
@@ -573,9 +679,13 @@ namespace Mythosia.AI.Services.OpenAI
             var backupGpt54Summary = Gpt5_4ReasoningSummary;
             var backupGpt55 = Gpt5_5ReasoningEffort;
             var backupGpt55Summary = Gpt5_5ReasoningSummary;
+            var backupGpt56 = Gpt5_6ReasoningEffort;
+            var backupGpt56Summary = Gpt5_6ReasoningSummary;
+            var backupGpt56Mode = Gpt5_6ReasoningMode;
 
             Gpt5ReasoningEffort = Gpt5Reasoning.Minimal;
             Gpt5ReasoningSummary = null;
+            O3ReasoningSummary = null;
             Gpt5_1ReasoningEffort = Gpt5_1Reasoning.None;
             Gpt5_1ReasoningSummary = null;
             Gpt5_2ReasoningEffort = Gpt5_2Reasoning.None;
@@ -586,11 +696,15 @@ namespace Mythosia.AI.Services.OpenAI
             Gpt5_4ReasoningSummary = null;
             Gpt5_5ReasoningEffort = Gpt5_5Reasoning.None;
             Gpt5_5ReasoningSummary = null;
+            Gpt5_6ReasoningEffort = Gpt5_6Reasoning.None;
+            Gpt5_6ReasoningSummary = null;
+            Gpt5_6ReasoningMode = global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Standard;
 
             return () =>
             {
                 Gpt5ReasoningEffort = backupGpt5;
                 Gpt5ReasoningSummary = backupGpt5Summary;
+                O3ReasoningSummary = backupO3Summary;
                 Gpt5_1ReasoningEffort = backupGpt51;
                 Gpt5_1ReasoningSummary = backupGpt51Summary;
                 Gpt5_2ReasoningEffort = backupGpt52;
@@ -601,7 +715,33 @@ namespace Mythosia.AI.Services.OpenAI
                 Gpt5_4ReasoningSummary = backupGpt54Summary;
                 Gpt5_5ReasoningEffort = backupGpt55;
                 Gpt5_5ReasoningSummary = backupGpt55Summary;
+                Gpt5_6ReasoningEffort = backupGpt56;
+                Gpt5_6ReasoningSummary = backupGpt56Summary;
+                Gpt5_6ReasoningMode = backupGpt56Mode;
             };
+        }
+
+        protected override Action ApplyRequestProfile(AIRequestProfile profile)
+        {
+            var restore = base.ApplyRequestProfile(profile);
+
+            if (profile.DisableReasoning == true &&
+                (profile.Purpose == AIRequestPurpose.Summarization ||
+                 profile.Purpose == AIRequestPurpose.QueryRewrite) &&
+                profile.MaxTokens.HasValue &&
+                Model.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase))
+            {
+                // gpt-5-pro always uses high reasoning. Library-owned profiles that try
+                // to disable reasoning (for example summarization and query rewriting)
+                // still count hidden reasoning against the same output budget and can
+                // finish as `incomplete` before producing text. Reserve enough room only
+                // for this internal request, then restore the caller's MaxTokens value.
+                MaxTokens = Math.Min(
+                    GetModelMaxOutputTokens(),
+                    Math.Max(profile.MaxTokens.Value, MinimumGpt5ProInternalProfileOutputTokens));
+            }
+
+            return restore;
         }
 
         #endregion

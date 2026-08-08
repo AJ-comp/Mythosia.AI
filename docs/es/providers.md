@@ -9,12 +9,18 @@ Los modelos GPT-5.x y la serie o3 soportan control de esfuerzo de reasoning:
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6: Sol es el modelo insignia; Terra y Luna son opciones más económicas.
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // Serie GPT-5.4
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -45,10 +51,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### Generación de Imágenes
 
 ```csharp
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "Una ciudad futurista de noche",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "Una ciudad futurista de noche",
+        Size = "1024x1024"
+    });
+
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -88,8 +100,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// Opciones: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// Opciones: Auto, None, Low, Medium, High (según el modelo)
 ```
 
 ---

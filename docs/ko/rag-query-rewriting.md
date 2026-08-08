@@ -31,8 +31,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // 동일한 AI 서비스 사용
-    .WithQueryRewriteMaxTokens(250)  // 재작성을 위한 토큰 예산
+    .WithQueryRewriter(250)          // 동일한 AI 서비스 사용
     .AddDocument("docs.txt")
 )
 ```

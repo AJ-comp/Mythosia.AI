@@ -2,7 +2,7 @@
 
 ## 에이전트 루프가 필요한 이유
 
-일반 함수 호출에서는 모델이 요청당 **한 번**의 함수를 호출하고, 실행한 뒤 대화가 계속됩니다. 하지만 실제 많은 작업은 모델이 자율적으로 계획하고 실행해야 하는 **여러 단계**를 필요로 합니다:
+일반 함수 호출도 모델의 한 응답에서 요청된 **여러 함수를 순서가 보장된 배치로** 실행하고 다음 도구 라운드로 이어갈 수 있습니다. Agent API는 이 메커니즘을 명시적인 **단계 제한**이 있는 목표 지향 ReAct 루프로 묶어, 최종 답변이 나올 때까지 각 배치 결과를 모델에 다시 전달합니다:
 
 - "상위 3개 AI 기업을 조사하고 주가를 비교해 줘" — 여러 번의 웹 검색과 주가 조회가 필요
 - "관련 정책을 찾고, 주문 상태를 확인한 다음, 환불 대상인지 알려줘" — 다른 도구들을 논리적 순서로 연결해야 함
@@ -60,7 +60,7 @@ catch (AgentMaxStepsExceededException ex)
 에이전트 루프의 라운드별 동작을 제어합니다:
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

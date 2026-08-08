@@ -6,7 +6,6 @@ namespace Mythosia.AI.Samples.ChatUi
         float? Temperature,
         float? TopP,
         int? MaxTokens,
-        int? MaxMessageCount,
         float? FrequencyPenalty,
         float? PresencePenalty,
         bool? StatelessMode,

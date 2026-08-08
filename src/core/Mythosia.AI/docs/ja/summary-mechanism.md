@@ -197,7 +197,6 @@ Round 2: [サーバーが400で拒否]
 | 理由 | 意味 |
 |---|---|
 | `nothing-to-cut` | 現在の質問より前に切るものがない |
-| `window-clipped` | 切る区間がすでに `MaxMessageCount` ウィンドウの外 — 削除しても要求が縮まらない |
 | `retries-exhausted` | `ContextRecoveryMaxRetries` を使い切った |
 
 いずれの場合も**要約呼び出しも削除も行わず**、元のエラーをそのまま伝播する。

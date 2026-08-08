@@ -1,4 +1,5 @@
 ﻿using Mythosia.AI.Extensions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
@@ -10,6 +11,7 @@ namespace Mythosia.AI.Tests.OpenAI;
 
 // 1. 기존 클래스를 추상 클래스로 변경 (이름에 Base 추가)
 [TestClass]
+[TestCategory("Live")]
 public abstract class OpenAIServiceTestsBase : AIServiceTestBase
 {
     private static string? openAiKey;
@@ -44,6 +46,8 @@ public abstract class OpenAIServiceTestsBase : AIServiceTestBase
         // All GPT-5 variants support multimodal (text + image input)
         if (curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase))
             return true;
+        if (curModel.StartsWith("o3", StringComparison.OrdinalIgnoreCase))
+            return true;
         if (curModel == AIModels.OpenAI.Gpt4o ||
             curModel == AIModels.OpenAI.Gpt4oMini ||
             curModel == AIModels.OpenAI.Gpt4o241120 ||
@@ -53,13 +57,29 @@ public abstract class OpenAIServiceTestsBase : AIServiceTestBase
     }
 
     protected override bool SupportsFunctionCalling() => true;
+    protected override bool SupportsArrayParameter() => true;
+    protected override void ConfigureRequiredFunctionCall(string functionName)
+    {
+        AI.ForceFunctionName = functionName;
+    }
+
+    protected override void ConfigureFunctionCallingStreamEventsTest()
+    {
+        ConfigureRequiredFunctionCall("test_function");
+    }
+
+    protected override void ConfigureFunctionChainingStreamTest()
+    {
+        ConfigureRequiredFunctionCall("get_user_id");
+    }
+
     protected override bool SupportsAudio() => true;
-    protected override bool SupportsImageGeneration() => true;
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning()
     {
         var curModel = AI.Model;
-        return curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase);
+        return curModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
+               curModel.StartsWith("o3", StringComparison.OrdinalIgnoreCase);
     }
     protected override string? GetAlternativeModel() => AIModels.OpenAI.Gpt4oMini;
 
@@ -79,11 +99,15 @@ public abstract class OpenAIServiceTestsBase : AIServiceTestBase
                 presencePenalty: 0.5f,
                 frequencyPenalty: 0.3f
             );
+            var maxTokens = gptService.Model.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
+                            gptService.Model.StartsWith("o3", StringComparison.OrdinalIgnoreCase)
+                ? 4096u
+                : 150u;
             // 체이닝 설정
             gptService
                 .WithSystemMessage("You are a creative writer")
                 .WithTemperature(0.9f)
-                .WithMaxTokens(150);
+                .WithMaxTokens(maxTokens);
             var creativeResponse = await gptService.GetCompletionAsync(
                 "Write a creative one-line story about a robot"
             );
@@ -221,12 +245,6 @@ public class Gpt5_2Pro : OpenAIServiceTestsBase
 }
 
 [TestClass]
-public class Gpt5_2Codex : OpenAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.OpenAI.Gpt5_2Codex;
-}
-
-[TestClass]
 public class Gpt5_3Codex : OpenAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.OpenAI.Gpt5_3Codex;
@@ -278,6 +296,66 @@ public class Gpt5_4Pro : OpenAIServiceTestsBase
 public class O3 : OpenAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.OpenAI.O3;
+
+    [TestCategory("ServiceSpecific")]
+    [TestMethod]
+    public async Task O3ReasoningSummaryIsReturnedTest()
+    {
+        var service = (OpenAIService)AI;
+        service.WithO3Parameters(Gpt5Reasoning.Low, ReasoningSummary.Detailed);
+
+        var reasoningChunks = new List<string>();
+        var textChunks = new List<string>();
+        var options = new StreamOptions().WithReasoning().WithMetadata();
+
+        try
+        {
+            await foreach (var content in service.StreamAsync(
+                "What is 15 * 17? Provide the answer and a reasoning summary.",
+                options))
+            {
+                if (content.Type == StreamingContentType.Reasoning &&
+                    !string.IsNullOrWhiteSpace(content.Content))
+                {
+                    reasoningChunks.Add(content.Content);
+                }
+                else if (content.Type == StreamingContentType.Text &&
+                         !string.IsNullOrWhiteSpace(content.Content))
+                {
+                    textChunks.Add(content.Content);
+                }
+                else if (content.Type == StreamingContentType.Error)
+                {
+                    var errorText = $"{content.Content}\n" +
+                        string.Join(
+                            "\n",
+                            content.Metadata?.Values.Cast<object>() ?? Enumerable.Empty<object>());
+                    if (errorText.Contains(
+                            "organization must be verified to generate reasoning summaries",
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        Assert.Inconclusive(
+                            "The o3 reasoning.summary request reached OpenAI, but this API organization is not verified for summary generation.");
+                    }
+
+                    Assert.Fail($"Unexpected o3 reasoning-summary stream error: {errorText}");
+                }
+            }
+        }
+        catch (AIServiceException ex) when (
+            $"{ex.Message}\n{ex.ErrorDetails}".Contains(
+                "organization must be verified to generate reasoning summaries",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Assert.Inconclusive(
+                "The o3 reasoning.summary request reached OpenAI, but this API organization is not verified for summary generation.");
+        }
+
+        Assert.IsTrue(textChunks.Count > 0, "o3 should return answer text.");
+        Assert.IsTrue(
+            reasoningChunks.Count > 0,
+            "o3 was explicitly configured with reasoning.summary=detailed but returned no reasoning summary events.");
+    }
 }
 
 [TestClass]
@@ -298,4 +376,32 @@ public class Gpt5_5Pro : OpenAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.OpenAI.Gpt5_5Pro;
     protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_5Parameters(reasoningEffort: Gpt5_5Reasoning.Medium);
+}
+
+[TestClass]
+public class Gpt5_6 : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_6;
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_6Parameters(reasoningEffort: Gpt5_6Reasoning.Low);
+}
+
+[TestClass]
+public class Gpt5_6Sol : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_6Sol;
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_6Parameters(reasoningEffort: Gpt5_6Reasoning.Low);
+}
+
+[TestClass]
+public class Gpt5_6Terra : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_6Terra;
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_6Parameters(reasoningEffort: Gpt5_6Reasoning.Low);
+}
+
+[TestClass]
+public class Gpt5_6Luna : OpenAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.OpenAI.Gpt5_6Luna;
+    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_6Parameters(reasoningEffort: Gpt5_6Reasoning.Low);
 }

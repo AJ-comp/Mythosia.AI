@@ -9,16 +9,22 @@ GPT-5.x và dòng o3 hỗ trợ kiểm soát mức độ suy luận. Đặt mứ
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6: Sol là mô hình hàng đầu; Terra và Luna là các lựa chọn tiết kiệm hơn.
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // Dòng GPT-5.4
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // Dòng GPT-5.2
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### Tạo hình ảnh
 
 ```csharp
-// Nhận hình ảnh dưới dạng bytes
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "Thành phố tương lai về đêm",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "Thành phố tương lai về đêm",
+        Size = "1024x1024"
+    });
 
-// Nhận hình ảnh dưới dạng URL
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "Thành phố tương lai về đêm",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -68,7 +73,7 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ### Đếm token (API gốc)
 
-`GetInputTokenCountAsync` có trên tất cả provider (xem [Tạo văn bản](completions.md#token-counting)). Phiên bản Anthropic gọi endpoint `messages/count_tokens` chính thức, trả về **số token chính xác** thay vì ước tính cục bộ:
+`GetInputTokenCountAsync` có trên tất cả provider (xem [Tạo văn bản](completions.md#đếm-token)). Phiên bản Anthropic gọi endpoint `messages/count_tokens` chính thức, trả về **số token chính xác** thay vì ước tính cục bộ:
 
 ```csharp
 uint tokens = await service.GetInputTokenCountAsync("Prompt của bạn");
@@ -101,8 +106,8 @@ Mức cao hơn tạo ra phản hồi kỹ lưỡng hơn nhưng tăng độ trễ
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// Tùy chọn: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// Tùy chọn: Auto, None, Low, Medium, High (tùy mô hình)
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 Model có sẵn: `QwenMax`, `QwenPlus`, `QwenTurbo`, `Qwen3` và các biến thể.
 
-Thuộc tính `EndpointPlatform` cho phép chuyển đổi giữa Alibaba Cloud và các endpoint tương thích:
+Chọn endpoint tương thích bằng `EndpointPlatform` khi tạo service:
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

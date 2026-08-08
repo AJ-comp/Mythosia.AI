@@ -42,7 +42,7 @@ Nutzt einen lokal gehosteten vLLM Re-Ranking-Endpunkt:
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("korpus.txt")
 )
 ```
@@ -55,14 +55,14 @@ Steuere, wie viele Kandidaten abgerufen und wie sie vor der Endauswahl gefiltert
 .WithRag(rag => rag
     .WithTopK(5)                   // Endanzahl der zurückgegebenen Abschnitte
     .WithRetrievalMultiplier(3)    // TopK × 3 Kandidaten abrufen (für Re-Ranking)
-    .WithMinScore(0.6)             // Minimale Ähnlichkeitsbewertung
+    .WithScoreThreshold(0.6)       // Minimale Ähnlichkeitsbewertung
     .AddDocument("korpus.txt")
 )
 ```
 
 - **`TopK`** — wie viele Abschnitte im LLM-Kontext landen
 - **`RetrievalMultiplier`** — breiter suchen, damit der Re-Ranker mehr zur Auswahl hat. Ein Multiplikator von 3 bedeutet: 15 Kandidaten abrufen, dann die besten 5 nach Re-Ranking behalten.
-- **`MinScore`** — alles unter diesem Ähnlichkeitsschwellenwert verwerfen, auch wenn weniger als `TopK` Abschnitte übrig bleiben
+- **`WithScoreThreshold`** — alles unter diesem Ähnlichkeitsschwellenwert verwerfen, auch wenn weniger als `TopK` Abschnitte übrig bleiben
 
 ## Finale Auswahlmodus
 

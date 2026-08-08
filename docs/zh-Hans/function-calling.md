@@ -57,21 +57,25 @@ var response = await service.GetCompletionAsync("北京今天天气怎么样？"
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "搜索产品目录")]
-public static string SearchProducts(
-    [AiParameter("搜索关键词", required: true)] string query,
-    [AiParameter("最大返回数量")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... 你的实现
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "搜索产品目录")]
+    public string SearchProducts(
+        [AiParameter("搜索关键词", required: true)] string query,
+        [AiParameter("最大返回数量")] int limit = 5)
+    {
+        // ... 你的实现
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 然后注册：
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## 函数调用策略
@@ -82,13 +86,13 @@ service.AddFunction(SearchProducts);
 using Mythosia.AI.Models.Functions;
 
 // 由模型自行决定（默认）
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // 强制模型始终调用函数
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // 禁用函数调用
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## 批量注册类中的函数
@@ -143,11 +147,14 @@ service.WithoutFunctions();  // 设置 FunctionsDisabled = true
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "返回当前股票价格")
-    .AddParameter("ticker", "股票代码", required: true)
+    .Create("get_stock_price")
+    .WithDescription("返回当前股票价格")
+    .AddParameter("ticker", "string", "股票代码", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

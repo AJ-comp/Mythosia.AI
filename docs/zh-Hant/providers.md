@@ -9,13 +9,19 @@ GPT-5.x 和 o3 系列模型支援推理強度控制：
 ```csharp
 using Mythosia.AI.Models;
 
-service.Model = AIModels.OpenAI.Gpt5_4;
+// GPT-5.6：Sol 是旗艦模型；Terra 與 Luna 是更經濟的選擇。
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -44,15 +50,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### 圖像生成
 
 ```csharp
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "夜晚的未來城市",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "夜晚的未來城市",
+        Size = "1024x1024"
+    });
 
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "夜晚的未來城市",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -90,8 +97,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// 選項：Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// 選項：Auto, None, Low, Medium, High（依模型而異）
 ```
 
 ---
@@ -131,6 +138,11 @@ var service = new QwenService(apiKey, http)
 
 可用模型：`QwenMax`、`QwenPlus`、`QwenTurbo`、`Qwen3` 及其變體。
 
+建立服務時，使用 `EndpointPlatform` 選擇相容端點：
+
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

@@ -28,6 +28,8 @@
 
 ---
 
+> **Upgrading to Mythosia.AI 7.0.0?** This is a breaking release. Read the [v7 migration guide](docs/v7-migration.md) before updating `Mythosia.AI`, `Mythosia.AI.Abstractions`, or `Mythosia.AI.Providers.Alibaba`.
+
 ### What do I need to install?
 
 ```
@@ -51,12 +53,12 @@ graph TD
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v6.8.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · shared models<br/><i>netstandard2.1 · v2.5.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.0.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.0.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v1.2.8</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.0</i>"]
     end
 
     subgraph "🛰️ Serving — Control Plane"
@@ -132,7 +134,7 @@ https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 ### Basic AI Completion
 
 ```csharp
-using Mythosia.AI;
+using Mythosia.AI.Services.OpenAI;
 
 var service = new OpenAIService(apiKey, httpClient);
 var response = await service.GetCompletionAsync("Hello!");
@@ -164,6 +166,9 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 ### Function Calling
 
 ```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Services.OpenAI;
+
 var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(
         "get_weather",
@@ -174,6 +179,49 @@ var service = new OpenAIService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
+
+Calls returned in one model response execute sequentially by default. Opt in to
+bounded parallel handler execution when the registered functions are independent:
+
+```csharp
+using Mythosia.AI.Models.Functions;
+
+service.DefaultPolicy = new FunctionCallingPolicy
+{
+    ExecutionMode = FunctionExecutionMode.Parallel,
+    MaxConcurrency = 3
+};
+```
+
+Results are still sent back to the model in the provider's original call order.
+Once a validated batch begins, its handlers run to completion so call/result history
+cannot be left partial; registered handlers do not currently receive cancellation tokens.
+`FunctionCallingPolicy.TimeoutSeconds` covers the complete streaming round loop,
+including response headers and the SSE body, without resetting between tool rounds.
+Policy expiry raises `AIServiceException`; caller cancellation remains an
+`OperationCanceledException` associated with the caller's token.
+
+### Image Generation and Editing
+
+OpenAI and Google expose image generation as an optional capability, separate from the selected chat model:
+
+```csharp
+using Mythosia.AI.Models.Images;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.OpenAI;
+
+IImageGenerationService images = new OpenAIService(apiKey, httpClient);
+var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Prompt = "A glass pavilion at sunrise",
+    Size = "1024x1024",
+    OutputFormat = "png"
+});
+
+await File.WriteAllBytesAsync("pavilion.png", generated.Images[0].Data);
+```
+
+See the [provider guide](docs/providers.md#image-generation) for OpenAI and Gemini-specific controls and editing behavior.
 
 ### Structured Output (Basic)
 
@@ -239,6 +287,7 @@ dotnet add package Mythosia.AI.Rag
 
 ```csharp
 using Mythosia.AI.Rag;
+using Mythosia.AI.Services.Anthropic;
 
 var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
@@ -255,13 +304,15 @@ For agent-controlled retrieval, register the store with `WithAgenticRag(...)` an
 
 | Provider | Package | Models |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.2 Codex / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini / 4.1 Nano, GPT-4o / 4o Mini, o3 / o3 Pro |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5, Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5, Haiku 4.5 |
-| **Google** | `Mythosia.AI` | Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite |
-| **xAI** | `Mythosia.AI` | Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build 0.1, Grok 3 Mini |
+| **OpenAI** | `Mythosia.AI` | GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **Google** | `Mythosia.AI` | Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
+| **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Chat, Reasoner |
 | **Perplexity** | `Mythosia.AI` | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
+
+> Claude Fable 5 and Claude Mythos 5 require 30-day data retention and are not eligible for zero-data-retention arrangements. Their adaptive thinking is always on; Mythosia uses low effort with summarized reasoning omitted when callers request reasoning off. Mythos 5 is limited to approved Project Glasswing customers.
 
 ## Packages
 
@@ -269,24 +320,24 @@ For agent-controlled retrieval, register the store with `WithAgenticRag(...)` an
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI](src/core/Mythosia.AI/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI) | Core library — built-in providers, streaming, function calling, and multimodal support |
-| [Mythosia.AI.Abstractions](src/core/Mythosia.AI.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Abstractions) | `IAIService` interface and shared models — lightweight contract package for libraries |
-| [Mythosia.AI.Providers.Alibaba](src/core/Mythosia.AI.Providers.Alibaba/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Providers.Alibaba.svg)](https://www.nuget.org/packages/Mythosia.AI.Providers.Alibaba) | Alibaba / Qwen provider package built on top of `Mythosia.AI` |
+| [Mythosia.AI](src/core/Mythosia.AI/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.svg)](https://www.nuget.org/packages/Mythosia.AI) | Core library — built-in providers, streaming, function calling, and multimodal support |
+| [Mythosia.AI.Abstractions](src/core/Mythosia.AI.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Abstractions) | `IAIService` interface and shared models — lightweight contract package for libraries |
+| [Mythosia.AI.Providers.Alibaba](src/core/Mythosia.AI.Providers.Alibaba/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Providers.Alibaba.svg)](https://www.nuget.org/packages/Mythosia.AI.Providers.Alibaba) | Alibaba / Qwen provider package built on top of `Mythosia.AI` |
 
 ### RAG
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI.Rag](src/rag/Mythosia.AI.Rag/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag) | Fluent RAG extension for IAIService with `.WithRag()` API |
-| [Mythosia.AI.Rag.Abstractions](src/rag/Mythosia.AI.Rag.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag.Abstractions) | Interfaces and models for RAG pipeline components |
+| [Mythosia.AI.Rag](src/rag/Mythosia.AI.Rag/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag) | Fluent RAG extension for IAIService with `.WithRag()` API |
+| [Mythosia.AI.Rag.Abstractions](src/rag/Mythosia.AI.Rag.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Rag.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Rag.Abstractions) | Interfaces and models for RAG pipeline components |
 
 ### Document Loaders
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.Documents.Abstractions](src/loaders/Mythosia.Documents.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.Documents.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.Documents.Abstractions) | Document loader interfaces and models (`IDocumentLoader`, `DoclingDocument`) |
-| [Mythosia.Documents.Office](src/loaders/Mythosia.Documents.Office/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.Documents.Office.svg)](https://www.nuget.org/packages/Mythosia.Documents.Office) | OpenXml parsers for Word / Excel / PowerPoint |
-| [Mythosia.Documents.Pdf](src/loaders/Mythosia.Documents.Pdf/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.Documents.Pdf.svg)](https://www.nuget.org/packages/Mythosia.Documents.Pdf) | PDF parser via PdfPig |
+| [Mythosia.Documents.Abstractions](src/loaders/Mythosia.Documents.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.Documents.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.Documents.Abstractions) | Document loader interfaces and models (`IDocumentLoader`, `DoclingDocument`) |
+| [Mythosia.Documents.Office](src/loaders/Mythosia.Documents.Office/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.Documents.Office.svg)](https://www.nuget.org/packages/Mythosia.Documents.Office) | OpenXml parsers for Word / Excel / PowerPoint |
+| [Mythosia.Documents.Pdf](src/loaders/Mythosia.Documents.Pdf/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.Documents.Pdf.svg)](https://www.nuget.org/packages/Mythosia.Documents.Pdf) | PDF parser via PdfPig |
 
 ### Vector Stores
 
@@ -294,11 +345,11 @@ For agent-controlled retrieval, register the store with `WithAgenticRag(...)` an
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](src/vectordb/Mythosia.VectorDb.Abstractions/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `VectorRecord` · `VectorFilter` contracts |
-| [Mythosia.VectorDb.InMemory](src/vectordb/Mythosia.VectorDb.InMemory/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | In-memory store — zero infrastructure, great for prototyping |
-| [Mythosia.VectorDb.Pinecone](src/vectordb/Mythosia.VectorDb.Pinecone/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — index/namespace/scope isolation for managed vector DB |
-| [Mythosia.VectorDb.Postgres](src/vectordb/Mythosia.VectorDb.Postgres/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat indexes, production-ready |
-| [Mythosia.VectorDb.Qdrant](src/vectordb/Mythosia.VectorDb.Qdrant/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot, auto-provisioning |
+| [Mythosia.VectorDb.Abstractions](src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `VectorRecord` · `VectorFilter` contracts |
+| [Mythosia.VectorDb.InMemory](src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | In-memory store — zero infrastructure, great for prototyping |
+| [Mythosia.VectorDb.Pinecone](src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — index/namespace/scope isolation for managed vector DB |
+| [Mythosia.VectorDb.Postgres](src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat indexes, production-ready |
+| [Mythosia.VectorDb.Qdrant](src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot, auto-provisioning |
 
 ### Serving — Control Plane
 
@@ -306,7 +357,7 @@ For agent-controlled retrieval, register the store with `WithAgenticRag(...)` an
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI.Serving.Vllm](src/serving/Mythosia.AI.Serving.Vllm/) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM control-plane client — model cards (the actually loaded model via `root`), health, server version, Prometheus metrics |
+| [Mythosia.AI.Serving.Vllm](src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM control-plane client — model cards (the model actually loaded via `root`), health, server version, Prometheus metrics |
 
 ## Repository Structure
 
@@ -350,7 +401,7 @@ dotnet add package System.Linq.Async
 ## Documentation
 
 - **[📖 Full Documentation Site](https://aj-comp.github.io/Mythosia.AI/)** — DocFX-generated docs covering all features, RAG pipeline, vector stores, and API reference
-- [Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)
+- [Basic Usage Guide](docs/getting-started.md)
 - [Mythosia.AI README](src/core/Mythosia.AI/README.md)  Full API reference with function calling, streaming, and model configuration
 - [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
 - [Document Loaders](docs/document-loaders.md)
@@ -358,9 +409,8 @@ dotnet add package System.Linq.Async
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](https://github.com/AJ-comp/Mythosia.AI/blob/main/LICENSE).
 
 ## Originally
 
 This project was originally part of [Mythosia](https://github.com/AJ-comp/Mythosia).
-

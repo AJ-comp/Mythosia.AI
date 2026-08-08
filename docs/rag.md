@@ -33,14 +33,14 @@ Several source types are supported:
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // local file
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("Inline content can go here too.")   // raw string
 )
 ```
 
 ## Custom Embedding Provider
 
-By default, RAG uses the service's own provider for embeddings. To use a dedicated embedding model:
+By default, RAG uses the built-in local embedding provider. To use a dedicated embedding model:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -81,11 +85,14 @@ Fine-tune retrieval behavior per query:
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,           // number of chunks to retrieve
-    ScoreThreshold = 0.7f  // minimum similarity score
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,       // number of chunks to retrieve
+        MinScore = 0.7  // minimum similarity score
+    }
 };
 
-var response = await service.GetCompletionAsync("Your question", ragOptions: options);
+var response = await service.GetCompletionAsync("Your question", options: options);
 ```
 
 ## Next Steps

@@ -32,7 +32,7 @@ service.SystemMessage = originalSystem;
 ```csharp
 // ✅ AIRequestContext 사용 — 깔끔하고, 범위가 한정되며, 부작용 없음
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\n다음 컨텍스트를 사용해 답변하세요:\n{retrievedDocs}"
     });
@@ -52,7 +52,7 @@ var context = new AIRequestContext
     SystemMessagePrefix = "오늘 날짜는 2026-03-31입니다.\n"
 };
 
-var response = await service.GetCompletionAsync("오늘 무슨 요일인가요?", context);
+var response = await service.GetCompletionAsync("오늘 무슨 요일인가요?", context: context);
 ```
 
 **사용 시점:** 요청마다 변하는 동적 메타데이터(날짜, 사용자 시간대, 세션 정보)를 주입할 때.
@@ -67,7 +67,7 @@ var context = new AIRequestContext
     SystemMessageSuffix = "\n항상 한국어로 답변하세요."
 };
 
-var response = await service.GetCompletionAsync("Hello!", context);
+var response = await service.GetCompletionAsync("Hello!", context: context);
 ```
 
 **사용 시점:** 요청별 행동 지시, RAG 컨텍스트, 또는 언어 선호를 추가할 때.
@@ -81,11 +81,11 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("참고 문서: 환불 정책은 30일 이내 반품을 허용합니다.").Build()
+        MessageBuilder.Create().AddText("참고 문서: 환불 정책은 30일 이내 반품을 허용합니다.").Build()
     }
 };
 
-var response = await service.GetCompletionAsync("환불 대상인가요?", context);
+var response = await service.GetCompletionAsync("환불 대상인가요?", context: context);
 ```
 
 **사용 시점:** 대화 기록에 남기지 않아야 할 참고 자료, few-shot 예제, 또는 보조 컨텍스트를 제공할 때.
@@ -102,7 +102,7 @@ var context = new AIRequestContext
         .Build()
 };
 
-await service.GetCompletionAsync(userQuery, context);
+await service.GetCompletionAsync(userQuery, context: context);
 ```
 
 **사용 시점:** 미들웨어 레이어(RAG, 쿼리 재작성)가 모델에 보내기 전에 프롬프트를 완전히 재구성해야 하지만, 원래 사용자 입력은 대화 기록에 유지하고 싶을 때.
@@ -122,12 +122,13 @@ service.SystemMessage = origSys
     + $"\n오늘: {DateTime.Now:yyyy-MM-dd}"
     + $"\n\n컨텍스트:\n{retrievedChunks}";
 
-service.Messages.Add(MessageBuilder.User(fewShotExample).Build());
+var fewShotIndex = service.ActivateChat.Messages.Count;
+service.ActivateChat.Messages.Add(MessageBuilder.Create().AddText(fewShotExample).Build());
 
 var answer = await service.GetCompletionAsync(userQuery);
 
 service.SystemMessage = origSys;
-service.Messages.RemoveAt(service.Messages.Count - 2); // few-shot 예제 제거
+service.ActivateChat.Messages.RemoveAt(fewShotIndex); // few-shot 예제 제거
 ```
 
 **AIRequestContext 사용:**
@@ -135,13 +136,13 @@ service.Messages.RemoveAt(service.Messages.Count - 2); // few-shot 예제 제거
 ```csharp
 // ✅ 깔끔하고, 상태 변경 없으며, 부작용 없음
 var answer = await service.GetCompletionAsync(userQuery,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessagePrefix = $"오늘: {DateTime.Now:yyyy-MM-dd}\n",
         SystemMessageSuffix = $"\n\n컨텍스트:\n{retrievedChunks}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User(fewShotExample).Build()
+            MessageBuilder.Create().AddText(fewShotExample).Build()
         }
     });
 ```
@@ -159,7 +160,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\n컨텍스트:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("예제: ...").Build()
+            MessageBuilder.Create().AddText("예제: ...").Build()
         }
     }
 );
@@ -179,15 +180,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. 메인 채팅 응답
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. 제목 생성기 (나중에 추가됨)
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. 요약기 (더 나중에 추가됨)
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Agent 호출 — 깜빡하기 쉬움! 컴파일러가 경고해주지 않음
 var agentResult = await service.RunAgentAsync(goal);  // ← 날짜 누락, 조용한 버그
@@ -292,7 +293,7 @@ Provider는 **요청당 한 번** 호출되므로 반환 값은 그 순간의 �
 
 `AIRequestContext`의 본질은 "한 번만 쓴다"가 아니라 **"영구 상태를 오염시키지 않는다"** 입니다. `SystemMessageProvider`는 매 요청마다 콜백을 **재실행**해 **그 요청 전용의 새로운 `AIRequestContext`를 생성**하는 팩토리입니다. 결과로 만들어진 컨텍스트는 여전히 per-request scoped이고, 값은 대화 기록에 새어 들어가지 않으며, 다음 호출에선 콜백이 다시 실행되어 **그 시점의** 값을 반영합니다. 즉 Provider는 `AIRequestContext`의 설계 원칙을 위반하지 않고 **자동화할 뿐**입니다.
 
-구체적으로, 아래처럼 등록해도 `service.SystemMessage`와 `service.Messages`는 전혀 변경되지 않습니다:
+구체적으로, 아래처럼 등록해도 `service.SystemMessage`와 `service.ActivateChat.Messages`는 전혀 변경되지 않습니다:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

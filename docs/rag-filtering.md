@@ -81,7 +81,7 @@ var options = new RagQueryOptions
     StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId)
 };
 
-var response = await ragService.GetCompletionAsync("question", ragOptions: options);
+var response = await ragService.GetCompletionAsync("question", options: options);
 ```
 
 This follows the same pattern as EF Core's Global Query Filter — the store filter always applies and per-query filters add further constraints on top.

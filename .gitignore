@@ -366,3 +366,6 @@ FodyWeavers.xsd
 # DocFX
 _site/
 api/*.yml
+
+# Repository-local .NET CLI state
+.dotnetcli/

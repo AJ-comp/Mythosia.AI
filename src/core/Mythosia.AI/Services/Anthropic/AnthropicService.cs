@@ -21,21 +21,42 @@ namespace Mythosia.AI.Services.Anthropic
         private const string DefaultImageMimeType = "image/jpeg";
         private const string SseDataPrefix = "data:";
         private const string SseEventPrefix = "event:";
+        private const uint MinimumAnthropicSummaryOutputTokens = 1024;
+        private bool _adaptiveThinkingExplicitlyRequested;
 
         public override string Provider => nameof(AIProvider.Anthropic);
 
         /// <summary>
         /// Controls the thinking token budget for Claude extended thinking.
-        /// -1: Disabled (default) - no extended thinking
-        /// 1024+: Specific token budget (must be less than MaxTokens)
-        /// Supported models: Claude Sonnet 4+, Claude Opus 4+, Claude Haiku 4.5+
-        /// Note: When thinking is enabled, temperature is automatically set to 1 (Claude requirement).
+        /// -1 requests disabled thinking where the model permits it. Fable 5 and Mythos 5 cannot
+        /// disable thinking, so this setting uses their lowest effort and omits the readable summary instead.
+        /// 1024+ is an exact token budget on manual-thinking models. On adaptive-thinking models,
+        /// it retains the legacy high/xhigh/max effort mapping unless
+        /// <see cref="AdaptiveThinkingEffort"/> is set explicitly.
+        /// Supported models: Claude Fable 5, Claude Mythos 5, Claude Sonnet 5 / 4+, Claude Opus 5 / 4+,
+        /// and Claude Haiku 4.5+.
+        /// Note: adaptive-thinking models omit temperature; legacy manual-thinking models force it to 1.
         /// </summary>
         public int ThinkingBudget { get; set; } = -1;
 
         /// <summary>
+        /// Selects the low/medium/high/xhigh/max effort range on adaptive-thinking Claude models.
+        /// XHigh is rejected for Opus 4.6 and Sonnet 4.6 because those models do not support it.
+        /// Auto preserves the legacy <see cref="ThinkingBudget"/> mapping using effort levels the
+        /// selected model supports.
+        /// </summary>
+        public ClaudeReasoningEffort AdaptiveThinkingEffort { get; set; } = ClaudeReasoningEffort.Auto;
+
+        /// <summary>
+        /// Controls whether adaptive-thinking models return readable summarized reasoning.
+        /// This value is sent only when adaptive thinking is explicitly enabled.
+        /// </summary>
+        public ClaudeThinkingDisplay AdaptiveThinkingDisplay { get; set; } = ClaudeThinkingDisplay.Summarized;
+
+        /// <summary>
         /// Contains the thinking/reasoning content from the last non-streaming API call.
-        /// Only populated when ThinkingBudget is enabled (>= 1024).
+        /// Populated when the response contains a thinking block. This can occur even when
+        /// <see cref="ThinkingBudget"/> is disabled for models whose adaptive thinking is always on.
         /// </summary>
         public string? LastThinkingContent { get; private set; }
 
@@ -43,13 +64,16 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var model = Model?.ToLower() ?? "";
             if (model.Contains("fable-5")) return 128000;
+            if (model.Contains("mythos-5")) return 128000;
+            if (model.Contains("opus-5")) return 128000;
+            if (model.Contains("sonnet-5")) return 128000;
             if (model.Contains("opus-4-8")) return 128000;
             if (model.Contains("opus-4-7")) return 128000;
             if (model.Contains("opus-4-6")) return 128000;
-            if (model.Contains("sonnet-4-6")) return 65536;
+            if (model.Contains("sonnet-4-6")) return 128000;
             if (model.Contains("opus-4-5")) return 64000;
-            if (model.Contains("sonnet-4-5")) return 65536;
-            if (model.Contains("haiku-4-5")) return 65536;
+            if (model.Contains("sonnet-4-5")) return 64000;
+            if (model.Contains("haiku-4-5")) return 64000;
             if (model.Contains("opus-4")) return 32768;
             if (model.Contains("sonnet-4")) return 16384;
             if (model.Contains("haiku-4")) return 8192;
@@ -78,7 +102,7 @@ namespace Mythosia.AI.Services.Anthropic
         public override async Task<string> GetCompletionAsync(Message message)
         {
             // Get policy (current or default)
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
 
             using var cts = policy.TimeoutSeconds.HasValue
@@ -86,7 +110,7 @@ namespace Mythosia.AI.Services.Anthropic
                 : new CancellationTokenSource();
 
             // Stateless 모드 처리 (ChatGpt 방식)
-            ChatBlock originalChat = null;
+            ChatBlock? originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
@@ -95,6 +119,7 @@ namespace Mythosia.AI.Services.Anthropic
 
             try
             {
+                LastThinkingContent = null;
                 bool useFunctions = ShouldUseFunctions;
 
                 Stream = false;
@@ -122,32 +147,73 @@ namespace Mythosia.AI.Services.Anthropic
 
                     var responseContent = await response.Content.ReadAsStringAsync();
 
+                    if (TryCreateRefusalException(responseContent, out var refusalException))
+                    {
+                        throw refusalException!;
+                    }
+
+                    var stopReason = ExtractStopReason(responseContent);
+                    if (IsTruncationStopReason(stopReason))
+                    {
+                        throw CreateStopReasonException(
+                            stopReason!,
+                            "Claude stopped before completing the response; the partial response was not saved.");
+                    }
+
+                    if (string.Equals(stopReason, "pause_turn", StringComparison.Ordinal))
+                    {
+                        throw CreateStopReasonException(
+                            stopReason!,
+                            "Claude paused a server-tool turn, which this client-side tool loop cannot resume automatically.");
+                    }
+
                     if (useFunctions)
                     {
-                        // Extract all tool uses at once
-                        var allToolUses = ExtractAllToolUses(responseContent);
-                        var textContent = ExtractTextContent(responseContent);
+                        var (textContent, functionCalls) = ExtractFunctionCalls(responseContent);
+                        LastThinkingContent = ExtractThinkingContent(responseContent);
 
-                        if (allToolUses.Count > 0)
+                        if (functionCalls.Calls.Count > 0)
                         {
-                            if (policy.EnableLogging)
+                            if (!string.Equals(stopReason, "tool_use", StringComparison.Ordinal))
                             {
-                                Console.WriteLine($"  Executing {allToolUses.Count} function(s)");
+                                throw new AIServiceException(
+                                    "Claude returned tool calls without stop_reason=tool_use; no tools were executed.",
+                                    JsonSerializer.Serialize(new
+                                    {
+                                        stop_reason = stopReason ?? "missing",
+                                        tool_use_count = functionCalls.Calls.Count
+                                    }),
+                                    nameof(AIProvider.Anthropic));
                             }
 
-                            // Process all tool uses with unified method
-                            await ProcessMultipleToolUses(allToolUses, textContent, policy);
+                            if (policy.EnableLogging)
+                            {
+                                Console.WriteLine($"  Executing {functionCalls.Calls.Count} function(s)");
+                            }
+
+                            await ProcessToolUseBatchAsync(
+                                functionCalls,
+                                textContent,
+                                policy,
+                                cts.Token);
 
                             // Continue the loop to get AI's response based on function results
                             continue;
                         }
 
-                        // No more function calls, we have the final response
-                        if (!string.IsNullOrEmpty(textContent))
+                        if (string.Equals(stopReason, "tool_use", StringComparison.Ordinal))
                         {
-                            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textContent));
-                            return textContent;
+                            throw CreateStopReasonException(
+                                stopReason!,
+                                "Claude reported stop_reason=tool_use without a usable tool call; no tool was executed.");
                         }
+
+                        // No more function calls: end the request even when Claude intentionally
+                        // returns content:[] with end_turn. Retrying that empty terminal response
+                        // would repeat billing and can never manufacture a missing tool call.
+                        if (!string.IsNullOrEmpty(textContent))
+                            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textContent));
+                        return textContent;
                     }
                     else
                     {
@@ -176,142 +242,80 @@ namespace Mythosia.AI.Services.Anthropic
 
         #region Helper Methods
 
-        /// <summary>
-        /// Unified method to process multiple tool uses
-        /// </summary>
-        private async Task ProcessMultipleToolUses(
-            List<FunctionCall> toolUses,
+        private async Task<FunctionCallResultBatch> ProcessToolUseBatchAsync(
+            FunctionCallBatch functionCalls,
             string textContent,
-            FunctionCallingPolicy policy)
+            FunctionCallingPolicy policy,
+            CancellationToken cancellationToken)
         {
-            if (toolUses.Count == 0) return;
-
-            for (int i = 0; i < toolUses.Count; i++)
-            {
-                var call = toolUses[i];
-                var content = (i == 0) ? (textContent ?? ".") : ".";
-
-                if (policy.EnableLogging)
-                {
-                    Console.WriteLine($"  Executing function: {call.Name}");
-                }
-
-                ActivateChat.Messages.Add(CreateFunctionCallMessage(call, content));
-                await ExecuteFunctionAndAddResultAsync(call);
-            }
+            var functionResults = await ProcessFunctionCallsAsync(
+                functionCalls,
+                policy,
+                cancellationToken);
+            AddFunctionCallBatchToHistory(textContent, functionCalls);
+            AddFunctionResultBatchToHistory(functionResults);
+            return functionResults;
         }
 
-        /// <summary>
-        /// Extract all tool uses from response
-        /// </summary>
-        private List<FunctionCall> ExtractAllToolUses(string response)
+        private static string? ExtractStopReason(string response)
         {
-            var toolUses = new List<FunctionCall>();
-
             try
             {
-                using var doc = JsonDocument.Parse(response);
-                var root = doc.RootElement;
-
-                if (root.TryGetProperty("content", out var contentArray) &&
-                    contentArray.ValueKind == JsonValueKind.Array)
-                {
-                    foreach (var item in contentArray.EnumerateArray())
-                    {
-                        if (item.TryGetProperty("type", out var typeElement) &&
-                            typeElement.GetString() == "tool_use")
-                        {
-                            var functionCall = new FunctionCall
-                            {
-                                Id = item.GetProperty("id").GetString(),
-                                Source = IdSource.Claude,
-                                Name = item.GetProperty("name").GetString(),
-                                Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                                    item.GetProperty("input").GetRawText()) ?? new Dictionary<string, object>()
-                            };
-                            toolUses.Add(functionCall);
-                        }
-                    }
-                }
+                using var document = JsonDocument.Parse(response);
+                return document.RootElement.TryGetProperty("stop_reason", out var stopReason) &&
+                       stopReason.ValueKind == JsonValueKind.String
+                    ? stopReason.GetString()
+                    : null;
             }
-            catch (Exception ex)
+            catch (JsonException)
             {
-                Console.WriteLine($"Error extracting tool uses: {ex.Message}");
+                return null;
             }
-
-            return toolUses;
         }
 
-        /// <summary>
-        /// Extract text content from response
-        /// </summary>
-        private string ExtractTextContent(string response)
+        private static bool IsTruncationStopReason(string? stopReason)
         {
-            var content = string.Empty;
+            return string.Equals(stopReason, "max_tokens", StringComparison.Ordinal) ||
+                   string.Equals(stopReason, "model_context_window_exceeded", StringComparison.Ordinal);
+        }
 
+        private static AIServiceException CreateStopReasonException(string stopReason, string message)
+        {
+            return new AIServiceException(
+                message,
+                JsonSerializer.Serialize(new { stop_reason = stopReason }),
+                nameof(AIProvider.Anthropic));
+        }
+
+        private static string? ExtractThinkingContent(string response)
+        {
             try
             {
-                using var doc = JsonDocument.Parse(response);
-                var root = doc.RootElement;
-
-                if (root.TryGetProperty("content", out var contentArray) &&
-                    contentArray.ValueKind == JsonValueKind.Array)
+                using var document = JsonDocument.Parse(response);
+                if (!document.RootElement.TryGetProperty("content", out var contentArray) ||
+                    contentArray.ValueKind != JsonValueKind.Array)
                 {
-                    foreach (var item in contentArray.EnumerateArray())
+                    return null;
+                }
+
+                var thinking = new StringBuilder();
+                foreach (var item in contentArray.EnumerateArray())
+                {
+                    if (item.TryGetProperty("type", out var type) &&
+                        string.Equals(type.GetString(), "thinking", StringComparison.Ordinal) &&
+                        item.TryGetProperty("thinking", out var value) &&
+                        value.ValueKind == JsonValueKind.String)
                     {
-                        if (item.TryGetProperty("type", out var typeElement) &&
-                            typeElement.GetString() == "text" &&
-                            item.TryGetProperty("text", out var textElement))
-                        {
-                            content += textElement.GetString();
-                        }
+                        thinking.Append(value.GetString());
                     }
                 }
+
+                return thinking.Length == 0 ? null : thinking.ToString();
             }
-            catch { }
-
-            return content;
-        }
-
-        /// <summary>
-        /// Executes a function call and adds the result message to the conversation
-        /// </summary>
-        private async Task<string> ExecuteFunctionAndAddResultAsync(FunctionCall functionCall)
-        {
-            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-            ActivateChat.Messages.Add(CreateFunctionResultMessage(functionCall, result));
-
-            return result;
-        }
-
-        private Message CreateFunctionCallMessage(FunctionCall call, string content)
-        {
-            return new Message(ActorRole.Assistant, content)
+            catch (JsonException)
             {
-                Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionId] = call.Id,
-                    [MessageMetadataKeys.FunctionSource] = call.Source,
-                    [MessageMetadataKeys.FunctionName] = call.Name,
-                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(call.Arguments)
-                }
-            };
-        }
-
-        private Message CreateFunctionResultMessage(FunctionCall call, string result)
-        {
-            return new Message(ActorRole.Function, result)
-            {
-                Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_result",
-                    [MessageMetadataKeys.FunctionId] = call.Id,
-                    [MessageMetadataKeys.FunctionSource] = call.Source,
-                    [MessageMetadataKeys.FunctionName] = call.Name
-                }
-            };
+                return null;
+            }
         }
 
         #endregion
@@ -361,8 +365,11 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Returns true if the current model supports extended thinking.
-        /// Supported: Claude Fable 5, Claude Sonnet 4+, Claude Opus 4+, Claude Haiku 4.5+
+        /// Returns true if the current model supports a Claude thinking mode.
+        /// Despite this legacy property name, a true value can mean either manual extended
+        /// thinking (<c>thinking.type=enabled</c>) or adaptive thinking
+        /// (<c>thinking.type=adaptive</c>). Claude Fable 5, Mythos 5, Opus 5, Sonnet 5, and Opus 4.7+
+        /// are adaptive-only and do not accept <c>budget_tokens</c>.
         /// </summary>
         public bool SupportsExtendedThinking => IsExtendedThinkingModel();
 
@@ -370,6 +377,9 @@ namespace Mythosia.AI.Services.Anthropic
         {
             var model = Model?.ToLower() ?? "";
             if (model.Contains("fable-5")) return true;
+            if (model.Contains("mythos-5")) return true;
+            if (model.Contains("sonnet-5")) return true;
+            if (model.Contains("opus-5")) return true;
             if (model.Contains("sonnet-4")) return true;
             if (model.Contains("opus-4")) return true;
             if (model.Contains("haiku-4")) return true;
@@ -377,28 +387,67 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Returns true if extended thinking is enabled and the model supports it.
+        /// Returns true if a supported manual or adaptive thinking mode is enabled.
         /// </summary>
-        private bool IsThinkingEnabled => ThinkingBudget >= 1024 && IsExtendedThinkingModel();
+        private bool IsThinkingEnabled => IsExtendedThinkingModel() &&
+            (ThinkingBudget >= 1024 ||
+             (ModelSupportsAdaptiveThinking() && IsAdaptiveThinkingExplicitlyRequested()));
 
         /// <summary>
         /// Applies thinking configuration to the request body when enabled.
-        /// Fable 5 and Opus 4.7+ use adaptive thinking (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>);
+        /// Claude 5, Fable 5, Mythos 5, and Opus 4.7+ use adaptive thinking
+        /// (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>);
         /// older models use manual thinking (<c>thinking.type=enabled</c> + <c>budget_tokens</c>,
         /// temperature forced to 1, with max_tokens auto-adjusted to keep budget_tokens &lt; max_tokens).
-        /// When thinking is disabled the <c>thinking</c> parameter is omitted entirely — Fable 5
-        /// rejects an explicit <c>thinking.type=disabled</c> (HTTP 400).
+        /// When thinking is disabled, Opus 5 and Sonnet 5 receive an explicit
+        /// <c>thinking.type=disabled</c> because their API default is thinking-on. Other adaptive
+        /// models omit the parameter. Fable 5 and Mythos 5 cannot disable thinking, so their closest equivalent
+        /// is adaptive thinking at low effort with readable thinking omitted.
         /// </summary>
         private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
         {
-            if (!IsThinkingEnabled) return;
-
-            if (ModelRequiresAdaptiveThinking())
+            if (IsAdaptiveThinkingExplicitlyRequested() && !ModelSupportsAdaptiveThinking())
             {
-                // Fable 5 and Opus 4.7+ reject manual budget_tokens thinking (HTTP 400). Thinking is
-                // enabled via adaptive mode and its depth is controlled by output_config.effort.
-                requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
-                requestBody["output_config"] = new Dictionary<string, object> { ["effort"] = MapThinkingBudgetToEffort() };
+                throw new NotSupportedException(
+                    $"Claude model '{Model}' does not support adaptive thinking. " +
+                    $"Use {nameof(WithThinkingParameters)} with a manual token budget instead.");
+            }
+
+            if (!IsThinkingEnabled)
+            {
+                if (IsAlwaysOnAdaptiveThinkingModel())
+                {
+                    requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
+                    requestBody["output_config"] = new Dictionary<string, object> { ["effort"] = "low" };
+                    return;
+                }
+
+                if (ModelRequiresExplicitThinkingDisabled())
+                {
+                    requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "disabled" };
+                }
+
+                return;
+            }
+
+            if (UsesAdaptiveThinkingForRequest())
+            {
+                // Claude 5, Fable 5, Mythos 5, and Opus 4.7+ require adaptive thinking.
+                // Opus 4.6 and Sonnet 4.6 also use this branch when callers explicitly select
+                // adaptive thinking; their legacy budget_tokens form remains available for compatibility.
+                var thinking = new Dictionary<string, object>
+                {
+                    ["type"] = "adaptive",
+                    ["display"] = AdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized
+                        ? "summarized"
+                        : "omitted"
+                };
+
+                requestBody["thinking"] = thinking;
+                requestBody["output_config"] = new Dictionary<string, object>
+                {
+                    ["effort"] = ResolveAdaptiveThinkingEffort()
+                };
                 return;
             }
 
@@ -408,6 +457,15 @@ namespace Mythosia.AI.Services.Anthropic
             if ((uint)ThinkingBudget >= effectiveMaxTokens)
             {
                 var modelMax = GetModelMaxOutputTokens();
+                if ((uint)ThinkingBudget >= modelMax)
+                {
+                    throw new ArgumentOutOfRangeException(
+                        nameof(ThinkingBudget),
+                        ThinkingBudget,
+                        $"Claude manual thinking requires ThinkingBudget to be lower than the " +
+                        $"model's maximum output tokens ({modelMax}) so max_tokens can remain larger.");
+                }
+
                 var required = (uint)ThinkingBudget + 1024;
                 requestBody["max_tokens"] = Math.Min(required, modelMax);
             }
@@ -430,7 +488,57 @@ namespace Mythosia.AI.Services.Anthropic
         private bool ModelRequiresAdaptiveThinking()
         {
             var model = Model?.ToLowerInvariant() ?? string.Empty;
-            return model.Contains("fable-5") || model.Contains("opus-4-7") || model.Contains("opus-4-8");
+            return model.Contains("fable-5") ||
+                   model.Contains("mythos-5") ||
+                   model.Contains("opus-5") ||
+                   model.Contains("sonnet-5") ||
+                   model.Contains("opus-4-7") ||
+                   model.Contains("opus-4-8");
+        }
+
+        /// <summary>
+        /// Opus 4.6 and Sonnet 4.6 support both adaptive thinking and the deprecated manual
+        /// budget-token form. Keep direct <see cref="ThinkingBudget"/> assignments compatible,
+        /// while allowing callers to select the recommended adaptive form explicitly.
+        /// </summary>
+        private bool ModelSupportsOptionalAdaptiveThinking()
+        {
+            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            return model.Contains("opus-4-6") || model.Contains("sonnet-4-6");
+        }
+
+        private bool ModelSupportsAdaptiveThinking()
+        {
+            return ModelRequiresAdaptiveThinking() || ModelSupportsOptionalAdaptiveThinking();
+        }
+
+        private bool IsAdaptiveThinkingExplicitlyRequested()
+        {
+            return _adaptiveThinkingExplicitlyRequested ||
+                   AdaptiveThinkingEffort != ClaudeReasoningEffort.Auto;
+        }
+
+        private bool UsesAdaptiveThinkingForRequest()
+        {
+            return ModelRequiresAdaptiveThinking() ||
+                   (ModelSupportsOptionalAdaptiveThinking() && IsAdaptiveThinkingExplicitlyRequested());
+        }
+
+        /// <summary>
+        /// Opus 5 and Sonnet 5 enable adaptive thinking when the parameter is omitted. Preserve the
+        /// library's long-standing <see cref="ThinkingBudget"/> value of -1 as an explicit opt-out.
+        /// </summary>
+        private bool ModelRequiresExplicitThinkingDisabled()
+        {
+            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            return model.Contains("opus-5") || model.Contains("sonnet-5");
+        }
+
+        private bool IsAlwaysOnAdaptiveThinkingModel()
+        {
+            var model = Model ?? string.Empty;
+            return model.Contains("fable-5", StringComparison.OrdinalIgnoreCase) ||
+                   model.Contains("mythos-5", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -439,23 +547,46 @@ namespace Mythosia.AI.Services.Anthropic
         /// thinks) and scales up with larger budgets so existing "thinking on" callers keep
         /// producing reasoning. Allowed values: low, medium, high, xhigh, max.
         /// </summary>
-        private string MapThinkingBudgetToEffort()
+        private string ResolveAdaptiveThinkingEffort()
         {
+            if (AdaptiveThinkingEffort == ClaudeReasoningEffort.XHigh &&
+                ModelSupportsOptionalAdaptiveThinking())
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(AdaptiveThinkingEffort),
+                    AdaptiveThinkingEffort,
+                    $"Claude model '{Model}' does not support xhigh effort. Use low, medium, high, or max.");
+            }
+
+            switch (AdaptiveThinkingEffort)
+            {
+                case ClaudeReasoningEffort.Low: return "low";
+                case ClaudeReasoningEffort.Medium: return "medium";
+                case ClaudeReasoningEffort.High: return "high";
+                case ClaudeReasoningEffort.XHigh: return "xhigh";
+                case ClaudeReasoningEffort.Max: return "max";
+            }
+
             if (ThinkingBudget >= 100_000) return "max";
-            if (ThinkingBudget >= 32_768) return "xhigh";
+            if (ThinkingBudget >= 32_768 && !ModelSupportsOptionalAdaptiveThinking()) return "xhigh";
             return "high";
         }
 
         /// <summary>
-        /// Returns true for models that reject a custom <c>temperature</c> value.
-        /// Claude Fable 5 and Opus 4.7+ return HTTP 400 ("`temperature` is deprecated for this model.")
-        /// for any non-default temperature, so the parameter must be omitted for them.
+        /// Returns true for models that reject a custom <c>temperature</c> value regardless of
+        /// whether thinking is enabled. Claude 5, Fable 5, Mythos 5, and Opus 4.7+ reject custom
+        /// sampling parameters, so the parameter must be omitted for them.
         /// Add future models here as Anthropic extends this behavior.
         /// </summary>
         private bool ModelRejectsCustomTemperature()
         {
             var model = Model?.ToLowerInvariant() ?? string.Empty;
-            return model.Contains("fable-5") || model.Contains("opus-4-7") || model.Contains("opus-4-8");
+            return model.Contains("fable-5") ||
+                   model.Contains("mythos-5") ||
+                   model.Contains("opus-5") ||
+                   model.Contains("sonnet-5") ||
+                   model.Contains("opus-4-7") ||
+                   model.Contains("opus-4-8");
         }
 
         /// <summary>
@@ -464,7 +595,14 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private void ApplyTemperaturePolicy(Dictionary<string, object> requestBody)
         {
-            if (!ModelRejectsCustomTemperature()) return;
+            // Anthropic requires temperature=1 or omission whenever any thinking mode is enabled.
+            // Manual mode writes 1 explicitly above; adaptive mode omits temperature so callers'
+            // sampling settings cannot accidentally make an otherwise valid request fail.
+            if (!ModelRejectsCustomTemperature() &&
+                !(IsThinkingEnabled && UsesAdaptiveThinkingForRequest()))
+            {
+                return;
+            }
 
             if (requestBody.TryGetValue("temperature", out var current) &&
                 current is float t && Math.Abs(t - 1.0f) > 0.0001f)
@@ -476,13 +614,33 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Sets Claude extended thinking parameters.
-        /// Budget must be >= 1024 and less than MaxTokens.
-        /// When thinking is enabled, temperature is automatically forced to 1.
+        /// Sets Claude thinking through the legacy token-budget API.
+        /// On manual-thinking models, the budget must be at least 1024 and is sent as
+        /// <c>budget_tokens</c>; <c>max_tokens</c> is adjusted when necessary and temperature is
+        /// forced to 1. On adaptive-only models, the numeric budget is retained for compatibility
+        /// and mapped to high/xhigh/max effort instead of being sent to Anthropic.
         /// </summary>
         public AnthropicService WithThinkingParameters(int budgetTokens)
         {
             ThinkingBudget = budgetTokens;
+            AdaptiveThinkingEffort = ClaudeReasoningEffort.Auto;
+            AdaptiveThinkingDisplay = ClaudeThinkingDisplay.Summarized;
+            _adaptiveThinkingExplicitlyRequested = false;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables adaptive thinking with an explicit Claude effort and display policy.
+        /// </summary>
+        public AnthropicService WithAdaptiveThinkingParameters(
+            ClaudeReasoningEffort effort,
+            ClaudeThinkingDisplay display = ClaudeThinkingDisplay.Summarized)
+        {
+            AdaptiveThinkingEffort = effort;
+            AdaptiveThinkingDisplay = display;
+            _adaptiveThinkingExplicitlyRequested = true;
+            if (ThinkingBudget < 1024)
+                ThinkingBudget = 1024;
             return this;
         }
 
@@ -492,12 +650,41 @@ namespace Mythosia.AI.Services.Anthropic
                 return base.ApplyProviderSpecificRequestProfile(profile);
 
             var backupThinkingBudget = ThinkingBudget;
+            var backupAdaptiveThinkingEffort = AdaptiveThinkingEffort;
+            var backupAdaptiveThinkingDisplay = AdaptiveThinkingDisplay;
+            var backupAdaptiveThinkingExplicitlyRequested = _adaptiveThinkingExplicitlyRequested;
+
             ThinkingBudget = -1;
+            _adaptiveThinkingExplicitlyRequested = false;
+            AdaptiveThinkingEffort = IsAlwaysOnAdaptiveThinkingModel()
+                ? ClaudeReasoningEffort.Low
+                : ClaudeReasoningEffort.Auto;
+            AdaptiveThinkingDisplay = ClaudeThinkingDisplay.Omitted;
 
             return () =>
             {
                 ThinkingBudget = backupThinkingBudget;
+                AdaptiveThinkingEffort = backupAdaptiveThinkingEffort;
+                AdaptiveThinkingDisplay = backupAdaptiveThinkingDisplay;
+                _adaptiveThinkingExplicitlyRequested = backupAdaptiveThinkingExplicitlyRequested;
             };
+        }
+
+        protected override Action ApplyRequestProfile(AIRequestProfile profile)
+        {
+            var restore = base.ApplyRequestProfile(profile);
+
+            if (profile.Purpose == AIRequestPurpose.Summarization && profile.MaxTokens.HasValue)
+            {
+                // The common 256-token summary profile is routinely exhausted by Claude before it
+                // can close a concise summary. Keep the caller-facing profile unchanged and reserve
+                // a provider-specific completion budget for this library-owned request only.
+                MaxTokens = Math.Min(
+                    GetModelMaxOutputTokens(),
+                    Math.Max(profile.MaxTokens.Value, MinimumAnthropicSummaryOutputTokens));
+            }
+
+            return restore;
         }
 
         #endregion
@@ -512,28 +699,15 @@ namespace Mythosia.AI.Services.Anthropic
                 !Model.Contains("opus-4") &&
                 !Model.Contains("sonnet-4") &&
                 !Model.Contains("haiku-4") &&
-                !Model.Contains("fable-5"))
+                !Model.Contains("fable-5") &&
+                !Model.Contains("mythos-5") &&
+                !Model.Contains("opus-5") &&
+                !Model.Contains("sonnet-5"))
             {
                 ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
             }
 
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
-        }
-
-        /// <summary>
-        /// Claude doesn't support image generation
-        /// </summary>
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("Claude", "Image Generation");
-        }
-
-        /// <summary>
-        /// Claude doesn't support image generation
-        /// </summary>
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("Claude", "Image Generation");
         }
 
         /// <summary>
@@ -558,7 +732,7 @@ namespace Mythosia.AI.Services.Anthropic
                 TemperaturePreset.Factual => 0.3f,
                 TemperaturePreset.Balanced => 0.7f,
                 TemperaturePreset.Creative => 1.0f,
-                TemperaturePreset.VeryCreative => 1.5f,
+                TemperaturePreset.VeryCreative => 1.0f,
                 _ => 0.7f
             };
             return this;

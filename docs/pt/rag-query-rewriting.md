@@ -19,8 +19,7 @@ Um `LlmQueryRewriter` usa o próprio serviço de IA para reescrever a consulta a
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()
-    .WithQueryRewriteMaxTokens(250)
+    .WithQueryRewriter(250)
     .AddDocument("docs.txt")
 )
 ```

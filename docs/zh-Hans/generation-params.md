@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // 核采样阈值
 service.MaxTokens = 1024;          // 最大输出 Token 数
 service.FrequencyPenalty = 0.0f;   // 对重复 Token 的惩罚
 service.PresencePenalty = 0.0f;    // 对已出现 Token 的惩罚
-service.MaxMessageCount = 20;      // 对话窗口大小（已弃用 — 将在 v7.0 中移除）
 ```
 
-> **已弃用：** `MaxMessageCount`（基于消息数量的滑动窗口）已过时，将在 v7.0 中移除 — 上下文管理将改为仅通过 `ConversationPolicy` 基于 Token 进行。在移除之前，该窗口保证永远不会丢弃最近一条用户消息，因此智能体式工具运行不会丢失其正在处理的查询。
 
 ## 流式扩展方法
 
@@ -79,7 +77,8 @@ service.StartNewConversation(AIModels.Anthropic.ClaudeSonnet4_6);
 
 ```csharp
 // 创建新的对话块
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // 切换到另一个对话块
 service.SetActivateChat(chat2Id);

@@ -220,52 +220,57 @@ public abstract partial class AIServiceTestBase
     [TestMethod]
     public async Task IAsyncEnumerableErrorHandlingTest()
     {
+        // 1) An invalid model must be rejected. The old test caught its own
+        // Assert.Fail exception and therefore reported success even when no provider
+        // error occurred.
+        var originalModel = AI.Model;
+        Exception? invalidModelException = null;
         try
         {
-            // 1) 잘못된 모델로 시도
-            var originalModel = AI.Model;
-            try
+            AI.ChangeModel("invalid-model");
+            await foreach (var chunk in AI.StreamAsync("test"))
             {
-                AI.ChangeModel("invalid-model");
-                await foreach (var chunk in AI.StreamAsync("test"))
-                {
-                    // Should not reach here
-                }
-                Assert.Fail("Should have thrown an exception");
+                // Consume the complete stream so a terminal provider failure cannot
+                // be hidden by abandoning the iterator early.
             }
-            catch (Exception modelEx)
-            {
-                Console.WriteLine($"[Expected Model Error] {modelEx.Message}");
-                // 원래 모델로 복원
-                AI.ChangeModel(originalModel);
-            }
-
-            // 2) 매우 짧은 타임아웃으로 취소
-            var quickCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(1));
-            try
-            {
-                await foreach (var chunk in AI.StreamAsync("긴 답변을 해줘", quickCts.Token))
-                {
-                    await Task.Delay(10);
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                Console.WriteLine("[Timeout Cancellation] Worked as expected");
-            }
-
-            // 3) 빈 메시지 스트리밍
-            string emptyResponse = "";
-            await foreach (var chunk in AI.StreamAsync(""))
-            {
-                emptyResponse += chunk;
-            }
-            Assert.IsNotNull(emptyResponse);
         }
-        catch (Exception ex)
+        catch (Exception modelEx)
         {
-            Console.WriteLine($"[Error Handling Test] {ex.GetType().Name}: {ex.Message}");
+            invalidModelException = modelEx;
+            Console.WriteLine($"[Expected Model Error] {modelEx.Message}");
         }
+        finally
+        {
+            AI.ChangeModel(originalModel);
+        }
+
+        Assert.IsNotNull(invalidModelException, "An invalid model completed without an error.");
+        Assert.IsInstanceOfType<Mythosia.AI.Exceptions.AIServiceException>(
+            invalidModelException,
+            $"Invalid-model failures must use the provider-neutral AIServiceException contract, " +
+            $"but received {invalidModelException.GetType().FullName}.");
+
+        // 2) Caller cancellation must remain OperationCanceledException and preserve
+        // the caller-owned token. Cancel before enumeration to make the contract
+        // deterministic rather than racing a one-millisecond timer against the network.
+        using var quickCts = new CancellationTokenSource();
+        quickCts.Cancel();
+        OperationCanceledException? cancellationException = null;
+        try
+        {
+            await foreach (var chunk in AI.StreamAsync("긴 답변을 해줘", quickCts.Token))
+            {
+                // A pre-cancelled operation must not yield content.
+            }
+        }
+        catch (OperationCanceledException ex)
+        {
+            cancellationException = ex;
+            Console.WriteLine("[Caller Cancellation] Worked as expected");
+        }
+
+        Assert.IsNotNull(cancellationException, "A pre-cancelled stream completed without cancellation.");
+        Assert.AreEqual(quickCts.Token, cancellationException.CancellationToken);
     }
 
 
@@ -427,6 +432,16 @@ public abstract partial class AIServiceTestBase
             {
                 timestamps.Add(sw.ElapsedMilliseconds);
                 fullResponse += chunk;
+
+                // The contract is established once several chunks have arrived over a measurable
+                // interval. Waiting for the full article only tests model latency and can exhaust a
+                // request timeout on slower models without adding streaming evidence.
+                if (timestamps.Count >= 3 &&
+                    fullResponse.Length >= 128 &&
+                    timestamps.Last() - timestamps.First() > 250)
+                {
+                    break;
+                }
             }
 
             sw.Stop();
@@ -444,7 +459,9 @@ public abstract partial class AIServiceTestBase
             Console.WriteLine($"  Spread (last - first): {spreadMs}ms");
             Console.WriteLine($"  Response length: {fullResponse.Length} chars");
 
-            if (timestamps.Count <= 1 && AI.Model.Contains("gpt-5.4", StringComparison.OrdinalIgnoreCase))
+            if (timestamps.Count <= 1 &&
+                AI.Provider.Equals(nameof(AIProvider.OpenAI), StringComparison.OrdinalIgnoreCase) &&
+                AI.Model.Contains("-pro", StringComparison.OrdinalIgnoreCase))
             {
                 Assert.Inconclusive(
                     $"{AI.Model} returned a single coalesced text chunk. " +
@@ -462,6 +479,10 @@ public abstract partial class AIServiceTestBase
                 $"Chunks: {timestamps.Count}, Response: {fullResponse.Length} chars");
 
             Console.WriteLine("  ✓ Streaming is real-time (chunks arrived progressively)");
+        }
+        catch (AssertInconclusiveException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

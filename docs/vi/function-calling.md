@@ -57,21 +57,25 @@ Với các hàm phức tạp hơn, dùng attribute `[AiFunction]` và `[AiParame
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "Tìm kiếm trong danh mục sản phẩm")]
-public static string SearchProducts(
-    [AiParameter("Từ khóa tìm kiếm", required: true)] string query,
-    [AiParameter("Số kết quả tối đa")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... triển khai của bạn
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "Tìm kiếm trong danh mục sản phẩm")]
+    public string SearchProducts(
+        [AiParameter("Từ khóa tìm kiếm", required: true)] string query,
+        [AiParameter("Số kết quả tối đa")] int limit = 5)
+    {
+        // ... triển khai của bạn
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 Rồi đăng ký:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Policy gọi hàm
@@ -82,13 +86,13 @@ Kiểm soát khi nào model được phép gọi hàm:
 using Mythosia.AI.Models.Functions;
 
 // Để model tự quyết (mặc định)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // Bắt buộc model luôn gọi hàm
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // Tắt function calling
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## Đăng ký hàng loạt từ một class
@@ -143,11 +147,14 @@ Xây dựng định nghĩa hàm theo cách lập trình:
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "Lấy giá cổ phiếu hiện tại")
-    .AddParameter("ticker", "Mã cổ phiếu", required: true)
+    .Create("get_stock_price")
+    .WithDescription("Lấy giá cổ phiếu hiện tại")
+    .AddParameter("ticker", "string", "Mã cổ phiếu", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

@@ -33,14 +33,14 @@ var response = await service.GetCompletionAsync("นโยบายการค�
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // ไฟล์ local
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("เนื้อหาที่ใส่โดยตรงก็ได้")           // string ตรง ๆ
 )
 ```
 
 ## Embedding Provider แบบกำหนดเอง
 
-ค่าเริ่มต้น RAG ใช้ provider เดิมของ service สำหรับ embedding หากต้องการใช้ embedding model เฉพาะ:
+ค่าเริ่มต้น RAG ใช้ local embedding provider ที่มีมาให้ หากต้องการใช้ embedding model เฉพาะ:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -81,11 +85,14 @@ var service = new OpenAIService(apiKey, http)
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,                // จำนวนชิ้นส่วนที่ต้องการ
-    ScoreThreshold = 0.7f    // คะแนนความคล้ายขั้นต่ำ
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,            // จำนวนชิ้นส่วนที่ต้องการ
+        MinScore = 0.7       // คะแนนความคล้ายขั้นต่ำ
+    }
 };
 
-var response = await service.GetCompletionAsync("คำถามของคุณ", ragOptions: options);
+var response = await service.GetCompletionAsync("คำถามของคุณ", options: options);
 ```
 
 ## ขั้นตอนต่อไป

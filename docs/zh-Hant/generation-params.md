@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // 核取樣閾值
 service.MaxTokens = 1024;          // 最大輸出 Token 數
 service.FrequencyPenalty = 0.0f;   // 對重複 Token 的懲罰
 service.PresencePenalty = 0.0f;    // 對已出現 Token 的懲罰
-service.MaxMessageCount = 20;      // 對話視窗大小（已棄用 — 將於 v7.0 移除）
 ```
 
-> **已棄用：** `MaxMessageCount`（訊息數量滑動視窗）已過時，將於 v7.0 移除 —— 上下文管理將改為僅透過 `ConversationPolicy` 以 Token 為基礎進行。在移除之前，此視窗保證絕不會捨棄最近一則使用者訊息，因此 agentic 工具執行不會遺失其正在處理的查詢。
 
 ## 流式擴充方法
 
@@ -79,7 +77,8 @@ service.StartNewConversation(AIModels.Anthropic.ClaudeSonnet4_6);
 
 ```csharp
 // 建立新的對話區塊
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // 切換到另一個對話區塊
 service.SetActivateChat(chat2Id);

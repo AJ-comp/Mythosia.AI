@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // Umbral de nucleus sampling
 service.MaxTokens = 1024;          // Máximo de tokens de salida
 service.FrequencyPenalty = 0.0f;   // Penaliza tokens repetidos
 service.PresencePenalty = 0.0f;    // Penaliza tokens ya presentes
-service.MaxMessageCount = 20;      // Tamaño de la ventana de conversación (obsoleto — se eliminará en v7.0)
 ```
 
-> **Obsoleto:** `MaxMessageCount` (la ventana deslizante por número de mensajes) está obsoleto y se eliminará en v7.0 — la gestión del contexto pasará a estar basada únicamente en tokens mediante `ConversationPolicy`. Hasta su eliminación, se garantiza que la ventana nunca descarte el mensaje de usuario más reciente, por lo que las ejecuciones agénticas de herramientas no pueden perder la consulta en la que están trabajando.
 
 ## Métodos de Extensión Fluentes
 
@@ -79,7 +77,8 @@ Una sola instancia de servicio puede mantener múltiples hilos de conversación 
 
 ```csharp
 // Inicia un nuevo bloque de conversación
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // Cambia a un bloque diferente
 service.SetActivateChat(chat2Id);

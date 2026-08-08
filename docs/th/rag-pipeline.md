@@ -55,11 +55,9 @@ Template ที่ออกแบบดีช่วยลด hallucination ไ�
 
 ```csharp
 // สร้างครั้งเดียว
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // ใช้ซ้ำกับหลาย service
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -103,7 +101,7 @@ ragService.GetCompletionAsync("นโยบายการคืนสินค�
 ③ RagEnabledService สร้าง AIRequestContext
    RequestMessageOverride = prompt ที่ประกอบแล้ว
     ↓
-④ _innerService.GetCompletionAsync(ข้อความต้นฉบับ, context) ถูกเรียก
+④ _innerService.GetCompletionAsync(ข้อความต้นฉบับ, context: context) ถูกเรียก
    → AIService เก็บ context ใน AsyncLocal
    → คำถามต้นฉบับเพิ่มเข้าประวัติการสนทนา
     ↓

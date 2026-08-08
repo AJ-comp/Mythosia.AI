@@ -4,19 +4,24 @@ using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using TiktokenSharp;
 
 namespace Mythosia.AI.Services.Google
 {
-    public partial class GoogleAIService : AIService
+    public partial class GoogleAIService : AIService, IImageGenerationService
     {
+        private const uint MinimumGemini3InternalProfileTokens = 1024;
+        private const uint MinimumGemini25ProThinkingTokens = 128;
+
         public override string Provider => nameof(AIProvider.Google);
 
         protected override uint GetModelMaxOutputTokens()
@@ -35,20 +40,42 @@ namespace Mythosia.AI.Services.Google
 
         /// <summary>
         /// Controls the thinking level for Gemini 3 models.
-        /// Auto: Uses model default (High for Gemini 3).
-        /// Gemini 3 Pro/Flash shared levels: Low, High (default)
-        /// Gemini 3 Flash additional levels: Minimal, Medium
+        /// Auto uses the selected model's provider default. Gemini 3.6/3.5 Flash default
+        /// to Medium, Flash-Lite defaults to Minimal, while 3 Flash Preview and Pro Preview default to High.
         /// Note: Do not set both ThinkingLevel and ThinkingBudget.
         /// </summary>
         public GeminiThinkingLevel ThinkingLevel { get; set; } = GeminiThinkingLevel.Auto;
 
+        /// <summary>
+        /// The most recent non-streaming thought summary returned by Gemini, when requested.
+        /// </summary>
+        public string? LastThinkingContent { get; private set; }
+
+        /// <summary>Gemini harassment-filter threshold.</summary>
+        public GeminiSafetyThreshold HarassmentSafetyThreshold { get; set; } = GeminiSafetyThreshold.ProviderDefault;
+
+        /// <summary>Gemini hate-speech-filter threshold.</summary>
+        public GeminiSafetyThreshold HateSpeechSafetyThreshold { get; set; } = GeminiSafetyThreshold.ProviderDefault;
+
+        /// <summary>Gemini sexually-explicit-content-filter threshold.</summary>
+        public GeminiSafetyThreshold SexuallyExplicitSafetyThreshold { get; set; } = GeminiSafetyThreshold.ProviderDefault;
+
+        /// <summary>Gemini dangerous-content-filter threshold.</summary>
+        public GeminiSafetyThreshold DangerousContentSafetyThreshold { get; set; } = GeminiSafetyThreshold.ProviderDefault;
+
         public GoogleAIService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://generativelanguage.googleapis.com/", httpClient)
         {
-            Model = AIModels.Google.Gemini3_1ProPreview;
+            Model = AIModels.Google.Gemini3_6Flash;
             Temperature = 1.0f;
             TopP = 0.8f;
-            MaxTokens = 2048;
+            MaxTokens = 8192;
+
+            // FunctionCallingPolicy is the timeout authority for text, streaming, token-count,
+            // and image requests. In particular, Gemini image generation uses the 200-second
+            // Vision policy, which would otherwise be cut off by HttpClient's 100-second default.
+            // AIService already requires an unused client so BaseAddress can be assigned above.
+            HttpClient.Timeout = Timeout.InfiniteTimeSpan;
         }
 
         /// <summary>
@@ -87,56 +114,75 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            LastThinkingContent = null;
+            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
+            CurrentPolicy = null;
+            var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
+            using var cts = CreateRequestTimeoutCts(policy);
             bool useFunctions = ShouldUseFunctions;
             Stream = false;
 
-            if (StatelessMode)
-                return await ProcessStatelessRequestAsync(message, useFunctions);
+            try
+            {
+                if (StatelessMode)
+                    return await ProcessStatelessRequestAsync(message, useFunctions, policy, cts.Token);
 
-            ActivateChat.Messages.Add(message);
+                ActivateChat.Messages.Add(message);
 
-            var request = useFunctions
-                ? CreateFunctionMessageRequest()
-                : CreateMessageRequest();
+                var request = useFunctions
+                    ? CreateFunctionMessageRequest()
+                    : CreateMessageRequest();
 
-            var responseContent = await SendAndReadAsync(request);
+                var responseContent = await SendAndReadAsync(request, cts.Token);
 
-            if (useFunctions)
-                return await ProcessFunctionCallLoopAsync(responseContent);
+                if (useFunctions)
+                    return await ProcessFunctionCallLoopAsync(responseContent, policy, cts.Token);
 
-            return AddAssistantResponseWithSignature(responseContent);
+                return AddAssistantResponseWithSignature(responseContent);
+            }
+            catch (OperationCanceledException)
+            {
+                throw new AIServiceException($"Request timeout after {timeoutSeconds} seconds");
+            }
         }
 
-        private async Task<string> ProcessFunctionCallLoopAsync(string responseContent)
+        private async Task<string> ProcessFunctionCallLoopAsync(
+            string responseContent,
+            FunctionCallingPolicy policy,
+            CancellationToken cancellationToken)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
-            CurrentPolicy = null;
-
             for (int round = 0; round < policy.MaxRounds; round++)
             {
-                var (content, functionCall, thoughtSignature) = ExtractFunctionCallWithSignature(responseContent);
+                var (content, thinking, functionCalls, thoughtSignature) = ExtractFunctionCallsWithSignature(responseContent);
+                LastThinkingContent = thinking;
 
-                if (functionCall == null)
+                if (functionCalls.Calls.Count == 0)
                 {
                     AddAssistantMessage(content, thoughtSignature);
                     return content;
                 }
 
-                AddFunctionCallMessage(content ?? "", functionCall, thoughtSignature);
+                var results = await ProcessFunctionCallsAsync(
+                    functionCalls,
+                    policy,
+                    cancellationToken);
+                AddFunctionCallBatchToHistory(content, functionCalls);
+                AddFunctionResultBatchToHistory(results);
 
-                var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-                AddFunctionResultMessage(result, functionCall);
+                if (round + 1 >= policy.MaxRounds)
+                    break;
 
                 var request = CreateFunctionMessageRequest();
-                responseContent = await SendAndReadAsync(request);
+                responseContent = await SendAndReadAsync(request, cancellationToken);
             }
 
-            return AddAssistantResponseWithSignature(responseContent);
+            throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
         }
 
         private string AddAssistantResponseWithSignature(string responseContent)
         {
-            var (text, _, sig) = ExtractResponseContentWithSignature(responseContent);
+            var (text, thinking, sig) = ExtractResponseContentWithSignature(responseContent);
+            LastThinkingContent = thinking;
             AddAssistantMessage(text, sig);
             return text;
         }
@@ -154,40 +200,11 @@ namespace Mythosia.AI.Services.Google
             ActivateChat.Messages.Add(msg);
         }
 
-        private void AddFunctionCallMessage(string content, FunctionCall functionCall, string? thoughtSignature)
+        private async Task<string> SendAndReadAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken = default)
         {
-            var metadata = new Dictionary<string, object>
-            {
-                [MessageMetadataKeys.MessageType] = "function_call",
-                [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments)
-            };
-
-            if (thoughtSignature != null)
-                metadata[MessageMetadataKeys.ThoughtSignature] = thoughtSignature;
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content) { Metadata = metadata });
-        }
-
-        private void AddFunctionResultMessage(string result, FunctionCall functionCall)
-        {
-            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-            {
-                Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_result",
-                    [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = functionCall.Name
-                }
-            });
-        }
-
-        private async Task<string> SendAndReadAsync(HttpRequestMessage request)
-        {
-            var response = await HttpClient.SendAsync(request);
+            var response = await HttpClient.SendAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -199,7 +216,11 @@ namespace Mythosia.AI.Services.Google
             return await response.Content.ReadAsStringAsync();
         }
 
-        private async Task<string> ProcessStatelessRequestAsync(Message message, bool useFunctions)
+        private async Task<string> ProcessStatelessRequestAsync(
+            Message message,
+            bool useFunctions,
+            FunctionCallingPolicy policy,
+            CancellationToken cancellationToken)
         {
             var tempChat = new ChatBlock
             {
@@ -216,17 +237,12 @@ namespace Mythosia.AI.Services.Google
                     ? CreateFunctionMessageRequest()
                     : CreateMessageRequest();
 
-                var responseContent = await SendAndReadAsync(request);
+                var responseContent = await SendAndReadAsync(request, cancellationToken);
 
                 if (!useFunctions)
                     return ExtractResponseContent(responseContent);
 
-                var (content, functionCall) = ExtractFunctionCall(responseContent);
-                if (functionCall == null)
-                    return content;
-
-                var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-                return $"Function result: {result}";
+                return await ProcessFunctionCallLoopAsync(responseContent, policy, cancellationToken);
             }
             finally
             {
@@ -246,16 +262,13 @@ namespace Mythosia.AI.Services.Google
         internal HttpRequestMessage CreateMessageRequest(bool includeThoughts)
         {
             var endpoint = Stream
-                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse&key={ApiKey}"
-                : $"v1beta/models/{Model}:generateContent?key={ApiKey}";
+                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse"
+                : $"v1beta/models/{Model}:generateContent";
 
             var requestBody = BuildRequestBody(includeThoughts);
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-            return new HttpRequestMessage(HttpMethod.Post, endpoint)
-            {
-                Content = content
-            };
+            return CreateGoogleRequest(HttpMethod.Post, endpoint, content);
         }
 
         #endregion
@@ -265,6 +278,12 @@ namespace Mythosia.AI.Services.Google
         public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
         {
             return await base.GetCompletionWithImageAsync(prompt, imagePath);
+        }
+
+        public override async Task<string> GetCompletionWithImageUrlAsync(string prompt, string imageUrl)
+        {
+            var message = await CreateMessageWithImageUrl(prompt, imageUrl);
+            return await GetCompletionAsync(message, null, null);
         }
 
         #endregion
@@ -322,19 +341,35 @@ namespace Mythosia.AI.Services.Google
             };
         }
 
+        protected override Action ApplyRequestProfile(AIRequestProfile profile)
+        {
+            var restore = base.ApplyRequestProfile(profile);
+
+            if (profile.DisableReasoning == true && profile.MaxTokens.HasValue)
+            {
+                // Gemini counts hidden thinking against maxOutputTokens. The common internal
+                // profiles describe the text budget they need, so reserve room for the lowest
+                // reasoning setting on models where thinking cannot be fully disabled.
+                if (IsThinkingRequiredModel())
+                {
+                    MaxTokens = Math.Min(
+                        GetModelMaxOutputTokens(),
+                        checked(profile.MaxTokens.Value + MinimumGemini25ProThinkingTokens));
+                }
+                else if (IsGemini3Model())
+                {
+                    MaxTokens = Math.Min(
+                        GetModelMaxOutputTokens(),
+                        Math.Max(profile.MaxTokens.Value, MinimumGemini3InternalProfileTokens));
+                }
+            }
+
+            return restore;
+        }
+
         #endregion
 
         #region Not Supported Features
-
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("Gemini", "Image Generation");
-        }
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("Gemini", "Image Generation");
-        }
 
         #endregion
     }

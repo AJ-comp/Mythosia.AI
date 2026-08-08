@@ -51,7 +51,7 @@ var service = new OpenAIService("your-api-key", http)
 };
 ```
 
-ดู [API Reference](../api/Mythosia.AI.Models.AIModels.yml) สำหรับ model constant ทั้งหมด
+ดู [API Reference](../../api/Mythosia.AI.Models.AIModels.yml) สำหรับ model constant ทั้งหมด
 
 ## ขั้นตอนต่อไป
 

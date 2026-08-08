@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 namespace Mythosia.AI.Test.Streaming;
 
 [TestClass]
+[TestCategory("Unit")]
 public class SseHelperDiagnosticsTests
 {
     [TestMethod]
@@ -338,12 +339,6 @@ public class SseHelperDiagnosticsTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => throw new NotImplementedException();
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => throw new NotImplementedException();
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => throw new NotImplementedException();
-
         public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
             => throw new NotImplementedException();
 
@@ -359,7 +354,7 @@ public class SseHelperDiagnosticsTests
         protected override string ExtractResponseContent(string responseContent)
             => throw new NotImplementedException();
 
-        protected override (string content, Mythosia.AI.Models.Functions.FunctionCall functionCall) ExtractFunctionCall(string responseContent)
+        protected override (string content, Mythosia.AI.Models.Functions.FunctionCallBatch functionCalls) ExtractFunctionCalls(string responseContent)
             => throw new NotImplementedException();
     }
 

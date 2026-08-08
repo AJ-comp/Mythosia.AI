@@ -82,6 +82,7 @@ public class McpToolAdapterTests
             new { name = "greet", description = "Greet someone" });
 
         var functions = McpToolAdapter.ToFunctionDefinitions(connection);
+        Assert.IsNotNull(functions[0].Handler);
 
         // Enqueue tool call response (next id = 3)
         transport.EnqueueResult(3, new
@@ -89,7 +90,7 @@ public class McpToolAdapterTests
             content = new[] { new { type = "text", text = "Hello, World!" } }
         });
 
-        var result = await functions[0].Handler(new Dictionary<string, object>());
+        var result = await functions[0].Handler!(new Dictionary<string, object>());
         Assert.AreEqual("Hello, World!", result);
     }
 
@@ -101,10 +102,11 @@ public class McpToolAdapterTests
             new { name = "fail_tool", description = "Always fails" });
 
         var functions = McpToolAdapter.ToFunctionDefinitions(connection);
+        Assert.IsNotNull(functions[0].Handler);
 
         transport.EnqueueError(3, -32000, "Internal error");
 
-        var result = await functions[0].Handler(new Dictionary<string, object>());
+        var result = await functions[0].Handler!(new Dictionary<string, object>());
         Assert.IsTrue(result.StartsWith("Error:"));
     }
 

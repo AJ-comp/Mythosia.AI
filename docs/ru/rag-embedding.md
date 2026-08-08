@@ -81,10 +81,9 @@ var embedder = new VllmEmbeddingProvider(
 При индексации чанки обрабатываются пакетами:
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // по умолчанию: 100 чанков за вызов
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // по умолчанию: 100 чанков за вызов
+pipeline.Options = options;
 ```
 
 ## Размерность

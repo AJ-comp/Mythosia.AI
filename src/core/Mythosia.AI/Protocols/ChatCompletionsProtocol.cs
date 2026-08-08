@@ -191,9 +191,38 @@ namespace Mythosia.AI.Protocols
             // Convert messages with function-aware handling
             foreach (var message in p.Messages)
             {
-                if (message.Role == ActorRole.Function)
+                if (message.FunctionCallBatch != null)
                 {
-                    // Tool result message
+                    messagesList.Add(new
+                    {
+                        role = "assistant",
+                        content = string.IsNullOrEmpty(message.Content) ? null : message.Content,
+                        tool_calls = message.FunctionCallBatch.Calls.Select(call => new
+                        {
+                            id = call.Id,
+                            type = "function",
+                            function = new
+                            {
+                                name = call.Name,
+                                arguments = JsonSerializer.Serialize(call.Arguments)
+                            }
+                        }).ToList()
+                    });
+                }
+                else if (message.FunctionCallResultBatch != null)
+                {
+                    foreach (var result in message.FunctionCallResultBatch.Results)
+                    {
+                        messagesList.Add(new
+                        {
+                            role = "tool",
+                            tool_call_id = result.Call.Id,
+                            content = result.Content
+                        });
+                    }
+                }
+                else if (message.Role == ActorRole.Function)
+                {
                     var toolCallId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString() ?? "";
 
                     messagesList.Add(new
@@ -320,21 +349,26 @@ namespace Mythosia.AI.Protocols
 
         #region Function Call Extraction
 
-        public override (string content, FunctionCall? functionCall) ExtractFunctionCall(string responseJson)
+        public override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string responseJson)
         {
             using var doc = JsonDocument.Parse(responseJson);
             var root = doc.RootElement;
 
-            if (!root.TryGetProperty("choices", out var choices) ||
-                choices.GetArrayLength() == 0)
-                return (string.Empty, null);
+            if (!root.TryGetProperty("choices", out var choices))
+                return (string.Empty, new FunctionCallBatch());
+            if (choices.ValueKind != JsonValueKind.Array)
+                throw new AIServiceException("The chat/completions choices field must be an array.");
+            if (choices.GetArrayLength() == 0)
+                return (string.Empty, new FunctionCallBatch());
 
             var choice = choices[0];
             if (!choice.TryGetProperty("message", out var message))
-                return (string.Empty, null);
+                return (string.Empty, new FunctionCallBatch());
+
+            var finishReason = GetFinishReason(choice);
 
             string? content = null;
-            FunctionCall? functionCall = null;
+            var functionCalls = new List<FunctionCall>();
 
             // Extract content
             if (message.TryGetProperty("content", out var contentElement) &&
@@ -343,53 +377,147 @@ namespace Mythosia.AI.Protocols
                 content = contentElement.GetString();
             }
 
-            // Extract tool_calls (standard format)
-            if (message.TryGetProperty("tool_calls", out var toolCallsElement) &&
-                toolCallsElement.ValueKind == JsonValueKind.Array &&
-                toolCallsElement.GetArrayLength() > 0)
+            // Extract tool_calls in provider order.
+            var hasModernToolCalls = message.TryGetProperty(
+                "tool_calls",
+                out var toolCallsElement) &&
+                toolCallsElement.ValueKind != JsonValueKind.Null;
+            if (hasModernToolCalls)
             {
-                var firstToolCall = toolCallsElement[0];
+                if (toolCallsElement.ValueKind != JsonValueKind.Array)
+                    throw new AIServiceException("The chat/completions tool_calls field must be an array.");
 
-                if (firstToolCall.TryGetProperty("function", out var functionElement))
+                var index = 0;
+                foreach (var toolCall in toolCallsElement.EnumerateArray())
                 {
-                    functionCall = new FunctionCall
+                    if (toolCall.ValueKind != JsonValueKind.Object)
+                        throw new AIServiceException($"Tool call at index {index} must be an object.");
+                    if (!toolCall.TryGetProperty("function", out var functionElement) ||
+                        functionElement.ValueKind != JsonValueKind.Object)
+                        throw new AIServiceException($"Tool call at index {index} is missing its function payload.");
+
+                    if (!toolCall.TryGetProperty("id", out var idElement) ||
+                        idElement.ValueKind != JsonValueKind.String ||
+                        string.IsNullOrWhiteSpace(idElement.GetString()))
                     {
-                        Name = functionElement.GetProperty("name").GetString(),
-                        Arguments = new Dictionary<string, object>(),
-                        Source = IdSource.OpenAI
+                        throw new AIServiceException(
+                            $"Tool call at index {index} is missing its provider call ID.");
+                    }
+
+                    var functionCall = new FunctionCall
+                    {
+                        Id = idElement.GetString()!,
+                        Name = functionElement.TryGetProperty("name", out var nameElement)
+                            ? nameElement.GetString() ?? string.Empty
+                            : string.Empty,
+                        Arguments = ParseFunctionArguments(functionElement, index),
+                        Source = IdSource.OpenAI,
+                        Index = index
                     };
 
-                    // Get tool call ID
-                    if (firstToolCall.TryGetProperty("id", out var idElement))
-                    {
-                        functionCall.Id = idElement.GetString() ?? $"call_{Guid.NewGuid().ToString().Substring(0, 20)}";
-                    }
-                    else
-                    {
-                        functionCall.Id = $"call_{Guid.NewGuid().ToString().Substring(0, 20)}";
-                    }
+                    functionCalls.Add(functionCall);
+                    index++;
+                }
 
-                    // Parse arguments JSON string
-                    if (functionElement.TryGetProperty("arguments", out var argsElement))
-                    {
-                        var argsString = argsElement.GetString();
-                        if (!string.IsNullOrEmpty(argsString))
-                        {
-                            try
-                            {
-                                functionCall.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(argsString)
-                                    ?? new Dictionary<string, object>();
-                            }
-                            catch
-                            {
-                                // Keep empty arguments on parse failure
-                            }
-                        }
-                    }
+                if (!string.Equals(finishReason, "tool_calls", StringComparison.Ordinal))
+                {
+                    throw new AIServiceException(
+                        $"The response contained tool_calls but finish_reason was '{finishReason ?? "missing"}'.");
+                }
+            }
+            else if (message.TryGetProperty("function_call", out var legacyFunctionCall))
+            {
+                if (legacyFunctionCall.ValueKind != JsonValueKind.Object)
+                    throw new AIServiceException("The legacy function_call field must be an object.");
+                functionCalls.Add(new FunctionCall
+                {
+                    Id = $"call_{Guid.NewGuid():N}",
+                    Name = legacyFunctionCall.TryGetProperty("name", out var nameElement)
+                        ? nameElement.GetString() ?? string.Empty
+                        : string.Empty,
+                    Arguments = ParseFunctionArguments(legacyFunctionCall, 0),
+                    Source = IdSource.OpenAI,
+                    Index = 0
+                });
+
+                if (!string.Equals(finishReason, "function_call", StringComparison.Ordinal))
+                {
+                    throw new AIServiceException(
+                        $"The response contained function_call but finish_reason was '{finishReason ?? "missing"}'.");
                 }
             }
 
-            return (content ?? string.Empty, functionCall);
+            if (string.Equals(finishReason, "tool_calls", StringComparison.Ordinal) &&
+                functionCalls.Count == 0)
+            {
+                throw new AIServiceException(
+                    "The response ended with finish_reason=tool_calls but contained no usable tool calls.");
+            }
+            if (string.Equals(finishReason, "function_call", StringComparison.Ordinal) &&
+                functionCalls.Count == 0)
+            {
+                throw new AIServiceException(
+                    "The response ended with finish_reason=function_call but contained no usable function call.");
+            }
+
+            return (content ?? string.Empty, new FunctionCallBatch(functionCalls));
+        }
+
+        public string? ExtractFinishReason(string responseJson)
+        {
+            using var doc = JsonDocument.Parse(responseJson);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("choices", out var choices) ||
+                choices.ValueKind != JsonValueKind.Array ||
+                choices.GetArrayLength() == 0)
+            {
+                return null;
+            }
+
+            return GetFinishReason(choices[0]);
+        }
+
+        private static string? GetFinishReason(JsonElement choice)
+        {
+            if (!choice.TryGetProperty("finish_reason", out var finishReason) ||
+                finishReason.ValueKind == JsonValueKind.Null)
+            {
+                return null;
+            }
+
+            if (finishReason.ValueKind != JsonValueKind.String)
+                throw new AIServiceException("The chat/completions finish_reason field must be a string or null.");
+
+            return finishReason.GetString();
+        }
+
+        private static Dictionary<string, object> ParseFunctionArguments(
+            JsonElement functionElement,
+            int callIndex)
+        {
+            if (!functionElement.TryGetProperty("arguments", out var argumentsElement) ||
+                argumentsElement.ValueKind != JsonValueKind.String)
+            {
+                throw new AIServiceException(
+                    $"Tool call at index {callIndex} is missing string JSON arguments.");
+            }
+
+            var argumentsJson = argumentsElement.GetString();
+            try
+            {
+                using var argumentsDocument = JsonDocument.Parse(argumentsJson ?? string.Empty);
+                if (argumentsDocument.RootElement.ValueKind != JsonValueKind.Object)
+                    throw new JsonException("Function arguments must be a JSON object.");
+
+                return JsonSerializer.Deserialize<Dictionary<string, object>>(argumentsJson!)
+                    ?? new Dictionary<string, object>();
+            }
+            catch (JsonException exception)
+            {
+                throw new AIServiceException(
+                    $"Tool call at index {callIndex} contains invalid JSON arguments.",
+                    exception);
+            }
         }
 
         #endregion

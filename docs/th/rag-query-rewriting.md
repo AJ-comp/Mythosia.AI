@@ -19,8 +19,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // ใช้ AI service เดิม
-    .WithQueryRewriteMaxTokens(250)  // budget token สำหรับการเขียนใหม่
+    .WithQueryRewriter(250)          // ใช้ AI service เดิม
     .AddDocument("docs.txt")
 )
 ```

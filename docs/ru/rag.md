@@ -57,7 +57,7 @@ var response = await service.GetCompletionAsync("Какова политика �
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // Локальный файл
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("Инлайн-контент.")                   // Строка напрямую
 )
 ```
@@ -71,7 +71,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -87,11 +87,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -101,11 +105,14 @@ var service = new OpenAIService(apiKey, http)
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,
-    ScoreThreshold = 0.7f
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,
+        MinScore = 0.7
+    }
 };
 
-var response = await service.GetCompletionAsync("Вопрос", ragOptions: options);
+var response = await service.GetCompletionAsync("Вопрос", options: options);
 ```
 
 ## Дальнейшие шаги

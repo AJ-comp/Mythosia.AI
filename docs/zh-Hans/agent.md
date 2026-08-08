@@ -2,7 +2,7 @@
 
 ## 为什么需要 Agent 循环？
 
-在常规函数调用中，模型每次请求只执行**一次**函数调用，你执行后对话继续。但许多实际任务需要模型自主规划并执行**多个步骤**：
+常规函数调用也可以把模型一次响应中的**多个函数按有序批次执行**，并继续后续工具轮次。Agent API 将这一机制封装成带有明确**步骤上限**的目标导向 ReAct 循环，把每个批次的结果返回给模型，直到模型生成最终答案：
 
 - "调研排名前 3 的 AI 公司并比较它们的股价" — 需要多次网络搜索和股价查询
 - "查找相关政策，检查订单状态，然后告诉我是否符合退款条件" — 需要按逻辑顺序串联不同工具
@@ -60,7 +60,7 @@ catch (AgentMaxStepsExceededException ex)
 控制 Agent 循环每轮的行为：
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

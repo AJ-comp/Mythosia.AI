@@ -348,11 +348,8 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static AIService WithTimeout(this AIService service, int seconds)
         {
-            var policy = new FunctionCallingPolicy
-            {
-                MaxRounds = service.DefaultPolicy.MaxRounds,
-                TimeoutSeconds = seconds
-            };
+            var policy = (service.CurrentPolicy ?? service.DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
+            policy.TimeoutSeconds = seconds;
             return service.WithPolicy(policy);
         }
 
@@ -361,11 +358,8 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public static AIService WithMaxRounds(this AIService service, int rounds)
         {
-            var policy = new FunctionCallingPolicy
-            {
-                MaxRounds = rounds,
-                TimeoutSeconds = service.DefaultPolicy.TimeoutSeconds
-            };
+            var policy = (service.CurrentPolicy ?? service.DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
+            policy.MaxRounds = rounds;
             return service.WithPolicy(policy);
         }
 

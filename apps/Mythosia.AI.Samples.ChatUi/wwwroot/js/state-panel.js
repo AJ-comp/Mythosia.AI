@@ -75,7 +75,6 @@ function renderState(s) {
     row('Temperature', s.temperature?.toFixed(2)),
     row('Top P', s.topP?.toFixed(2)),
     row('Max Output Tokens', s.maxTokens),
-    row('Max Messages', s.maxMessageCount),
     row('Freq Penalty', s.frequencyPenalty?.toFixed(2)),
     row('Pres Penalty', s.presencePenalty?.toFixed(2)),
     row('Stream', s.stream, 'bool'),
@@ -143,23 +142,17 @@ function renderState(s) {
     row('Chat Blocks', s.chatBlockCount),
     row('Total Messages', s.messageCount),
     row('Conversation Tokens', typeof s.conversationTokenCount === 'number' ? s.conversationTokenCount.toLocaleString() : '(unavailable)'),
-    row('Sent to API', `${s.sentMessageCount ?? s.messageCount} / ${s.maxMessageCount} (window)`),
   ]);
 
   const totalMsg = s.messages?.length ?? 0;
-  const windowStart = Math.max(0, totalMsg - (s.maxMessageCount ?? totalMsg));
   const tokenSuffix = typeof s.conversationTokenCount === 'number'
     ? ` · ${s.conversationTokenCount.toLocaleString()} tokens`
     : '';
   html += `<div class="state-section"><div class="state-section-title">Messages (${totalMsg}${tokenSuffix})</div>`;
   if (s.messages && s.messages.length > 0) {
     s.messages.forEach((m, idx) => {
-      if (idx === windowStart && windowStart > 0) {
-        html += `<div class="state-window-separator">\u25BC sent to api \u25BC</div>`;
-      }
       const roleClass = m.role.toLowerCase();
-      const windowClass = idx < windowStart ? ' outside-window' : ' in-window';
-      html += `<div class="state-msg${windowClass}" data-message-json="${escapeHtml(encodeMessageJson(m))}">
+      html += `<div class="state-msg" data-message-json="${escapeHtml(encodeMessageJson(m))}">
         <div class="state-msg-header">
           <span class="state-msg-role ${roleClass}">${m.role}</span>
           <span class="state-msg-time">${m.timestamp}</span>

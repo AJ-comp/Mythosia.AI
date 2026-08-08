@@ -2,6 +2,22 @@
 namespace Mythosia.AI.Models.Functions
 {
     /// <summary>
+    /// Controls how function calls returned in one provider response are executed.
+    /// </summary>
+    public enum FunctionExecutionMode
+    {
+        /// <summary>
+        /// Executes calls one at a time in provider order.
+        /// </summary>
+        Sequential,
+
+        /// <summary>
+        /// Executes independent calls concurrently, up to the configured concurrency limit.
+        /// </summary>
+        Parallel
+    }
+
+    /// <summary>
     /// Function calling 실행 정책
     /// </summary>
     public class FunctionCallingPolicy
@@ -12,9 +28,16 @@ namespace Mythosia.AI.Models.Functions
         public int MaxRounds { get; set; } = 20;
 
         /// <summary>
-        /// 전체 실행 타임아웃 (초)
+        /// Provider request and round-loop timeout in seconds. A validated function-call
+        /// batch is completed once handler execution begins; registered handlers do not
+        /// currently receive a CancellationToken.
         /// </summary>
         public int? TimeoutSeconds { get; set; } = 100;
+
+        /// <summary>
+        /// One provider response's function-call execution mode.
+        /// </summary>
+        public FunctionExecutionMode ExecutionMode { get; set; } = FunctionExecutionMode.Sequential;
 
         /// <summary>
         /// 병렬 실행 시 최대 동시 실행 수
@@ -83,6 +106,7 @@ namespace Mythosia.AI.Models.Functions
             {
                 MaxRounds = this.MaxRounds,
                 TimeoutSeconds = this.TimeoutSeconds,
+                ExecutionMode = this.ExecutionMode,
                 MaxConcurrency = this.MaxConcurrency,
                 EnableLogging = this.EnableLogging
             };

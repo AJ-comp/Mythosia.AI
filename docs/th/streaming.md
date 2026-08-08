@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("เล่าเรื่อง�
 `StreamAsync` สามารถคืนค่าเป็นออบเจกต์ `StreamingContent` ที่มีทั้งข้อความและประเภทของมัน:
 
 ```csharp
-await foreach (var content in service.StreamAsync("อธิบาย quantum computing"))
+await foreach (var content in service.StreamAsync("อธิบาย quantum computing", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 เมื่อ streaming เสร็จสิ้น event `Completion` สุดท้ายจะมีออบเจกต์ `TokenUsage` พร้อมข้อมูลการใช้งานโดยละเอียด:
 
 ```csharp
-await foreach (var content in service.StreamAsync("อธิบาย quantum computing"))
+await foreach (var content in service.StreamAsync("อธิบาย quantum computing", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,6 +149,6 @@ Policy การสรุปอัตโนมัติไม่ทำงาน�
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("ต่อจากที่คุยไว้..."))
+await foreach (var chunk in service.StreamAsync("ต่อจากที่คุยไว้...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

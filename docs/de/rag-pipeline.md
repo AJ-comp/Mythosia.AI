@@ -57,11 +57,9 @@ Den Index einmal aufbauen und über mehrere Service-Instanzen wiederverwenden �
 
 ```csharp
 // Einmal aufbauen
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // Über Services wiederverwenden
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -105,7 +103,7 @@ ragService.GetCompletionAsync("Was ist die Rückgaberichtlinie?")
 ③ RagEnabledService erzeugt einen AIRequestContext
    RequestMessageOverride = zusammengesetzter Prompt
     ↓
-④ _innerService.GetCompletionAsync(ursprüngliche Nachricht, context)
+④ _innerService.GetCompletionAsync(ursprüngliche Nachricht, context: context)
    → AIService speichert den Context in AsyncLocal
    → Die ursprüngliche Frage wird im Gesprächsverlauf abgelegt
     ↓

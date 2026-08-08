@@ -51,7 +51,7 @@ var service = new OpenAIService("votre-clé-api", http)
 };
 ```
 
-Consultez la [référence API](../api/Mythosia.AI.Models.AIModels.yml) pour la liste complète des constantes de modèles disponibles.
+Consultez la [référence API](../../api/Mythosia.AI.Models.AIModels.yml) pour la liste complète des constantes de modèles disponibles.
 
 ## Prochaines étapes
 

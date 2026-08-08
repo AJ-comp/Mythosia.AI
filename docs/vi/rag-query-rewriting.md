@@ -19,8 +19,7 @@ Nếu "Còn các ngoại lệ của nó thì sao?" được gửi trực tiếp 
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // Dùng cùng AI service
-    .WithQueryRewriteMaxTokens(250)  // Ngân sách token cho việc viết lại
+    .WithQueryRewriter(250)          // Dùng cùng AI service
     .AddDocument("docs.txt")
 )
 ```

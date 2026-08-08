@@ -7,7 +7,6 @@ using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Services.xAI;
 using Mythosia.AI.Models;
-using Mythosia.Azure;
 
 namespace Mythosia.AI.Tests.Common;
 
@@ -22,12 +21,11 @@ namespace Mythosia.AI.Tests.Common;
 /// absorbed by a compaction attempt.
 /// </summary>
 [TestClass]
+[TestCategory("Live")]
 public class ContextLengthLiveTests
 {
-    private const string Vault = "https://mythosia-key-vault.vault.azure.net/";
-
     private static async Task<string> KeyAsync(string secretName)
-        => await new SecretFetcher(Vault, secretName).GetKeyValueAsync();
+        => await LiveTestSecrets.GetAsync(secretName);
 
     /// <summary>Roughly <paramref name="approxTokens"/> tokens of filler (~4 chars/token).</summary>
     private static string Filler(int approxTokens)
@@ -116,16 +114,6 @@ public class ContextLengthLiveTests
     [TestCategory("Integration")]
     [TestCategory("ContextLengthLive")]
     [TestMethod]
-    public async Task xAI_RealOverflow_IsDetected()
-    {
-        var service = new XAIService(await KeyAsync("xai-secret"), new HttpClient());
-        service.ChangeModel(AIModels.xAI.Grok3Mini);
-        await AssertOverflowDetected(service, approxTokens: 300_000, "xAI grok-3-mini");
-    }
-
-    [TestCategory("Integration")]
-    [TestCategory("ContextLengthLive")]
-    [TestMethod]
     public async Task Anthropic_RealOverflow_IsDetected()
     {
         var service = new AnthropicService(await KeyAsync("momedit-antropic-secret"), new HttpClient());
@@ -141,5 +129,16 @@ public class ContextLengthLiveTests
         var service = new GoogleAIService(await KeyAsync("gemini-secret"), new HttpClient());
         service.ChangeModel(AIModels.Google.Gemini2_5Flash);            // ~1M window
         await AssertOverflowDetected(service, approxTokens: 1_100_000, "Google gemini-2.5-flash");
+    }
+
+    [TestCategory("Integration")]
+    [TestCategory("ContextLengthLive")]
+    [TestMethod]
+    public async Task XAI_RealOverflow_IsDetected()
+    {
+        var service = new XAIService(await KeyAsync("xai-secret"), new HttpClient());
+        service.ChangeModel(AIModels.xAI.GrokBuild0_1);                 // 256K window
+        service.MaxTokens = 16;
+        await AssertOverflowDetected(service, approxTokens: 280_000, "xAI grok-build-0.1");
     }
 }

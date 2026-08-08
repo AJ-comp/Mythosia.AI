@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import {
-  setSystem, setTemp, setTopp, setMaxTokens, setMaxMsg,
+  setSystem, setTemp, setTopp, setMaxTokens,
   setStateless, setReasoning, reasoningOpts, reasoningLvls,
   tempVal, toppVal,
   setSummary, summaryOpts, summaryTriggerType, summaryTriggerVal,
@@ -23,10 +23,9 @@ async function applySettings() {
   if (!app.isConnected) return;
 
   const body = {
-    temperature: parseFloat(setTemp.value),
-    topP: parseFloat(setTopp.value),
+    temperature: setTemp.disabled ? null : parseFloat(setTemp.value),
+    topP: setTopp.disabled ? null : parseFloat(setTopp.value),
     maxTokens: parseInt(setMaxTokens.value),
-    maxMessageCount: parseInt(setMaxMsg.value),
     statelessMode: setStateless.checked,
     systemMessage: setSystem.value || '',
     reasoningEnabled: setReasoning.checked,
@@ -37,8 +36,19 @@ async function applySettings() {
   if (setReasoning.checked && app.modelReasoningInfo) {
     const info = app.modelReasoningInfo;
     if (info.type === 'grok_always') {
-      // Grok4: always reasoning, nothing to send
-      body.reasoningEnabled = null;
+      if (info.levels.length > 0) {
+        const sel = reasoningLvls.querySelector('input[name="reasoning-level"]:checked');
+        body.reasoningEnabled = true;
+        body.reasoningLevel = sel ? sel.value : info.levels[0];
+        body.reasoningType = info.type;
+      } else {
+        body.reasoningEnabled = null;
+      }
+    } else if (info.type === 'claude_always' || info.type === 'gemini3') {
+      const sel = reasoningLvls.querySelector('input[name="reasoning-level"]:checked');
+      body.reasoningEnabled = true;
+      body.reasoningLevel = sel ? sel.value : info.levels[0];
+      body.reasoningType = info.type;
     } else if (info.type === 'qwen_thinking') {
       // Qwen3: simple on/off, send type so backend knows
       body.reasoningType = info.type;
@@ -64,11 +74,31 @@ export function updateReasoningUI() {
     const info = app.modelReasoningInfo;
 
     if (info.type === 'grok_always') {
-      // Grok4: always reasoning, no controllable parameters
       setReasoning.checked = true;
       setReasoning.disabled = true;
       reasoningOpts.classList.remove('hidden');
-      reasoningLvls.innerHTML = '<span class="reasoning-always-label">Always On — reasoning is built-in</span>';
+      if (info.levels.length === 0) {
+        reasoningLvls.innerHTML = '<span class="reasoning-always-label">Always On — reasoning is built-in</span>';
+      } else {
+        reasoningLvls.innerHTML = '<span class="reasoning-always-label">Always on — select effort</span>';
+        info.levels.forEach((lvl, i) => {
+          const label = document.createElement('label');
+          label.innerHTML = `<input type="radio" name="reasoning-level" value="${lvl}" ${i === 0 ? 'checked' : ''} /><span>${lvl}</span>`;
+          label.querySelector('input').addEventListener('change', () => scheduleApplySettings(0));
+          reasoningLvls.appendChild(label);
+        });
+      }
+    } else if (info.type === 'claude_always' || info.type === 'gemini3') {
+      setReasoning.checked = true;
+      setReasoning.disabled = true;
+      reasoningOpts.classList.remove('hidden');
+      reasoningLvls.innerHTML = `<span class="reasoning-always-label">Always on — select ${info.type === 'gemini3' ? 'thinking level' : 'effort'}</span>`;
+      info.levels.forEach((lvl, i) => {
+        const label = document.createElement('label');
+        label.innerHTML = `<input type="radio" name="reasoning-level" value="${lvl}" ${i === 0 ? 'checked' : ''} /><span>${lvl}</span>`;
+        label.querySelector('input').addEventListener('change', () => scheduleApplySettings(0));
+        reasoningLvls.appendChild(label);
+      });
     } else if (info.type === 'qwen_thinking') {
       // Qwen3: simple on/off toggle, no levels
       setReasoning.disabled = false;
@@ -93,6 +123,14 @@ export function updateReasoningUI() {
 }
 
 // ── Summary Policy ───────────────────────────────────────────
+export function updateSamplingUI() {
+  const sampling = app.modelSamplingInfo || { temperature: true, topP: true };
+  setTemp.disabled = sampling.temperature === false;
+  setTopp.disabled = sampling.topP === false;
+  setTemp.title = setTemp.disabled ? 'This model does not accept a custom temperature.' : '';
+  setTopp.title = setTopp.disabled ? 'This provider integration does not send Top P.' : '';
+}
+
 let _summaryTimer = null;
 
 function setSummaryError(message) {
@@ -163,7 +201,6 @@ export function initSettings() {
     scheduleApplySettings();
   });
   setMaxTokens.addEventListener('change', () => scheduleApplySettings(200));
-  setMaxMsg.addEventListener('change', () => scheduleApplySettings(200));
   setStateless.addEventListener('change', () => scheduleApplySettings(0));
   setSystem.addEventListener('input', () => scheduleApplySettings(800));
 

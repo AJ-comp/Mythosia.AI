@@ -19,8 +19,7 @@ Ein `LlmQueryRewriter` nutzt den KI-Service selbst, um die Abfrage vor der Einbe
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // Nutzt denselben KI-Service
-    .WithQueryRewriteMaxTokens(250)  // Token-Budget für das Umschreiben
+    .WithQueryRewriter(250)          // Nutzt denselben KI-Service
     .AddDocument("doku.txt")
 )
 ```

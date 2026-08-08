@@ -15,12 +15,12 @@ namespace Mythosia.AI.Services.DeepSeek
             return CreateMessageRequest();
         }
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
         {
             // DeepSeek doesn't support function calling
             // Extract regular response
             var content = ExtractResponseContent(response);
-            return (content, null);
+            return (content, new FunctionCallBatch());
         }
 
         #endregion

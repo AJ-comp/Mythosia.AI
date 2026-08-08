@@ -8,7 +8,7 @@
         public bool IsComplete { get; }
         public string Content { get; }
 
-        private RoundResult(bool isComplete, string content = null)
+        private RoundResult(bool isComplete, string content = "")
         {
             IsComplete = isComplete;
             Content = content;

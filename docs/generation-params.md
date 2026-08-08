@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // Nucleus sampling threshold
 service.MaxTokens = 1024;          // Max output tokens
 service.FrequencyPenalty = 0.0f;   // Penalize repeated tokens
 service.PresencePenalty = 0.0f;    // Penalize tokens already present
-service.MaxMessageCount = 20;      // Conversation window size (deprecated — removed in v7.0)
 ```
 
-> **Deprecated:** `MaxMessageCount` (the message-count sliding window) is obsolete and will be removed in v7.0 — context management becomes token-based only via `ConversationPolicy`. Until removal, the window is guaranteed to never drop the most recent user message, so agentic tool runs cannot lose the query they are working on.
 
 ## Fluent Extension Methods
 
@@ -79,7 +77,8 @@ A single service instance can hold multiple independent conversation threads:
 
 ```csharp
 // Start a new conversation block
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // Switch to a different block
 service.SetActivateChat(chat2Id);

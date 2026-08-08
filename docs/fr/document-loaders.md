@@ -25,7 +25,7 @@ dotnet add package Mythosia.Documents.Pdf
 ## PDF
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions
+var loader = new PdfDocumentLoader(options: new PdfParserOptions
 {
     Password = "secret",            // Pour les PDF chiffrés
     IncludeMetadata = true,         // Extraire le titre, l'auteur
@@ -39,7 +39,7 @@ var docs = await loader.LoadAsync("rapport.pdf");
 ## Word (.docx)
 
 ```csharp
-var loader = new WordDocumentLoader(new OfficeParserOptions
+var loader = new WordDocumentLoader(options: new OfficeParserOptions
 {
     IncludeMetadata = true,
     NormalizeWhitespace = true
@@ -51,7 +51,7 @@ var docs = await loader.LoadAsync("document.docx");
 ## Excel (.xlsx)
 
 ```csharp
-var loader = new ExcelDocumentLoader(new OfficeParserOptions
+var loader = new ExcelDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSheetNames = true,  // Préfixer chaque section par le nom de la feuille
     NormalizeWhitespace = true
@@ -63,7 +63,7 @@ var docs = await loader.LoadAsync("tableur.xlsx");
 ## PowerPoint (.pptx)
 
 ```csharp
-var loader = new PowerPointDocumentLoader(new OfficeParserOptions
+var loader = new PowerPointDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSlideNumbers = true,  // Préfixer chaque section par le numéro de diapositive
     NormalizeWhitespace = true
@@ -98,7 +98,7 @@ Le chargeur HWP convertit le texte, les tableaux et la structure des titres en `
 Les chargeurs sont intégrés automatiquement lors de l'utilisation de `.AddDocument()` dans `RagBuilder`. Pour charger manuellement et ajouter le résultat :
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
+var loader = new PdfDocumentLoader(options: new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("rapport.pdf");
 
 var service = new AnthropicService(apiKey, http)

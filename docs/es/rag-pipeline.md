@@ -49,11 +49,9 @@ Construye el índice una vez y reutilízalo en múltiples instancias de servicio
 
 ```csharp
 // Construir una vez
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // Reutilizar en varios servicios
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);

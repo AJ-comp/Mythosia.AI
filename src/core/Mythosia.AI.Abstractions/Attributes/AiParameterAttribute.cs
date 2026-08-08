@@ -13,7 +13,7 @@ namespace Mythosia.AI.Attributes
         /// <summary>
         /// Description of the parameter
         /// </summary>
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>
         /// Whether this parameter is required
@@ -23,7 +23,7 @@ namespace Mythosia.AI.Attributes
         /// <summary>
         /// Optional custom name for the parameter
         /// </summary>
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         public AiParameterAttribute(string description, bool required = true)
         {

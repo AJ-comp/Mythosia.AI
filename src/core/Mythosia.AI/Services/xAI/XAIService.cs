@@ -20,11 +20,10 @@ namespace Mythosia.AI.Services.xAI
         public override string Provider => nameof(AIProvider.xAI);
 
         /// <summary>
-        /// Reasoning effort level for Grok reasoning models (grok-3-mini, grok-4, grok-4-1-fast).
-        /// Off: No reasoning_effort parameter sent (default).
-        /// Low/High: Explicit reasoning effort levels.
+        /// Reasoning effort for configurable Grok models. Auto leaves the provider default intact.
+        /// Grok 4.3 accepts None, Low, Medium, and High; Grok 4.5 accepts Low, Medium, and High.
         /// </summary>
-        public GrokReasoning ReasoningEffort { get; set; } = GrokReasoning.Off;
+        public GrokReasoning ReasoningEffort { get; set; } = GrokReasoning.Auto;
 
         protected override uint GetModelMaxOutputTokens()
         {
@@ -37,7 +36,7 @@ namespace Mythosia.AI.Services.xAI
         public XAIService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://api.x.ai/v1/", httpClient)
         {
-            Model = AIModels.xAI.Grok4_3;
+            Model = AIModels.xAI.Grok4_5;
             MaxTokens = 8000;
         }
 
@@ -54,14 +53,14 @@ namespace Mythosia.AI.Services.xAI
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
 
             using var cts = policy.TimeoutSeconds.HasValue
                 ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
                 : new CancellationTokenSource();
 
-            ChatBlock originalChat = null;
+            ChatBlock? originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
@@ -119,30 +118,57 @@ namespace Mythosia.AI.Services.xAI
                         TimeSpan.FromSeconds(60));
                 }
 
-                throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
+                throw AIHttpErrorFactory.FromHttp(
+                    (int)response.StatusCode,
+                    response.ReasonPhrase,
+                    errorContent,
+                    "xAI API request failed",
+                    includeErrorBodyInMessage: true);
             }
 
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (useFunctions)
-                return await ProcessFunctionResponseAsync(responseContent, policy);
+                return await ProcessFunctionResponseAsync(responseContent, policy, cancellationToken);
 
             return ProcessRegularResponse(responseContent);
         }
 
         private async Task<RoundResult> ProcessFunctionResponseAsync(
             string responseContent,
-            FunctionCallingPolicy policy)
+            FunctionCallingPolicy policy,
+            CancellationToken cancellationToken)
         {
-            var (content, functionCall) = ExtractFunctionCall(responseContent);
+            var (content, functionCalls) = ExtractFunctionCalls(responseContent);
 
-            if (functionCall != null)
+            if (functionCalls.Calls.Count > 0)
             {
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {functionCall.Name}");
-
-                await ExecuteFunctionAsync(functionCall);
+                var results = await ProcessFunctionCallsAsync(
+                    functionCalls,
+                    policy,
+                    cancellationToken);
+                AddFunctionCallBatchToHistory(
+                    content,
+                    functionCalls,
+                    new Dictionary<string, object> { ["model"] = Model });
+                AddFunctionResultBatchToHistory(
+                    results,
+                    new Dictionary<string, object> { ["model"] = Model });
                 return RoundResult.Continue();
+            }
+
+            var finishReason = _protocol.ExtractFinishReason(responseContent);
+            if (!string.IsNullOrEmpty(finishReason))
+            {
+                if (!string.Equals(finishReason, "stop", StringComparison.Ordinal))
+                {
+                    throw new AIServiceException(
+                        $"xAI ended the response with finish_reason={finishReason}; the partial response was not saved.");
+                }
+
+                if (!string.IsNullOrEmpty(content))
+                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+                return RoundResult.Complete(content ?? string.Empty);
             }
 
             if (string.IsNullOrEmpty(content))
@@ -155,51 +181,25 @@ namespace Mythosia.AI.Services.xAI
         private RoundResult ProcessRegularResponse(string responseContent)
         {
             var result = ExtractResponseContent(responseContent);
+            var finishReason = _protocol.ExtractFinishReason(responseContent);
+            if (!string.IsNullOrEmpty(finishReason) &&
+                !string.Equals(finishReason, "stop", StringComparison.Ordinal))
+            {
+                throw new AIServiceException(
+                    $"xAI ended the response with finish_reason={finishReason}; the partial response was not saved.");
+            }
+
+            if (string.Equals(finishReason, "stop", StringComparison.Ordinal) &&
+                string.IsNullOrEmpty(result))
+            {
+                return RoundResult.Complete(string.Empty);
+            }
+
             if (string.IsNullOrEmpty(result))
                 return RoundResult.Continue();
 
             ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
             return RoundResult.Complete(result);
-        }
-
-        private async Task ExecuteFunctionAsync(FunctionCall functionCall)
-        {
-            var functionCallMessage = new Message(ActorRole.Assistant, string.Empty)
-            {
-                Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
-                    ["model"] = Model
-                }
-            };
-
-            ActivateChat.Messages.Add(functionCallMessage);
-
-            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-            if (string.IsNullOrEmpty(result))
-            {
-                Console.WriteLine($"[WARNING] Function {functionCall.Name} returned empty result");
-                result = "Function executed successfully";
-            }
-
-            var metadata = new Dictionary<string, object>
-            {
-                [MessageMetadataKeys.MessageType] = "function_result",
-                [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                ["model"] = Model
-            };
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-            {
-                Metadata = metadata
-            });
         }
 
         #endregion
@@ -247,43 +247,16 @@ namespace Mythosia.AI.Services.xAI
         }
 
         /// <summary>
-        /// xAI Grok doesn't support image generation
-        /// </summary>
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("xAI Grok", "Image Generation");
-        }
-
-        /// <summary>
-        /// xAI Grok doesn't support image generation
-        /// </summary>
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("xAI Grok", "Image Generation");
-        }
-
-        /// <summary>
-        /// Switches to Grok 3 Mini for faster, lightweight reasoning
-        /// </summary>
-        public XAIService UseMiniModel()
-        {
-            ChangeModel(AIModels.xAI.Grok3Mini);
-            return this;
-        }
-
-        /// <summary>
-        /// Switches to the current Grok flagship reasoning model (grok-4.3).
-        /// The legacy grok-4-0709 was retired on 2026-05-15 and now redirects to grok-4.3.
+        /// Switches to the current Grok flagship reasoning model (grok-4.5).
         /// </summary>
         public XAIService UseGrok4Model()
         {
-            ChangeModel(AIModels.xAI.Grok4_3);
+            ChangeModel(AIModels.xAI.Grok4_5);
             return this;
         }
 
         /// <summary>
-        /// Switches to the current Grok flagship model (grok-4.3).
-        /// The legacy grok-4-1-fast was retired on 2026-05-15 and now redirects to grok-4.3.
+        /// Switches to Grok 4.3 for fast general-purpose workloads.
         /// </summary>
         public XAIService UseGrok4FastModel()
         {
@@ -292,8 +265,7 @@ namespace Mythosia.AI.Services.xAI
         }
 
         /// <summary>
-        /// Sets Grok reasoning parameters.
-        /// Reasoning effort: Low or High. Supported on grok-3-mini, grok-4, grok-4-1-fast.
+        /// Sets the model-specific Grok reasoning effort.
         /// </summary>
         public XAIService WithGrokParameters(GrokReasoning reasoningEffort = GrokReasoning.High)
         {
@@ -318,7 +290,7 @@ namespace Mythosia.AI.Services.xAI
                 return base.ApplyProviderSpecificRequestProfile(profile);
 
             var backupReasoningEffort = ReasoningEffort;
-            ReasoningEffort = GrokReasoning.Off;
+            ReasoningEffort = GetMinimumReasoningEffortForModel();
 
             return () =>
             {

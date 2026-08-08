@@ -72,8 +72,9 @@ ProductDto product = await run.Result;
 控制模型生成結構化輸出的嚴格程度：
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

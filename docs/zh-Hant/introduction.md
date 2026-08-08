@@ -23,9 +23,9 @@ Mythosia.AI 是一個模組化的 .NET AI 函式庫，提供統一介面來對�
 | 供應商 | 模型 |
 |--------|------|
 | **OpenAI** | GPT-5.x、GPT-4.1、GPT-4o、o3 系列 |
-| **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
+| **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3 系列 |
-| **xAI** | Grok 4 系列、Grok Build、Grok 3 Mini |
+| **xAI** | Grok 4 系列、Grok Build |
 | **DeepSeek** | Chat、Reasoner |
 | **Perplexity** | Sonar、Sonar Pro、Sonar Reasoning Pro |
 | **阿里巴巴 / 通義千問** | Qwen Max / Plus / Turbo / Qwen3（`Mythosia.AI.Providers.Alibaba`） |
@@ -33,9 +33,18 @@ Mythosia.AI 是一個模組化的 .NET AI 函式庫，提供統一介面來對�
 ## 架構概覽
 
 ```
+Mythosia.AI                     ← 核心 AI 服務（全部供應商）
+    └── Mythosia.AI.Abstractions   ← IAIService 介面
+
 Mythosia.AI.Rag                 ← RAG 管線與編排
-    └── Mythosia.AI             ← 核心 AI 服務（全部供應商）
-        └── Mythosia.AI.Abstractions   ← IAIService 介面
+    ├── Mythosia.AI.Abstractions
+    ├── Mythosia.AI.Rag.Abstractions
+    │   └── Mythosia.VectorDb.Abstractions
+    ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
+    │   └── Mythosia.Documents.Abstractions
+    └── Mythosia.VectorDb.InMemory
+        ├── Mythosia.VectorDb.Abstractions
+        └── Mythosia.AI.Rag.Abstractions
 
 Mythosia.VectorDb.*             ← 向量儲存（按需選擇）
     └── Mythosia.VectorDb.Abstractions

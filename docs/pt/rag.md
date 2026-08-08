@@ -33,14 +33,14 @@ Vários tipos de fontes são suportados:
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // arquivo local
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("Conteúdo inline pode ir aqui também.")   // string bruta
 )
 ```
 
 ## Provedor de Embedding Personalizado
 
-Por padrão, o RAG usa o próprio provedor do serviço para embeddings. Para usar um modelo de embedding dedicado:
+Por padrão, o RAG usa o provedor local de embeddings integrado. Para usar um modelo de embedding dedicado:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("base-conhecimento.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("corpus-grande.txt")
     );
 ```
@@ -81,11 +85,14 @@ Ajuste o comportamento de recuperação por consulta:
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,
-    ScoreThreshold = 0.7f
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,
+        MinScore = 0.7
+    }
 };
 
-var response = await service.GetCompletionAsync("Sua pergunta", ragOptions: options);
+var response = await service.GetCompletionAsync("Sua pergunta", options: options);
 ```
 
 ## Próximos Passos

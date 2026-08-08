@@ -94,11 +94,6 @@ public abstract partial class AIServiceTestBase
     {
         try
         {
-            // 긴 컨텍스트 설정
-#pragma warning disable CS0618 // deprecated 창 동작 자체를 검증하는 테스트 — v7.0 제거 시 함께 정리
-            AI.MaxMessageCount = 10;
-#pragma warning restore CS0618
-
             // 여러 대화 추가
             for (int i = 1; i <= 5; i++)
             {

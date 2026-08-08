@@ -14,7 +14,7 @@ Console.WriteLine(response); // 巴黎
 透過系統提示詞為模型設定角色或指令：
 
 ```csharp
-service.SystemPrompt = "你是一個簡潔的助理，請用一句話回答。";
+service.SystemMessage = "你是一個簡潔的助理，請用一句話回答。";
 
 var response = await service.GetCompletionAsync("解釋一下遞迴。");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("我叫什麼名字？");
 清除對話歷史：
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## 手動建構訊息
@@ -42,7 +42,7 @@ service.ClearMessages();
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("請摘要這段文字：...")
+var message = MessageBuilder.Create().AddText("請摘要這段文字：...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ var response = await service.GetCompletionAsync(message);
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("這張圖展示了什麼？")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("這張圖展示了什麼？")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "描述這張圖片",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

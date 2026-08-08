@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 `StreamAsync` can return `StreamingContent` objects that carry both the text and its type:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Explain quantum computing"))
+await foreach (var content in service.StreamAsync("Explain quantum computing", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 When streaming completes, the final `Completion` event carries a `TokenUsage` object with detailed usage metrics:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Explain quantum computing"))
+await foreach (var content in service.StreamAsync("Explain quantum computing", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -82,7 +82,7 @@ await foreach (var content in service.StreamAsync("Explain quantum computing"))
 | `OutputTokens` | Tokens in the output/completion |
 | `TotalTokens` | Input + Output |
 | `CachedInputTokens` | Tokens served from cache (reduced cost) |
-| `CacheCreationTokens` | Tokens written to cache (Anthropic) |
+| `CacheCreationTokens` | Tokens written to cache (OpenAI, Anthropic) |
 | `ReasoningTokens` | Tokens used for internal reasoning |
 | `CacheHitRatio` | Cache hit ratio (0.0–1.0) |
 | `VisibleOutputTokens` | Output tokens excluding reasoning |
@@ -124,6 +124,8 @@ var options = new StreamOptions()
     .WithFunctionCalls();  // enable function calling during stream
 ```
 
+For OpenAI Responses streams, a `Completion` event is emitted only after `response.completed` carries a completed response. Provider failure, incomplete, error, refusal, malformed JSON, or an early end-of-stream produces an `Error` event and never executes a function collected from that failed round. The simple text streaming overload throws when it encounters that error instead of yielding the provider error as normal text.
+
 ## Stateless Streaming (StreamOnceAsync)
 
 Stream a response without affecting the conversation history — the streaming equivalent of `AskOnceAsync`:
@@ -149,7 +151,7 @@ The automatic summary policy does not trigger during streaming. Call `ApplySumma
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("Continue our conversation..."))
+await foreach (var chunk in service.StreamAsync("Continue our conversation...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
 
@@ -169,7 +171,7 @@ service.WithStreamDiagnostics(d => d
     .OnComplete(diag => logger.LogInformation("Stream finished: {Diag}", diag)));
 
 // Hooks now apply to every streaming call on this service.
-await foreach (var chunk in service.StreamAsync(message))
+await foreach (var chunk in service.StreamAsync(message, StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
 
@@ -199,7 +201,7 @@ When SSE reading throws an `IOException` or transport error, the library wraps i
 ```csharp
 try
 {
-    await foreach (var chunk in service.StreamAsync(message))
+    await foreach (var chunk in service.StreamAsync(message, StreamOptions.Default))
         Console.Write(chunk.Content);
 }
 catch (StreamReadException ex)

@@ -8,6 +8,8 @@ Install the core package:
 dotnet add package Mythosia.AI
 ```
 
+Upgrading an existing application? Read [Migrating to Mythosia.AI 7](v7-migration.md) before changing package versions.
+
 If you plan to use streaming with LINQ operators (e.g. `ToListAsync`), also add:
 
 ```bash
@@ -19,7 +21,10 @@ dotnet add package System.Linq.Async
 Pick a provider and create a service instance with your API key and an `HttpClient`:
 
 ```csharp
-using Mythosia.AI;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.Anthropic;
+using Mythosia.AI.Services.Google;
+using Mythosia.AI.Services.OpenAI;
 
 var http = new HttpClient();
 
@@ -45,10 +50,8 @@ Console.WriteLine(response);
 Each service defaults to a sensible model, but you can specify one explicitly:
 
 ```csharp
-var service = new OpenAIService("your-api-key", http)
-{
-    Model = AIModels.OpenAI.Gpt4_1
-};
+var service = new OpenAIService("your-api-key", http);
+service.ChangeModel(AIModels.OpenAI.Gpt4_1);
 ```
 
 See the [API Reference](../api/Mythosia.AI.Models.AIModels.yml) for all available model constants.

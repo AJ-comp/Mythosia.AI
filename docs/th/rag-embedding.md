@@ -87,10 +87,9 @@ Provider น้ำหนักเบาแบบ zero-configuration ใช้ fe
 เมื่อ index เอกสาร pipeline จะ embed chunk เป็น batch เพื่อหลีกเลี่ยงการส่งข้อความพันข้อความในการเรียก API เดียว ขนาด batch ปรับได้:
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // ค่าเริ่มต้น: 100 chunk ต่อการเรียก API
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // ค่าเริ่มต้น: 100 chunk ต่อการเรียก API
+pipeline.Options = options;
 ```
 
 Batch ใหญ่ขึ้น = API call น้อยลง แต่ใช้หน่วยความจำมากต่อ call ถ้าเจอ rate limit หรือปัญหาหน่วยความจำ ให้ลดค่านี้

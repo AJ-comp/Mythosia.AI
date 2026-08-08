@@ -6,6 +6,7 @@ using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -23,7 +24,11 @@ namespace Mythosia.AI.Services.Base
     /// </summary>
     public abstract class OpenAICompatibleService : AIService
     {
-        protected OpenAICompatibleService(string apiKey, string baseUrl, HttpClient httpClient)
+        protected const string StreamItemIdMetadataKey = "stream_item_id";
+        protected const string StreamIndexExplicitMetadataKey = "stream_index_explicit";
+        protected const string RequiresProviderCallIdMetadataKey = "requires_provider_call_id";
+
+        protected OpenAICompatibleService(string? apiKey, string baseUrl, HttpClient httpClient)
             : base(apiKey, baseUrl, httpClient)
         {
         }
@@ -36,6 +41,11 @@ namespace Mythosia.AI.Services.Base
             {
                 if (content.Type == StreamingContentType.Text && content.Content != null)
                     await messageReceivedAsync(content.Content);
+                else if (content.Type == StreamingContentType.Error)
+                    throw new AIServiceException(
+                        content.Content ?? $"{Provider} streaming request failed.",
+                        content.Metadata == null ? string.Empty : JsonSerializer.Serialize(content.Metadata),
+                        Provider);
             }
         }
 
@@ -48,16 +58,13 @@ namespace Mythosia.AI.Services.Base
             if (policy.EnableLogging)
                 Console.WriteLine($"[{GetType().Name} Stream Round]");
 
-            // 1. Create and send HTTP request. The connection/headers phase is bounded by the
-            // resolved request timeout (single control point); the SSE body read below is governed
-            // by the caller's token so long legitimate streams are not cut off.
+            // 1. Create and send HTTP request. AIService.StreamCoreAsync supplies one linked token
+            // for the complete round loop, so the same policy timeout covers both headers and the
+            // SSE response body without resetting between function-calling rounds.
+            OnStreamRoundStarting();
             var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
-            HttpResponseMessage response;
-            using (var connectCts = CreateRequestTimeoutCts(policy, cancellationToken))
-            {
-                response = await HttpClient.SendAsync(
-                    request, HttpCompletionOption.ResponseHeadersRead, connectCts.Token);
-            }
+            var response = await HttpClient.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -73,10 +80,14 @@ namespace Mythosia.AI.Services.Base
 
             // 2. Read stream and yield chunks in real-time
             var streamData = new OpenAIStreamData();
-            bool functionCallEventSent = false;
-            TokenUsage lastUsage = null;
-            Dictionary<string, object> completionMetadata = null;
+            var announcedFunctionCalls = new HashSet<int>();
+            TokenUsage? lastUsage = null;
+            Dictionary<string, object>? completionMetadata = null;
             var diagnostics = new StreamDiagnostics();
+            bool doneMarkerReceived = false;
+            bool completionEventReceived = false;
+            string? finishReason = null;
+            StreamingContent? streamFailure = null;
 
             await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
             {
@@ -86,26 +97,7 @@ namespace Mythosia.AI.Services.Base
                 var jsonData = line.Substring("data:".Length).Trim();
                 if (jsonData == "[DONE]")
                 {
-                    if (!options.TextOnly)
-                    {
-                        var completionContent = new StreamingContent
-                        {
-                            Type = StreamingContentType.Completion
-                        };
-                        if (options.IncludeMetadata)
-                        {
-                            var meta = completionMetadata ?? new Dictionary<string, object>();
-                            meta["total_length"] = streamData.TextBuffer.Length;
-                            meta["model"] = streamData.Model ?? Model;
-                            completionContent.Metadata = meta;
-                        }
-                        if (lastUsage != null)
-                            completionContent.Usage = lastUsage;
-                        yield return completionContent;
-                    }
-                    // Clear so the post-loop fallback doesn't fire
-                    completionMetadata = null;
-                    lastUsage = null;
+                    doneMarkerReceived = true;
                     break;
                 }
 
@@ -115,10 +107,20 @@ namespace Mythosia.AI.Services.Base
                     chunk = ParseStreamChunk(jsonData, options);
                     diagnostics.DataLinesProcessed++;
                 }
-                catch
+                catch (Exception ex)
                 {
                     diagnostics.ParseFailures++;
+                    streamFailure = CreateStreamParseFailure(jsonData, ex, diagnostics);
+                    if (streamFailure != null)
+                        break;
+
                     continue;
+                }
+
+                if (chunk.Error != null)
+                {
+                    streamFailure = chunk.Error;
+                    break;
                 }
 
                 if (chunk.Usage != null)
@@ -126,14 +128,15 @@ namespace Mythosia.AI.Services.Base
 
                 if (chunk.Model != null)
                     streamData.Model = chunk.Model;
+                if (!string.IsNullOrEmpty(chunk.FinishReason))
+                    finishReason = chunk.FinishReason;
 
-                // Provider-specific completion event (e.g., OpenAI response.done)
-                // Capture metadata/usage but don't yield — [DONE] will handle it
+                // Provider-specific terminal event. Capture metadata/usage and emit only after validation.
                 if (chunk.IsCompletion)
                 {
+                    completionEventReceived = true;
                     if (chunk.Metadata != null)
                         completionMetadata = chunk.Metadata;
-                    continue;
                 }
 
                 // Reasoning — yield immediately
@@ -162,31 +165,109 @@ namespace Mythosia.AI.Services.Base
                 }
 
                 // Function call — collect for post-processing
-                if (chunk.FunctionCall != null)
+                foreach (var functionCallDelta in chunk.FunctionCalls)
                 {
-                    streamData.UpdateFunctionCall(chunk.FunctionCall);
+                    var functionCall = streamData.UpdateFunctionCall(functionCallDelta);
 
-                    if (!functionCallEventSent && options.IncludeFunctionCalls &&
-                        streamData.FunctionCall?.Name != null)
+                    if (options.IncludeFunctionCalls &&
+                        !string.IsNullOrEmpty(functionCall.Name) &&
+                        !string.IsNullOrEmpty(functionCall.Id) &&
+                        announcedFunctionCalls.Add(functionCall.Index))
                     {
-                        functionCallEventSent = true;
-                        yield return new StreamingContent
-                        {
-                            Type = StreamingContentType.FunctionCall,
-                            Metadata = new Dictionary<string, object>
-                            {
-                                ["function_name"] = streamData.FunctionCall.Name,
-                                ["status"] = "started"
-                            }
-                        };
+                        yield return CreateFunctionCallStreamingContent(
+                            functionCall,
+                            streamData.BatchId);
                     }
                 }
             }
 
-            // Handle streams that end without [DONE] (e.g., OpenAI Responses API)
-            if (!options.TextOnly && (completionMetadata != null || lastUsage != null))
+            if (streamFailure == null)
             {
-                var completionContent = new StreamingContent
+                streamFailure = ValidateStreamTermination(
+                    doneMarkerReceived,
+                    completionEventReceived,
+                    diagnostics);
+            }
+
+            if (streamFailure != null)
+            {
+                OnStreamRoundFailed();
+                yield return streamFailure;
+                yield break;
+            }
+
+            // OpenAI can emit a complete, forced tool-call payload with finish_reason="stop"
+            // (observed on gpt-4o). The payload is still safe to execute after the argument
+            // finalization below. Other terminal reasons remain unsafe, and a tool finish reason
+            // without a payload is still rejected.
+            var acceptedStopTerminatedFunctionPayload =
+                useFunctions && streamData.HasFunctionCalls && finishReason == "stop";
+
+            if (useFunctions &&
+                ((streamData.HasFunctionCalls &&
+                  !string.IsNullOrEmpty(finishReason) &&
+                  finishReason != "tool_calls" &&
+                  finishReason != "function_call" &&
+                  !acceptedStopTerminatedFunctionPayload) ||
+                 (!streamData.HasFunctionCalls &&
+                  (finishReason == "tool_calls" || finishReason == "function_call"))))
+            {
+                OnStreamRoundFailed();
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Error,
+                    Content = "The provider's finish reason did not match its function-call payload; no tools were executed.",
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["status"] = "function_terminal_mismatch",
+                        ["finish_reason"] = finishReason ?? "missing",
+                        ["function_count"] = streamData.GetFunctionCalls().Count()
+                    }
+                };
+                yield break;
+            }
+
+            if (streamData.HasFunctionCalls && useFunctions &&
+                !streamData.TryFinalizeFunctionArguments(out var invalidCall, out var argumentError))
+            {
+                OnStreamRoundFailed();
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Error,
+                    Content = "The provider completed a function call with malformed JSON arguments; no tools were executed.",
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["model"] = streamData.Model ?? Model,
+                        ["status"] = "malformed_function_arguments",
+                        ["function_name"] = invalidCall?.Name ?? string.Empty,
+                        ["reason"] = argumentError
+                    }
+                };
+                yield break;
+            }
+
+            // A provider can send a function name or call ID late in the stream. Announce calls
+            // that were not safe to identify earlier only after their final identity is stable.
+            if (streamData.HasFunctionCalls && useFunctions && options.IncludeFunctionCalls)
+            {
+                foreach (var functionCall in streamData.GetFunctionCalls())
+                {
+                    if (!announcedFunctionCalls.Add(functionCall.Index))
+                        continue;
+
+                    yield return CreateFunctionCallStreamingContent(
+                        functionCall,
+                        streamData.BatchId);
+                }
+            }
+
+            StreamingContent? completionContent = null;
+            // Emit one provider-level completion after the terminal contract has been validated.
+            if (!options.TextOnly &&
+                (doneMarkerReceived || completionEventReceived ||
+                 completionMetadata != null || lastUsage != null))
+            {
+                completionContent = new StreamingContent
                 {
                     Type = StreamingContentType.Completion
                 };
@@ -195,67 +276,83 @@ namespace Mythosia.AI.Services.Base
                     var meta = completionMetadata ?? new Dictionary<string, object>();
                     meta["total_length"] = streamData.TextBuffer.Length;
                     meta["model"] = streamData.Model ?? Model;
+                    if (acceptedStopTerminatedFunctionPayload)
+                        meta["function_finish_reason_mismatch"] = "stop";
                     completionContent.Metadata = meta;
                 }
                 if (lastUsage != null)
                     completionContent.Usage = lastUsage;
-                yield return completionContent;
             }
 
-            // 3. Save assistant message
-            if (streamData.HasContent || streamData.FunctionCall != null)
+            FunctionCallBatch? functionCalls = null;
+            Message? pendingFunctionCallMessage = null;
+            if (streamData.HasFunctionCalls && useFunctions)
+            {
+                functionCalls = streamData.CreateFunctionCallBatch();
+                pendingFunctionCallMessage = new Message(ActorRole.Assistant, streamData.TextContent)
+                {
+                    FunctionCallBatch = functionCalls,
+                    Metadata = acceptedStopTerminatedFunctionPayload
+                        ? new Dictionary<string, object>
+                        {
+                            ["function_finish_reason_mismatch"] = "stop"
+                        }
+                        : null
+                };
+                // Capture provider-specific continuation data before invoking user handlers.
+                EnrichStreamAssistantMessage(pendingFunctionCallMessage);
+            }
+            else if (streamData.HasContent)
             {
                 var assistantMsg = new Message(ActorRole.Assistant, streamData.TextContent);
-
-                if (streamData.FunctionCall != null)
-                {
-                    assistantMsg.Metadata = new Dictionary<string, object>
-                    {
-                        [MessageMetadataKeys.MessageType] = "function_call",
-                        [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
-                        [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
-                        [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name,
-                        [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(streamData.FunctionCall.Arguments)
-                    };
-                }
-
+                EnrichStreamAssistantMessage(assistantMsg);
                 ActivateChat.Messages.Add(assistantMsg);
             }
 
             // 4. Execute function if detected — yield FunctionResult to signal next round
-            if (streamData.FunctionCall != null && useFunctions)
+            if (functionCalls != null)
             {
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {streamData.FunctionCall.Name}");
-
-                var functionResult = await ProcessFunctionCallAsync(
-                    streamData.FunctionCall.Name,
-                    streamData.FunctionCall.Arguments);
-
-                var resultMetadata = new Dictionary<string, object>
+                FunctionCallResultBatch functionResults;
+                try
                 {
-                    [MessageMetadataKeys.MessageType] = "function_result",
-                    [MessageMetadataKeys.FunctionId] = streamData.FunctionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = streamData.FunctionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = streamData.FunctionCall.Name
-                };
-
-                ActivateChat.Messages.Add(new Message(ActorRole.Function, functionResult)
+                    functionResults = await ProcessFunctionCallsAsync(
+                        functionCalls,
+                        policy,
+                        cancellationToken);
+                }
+                catch
                 {
-                    Metadata = resultMetadata
-                });
+                    OnStreamRoundFailed();
+                    throw;
+                }
 
-                yield return new StreamingContent
+                AddFunctionCallBatchToHistory(
+                    streamData.TextContent,
+                    functionCalls,
+                    pendingFunctionCallMessage?.Metadata);
+                AddFunctionResultBatchToHistory(functionResults);
+
+                foreach (var functionResult in functionResults.Results)
                 {
-                    Type = StreamingContentType.FunctionResult,
-                    Metadata = new Dictionary<string, object>
+                    yield return new StreamingContent
                     {
-                        ["function_name"] = streamData.FunctionCall.Name,
-                        ["status"] = "completed",
-                        ["result"] = functionResult
-                    }
-                };
+                        Type = StreamingContentType.FunctionResult,
+                        FunctionResult = functionResult.Clone(),
+                        FunctionCallBatchId = functionCalls.Id,
+                        Content = functionResult.Content,
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["function_name"] = functionResult.Call.Name,
+                            ["function_index"] = functionResult.Call.Index,
+                            ["status"] = functionResult.IsError ? "error" : "completed",
+                            ["result"] = functionResult.Content
+                        }
+                    };
+                }
             }
+
+            if (completionContent != null)
+                yield return completionContent;
         }
 
         /// <summary>
@@ -265,10 +362,79 @@ namespace Mythosia.AI.Services.Base
         protected abstract OpenAIStreamChunk ParseStreamChunk(string jsonData, StreamOptions options);
 
         /// <summary>
+        /// Lets providers turn a malformed SSE data event into an explicit terminal error.
+        /// Returning null preserves the tolerant behavior used by legacy compatible providers.
+        /// </summary>
+        protected virtual StreamingContent? CreateStreamParseFailure(
+            string jsonData,
+            Exception exception,
+            StreamDiagnostics diagnostics)
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// Lets providers require an explicit successful terminal event before committing a
+        /// streamed assistant message or executing a collected function call.
+        /// </summary>
+        protected virtual StreamingContent? ValidateStreamTermination(
+            bool doneMarkerReceived,
+            bool completionEventReceived,
+            StreamDiagnostics diagnostics)
+        {
+            return null;
+        }
+
+        /// <summary>
+        /// Lets providers discard state collected during a failed streaming round.
+        /// </summary>
+        protected virtual void OnStreamRoundFailed()
+        {
+        }
+
+        /// <summary>
+        /// Allows a provider to reset state scoped to a single streaming round.
+        /// </summary>
+        protected virtual void OnStreamRoundStarting()
+        {
+        }
+
+        /// <summary>
+        /// Allows a provider to attach state collected while streaming before the assistant
+        /// message is added to the conversation history.
+        /// </summary>
+        protected virtual void EnrichStreamAssistantMessage(Message assistantMessage)
+        {
+        }
+
+        private static StreamingContent CreateFunctionCallStreamingContent(
+            FunctionCall functionCall,
+            string batchId)
+        {
+            return new StreamingContent
+            {
+                Type = StreamingContentType.FunctionCall,
+                FunctionCall = functionCall.Clone(),
+                FunctionCallBatchId = batchId,
+                Metadata = new Dictionary<string, object>
+                {
+                    ["function_name"] = functionCall.Name,
+                    ["function_index"] = functionCall.Index,
+                    ["status"] = "started"
+                }
+            };
+        }
+
+        /// <summary>
         /// Parses OpenAI-compatible usage JSON (handles both prompt_tokens/input_tokens variants).
         /// </summary>
-        protected static TokenUsage ParseOpenAICompatibleUsage(JsonElement usage)
+        protected static TokenUsage? ParseOpenAICompatibleUsage(JsonElement usage)
         {
+            // Streaming providers commonly emit `"usage": null` on non-terminal chunks and
+            // omit the property entirely on others. Only an object is an actual usage record.
+            if (usage.ValueKind != JsonValueKind.Object)
+                return null;
+
             var tokenUsage = new TokenUsage();
 
             // Input tokens
@@ -289,19 +455,35 @@ namespace Mythosia.AI.Services.Base
             else
                 tokenUsage.TotalTokens = tokenUsage.InputTokens + tokenUsage.OutputTokens;
 
-            // Cache: OpenAI prompt_tokens_details.cached_tokens
-            if (usage.TryGetProperty("prompt_tokens_details", out var promptDetails) &&
-                promptDetails.TryGetProperty("cached_tokens", out var cached))
+            // Cache: Responses API input_tokens_details and legacy Chat Completions details.
+            if (usage.TryGetProperty("input_tokens_details", out var inputDetails))
+            {
+                if (inputDetails.TryGetProperty("cached_tokens", out var cached))
+                    tokenUsage.CachedInputTokens = cached.GetInt32();
+                if (inputDetails.TryGetProperty("cache_write_tokens", out var cacheWrite))
+                    tokenUsage.CacheCreationTokens = cacheWrite.GetInt32();
+            }
+            else if (usage.TryGetProperty("prompt_tokens_details", out var promptDetails) &&
+                     promptDetails.TryGetProperty("cached_tokens", out var cached))
+            {
                 tokenUsage.CachedInputTokens = cached.GetInt32();
+            }
 
             // Cache: DeepSeek prompt_cache_hit_tokens
             if (usage.TryGetProperty("prompt_cache_hit_tokens", out var cacheHit))
                 tokenUsage.CachedInputTokens = cacheHit.GetInt32();
 
-            // Reasoning: OpenAI completion_tokens_details.reasoning_tokens
-            if (usage.TryGetProperty("completion_tokens_details", out var completionDetails) &&
-                completionDetails.TryGetProperty("reasoning_tokens", out var reasoning))
-                tokenUsage.ReasoningTokens = reasoning.GetInt32();
+            // Reasoning: Responses API output details and legacy Chat Completions details.
+            if (usage.TryGetProperty("output_tokens_details", out var outputDetails) &&
+                outputDetails.TryGetProperty("reasoning_tokens", out var responseReasoning))
+            {
+                tokenUsage.ReasoningTokens = responseReasoning.GetInt32();
+            }
+            else if (usage.TryGetProperty("completion_tokens_details", out var completionDetails) &&
+                     completionDetails.TryGetProperty("reasoning_tokens", out var legacyReasoning))
+            {
+                tokenUsage.ReasoningTokens = legacyReasoning.GetInt32();
+            }
 
             return tokenUsage;
         }
@@ -312,59 +494,287 @@ namespace Mythosia.AI.Services.Base
 
         protected class OpenAIStreamChunk
         {
-            public string Text { get; set; }
-            public string Reasoning { get; set; }
+            public string? Text { get; set; }
+            public string? Reasoning { get; set; }
             public bool IsCompletion { get; set; }
-            public FunctionCall FunctionCall { get; set; }
-            public string Model { get; set; }
-            public Dictionary<string, object> Metadata { get; set; }
-            public TokenUsage Usage { get; set; }
+            public string? FinishReason { get; set; }
+            public StreamingContent? Error { get; set; }
+            public List<FunctionCall> FunctionCalls { get; } = new List<FunctionCall>();
+            public string? Model { get; set; }
+            public Dictionary<string, object>? Metadata { get; set; }
+            public TokenUsage? Usage { get; set; }
         }
 
         protected class OpenAIStreamData
         {
+            private readonly SortedDictionary<int, FunctionCallAccumulator> _functionCalls =
+                new SortedDictionary<int, FunctionCallAccumulator>();
+            private readonly Dictionary<string, int> _functionCallIndexesById =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+            private readonly Dictionary<string, int> _functionCallIndexesByStreamKey =
+                new Dictionary<string, int>(StringComparer.Ordinal);
+
             public StringBuilder TextBuffer { get; } = new StringBuilder();
             public StringBuilder ReasoningBuffer { get; } = new StringBuilder();
-            public StringBuilder FunctionArgsBuffer { get; } = new StringBuilder();
-            public FunctionCall FunctionCall { get; set; }
-            public string Model { get; set; }
+            public string BatchId { get; } = Guid.NewGuid().ToString();
+            public string? Model { get; set; }
             public bool HasContent => TextBuffer.Length > 0;
+            public bool HasFunctionCalls => _functionCalls.Count > 0;
             public string TextContent => TextBuffer.ToString();
 
-            public void UpdateFunctionCall(FunctionCall fc)
+            public FunctionCall UpdateFunctionCall(FunctionCall functionCallDelta)
             {
-                if (fc == null) return;
-
-                if (!string.IsNullOrEmpty(fc.Name))
+                var index = functionCallDelta.Index;
+                var streamKey = GetStreamKey(functionCallDelta);
+                var hasExplicitIndex = HasExplicitIndex(functionCallDelta);
+                if (!string.IsNullOrEmpty(streamKey) &&
+                    _functionCallIndexesByStreamKey.TryGetValue(streamKey, out var streamKeyIndex))
                 {
-                    FunctionCall = fc;
-                    FunctionArgsBuffer.Clear();
+                    index = streamKeyIndex;
+                }
+                else if (hasExplicitIndex)
+                {
+                    index = functionCallDelta.Index;
+                }
+                else if (!string.IsNullOrEmpty(functionCallDelta.Id) &&
+                    _functionCallIndexesById.TryGetValue(functionCallDelta.Id, out var mappedIndex))
+                {
+                    index = mappedIndex;
+                }
+                else if (index < 0)
+                {
+                    index = GetNextFunctionCallIndex();
+                }
+                else if (_functionCalls.TryGetValue(index, out var positionalAccumulator) &&
+                         RepresentsDifferentCall(positionalAccumulator.Call, functionCallDelta))
+                {
+                    // Some compatible endpoints omit indexes and emit one newly identified call
+                    // per SSE event. The per-event array position then resets to zero; do not merge
+                    // a new provider ID into the preceding call merely because both used position 0.
+                    index = GetNextFunctionCallIndex();
                 }
 
-                if (fc.Arguments?.ContainsKey("_partial") == true)
+                if (!_functionCalls.TryGetValue(index, out var accumulator))
                 {
-                    FunctionArgsBuffer.Append(fc.Arguments["_partial"]);
+                    accumulator = new FunctionCallAccumulator(index, functionCallDelta.Source);
+                    _functionCalls[index] = accumulator;
+                }
 
-                    var fullArgs = FunctionArgsBuffer.ToString();
-                    if (fullArgs.StartsWith("{") && fullArgs.EndsWith("}"))
+                accumulator.Apply(functionCallDelta);
+                if (!string.IsNullOrEmpty(accumulator.Call.Id))
+                    _functionCallIndexesById[accumulator.Call.Id] = index;
+                if (!string.IsNullOrEmpty(streamKey))
+                    _functionCallIndexesByStreamKey[streamKey] = index;
+
+                return accumulator.Call;
+            }
+
+            private static string? GetStreamKey(FunctionCall functionCall)
+            {
+                if (functionCall.Metadata?.TryGetValue(StreamItemIdMetadataKey, out var value) == true)
+                    return value?.ToString();
+
+                return null;
+            }
+
+            private static bool HasExplicitIndex(FunctionCall functionCall)
+            {
+                return functionCall.Metadata?.TryGetValue(
+                           StreamIndexExplicitMetadataKey,
+                           out var value) == true &&
+                       value is bool hasExplicitIndex &&
+                       hasExplicitIndex;
+            }
+
+            private int GetNextFunctionCallIndex()
+            {
+                return _functionCalls.Count == 0 ? 0 : _functionCalls.Keys.Max() + 1;
+            }
+
+            private static bool RepresentsDifferentCall(
+                FunctionCall current,
+                FunctionCall incoming)
+            {
+                if (!string.IsNullOrEmpty(current.Id) &&
+                    !string.IsNullOrEmpty(incoming.Id))
+                {
+                    return !string.Equals(current.Id, incoming.Id, StringComparison.Ordinal);
+                }
+
+                return string.IsNullOrEmpty(incoming.Id) &&
+                       !string.IsNullOrEmpty(current.Name) &&
+                       !string.IsNullOrEmpty(incoming.Name) &&
+                       !string.Equals(current.Name, incoming.Name, StringComparison.Ordinal);
+            }
+
+            public IEnumerable<FunctionCall> GetFunctionCalls()
+            {
+                return _functionCalls.Values.Select(value => value.Call);
+            }
+
+            public FunctionCallBatch CreateFunctionCallBatch()
+            {
+                return new FunctionCallBatch(_functionCalls.Values.Select(value => value.Call))
+                {
+                    Id = BatchId
+                };
+            }
+
+            public bool TryFinalizeFunctionArguments(
+                out FunctionCall? invalidCall,
+                out string error)
+            {
+                foreach (var accumulator in _functionCalls.Values)
+                {
+                    if (!accumulator.TryFinalize(out error))
                     {
-                        try
-                        {
-                            if (FunctionCall != null)
-                                FunctionCall.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(fullArgs);
-                        }
-                        catch { }
+                        invalidCall = accumulator.Call;
+                        return false;
                     }
                 }
-                else if (fc.Arguments != null)
+
+                invalidCall = null;
+                error = string.Empty;
+                return true;
+            }
+
+            private sealed class FunctionCallAccumulator
+            {
+                private readonly StringBuilder _arguments = new StringBuilder();
+                private bool _argumentsReceived;
+                private Dictionary<string, object>? _parsedArguments;
+
+                public FunctionCallAccumulator(int index, IdSource source)
                 {
-                    if (FunctionCall == null) FunctionCall = fc;
-                    else FunctionCall.Arguments = fc.Arguments;
+                    Call = new FunctionCall
+                    {
+                        Index = index,
+                        Source = source
+                    };
                 }
 
-                if (FunctionCall != null && string.IsNullOrEmpty(FunctionCall.Id))
+                public FunctionCall Call { get; }
+
+                public void Apply(FunctionCall delta)
                 {
-                    FunctionCall.Id = $"call_{Guid.NewGuid().ToString().Substring(0, 20)}";
+                    if (!string.IsNullOrEmpty(Call.Id) &&
+                        !string.IsNullOrEmpty(delta.Id) &&
+                        !string.Equals(Call.Id, delta.Id, StringComparison.Ordinal))
+                    {
+                        throw new AIServiceException(
+                            $"The provider changed function-call ID '{Call.Id}' to '{delta.Id}' " +
+                            $"at index {Call.Index}.");
+                    }
+
+                    if (!string.IsNullOrEmpty(Call.Name) &&
+                        !string.IsNullOrEmpty(delta.Name) &&
+                        !string.Equals(Call.Name, delta.Name, StringComparison.Ordinal))
+                    {
+                        throw new AIServiceException(
+                            $"The provider changed function name '{Call.Name}' to '{delta.Name}' " +
+                            $"at index {Call.Index}.");
+                    }
+
+                    if (!string.IsNullOrEmpty(delta.Id))
+                        Call.Id = delta.Id;
+                    if (!string.IsNullOrEmpty(delta.Name))
+                        Call.Name = delta.Name;
+                    Call.Source = delta.Source;
+
+                    if (delta.Metadata != null)
+                    {
+                        Call.Metadata ??= new Dictionary<string, object>();
+                        foreach (var item in delta.Metadata)
+                            Call.Metadata[item.Key] = item.Value;
+                    }
+
+                    if (delta.Arguments?.ContainsKey("_missing") == true)
+                        return;
+
+                    if (delta.Arguments?.TryGetValue("_complete", out var complete) == true)
+                    {
+                        _argumentsReceived = true;
+                        _arguments.Clear();
+                        _arguments.Append(complete?.ToString() ?? string.Empty);
+                        _parsedArguments = null;
+                    }
+                    else if (delta.Arguments?.TryGetValue("_partial", out var partial) == true)
+                    {
+                        _argumentsReceived = true;
+                        var argumentFragment = partial?.ToString() ?? string.Empty;
+                        var accumulatedArguments = _arguments.ToString();
+                        if (argumentFragment.StartsWith(
+                                accumulatedArguments,
+                                StringComparison.Ordinal))
+                        {
+                            // Some compatible endpoints repeat cumulative snapshots rather than
+                            // emitting true deltas. Keep the latest identical/extended snapshot.
+                            _arguments.Clear();
+                            _arguments.Append(argumentFragment);
+                        }
+                        else
+                        {
+                            _arguments.Append(argumentFragment);
+                        }
+                        _parsedArguments = null;
+                    }
+                    else if (delta.Arguments != null)
+                    {
+                        _argumentsReceived = true;
+                        _arguments.Clear();
+                        _parsedArguments = new Dictionary<string, object>(delta.Arguments);
+                    }
+
+                }
+
+                public bool TryFinalize(out string error)
+                {
+                    error = string.Empty;
+                    if (Call.Metadata?.TryGetValue(
+                            RequiresProviderCallIdMetadataKey,
+                            out var requiresProviderIdValue) == true &&
+                        requiresProviderIdValue is bool requiresProviderId &&
+                        requiresProviderId &&
+                        string.IsNullOrWhiteSpace(Call.Id))
+                    {
+                        error = "The provider completed a function call without a call ID.";
+                        return false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(Call.Id))
+                        Call.Id = $"call_{Guid.NewGuid():N}";
+
+                    if (!_argumentsReceived)
+                    {
+                        error = "Function arguments were not provided as a JSON object.";
+                        return false;
+                    }
+
+                    if (_parsedArguments != null)
+                    {
+                        Call.Arguments = _parsedArguments;
+                        return true;
+                    }
+
+                    var rawArguments = _arguments.ToString();
+                    try
+                    {
+                        using var document = JsonDocument.Parse(rawArguments);
+                        if (document.RootElement.ValueKind != JsonValueKind.Object)
+                        {
+                            error = "Function arguments must be a JSON object.";
+                            return false;
+                        }
+
+                        Call.Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(rawArguments)
+                            ?? new Dictionary<string, object>();
+                        return true;
+                    }
+                    catch (JsonException exception)
+                    {
+                        error = exception.Message;
+                        return false;
+                    }
                 }
             }
         }

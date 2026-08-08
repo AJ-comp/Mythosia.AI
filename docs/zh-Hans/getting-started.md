@@ -51,7 +51,7 @@ var service = new OpenAIService("your-api-key", http)
 };
 ```
 
-所有可用模型常量请参阅 [API 参考](../api/Mythosia.AI.Models.AIModels.yml)。
+所有可用模型常量请参阅 [API 参考](../../api/Mythosia.AI.Models.AIModels.yml)。
 
 ## 后续步骤
 

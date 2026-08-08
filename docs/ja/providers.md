@@ -9,16 +9,22 @@
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6: Sol は最上位モデルで、Terra と Luna は低コストの選択肢です。
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // GPT-5.4シリーズ
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2シリーズ
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### 画像生成
 
 ```csharp
-// 画像をバイトで取得
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "夜の未来都市",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "夜の未来都市",
+        Size = "1024x1024"
+    });
 
-// 画像をURLで取得
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "夜の未来都市",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -101,8 +106,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// オプション: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// オプション: Auto, None, Low, Medium, High（モデル依存）
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 利用可能なモデル: `QwenMax`、`QwenPlus`、`QwenTurbo`、`Qwen3`およびバリアント。
 
-`EndpointPlatform`プロパティでAlibaba Cloudと互換エンドポイント間を切り替えられます:
+サービスの作成時に `EndpointPlatform` で互換エンドポイントを選択します:
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

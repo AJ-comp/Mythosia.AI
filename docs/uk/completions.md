@@ -14,7 +14,7 @@ Console.WriteLine(response); // Париж
 Задайте моделі роль або інструкції через системний промпт:
 
 ```csharp
-service.SystemPrompt = "Ви — лаконічний асистент. Відповідайте одним реченням.";
+service.SystemMessage = "Ви — лаконічний асистент. Відповідайте одним реченням.";
 
 var response = await service.GetCompletionAsync("Поясніть рекурсію.");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("Як мене звати?");
 Щоб очистити історію:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Явна побудова повідомлень
@@ -42,7 +42,7 @@ service.ClearMessages();
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("Стисло перекажіть цей текст: ...")
+var message = MessageBuilder.Create().AddText("Стисло перекажіть цей текст: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ var response = await service.GetCompletionAsync(message);
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("Що зображено на цій діаграмі?")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("Що зображено на цій діаграмі?")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "Опишіть це зображення",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

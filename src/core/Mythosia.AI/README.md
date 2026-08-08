@@ -1,26 +1,30 @@
 # Mythosia.AI
 
-> ⚠️ **Upgrading from v5.x?** See the **[v6.0 Migration Guide](RELEASE_NOTES.md#migration-from-v5x)**.
+> **Upgrading to v7?** `MaxMessageCount`, `ChatBlock.RemoveFunctionMessages()`, `GenerateImageAsync`, and `GenerateImageUrlAsync` were removed, and custom provider function-extraction extension points now use typed batches. See the **[v7.0 release notes and migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v700)**.
+
+> ⚠️ **Upgrading from v5.x?** Read the **[v6.0 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#migration-from-v5x)** first, then apply the v7 migration above.
 
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **function calling**, **reasoning streaming**, **round-level token usage**, **automatic context-overflow recovery**, and **advanced streaming capabilities**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **OpenAI and Gemini image generation and editing**, **function calling**, **reasoning streaming**, **round-level token usage**, **automatic context-overflow recovery**, and **advanced streaming capabilities**.
 
 ### Supported Providers
 
-- **OpenAI** — GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.2 Codex / 5.1 / 5 / 5 Pro (with reasoning), GPT-4.1, GPT-4o, o3
-- **Anthropic** — Claude Fable 5, Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4, Sonnet 4.6 / 4.5, Haiku 4.5
-- **Google** — Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite
+- **OpenAI** — GPT-5.6 alias / Sol / Terra / Luna, GPT-5.5 / 5.5 Pro, GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro, GPT-5.3 Codex, GPT-5.2 / 5.2 Pro, GPT-5.1, GPT-5 / 5 Mini / 5 Nano / 5 Pro, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro
+- **Anthropic** — Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5
+- **Google** — Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, and Gemini 3 Pro Image
 - **DeepSeek** — Chat and Reasoner models
-- **xAI** — Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build 0.1, Grok 3 Mini
+- **xAI** — Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build
 - **Perplexity** — Sonar / Sonar Pro / Sonar Reasoning Pro with web search and citations
 
 ## 📚 Documentation
 
-- **[Basic Usage Guide](https://github.com/AJ-comp/Mythosia.AI/wiki)** — Getting started with text queries, streaming, image analysis, and more
-- **[Advanced Features](https://github.com/AJ-comp/Mythosia.AI/wiki/Advanced-Features)** — Function calling, policies, and enhanced streaming
-- **[Release Notes](RELEASE_NOTES.md)** — Full version history and migration guides
+- **[Getting Started](https://aj-comp.github.io/Mythosia.AI/docs/getting-started.html)** — Installation, provider setup, and first completion
+- **[Function Calling](https://aj-comp.github.io/Mythosia.AI/docs/function-calling.html)** — Registration, execution policy, and streaming events
+- **[Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md)** — Full version history and migration guides
 - **[Relationship to Microsoft.Extensions.AI](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions#relationship-to-microsoftextensionsai)** — How IAIService and IChatClient differ
+
+> Claude Fable 5 and Claude Mythos 5 require 30-day data retention and cannot use zero-data-retention arrangements. Adaptive thinking is always on; a reasoning-off request is represented by low effort with readable reasoning omitted. Mythos 5 is limited to approved Project Glasswing customers.
 
 ## Installation
 
@@ -57,29 +61,103 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 ## Quick Start
 
 ```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.Anthropic;
+using Mythosia.AI.Services.Google;
+using Mythosia.AI.Services.OpenAI;
+
 // OpenAI GPT
 var gptService = new OpenAIService(apiKey, httpClient);
-var response = await gptService.GetCompletionAsync("Hello!");
+var openAiResponse = await gptService.GetCompletionAsync("Hello!");
 
 // Anthropic Claude
 var claudeService = new AnthropicService(apiKey, httpClient);
-var response = await claudeService.GetCompletionAsync("Hello!");
+var claudeResponse = await claudeService.GetCompletionAsync("Hello!");
 
 // Google Gemini
 var geminiService = new GoogleAIService(apiKey, httpClient);
-geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
-var response = await geminiService.GetCompletionAsync("Hello!");
+geminiService.ChangeModel(AIModels.Google.Gemini3_6Flash);
+var geminiResponse = await geminiService.GetCompletionAsync("Hello!");
 ```
+
+## Image Generation and Editing
+
+`OpenAIService` and `GoogleAIService` implement the optional `IImageGenerationService` contract. OpenAI defaults image requests to `AIModels.OpenAI.GptImage2` (`gpt-image-2`); Google defaults them to `AIModels.Google.Images.Gemini3_1FlashImage` (`gemini-3.1-flash-image`). The image model is independent from the service's chat `Model` and can be overridden per request.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Images;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.OpenAI;
+
+IImageGenerationService images = new OpenAIService(apiKey, httpClient);
+
+var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Prompt = "A futuristic city at night",
+    Count = 2,
+    Size = "1024x1024",
+    Quality = "high",
+    OutputFormat = "png"
+});
+
+await File.WriteAllBytesAsync("city.png", generated.Images[0].Data);
+
+var edited = await images.EditImagesAsync(new ImageEditRequest
+{
+    Prompt = "Add warm interior lighting",
+    InputImages = new[]
+    {
+        new ImageInput(await File.ReadAllBytesAsync("building.png"), "image/png", "building.png")
+    }
+});
+```
+
+For Gemini image generation or reference-image editing, construct the capability from the Google provider instead. Gemini accepts one requested output per call and has no separate mask input.
+
+```csharp
+IImageGenerationService geminiImages = new GoogleAIService(geminiApiKey, httpClient);
+
+var generated = await geminiImages.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Prompt = "A precise architectural facade study",
+    Model = AIModels.Google.Images.Gemini3_1FlashImage,
+    Size = "2K",
+    OutputFormat = "jpeg"
+});
+```
+
+Gemini GenerateContent currently exposes an explicit JPEG output selector but no PNG selector. Use `OutputFormat = "jpeg"` when the format must be deterministic. For `png` or `auto`, Gemini selects the wire format; always use each returned `GeneratedImage.MediaType` as the authoritative format for `GeneratedImage.Data`.
+
+The result contains every returned image along with provider/model provenance, an optional request ID, and optional usage. `GeneratedImage.Url` is optional; use `GeneratedImage.Data` when the provider returns inline image bytes.
+
+### Migration from v6.x
+
+| Removed API | Replacement |
+| --- | --- |
+| `GenerateImageAsync` / `GenerateImageUrlAsync` | `IImageGenerationService.GenerateImagesAsync` and `GeneratedImage.Data` / `Url` |
+| `AIService.MaxMessageCount` | Configure `ConversationPolicy`; without one, the full active history is sent |
+| `ChatBlock.RemoveFunctionMessages()` | Keep function call/result pairs intact, or explicitly clear/rebuild the conversation with `ClearMessages()` |
+| `AIService.ExtractFunctionCall(...)` | Override `ExtractFunctionCalls(...)` and return a `FunctionCallBatch` |
+| `CompletionProtocol.ExtractFunctionCall(...)` | Override `ExtractFunctionCalls(...)` and return a `FunctionCallBatch` |
+| `ProcessFunctionCallAsync(string, Dictionary<string, object>)` | Override `ProcessFunctionCallAsync(FunctionCall)`; batch scheduling is handled by `ProcessFunctionCallsAsync(...)` |
+| `GrokReasoning.Off` | Use `Auto` to omit `reasoning_effort`, or `None` to disable reasoning on Grok 4.3; Grok 4.5 cannot disable reasoning |
+| `AIModels.xAI.Grok3Mini` / `XAIService.UseMiniModel()` | Select Grok 4.3 for configurable reasoning or Grok 4.5 for the current flagship |
+| Retired OpenAI and Claude snapshot constants | Select a current constant from `AIModels`; see the release notes for the complete removal list |
+| Implicit `gpt-image-1` default | Use the independent `IImageGenerationService.DefaultImageModel`, which defaults to GPT Image 2 on OpenAI |
 
 ## `AIModels` Catalog
 
 Model selection is now documented around provider-grouped string constants via `AIModels`.
 
 ```csharp
-service.ChangeModel(AIModels.OpenAI.Gpt5_4);
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
 service.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
-service.ChangeModel(AIModels.Google.Gemini3FlashPreview);
+service.ChangeModel(AIModels.Google.Gemini3_6Flash);
+service.ChangeModel(AIModels.xAI.Grok4_5);
 ```
+
+`AIModels.OpenAI.Gpt5_6` is the rolling GPT-5.6 alias and currently routes to Sol. Use `Gpt5_6Sol` for an explicit flagship-capability selection, `Gpt5_6Terra` for strong performance at a lower price, or `Gpt5_6Luna` for efficient high-volume workloads.
 
 ## Static Quick Helpers
 
@@ -92,7 +170,7 @@ var vision = await AIService.QuickAskWithImageAsync(apiKey, "Describe this image
 
 ## GPT-5 Family Configuration
 
-GPT-5 family models (GPT-5 / 5.1 / 5.2 / 5.3 / 5.4 / 5.5) support **type-safe reasoning configuration** with per-model enums.
+GPT-5 family models (GPT-5 / 5.1 / 5.2 / 5.3 Codex / 5.4 / 5.5 / 5.6) support **type-safe reasoning configuration** with per-model enums.
 
 ### Reasoning Effort (Per-Model Enums)
 
@@ -134,9 +212,20 @@ gptService.WithGpt5_5Parameters(
     reasoningEffort: Gpt5_5Reasoning.High,
     verbosity: Verbosity.Medium,
     reasoningSummary: ReasoningSummary.Concise);
+
+// GPT-5.6 Sol / Terra / Luna: adds Max effort; Pro is a reasoning mode, not a model ID
+gptService.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Max,
+    verbosity: Verbosity.High,
+    reasoningSummary: ReasoningSummary.Detailed,
+    reasoningMode: Gpt5_6ReasoningMode.Pro);
 ```
 
-`Auto` uses the model-appropriate default (e.g., Medium for GPT-5, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro/Codex, Medium for GPT-5.3 Codex, None for GPT-5.4, Medium for GPT-5.4 Pro, None for GPT-5.5, Medium for GPT-5.5 Pro). The `-pro` variants reject `None`/`Low` and are clamped up to `Medium`.
+`Auto` uses the model-appropriate default (e.g., Medium for GPT-5 and GPT-5.6, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro and GPT-5.3 Codex, None for GPT-5.4, Medium for GPT-5.4 Pro, Medium for GPT-5.5, and High for GPT-5.5 Pro). GPT-5 Pro is forced to High; GPT-5.2/5.4/5.5 Pro clamp unsupported `None`/`Low` values to Medium. GPT-5.6 Pro is selected with `Gpt5_6ReasoningMode.Pro` on the same model ID.
+
+GPT-5.6 requests use `reasoning.context: "current_turn"` because Mythosia rebuilds conversation history locally instead of relying on `previous_response_id`. During tool calls, the original reasoning and function output items are replayed within the active turn.
+
+For OpenAI Responses API calls, Mythosia consumes output and executes tools only after a top-level `status: "completed"`. Failed, incomplete, refused, malformed, or prematurely ended responses surface as errors; collected function calls are discarded before a handler can run. Function-call requests preserve multimodal message parts and image detail, structured-output `text.format`, forced function selection, and each parameter's declared required/optional contract. Empty, malformed, or non-object function arguments also fail before handler execution.
 
 ### Reasoning Summary
 
@@ -148,17 +237,34 @@ All GPT-5 family models support `ReasoningSummary` enum (`Auto` / `Concise` / `D
 
 ```csharp
 var geminiService = new GoogleAIService(apiKey, httpClient);
-geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
+geminiService.ChangeModel(AIModels.Google.Gemini3_6Flash);
 
 // GeminiThinkingLevel enum: Auto / Minimal / Low / Medium / High
-geminiService.ThinkingLevel = GeminiThinkingLevel.Low;  // Auto = model default (High)
+geminiService.ThinkingLevel = GeminiThinkingLevel.Low;
 ```
+
+Gemini 3 thinking cannot be fully disabled. `Auto` omits the override and keeps the selected model's provider default: Medium for Gemini 3.6 Flash and Gemini 3.5 Flash, Minimal for Gemini 3.5 Flash-Lite, and High for the current preview models. Gemini 3 Pro models reject `Minimal`; their floor is `Low`.
+
+Gemini 3.6 Flash and Gemini 3.5 Flash-Lite use the latest request contract, so Mythosia omits legacy `temperature`, `topP`, `topK`, and `candidateCount` fields for those models. Other Gemini 3 models omit `candidateCount` while retaining their supported sampling controls.
 
 ### Gemini 2.5 — ThinkingBudget
 
 ```csharp
 geminiService.ChangeModel(AIModels.Google.Gemini2_5Pro);
 geminiService.ThinkingBudget = 8192;  // -1 = dynamic (default), 0 = disable
+```
+
+`0` disables thinking only on Gemini 2.5 Flash and Flash-Lite. Gemini 2.5 Pro requires at least 128 thinking tokens.
+
+### Gemini Safety Thresholds
+
+Provider defaults are preserved unless a category is explicitly configured:
+
+```csharp
+geminiService.HarassmentSafetyThreshold = GeminiSafetyThreshold.BlockMediumAndAbove;
+geminiService.HateSpeechSafetyThreshold = GeminiSafetyThreshold.BlockOnlyHigh;
+geminiService.SexuallyExplicitSafetyThreshold = GeminiSafetyThreshold.Off;
+geminiService.DangerousContentSafetyThreshold = GeminiSafetyThreshold.ProviderDefault;
 ```
 
 ### Gemini Streaming Reasoning (`includeThoughts`)
@@ -181,17 +287,17 @@ await foreach (var content in geminiService.StreamAsync(message, new StreamOptio
 
 ```csharp
 var grokService = new XAIService(apiKey, httpClient);
-grokService.ChangeModel(AIModels.xAI.Grok3Mini);
+grokService.ChangeModel(AIModels.xAI.Grok4_5);
 
-// GrokReasoning enum: Off / Low / High
-grokService.WithGrokParameters(reasoningEffort: GrokReasoning.High);
+// Auto omits the parameter; Grok 4.5 accepts Low / Medium / High.
+grokService.WithGrokParameters(reasoningEffort: GrokReasoning.Medium);
 ```
 
-> **Note:** Only `grok-3-mini` supports the `reasoning_effort` API parameter. Other Grok models ignore it.
+`GrokReasoning` is `Auto`, `None`, `Low`, `Medium`, or `High`. Grok 4.3 accepts `None` through `High`; Grok 4.5 accepts `Low` through `High`, defaults to `High` when `Auto` omits the parameter, and cannot disable reasoning. Unsupported model/effort combinations fail before a request is sent.
 
 ### Reasoning Content Streaming
 
-Grok reasoning models (`grok-3-mini`, `grok-4.3`) stream `reasoning_content` when reasoning is enabled:
+Grok 4.5 can stream summarized `reasoning_content` when reasoning output is enabled:
 
 ```csharp
 await foreach (var content in grokService.StreamAsync(message, new StreamOptions().WithReasoning()))
@@ -235,7 +341,7 @@ var rewrittenQuery = await service.GetCompletionAsync(
 
 var response = await service.GetCompletionAsync(
     originalUserQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         RequestMessageOverride = new Message(ActorRole.User, rewrittenQuery)
     });
@@ -245,7 +351,7 @@ Example — injecting retrieved RAG context as a suffix on the system message, w
 
 ```csharp
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\nUse the following context to answer:\n{retrievedDocs}"
     });
@@ -394,23 +500,39 @@ service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 25,
     TimeoutSeconds = 120,
+    ExecutionMode = FunctionExecutionMode.Parallel,
     MaxConcurrency = 5,
     EnableLogging = true  // Enable debug output
 };
 
 // Per-request policy override
-var response = await service
+var fastResponse = await service
     .WithPolicy(FunctionCallingPolicy.Fast)
     .GetCompletionAsync("Complex task requiring functions");
 
 // Inline policy configuration
-var response = await service
+var configuredResponse = await service
     .BeginMessage()
     .AddText("Analyze this data")
     .WithMaxRounds(5)
     .WithTimeout(60)
     .SendAsync();
 ```
+
+`Sequential` is the default for local handler scheduling and preserves one-at-a-time
+execution. The provider response and conversation history still retain the complete
+multi-call batch introduced in v7.
+`Parallel` runs calls from the same provider response concurrently up to
+`MaxConcurrency`, then returns their results in the original provider order. Use
+parallel execution only for independent, thread-safe handlers.
+
+`TimeoutSeconds` controls provider requests and the surrounding round loop. Once a
+validated handler batch starts, the batch is completed to keep call/result history
+consistent. Registered handlers do not currently receive a `CancellationToken`, so
+an already-running handler is not interrupted by request cancellation or timeout.
+Streaming uses one timeout for the complete round loop, including response headers
+and the SSE body. Policy expiry raises `AIServiceException`; cancelling the token
+passed to `StreamAsync` remains an `OperationCanceledException` with the caller token.
 
 ### Function Calling with Streaming
 
@@ -420,13 +542,13 @@ await foreach (var content in service.StreamAsync(
     "What's the weather in Seoul and calculate 15% tip on $85",
     StreamOptions.WithFunctions))
 {
-    if (content.Type == StreamingContentType.FunctionCall)
+    if (content.Type == StreamingContentType.FunctionCall && content.FunctionCall is { } call)
     {
-        Console.WriteLine($"Calling function: {content.Metadata["function_name"]}");
+        Console.WriteLine($"Calling function: {call.Name}");
     }
-    else if (content.Type == StreamingContentType.FunctionResult)
+    else if (content.Type == StreamingContentType.FunctionResult && content.FunctionResult is { } result)
     {
-        Console.WriteLine($"Function completed: {content.Metadata["status"]}");
+        Console.WriteLine($"Function completed: {result.Call.Name}; error={result.IsError}");
     }
     else if (content.Type == StreamingContentType.Text)
     {
@@ -630,7 +752,7 @@ policy.LoadSummary(saved);
 ### Key Design Decisions
 
 - **StatelessMode protection** — Summary LLM calls use `StatelessMode = true` to prevent polluting the main conversation history
-- **Backward compatible** — `ConversationPolicy` defaults to `null`; existing behavior is unchanged
+- **Explicit management** — `ConversationPolicy` defaults to `null`; in v7 that means the full active conversation history is sent without a hidden message-count window
 - **Provider-agnostic** — Works with all providers (OpenAI, Claude, Gemini, Grok, DeepSeek, Perplexity)
 - **Incremental summarization** — When re-summarizing, existing summary is included as context for the new summary
 
@@ -651,9 +773,9 @@ service.ContextRecoveryMaxRetries = 0;
 - **Server-driven** — Detection reads the provider's actual 400/413 rejection (OpenAI, vLLM, Anthropic, Google), never a guessed token count. A rate limit or a server error is never mistaken for an overflow.
 - **Costs nothing when it cannot help** — If there is nothing left to compact, recovery gives up *before* issuing a summary call or deleting any message; it never spends a summary or destroys history to arrive at the same rejection.
 - **Streaming recovers per round** — An overflow mid-run recompacts and replays only the round that overflowed, keeping the tool results earlier rounds produced.
-- **Diagnostics** — When recovery cannot save the request, the thrown `ContextLengthExceededException` carries `RecoverySkipReason` (`no-policy`, `nothing-to-cut`, `window-clipped`, `tool-side-effects`, `retries-exhausted`, …) and the server-reported `MaxContextTokens` / `RequestedTokens` when available.
+- **Diagnostics** — When recovery cannot save the request, the thrown `ContextLengthExceededException` carries `RecoverySkipReason` (`no-policy`, `nothing-to-cut`, `tool-side-effects`, `retries-exhausted`, …) and the server-reported `MaxContextTokens` / `RequestedTokens` when available.
 
-See [`RELEASE_NOTES.md`](RELEASE_NOTES.md) for the full behavior, including per-provider limitations (DeepSeek/Perplexity recover only on the non-streaming path).
+See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md) for the full behavior, including per-provider limitations (DeepSeek/Perplexity recover only on the non-streaming path).
 
 ## Enhanced Streaming
 
@@ -855,14 +977,14 @@ or be treated as unsupported for token usage.
 | `OutputTokens` | Output/completion tokens | All |
 | `TotalTokens` | Total tokens used | All |
 | `CachedInputTokens` | Tokens served from cache | OpenAI, Claude, DeepSeek, Gemini |
-| `CacheCreationTokens` | Tokens written to cache | Claude |
+| `CacheCreationTokens` | Tokens written to cache | OpenAI, Claude |
 | `ReasoningTokens` | Internal reasoning tokens | OpenAI, Gemini |
 
 Computed properties: `NonCachedInputTokens`, `CacheHitRatio`, `HasCacheActivity`, `VisibleOutputTokens`.
 
 ## Reasoning Streaming
 
-GPT-5, Gemini 3, and Grok reasoning models support streaming reasoning (thinking) content.
+GPT-5/o3, Claude, Gemini 3, Grok, and DeepSeek reasoning models support streaming reasoning (thinking) content.
 
 ```csharp
 await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
@@ -878,21 +1000,24 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 
 | Service | Function Calling | Streaming | Reasoning | Notes |
 |---------|-----------------|-----------|-----------|--------|
+| **OpenAI GPT-5.6 Sol / Terra / Luna** | ✅ | ✅ | ✅ | `Max` effort, verbosity, summaries, optional Pro reasoning mode |
 | **OpenAI GPT-5.5 / 5.5 Pro / 5 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
-| **OpenAI GPT-5.4 / 5.4 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
+| **OpenAI GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.3 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
-| **OpenAI GPT-5.2 / 5.2 Pro / 5.2 Codex** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
+| **OpenAI GPT-5.2 / 5.2 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.1** | ✅ | ✅ | ✅ | Reasoning + verbosity control |
 | **OpenAI GPT-5 / Mini / Nano** | ✅ | ✅ | ✅ | Reasoning streaming + summary |
-| **OpenAI GPT-4.1 / GPT-4o** | ✅ | ✅ | — | Full function support |
+| **OpenAI GPT-4.1 / 4.1 Mini / GPT-4o / 4o Mini** | ✅ | ✅ | — | Full function support |
 | **OpenAI o3 / o3-pro** | ✅ | ✅ | ✅ | Advanced reasoning |
 | **Claude Fable 5** | ✅ | ✅ | ✅ | Adaptive thinking + tool use |
-| **Claude Opus 4.8 / 4.7 / 4.6 / 4.5 / 4.1 / 4** | ✅ | ✅ | ✅ | Extended thinking + tool use |
+| **Claude Mythos 5** | ✅ | ✅ | ✅ | Limited availability; always-on adaptive thinking + tool use |
+| **Claude Opus 5 / Sonnet 5** | ✅ | ✅ | ✅ | Adaptive thinking + signed tool continuation |
+| **Claude Opus 4.8 / 4.7 / 4.6 / 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Claude Sonnet 4.6 / 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
 | **Claude Haiku 4.5** | ✅ | ✅ | ✅ | Extended thinking + tool use |
-| **Gemini 3.1 Pro / 3.5 Flash / 3 Flash / 3.1 Flash-Lite** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
-| **Gemini 2.5 Pro/Flash** | ✅ | ✅ | ✅ | ThinkingBudget control |
-| **xAI Grok 4.3 / 4.20 / Build 0.1 / 3 Mini** | ✅ | ✅ | ✅ | `GrokReasoning` effort + reasoning streaming |
+| **Gemini 3.6 Flash / 3.5 Flash / 3.5 Flash-Lite / current Gemini 3 previews** | ✅ | ✅ | ✅ | ThinkingLevel + thought signatures |
+| **Gemini 2.5 Pro / Flash / Flash-Lite** | ✅ | ✅ | ✅ | ThinkingBudget control |
+| **xAI Grok 4.5 / 4.3 / 4.20 / Build** | ✅ | ✅ | ✅ | Model-specific `GrokReasoning` effort + reasoning streaming |
 | **DeepSeek** | ❌ | ✅ | ✅ | Reasoner model streaming |
 | **Perplexity** | ❌ | ✅ | — | Web search + citations |
 
@@ -1042,29 +1167,3 @@ var response = await mathTutor.GetCompletionAsync(
 **Q: Can I use functions with streaming?**
 - Yes! Functions work seamlessly with streaming
 - Use `StreamOptions.WithFunctions` to see function execution in real-time
-
----
-
-## 📋 TODO — Unsupported Models (Planned)
-
-The following OpenAI models are **not yet supported** due to significant API differences:
-
-| Model | API Name | Status | Notes |
-|-------|----------|--------|-------|
-| GPT-5.2 Instant | `gpt-5.2-chat-latest` | ⏳ Planned | ChatGPT-optimized model; uses a different routing/parameter set than standard Responses API models |
-| GPT-5.3 Instant | `gpt-5.3-chat-latest` | ⏳ Planned | ChatGPT-optimized model; same API constraints as GPT-5.2 Instant |
-| GPT-5.3 Codex Spark | `gpt-5.3-codex-spark` | ⏳ Planned | Research preview; completely different infrastructure (Cerebras-powered, WebSocket-based, text-only) |
-
-### Why are these models different?
-
-**`chat-latest` models (Instant)**
-- These are ChatGPT-internal models exposed to the API. OpenAI recommends using the standard models (e.g., `gpt-5.2`, `gpt-5.3-codex`) for API usage instead.
-- They do not support the full set of Responses API parameters such as `reasoning.effort`, `text.verbosity`, and other model-specific configurations.
-- Response format and content structure may differ from standard models.
-
-**`gpt-5.3-codex-spark`**
-- Research preview available only to ChatGPT Pro subscribers.
-- Powered by Cerebras inference hardware for near-instant responses.
-- Uses persistent **WebSocket connections** and an optimized Responses API — a fundamentally different transport layer than the standard HTTP-based request/response pattern.
-- Text-only (no multimodal support).
-- Designed specifically for real-time coding iteration within Codex, not general-purpose API usage.

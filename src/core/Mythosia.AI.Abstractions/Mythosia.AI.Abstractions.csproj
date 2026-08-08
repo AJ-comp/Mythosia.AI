@@ -19,14 +19,20 @@
 		<PackageId>Mythosia.AI.Abstractions</PackageId>
 		<IsPackable>true</IsPackable>
 		<Company>Mythosia</Company>
-		<PackageTags>AI;Abstractions;IAIService;Models;Streaming</PackageTags>
+		<PackageTags>AI;LLM;Abstractions;IAIService;IImageGenerationService;ImageGeneration;ImageEditing;Multimodal;Reasoning;Streaming;FunctionCalling;ParallelFunctionCalling</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>Core abstractions and shared models for Mythosia.AI. Defines IAIService interface, Message, ChatBlock, StreamingContent, FunctionDefinition, and other contract types. Zero heavy dependencies.</Description>
+		<Description>Provider-neutral contracts and shared models for Mythosia.AI. Defines IAIService, the optional IImageGenerationService capability, messages, streaming content, image request/results, model identifiers, ordered function-call/result batches, and sequential or bounded-parallel execution policy. Depends only on the lightweight Mythosia base package and no provider SDKs.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v2.5.0: Adds the context-overflow vocabulary shared by every provider. ContextLengthExceededException carries the model's window, the rejected prompt's size, the HTTP status and why recovery could not save the request. AIHttpErrorFactory translates a provider's HTTP failure into that exception (or a plain AIServiceException when the body says something else) and builds the metadata for streaming error chunks, so a consuming app learns that the context overflowed without learning how any particular vendor phrases it. Detection covers OpenAI, vLLM, Anthropic — including the combined "input length and `max_tokens` exceed context limit" form — and Google, and is gated to 400/413 so a rate limit or a server error is never mistaken for one. ChatBlock.RemoveFunctionMessages() is now marked for removal in v7.0. Additive minor release; no breaking changes.</PackageReleaseNotes>
+		<PackageReleaseNotes>v3.0.0 is a breaking release. Adds current provider model constants and reasoning enums, the optional IImageGenerationService contract and image models, typed FunctionCallBatch/FunctionCallResultBatch fields, and FunctionExecutionMode for sequential or bounded-parallel handlers. Removes ChatBlock.RemoveFunctionMessages(), retired model constants, and GrokReasoning.Off. Full notes and migration guide: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v300</PackageReleaseNotes>
 
-		<Version>2.5.0</Version>
+		<Version>3.0.0</Version>
 
 	</PropertyGroup>
 
@@ -36,6 +42,10 @@
 
 	<ItemGroup>
 	  <None Update="README.md">
+		<Pack>True</Pack>
+		<PackagePath>\</PackagePath>
+	  </None>
+	  <None Update="RELEASE_NOTES.md">
 		<Pack>True</Pack>
 		<PackagePath>\</PackagePath>
 	  </None>

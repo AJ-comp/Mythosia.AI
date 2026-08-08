@@ -57,11 +57,9 @@ Construisez l'index une seule fois et réutilisez-le entre plusieurs instances d
 
 ```csharp
 // Construire une fois
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // Réutiliser entre les services
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -105,7 +103,7 @@ ragService.GetCompletionAsync("Quelle est la politique de retour ?")
 ③ RagEnabledService crée un AIRequestContext
    RequestMessageOverride = prompt assemblé
     ↓
-④ _innerService.GetCompletionAsync(message original, context) est appelé
+④ _innerService.GetCompletionAsync(message original, context: context) est appelé
    → AIService stocke le context dans AsyncLocal
    → La question originale est ajoutée à l'historique de conversation
     ↓

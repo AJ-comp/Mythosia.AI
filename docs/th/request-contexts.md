@@ -32,7 +32,7 @@ service.SystemMessage = originalSystem;
 ```csharp
 // ✅ ด้วย AIRequestContext — สะอาด มีขอบเขต ไม่มีผลข้างเคียง
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\nใช้ context ต่อไปนี้ในการตอบ:\n{retrievedDocs}"
     });
@@ -52,7 +52,7 @@ var context = new AIRequestContext
     SystemMessagePrefix = "วันนี้คือ 2026-03-31\n"
 };
 
-var response = await service.GetCompletionAsync("วันนี้วันที่เท่าไหร่?", context);
+var response = await service.GetCompletionAsync("วันนี้วันที่เท่าไหร่?", context: context);
 ```
 
 **ใช้เมื่อ:** Inject metadata แบบ dynamic (วันที่ timezone ของ user ข้อมูล session) ที่เปลี่ยนตาม request
@@ -67,7 +67,7 @@ var context = new AIRequestContext
     SystemMessageSuffix = "\nตอบเป็นภาษาไทยเสมอ"
 };
 
-var response = await service.GetCompletionAsync("สวัสดี!", context);
+var response = await service.GetCompletionAsync("สวัสดี!", context: context);
 ```
 
 **ใช้เมื่อ:** เพิ่มคำสั่งพฤติกรรมต่อ request เช่น RAG context หรือการตั้งค่าภาษา
@@ -81,11 +81,11 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("เอกสารอ้างอิง: นโยบายคืนสินค้าอนุญาตให้คืนภายใน 30 วัน").Build()
+        MessageBuilder.Create().AddText("เอกสารอ้างอิง: นโยบายคืนสินค้าอนุญาตให้คืนภายใน 30 วัน").Build()
     }
 };
 
-var response = await service.GetCompletionAsync("ฉันคืนสินค้าได้ไหม?", context);
+var response = await service.GetCompletionAsync("ฉันคืนสินค้าได้ไหม?", context: context);
 ```
 
 **ใช้เมื่อ:** ให้เอกสารอ้างอิง few-shot example หรือ context เสริมที่ไม่ควรติดอยู่ในประวัติ
@@ -102,12 +102,12 @@ var context = new AIRequestContext
         .Build()
 };
 
-await service.GetCompletionAsync(userQuery, context);
+await service.GetCompletionAsync(userQuery, context: context);
 ```
 
 **ใช้เมื่อ:** middleware layer (RAG หรือ query rewriting) ต้องการปรับรูปแบบ prompt ทั้งหมดก่อนส่งถึง model ขณะที่ยังเก็บข้อความต้นฉบับของ user ไว้ในประวัติ
 
-> **💡 หมายเหตุ:** เมื่อใช้ `.WithRag()` RAG pipeline ใช้ property นี้อัตโนมัติ ดู [การปรับแต่ง Pipeline](rag-pipeline.md#how-it-works-internally)
+> **💡 หมายเหตุ:** เมื่อใช้ `.WithRag()` RAG pipeline ใช้ property นี้อัตโนมัติ ดู [การปรับแต่ง Pipeline](rag-pipeline.md#การทำงานภายใน)
 
 ## เปรียบเทียบก่อนและหลัง
 
@@ -120,12 +120,13 @@ service.SystemMessage = origSys
     + $"\nวันนี้: {DateTime.Now:yyyy-MM-dd}"
     + $"\n\nContext:\n{retrievedChunks}";
 
-service.Messages.Add(MessageBuilder.User(fewShotExample).Build());
+var fewShotIndex = service.ActivateChat.Messages.Count;
+service.ActivateChat.Messages.Add(MessageBuilder.Create().AddText(fewShotExample).Build());
 
 var answer = await service.GetCompletionAsync(userQuery);
 
 service.SystemMessage = origSys;
-service.Messages.RemoveAt(service.Messages.Count - 2);
+service.ActivateChat.Messages.RemoveAt(fewShotIndex);
 ```
 
 **ด้วย AIRequestContext:**
@@ -133,13 +134,13 @@ service.Messages.RemoveAt(service.Messages.Count - 2);
 ```csharp
 // ✅ สะอาด stateless ไม่มีผลข้างเคียง
 var answer = await service.GetCompletionAsync(userQuery,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessagePrefix = $"วันนี้: {DateTime.Now:yyyy-MM-dd}\n",
         SystemMessageSuffix = $"\n\nContext:\n{retrievedChunks}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User(fewShotExample).Build()
+            MessageBuilder.Create().AddText(fewShotExample).Build()
         }
     });
 ```
@@ -157,7 +158,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\nContext:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("ตัวอย่าง: ...").Build()
+            MessageBuilder.Create().AddText("ตัวอย่าง: ...").Build()
         }
     }
 );
@@ -177,15 +178,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. คำตอบแชทหลัก
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. ตัวสร้างชื่อเรื่อง (เพิ่มทีหลัง)
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. ตัวสรุป (เพิ่มทีหลังอีก)
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. เรียก agent — ลืมง่าย! คอมไพเลอร์ไม่เตือน
 var agentResult = await service.RunAgentAsync(goal);  // ← ไม่มีวันที่ บั๊กเงียบ ๆ
@@ -290,7 +291,7 @@ Provider ถูกเรียก **ครั้งเดียวต่อ requ
 
 แก่นแท้ของ `AIRequestContext` ไม่ใช่ "ใช้แค่ครั้งเดียว" แต่คือ **"ไม่ทำให้สถานะถาวรปนเปื้อน"** `SystemMessageProvider` คือ factory ที่ **รัน callback ซ้ำในทุก request** โดยสร้าง **`AIRequestContext` ใหม่ทั้งหมดที่จำกัดขอบเขตในแต่ละ request** ขึ้นมา ผลลัพธ์ context ที่ได้ยังคงเป็น per-request scoped ค่าจะไม่รั่วไปยังประวัติบทสนทนา และใน call ถัดไป callback จะรันใหม่เพื่อสะท้อนค่า **ณ เวลานั้น** ดังนั้น provider จึงไม่ได้ละเมิดหลักการออกแบบของ `AIRequestContext` — เพียงแค่ **อัตโนมัติหลักการนั้นให้**
 
-ในทางปฏิบัติ การลงทะเบียน provider ด้านล่างนี้ **ไม่** แก้ไข `service.SystemMessage` หรือ `service.Messages` เลย:
+ในทางปฏิบัติ การลงทะเบียน provider ด้านล่างนี้ **ไม่** แก้ไข `service.SystemMessage` หรือ `service.ActivateChat.Messages` เลย:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

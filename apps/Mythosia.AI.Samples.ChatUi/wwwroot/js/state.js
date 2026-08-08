@@ -12,6 +12,7 @@ export const app = {
   isSending: false,
   statePollingTimer: null,
   modelReasoningInfo: null,
+  modelSamplingInfo: null,
   shouldAutoScroll: true,
   modalTargetProvider: null,
 };

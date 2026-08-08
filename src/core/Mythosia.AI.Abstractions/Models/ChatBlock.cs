@@ -2,7 +2,6 @@
 using Mythosia.AI.Models.Messages;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace Mythosia.AI.Models
 {
@@ -15,29 +14,6 @@ namespace Mythosia.AI.Models
         public string Id { get; } = Guid.NewGuid().ToString();
         public string SystemMessage { get; set; } = string.Empty;
         public IList<Message> Messages { get; } = new List<Message>();
-
-        /// <summary>
-        /// Removes all Function-related messages from the conversation
-        /// </summary>
-        [Obsolete("Will be removed in v7.0. Function messages are part of the conversation record; dropping them leaves function results without their originating call, which the chat/completions wire format rejects.")]
-        public void RemoveFunctionMessages()
-        {
-            var functionMessages = Messages.Where(m =>
-                m.Role == ActorRole.Function ||
-                (m.Role == ActorRole.Assistant &&
-                 m.Metadata?.GetValueOrDefault("type")?.ToString() == "function_call")
-            ).ToList();
-
-            foreach (var msg in functionMessages)
-            {
-                Messages.Remove(msg);
-            }
-
-            if (functionMessages.Count > 0)
-            {
-                Console.WriteLine($"[Model Change] Removed {functionMessages.Count} function-related messages for compatibility");
-            }
-        }
 
         /// <summary>
         /// Clears all messages from the conversation

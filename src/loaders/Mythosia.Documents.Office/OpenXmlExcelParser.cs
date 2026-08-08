@@ -78,7 +78,11 @@ namespace Mythosia.Documents.Office.Excel.Parsers
             SharedStringTable? sharedStrings,
             NodeItem parent)
         {
-            var rows = worksheetPart.Worksheet.Descendants<Row>().ToList();
+            var worksheet = worksheetPart.Worksheet;
+            if (worksheet == null)
+                return;
+
+            var rows = worksheet.Descendants<Row>().ToList();
             if (rows.Count == 0)
                 return;
 

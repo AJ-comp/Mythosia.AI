@@ -55,11 +55,9 @@ Xây dựng index một lần và dùng lại cho nhiều service instance — h
 
 ```csharp
 // Xây dựng một lần
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // Dùng lại cho nhiều service
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -103,7 +101,7 @@ ragService.GetCompletionAsync("Chính sách hoàn trả là gì?")
 ③ RagEnabledService tạo AIRequestContext
    RequestMessageOverride = prompt đã lắp ráp
     ↓
-④ _innerService.GetCompletionAsync(tin nhắn gốc, context) được gọi
+④ _innerService.GetCompletionAsync(tin nhắn gốc, context: context) được gọi
    → AIService lưu context trong AsyncLocal
    → Câu hỏi gốc được thêm vào lịch sử hội thoại
     ↓

@@ -14,7 +14,7 @@ Console.WriteLine(response); // Madrid
 Define un prompt de sistema para darle al modelo una persona o instrucciones:
 
 ```csharp
-service.SystemPrompt = "Eres un asistente conciso. Responde en una sola oración.";
+service.SystemMessage = "Eres un asistente conciso. Responde en una sola oración.";
 
 var response = await service.GetCompletionAsync("Explica la recursión.");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("¿Cuál es mi nombre?");
 Para limpiar el historial de conversación:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Construir Mensajes Manualmente
@@ -42,7 +42,7 @@ Usa `MessageBuilder` para construir mensajes de forma explícita:
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("Resume este texto: ...")
+var message = MessageBuilder.Create().AddText("Resume este texto: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ Los proveedores que admiten visión aceptan contenido de imagen junto con texto:
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagrama.png");
 
-var message = MessageBuilder.User("¿Qué muestra este diagrama?")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("¿Qué muestra este diagrama?")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "Describe esta imagen",
     imagePath: "foto.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

@@ -1,5 +1,25 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v2.0.0
+
+> This is the Alibaba provider release paired with Mythosia.AI v7. Follow the [v7 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) before upgrading.
+
+### Changed
+
+- **Ordered function-call batches** — Qwen non-streaming and streaming paths now preserve every tool call returned in one assistant turn and send the matching ordered result batch back through the common Mythosia.AI v7 continuation contract.
+- **Common handler scheduling** — `FunctionCallingPolicy.ExecutionMode` selects sequential compatibility behavior or bounded-parallel local handler execution; `MaxConcurrency` limits parallel work while provider call order remains stable.
+
+### Removed
+
+- **Legacy image-generation overrides** — `QwenService.GenerateImageAsync` and `GenerateImageUrlAsync` were unsupported stubs inherited from the old core abstraction and have been removed with the Mythosia.AI v7 API surface. Qwen remains a chat-completion provider and does not implement `IImageGenerationService`.
+
+### Compatibility
+
+- Recompiled against and requires `Mythosia.AI` v7.0.0.
+- Breaking release for callers that referenced the removed public overrides or derived from the former single-function extraction contract.
+
+---
+
 ## v1.2.8
 
 ### Fixed

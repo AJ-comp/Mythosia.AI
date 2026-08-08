@@ -1,5 +1,84 @@
 # Mythosia.AI - Release Notes
 
+## v7.0.0
+
+> This is a breaking release. Follow the [v7 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) before upgrading production applications.
+
+### Added
+
+- **Complete Claude adaptive-thinking controls** expose low/medium/high/xhigh/max through `ClaudeReasoningEffort`, while `ClaudeThinkingDisplay` selects omitted or summarized reasoning output.
+
+- **OpenAI GPT-5.6 family** — `gpt-5.6` (Sol alias), `gpt-5.6-sol`, `gpt-5.6-terra`, and `gpt-5.6-luna` are available through `AIModels.OpenAI`. `WithGpt5_6Parameters(...)` supports `none`/`low`/`medium`/`high`/`xhigh`/`max`, verbosity, reasoning summaries, and `reasoning.mode: "pro"` through the Responses API. There is intentionally no `gpt-5.6-pro` model ID.
+- **Claude Opus 5 and Sonnet 5** — `AIModels.Anthropic` now exposes the generally available `claude-opus-5` and `claude-sonnet-5` model IDs with 128K output ceilings, vision, adaptive thinking, and tool use.
+- **Claude Mythos 5** — `AIModels.Anthropic.ClaudeMythos5` exposes the limited-availability `claude-mythos-5` Project Glasswing model with a 128K output ceiling, vision, tool use, and the same always-on adaptive-thinking contract as Fable 5. Live validation requires an approved account.
+- **Current xAI Grok support** — `XAIService` now defaults to Grok 4.5 and exposes the `grok-4.5-latest`, `grok-build-latest`, `grok-4.3-latest`, and `grok-latest` aliases. `UseGrok4Model()` selects 4.5 while `UseGrok4FastModel()` selects 4.3.
+
+- **Provider-neutral image generation** — `OpenAIService` now implements `IImageGenerationService`. `GenerateImagesAsync` supports multiple images and provider-supported size, quality, background, output-format, and compression controls; results include all returned images plus model and provider, with optional request-ID and token-usage metadata when returned by the provider.
+- **Reference and mask editing** — `EditImagesAsync` sends ordered reference images and an optional mask through the OpenAI image-editing endpoint.
+- **Current OpenAI image models** — `AIModels.OpenAI.GptImage2` exposes the default `gpt-image-2` alias and `GptImage2_260421` exposes its current `2026-04-21` snapshot. Image selection remains independent from the chat `Model`.
+- **Current Gemini models and images** — `GoogleAIService` defaults chat requests to Gemini 3.6 Flash, adds Gemini 3.5 Flash-Lite, and implements `IImageGenerationService` with Gemini 3.1 Flash Image as its independent default. Reference-image editing, provider-selected inline output, image size/aspect ratio, and JPEG selection are supported without changing the chat model.
+- **Gemini safety controls** — each supported harm category can retain the provider default or explicitly select `Off`, `BlockNone`, `BlockOnlyHigh`, `BlockMediumAndAbove`, or `BlockLowAndAbove`.
+- **Ordered multi-function batches** preserve every function call returned in one assistant response, its provider ID/index/metadata, and the matching ordered result batch across OpenAI, Anthropic, Google, and xAI in both non-streaming and streaming flows.
+- **Configurable handler scheduling** adds `FunctionExecutionMode.Sequential` (the compatibility default) and bounded `Parallel` execution through `FunctionCallingPolicy.ExecutionMode` and `MaxConcurrency`. Parallel handlers may finish out of order, but results are returned to the provider in its original call order and one handler failure is isolated to that call's result.
+- **Explicit o3 reasoning-summary control** adds `O3ReasoningSummary` and `WithO3Parameters(...)`. Summaries remain opt-in because OpenAI requires a verified organization to generate them; ordinary o3 reasoning requests do not request a summary.
+
+### Changed
+
+- **Conversation history is no longer silently windowed by message count.** Outgoing requests use the full active history unless `ConversationPolicy` summarizes or trims it. Token-aware policy is now the single context-management mechanism.
+- **Image requests use image-workload timeouts.** The default timeout now follows `FunctionCallingPolicy.Vision` instead of the independently selected chat model. Explicit non-default policy timeouts are still respected, and caller cancellation remains distinguishable from an internal timeout.
+- **Dependency maintenance** updates `System.Threading.Channels` to the current stable 10.0.10 patch.
+- **OpenAI reasoning-model timeouts** allow 300 seconds for the `gpt-5` alias and 600 seconds for Pro model IDs or GPT-5.6 Pro mode when the standard 100-second policy value is in effect. Any non-default `TimeoutSeconds` value remains an explicit override.
+- **Nullable annotations now describe real optional state.** Request-scoped policies, forced function selection, streamed usage, provider metadata, and keyless OpenAI-compatible endpoints no longer pretend to be always populated. Null provider fields are omitted from metadata rather than stored as non-null values.
+
+### Fixed
+
+- **Current Claude thinking semantics** request summarized reasoning when adaptive thinking is enabled and accurately treat Fable 5 and Mythos 5 as always-on. Their closest reasoning-off profile uses low effort and omits readable reasoning; Opus 5 and Sonnet 5 use the API's explicit disabled form.
+- **Anthropic tool execution safety** requires a complete stream committed with `stop_reason: "tool_use"`. Truncated streams, malformed arguments, SSE errors, refusals, and mismatched stop reasons terminate without executing collected tools.
+- **Anthropic terminal responses** return an empty `end_turn` once instead of retrying it, and surface `max_tokens`, `model_context_window_exceeded`, and unsupported `pause_turn` outcomes as failures instead of successful partial completions. Simple string streaming throws on provider Error events instead of yielding the error as ordinary text.
+- **Anthropic sampling validation** caps every temperature preset at the API maximum of 1.0. The Chat UI disables controls that the selected Claude model or current integration does not serialize.
+
+- **GPT-5.6 reasoning continuity** uses `reasoning.context: "current_turn"` because Mythosia reconstructs history locally rather than using `previous_response_id`. Tool continuations replay the Responses API's original reasoning and function-call output items before the matching function results in both non-streaming and streaming round loops. Function requests retain `instructions` and enable `parallel_tool_calls`; the returned calls are preserved as one ordered batch while `FunctionExecutionMode` independently controls whether local handlers run sequentially or concurrently. Streaming summaries no longer replay the completed snapshot after its text was already emitted as deltas.
+- **OpenAI Responses terminal safety** consumes output and permits tool execution only for a top-level completed response. Failed, incomplete, error, refusal, malformed, and prematurely ended responses now terminate as errors in non-streaming and streaming paths; a failed round neither executes collected tools nor synthesizes a successful completion.
+- **OpenAI function request contracts** preserve multimodal text/image parts and image detail through the tool path, keep structured-output `text.format`, honor forced function selection, and build `required` from the declared parameter contract. Fully required tools use strict schemas; tools with optional parameters remain non-strict until the abstraction can express OpenAI's nullable-union form. Empty, malformed, or non-object function arguments fail before handler execution.
+- **OpenAI model parameter fidelity** preserves caller-specified output limits, merges verbosity with structured-output settings, resolves GPT-5.5 `Auto` to Medium for the base model and High for Pro, and honors explicit o3 reasoning effort.
+- **OpenAI o3 vision and summary routing** keeps image requests on o3 instead of silently switching to GPT-4.1, serializes an explicitly selected o3 reasoning-summary mode, and leaves summary generation disabled unless requested.
+- **GPT-5 Pro internal request budgets** reserve enough output space for mandatory high reasoning during library-owned summarization and query-rewrite calls, then restore the caller's setting. Custom request profiles retain their explicit output limit.
+- **OpenAI usage details** normalize Responses and legacy cached-input, cache-write, and reasoning-token details into `CachedInputTokens`, `CacheCreationTokens`, and `ReasoningTokens`.
+- **Claude 5 request compatibility** sends adaptive thinking instead of the rejected manual budget form and omits unsupported custom temperature. Opus 5 and Sonnet 5 send an explicit thinking opt-out when `ThinkingBudget` is disabled; Fable 5 and Mythos 5 remain always-on at low effort as described above.
+- **Anthropic signed tool continuation** preserves and replays complete assistant content blocks, including thinking signatures and redacted-thinking data, in non-streaming and streaming tool rounds. Parallel tool calls now serialize as one assistant turn followed by one user turn containing all tool results.
+- **Anthropic GA tool requests** no longer send the retired `tools-2024-04-04` beta header. User-defined tools remain in the ordinary `tools` request body with the current required Anthropic headers.
+- **Anthropic refusal handling** no longer treats HTTP 200 responses with `stop_reason: "refusal"` as empty successful completions or executes tools collected from a refused stream. Streaming surfaces an error event with the provider's category, explanation, and usage when present.
+- **Current Anthropic output ceilings** now use the API-reported 128K maximum for Sonnet 4.6 and 64K maximum for Opus 4.5, Sonnet 4.5, and Haiku 4.5.
+- **Reasoning summary accuracy** — `LastReasoningSummary` is reset for each non-streaming completion and is populated from normal and function-calling Responses output even when the convenience `output_text` field is present.
+
+- **Image failure diagnostics** now use the shared HTTP error translation path and preserve OpenAI's `x-request-id` in `AIServiceException.Data` when the response provides one.
+- **Gemini request and terminal fidelity** follows current model-specific sampling/candidate rules, sends API keys only through `x-goog-api-key`, uses native text response schemas, preserves configured safety settings across ordinary and function requests, and treats prompt blocks, malformed payloads, non-`STOP` finishes, or prematurely ended streams as failures before saving output or executing a function. Usage now includes tool-use prompt and thinking tokens in the provider-neutral totals.
+- **Gemini batched-function continuation** preserves every `functionCall` part, provider order, call ID, and thought signature; returns all matching `functionResponse` parts together; honors forced function selection; and completes the follow-up model round in stateless mode instead of returning raw handler results.
+- **xAI model-specific reasoning requests** serialize `none`/`low`/`medium`/`high` for Grok 4.3 and `low`/`medium`/`high` for Grok 4.5. Grok 4.5 cannot disable reasoning, defaults to high when the parameter is omitted, and reasoning requests omit provider-forbidden frequency and presence penalties. Function and ordinary requests share the same validation path.
+
+### Known limitations
+
+- Anthropic fine-grained tool streaming is not enabled. If malformed tool JSON is received anyway, Mythosia terminates safely instead of executing the tool; it does not yet send the optional `is_error: true` recovery result back to Claude.
+- A validated function-call batch is completed after handler execution begins so conversation history cannot contain calls without a matching result batch. The current `FunctionDefinition.Handler` contract does not accept a `CancellationToken`; therefore caller cancellation and `TimeoutSeconds` stop provider requests and prevent a not-yet-started batch, but do not interrupt handlers already running or waiting inside that started batch.
+
+### Removed
+
+- **Unavailable xAI Grok 3 Mini support** — `AIModels.xAI.Grok3Mini`, `XAIService.UseMiniModel()`, model-specific routing, Chat UI exposure, and current tests were removed after `grok-3-mini` disappeared from the account model catalogue. Use Grok 4.3 for configurable reasoning or Grok 4.5 for the current flagship model.
+- **`AIService.MaxMessageCount`** and its message-count sliding-window behavior.
+- **`ChatBlock.RemoveFunctionMessages()`**, which could leave function results without their originating calls.
+- **`AIService.GenerateImageAsync` and `AIService.GenerateImageUrlAsync`**, including every provider override. Use `IImageGenerationService.GenerateImagesAsync` or `EditImagesAsync` and read `GeneratedImage.Data` or `GeneratedImage.Url` from the result.
+- **The legacy `gpt-image-1` default and compatibility path.** Image requests now default to GPT Image 2. Callers can still select another provider-supported image model explicitly through the request contract.
+- **Retired or deprecated OpenAI model IDs** — `Gpt4Vision`, `Gpt4oLatest`, `Gpt5ChatLatest`, `Gpt5_2Codex`, the three `2025-08-07` GPT-5 snapshot constants, and `Gpt4_1Nano` were removed from the public catalog, Chat UI, examples, and tests. Use a current GPT-5.6 model, the GPT-5/Mini/Nano aliases, GPT-4.1/Mini, or GPT-4o/Mini as appropriate.
+- **Retired Claude Opus snapshots** — `ClaudeOpus4_250514` (`claude-opus-4-20250514`) and `ClaudeOpus4_1_250805` (`claude-opus-4-1-20250805`) plus their Chat UI/live-test exposure were removed. Opus 4 retired on June 15, 2026, and Opus 4.1 retired on August 5, 2026. Use `ClaudeOpus4_8` as the official direct replacement.
+- **`GrokReasoning.Off`** — use `Auto` to omit the xAI parameter or `None` for an explicit non-reasoning Grok 4.3 request. Grok 4.5 rejects `None` because its reasoning cannot be disabled.
+
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` v3.0.0.
+- This is a source-breaking release for callers of the removed APIs, retired or deprecated model constants, `GrokReasoning.Off`, and custom `AIService` or `CompletionProtocol` implementations. Function extraction now returns `FunctionCallBatch`, and the handler extension point receives a typed `FunctionCall` instead of a name/argument pair.
+
+---
+
 ## v6.8.0
 
 ### Added

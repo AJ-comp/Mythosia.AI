@@ -39,6 +39,7 @@ public abstract partial class AIServiceTestBase
                         });
                     }
                 );
+                ConfigureRequiredFunctionCall("get_weather");
 
                 var result = await AI.RunAgentAsync(
                     "What is the current weather in Seoul? Use the get_weather function to find out.",
@@ -94,6 +95,7 @@ public abstract partial class AIServiceTestBase
                         });
                     }
                 );
+                ConfigureRequiredFunctionCall("get_weather");
 
                 var events = new List<StreamingContent>();
 

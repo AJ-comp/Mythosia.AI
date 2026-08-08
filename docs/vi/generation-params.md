@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // Ngưỡng nucleus sampling
 service.MaxTokens = 1024;          // Số token output tối đa
 service.FrequencyPenalty = 0.0f;   // Phạt token lặp lại
 service.PresencePenalty = 0.0f;    // Phạt token đã xuất hiện
-service.MaxMessageCount = 20;      // Kích thước cửa sổ hội thoại (không dùng nữa — sẽ bị xóa trong v7.0)
 ```
 
-> **Không dùng nữa:** `MaxMessageCount` (cửa sổ trượt theo số lượng tin nhắn) đã lỗi thời và sẽ bị xóa trong v7.0 — việc quản lý ngữ cảnh sẽ chỉ dựa trên token thông qua `ConversationPolicy`. Cho đến khi bị xóa, cửa sổ này được đảm bảo không bao giờ loại bỏ tin nhắn gần nhất của người dùng, nên các lần chạy tool dạng agentic không thể mất truy vấn mà chúng đang xử lý.
 
 ## Phương thức fluent
 
@@ -79,7 +77,8 @@ Một service instance có thể chứa nhiều luồng hội thoại độc l�
 
 ```csharp
 // Bắt đầu một khối hội thoại mới
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // Chuyển sang khối khác
 service.SetActivateChat(chat2Id);

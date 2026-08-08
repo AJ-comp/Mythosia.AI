@@ -33,14 +33,14 @@ var response = await service.GetCompletionAsync("退款政策是什麼？");
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // 本機檔案
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("也可以直接加入文字內容。")            // 原始字串
 )
 ```
 
 ## 自訂嵌入供應商
 
-預設情況下，RAG 使用服務自身的供應商生成嵌入。如需使用專用嵌入模型：
+預設情況下，RAG 使用內建的本機嵌入供應商。如需使用專用嵌入模型：
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -81,11 +85,14 @@ var service = new OpenAIService(apiKey, http)
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,
-    ScoreThreshold = 0.7f
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,
+        MinScore = 0.7
+    }
 };
 
-var response = await service.GetCompletionAsync("你的問題", ragOptions: options);
+var response = await service.GetCompletionAsync("你的問題", options: options);
 ```
 
 ## 後續步驟

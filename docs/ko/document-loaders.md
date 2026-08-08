@@ -25,7 +25,7 @@ dotnet add package Mythosia.Documents.Pdf
 ## PDF
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions
+var loader = new PdfDocumentLoader(options: new PdfParserOptions
 {
     Password = "secret",           // 암호화된 PDF용
     IncludeMetadata = true,        // 제목, 작성자 추출
@@ -39,7 +39,7 @@ var docs = await loader.LoadAsync("report.pdf");
 ## Word (.docx)
 
 ```csharp
-var loader = new WordDocumentLoader(new OfficeParserOptions
+var loader = new WordDocumentLoader(options: new OfficeParserOptions
 {
     IncludeMetadata = true,
     NormalizeWhitespace = true
@@ -51,7 +51,7 @@ var docs = await loader.LoadAsync("document.docx");
 ## Excel (.xlsx)
 
 ```csharp
-var loader = new ExcelDocumentLoader(new OfficeParserOptions
+var loader = new ExcelDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSheetNames = true,  // 각 섹션에 시트 이름 앞에 추가
     NormalizeWhitespace = true
@@ -63,7 +63,7 @@ var docs = await loader.LoadAsync("spreadsheet.xlsx");
 ## PowerPoint (.pptx)
 
 ```csharp
-var loader = new PowerPointDocumentLoader(new OfficeParserOptions
+var loader = new PowerPointDocumentLoader(options: new OfficeParserOptions
 {
     IncludeSlideNumbers = true,  // 각 섹션에 슬라이드 번호 앞에 추가
     NormalizeWhitespace = true
@@ -98,7 +98,7 @@ HWP 로더는 문서의 텍스트, 테이블, 헤딩 구조를 `DoclingDocument`
 로더는 `RagBuilder`에서 `.AddDocument()`를 사용할 때 자동으로 통합됩니다. 수동으로 로드하고 결과를 추가하려면:
 
 ```csharp
-var loader = new PdfDocumentLoader(new PdfParserOptions { IncludePageNumbers = true });
+var loader = new PdfDocumentLoader(options: new PdfParserOptions { IncludePageNumbers = true });
 var docs = await loader.LoadAsync("report.pdf");
 
 var service = new AnthropicService(apiKey, http)

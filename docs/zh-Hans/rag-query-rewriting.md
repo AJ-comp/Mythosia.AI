@@ -19,8 +19,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // 使用相同的 AI 服务
-    .WithQueryRewriteMaxTokens(250)  // 改写的 Token 预算
+    .WithQueryRewriter(250)          // 使用相同的 AI 服务
     .AddDocument("docs.txt")
 )
 ```

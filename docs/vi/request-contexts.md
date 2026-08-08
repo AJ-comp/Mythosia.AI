@@ -32,7 +32,7 @@ Vấn đề với cách này:
 ```csharp
 // ✅ Với AIRequestContext — gọn gàng, có phạm vi, không tác dụng phụ
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\nDùng context sau để trả lời:\n{retrievedDocs}"
     });
@@ -52,7 +52,7 @@ var context = new AIRequestContext
     SystemMessagePrefix = "Hôm nay là 2026-03-31.\n"
 };
 
-var response = await service.GetCompletionAsync("Hôm nay là ngày mấy?", context);
+var response = await service.GetCompletionAsync("Hôm nay là ngày mấy?", context: context);
 ```
 
 **Dùng khi:** Inject metadata động (ngày, múi giờ user, thông tin session) thay đổi theo request.
@@ -67,7 +67,7 @@ var context = new AIRequestContext
     SystemMessageSuffix = "\nLuôn trả lời bằng tiếng Việt."
 };
 
-var response = await service.GetCompletionAsync("Xin chào!", context);
+var response = await service.GetCompletionAsync("Xin chào!", context: context);
 ```
 
 **Dùng khi:** Thêm hướng dẫn hành vi theo request, RAG context, hoặc tùy chọn ngôn ngữ.
@@ -81,11 +81,11 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("Tài liệu tham khảo: Chính sách hoàn tiền cho phép đổi trả trong 30 ngày.").Build()
+        MessageBuilder.Create().AddText("Tài liệu tham khảo: Chính sách hoàn tiền cho phép đổi trả trong 30 ngày.").Build()
     }
 };
 
-var response = await service.GetCompletionAsync("Tôi có đủ điều kiện hoàn tiền không?", context);
+var response = await service.GetCompletionAsync("Tôi có đủ điều kiện hoàn tiền không?", context: context);
 ```
 
 **Dùng khi:** Cung cấp tài liệu tham khảo, few-shot example hoặc context phụ không nên lưu vào lịch sử.
@@ -102,12 +102,12 @@ var context = new AIRequestContext
         .Build()
 };
 
-await service.GetCompletionAsync(userQuery, context);
+await service.GetCompletionAsync(userQuery, context: context);
 ```
 
 **Dùng khi:** Khi một middleware layer (RAG, viết lại query) cần định dạng lại hoàn toàn prompt trước khi gửi đến model, trong khi vẫn giữ input gốc của user trong lịch sử hội thoại.
 
-> **💡 Lưu ý:** Khi dùng `.WithRag()`, RAG pipeline tận dụng thuộc tính này tự động. Xem [Tùy chỉnh Pipeline — Cách hoạt động nội bộ](rag-pipeline.md#how-it-works-internally) để biết toàn bộ flow.
+> **💡 Lưu ý:** Khi dùng `.WithRag()`, RAG pipeline tận dụng thuộc tính này tự động. Xem [Tùy chỉnh Pipeline — Cách hoạt động nội bộ](rag-pipeline.md#cách-hoạt-động-nội-bộ) để biết toàn bộ flow.
 
 ## So sánh trước và sau
 
@@ -122,12 +122,13 @@ service.SystemMessage = origSys
     + $"\nHôm nay: {DateTime.Now:yyyy-MM-dd}"
     + $"\n\nContext:\n{retrievedChunks}";
 
-service.Messages.Add(MessageBuilder.User(fewShotExample).Build());
+var fewShotIndex = service.ActivateChat.Messages.Count;
+service.ActivateChat.Messages.Add(MessageBuilder.Create().AddText(fewShotExample).Build());
 
 var answer = await service.GetCompletionAsync(userQuery);
 
 service.SystemMessage = origSys;
-service.Messages.RemoveAt(service.Messages.Count - 2);
+service.ActivateChat.Messages.RemoveAt(fewShotIndex);
 ```
 
 **Với AIRequestContext:**
@@ -135,13 +136,13 @@ service.Messages.RemoveAt(service.Messages.Count - 2);
 ```csharp
 // ✅ Gọn gàng, stateless, không tác dụng phụ
 var answer = await service.GetCompletionAsync(userQuery,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessagePrefix = $"Hôm nay: {DateTime.Now:yyyy-MM-dd}\n",
         SystemMessageSuffix = $"\n\nContext:\n{retrievedChunks}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User(fewShotExample).Build()
+            MessageBuilder.Create().AddText(fewShotExample).Build()
         }
     });
 ```
@@ -159,7 +160,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\nContext:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("Ví dụ: ...").Build()
+            MessageBuilder.Create().AddText("Ví dụ: ...").Build()
         }
     }
 );
@@ -179,15 +180,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. Phản hồi chat chính
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. Bộ tạo tiêu đề (thêm vào sau)
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. Bộ tóm tắt (thêm vào muộn hơn nữa)
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Lệnh gọi agent — dễ quên! Compiler không cảnh báo bạn
 var agentResult = await service.RunAgentAsync(goal);  // ← thiếu ngày, bug âm thầm
@@ -292,7 +293,7 @@ Nếu thiếu bất kỳ một trong ba điều kiện, câu trả lời đúng 
 
 Bản chất của `AIRequestContext` không phải là "chỉ dùng một lần" mà là **"không bao giờ làm ô nhiễm trạng thái vĩnh viễn"**. `SystemMessageProvider` là một factory **chạy lại callback trên mỗi request**, tạo ra **một `AIRequestContext` hoàn toàn mới giới hạn trong request đó**. Ngữ cảnh sinh ra vẫn là per-request scoped, giá trị không bao giờ rò rỉ vào lịch sử hội thoại, và ở lệnh gọi tiếp theo callback lại chạy để phản ánh giá trị **tại thời điểm đó**. Vậy nên provider không vi phạm nguyên tắc thiết kế của `AIRequestContext` — nó chỉ **tự động hóa nguyên tắc đó**.
 
-Cụ thể, đăng ký provider dưới đây **không** sửa đổi `service.SystemMessage` hay `service.Messages`:
+Cụ thể, đăng ký provider dưới đây **không** sửa đổi `service.SystemMessage` hay `service.ActivateChat.Messages`:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

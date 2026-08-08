@@ -57,11 +57,9 @@ var response = await ragService.GetCompletionAsync("Your question", options);
 
 ```csharp
 // Будуємо один раз
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // Перевикористовуємо
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -105,7 +103,7 @@ ragService.GetCompletionAsync("What is the return policy?")
 ③ RagEnabledService створює AIRequestContext
    RequestMessageOverride = зібраний промпт
     ↓
-④ _innerService.GetCompletionAsync(вихідне повідомлення, context) викликається
+④ _innerService.GetCompletionAsync(вихідне повідомлення, context: context) викликається
    → AIService зберігає контекст в AsyncLocal
    → Вихідне запитання додається до історії діалогу
     ↓

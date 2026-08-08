@@ -51,7 +51,7 @@ var service = new OpenAIService("your-api-key", http)
 };
 ```
 
-Xem [API Reference](../api/Mythosia.AI.Models.AIModels.yml) để biết toàn bộ hằng số model.
+Xem [API Reference](../../api/Mythosia.AI.Models.AIModels.yml) để biết toàn bộ hằng số model.
 
 ## Bước tiếp theo
 

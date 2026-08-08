@@ -27,7 +27,7 @@ namespace Mythosia.AI.Services.Base
             string apiKey,
             string prompt,
             string imagePath,
-            string model = AIModels.OpenAI.Gpt4Vision)
+            string model = AIModels.OpenAI.Gpt4_1)
         {
             using var httpClient = new HttpClient();
             var service = CreateService(model, apiKey, httpClient);

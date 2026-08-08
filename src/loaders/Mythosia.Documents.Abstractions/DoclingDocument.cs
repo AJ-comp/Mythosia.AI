@@ -69,7 +69,7 @@ namespace Mythosia.Documents
         /// <summary>
         /// Optional raw content that bypasses the body tree serialization.
         /// When set, <see cref="ToMarkdown"/> returns this value directly
-        /// instead of serializing the body tree via <see cref="Document.MarkdownSerializer"/>.
+        /// instead of serializing the body tree via <see cref="MarkdownSerializer"/>.
         /// Useful for plain-text loaders that should preserve content as-is.
         /// </summary>
         public string? RawContent { get; set; }

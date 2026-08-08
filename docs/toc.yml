@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: Getting Started
     href: getting-started.md
+  - name: Migrating to v7
+    href: v7-migration.md
 
 - name: Core Features
   items:
@@ -84,4 +86,3 @@
     href: vector-filter.md
   - name: Migration
     href: vectordb-migration.md
-

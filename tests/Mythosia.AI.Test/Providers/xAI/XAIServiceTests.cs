@@ -2,13 +2,15 @@ using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.xAI;
+using Mythosia.AI.Services;
 using Mythosia.AI.Tests;
-using Mythosia.Azure;
 
 namespace Mythosia.AI.Tests.xAI;
 
 // 1. Abstract base class
 [TestClass]
+[TestCategory("Live")]
+[TestCategory("xAI")]
 public abstract class XAIServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
@@ -19,8 +21,7 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
     {
         if (apiKey == null)
         {
-            var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "xai-secret");
-            apiKey = await secretFetcher.GetKeyValueAsync();
+            apiKey = await LiveTestSecrets.GetAsync("xai-secret");
             Console.WriteLine("[ClassInitialize] xAI API key loaded");
         }
     }
@@ -34,30 +35,46 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
     }
 
     protected override bool SupportsMultimodal() =>
+        ModelToTest == AIModels.xAI.Grok4_5 ||
         ModelToTest == AIModels.xAI.Grok4_3 ||
-        ModelToTest.Contains("grok-4.20");
+        ModelToTest.Contains("grok-4.20") ||
+        ModelToTest == AIModels.xAI.GrokBuild0_1;
     protected override bool SupportsFunctionCalling() => true;
     protected override bool SupportsArrayParameter() => true;
-    protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsAudio() => false;
     protected override bool SupportsWebSearch() => false;
-    protected override string? GetAlternativeModel() => AIModels.xAI.Grok3Mini;
+    protected override string? GetAlternativeModel() => AIModels.xAI.Grok4_5;
 
     protected override bool SupportsReasoning()
     {
         if (AI is not XAIService grokService)
             return false;
 
-        // Only grok-3-mini returns reasoning_content in Chat Completions API.
-        // grok-4, grok-3, grok-4-fast-reasoning do NOT return it.
-        var model = grokService.Model?.ToLower() ?? "";
-        if (!model.Contains("grok-3-mini"))
-            return false;
+        var model = grokService.Model ?? string.Empty;
+        return model.Equals(AIModels.xAI.Grok4_5, StringComparison.OrdinalIgnoreCase) ||
+               model.Equals(AIModels.xAI.Grok4_3, StringComparison.OrdinalIgnoreCase) ||
+               model.Equals(AIModels.xAI.Grok4_20Reasoning, StringComparison.OrdinalIgnoreCase) ||
+               model.Equals(AIModels.xAI.GrokBuild0_1, StringComparison.OrdinalIgnoreCase);
+    }
 
-        if (grokService.ReasoningEffort == GrokReasoning.Off)
+    protected override void SetupReasoningEffort()
+    {
+        if (AI is XAIService grokService &&
+            (grokService.Model.Equals(AIModels.xAI.Grok4_5, StringComparison.OrdinalIgnoreCase) ||
+             grokService.Model.Equals(AIModels.xAI.Grok4_3, StringComparison.OrdinalIgnoreCase)))
+        {
             grokService.ReasoningEffort = GrokReasoning.High;
+        }
+    }
 
-        return true;
+    protected override void ConfigureFunctionCallingStreamEventsTest()
+    {
+        ConfigureRequiredFunctionCall("test_function");
+    }
+
+    protected override void ConfigureRequiredFunctionCall(string functionName)
+    {
+        AI.ForceFunctionName = functionName;
     }
 
     #region Grok-Specific Tests
@@ -73,27 +90,17 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
         {
             var grokService = (XAIService)AI;
 
-            // Mini 모델로 전환
-            grokService.UseMiniModel();
-            Assert.AreEqual(AIModels.xAI.Grok3Mini, grokService.Model);
-
-            var miniResponse = await grokService.GetCompletionAsync(
-                "What is 2 + 2? Answer in one word."
-            );
-            Assert.IsNotNull(miniResponse);
-            Console.WriteLine($"[Grok Mini] {miniResponse}");
-
-            // Grok 4.3 flagship 모델로 전환
+            // Grok 4.5 flagship 모델로 전환
             grokService.UseGrok4Model();
-            Assert.AreEqual(AIModels.xAI.Grok4_3, grokService.Model);
+            Assert.AreEqual(AIModels.xAI.Grok4_5, grokService.Model);
 
             var g4Response = await grokService.GetCompletionAsync(
                 "Explain quantum computing in one sentence."
             );
             Assert.IsNotNull(g4Response);
-            Console.WriteLine($"[Grok 4.3] {g4Response}");
+            Console.WriteLine($"[Grok 4.5] {g4Response}");
 
-            // Fast 헬퍼도 현재 flagship(grok-4.3)으로 매핑됨
+            // Fast helper maps to the lower-latency Grok 4.3 model.
             grokService.UseGrok4FastModel();
             Assert.AreEqual(AIModels.xAI.Grok4_3, grokService.Model);
 
@@ -235,22 +242,9 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
     /// </summary>
     [TestCategory("ServiceSpecific")]
     [TestMethod]
-    public async Task GrokImageGenerationNotSupportedTest()
+    public void GrokImageGenerationNotSupportedTest()
     {
-        try
-        {
-            await AI.GenerateImageAsync("A beautiful sunset");
-            Assert.Fail("Should have thrown MultimodalNotSupportedException");
-        }
-        catch (MultimodalNotSupportedException)
-        {
-            Console.WriteLine("[Expected] Grok doesn't support image generation");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Unexpected Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
+        Assert.IsFalse(AI is IImageGenerationService);
     }
 
     /// <summary>
@@ -260,15 +254,17 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
     [TestMethod]
     public async Task GrokErrorHandlingTest()
     {
+        var assistantMessagesBefore = AI.ActivateChat.Messages.Count(
+            message => message.Role == ActorRole.Assistant);
+
         try
         {
             // 매우 긴 입력으로 토큰 제한 테스트
             var longPrompt = new string('a', 10000);
             AI.MaxTokens = 10; // 매우 작은 출력 제한
 
-            var response = await AI.GetCompletionAsync(longPrompt);
-            Assert.IsNotNull(response);
-            Console.WriteLine($"[Token Limit Response] Length: {response.Length}");
+            await AI.GetCompletionAsync(longPrompt);
+            Assert.Fail("Expected xAI to stop at the configured output-token limit.");
         }
         catch (RateLimitExceededException ex)
         {
@@ -279,9 +275,14 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
             }
             Assert.Inconclusive("Rate limit reached");
         }
-        catch (Exception ex)
+        catch (AIServiceException ex)
         {
-            Console.WriteLine($"[Error Handling] {ex.GetType().Name}: {ex.Message}");
+            StringAssert.Contains(ex.Message, "finish_reason=length");
+            StringAssert.Contains(ex.Message, "partial response was not saved");
+            Assert.AreEqual(
+                assistantMessagesBefore,
+                AI.ActivateChat.Messages.Count(message => message.Role == ActorRole.Assistant),
+                "A length-truncated response must not be saved as an assistant message.");
         }
     }
 
@@ -321,6 +322,12 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
 // 2. 모델별 구체 클래스
 
 [TestClass]
+public class xAI_Grok4_5_Tests : XAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.xAI.Grok4_5;
+}
+
+[TestClass]
 public class xAI_Grok4_3_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.Grok4_3;
@@ -342,11 +349,4 @@ public class xAI_Grok4_20NonReasoning_Tests : XAIServiceTestsBase
 public class xAI_GrokBuild0_1_Tests : XAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.xAI.GrokBuild0_1;
-}
-
-[TestClass]
-public class xAI_Grok3Mini_Tests : XAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.xAI.Grok3Mini;
-    protected override string? GetAlternativeModel() => AIModels.xAI.Grok4_3;
 }

@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // Порог ядерной выборки
 service.MaxTokens = 1024;          // Максимум выходных токенов
 service.FrequencyPenalty = 0.0f;   // Штраф за повторяющиеся токены
 service.PresencePenalty = 0.0f;    // Штраф за уже встречавшиеся токены
-service.MaxMessageCount = 20;      // Размер окна диалога (устарело — будет удалено в v7.0)
 ```
 
-> **Устарело:** `MaxMessageCount` (скользящее окно по числу сообщений) объявлен устаревшим и будет удалён в v7.0 — управление контекстом будет осуществляться только на основе токенов через `ConversationPolicy`. До удаления окно гарантированно никогда не отбрасывает самое последнее сообщение пользователя, поэтому агентные запуски инструментов не могут потерять запрос, над которым работают.
 
 ## Fluent-расширения
 
@@ -79,7 +77,8 @@ service.StartNewConversation(AIModels.Anthropic.ClaudeSonnet4_6);
 
 ```csharp
 // Начать новый блок
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // Переключиться на другой блок
 service.SetActivateChat(chat2Id);

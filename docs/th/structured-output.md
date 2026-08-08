@@ -94,11 +94,12 @@ ProductDto product = await run.Result;
 ควบคุมความเข้มงวดในการขอให้ model สร้าง structured output:
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-// ค่าเริ่มต้น: ขอให้ model ส่ง JSON ตาม schema
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
+// Strict: อนุญาตให้ซ่อมแซมอัตโนมัติได้สูงสุด 3 ครั้ง
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 
-// ผ่อนคลาย: ให้อิสระกับ model มากขึ้น พึ่ง auto-repair
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+// NoRetry: คืนข้อผิดพลาดการตรวจสอบครั้งแรกโดยไม่ลองซ่อมแซมซ้ำ
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

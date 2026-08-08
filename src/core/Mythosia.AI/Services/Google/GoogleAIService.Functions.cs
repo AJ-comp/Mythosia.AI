@@ -12,6 +12,9 @@ namespace Mythosia.AI.Services.Google
     public partial class GoogleAIService
     {
         private const int DefaultTopK = 40;
+        private const string GeminiResponsePartsMetadataKey = "gemini_response_parts";
+        private const string GeminiPartIndexMetadataKey = "gemini_part_index";
+        private const string GeminiProviderCallIdMetadataKey = "gemini_provider_call_id";
 
         #region Function Calling Support
 
@@ -23,32 +26,24 @@ namespace Mythosia.AI.Services.Google
         internal HttpRequestMessage CreateFunctionMessageRequest(bool includeThoughts)
         {
             var endpoint = Stream
-                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse&key={ApiKey}"
-                : $"v1beta/models/{Model}:generateContent?key={ApiKey}";
+                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse"
+                : $"v1beta/models/{Model}:generateContent";
 
             var requestBody = BuildRequestBodyWithFunctions(includeThoughts);
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
-            return new HttpRequestMessage(HttpMethod.Post, endpoint)
-            {
-                Content = content
-            };
+            return CreateGoogleRequest(HttpMethod.Post, endpoint, content);
         }
 
         private object BuildRequestBodyWithFunctions(bool includeThoughts = false)
         {
             var contentsList = BuildFunctionContentsList();
 
-            var generationConfig = new Dictionary<string, object>
-            {
-                ["temperature"] = Temperature,
-                ["topP"] = TopP,
-                ["topK"] = DefaultTopK,
-                ["maxOutputTokens"] = (int)GetEffectiveMaxTokens()
-            };
-
-            ApplyThinkingConfig(generationConfig);
-            ApplyIncludeThoughtsConfig(generationConfig, includeThoughts);
+            var generationConfig = new Dictionary<string, object>();
+            ApplyTextGenerationConfig(
+                generationConfig,
+                includeCandidateCount: false,
+                includeThoughts);
 
             var requestBody = new Dictionary<string, object>
             {
@@ -58,6 +53,7 @@ namespace Mythosia.AI.Services.Google
 
             ApplyFunctionDeclarations(requestBody);
             ApplySystemInstruction(requestBody);
+            ApplySafetySettings(requestBody);
 
             return requestBody;
         }
@@ -65,16 +61,15 @@ namespace Mythosia.AI.Services.Google
         private List<object> BuildFunctionContentsList()
         {
             var contentsList = new List<object>();
-            var isGemini3 = IsGemini3Model();
             var messages = GetLatestMessages().ToList();
             EnsureUserFirstMessage(messages);
 
             foreach (var message in messages)
             {
-                if (IsFunctionCallMessage(message))
+                if (message.FunctionCallBatch != null || IsFunctionCallMessage(message))
                     contentsList.Add(BuildFunctionCallContent(message));
-                else if (message.Role == ActorRole.Function)
-                    contentsList.Add(BuildFunctionResponseContent(message, isGemini3));
+                else if (message.FunctionCallResultBatch != null || message.Role == ActorRole.Function)
+                    contentsList.Add(BuildFunctionResponseContent(message));
                 else
                     contentsList.Add(ConvertMessageForGemini(message));
             }
@@ -90,20 +85,104 @@ namespace Mythosia.AI.Services.Google
 
         private static Dictionary<string, object> BuildFunctionCallContent(Models.Messages.Message message)
         {
-            var funcName = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "";
-            var argsJson = message.Metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
+            if (message.FunctionCallBatch != null)
+                return BuildFunctionCallBatchContent(message);
+
+            return BuildLegacyFunctionCallContent(message);
+        }
+
+        private static Dictionary<string, object> BuildFunctionCallBatchContent(Models.Messages.Message message)
+        {
+            var batch = message.FunctionCallBatch!;
+            var parts = new List<object>();
+
+            if (batch.Metadata?.TryGetValue(GeminiResponsePartsMetadataKey, out var responsePartsObject) == true &&
+                responsePartsObject is IReadOnlyList<JsonElement> responseParts)
+            {
+                var nextCallIndex = 0;
+                foreach (var responsePart in responseParts)
+                {
+                    if (responsePart.ValueKind == JsonValueKind.Object &&
+                        responsePart.TryGetProperty("functionCall", out _))
+                    {
+                        if (nextCallIndex >= batch.Calls.Count)
+                            throw new InvalidOperationException("Gemini continuation metadata contains more function-call parts than the batch.");
+
+                        nextCallIndex++;
+                    }
+
+                    // Gemini thought signatures and future provider-owned fields belong to the
+                    // original response part. Replaying the cloned part avoids silently dropping
+                    // signed or newly introduced fields while reconstructing a continuation.
+                    parts.Add(responsePart);
+                }
+
+                if (nextCallIndex != batch.Calls.Count)
+                    throw new InvalidOperationException("Gemini continuation metadata does not contain every function call in the batch.");
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(message.Content))
+                    parts.Add(new Dictionary<string, object> { ["text"] = message.Content });
+
+                foreach (var functionCall in batch.Calls)
+                    parts.Add(BuildFunctionCallPart(functionCall));
+            }
+
+            return new Dictionary<string, object>
+            {
+                ["role"] = "model",
+                ["parts"] = parts
+            };
+        }
+
+        private static Dictionary<string, object> BuildFunctionCallPart(FunctionCall functionCall)
+        {
+            var functionPayload = new Dictionary<string, object>
+            {
+                ["name"] = functionCall.Name ?? string.Empty,
+                ["args"] = functionCall.Arguments ?? new Dictionary<string, object>()
+            };
+            if (!string.IsNullOrWhiteSpace(functionCall.Id))
+                functionPayload["id"] = functionCall.Id;
+
+            var part = new Dictionary<string, object>
+            {
+                ["functionCall"] = functionPayload
+            };
+
+            if (functionCall.Metadata?.TryGetValue(MessageMetadataKeys.ThoughtSignature, out var signatureObject) == true &&
+                signatureObject != null)
+            {
+                part["thoughtSignature"] = signatureObject.ToString()!;
+            }
+
+            return part;
+        }
+
+        private static Dictionary<string, object> BuildLegacyFunctionCallContent(Models.Messages.Message message)
+        {
+            var metadata = message.Metadata
+                ?? throw new InvalidOperationException("Legacy function-call messages require metadata.");
+            var funcName = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "";
+            var functionId = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
+            var argsJson = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
             var args = JsonSerializer.Deserialize<Dictionary<string, object>>(argsJson) ?? new Dictionary<string, object>();
+
+            var functionCall = new Dictionary<string, object>
+            {
+                ["name"] = funcName,
+                ["args"] = args
+            };
+            if (!string.IsNullOrWhiteSpace(functionId))
+                functionCall["id"] = functionId!;
 
             var functionCallPart = new Dictionary<string, object>
             {
-                ["functionCall"] = new Dictionary<string, object>
-                {
-                    ["name"] = funcName,
-                    ["args"] = args
-                }
+                ["functionCall"] = functionCall
             };
 
-            if (message.Metadata.TryGetValue(MessageMetadataKeys.ThoughtSignature, out var sigObj) && sigObj != null)
+            if (metadata.TryGetValue(MessageMetadataKeys.ThoughtSignature, out var sigObj) && sigObj != null)
             {
                 functionCallPart["thoughtSignature"] = sigObj.ToString()!;
             }
@@ -115,22 +194,66 @@ namespace Mythosia.AI.Services.Google
             };
         }
 
-        private static Dictionary<string, object> BuildFunctionResponseContent(Models.Messages.Message message, bool isGemini3)
+        private static Dictionary<string, object> BuildFunctionResponseContent(Models.Messages.Message message)
         {
-            var functionResponseRole = isGemini3 ? "user" : "function";
+            if (message.FunctionCallResultBatch != null)
+            {
+                var resultParts = message.FunctionCallResultBatch.Results
+                    .Select(result => (object)BuildFunctionResponsePart(result.Call, result.Content))
+                    .ToList();
+
+                return new Dictionary<string, object>
+                {
+                    ["role"] = "user",
+                    ["parts"] = resultParts
+                };
+            }
+
+            var functionId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString() ?? string.Empty;
             var functionName = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString() ?? "function";
 
             return new Dictionary<string, object>
             {
-                ["role"] = functionResponseRole,
-                ["parts"] = new[] { new Dictionary<string, object>
-                {
-                    ["functionResponse"] = new Dictionary<string, object>
-                    {
-                        ["name"] = functionName,
-                        ["response"] = new Dictionary<string, object> { ["content"] = message.Content }
-                    }
-                }}
+                ["role"] = "user",
+                ["parts"] = new[] { BuildFunctionResponsePart(functionId, functionName, message.Content) }
+            };
+        }
+
+        private static Dictionary<string, object> BuildFunctionResponsePart(
+            FunctionCall functionCall,
+            string content)
+        {
+            var providerSuppliedId = true;
+            if (functionCall.Metadata?.TryGetValue(
+                    GeminiProviderCallIdMetadataKey,
+                    out var providerIdObject) == true &&
+                providerIdObject is bool hasProviderId)
+            {
+                providerSuppliedId = hasProviderId;
+            }
+
+            return BuildFunctionResponsePart(
+                providerSuppliedId ? functionCall.Id : string.Empty,
+                functionCall.Name,
+                content);
+        }
+
+        private static Dictionary<string, object> BuildFunctionResponsePart(
+            string functionId,
+            string? functionName,
+            string content)
+        {
+            var functionResponse = new Dictionary<string, object>
+            {
+                ["name"] = functionName ?? "function",
+                ["response"] = new Dictionary<string, object> { ["content"] = content }
+            };
+            if (!string.IsNullOrWhiteSpace(functionId))
+                functionResponse["id"] = functionId;
+
+            return new Dictionary<string, object>
+            {
+                ["functionResponse"] = functionResponse
             };
         }
 
@@ -165,6 +288,39 @@ namespace Mythosia.AI.Services.Google
                     ["functionCallingConfig"] = new Dictionary<string, object> { ["mode"] = "NONE" }
                 };
             }
+            else if (!IsFunctionContinuation() &&
+                     !string.IsNullOrWhiteSpace(ForceFunctionName))
+            {
+                requestBody["toolConfig"] = new Dictionary<string, object>
+                {
+                    ["functionCallingConfig"] = new Dictionary<string, object>
+                    {
+                        ["mode"] = "ANY",
+                        ["allowedFunctionNames"] = new[] { ForceFunctionName }
+                    }
+                };
+            }
+            else if (IsGemini3Model())
+            {
+                // VALIDATED keeps AUTO semantics (the model may answer directly) while requiring
+                // any emitted Gemini 3 function call to conform to its declaration schema.
+                requestBody["toolConfig"] = new Dictionary<string, object>
+                {
+                    ["functionCallingConfig"] = new Dictionary<string, object>
+                    {
+                        ["mode"] = "VALIDATED"
+                    }
+                };
+            }
+        }
+
+        private bool IsFunctionContinuation()
+        {
+            var lastMessage = GetLatestMessages().LastOrDefault();
+            return lastMessage?.Role == ActorRole.Function ||
+                   lastMessage?.FunctionCallResultBatch != null ||
+                   lastMessage?.Metadata?.GetValueOrDefault(MessageMetadataKeys.MessageType)?.ToString() ==
+                       "function_result";
         }
 
         private void ApplySystemInstruction(Dictionary<string, object> requestBody)
@@ -179,54 +335,10 @@ namespace Mythosia.AI.Services.Google
             };
         }
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
         {
-            try
-            {
-                using var doc = JsonDocument.Parse(response);
-                var root = doc.RootElement;
-
-                if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
-                    return (string.Empty, null);
-
-                var candidate = candidates[0];
-                if (!candidate.TryGetProperty("content", out var contentObj) ||
-                    !contentObj.TryGetProperty("parts", out var parts))
-                    return (string.Empty, null);
-
-                return ParseFunctionCallParts(parts);
-            }
-            catch
-            {
-                return (string.Empty, null);
-            }
-        }
-
-        private static (string content, FunctionCall functionCall) ParseFunctionCallParts(JsonElement parts)
-        {
-            string content = string.Empty;
-            FunctionCall functionCall = null;
-
-            foreach (var part in parts.EnumerateArray())
-            {
-                if (part.TryGetProperty("text", out var textElement))
-                {
-                    content += textElement.GetString();
-                }
-                else if (part.TryGetProperty("functionCall", out var functionCallElement))
-                {
-                    functionCall = new FunctionCall
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Source = IdSource.Gemini,
-                        Name = functionCallElement.GetProperty("name").GetString(),
-                        Arguments = JsonSerializer.Deserialize<Dictionary<string, object>>(
-                            functionCallElement.GetProperty("args").GetRawText())
-                    };
-                }
-            }
-
-            return (content, functionCall);
+            var (content, _, functionCalls, _) = ExtractFunctionCallsWithSignature(response);
+            return (content, functionCalls);
         }
 
         private Dictionary<string, object> ConvertParameterProperty(ParameterProperty prop)

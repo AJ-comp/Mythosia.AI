@@ -2,7 +2,7 @@
 
 ## Warum ein Agent-Loop?
 
-Mit dem normalen Funktionsaufruf macht das Modell **einen** Funktionsaufruf pro Anfrage, du führst ihn aus, und das Gespräch geht weiter. Viele reale Aufgaben erfordern jedoch **mehrere Schritte**, die das Modell autonom planen und ausführen muss:
+Der normale Funktionsaufruf kann **mehrere Funktionen aus einer Modellantwort als geordneten Batch** ausführen und über weitere Tool-Runden fortfahren. Die Agent-API fasst diesen Mechanismus als zielorientierten ReAct-Loop mit einem ausdrücklichen **Schrittlimit** zusammen und gibt die Ergebnisse jedes Batches an das Modell zurück, bis es eine endgültige Antwort liefert:
 
 - „Recherchiere die 3 wichtigsten KI-Unternehmen und vergleiche ihre Aktienkurse" — erfordert mehrere Web-Suchen und Kursabfragen
 - „Finde die relevante Richtlinie, prüfe den Bestellstatus und sag mir, ob ich Anspruch auf eine Rückerstattung habe" — erfordert verschiedene Tools in logischer Reihenfolge
@@ -60,7 +60,7 @@ catch (AgentMaxStepsExceededException ex)
 Das Verhalten des Agent-Loops pro Runde steuern:
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

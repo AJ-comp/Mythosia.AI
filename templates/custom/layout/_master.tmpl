@@ -121,6 +121,12 @@
               es: { flag: '🇪🇸', label: 'ES', prefix: 'es/' }
             };
             var SUPPORTED = ['ko', 'ja', 'zh-Hans', 'zh-Hant', 'de', 'fr', 'ru', 'uk', 'vi', 'th', 'pt', 'es'];
+            var LIMITED_TRANSLATIONS = {
+              'v7-migration.html': [],
+              'document-architecture-concept.html': ['ko'],
+              'document-architecture-data-model.html': ['ko'],
+              'document-architecture-customization.html': ['ko']
+            };
 
             function getSavedLang() { return localStorage.getItem('mythosia-lang'); }
             function saveLang(l) { localStorage.setItem('mythosia-lang', l); }
@@ -147,7 +153,21 @@
               var path = window.location.pathname;
               var langPattern = new RegExp('/docs/(' + SUPPORTED.map(function(s) { return s.replace('-', '\\-'); }).join('|') + ')/');
               var base = path.replace(langPattern, '/docs/');
-              var target = (lang === 'en') ? base : base.replace('/docs/', '/docs/' + lang + '/');
+              var fileName = base.slice(base.lastIndexOf('/') + 1);
+              var docsRoot = base.slice(0, base.indexOf('/docs/') + '/docs/'.length);
+              var target;
+
+              if (fileName === 'README.html') {
+                target = (lang === 'en')
+                  ? docsRoot.slice(0, -'/docs/'.length) + '/README.html'
+                  : docsRoot + lang + '/README.html';
+              } else if (lang !== 'en' && Object.prototype.hasOwnProperty.call(LIMITED_TRANSLATIONS, fileName)
+                  && LIMITED_TRANSLATIONS[fileName].indexOf(lang) === -1) {
+                target = docsRoot + lang + '/introduction.html';
+              } else {
+                target = (lang === 'en') ? base : base.replace('/docs/', '/docs/' + lang + '/');
+              }
+
               if (path !== target) window.location.href = target;
             }
 

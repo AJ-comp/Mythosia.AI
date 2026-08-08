@@ -42,7 +42,15 @@ namespace Mythosia.AI.Services.Base
 
             await foreach (var content in StreamAsync(message, options, context, cancellationToken))
             {
-                if (content.Content != null)
+                if (content.Type == StreamingContentType.Error)
+                {
+                    throw new AIServiceException(
+                        content.Content ?? $"{Provider} streaming request failed.",
+                        content.Metadata == null ? string.Empty : System.Text.Json.JsonSerializer.Serialize(content.Metadata),
+                        Provider);
+                }
+
+                if (content.Type == StreamingContentType.Text && content.Content != null)
                     yield return content.Content;
             }
         }
@@ -112,14 +120,17 @@ namespace Mythosia.AI.Services.Base
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
+            var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
+            using var roundLoopCts = CreateRequestTimeoutCts(policy, cancellationToken);
+            var roundLoopCancellationToken = roundLoopCts.Token;
 
             bool useFunctions = options.IncludeFunctionCalls &&
                                ShouldUseFunctions &&
                                !FunctionsDisabled;
 
-            ChatBlock originalChat = null;
+            ChatBlock? originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
@@ -140,6 +151,7 @@ namespace Mythosia.AI.Services.Base
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     bool hasFunctionResult = false;
+                    bool roundFailed = false;
                     TokenUsage? roundUsage = null;
 
                     // Context-overflow recovery lives here, per round, rather than around the whole
@@ -150,16 +162,21 @@ namespace Mythosia.AI.Services.Base
                     for (int attempt = 0; ; attempt++)
                     {
                         hasFunctionResult = false;
+                        roundFailed = false;
                         roundUsage = null;
 
                         bool roundEmittedAny = false;
                         StreamingContent? withheld = null;
 
                         await using (var enumerator = StreamRoundAsync(
-                            options, useFunctions, policy, cancellationToken)
-                            .GetAsyncEnumerator(cancellationToken))
+                            options, useFunctions, policy, roundLoopCancellationToken)
+                            .GetAsyncEnumerator(roundLoopCancellationToken))
                         {
-                            while (await enumerator.MoveNextAsync())
+                            while (await MoveNextStreamRoundAsync(
+                                enumerator,
+                                cancellationToken,
+                                roundLoopCancellationToken,
+                                timeoutSeconds))
                             {
                                 var content = enumerator.Current;
 
@@ -174,6 +191,9 @@ namespace Mythosia.AI.Services.Base
 
                                 if (content.Type == StreamingContentType.FunctionResult)
                                     hasFunctionResult = true;
+                                else if (content.Type == StreamingContentType.Error &&
+                                         !IsContextOverflowChunk(content))
+                                    roundFailed = true;
 
                                 // Providers can attach usage to different chunk types.
                                 // Keep the last usage seen in the round and count it once.
@@ -216,6 +236,12 @@ namespace Mythosia.AI.Services.Base
                             break;
                         }
                     }
+
+                    // A non-recoverable provider error is a terminal round outcome, not a
+                    // successful empty response. Context-overflow errors retain their existing
+                    // recovery/give-up completion contract, which callers use for diagnostics.
+                    if (roundFailed)
+                        yield break;
 
                     if (roundUsage != null)
                     {
@@ -276,11 +302,55 @@ namespace Mythosia.AI.Services.Base
                         yield break;
                     }
                 }
+
+                // Every allowed round requested another tool turn. Ending the iterator silently
+                // would look like a successful, empty completion to callers.
+                yield return new StreamingContent
+                {
+                    Type = StreamingContentType.Error,
+                    Content = $"Maximum function-calling rounds ({policy.MaxRounds}) exceeded.",
+                    Metadata = new Dictionary<string, object>
+                    {
+                        ["status"] = "max_rounds_exceeded",
+                        ["max_rounds"] = policy.MaxRounds,
+                        ["model"] = Model
+                    }
+                };
             }
             finally
             {
                 if (originalChat != null)
                     ActivateChat = originalChat;
+            }
+        }
+
+        private static async Task<bool> MoveNextStreamRoundAsync(
+            IAsyncEnumerator<StreamingContent> enumerator,
+            CancellationToken callerCancellationToken,
+            CancellationToken roundLoopCancellationToken,
+            int? timeoutSeconds)
+        {
+            try
+            {
+                roundLoopCancellationToken.ThrowIfCancellationRequested();
+                return await enumerator.MoveNextAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException exception) when (
+                callerCancellationToken.IsCancellationRequested)
+            {
+                // Preserve the caller-owned token instead of exposing the linked policy token.
+                throw new OperationCanceledException(
+                    exception.Message,
+                    exception,
+                    callerCancellationToken);
+            }
+            catch (OperationCanceledException exception) when (
+                timeoutSeconds.HasValue &&
+                roundLoopCancellationToken.IsCancellationRequested)
+            {
+                throw new AIServiceException(
+                    $"Request timeout after {timeoutSeconds} seconds",
+                    exception);
             }
         }
 

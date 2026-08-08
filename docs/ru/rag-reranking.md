@@ -42,7 +42,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -55,14 +55,14 @@
 .WithRag(rag => rag
     .WithTopK(5)                   // Итоговое число чанков
     .WithRetrievalMultiplier(3)    // Извлечь topK × 3 кандидатов (для переранжирования)
-    .WithMinScore(0.6)             // Минимальная оценка сходства
+    .WithScoreThreshold(0.6)       // Минимальная оценка сходства
     .AddDocument("corpus.txt")
 )
 ```
 
 - **`TopK`** — сколько чанков попадёт в контекст LLM
 - **`RetrievalMultiplier`** — расширяет воронку, чтобы переранжирование имело больше материала для работы. Множитель 3 означает, что извлекаются 15 кандидатов, из которых после переранжирования остаются лучшие 5.
-- **`MinScore`** — отсеивает всё ниже данного порога сходства, даже если результатов окажется меньше `TopK`
+- **`WithScoreThreshold`** — отсеивает всё ниже данного порога сходства, даже если результатов окажется меньше `TopK`
 
 ## Режим финального отбора
 

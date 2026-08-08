@@ -57,11 +57,9 @@ var response = await ragService.GetCompletionAsync("你的问题", options);
 
 ```csharp
 // 构建一次
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // 跨服务复用
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -105,7 +103,7 @@ ragService.GetCompletionAsync("退款政策是什么？")
 ③ RagEnabledService 创建 AIRequestContext
    RequestMessageOverride = 组装后的提示词
     ↓
-④ 调用 _innerService.GetCompletionAsync(原始消息, context)
+④ 调用 _innerService.GetCompletionAsync(原始消息, context: context)
    → AIService 将 context 存储在 AsyncLocal 中
    → 原始问题添加到对话历史
     ↓

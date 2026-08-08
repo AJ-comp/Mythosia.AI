@@ -14,7 +14,7 @@ Console.WriteLine(response); // Paris
 กำหนด system prompt เพื่อให้ model รับบทบาทหรือทำตามคำสั่งที่ต้องการ:
 
 ```csharp
-service.SystemPrompt = "คุณคือผู้ช่วยที่ตอบกระชับ ตอบในประโยคเดียว";
+service.SystemMessage = "คุณคือผู้ช่วยที่ตอบกระชับ ตอบในประโยคเดียว";
 
 var response = await service.GetCompletionAsync("อธิบาย recursion");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("ฉันชื่ออะไ�
 หากต้องการล้างประวัติการสนทนา:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## สร้างข้อความด้วยตนเอง
@@ -42,7 +42,7 @@ service.ClearMessages();
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("สรุปข้อความนี้: ...")
+var message = MessageBuilder.Create().AddText("สรุปข้อความนี้: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ Provider ที่รองรับ vision สามารถรับรูป
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("แผนผังนี้แสดงอะไร?")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("แผนผังนี้แสดงอะไร?")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "อธิบายรูปภาพนี้",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

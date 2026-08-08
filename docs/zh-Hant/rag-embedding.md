@@ -81,10 +81,9 @@ var embedder = new VllmEmbeddingProvider(
 索引時按批次處理文字區塊：
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // 預設：每次 API 呼叫 100 個區塊
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // 預設：每次 API 呼叫 100 個區塊
+pipeline.Options = options;
 ```
 
 ## 向量維度

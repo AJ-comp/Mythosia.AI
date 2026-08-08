@@ -14,7 +14,7 @@ Console.WriteLine(response); // Paris
 Đặt system prompt để định hướng vai trò hoặc hành vi của model:
 
 ```csharp
-service.SystemPrompt = "Bạn là trợ lý súc tích. Trả lời trong một câu.";
+service.SystemMessage = "Bạn là trợ lý súc tích. Trả lời trong một câu.";
 
 var response = await service.GetCompletionAsync("Giải thích đệ quy.");
 ```
@@ -32,7 +32,7 @@ var response = await service.GetCompletionAsync("Tên tôi là gì?");
 Để xóa lịch sử hội thoại:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## Xây dựng tin nhắn thủ công
@@ -42,7 +42,7 @@ Dùng `MessageBuilder` để tạo tin nhắn theo cách tường minh:
 ```csharp
 using Mythosia.AI.Builders;
 
-var message = MessageBuilder.User("Tóm tắt đoạn văn này: ...")
+var message = MessageBuilder.Create().AddText("Tóm tắt đoạn văn này: ...")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -55,8 +55,8 @@ Các provider hỗ trợ vision có thể nhận hình ảnh kèm văn bản:
 ```csharp
 var imageBytes = await File.ReadAllBytesAsync("diagram.png");
 
-var message = MessageBuilder.User("Sơ đồ này mô tả gì?")
-    .WithImage(imageBytes, "image/png")
+var message = MessageBuilder.Create().AddText("Sơ đồ này mô tả gì?")
+    .AddImage(imageBytes, "image/png")
     .Build();
 
 var response = await service.GetCompletionAsync(message);
@@ -81,7 +81,7 @@ string description = await AIService.QuickAskWithImageAsync(
     apiKey: "sk-...",
     prompt: "Mô tả hình ảnh này",
     imagePath: "photo.jpg",
-    model: AIModels.OpenAI.Gpt4Vision
+    model: AIModels.OpenAI.Gpt4_1
 );
 ```
 

@@ -39,11 +39,9 @@ var response = await ragService.GetCompletionAsync("你的問題", options);
 ## 共享 RagStore
 
 ```csharp
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
 var gptRag    = new OpenAIService(apiKey, http).WithRag(store);
@@ -77,7 +75,7 @@ ragService.GetCompletionAsync("退款政策是什麼？")
 ③ RagEnabledService 建立 AIRequestContext
    RequestMessageOverride = 組裝後的提示詞
     ↓
-④ 呼叫 _innerService.GetCompletionAsync(原始訊息, context)
+④ 呼叫 _innerService.GetCompletionAsync(原始訊息, context: context)
     ↓
 ⑤ AIService.GetLatestMessages() 替換最後一則訊息
    對話歷史：「退款政策是什麼？」（保留原文）

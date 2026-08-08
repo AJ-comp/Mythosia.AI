@@ -32,7 +32,6 @@ public abstract partial class AIServiceTestBase
     protected virtual bool SupportsFunctionCalling() => false;
     protected virtual bool SupportsArrayParameter() => false;
     protected virtual bool SupportsAudio() => false;
-    protected virtual bool SupportsImageGeneration() => false;
     protected virtual bool SupportsWebSearch() => false;
     protected virtual bool SupportsReasoning() => false;
     protected virtual bool SupportsStructuredOutput() => true;
@@ -45,6 +44,12 @@ public abstract partial class AIServiceTestBase
     /// Default implementation does nothing (uses the model's default effort).
     /// </summary>
     protected virtual void SetupReasoningEffort() { }
+
+    /// <summary>
+    /// Lets a provider make a test whose contract requires a particular first tool call
+    /// deterministic. Continuation rounds must remain automatic.
+    /// </summary>
+    protected virtual void ConfigureRequiredFunctionCall(string functionName) { }
 
     #endregion
 

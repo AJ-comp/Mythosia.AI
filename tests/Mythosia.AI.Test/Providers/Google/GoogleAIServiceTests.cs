@@ -4,12 +4,15 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.Google;
+using Mythosia.AI.Services;
 using Mythosia.AI.Tests;
 using Mythosia.Azure;
 
 namespace Mythosia.AI.Tests.Google;
 
 [TestClass]
+[TestCategory("Live")]
+[TestCategory("Google")]
 public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
@@ -38,10 +41,14 @@ public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
     protected override bool SupportsFunctionCalling() => true;
     protected override bool SupportsArrayParameter() => true;
     protected override bool SupportsAudio() => false;
-    protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning() => true;
     protected override string? GetAlternativeModel() => AIModels.Google.Gemini2_5Flash;
+
+    protected override void ConfigureRequiredFunctionCall(string functionName)
+    {
+        AI.ForceFunctionName = functionName;
+    }
 
     protected override void SetupReasoningEffort()
     {
@@ -56,6 +63,23 @@ public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
 
         if (geminiService.ThinkingBudget < 0)
             geminiService.ThinkingBudget = 1024;
+    }
+
+    protected override void ConfigureFunctionCallingStreamEventsTest()
+    {
+        AI.ForceFunctionName = "test_function";
+    }
+
+    protected override void ConfigureFunctionChainingStreamTest()
+    {
+        AI.Temperature = 0;
+
+        // Gemini 2.5 compositional calling is more reliable when every declaration is available
+        // in AUTO mode from the initial round. Restricting the first request to get_user_id can
+        // make 2.5 incorrectly claim that get_user_details is unavailable on the next round.
+        // Gemini 3 uses VALIDATED continuation mode and is not affected by that provider quirk.
+        if (!AI.Model.StartsWith("gemini-2.5", StringComparison.OrdinalIgnoreCase))
+            AI.ForceFunctionName = "get_user_id";
     }
 
     /// <summary>
@@ -212,23 +236,15 @@ public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
     }
 
     /// <summary>
-    /// Gemini 이미지 생성 미지원 테스트
+    /// Gemini 이미지 생성 계약 노출 테스트
     /// </summary>
     [TestCategory("ServiceSpecific")]
     [TestMethod]
-    public async Task GeminiImageGenerationNotSupportedTest()
+    public void GeminiImageGenerationSupportedTest()
     {
-        try
-        {
-            await AI.GenerateImageAsync("test prompt");
-            Assert.Fail("Should have thrown MultimodalNotSupportedException");
-        }
-        catch (MultimodalNotSupportedException ex)
-        {
-            Assert.AreEqual("Gemini", ex.ServiceName);
-            Assert.AreEqual("Image Generation", ex.RequestedFeature);
-            Console.WriteLine($"[Expected Exception] {ex.Message}");
-        }
+        Assert.IsInstanceOfType<IImageGenerationService>(AI);
+        var imageService = (IImageGenerationService)AI;
+        Assert.AreEqual(AIModels.Google.Images.Gemini3_1FlashImage, imageService.DefaultImageModel);
     }
 
     /// <summary>
@@ -252,6 +268,7 @@ public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
         catch (Exception ex)
         {
             Console.WriteLine($"[Safety Settings Error] {ex.Message}");
+            Assert.Fail(ex.Message);
         }
     }
 
@@ -323,6 +340,18 @@ public class Gemini_3_1ProPreview_Tests : GoogleAIServiceTestsBase
 public class Gemini_3_5Flash_Tests : GoogleAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Google.Gemini3_5Flash;
+}
+
+[TestClass]
+public class Gemini_3_5FlashLite_Tests : GoogleAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Google.Gemini3_5FlashLite;
+}
+
+[TestClass]
+public class Gemini_3_6Flash_Tests : GoogleAIServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Google.Gemini3_6Flash;
 }
 
 [TestClass]

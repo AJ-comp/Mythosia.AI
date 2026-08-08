@@ -13,12 +13,12 @@ namespace Mythosia.AI.Attributes
         /// <summary>
         /// Optional custom name for the function. If null, method name will be used.
         /// </summary>
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         /// <summary>
         /// Description of what the function does
         /// </summary>
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>
         /// Creates an AI function with auto-generated name

@@ -54,20 +54,24 @@ var response = await service.GetCompletionAsync("台北今天天氣怎麼樣？"
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "搜尋產品目錄")]
-public static string SearchProducts(
-    [AiParameter("搜尋關鍵字", required: true)] string query,
-    [AiParameter("最大回傳數量")] int limit = 5)
+public sealed class ProductFunctions
 {
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "搜尋產品目錄")]
+    public string SearchProducts(
+        [AiParameter("搜尋關鍵字", required: true)] string query,
+        [AiParameter("最大回傳數量")] int limit = 5)
+    {
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 然後註冊：
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## 函式呼叫策略
@@ -78,13 +82,13 @@ service.AddFunction(SearchProducts);
 using Mythosia.AI.Models.Functions;
 
 // 由模型自行決定（預設）
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // 強制模型始終呼叫函式
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // 停用函式呼叫
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## 批次註冊類別中的函式
@@ -137,11 +141,14 @@ service.WithoutFunctions();  // 設定 FunctionsDisabled = true
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "回傳目前股票價格")
-    .AddParameter("ticker", "股票代碼", required: true)
+    .Create("get_stock_price")
+    .WithDescription("回傳目前股票價格")
+    .AddParameter("ticker", "string", "股票代碼", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

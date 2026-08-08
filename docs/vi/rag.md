@@ -33,14 +33,14 @@ Nhiều loại nguồn được hỗ trợ:
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // file cục bộ
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("Nội dung nội tuyến có thể đặt ở đây.")  // chuỗi trực tiếp
 )
 ```
 
 ## Embedding provider tùy chỉnh
 
-Mặc định, RAG dùng chính provider của service để embedding. Để dùng model embedding chuyên dụng:
+Mặc định, RAG dùng local embedding provider tích hợp sẵn. Để dùng model embedding chuyên dụng:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -81,11 +85,14 @@ Tinh chỉnh hành vi truy xuất theo từng truy vấn:
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,                // số đoạn cần truy xuất
-    ScoreThreshold = 0.7f    // ngưỡng độ tương đồng tối thiểu
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,            // số đoạn cần truy xuất
+        MinScore = 0.7       // ngưỡng độ tương đồng tối thiểu
+    }
 };
 
-var response = await service.GetCompletionAsync("Câu hỏi của bạn", ragOptions: options);
+var response = await service.GetCompletionAsync("Câu hỏi của bạn", options: options);
 ```
 
 ## Bước tiếp theo

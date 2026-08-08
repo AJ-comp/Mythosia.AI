@@ -93,7 +93,7 @@ namespace Mythosia.AI.Extensions
                 {
                     if (args.TryGetValue(param.name, out var value))
                     {
-                        var typedValue = (T)ConvertValue(value, typeof(T));
+                        var typedValue = (T)ConvertValue(value, typeof(T))!;
                         return handler(typedValue);
                     }
                     else if (param.required)
@@ -102,7 +102,7 @@ namespace Mythosia.AI.Extensions
                     }
                     else
                     {
-                        return handler(default(T));
+                        return handler(default!);
                     }
                 })
                 .Build();
@@ -128,16 +128,16 @@ namespace Mythosia.AI.Extensions
                 .AddParameter(param2.name, GetJsonType(typeof(T2)), param2.description, param2.required)
                 .WithHandler(args =>
                 {
-                    T1 value1 = default(T1);
-                    T2 value2 = default(T2);
+                    T1 value1 = default!;
+                    T2 value2 = default!;
 
                     if (args.TryGetValue(param1.name, out var v1))
-                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                        value1 = (T1)ConvertValue(v1, typeof(T1))!;
                     else if (param1.required)
                         throw new ArgumentException($"Required parameter '{param1.name}' not provided");
 
                     if (args.TryGetValue(param2.name, out var v2))
-                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                        value2 = (T2)ConvertValue(v2, typeof(T2))!;
                     else if (param2.required)
                         throw new ArgumentException($"Required parameter '{param2.name}' not provided");
 
@@ -168,22 +168,22 @@ namespace Mythosia.AI.Extensions
                 .AddParameter(param3.name, GetJsonType(typeof(T3)), param3.description, param3.required)
                 .WithHandler(args =>
                 {
-                    T1 value1 = default(T1);
-                    T2 value2 = default(T2);
-                    T3 value3 = default(T3);
+                    T1 value1 = default!;
+                    T2 value2 = default!;
+                    T3 value3 = default!;
 
                     if (args.TryGetValue(param1.name, out var v1))
-                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                        value1 = (T1)ConvertValue(v1, typeof(T1))!;
                     else if (param1.required)
                         throw new ArgumentException($"Required parameter '{param1.name}' not provided");
 
                     if (args.TryGetValue(param2.name, out var v2))
-                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                        value2 = (T2)ConvertValue(v2, typeof(T2))!;
                     else if (param2.required)
                         throw new ArgumentException($"Required parameter '{param2.name}' not provided");
 
                     if (args.TryGetValue(param3.name, out var v3))
-                        value3 = (T3)ConvertValue(v3, typeof(T3));
+                        value3 = (T3)ConvertValue(v3, typeof(T3))!;
                     else if (param3.required)
                         throw new ArgumentException($"Required parameter '{param3.name}' not provided");
 
@@ -236,7 +236,7 @@ namespace Mythosia.AI.Extensions
                 {
                     if (args.TryGetValue(param.name, out var value))
                     {
-                        var typedValue = (T)ConvertValue(value, typeof(T));
+                        var typedValue = (T)ConvertValue(value, typeof(T))!;
                         return await handler(typedValue);
                     }
                     else if (param.required)
@@ -245,7 +245,7 @@ namespace Mythosia.AI.Extensions
                     }
                     else
                     {
-                        return await handler(default(T));
+                        return await handler(default!);
                     }
                 })
                 .Build();
@@ -271,16 +271,16 @@ namespace Mythosia.AI.Extensions
                 .AddParameter(param2.name, GetJsonType(typeof(T2)), param2.description, param2.required)
                 .WithHandler(async args =>
                 {
-                    T1 value1 = default(T1);
-                    T2 value2 = default(T2);
+                    T1 value1 = default!;
+                    T2 value2 = default!;
 
                     if (args.TryGetValue(param1.name, out var v1))
-                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                        value1 = (T1)ConvertValue(v1, typeof(T1))!;
                     else if (param1.required)
                         throw new ArgumentException($"Required parameter '{param1.name}' not provided");
 
                     if (args.TryGetValue(param2.name, out var v2))
-                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                        value2 = (T2)ConvertValue(v2, typeof(T2))!;
                     else if (param2.required)
                         throw new ArgumentException($"Required parameter '{param2.name}' not provided");
 
@@ -311,22 +311,22 @@ namespace Mythosia.AI.Extensions
                 .AddParameter(param3.name, GetJsonType(typeof(T3)), param3.description, param3.required)
                 .WithHandler(async args =>
                 {
-                    T1 value1 = default(T1);
-                    T2 value2 = default(T2);
-                    T3 value3 = default(T3);
+                    T1 value1 = default!;
+                    T2 value2 = default!;
+                    T3 value3 = default!;
 
                     if (args.TryGetValue(param1.name, out var v1))
-                        value1 = (T1)ConvertValue(v1, typeof(T1));
+                        value1 = (T1)ConvertValue(v1, typeof(T1))!;
                     else if (param1.required)
                         throw new ArgumentException($"Required parameter '{param1.name}' not provided");
 
                     if (args.TryGetValue(param2.name, out var v2))
-                        value2 = (T2)ConvertValue(v2, typeof(T2));
+                        value2 = (T2)ConvertValue(v2, typeof(T2))!;
                     else if (param2.required)
                         throw new ArgumentException($"Required parameter '{param2.name}' not provided");
 
                     if (args.TryGetValue(param3.name, out var v3))
-                        value3 = (T3)ConvertValue(v3, typeof(T3));
+                        value3 = (T3)ConvertValue(v3, typeof(T3))!;
                     else if (param3.required)
                         throw new ArgumentException($"Required parameter '{param3.name}' not provided");
 
@@ -410,8 +410,8 @@ namespace Mythosia.AI.Extensions
 
         private static FunctionDefinition BuildFunctionDefinition(
             MethodInfo method,
-            object instance,
-            Delegate existingDelegate)
+            object? instance,
+            Delegate? existingDelegate)
         {
             var attr = method.GetCustomAttribute<AiFunctionAttribute>();
 
@@ -430,7 +430,8 @@ namespace Mythosia.AI.Extensions
             {
                 var paramAttr = param.GetCustomAttribute<AiParameterAttribute>();
 
-                var paramName = paramAttr?.Name ?? param.Name;
+                var paramName = paramAttr?.Name ?? param.Name
+                    ?? throw new InvalidOperationException("A reflected function parameter has no name.");
                 var paramDesc = paramAttr?.Description ?? $"The {param.Name}";
                 var required = paramAttr?.Required ?? !param.HasDefaultValue;
 
@@ -449,11 +450,12 @@ namespace Mythosia.AI.Extensions
                 try
                 {
                     // Prepare parameter values
-                    var paramValues = new object[parameters.Length];
+                    var paramValues = new object?[parameters.Length];
                     for (int i = 0; i < parameters.Length; i++)
                     {
                         var param = parameters[i];
-                        var paramName = param.GetCustomAttribute<AiParameterAttribute>()?.Name ?? param.Name;
+                        var paramName = param.GetCustomAttribute<AiParameterAttribute>()?.Name ?? param.Name
+                            ?? throw new InvalidOperationException("A reflected function parameter has no name.");
 
                         if (args.ContainsKey(paramName))
                         {
@@ -471,7 +473,7 @@ namespace Mythosia.AI.Extensions
                     }
 
                     // Invoke the method
-                    object result;
+                    object? result;
                     if (existingDelegate != null)
                     {
                         result = existingDelegate.DynamicInvoke(paramValues);
@@ -544,7 +546,7 @@ namespace Mythosia.AI.Extensions
             return "object";
         }
 
-        private static object ConvertValue(object value, Type targetType)
+        private static object? ConvertValue(object? value, Type targetType)
         {
             if (value == null)
                 return null;

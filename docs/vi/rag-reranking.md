@@ -42,7 +42,7 @@ Dùng endpoint reranking vLLM được host cục bộ:
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -55,14 +55,14 @@ Kiểm soát số ứng viên được truy xuất và cách lọc trước khi 
 .WithRag(rag => rag
     .WithTopK(5)                   // Số đoạn cuối cùng được trả về
     .WithRetrievalMultiplier(3)    // Truy xuất topK × 3 ứng viên (cho reranking)
-    .WithMinScore(0.6)             // Điểm tương đồng tối thiểu
+    .WithScoreThreshold(0.6)       // Điểm tương đồng tối thiểu
     .AddDocument("corpus.txt")
 )
 ```
 
 - **`TopK`** — số đoạn đưa vào context LLM
 - **`RetrievalMultiplier`** — lấy nhiều ứng viên hơn để reranker có nhiều để làm việc. Multiplier 3 nghĩa là 15 ứng viên được lấy, rồi 5 tốt nhất sống sót sau reranking
-- **`MinScore`** — loại bỏ bất cứ thứ gì dưới ngưỡng tương đồng này, dù ít hơn `TopK` đoạn còn lại
+- **`WithScoreThreshold`** — loại bỏ bất cứ thứ gì dưới ngưỡng tương đồng này, dù ít hơn `TopK` đoạn còn lại
 
 ## Chế độ chọn cuối cùng
 

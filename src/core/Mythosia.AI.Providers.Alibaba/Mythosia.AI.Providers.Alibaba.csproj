@@ -10,29 +10,18 @@
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
     <Authors>JJW</Authors>
-    <PackageTags>AI; Alibaba; Qwen; vLLM; Ollama; LLM; Chat Completion; Streaming; Function Calling;</PackageTags>
-    <Description>
-Alibaba Cloud Qwen provider package for Mythosia.AI.
-
-Includes QwenService with expanded Qwen 3 / 3.5 model constants, platform-specific thinking request handling across DashScope, vLLM, and Ollama, token usage streaming support, and Mythosia.AI v6.4.0 compatibility.
-
-What's New in v1.2.8
-- Context-overflow rejections are now translated through AIHttpErrorFactory, so a request refused for exceeding the model's context window raises ContextLengthExceededException and Mythosia.AI v6.8.0's reactive recovery engages. QwenService owns its own error path, so without this the recovery released in v6.8.0 could not reach Qwen or a vLLM deployment served through it.
-- Requires Mythosia.AI v6.8.0.
-
-What's New in v1.2.7
-- Fixed: a configured "thinking off" was silently dropped unless the model id literally contained "qwen3", so a Qwen model served under an alias kept reasoning enabled.
-- Fixed: on vLLM, enable_thinking is now always sent as chat_template_kwargs.enable_thinking instead of a top-level parameter that the server ignored.
-- Thinking parameters now follow the configured ThinkingMode for every model; the provider no longer infers capability from the model name.
-
-Documentation
-- GitHub: https://github.com/AJ-comp/Mythosia.AI
-- Release Notes: core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md
-    </Description>
-    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
+    <PackageTags>AI;LLM;Alibaba;Qwen;DashScope;vLLM;Ollama;Reasoning;Streaming;FunctionCalling;ParallelFunctionCalling</PackageTags>
+    <Description>Alibaba Qwen provider for Mythosia.AI. Adds QwenService for DashScope, vLLM, and Ollama chat-completion endpoints, with streaming token usage, reasoning controls, custom deployment names, and ordered multi-function calls. Chat only; image generation is not supported. Requires Mythosia.AI 7.0.0.</Description>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.2.8: Context-overflow rejections are translated through AIHttpErrorFactory, raising ContextLengthExceededException so the reactive recovery released in Mythosia.AI v6.8.0 engages for Qwen and for vLLM deployments served through this provider. QwenService owns its own HTTP error path, so recovery could not reach it otherwise. No API changes. Requires Mythosia.AI v6.8.0.</PackageReleaseNotes>
-    <Version>1.2.8</Version>
+    <PackageReleaseNotes>v2.0.0 is a breaking release for Mythosia.AI 7.0.0. Qwen non-streaming and streaming paths now preserve ordered function-call/result batches and use the shared sequential or bounded-parallel handler dispatcher. Removes the unsupported legacy image-method overrides; Qwen remains chat only and does not implement IImageGenerationService. Full notes and migration guide: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200</PackageReleaseNotes>
+    <Version>2.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

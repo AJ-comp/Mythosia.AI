@@ -10,10 +10,8 @@ service.TopP = 1.0f;               // 핵 샘플링 임계값
 service.MaxTokens = 1024;          // 최대 출력 토큰 수
 service.FrequencyPenalty = 0.0f;   // 반복 토큰 패널티
 service.PresencePenalty = 0.0f;    // 이미 등장한 토큰 패널티
-service.MaxMessageCount = 20;      // 대화 윈도우 크기 (폐기 예정 — v7.0에서 제거)
 ```
 
-> **폐기 예정:** `MaxMessageCount`(메시지 개수 기반 슬라이딩 윈도우)는 더 이상 사용되지 않으며 v7.0에서 제거됩니다 — 컨텍스트 관리는 `ConversationPolicy`를 통한 토큰 기반으로만 이루어집니다. 제거 전까지는 윈도우가 가장 최근 사용자 메시지를 절대 버리지 않도록 보장되므로, 에이전틱 도구 실행이 처리 중인 쿼리를 잃어버리는 일은 없습니다.
 
 ## 플루언트 확장 메서드
 
@@ -79,7 +77,8 @@ service.StartNewConversation(AIModels.Anthropic.ClaudeSonnet4_6);
 
 ```csharp
 // 새 대화 블록 시작
-var chat1 = service.AddNewChat();
+service.AddNewChat();
+var chat1 = service.ActivateChat;
 
 // 다른 블록으로 전환
 service.SetActivateChat(chat2Id);

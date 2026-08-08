@@ -23,9 +23,9 @@ Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더,
 | 프로바이더 | 모델 |
 |------------|------|
 | **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, o3 시리즈 |
-| **Anthropic** | Claude Opus / Sonnet / Haiku 4.x |
+| **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3 시리즈 |
-| **xAI** | Grok 4 시리즈, Grok Build, Grok 3 Mini |
+| **xAI** | Grok 4 시리즈, Grok Build |
 | **DeepSeek** | Chat, Reasoner |
 | **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
@@ -33,9 +33,18 @@ Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더,
 ## 아키텍처 개요
 
 ```
+Mythosia.AI                     ← 핵심 AI 서비스 (모든 프로바이더)
+    └── Mythosia.AI.Abstractions   ← IAIService 인터페이스
+
 Mythosia.AI.Rag                 ← RAG 파이프라인, 오케스트레이션
-    └── Mythosia.AI             ← 핵심 AI 서비스 (모든 프로바이더)
-        └── Mythosia.AI.Abstractions   ← IAIService 인터페이스
+    ├── Mythosia.AI.Abstractions
+    ├── Mythosia.AI.Rag.Abstractions
+    │   └── Mythosia.VectorDb.Abstractions
+    ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
+    │   └── Mythosia.Documents.Abstractions
+    └── Mythosia.VectorDb.InMemory
+        ├── Mythosia.VectorDb.Abstractions
+        └── Mythosia.AI.Rag.Abstractions
 
 Mythosia.VectorDb.*             ← 벡터 스토어 (하나 이상 선택)
     └── Mythosia.VectorDb.Abstractions

@@ -70,7 +70,8 @@ namespace Mythosia.AI.Services.OpenAI
                             messageParts.Add(new
                             {
                                 type = "input_image",
-                                image_url = imageContent.GetBase64Url()
+                                image_url = imageContent.GetBase64Url(),
+                                detail = imageContent.IsHighDetail ? "high" : "low"
                             });
                         }
                     }
@@ -102,6 +103,7 @@ namespace Mythosia.AI.Services.OpenAI
                     {
                         ["type"] = "json_schema",
                         ["name"] = "structured_output",
+                        ["strict"] = true,
                         ["schema"] = schemaElement
                     }
                 };
@@ -184,6 +186,154 @@ namespace Mythosia.AI.Services.OpenAI
 
         #region Response Parsing
 
+        private void EnsureCompletedResponsesApiResponse(string responseContent)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(responseContent);
+                var root = document.RootElement;
+                var status = root.TryGetProperty("status", out var statusElement) &&
+                             statusElement.ValueKind == JsonValueKind.String
+                    ? statusElement.GetString()
+                    : null;
+
+                if (!string.Equals(status, "completed", StringComparison.Ordinal))
+                {
+                    var reason = ExtractResponsesFailureReason(root);
+                    throw CreateResponsesTerminalException(
+                        status ?? "missing",
+                        reason,
+                        "OpenAI Responses API did not complete successfully; the partial response was not saved and no tools were executed.");
+                }
+
+                var refusal = FindResponsesRefusal(root);
+                if (refusal != null)
+                {
+                    throw CreateResponsesTerminalException(
+                        "completed",
+                        refusal,
+                        "OpenAI Responses API refused the request; the response was not saved and no tools were executed.",
+                        isRefusal: true);
+                }
+            }
+            catch (AIServiceException)
+            {
+                throw;
+            }
+            catch (JsonException exception)
+            {
+                throw new AIServiceException(
+                    "Failed to parse the OpenAI Responses API result; the response was not saved and no tools were executed.",
+                    JsonSerializer.Serialize(new
+                    {
+                        status = "malformed",
+                        parse_error = exception.Message
+                    }),
+                    nameof(AIProvider.OpenAI));
+            }
+        }
+
+        private static AIServiceException CreateResponsesTerminalException(
+            string status,
+            string? reason,
+            string message,
+            bool isRefusal = false)
+        {
+            return new AIServiceException(
+                message,
+                JsonSerializer.Serialize(new
+                {
+                    status,
+                    reason,
+                    refusal = isRefusal
+                }),
+                nameof(AIProvider.OpenAI));
+        }
+
+        private static string? ExtractResponsesFailureReason(JsonElement response)
+        {
+            if (response.TryGetProperty("error", out var error) &&
+                error.ValueKind == JsonValueKind.Object)
+            {
+                if (error.TryGetProperty("message", out var message) &&
+                    message.ValueKind == JsonValueKind.String)
+                {
+                    return message.GetString();
+                }
+
+                if (error.TryGetProperty("code", out var code) &&
+                    code.ValueKind == JsonValueKind.String)
+                {
+                    return code.GetString();
+                }
+            }
+
+            if (response.TryGetProperty("incomplete_details", out var incompleteDetails) &&
+                incompleteDetails.ValueKind == JsonValueKind.Object &&
+                incompleteDetails.TryGetProperty("reason", out var reason) &&
+                reason.ValueKind == JsonValueKind.String)
+            {
+                return reason.GetString();
+            }
+
+            if (response.TryGetProperty("message", out var directMessage) &&
+                directMessage.ValueKind == JsonValueKind.String)
+            {
+                return directMessage.GetString();
+            }
+
+            if (response.TryGetProperty("code", out var directCode) &&
+                directCode.ValueKind == JsonValueKind.String)
+            {
+                return directCode.GetString();
+            }
+
+            return null;
+        }
+
+        private static string? FindResponsesRefusal(JsonElement element)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+                return null;
+
+            if (element.TryGetProperty("type", out var type) &&
+                type.ValueKind == JsonValueKind.String &&
+                string.Equals(type.GetString(), "refusal", StringComparison.Ordinal))
+            {
+                if (element.TryGetProperty("refusal", out var refusal) &&
+                    refusal.ValueKind == JsonValueKind.String)
+                {
+                    return refusal.GetString() ?? string.Empty;
+                }
+
+                if (element.TryGetProperty("text", out var text) &&
+                    text.ValueKind == JsonValueKind.String)
+                {
+                    return text.GetString() ?? string.Empty;
+                }
+
+                return string.Empty;
+            }
+
+            foreach (var propertyName in new[] { "output", "content" })
+            {
+                if (!element.TryGetProperty(propertyName, out var children) ||
+                    children.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var child in children.EnumerateArray())
+                {
+                    var refusal = FindResponsesRefusal(child);
+                    if (refusal != null)
+                        return refusal;
+                }
+            }
+
+            return null;
+        }
+
         protected override string ExtractResponseContent(string responseContent)
         {
             try
@@ -191,36 +341,25 @@ namespace Mythosia.AI.Services.OpenAI
                 using var doc = JsonDocument.Parse(responseContent);
                 var root = doc.RootElement;
 
-                // Responses API: check status for incomplete responses
-                if (root.TryGetProperty("status", out var statusProp))
-                {
-                    var status = statusProp.GetString();
-                    if (status == "incomplete")
-                    {
-                        var reason = "unknown";
-                        if (root.TryGetProperty("incomplete_details", out var details) &&
-                            details.TryGetProperty("reason", out var reasonProp))
-                        {
-                            reason = reasonProp.GetString();
-                        }
-                        Console.WriteLine($"[WARNING] Responses API returned incomplete status. Reason: {reason}");
-                    }
-                }
-
-                // Responses API: check for convenience output_text field first
+                string? convenienceOutputText = null;
                 if (root.TryGetProperty("output_text", out var outputText) &&
                     outputText.ValueKind == JsonValueKind.String)
                 {
-                    var text = outputText.GetString();
-                    if (!string.IsNullOrEmpty(text))
-                        return text;
+                    convenienceOutputText = outputText.GetString();
                 }
 
                 if (root.TryGetProperty("output", out var output))
                 {
-                    return ExtractNewApiResponse(output);
+                    var extractedText = ExtractNewApiResponse(output);
+                    return !string.IsNullOrEmpty(convenienceOutputText)
+                        ? convenienceOutputText
+                        : extractedText;
                 }
-                else if (root.TryGetProperty("choices", out var choices))
+
+                if (!string.IsNullOrEmpty(convenienceOutputText))
+                    return convenienceOutputText;
+
+                if (root.TryGetProperty("choices", out var choices))
                 {
                     return ExtractLegacyApiResponse(choices);
                 }
@@ -239,6 +378,8 @@ namespace Mythosia.AI.Services.OpenAI
 
         private string ExtractNewApiResponse(JsonElement output)
         {
+            CaptureReasoningSummary(output);
+
             var content = new StringBuilder();
             bool hasReasoningOnly = false;
 
@@ -265,28 +406,9 @@ namespace Mythosia.AI.Services.OpenAI
                         content.Append(textElem.GetString());
                     }
                 }
-                // Extract reasoning summary and store for non-streaming access
                 else if (itemType == "reasoning")
                 {
                     hasReasoningOnly = true;
-                    if (outputItem.TryGetProperty("summary", out var summaryElem) &&
-                        summaryElem.ValueKind == JsonValueKind.Array)
-                    {
-                        var reasoningText = new StringBuilder();
-                        foreach (var summaryItem in summaryElem.EnumerateArray())
-                        {
-                            if (summaryItem.TryGetProperty("type", out var sType) &&
-                                sType.GetString() == "summary_text" &&
-                                summaryItem.TryGetProperty("text", out var sText))
-                            {
-                                reasoningText.Append(sText.GetString());
-                            }
-                        }
-                        if (reasoningText.Length > 0)
-                        {
-                            LastReasoningSummary = reasoningText.ToString();
-                        }
-                    }
                 }
             }
 
@@ -297,6 +419,38 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             return content.ToString();
+        }
+
+        private void CaptureReasoningSummary(JsonElement output)
+        {
+            if (output.ValueKind != JsonValueKind.Array)
+                return;
+
+            var reasoningText = new StringBuilder();
+            foreach (var outputItem in output.EnumerateArray())
+            {
+                if (!outputItem.TryGetProperty("type", out var typeProp) ||
+                    typeProp.GetString() != "reasoning" ||
+                    !outputItem.TryGetProperty("summary", out var summaryElement) ||
+                    summaryElement.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                foreach (var summaryItem in summaryElement.EnumerateArray())
+                {
+                    if (summaryItem.TryGetProperty("type", out var summaryType) &&
+                        summaryType.GetString() == "summary_text" &&
+                        summaryItem.TryGetProperty("text", out var summaryText) &&
+                        summaryText.ValueKind == JsonValueKind.String)
+                    {
+                        reasoningText.Append(summaryText.GetString());
+                    }
+                }
+            }
+
+            if (reasoningText.Length > 0)
+                LastReasoningSummary = reasoningText.ToString();
         }
 
         private string ExtractLegacyApiResponse(JsonElement choices)
@@ -322,70 +476,6 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var (text, _, _) = ParseStreamChunk(jsonData, includeMetadata: false);
             return text ?? string.Empty;
-        }
-
-        private StreamingContent? ParseOpenAIStreamChunk(
-           string jsonData,
-           StreamOptions options,
-           FunctionCallData functionCallData,
-           ref string? currentModel,
-           ref string? responseId)
-        {
-            var (text, type, metadata) = ParseStreamChunk(jsonData, includeMetadata: options.IncludeMetadata);
-
-            // 디버깅용 코드
-            Console.WriteLine($"[DEBUG ParseOpenAIStreamChunk] text={text != null}, type={type}, metadata={metadata != null}");
-
-            // Completion 타입은 항상 처리
-            if (type == StreamingContentType.Completion)
-            {
-                var completionContent = new StreamingContent
-                {
-                    Type = type,
-                    Content = null,
-                    Metadata = metadata
-                };
-                if (metadata != null &&
-                    metadata.Remove("_token_usage", out var usageObj) && usageObj is TokenUsage tokenUsage)
-                {
-                    completionContent.Usage = tokenUsage;
-                }
-                return completionContent;
-            }
-
-            // response.created 같은 초기 이벤트는 스킵
-            if (text == null && type == StreamingContentType.Text && metadata == null)
-            {
-                Console.WriteLine($"[DEBUG ParseOpenAIStreamChunk] Returning null - skipping empty event");
-                return null;
-            }
-
-            var content = new StreamingContent
-            {
-                Type = type,
-                Content = text,
-                Metadata = metadata
-            };
-
-            if (metadata != null)
-            {
-                if (currentModel == null && metadata.TryGetValue("model", out var model))
-                    currentModel = model.ToString();
-                if (responseId == null && metadata.TryGetValue("response_id", out var id))
-                    responseId = id.ToString();
-
-                if (type == StreamingContentType.FunctionCall)
-                {
-                    if (metadata.TryGetValue("function_name", out var fname))
-                        functionCallData.Name = fname.ToString();
-                    if (metadata.TryGetValue("function_arguments", out var fargs))
-                        functionCallData.Arguments.Append(fargs.ToString());
-
-                    content.FunctionCallData = functionCallData;
-                }
-            }
-
-            return content;
         }
 
         private (string? text, StreamingContentType type, Dictionary<string, object>? metadata) ParseStreamChunk(
@@ -484,9 +574,17 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 var metadata = new Dictionary<string, object>();
                 if (responseObj.TryGetProperty("model", out var modelElem))
-                    metadata["model"] = modelElem.GetString();
+                {
+                    var model = modelElem.GetString();
+                    if (model != null)
+                        metadata["model"] = model;
+                }
                 if (responseObj.TryGetProperty("id", out var idElem))
-                    metadata["response_id"] = idElem.GetString();
+                {
+                    var responseId = idElem.GetString();
+                    if (responseId != null)
+                        metadata["response_id"] = responseId;
+                }
                 return (null, StreamingContentType.Text, metadata);
             }
 
@@ -540,12 +638,21 @@ namespace Mythosia.AI.Services.OpenAI
 
                 if (root.TryGetProperty("response", out var finalResponse))
                 {
-                    if (finalResponse.TryGetProperty("usage", out var usage))
-                        metadata["_token_usage"] = ParseOpenAICompatibleUsage(usage);
+                    if (finalResponse.TryGetProperty("usage", out var usage) &&
+                        usage.ValueKind == JsonValueKind.Object)
+                    {
+                        var tokenUsage = ParseOpenAICompatibleUsage(usage);
+                        if (tokenUsage != null)
+                            metadata["_token_usage"] = tokenUsage;
+                    }
 
                     if (type == "response.completed" &&
                         finalResponse.TryGetProperty("id", out var idElem))
-                        metadata["response_id"] = idElem.GetString();
+                    {
+                        var responseId = idElem.GetString();
+                        if (responseId != null)
+                            metadata["response_id"] = responseId;
+                    }
                 }
             }
 
@@ -642,9 +749,17 @@ namespace Mythosia.AI.Services.OpenAI
             if (metadata != null)
             {
                 if (root.TryGetProperty("model", out var model))
-                    metadata["model"] = model.GetString();
+                {
+                    var modelName = model.GetString();
+                    if (modelName != null)
+                        metadata["model"] = modelName;
+                }
                 if (root.TryGetProperty("id", out var id))
-                    metadata["response_id"] = id.GetString();
+                {
+                    var responseId = id.GetString();
+                    if (responseId != null)
+                        metadata["response_id"] = responseId;
+                }
             }
 
             if (choice.TryGetProperty("finish_reason", out var finishReason))
@@ -669,9 +784,17 @@ namespace Mythosia.AI.Services.OpenAI
                     if (metadata != null)
                     {
                         if (functionCall.TryGetProperty("name", out var name))
-                            metadata["function_name"] = name.GetString();
+                        {
+                            var functionName = name.GetString();
+                            if (functionName != null)
+                                metadata["function_name"] = functionName;
+                        }
                         if (functionCall.TryGetProperty("arguments", out var args))
-                            metadata["function_arguments"] = args.GetString();
+                        {
+                            var functionArguments = args.GetString();
+                            if (functionArguments != null)
+                                metadata["function_arguments"] = functionArguments;
+                        }
                     }
                     return (null, StreamingContentType.FunctionCall, metadata);
                 }

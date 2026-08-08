@@ -9,13 +9,19 @@
 ```csharp
 using Mythosia.AI.Models;
 
-service.Model = AIModels.OpenAI.Gpt5_4;
+// GPT-5.6: Sol — флагманська модель; Terra і Luna — економніші варіанти.
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High;
 
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High;
 ```
 
@@ -46,15 +52,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### Генерація зображень
 
 ```csharp
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "Нічне місто майбутнього",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "Нічне місто майбутнього",
+        Size = "1024x1024"
+    });
 
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "Нічне місто майбутнього",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -94,8 +101,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// Варіанти: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// Варіанти: Auto, None, Low, Medium, High (залежно від моделі)
 ```
 
 ---
@@ -140,8 +147,11 @@ var service = new QwenService(apiKey, http)
 
 Доступні моделі: `QwenMax`, `QwenPlus`, `QwenTurbo`, `Qwen3` та їхні варіанти.
 
-Властивість `EndpointPlatform` дозволяє перемикатися між Alibaba Cloud та сумісними ендпоінтами:
+Під час створення сервісу виберіть сумісний ендпоінт за допомогою `EndpointPlatform`:
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

@@ -13,7 +13,7 @@ Considera un pipeline RAG que recupera documentos relevantes y necesita incluirl
 ```csharp
 // ✅ Con AIRequestContext — limpio, acotado, sin efectos secundarios
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\nUsa el siguiente contexto para responder:\n{retrievedDocs}"
     });
@@ -56,7 +56,7 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("Doc de referencia: La política de devolución permite retornos en 30 días.").Build()
+        MessageBuilder.Create().AddText("Doc de referencia: La política de devolución permite retornos en 30 días.").Build()
     }
 };
 ```
@@ -87,7 +87,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\nContexto:\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("Ejemplo: ...").Build()
+            MessageBuilder.Create().AddText("Ejemplo: ...").Build()
         }
     }
 );
@@ -107,15 +107,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. Respuesta principal del chat
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. Generador de títulos (añadido después)
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. Resumidor (añadido aún más tarde)
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Llamada al agent — ¡fácil de olvidar! El compilador no te avisa
 var agentResult = await service.RunAgentAsync(goal);  // ← falta fecha, bug silencioso
@@ -220,7 +220,7 @@ Si falta alguna de las tres condiciones, una herramienta más simple es la respu
 
 La esencia de `AIRequestContext` no es "usado solo una vez" sino **"nunca contamina el estado permanente"**. `SystemMessageProvider` es una factoría que **re-ejecuta el callback en cada petición**, produciendo **un nuevo `AIRequestContext` acotado a esa petición**. El contexto resultante sigue siendo per-request scoped, el valor nunca se filtra al historial de conversación, y en la siguiente llamada el callback vuelve a ejecutarse reflejando el valor **de ese momento**. Así que el provider no viola el principio de diseño de `AIRequestContext` — simplemente **lo automatiza**.
 
-En concreto, registrar el provider de abajo **no** modifica `service.SystemMessage` ni `service.Messages`:
+En concreto, registrar el provider de abajo **no** modifica `service.SystemMessage` ni `service.ActivateChat.Messages`:
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

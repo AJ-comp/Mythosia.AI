@@ -176,8 +176,8 @@ var store = new QdrantStore(new QdrantOptions
 var ragService = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .UseStore(store)
-        .UseOpenAIEmbedding(embeddingKey, http)
-        .AddDirectory("docs/", ".txt", ".md")
+        .UseOpenAIEmbedding(embeddingKey)
+        .AddDocuments("docs/")
     );
 
 var answer = await ragService.GetCompletionAsync("返品ポリシーは何ですか？");

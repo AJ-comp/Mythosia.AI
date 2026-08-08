@@ -4,7 +4,7 @@ namespace Mythosia.AI.Exceptions
     /// Thrown when the provider rejects a request because the prompt exceeds the model's
     /// context window.
     /// <para>
-    /// This is usually a <b>recoverable</b> condition: <see cref="Services.Base.AIService"/> catches
+    /// This is usually a <b>recoverable</b> condition: the core <c>AIService</c> catches
     /// it, compacts the conversation, and retries. When it does reach the caller,
     /// <see cref="RecoverySkipReason"/> says why recovery could not save it — no conversation policy,
     /// nothing left to compact, a tool had already run, the retry budget ran out, and so on. A null

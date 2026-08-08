@@ -9,16 +9,22 @@ GPT-5.x- und o3-Serienmodelle unterstützen die Steuerung des Reasoning-Aufwands
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6: Sol ist das Flaggschiff; Terra und Luna sind kostengünstigere Optionen.
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // GPT-5.4-Serie
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2-Serie
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### Bildgenerierung
 
 ```csharp
-// Bild als Bytes erhalten
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "Eine futuristische Stadt bei Nacht",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "Eine futuristische Stadt bei Nacht",
+        Size = "1024x1024"
+    });
 
-// Bild als URL erhalten
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "Eine futuristische Stadt bei Nacht",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -68,7 +73,7 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ### Token-Zählung (Native API)
 
-`GetInputTokenCountAsync` ist bei allen Anbietern verfügbar (siehe [Textvervollständigung](completions.md#token-zahlung)). Anthropics Implementierung ruft den offiziellen `messages/count_tokens`-Endpunkt auf und liefert **exakte** Token-Zahlen statt lokaler Schätzungen:
+`GetInputTokenCountAsync` ist bei allen Anbietern verfügbar (siehe [Textvervollständigung](completions.md#token-zählung)). Anthropics Implementierung ruft den offiziellen `messages/count_tokens`-Endpunkt auf und liefert **exakte** Token-Zahlen statt lokaler Schätzungen:
 
 ```csharp
 uint tokens = await service.GetInputTokenCountAsync("Dein Prompt hier");
@@ -101,8 +106,8 @@ Höhere Stufen produzieren gründlichere Antworten, erhöhen aber Latenz und Tok
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// Optionen: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// Optionen: Auto, None, Low, Medium, High (modellabhängig)
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 Verfügbare Modelle: `QwenMax`, `QwenPlus`, `QwenTurbo`, `Qwen3` und Varianten.
 
-Die Eigenschaft `EndpointPlatform` ermöglicht den Wechsel zwischen Alibaba Cloud und kompatiblen Endpunkten:
+Wähle beim Erstellen des Dienstes mit `EndpointPlatform` einen kompatiblen Endpunkt aus:
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

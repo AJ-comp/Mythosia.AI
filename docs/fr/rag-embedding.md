@@ -81,10 +81,9 @@ Fournisseur léger basé sur le hachage de caractéristiques, sans clé API ni s
 Lors de l'indexation, les chunks sont traités par lots pour éviter un seul appel API massif :
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // par défaut : 100 chunks par appel
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // par défaut : 100 chunks par appel
+pipeline.Options = options;
 ```
 
 ## Dimensions

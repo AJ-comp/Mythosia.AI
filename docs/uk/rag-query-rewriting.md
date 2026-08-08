@@ -19,8 +19,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithQueryRewriter()             // Використовує той самий AI-сервіс
-    .WithQueryRewriteMaxTokens(250)  // Ліміт токенів на переписування
+    .WithQueryRewriter(250)          // Використовує той самий AI-сервіс
     .AddDocument("docs.txt")
 )
 ```

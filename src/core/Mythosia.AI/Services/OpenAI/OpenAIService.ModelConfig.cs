@@ -21,6 +21,10 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 ConfigureO3Parameters(requestBody, model);
             }
+            else if (IsGpt5_6Model(model))
+            {
+                ConfigureGpt5_6Parameters(requestBody);
+            }
             else if (IsGpt5_5Model(model))
             {
                 ConfigureGpt5_5Parameters(requestBody, model);
@@ -84,15 +88,17 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureO3Parameters(Dictionary<string, object> requestBody, string model)
         {
-            // o3 models use nested reasoning object
-            if (model == "o3-pro")
-            {
-                requestBody["reasoning"] = new { effort = "high" };
-            }
-            else if (model == "o3")
-            {
-                requestBody["reasoning"] = new { effort = "medium" };
-            }
+            var resolvedEffort = Gpt5ReasoningEffort;
+            if (resolvedEffort == Gpt5Reasoning.Auto)
+                resolvedEffort = model == "o3-pro" ? Gpt5Reasoning.High : Gpt5Reasoning.Medium;
+            else if (resolvedEffort == Gpt5Reasoning.Minimal)
+                resolvedEffort = Gpt5Reasoning.Low;
+
+            var effort = resolvedEffort.ToString().ToLowerInvariant();
+            var summary = O3ReasoningSummary?.ToString().ToLowerInvariant();
+            requestBody["reasoning"] = summary != null
+                ? (object)new { effort = effort, summary = summary }
+                : new { effort = effort };
 
             // Remove incorrect parameter if it exists
             requestBody.Remove("reasoning_effort");
@@ -132,28 +138,6 @@ namespace Mythosia.AI.Services.OpenAI
                 requestBody["text"] = new { format = new { type = "text" } };
             }
 
-            // GPT-5 uses max_output_tokens instead of max_tokens
-            // IMPORTANT: reasoning tokens consume from the max_output_tokens budget.
-            // If the limit is too low, GPT-5 may exhaust all tokens on reasoning
-            // and produce no text output (status: "incomplete").
-            const int Gpt5MinOutputTokens = 4096;
-
-            if (requestBody.ContainsKey("max_tokens"))
-            {
-                requestBody.Remove("max_tokens");
-            }
-
-            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
-                currentMax is int currentMaxInt && currentMaxInt < Gpt5MinOutputTokens)
-            {
-                Console.WriteLine($"[GPT-5] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
-                    $"Adjusting to {Gpt5MinOutputTokens} to ensure room for both reasoning and text output.");
-                requestBody["max_output_tokens"] = Gpt5MinOutputTokens;
-            }
-            else if (!requestBody.ContainsKey("max_output_tokens"))
-            {
-                requestBody["max_output_tokens"] = Gpt5MinOutputTokens;
-            }
         }
 
         /// <summary>
@@ -173,59 +157,24 @@ namespace Mythosia.AI.Services.OpenAI
                     : new { effort = effort };
             }
 
-            if (!requestBody.ContainsKey("text"))
-            {
-                var verbosity = (Gpt5_1Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
-                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
-            }
-
-            // GPT-5.1 uses max_output_tokens instead of max_tokens
-            const int Gpt5_1MinOutputTokens = 4096;
-
-            if (requestBody.ContainsKey("max_tokens"))
-            {
-                requestBody.Remove("max_tokens");
-            }
-
-            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
-                currentMax is int currentMaxInt && currentMaxInt < Gpt5_1MinOutputTokens)
-            {
-                Console.WriteLine($"[GPT-5.1] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
-                    $"Adjusting to {Gpt5_1MinOutputTokens} to ensure room for both reasoning and text output.");
-                requestBody["max_output_tokens"] = Gpt5_1MinOutputTokens;
-            }
-            else if (!requestBody.ContainsKey("max_output_tokens"))
-            {
-                requestBody["max_output_tokens"] = Gpt5_1MinOutputTokens;
-            }
+            SetTextVerbosity(requestBody, Gpt5_1Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
         /// Configures GPT-5.2 specific parameters.
         /// GPT-5.2 supports reasoning effort: none (default), low, medium, high, xhigh.
         /// GPT-5.2 Pro supports reasoning effort: medium, high, xhigh.
-        /// GPT-5.2 Codex supports reasoning effort: low, medium (default), high, xhigh.
         /// GPT-5.2 supports text verbosity: low, medium (default), high.
         /// </summary>
         private void ConfigureGpt5_2Parameters(Dictionary<string, object> requestBody, string model)
         {
-            bool isCodex = IsGpt5_2CodexModel(model);
             var resolvedEffort = Gpt5_2ReasoningEffort;
             if (resolvedEffort == Gpt5_2Reasoning.Auto)
             {
                 if (model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase))
                     resolvedEffort = Gpt5_2Reasoning.Medium;
-                else if (isCodex)
-                    resolvedEffort = Gpt5_2Reasoning.Medium;
                 else
                     resolvedEffort = Gpt5_2Reasoning.None;
-            }
-
-            // GPT-5.2 Codex does not support 'none' reasoning effort
-            if (isCodex && resolvedEffort == Gpt5_2Reasoning.None)
-            {
-                Console.WriteLine("[GPT-5.2 Codex] 'none' reasoning effort is not supported. Adjusting to 'low'.");
-                resolvedEffort = Gpt5_2Reasoning.Low;
             }
 
             // GPT-5.2 Pro supports only medium/high/xhigh; 'none' and 'low' return HTTP 400.
@@ -246,38 +195,13 @@ namespace Mythosia.AI.Services.OpenAI
                     : new { effort = effort };
             }
 
-            if (!requestBody.ContainsKey("text"))
-            {
-                var verbosity = (Gpt5_2Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
-                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
-            }
-
-            // GPT-5.2 uses max_output_tokens instead of max_tokens
-            const int Gpt5_2MinOutputTokens = 4096;
-
-            if (requestBody.ContainsKey("max_tokens"))
-            {
-                requestBody.Remove("max_tokens");
-            }
-
-            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
-                currentMax is int currentMaxInt && currentMaxInt < Gpt5_2MinOutputTokens)
-            {
-                Console.WriteLine($"[GPT-5.2] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
-                    $"Adjusting to {Gpt5_2MinOutputTokens} to ensure room for both reasoning and text output.");
-                requestBody["max_output_tokens"] = Gpt5_2MinOutputTokens;
-            }
-            else if (!requestBody.ContainsKey("max_output_tokens"))
-            {
-                requestBody["max_output_tokens"] = Gpt5_2MinOutputTokens;
-            }
+            SetTextVerbosity(requestBody, Gpt5_2Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
         /// Configures GPT-5.3 specific parameters.
         /// GPT-5.3 Codex supports reasoning effort: low, medium (default), high, xhigh.
         /// GPT-5.3 Codex Spark uses simplified config with lower defaults.
-        /// GPT-5.3 Instant (chat-latest) is a conversation model.
         /// GPT-5.3 supports text verbosity: low, medium (default), high.
         /// </summary>
         private void ConfigureGpt5_3Parameters(Dictionary<string, object> requestBody, string model)
@@ -308,31 +232,7 @@ namespace Mythosia.AI.Services.OpenAI
                     : new { effort = effort };
             }
 
-            if (!requestBody.ContainsKey("text"))
-            {
-                var verbosity = (Gpt5_3Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
-                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
-            }
-
-            // GPT-5.3 uses max_output_tokens instead of max_tokens
-            const int Gpt5_3MinOutputTokens = 4096;
-
-            if (requestBody.ContainsKey("max_tokens"))
-            {
-                requestBody.Remove("max_tokens");
-            }
-
-            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
-                currentMax is int currentMaxInt && currentMaxInt < Gpt5_3MinOutputTokens)
-            {
-                Console.WriteLine($"[GPT-5.3] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
-                    $"Adjusting to {Gpt5_3MinOutputTokens} to ensure room for both reasoning and text output.");
-                requestBody["max_output_tokens"] = Gpt5_3MinOutputTokens;
-            }
-            else if (!requestBody.ContainsKey("max_output_tokens"))
-            {
-                requestBody["max_output_tokens"] = Gpt5_3MinOutputTokens;
-            }
+            SetTextVerbosity(requestBody, Gpt5_3Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -370,37 +270,13 @@ namespace Mythosia.AI.Services.OpenAI
                     : new { effort = effort };
             }
 
-            if (!requestBody.ContainsKey("text"))
-            {
-                var verbosity = (Gpt5_4Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
-                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
-            }
-
-            // GPT-5.4 uses max_output_tokens instead of max_tokens
-            const int Gpt5_4MinOutputTokens = 4096;
-
-            if (requestBody.ContainsKey("max_tokens"))
-            {
-                requestBody.Remove("max_tokens");
-            }
-
-            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
-                currentMax is int currentMaxInt && currentMaxInt < Gpt5_4MinOutputTokens)
-            {
-                Console.WriteLine($"[GPT-5.4] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
-                    $"Adjusting to {Gpt5_4MinOutputTokens} to ensure room for both reasoning and text output.");
-                requestBody["max_output_tokens"] = Gpt5_4MinOutputTokens;
-            }
-            else if (!requestBody.ContainsKey("max_output_tokens"))
-            {
-                requestBody["max_output_tokens"] = Gpt5_4MinOutputTokens;
-            }
+            SetTextVerbosity(requestBody, Gpt5_4Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
         /// Configures GPT-5.5 specific parameters.
-        /// GPT-5.5 supports reasoning effort: none (default), low, medium, high, xhigh.
-        /// GPT-5.5 Pro supports reasoning effort: medium, high, xhigh.
+        /// GPT-5.5 supports reasoning effort: none, low, medium (default), high, xhigh.
+        /// GPT-5.5 Pro supports reasoning effort: medium, high (default), xhigh.
         /// GPT-5.5 supports text verbosity: low, medium (default), high.
         /// </summary>
         private void ConfigureGpt5_5Parameters(Dictionary<string, object> requestBody, string model)
@@ -408,10 +284,9 @@ namespace Mythosia.AI.Services.OpenAI
             var resolvedEffort = Gpt5_5ReasoningEffort;
             if (resolvedEffort == Gpt5_5Reasoning.Auto)
             {
-                if (model.StartsWith("gpt-5.5-pro", StringComparison.OrdinalIgnoreCase))
-                    resolvedEffort = Gpt5_5Reasoning.Medium;
-                else
-                    resolvedEffort = Gpt5_5Reasoning.None;
+                resolvedEffort = model.StartsWith("gpt-5.5-pro", StringComparison.OrdinalIgnoreCase)
+                    ? Gpt5_5Reasoning.High
+                    : Gpt5_5Reasoning.Medium;
             }
 
             // GPT-5.5 Pro supports only medium/high/xhigh; 'none' and 'low' return HTTP 400.
@@ -432,30 +307,60 @@ namespace Mythosia.AI.Services.OpenAI
                     : new { effort = effort };
             }
 
-            if (!requestBody.ContainsKey("text"))
+            SetTextVerbosity(requestBody, Gpt5_5Verbosity ?? Verbosity.Medium);
+        }
+
+        /// <summary>
+        /// Configures GPT-5.6 specific parameters.
+        /// GPT-5.6 supports reasoning effort: none, low, medium (default), high, xhigh, max.
+        /// Pro is selected with reasoning.mode rather than a separate model ID.
+        /// GPT-5.6 supports text verbosity: low, medium (default), high.
+        /// </summary>
+        private void ConfigureGpt5_6Parameters(Dictionary<string, object> requestBody)
+        {
+            var resolvedEffort = Gpt5_6ReasoningEffort == Gpt5_6Reasoning.Auto
+                ? Gpt5_6Reasoning.Medium
+                : Gpt5_6ReasoningEffort;
+
+            if (!requestBody.ContainsKey("reasoning"))
             {
-                var verbosity = (Gpt5_5Verbosity ?? Verbosity.Medium).ToString().ToLowerInvariant();
-                requestBody["text"] = new { format = new { type = "text" }, verbosity = verbosity };
+                var reasoning = new Dictionary<string, object>
+                {
+                    ["effort"] = resolvedEffort.ToString().ToLowerInvariant(),
+                    // Mythosia reconstructs conversation history locally instead of using
+                    // previous_response_id. Keep reasoning scoped to the active turn; tool
+                    // continuations still replay every output item from that turn.
+                    ["context"] = "current_turn"
+                };
+
+                var summary = Gpt5_6ReasoningSummary?.ToString().ToLowerInvariant();
+                if (summary != null)
+                    reasoning["summary"] = summary;
+
+                if (Gpt5_6ReasoningMode == global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Pro)
+                    reasoning["mode"] = "pro";
+
+                requestBody["reasoning"] = reasoning;
             }
 
-            // GPT-5.5 uses max_output_tokens instead of max_tokens
-            const int Gpt5_5MinOutputTokens = 4096;
+            SetTextVerbosity(requestBody, Gpt5_6Verbosity ?? Verbosity.Medium);
+        }
 
-            if (requestBody.ContainsKey("max_tokens"))
+        private static void SetTextVerbosity(Dictionary<string, object> requestBody, Verbosity verbosity)
+        {
+            var serializedVerbosity = verbosity.ToString().ToLowerInvariant();
+            if (requestBody.TryGetValue("text", out var existingText) &&
+                existingText is IDictionary<string, object> text)
             {
-                requestBody.Remove("max_tokens");
+                text["verbosity"] = serializedVerbosity;
             }
-
-            if (requestBody.TryGetValue("max_output_tokens", out var currentMax) &&
-                currentMax is int currentMaxInt && currentMaxInt < Gpt5_5MinOutputTokens)
+            else if (!requestBody.ContainsKey("text"))
             {
-                Console.WriteLine($"[GPT-5.5] max_output_tokens {currentMaxInt} is too low for reasoning models. " +
-                    $"Adjusting to {Gpt5_5MinOutputTokens} to ensure room for both reasoning and text output.");
-                requestBody["max_output_tokens"] = Gpt5_5MinOutputTokens;
-            }
-            else if (!requestBody.ContainsKey("max_output_tokens"))
-            {
-                requestBody["max_output_tokens"] = Gpt5_5MinOutputTokens;
+                requestBody["text"] = new Dictionary<string, object>
+                {
+                    ["format"] = new Dictionary<string, object> { ["type"] = "text" },
+                    ["verbosity"] = serializedVerbosity
+                };
             }
         }
 
@@ -515,7 +420,7 @@ namespace Mythosia.AI.Services.OpenAI
         #region Model Detection Helpers
 
         /// <summary>
-        /// Matches the entire GPT-5 family: gpt-5, gpt-5.1, gpt-5.2, gpt-5.3 and all variants.
+        /// Matches the entire GPT-5 family, including versioned variants through GPT-5.6.
         /// Used for shared behaviors like New API endpoint, unsupported parameters.
         /// </summary>
         private bool IsGpt5Family(string model)
@@ -524,8 +429,8 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches only GPT-5 base models: gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-chat-latest, etc.
-        /// Excludes gpt-5.1, gpt-5.2, and gpt-5.3 variants.
+        /// Matches only GPT-5 base models: gpt-5, gpt-5-mini, gpt-5-nano, and snapshots.
+        /// Excludes decimal-versioned variants such as gpt-5.1 through gpt-5.6.
         /// </summary>
         private bool IsGpt5Model(string model)
         {
@@ -534,7 +439,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches GPT-5.1 models: gpt-5.1, gpt-5.1-chat-latest, etc.
+        /// Matches GPT-5.1 models and snapshots.
         /// </summary>
         private bool IsGpt5_1Model(string model)
         {
@@ -542,7 +447,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches GPT-5.2 models: gpt-5.2, gpt-5.2-pro, gpt-5.2-codex, gpt-5.2-chat-latest, etc.
+        /// Matches GPT-5.2 models: gpt-5.2, gpt-5.2-pro, and their snapshots.
         /// </summary>
         private bool IsGpt5_2Model(string model)
         {
@@ -550,7 +455,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches GPT-5.3 models: gpt-5.3-codex, gpt-5.3-chat-latest, etc.
+        /// Matches GPT-5.3 models and snapshots.
         /// </summary>
         private bool IsGpt5_3Model(string model)
         {
@@ -574,12 +479,11 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches GPT-5.2 Codex models: gpt-5.2-codex and its snapshots.
-        /// Codex supports reasoning effort: low, medium (default), high, xhigh (no 'none').
+        /// Matches GPT-5.6 alias and Sol, Terra, and Luna variants.
         /// </summary>
-        private bool IsGpt5_2CodexModel(string model)
+        private bool IsGpt5_6Model(string model)
         {
-            return model.StartsWith("gpt-5.2-codex", StringComparison.OrdinalIgnoreCase);
+            return model.StartsWith("gpt-5.6", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

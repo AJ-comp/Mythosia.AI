@@ -72,14 +72,14 @@ var response = await service.GetCompletionAsync("返金ポリシーは何です�
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // ローカルファイル
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("インラインコンテンツもここに追加できます。")   // 生の文字列
 )
 ```
 
 ## カスタム埋め込みプロバイダー
 
-デフォルトではAIサービスのプロバイダーを埋め込みにも使用します。埋め込み専用のモデルを別途指定したい場合は次のように設定します：
+デフォルトでは組み込みのローカル埋め込みプロバイダーを使用します。埋め込み専用のモデルを別途指定したい場合は次のように設定します：
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -88,7 +88,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -104,11 +104,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -120,11 +124,14 @@ var service = new OpenAIService(apiKey, http)
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,               // 取得するチャンク数（デフォルト5個）
-    ScoreThreshold = 0.7f   // このスコア以上のチャンクのみ取得
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,           // 取得するチャンク数（デフォルト5個）
+        MinScore = 0.7      // このスコア以上のチャンクのみ取得
+    }
 };
 
-var response = await service.GetCompletionAsync("質問", ragOptions: options);
+var response = await service.GetCompletionAsync("質問", options: options);
 ```
 
 ## 次のステップ

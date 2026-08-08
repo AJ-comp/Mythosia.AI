@@ -42,7 +42,7 @@ Uses a locally hosted vLLM reranking endpoint:
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -55,14 +55,14 @@ Control how many candidates are retrieved and how they are filtered before final
 .WithRag(rag => rag
     .WithTopK(5)                   // Final number of chunks returned
     .WithRetrievalMultiplier(3)    // Retrieve topK × 3 candidates (for reranking)
-    .WithMinScore(0.6)             // Minimum similarity score
+    .WithScoreThreshold(0.6)       // Minimum similarity score
     .AddDocument("corpus.txt")
 )
 ```
 
 - **`TopK`** — how many chunks end up in the LLM context
 - **`RetrievalMultiplier`** — cast a wider net so the reranker has more to work with. A multiplier of 3 means 15 candidates are fetched, then the best 5 survive reranking.
-- **`MinScore`** — discard anything below this similarity threshold, even if fewer than `TopK` chunks remain
+- **`WithScoreThreshold`** — discard anything below this similarity threshold, even if fewer than `TopK` chunks remain
 
 ## Final Selection Mode
 

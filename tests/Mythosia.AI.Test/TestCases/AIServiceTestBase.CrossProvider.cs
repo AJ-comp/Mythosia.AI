@@ -4,7 +4,6 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
-using Mythosia.Azure;
 using System.Text.Json;
 
 namespace Mythosia.AI.Tests;
@@ -80,8 +79,7 @@ public async Task ToClaude()
             var messageCountBefore = AI.ActivateChat.Messages.Count;
 
             // Claude 모델로 변경
-            var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret");
-            string apiKey = await secretFetcher.GetKeyValueAsync();
+            string apiKey = await LiveTestSecrets.GetAsync("momedit-antropic-secret");
 
             var newService = new AnthropicService(apiKey, new HttpClient()).CopyFrom(AI);
             newService.ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
@@ -185,7 +183,7 @@ public async Task ToGpt4o()
             Console.WriteLine($"\n[Phase 1] Executing functions with {AI.Provider}");
             
             var response1 = await AI.GetCompletionAsync(
-                "What's the weather in Seoul? And calculate the distance from coordinates 37.5, 127.0"
+                "You must call get_weather with city='Seoul' and calculate_distance with lat1=37.5 and lon1=127.0. Use the returned values in your answer."
             );
             
             Console.WriteLine($"Response: {response1}");
@@ -216,8 +214,7 @@ public async Task ToGpt4o()
             var messageCountBefore = AI.ActivateChat.Messages.Count;
 
             // OpenAI 모델로 변경 (Legacy API)
-            var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
-            string openAiKey = await secretFetcher.GetKeyValueAsync();
+            string openAiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
 
             var chatGptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
             chatGptService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
@@ -334,7 +331,7 @@ public async Task ToGpt4o()
                 Console.WriteLine($"\n[Phase 1] Executing functions with {AI.Provider}");
 
                 var response1 = await AI.GetCompletionAsync(
-                    "What's the weather in Seoul? And calculate the distance from coordinates 37.5, 127.0"
+                    "You must call get_weather with city='Seoul' and calculate_distance with lat1=37.5 and lon1=127.0. Use the returned values in your answer."
                 );
 
                 Console.WriteLine($"Response: {response1}");
@@ -362,8 +359,7 @@ public async Task ToGpt4o()
                 var messageCountBefore = AI.ActivateChat.Messages.Count;
 
                 // OpenAI 모델로 변경 (Legacy API)
-                var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
-                string openAiKey = await secretFetcher.GetKeyValueAsync();
+                string openAiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
 
                 var chatGptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
                 chatGptService.ChangeModel(AIModels.OpenAI.O3);
@@ -475,8 +471,7 @@ public async Task ToGpt4o()
 
                 // Phase 2: Claude로 전환
                 Console.WriteLine($"\n========== [Phase 2] Switching to Claude ==========");
-                var claudeKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret")
-                    .GetKeyValueAsync();
+                var claudeKey = await LiveTestSecrets.GetAsync("momedit-antropic-secret");
                 var claudeService = new AnthropicService(claudeKey, new HttpClient()).CopyFrom(AI);
                 claudeService.ChangeModel(AIModels.Anthropic.ClaudeHaiku4_5_251001);
 
@@ -496,8 +491,7 @@ public async Task ToGpt4o()
 
                 // Phase 3: ChatGPT로 전환
                 Console.WriteLine($"\n========== [Phase 3] Switching to ChatGPT ==========");
-                var openAiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret")
-                    .GetKeyValueAsync();
+                var openAiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
                 var gptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(claudeService);
                 gptService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
 
@@ -511,8 +505,7 @@ public async Task ToGpt4o()
 
                 // Phase 4: Gemini 2.5로 전환
                 Console.WriteLine($"\n========== [Phase 4] Switching to Gemini 2.5 ==========");
-                var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret")
-                    .GetKeyValueAsync();
+                var geminiKey = await LiveTestSecrets.GetAsync("gemini-secret");
                 var geminiService = new GoogleAIService(geminiKey, new HttpClient()).CopyFrom(gptService);
                 geminiService.ChangeModel(AIModels.Google.Gemini2_5Flash);
 
@@ -561,8 +554,7 @@ public async Task ToGpt4o()
 
                 // Phase 2: Function OFF로 전환 후 Claude로 CopyFrom
                 Console.WriteLine($"\n========== [Phase 2] Switch to Claude with Functions DISABLED ==========");
-                var claudeKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-antropic-secret")
-                    .GetKeyValueAsync();
+                var claudeKey = await LiveTestSecrets.GetAsync("momedit-antropic-secret");
                 var claudeService = new AnthropicService(claudeKey, new HttpClient()).CopyFrom(AI);
                 claudeService.ChangeModel(AIModels.Anthropic.ClaudeHaiku4_5_251001);
                 claudeService.FunctionsDisabled = true;  // Function OFF
@@ -593,8 +585,7 @@ public async Task ToGpt4o()
 
                 // Phase 3: Function OFF로 ChatGPT Legacy API (gpt-4o-mini) 전환
                 Console.WriteLine($"\n========== [Phase 3] Switch to ChatGPT Legacy (gpt-4o-mini) with Functions DISABLED ==========");
-                var openAiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret")
-                    .GetKeyValueAsync();
+                var openAiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
                 var gptLegacyService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
                 gptLegacyService.ChangeModel(AIModels.OpenAI.Gpt4oMini);
                 gptLegacyService.FunctionsDisabled = true;
@@ -639,8 +630,7 @@ public async Task ToGpt4o()
 
                 // Phase 5: Function OFF로 Gemini 전환
                 Console.WriteLine($"\n========== [Phase 5] Switch to Gemini with Functions DISABLED ==========");
-                var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret")
-                    .GetKeyValueAsync();
+                var geminiKey = await LiveTestSecrets.GetAsync("gemini-secret");
                 var geminiService = new GoogleAIService(geminiKey, new HttpClient()).CopyFrom(AI);
                 geminiService.ChangeModel(AIModels.Google.Gemini2_5Flash);
                 geminiService.FunctionsDisabled = true;
@@ -704,8 +694,7 @@ public async Task ToGpt4o()
 
                 // Phase 2: Gemini 3로 전환 (ThoughtSignature 없는 function 이력 포함)
                 Console.WriteLine($"\n========== [Phase 2] Switch to Gemini 3 Flash ==========");
-                var geminiKey = await new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "gemini-secret")
-                    .GetKeyValueAsync();
+                var geminiKey = await LiveTestSecrets.GetAsync("gemini-secret");
                 var geminiService = new GoogleAIService(geminiKey, new HttpClient()).CopyFrom(AI);
                 geminiService.ChangeModel(AIModels.Google.Gemini3FlashPreview);
 
@@ -717,30 +706,36 @@ public async Task ToGpt4o()
                     Console.WriteLine($"[Phase 2 Gemini 3] {response2}");
                     Console.WriteLine("✅ Gemini 3 accepted function history without ThoughtSignature");
                 }
-                catch (Exception ex)
+                catch (AIServiceException ex) when (IsMissingThoughtSignatureError(ex))
                 {
                     Console.WriteLine($"⚠️ Gemini 3 REJECTED function history without ThoughtSignature:");
                     Console.WriteLine($"   {ex.Message}");
-                    // Don't Assert.Fail - this documents the known limitation
                     Console.WriteLine("   → This confirms ThoughtSignature is required for Gemini 3 cross-provider switching");
                 }
 
                 // Phase 3: Gemini 3에서 새 function 호출도 시도
                 Console.WriteLine($"\n========== [Phase 3] New function call with Gemini 3 ==========");
-                try
-                {
-                    var response3 = await geminiService.GetCompletionAsync(
-                        "Now check the weather in London");
-                    Console.WriteLine($"[Phase 3 Gemini 3 new func] {response3}");
-                    Console.WriteLine("✅ Gemini 3 new function call successful");
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"⚠️ Gemini 3 new function call failed: {ex.Message}");
-                }
+                var response3 = await geminiService.GetCompletionAsync(
+                    "Now check the weather in London");
+                Assert.IsFalse(
+                    string.IsNullOrWhiteSpace(response3),
+                    "Gemini 3 returned an empty response for a new function-call request.");
+                Console.WriteLine($"[Phase 3 Gemini 3 new func] {response3}");
+                Console.WriteLine("✅ Gemini 3 new function call successful");
             },
             "Cross-Provider to Gemini 3 ThoughtSignature Test"
         );
+    }
+
+    private static bool IsMissingThoughtSignatureError(AIServiceException exception)
+    {
+        var diagnostic = $"{exception.Message} {exception.ErrorDetails}";
+        var normalized = diagnostic
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+
+        return normalized.Contains("thoughtsignature", StringComparison.OrdinalIgnoreCase);
     }
 
 }

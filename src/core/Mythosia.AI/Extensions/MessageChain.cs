@@ -17,7 +17,7 @@ namespace Mythosia.AI.Extensions
     {
         private readonly AIService _service;
         private readonly MessageBuilder _builder;
-        private FunctionCallingPolicy _customPolicy;
+        private FunctionCallingPolicy? _customPolicy;
 
         internal MessageChain(AIService service)
         {

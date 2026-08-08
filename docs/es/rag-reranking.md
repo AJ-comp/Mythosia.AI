@@ -38,7 +38,7 @@ Usa un endpoint de reranking vLLM hospedado localmente:
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -49,14 +49,14 @@ Usa un endpoint de reranking vLLM hospedado localmente:
 .WithRag(rag => rag
     .WithTopK(5)                   // Número final de chunks devueltos
     .WithRetrievalMultiplier(3)    // Recupera topK × 3 candidatos (para re-ranking)
-    .WithMinScore(0.6)             // Puntuación mínima de similitud
+    .WithScoreThreshold(0.6)       // Puntuación mínima de similitud
     .AddDocument("corpus.txt")
 )
 ```
 
 - **`TopK`** — cuántos chunks llegan al contexto del LLM
 - **`RetrievalMultiplier`** — lanza una red más amplia para que el re-ranker tenga más con qué trabajar. Un multiplicador de 3 significa que se recuperan 15 candidatos y los 5 mejores sobreviven al re-ranking.
-- **`MinScore`** — descarta todo por debajo de este umbral de similitud
+- **`WithScoreThreshold`** — descarta todo por debajo de este umbral de similitud
 
 ## Modo de Selección Final
 

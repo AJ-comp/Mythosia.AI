@@ -13,7 +13,7 @@ var reply = await service.GetCompletionAsync("私の好きな色は何ですか�
 新しく始めるには:
 
 ```csharp
-service.ClearMessages();
+service.ActivateChat.ClearMessages();
 ```
 
 ## 要約ポリシー

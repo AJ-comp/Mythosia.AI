@@ -33,9 +33,9 @@ namespace Mythosia.AI.Protocols
         public abstract HttpRequestMessage CreateFunctionRequest(string apiKey, object requestBody);
 
         /// <summary>
-        /// Extracts a function call (if any) from the API response JSON.
+        /// Extracts every function call from one API response JSON payload.
         /// </summary>
-        public abstract (string content, FunctionCall? functionCall) ExtractFunctionCall(string responseJson);
+        public abstract (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string responseJson);
 
         /// <summary>
         /// Builds the request body for a standard completion request.

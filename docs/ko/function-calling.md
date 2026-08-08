@@ -57,21 +57,25 @@ var response = await service.GetCompletionAsync("서울 날씨가 어때요?");
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "상품 카탈로그를 검색합니다")]
-public static string SearchProducts(
-    [AiParameter("검색 쿼리", required: true)] string query,
-    [AiParameter("최대 결과 수")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... 구현
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "상품 카탈로그를 검색합니다")]
+    public string SearchProducts(
+        [AiParameter("검색 쿼리", required: true)] string query,
+        [AiParameter("최대 결과 수")] int limit = 5)
+    {
+        // ... 구현
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 그런 다음 등록합니다:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## 함수 호출 정책
@@ -82,13 +86,13 @@ service.AddFunction(SearchProducts);
 using Mythosia.AI.Models.Functions;
 
 // 모델이 판단 (기본값)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // 항상 함수를 호출하도록 강제
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // 함수 호출 비활성화
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## 클래스에서 일괄 등록
@@ -140,11 +144,14 @@ service.WithoutFunctions();  // FunctionsDisabled = true 설정
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "현재 주가를 반환합니다")
-    .AddParameter("ticker", "주식 티커 심볼", required: true)
+    .Create("get_stock_price")
+    .WithDescription("현재 주가를 반환합니다")
+    .AddParameter("ticker", "string", "주식 티커 심볼", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

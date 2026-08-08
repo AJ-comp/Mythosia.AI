@@ -9,16 +9,22 @@ GPT-5.x และ o3 series รองรับการควบคุมระ�
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6: Sol เป็นรุ่นเรือธง ส่วน Terra และ Luna เป็นตัวเลือกที่ประหยัดกว่า
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // GPT-5.4 series
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2 series
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### สร้างภาพ
 
 ```csharp
-// รับภาพเป็น bytes
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "เมืองแห่งอนาคตในยามค่ำคืน",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "เมืองแห่งอนาคตในยามค่ำคืน",
+        Size = "1024x1024"
+    });
 
-// รับภาพเป็น URL
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "เมืองแห่งอนาคตในยามค่ำคืน",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -68,7 +73,7 @@ string imageUrl = await service.GenerateImageUrlAsync(
 
 ### การนับ Token (Native API)
 
-`GetInputTokenCountAsync` ใช้ได้กับทุก provider (ดู [การสร้างข้อความ](completions.md#token-counting)) การ implement ของ Anthropic เรียก endpoint `messages/count_tokens` โดยตรง คืนค่า **จำนวน token ที่แม่นยำ** ไม่ใช่การประมาณ:
+`GetInputTokenCountAsync` ใช้ได้กับทุก provider (ดู [การสร้างข้อความ](completions.md#การนบ-token)) การ implement ของ Anthropic เรียก endpoint `messages/count_tokens` โดยตรง คืนค่า **จำนวน token ที่แม่นยำ** ไม่ใช่การประมาณ:
 
 ```csharp
 uint tokens = await service.GetInputTokenCountAsync("prompt ของคุณ");
@@ -101,8 +106,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// ตัวเลือก: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// ตัวเลือก: Auto, None, Low, Medium, High (ขึ้นอยู่กับโมเดล)
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 Model ที่ใช้ได้: `QwenMax`, `QwenPlus`, `QwenTurbo`, `Qwen3` และ variant อื่น ๆ
 
-Property `EndpointPlatform` ให้สลับระหว่าง Alibaba Cloud และ endpoint ที่รองรับ:
+เลือก endpoint ที่รองรับด้วย `EndpointPlatform` เมื่อสร้าง service:
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

@@ -33,14 +33,14 @@ Plusieurs types de sources sont pris en charge :
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // fichier local
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("Du contenu inline peut aussi aller ici.")  // chaîne brute
 )
 ```
 
 ## Fournisseur d'embeddings personnalisé
 
-Par défaut, le RAG utilise le fournisseur du service pour les embeddings. Pour utiliser un modèle d'embedding dédié :
+Par défaut, le RAG utilise le fournisseur local d'embeddings intégré. Pour utiliser un modèle d'embedding dédié :
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -49,7 +49,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("base-de-connaissances.txt")
     );
 ```
@@ -65,11 +65,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("grand-corpus.txt")
     );
 ```
@@ -81,11 +85,14 @@ Affinez le comportement de récupération par requête :
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,                  // nombre de passages à récupérer
-    ScoreThreshold = 0.7f      // score de similarité minimum
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,              // nombre de passages à récupérer
+        MinScore = 0.7         // score de similarité minimum
+    }
 };
 
-var response = await service.GetCompletionAsync("Votre question", ragOptions: options);
+var response = await service.GetCompletionAsync("Votre question", options: options);
 ```
 
 ## Prochaines étapes

@@ -31,8 +31,9 @@ namespace Mythosia.AI.Models.Streaming
         public int CachedInputTokens { get; set; }
 
         /// <summary>
-        /// Tokens written to cache for future reuse (Anthropic only).
-        /// Mapped from: Anthropic cache_creation_input_tokens.
+        /// Tokens written to cache for future reuse.
+        /// Mapped from: Anthropic cache_creation_input_tokens,
+        /// OpenAI input_tokens_details.cache_write_tokens.
         /// </summary>
         public int CacheCreationTokens { get; set; }
 

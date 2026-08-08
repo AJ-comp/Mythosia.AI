@@ -1,7 +1,7 @@
 namespace Mythosia.AI.Models
 {
     /// <summary>
-    /// Text verbosity level for GPT-5.1 and GPT-5.2 models.
+    /// Text verbosity level for supported GPT-5 family models.
     /// Controls how verbose the model's text output is.
     /// </summary>
     public enum Verbosity

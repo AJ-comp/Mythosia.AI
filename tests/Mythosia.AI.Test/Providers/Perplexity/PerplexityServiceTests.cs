@@ -2,6 +2,7 @@
 using Mythosia.AI.Models;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.Perplexity;
+using Mythosia.AI.Services;
 using Mythosia.AI.Tests;
 using Mythosia.Azure;
 
@@ -201,19 +202,9 @@ public class PerplexityServiceTests : AIServiceTestBase
     /// Sonar 이미지 생성 미지원 테스트
     /// </summary>
     [TestMethod]
-    public async Task SonarImageGenerationNotSupportedTest()
+    public void SonarImageGenerationNotSupportedTest()
     {
-        try
-        {
-            await AI.GenerateImageAsync("test prompt");
-            Assert.Fail("Should have thrown MultimodalNotSupportedException");
-        }
-        catch (MultimodalNotSupportedException ex)
-        {
-            Assert.AreEqual("Perplexity Sonar", ex.ServiceName);
-            Assert.AreEqual("Image Generation", ex.RequestedFeature);
-            Console.WriteLine($"[Expected Exception] {ex.Message}");
-        }
+        Assert.IsFalse(AI is IImageGenerationService);
     }
 
     /// <summary>

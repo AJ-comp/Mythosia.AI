@@ -17,35 +17,51 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: '9.x'
+          dotnet-version: '10.0.301'
 
       - name: Install DocFX
-        run: dotnet tool install -g docfx
+        run: dotnet tool install -g docfx --version 2.78.5
 
       - name: Restore NuGet packages
-        run: dotnet restore
+        run: dotnet restore Mythosia.AI.slnx
+
+      - name: Verify release documentation and package metadata
+        shell: pwsh
+        run: ./build/test-release-documentation.ps1
+
+      - name: Build the complete solution
+        run: dotnet build Mythosia.AI.slnx --configuration Release --no-restore -p:TreatWarningsAsErrors=true
+
+      - name: Prepare DocFX reference assemblies
+        shell: pwsh
+        run: ./build/prepare-docfx-references.ps1 -NoRestore
 
       - name: Build docs
-        run: docfx docfx.json
+        run: docfx docfx.json --warningsAsErrors
+
+      - name: Verify committed API manifest
+        run: git diff --exit-code -- api/.manifest
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site
 
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

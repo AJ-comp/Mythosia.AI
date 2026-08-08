@@ -50,20 +50,24 @@ var response = await service.GetCompletionAsync("Яка погода в Києв
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "Пошук по каталогу товарів")]
-public static string SearchProducts(
-    [AiParameter("Пошуковий запит", required: true)] string query,
-    [AiParameter("Максимум результатів")] int limit = 5)
+public sealed class ProductFunctions
 {
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "Пошук по каталогу товарів")]
+    public string SearchProducts(
+        [AiParameter("Пошуковий запит", required: true)] string query,
+        [AiParameter("Максимум результатів")] int limit = 5)
+    {
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 Потім зареєструйте:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Політика виклику функцій
@@ -73,9 +77,9 @@ service.AddFunction(SearchProducts);
 ```csharp
 using Mythosia.AI.Models.Functions;
 
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;     // Модель вирішує (за замовчуванням)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required; // Завжди викликати
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;     // Вимкнути
+service.FunctionCallMode = FunctionCallMode.Auto;        // Модель вирішує (за замовчуванням)
+service.ForceFunctionName = "search_products";            // Примусово викликати конкретну функцію
+service.FunctionCallMode = FunctionCallMode.None;        // Вимкнути
 ```
 
 ## Масова реєстрація з класу
@@ -122,11 +126,14 @@ service.WithoutFunctions();  // FunctionsDisabled = true
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "Повертає поточну ціну акції")
-    .AddParameter("ticker", "Тікер акції", required: true)
+    .Create("get_stock_price")
+    .WithDescription("Повертає поточну ціну акції")
+    .AddParameter("ticker", "string", "Тікер акції", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

@@ -94,11 +94,12 @@ ProductDto product = await run.Result;
 控制模型生成结构化输出的严格程度：
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-// 默认：要求模型返回与 Schema 匹配的 JSON
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
+// Strict：最多允许三次自动修复
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 
-// 宽松：给模型更多自由，依赖自动修复
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+// NoRetry：不重试修复，直接返回首次验证错误
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

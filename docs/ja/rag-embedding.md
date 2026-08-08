@@ -87,10 +87,9 @@ var embedder = new VllmEmbeddingProvider(
 ドキュメントのインデックス作成時、パイプラインはチャンクをバッチ単位で埋め込みます。何千ものテキストを一度のAPI呼び出しで送るのを避けるためです。バッチサイズは設定可能です：
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // デフォルト：1回のAPI呼び出しあたり100チャンク
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // デフォルト：1回のAPI呼び出しあたり100チャンク
+pipeline.Options = options;
 ```
 
 バッチサイズが大きいほどAPI呼び出し回数は減りますが、1回あたりのメモリ使用量が増えます。APIのレート制限やメモリの問題が発生する場合は、この値を小さくしてみてください。

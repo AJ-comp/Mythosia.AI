@@ -24,7 +24,6 @@ public abstract class TestModuleBase
     protected virtual bool SupportsFunctionCalling() => true;
     protected virtual bool SupportsArrayParameter() => false;
     protected virtual bool SupportsAudio() => true;
-    protected virtual bool SupportsImageGeneration() => true;
     protected virtual bool SupportsWebSearch() => false;
     protected virtual bool SupportsReasoning() => false;
     protected virtual bool SupportsStructuredOutput() => true;

@@ -216,58 +216,64 @@ public abstract partial class AIServiceTestBase
     [TestMethod]
     public async Task StreamingErrorMetadataTest()
     {
+        if (AI is not Mythosia.AI.Services.Base.AIService aiService)
+        {
+            Assert.Inconclusive("Metadata streaming requires AIService base class");
+            return;
+        }
+
+        var options = StreamOptions.FullOptions;
+        var originalModel = AI.Model;
+        StreamingContent? errorContent = null;
+        Exception? thrownException = null;
+
         try
         {
-            if (AI is not Mythosia.AI.Services.Base.AIService aiService)
+            AI.ChangeModel("invalid-model-xyz");
+
+            await foreach (var content in aiService.StreamAsync("Test", options))
             {
-                Assert.Inconclusive("Metadata streaming requires AIService base class");
-                return;
-            }
-
-            var options = StreamOptions.FullOptions;
-            var originalModel = AI.Model;
-            StreamingContent? errorContent = null;
-
-            try
-            {
-                AI.ChangeModel("invalid-model-xyz");
-
-                await foreach (var content in aiService.StreamAsync("Test", options))
+                if (content.Type == StreamingContentType.Error)
                 {
-                    if (content.Type == StreamingContentType.Error)
+                    errorContent = content;
+                    Console.WriteLine("[Error] Received error content");
+
+                    if (content.Metadata != null)
                     {
-                        errorContent = content;
-                        Console.WriteLine("[Error] Received error content");
-
-                        if (content.Metadata != null)
+                        foreach (var kvp in content.Metadata)
                         {
-                            foreach (var kvp in content.Metadata)
-                            {
-                                Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
-                            }
+                            Console.WriteLine($"  {kvp.Key}: {kvp.Value}");
                         }
-                        break;
                     }
+                    break;
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Expected Error] {ex.Message}");
-            }
-            finally
-            {
-                AI.ChangeModel(originalModel);
-            }
-
-            if (errorContent != null)
-            {
-                Assert.IsNotNull(errorContent.Metadata);
-                Assert.IsTrue(errorContent.Metadata.ContainsKey("error"));
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Error Metadata Test] {ex.Message}");
+            thrownException = ex;
+            Console.WriteLine($"[Expected Error] {ex.Message}");
+        }
+        finally
+        {
+            AI.ChangeModel(originalModel);
+        }
+
+        Assert.IsTrue(
+            errorContent != null || thrownException != null,
+            "An invalid model completed without either error metadata or an exception.");
+
+        if (errorContent != null)
+        {
+            Assert.IsNotNull(errorContent.Metadata);
+            Assert.IsTrue(errorContent.Metadata.ContainsKey("error"));
+        }
+        else
+        {
+            Assert.IsInstanceOfType<Mythosia.AI.Exceptions.AIServiceException>(
+                thrownException,
+                $"Invalid-model failures must use the provider-neutral AIServiceException contract, " +
+                $"but received {thrownException!.GetType().FullName}.");
         }
     }
 
@@ -468,7 +474,7 @@ public abstract partial class AIServiceTestBase
                 // Vision 지원 모델로 변경
                 if (AI is Mythosia.AI.Services.OpenAI.OpenAIService && AI.Model.Contains("mini"))
                 {
-                    AI.ChangeModel(AIModels.OpenAI.Gpt4oLatest);
+                    AI.ChangeModel(AIModels.OpenAI.Gpt4_1);
                 }
 
                 var options = new StreamOptions

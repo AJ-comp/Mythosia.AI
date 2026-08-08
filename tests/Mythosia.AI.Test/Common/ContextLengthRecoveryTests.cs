@@ -108,18 +108,12 @@ public class ContextLengthRecoveryTests
 
         protected override string StreamParseJson(string jsonData) => jsonData;
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
 
         public override Task<uint> GetInputTokenCountAsync() => Task.FromResult(0u);
 
         public override Task<uint> GetInputTokenCountAsync(string prompt) => Task.FromResult(0u);
-
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
 
         public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
             => Task.CompletedTask;
@@ -383,30 +377,25 @@ public class ContextLengthRecoveryTests
     [TestCategory("Unit")]
     [TestCategory("SummaryPolicy")]
     [TestMethod]
-    public async Task WindowAlreadyClipsTheCut_SkipsBeforeSpendingAnything()
+    public async Task FullHistoryCanBeCompactedBeforeRetrying()
     {
-        // 긴 에이전트 실행의 기본 형태: 질문 하나 뒤에 도구 라운드가 창(MaxMessageCount)을 가득 채운 상태.
-        // 잘라낼 수 있는 건 그 앞의 옛 대화뿐인데 그건 이미 창 밖이라 요청에 실리지도 않는다.
-        // 지워봐야 요청은 한 글자도 안 줄어들므로, 요약을 부르기도 전에 포기해야 한다.
-        var service = new ScriptedAIService(Overflow());
+        // v7에서는 전체 이력이 요청에 포함되므로 오래된 대화를 요약하면 재시도 payload가 줄어든다.
+        var service = new ScriptedAIService(Overflow(), "summary text", Overflow("retry"));
         service.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 20, keepRecentCount: 10);
-#pragma warning disable CS0618 // MaxMessageCount — deprecated window kept until v7.0
-        service.MaxMessageCount = 20;
-#pragma warning restore CS0618
 
-        SeedHistory(service, 20);                                              // 옛 대화 40개 (창 밖)
+        SeedHistory(service, 20);
         service.ActivateChat.Messages.Add(new Message(ActorRole.User, "anchor"));
-        SeedAgentRounds(service, 12);                                          // 도구 24개 (창 안, 자를 수 없음)
+        SeedAgentRounds(service, 12);
         var messagesBefore = service.ActivateChat.Messages.Count;
 
         var ex = await Assert.ThrowsExactlyAsync<ContextLengthExceededException>(
             () => service.GetCompletionAsync(new Message(ActorRole.User, "question"), null, null));
 
-        Assert.AreEqual("window-clipped", ex.RecoverySkipReason);
-        Assert.AreEqual(1, service.CallCount, "판정은 순수 산술이다 — 요약 요청을 보내면 안 된다");
-        Assert.AreEqual(messagesBefore, service.ActivateChat.Messages.Count,
-            "포기하는 경로가 이력을 지우면, 사용자는 대화를 잃고도 같은 에러를 받는다");
-        Assert.IsNull(service.ConversationPolicy.CurrentSummary);
+        Assert.AreEqual("retries-exhausted", ex.RecoverySkipReason);
+        Assert.AreEqual(3, service.CallCount, "원요청 + 요약 + 재시도 = 3회여야 한다");
+        Assert.IsTrue(service.ActivateChat.Messages.Count < messagesBefore,
+            "전체 이력에서 오래된 메시지를 요약해 재시도 payload를 줄여야 한다");
+        Assert.IsNotNull(service.ConversationPolicy.CurrentSummary);
     }
 
     [TestCategory("Unit")]

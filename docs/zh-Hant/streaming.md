@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("講個故事吧"))
 `StreamAsync` 可以回傳 `StreamingContent` 物件，攜帶文字及其類型：
 
 ```csharp
-await foreach (var content in service.StreamAsync("解釋一下量子運算"))
+await foreach (var content in service.StreamAsync("解釋一下量子運算", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 串流輸出完成時，最後的 `Completion` 事件攜帶 `TokenUsage` 物件，包含詳細的使用指標：
 
 ```csharp
-await foreach (var content in service.StreamAsync("解釋一下量子運算"))
+await foreach (var content in service.StreamAsync("解釋一下量子運算", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,6 +149,6 @@ await foreach (var chunk in service.StreamOnceAsync(message))
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("繼續我們的對話..."))
+await foreach (var chunk in service.StreamAsync("繼續我們的對話...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

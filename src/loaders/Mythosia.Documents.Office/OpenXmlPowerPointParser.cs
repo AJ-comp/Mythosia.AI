@@ -68,9 +68,13 @@ namespace Mythosia.Documents.Office.PowerPoint.Parsers
 
         private void BuildSlide(DoclingDocument doc, SlidePart slidePart, int slideNumber, NodeItem parent)
         {
+            var slide = slidePart.Slide;
+            if (slide == null)
+                return;
+
             // Walk shapes and graphic frames in document order so tables appear
             // at their actual position relative to text bodies.
-            foreach (var element in slidePart.Slide.Descendants())
+            foreach (var element in slide.Descendants())
             {
                 if (element is P.Shape shape)
                 {

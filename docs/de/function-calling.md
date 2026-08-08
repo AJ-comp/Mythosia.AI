@@ -57,21 +57,25 @@ Für komplexere Funktionen verwende die Attribute `[AiFunction]` und `[AiParamet
 
 ```csharp
 using Mythosia.AI.Attributes;
+using Mythosia.AI.Extensions;
 
-[AiFunction("search_products", "Durchsucht den Produktkatalog")]
-public static string SearchProducts(
-    [AiParameter("Suchanfrage", required: true)] string query,
-    [AiParameter("Maximale Anzahl Ergebnisse")] int limit = 5)
+public sealed class ProductFunctions
 {
-    // ... deine Implementierung
-    return JsonSerializer.Serialize(results);
+    [AiFunction("search_products", "Durchsucht den Produktkatalog")]
+    public string SearchProducts(
+        [AiParameter("Suchanfrage", required: true)] string query,
+        [AiParameter("Maximale Anzahl Ergebnisse")] int limit = 5)
+    {
+        // ... deine Implementierung
+        return JsonSerializer.Serialize(results);
+    }
 }
 ```
 
 Dann registrieren:
 
 ```csharp
-service.AddFunction(SearchProducts);
+service.WithFunctions(new ProductFunctions());
 ```
 
 ## Funktionsaufruf-Policy
@@ -82,13 +86,13 @@ Steuere, wann das Modell Funktionen aufrufen darf:
 using Mythosia.AI.Models.Functions;
 
 // Modell entscheidet selbst (Standard)
-service.FunctionCallingPolicy = FunctionCallingPolicy.Auto;
+service.FunctionCallMode = FunctionCallMode.Auto;
 
 // Modell muss immer eine Funktion aufrufen
-service.FunctionCallingPolicy = FunctionCallingPolicy.Required;
+service.ForceFunctionName = "search_products";
 
 // Funktionsaufruf deaktivieren
-service.FunctionCallingPolicy = FunctionCallingPolicy.None;
+service.FunctionCallMode = FunctionCallMode.None;
 ```
 
 ## Massenregistrierung aus einer Klasse
@@ -143,11 +147,14 @@ Funktionsdefinitionen programmatisch aufbauen:
 
 ```csharp
 using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
 
 var fn = FunctionBuilder
-    .Create("get_stock_price", "Gibt den aktuellen Aktienkurs zurück")
-    .AddParameter("ticker", "Aktien-Ticker-Symbol", required: true)
+    .Create("get_stock_price")
+    .WithDescription("Gibt den aktuellen Aktienkurs zurück")
+    .AddParameter("ticker", "string", "Aktien-Ticker-Symbol", required: true)
+    .WithHandler(args => FetchStockPrice(args["ticker"].ToString() ?? string.Empty))
     .Build();
 
-service.AddFunction(fn, ticker => FetchStockPrice(ticker));
+service.WithFunction(fn);
 ```

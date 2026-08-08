@@ -213,7 +213,7 @@ public abstract class StreamingMetadataTestModule : TestModuleBase
         await RunIfSupported(() => SupportsMultimodal(), async () =>
         {
             if (AI is not Mythosia.AI.Services.Base.AIService aiService) { Assert.Inconclusive("Metadata streaming requires AIService base class"); return; }
-            if (AI is Mythosia.AI.Services.OpenAI.OpenAIService && AI.Model.Contains("mini")) AI.ChangeModel(Mythosia.AI.Models.AIModels.OpenAI.Gpt4oLatest);
+            if (AI is Mythosia.AI.Services.OpenAI.OpenAIService && AI.Model.Contains("mini")) AI.ChangeModel(Mythosia.AI.Models.AIModels.OpenAI.Gpt4_1);
             var options = new StreamOptions { IncludeMetadata = true };
             var message = Mythosia.AI.Builders.MessageBuilder.Create().WithRole(ActorRole.User).AddText("What's in this image?").AddImage(TestImagePath).Build();
             var metadataTypes = new Dictionary<string, int>();

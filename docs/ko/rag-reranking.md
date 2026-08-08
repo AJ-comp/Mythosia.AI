@@ -56,7 +56,7 @@ Cohere의 전용 Rerank API를 호출합니다. 재순위에 특화된 모델이
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -69,7 +69,7 @@ Cohere의 전용 Rerank API를 호출합니다. 재순위에 특화된 모델이
 .WithRag(rag => rag
     .WithTopK(5)                   // 최종적으로 AI에게 전달할 청크 수
     .WithRetrievalMultiplier(3)    // 재순위 전에 가져올 후보 배수 (5 × 3 = 15개)
-    .WithMinScore(0.6)             // 이 점수 미만인 청크는 버림
+    .WithScoreThreshold(0.6)       // 이 점수 미만인 청크는 버림
     .AddDocument("corpus.txt")
 )
 ```
@@ -78,7 +78,7 @@ Cohere의 전용 Rerank API를 호출합니다. 재순위에 특화된 모델이
 
 - **`TopK`** — 최종적으로 AI 프롬프트에 포함되는 청크 수입니다
 - **`RetrievalMultiplier`** — 재순위기가 더 좋은 결과를 고를 수 있도록 넓은 후보군을 제공합니다. 예를 들어 TopK=5에 배수 3이면, 먼저 15개를 가져온 뒤 재순위를 거쳐 상위 5개만 남깁니다
-- **`MinScore`** — 유사도가 너무 낮은 결과는 아예 제외합니다. TopK보다 적은 수가 남더라도 품질을 우선합니다
+- **`WithScoreThreshold`** — 유사도가 너무 낮은 결과는 아예 제외합니다. TopK보다 적은 수가 남더라도 품질을 우선합니다
 
 ## 최종 선택 모드
 

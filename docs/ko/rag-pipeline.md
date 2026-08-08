@@ -85,11 +85,9 @@ var response = await ragService.GetCompletionAsync("질문", options);
 
 ```csharp
 // 인덱스를 한 번만 빌드
-RagStore store = await RagBuilder.Create()
-    .UseOpenAIEmbedding(apiKey, http)
-    .UseQdrantStore(qdrantUrl, qdrantKey)
-    .AddDocuments("docs/")
-    .BuildAsync();
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocuments("docs/"));
 
 // 서로 다른 AI 서비스에서 같은 인덱스를 재사용
 var claudeRag = new AnthropicService(apiKey, http).WithRag(store);
@@ -133,7 +131,7 @@ ragService.GetCompletionAsync("환불 정책이 뭔가요?")
 ③ RagEnabledService가 AIRequestContext 생성
    RequestMessageOverride = 조립된 프롬프트
     ↓
-④ _innerService.GetCompletionAsync(원래 메시지, context) 호출
+④ _innerService.GetCompletionAsync(원래 메시지, context: context) 호출
    → AIService가 AsyncLocal에 context 저장
    → 원래 질문을 대화 기록에 추가
     ↓

@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("Conte-me uma história"))
 `StreamAsync` pode retornar objetos `StreamingContent` que carregam tanto o texto quanto seu tipo:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Explique computação quântica"))
+await foreach (var content in service.StreamAsync("Explique computação quântica", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -58,7 +58,7 @@ MyDto result = await run.Result;
 Ao concluir o streaming, o evento `Completion` final carrega um objeto `TokenUsage` com métricas detalhadas:
 
 ```csharp
-await foreach (var content in service.StreamAsync("Explique computação quântica"))
+await foreach (var content in service.StreamAsync("Explique computação quântica", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -122,6 +122,6 @@ A política de resumo automático não é acionada durante o streaming. Chame `A
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("Continue nossa conversa..."))
+await foreach (var chunk in service.StreamAsync("Continue nossa conversa...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

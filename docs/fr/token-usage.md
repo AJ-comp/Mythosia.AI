@@ -8,7 +8,7 @@ C'est surtout important quand une réponse ne se limite pas à un seul appel LLM
 - `Completion.Usage` décrit l'utilisation cumulée de tout le stream.
 
 > [!NOTE]
-> Cette page suppose que tu sais déjà ce qu'est un **round LLM**. En résumé : un round = un aller-retour requête–réponse entre ton app et le modèle. Les flux de function calling peuvent produire plusieurs rounds pour un seul message utilisateur. Pour une explication pas à pas, consulte [Concepts fondamentaux — Qu'est-ce qu'un round ?](core-concepts.md#quest-ce-quun-round).
+> Cette page suppose que tu sais déjà ce qu'est un **round LLM**. En résumé : un round = un aller-retour requête–réponse entre ton app et le modèle. Les flux de function calling peuvent produire plusieurs rounds pour un seul message utilisateur. Pour une explication pas à pas, consulte [Concepts fondamentaux — Qu'est-ce qu'un round ?](core-concepts.md#quest-ce-quun-round-).
 
 ## Pourquoi c'est utile
 

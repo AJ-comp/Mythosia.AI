@@ -42,7 +42,7 @@ Vector search คืนผู้ชนะที่เรียงตาม embed
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -55,14 +55,14 @@ Vector search คืนผู้ชนะที่เรียงตาม embed
 .WithRag(rag => rag
     .WithTopK(5)                   // จำนวน chunk สุดท้ายที่คืนมา
     .WithRetrievalMultiplier(3)    // ดึง topK × 3 ผู้ชนะ (สำหรับ reranking)
-    .WithMinScore(0.6)             // score ขั้นต่ำ
+    .WithScoreThreshold(0.6)       // score ขั้นต่ำ
     .AddDocument("corpus.txt")
 )
 ```
 
 - **`TopK`** — จำนวน chunk ที่เข้าไปใน LLM context
 - **`RetrievalMultiplier`** — ดึงมาให้มากขึ้นเพื่อให้ reranker มีตัวเลือก multiplier 3 หมายถึงดึงมา 15 ตัวแล้วคัด 5 ตัวที่ดีที่สุดหลัง reranking
-- **`MinScore`** — ทิ้งทุกอย่างต่ำกว่า threshold นี้ แม้จะเหลือน้อยกว่า `TopK`
+- **`WithScoreThreshold`** — ทิ้งทุกอย่างต่ำกว่า threshold นี้ แม้จะเหลือน้อยกว่า `TopK`
 
 ## โหมดการเลือกขั้นสุดท้าย
 

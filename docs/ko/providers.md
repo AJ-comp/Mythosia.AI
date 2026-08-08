@@ -9,16 +9,22 @@
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6: Sol은 최상위 모델이며, Terra와 Luna는 비용을 낮춘 선택지입니다.
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // GPT-5.4 시리즈
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2 시리즈
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### 이미지 생성
 
 ```csharp
-// 이미지를 바이트로 받기
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "밤의 미래 도시",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "밤의 미래 도시",
+        Size = "1024x1024"
+    });
 
-// 이미지를 URL로 받기
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "밤의 미래 도시",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -101,8 +106,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// 옵션: Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// 옵션: Auto, None, Low, Medium, High (모델별 상이)
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 사용 가능한 모델: `QwenMax`, `QwenPlus`, `QwenTurbo`, `Qwen3` 및 변형 모델들.
 
-`EndpointPlatform` 속성으로 Alibaba Cloud와 호환 엔드포인트 간에 전환할 수 있습니다:
+서비스를 생성할 때 `EndpointPlatform`으로 호환 엔드포인트를 선택합니다:
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

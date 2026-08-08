@@ -87,10 +87,9 @@ Provider nhẹ không cần cấu hình, dựa trên feature hashing. Không c�
 Khi lập index tài liệu, pipeline embed các đoạn theo lô để tránh gửi hàng ngàn văn bản trong một API call. Kích thước lô có thể cấu hình:
 
 ```csharp
-var options = new RagPipelineOptions
-{
-    EmbeddingBatchSize = 100   // mặc định: 100 đoạn mỗi API call
-};
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100; // mặc định: 100 đoạn mỗi API call
+pipeline.Options = options;
 ```
 
 Kích thước lô lớn hơn nghĩa là ít API call hơn nhưng dùng nhiều bộ nhớ hơn mỗi call. Nếu gặp rate limit hoặc vấn đề bộ nhớ, thử giảm giá trị này.

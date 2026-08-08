@@ -1,8 +1,6 @@
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -101,6 +99,12 @@ namespace Mythosia.AI.Services.Base
 
             var (messagesToSummarize, keepFromIndex) = ConversationPolicy.GetMessagesToSummarize(ActivateChat.Messages);
 
+            // A function-call assistant message and its result message form one protocol turn.
+            // The regular trigger path needs the same boundary protection as forced recovery;
+            // otherwise KeepRecentCount/KeepRecentTokens can retain an orphan tool result.
+            keepFromIndex = ClampKeepIndexForFunctionPair(ActivateChat.Messages, keepFromIndex);
+            messagesToSummarize = Take(ActivateChat.Messages, keepFromIndex);
+
             int sentBefore = 0, sentAfter = 0;
 
             if (force)
@@ -113,17 +117,8 @@ namespace Mythosia.AI.Services.Base
                 if (messagesToSummarize.Count == 0)
                     return SummaryCompactionResult.Skipped("nothing-to-cut");
 
-                sentBefore = ProjectedSentCount(ActivateChat.Messages, 0);
-                sentAfter = ProjectedSentCount(ActivateChat.Messages, keepFromIndex);
-
-                // MaxMessageCount may already be clipping everything that would be deleted, in which
-                // case removing it cannot change a single byte of the request. Decide before the
-                // summary call: deciding after would bill a summary and destroy history to arrive at
-                // the same answer. A long agentic run reaches this routinely — every tool round adds
-                // two messages, so a tail of MaxMessageCount messages past the anchoring user turn
-                // leaves the window full of messages the clamp is not allowed to cut.
-                if (sentAfter >= sentBefore)
-                    return SummaryCompactionResult.Skipped("window-clipped");
+                sentBefore = ActivateChat.Messages.Count;
+                sentAfter = ActivateChat.Messages.Count - keepFromIndex;
             }
 
             // When the trigger fires with nothing beyond KeepRecent, summarize everything but delete
@@ -169,43 +164,6 @@ namespace Mythosia.AI.Services.Base
         }
 
         /// <summary>
-        /// How many messages a request would carry if the history started at <paramref name="fromIndex"/>,
-        /// using the same window and user-anchor rules as <see cref="GetLatestMessages"/>.
-        /// <para>
-        /// Forced compaction compares this at 0 and at the proposed cut point to learn whether deleting
-        /// would shrink the request — before deleting anything. Per-request overrides are deliberately
-        /// left out: <c>RequestMessageOverride</c> replaces one message and <c>AdditionalMessages</c>
-        /// appends the same count on both sides, so neither can change the comparison.
-        /// </para>
-        /// </summary>
-        private int ProjectedSentCount(IList<Message> messages, int fromIndex)
-        {
-            var remaining = messages.Count - fromIndex;
-            if (remaining <= 0) return 0;
-
-#pragma warning disable CS0618 // MaxMessageCount — deprecated window kept until v7.0
-            var skipped = Math.Max(0, remaining - (int)MaxMessageCount);
-#pragma warning restore CS0618
-            var windowStart = fromIndex + skipped;
-            var count = remaining - skipped;
-
-            if (skipped == 0) return count;
-
-            for (int i = windowStart; i < messages.Count; i++)
-            {
-                if (messages[i].Role == ActorRole.User) return count;
-            }
-
-            // No user turn survived the window — GetLatestMessages re-anchors the most recent one it cut.
-            for (int i = windowStart - 1; i >= fromIndex; i--)
-            {
-                if (messages[i].Role == ActorRole.User) return count + 1;
-            }
-
-            return count;
-        }
-
-        /// <summary>
         /// Pulls the cut point back so forced compaction cannot produce a request the server will
         /// reject for a *different* reason. Two boundaries are load-bearing:
         /// <list type="bullet">
@@ -227,6 +185,16 @@ namespace Mythosia.AI.Services.Base
                 if (keepFromIndex > i) keepFromIndex = i;
                 break;
             }
+
+            return ClampKeepIndexForFunctionPair(messages, keepFromIndex);
+        }
+
+        private static int ClampKeepIndexForFunctionPair(
+            IList<Message> messages,
+            int keepFromIndex)
+        {
+            if (keepFromIndex <= 0) return 0;
+            if (keepFromIndex > messages.Count) keepFromIndex = messages.Count;
 
             // Walk back off any function result so its originating assistant turn stays with it.
             while (keepFromIndex > 0 && keepFromIndex < messages.Count &&

@@ -66,7 +66,7 @@ var options = new RagQueryOptions
     StoreFilter = new VectorFilter().Where("tenant_id", currentTenantId)
 };
 
-var response = await ragService.GetCompletionAsync("pergunta", ragOptions: options);
+var response = await ragService.GetCompletionAsync("pergunta", options: options);
 ```
 
 ## Filtragem por Pontuação

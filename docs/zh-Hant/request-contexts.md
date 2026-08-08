@@ -20,7 +20,7 @@ service.SystemMessage = originalSystem;
 ```csharp
 // ✅ 有 AIRequestContext — 簡潔、作用域隔離、無副作用
 var answer = await service.GetCompletionAsync(userQuestion,
-    new AIRequestContext
+    context: new AIRequestContext
     {
         SystemMessageSuffix = $"\n\n請根據以下資訊回答：\n{retrievedDocs}"
     });
@@ -59,7 +59,7 @@ var context = new AIRequestContext
 {
     AdditionalMessages = new List<Message>
     {
-        MessageBuilder.User("參考資料：退款政策允許 30 天內退貨。").Build()
+        MessageBuilder.Create().AddText("參考資料：退款政策允許 30 天內退貨。").Build()
     }
 };
 ```
@@ -77,7 +77,7 @@ var context = new AIRequestContext
 };
 ```
 
-> **💡 提示：** 使用 `.WithRag()` 時，RAG 管線會自動利用此屬性。詳見[管線自訂](rag-pipeline.md#how-it-works-internally)。
+> **💡 提示：** 使用 `.WithRag()` 時，RAG 管線會自動利用此屬性。詳見[管線自訂](rag-pipeline.md#內部運作原理)。
 
 ## 與 AIRequestProfile 組合
 
@@ -90,7 +90,7 @@ var response = await service.GetCompletionAsync(
         SystemMessageSuffix = $"\n上下文：\n{docs}",
         AdditionalMessages = new List<Message>
         {
-            MessageBuilder.User("範例：...").Build()
+            MessageBuilder.Create().AddText("範例：...").Build()
         }
     }
 );
@@ -110,15 +110,15 @@ var today = $"Today is {DateTime.UtcNow:yyyy-MM-dd}.";
 
 // 1. 主聊天回應
 var answer = await service.GetCompletionAsync(userMessage,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 2. 標題生成器（後來新增）
 var title = await service.GetCompletionAsync("Summarize as a title: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 3. 摘要器（更晚新增）
 var summary = await service.GetCompletionAsync("Summarize: " + conversation,
-    new AIRequestContext { SystemMessageSuffix = today });
+    context: new AIRequestContext { SystemMessageSuffix = today });
 
 // 4. Agent 呼叫 — 容易忘記！ 編譯器不會警告你
 var agentResult = await service.RunAgentAsync(goal);  // ← 日期遺失，靜默 bug
@@ -223,7 +223,7 @@ Provider **每個請求呼叫一次**，因此回傳值可以反映最新狀態�
 
 `AIRequestContext` 的本質不是「只用一次」，而是 **「絕不汙染永久狀態」**。`SystemMessageProvider` 是一個在每次請求時 **重新執行回呼** 以 **產生該請求專用的全新 `AIRequestContext`** 的工廠。產生的上下文仍是 per-request 範圍，值不會洩漏到對話歷史，下一次呼叫時回呼再次執行以反映 **當下的** 值。所以 provider 並未違反 `AIRequestContext` 的設計原則，而是 **將其自動化**。
 
-具體而言，下面的註冊並 **不會** 修改 `service.SystemMessage` 與 `service.Messages`：
+具體而言，下面的註冊並 **不會** 修改 `service.SystemMessage` 與 `service.ActivateChat.Messages`：
 
 ```csharp
 service.WithSystemMessageProvider(() => new AIRequestContext

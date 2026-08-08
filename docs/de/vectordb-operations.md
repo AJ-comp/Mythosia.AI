@@ -201,8 +201,8 @@ var store = new QdrantStore(new QdrantOptions
 var ragService = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
         .UseStore(store)
-        .UseOpenAIEmbedding(embeddingKey, http)
-        .AddDirectory("docs/", ".txt", ".md")
+        .UseOpenAIEmbedding(embeddingKey)
+        .AddDocuments("docs/")
     );
 
 var answer = await ragService.GetCompletionAsync("Was ist die Rückgaberichtlinie?");
@@ -211,11 +211,10 @@ var answer = await ragService.GetCompletionAsync("Was ist die Rückgaberichtlini
 Oder einen `RagStore` unabhängig aufbauen und über mehrere KI-Services teilen:
 
 ```csharp
-RagStore ragStore = await RagBuilder.Create()
+RagStore ragStore = await RagStore.BuildAsync(rag => rag
     .UseStore(store)
-    .UseOpenAIEmbedding(apiKey, http)
-    .AddDocument("wissensdatenbank.pdf")
-    .BuildAsync();
+    .UseOpenAIEmbedding(apiKey)
+    .AddDocument("wissensdatenbank.pdf"));
 
 var claudeRag = new AnthropicService(claudeKey, http).WithRag(ragStore);
 var gptRag    = new OpenAIService(openAiKey, http).WithRag(ragStore);

@@ -51,7 +51,7 @@ var service = new OpenAIService("dein-api-key", http)
 };
 ```
 
-Alle verfügbaren Modellkonstanten findest du in der [API-Referenz](../api/Mythosia.AI.Models.AIModels.yml).
+Alle verfügbaren Modellkonstanten findest du in der [API-Referenz](../../api/Mythosia.AI.Models.AIModels.yml).
 
 ## Nächste Schritte
 

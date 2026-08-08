@@ -72,14 +72,14 @@ var response = await service.GetCompletionAsync("환불 정책이 어떻게 되�
 ```csharp
 .WithRag(rag => rag
     .AddDocument("readme.txt")                    // 로컬 파일
-    .AddDocument("https://example.com/doc.txt")   // URL
+    .AddUrl("https://example.com/doc.txt")        // URL
     .AddText("인라인 콘텐츠도 여기에 추가할 수 있습니다.")   // 원시 문자열
 )
 ```
 
 ## 커스텀 임베딩 프로바이더
 
-기본적으로는 AI 서비스의 프로바이더를 임베딩에도 함께 사용합니다. 임베딩 전용 모델을 따로 지정하고 싶다면 다음과 같이 설정합니다:
+기본적으로는 내장 로컬 임베딩 프로바이더를 사용합니다. 임베딩 전용 모델을 따로 지정하고 싶다면 다음과 같이 설정합니다:
 
 ```csharp
 using Mythosia.AI.Rag.Embeddings;
@@ -88,7 +88,7 @@ var embedder = new OpenAIEmbeddingProvider(apiKey, http, "text-embedding-3-small
 
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .UseEmbeddingProvider(embedder)
+        .UseEmbedding(embedder)
         .AddDocument("knowledge-base.txt")
     );
 ```
@@ -104,11 +104,15 @@ dotnet add package Mythosia.VectorDb.Postgres
 ```csharp
 using Mythosia.VectorDb.Postgres;
 
-var store = new PostgresStore(connectionString, embedDimension: 1536);
+var store = new PostgresStore(new PostgresOptions
+{
+    ConnectionString = connectionString,
+    Dimension = 1536
+});
 
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseVectorStore(store)
+        .UseStore(store)
         .AddDocument("large-corpus.txt")
     );
 ```
@@ -120,11 +124,14 @@ var service = new OpenAIService(apiKey, http)
 ```csharp
 var options = new RagQueryOptions
 {
-    TopK = 5,               // 가져올 청크 수 (기본 5개)
-    ScoreThreshold = 0.7f   // 이 점수 이상인 청크만 가져옴
+    FinalFilter = new RagFilter
+    {
+        TopK = 5,           // 가져올 청크 수 (기본 5개)
+        MinScore = 0.7      // 이 점수 이상인 청크만 가져옴
+    }
 };
 
-var response = await service.GetCompletionAsync("질문", ragOptions: options);
+var response = await service.GetCompletionAsync("질문", options: options);
 ```
 
 ## 다음 단계

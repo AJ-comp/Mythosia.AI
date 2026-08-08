@@ -94,11 +94,12 @@ ProductDto product = await run.Result;
 모델이 구조화된 출력을 생성하는 엄격도를 제어합니다:
 
 ```csharp
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 
-// 기본값: 스키마에 맞는 JSON을 반환하도록 요청
-service.StructuredOutputPolicy = StructuredOutputPolicy.Strict;
+// Strict: 자동 복구를 최대 3회까지 시도
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 
-// 완화: 모델에 더 많은 자유를 주고 자동 복구에 의존
-service.StructuredOutputPolicy = StructuredOutputPolicy.Lenient;
+// NoRetry: 복구 재시도 없이 첫 검증 오류를 반환
+service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```

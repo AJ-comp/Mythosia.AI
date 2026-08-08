@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("物語を聞かせてくださ�
 `StreamAsync`はテキストとタイプ情報を含む`StreamingContent`オブジェクトを返すことができます:
 
 ```csharp
-await foreach (var content in service.StreamAsync("量子コンピューティングを説明してください"))
+await foreach (var content in service.StreamAsync("量子コンピューティングを説明してください", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 ストリーミングが完了すると、最後の`Completion`イベントに詳細な使用量メトリクスを含む`TokenUsage`オブジェクトが含まれます:
 
 ```csharp
-await foreach (var content in service.StreamAsync("量子コンピューティングを説明してください"))
+await foreach (var content in service.StreamAsync("量子コンピューティングを説明してください", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,6 +149,6 @@ await foreach (var chunk in service.StreamOnceAsync(message))
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("会話を続けましょう..."))
+await foreach (var chunk in service.StreamAsync("会話を続けましょう...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```

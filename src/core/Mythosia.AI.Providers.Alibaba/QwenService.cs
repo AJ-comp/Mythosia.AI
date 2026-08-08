@@ -76,14 +76,14 @@ namespace Mythosia.AI.Providers.Alibaba
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
 
             using var cts = policy.TimeoutSeconds.HasValue
                 ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
                 : new CancellationTokenSource();
 
-            ChatBlock originalChat = null;
+            ChatBlock? originalChat = null;
             if (StatelessMode)
             {
                 originalChat = ActivateChat;
@@ -149,24 +149,46 @@ namespace Mythosia.AI.Providers.Alibaba
             var responseContent = await response.Content.ReadAsStringAsync();
 
             if (useFunctions)
-                return await ProcessFunctionResponseAsync(responseContent, policy);
+                return await ProcessFunctionResponseAsync(responseContent, policy, cancellationToken);
 
             return ProcessRegularResponse(responseContent);
         }
 
         private async Task<RoundResult> ProcessFunctionResponseAsync(
             string responseContent,
-            FunctionCallingPolicy policy)
+            FunctionCallingPolicy policy,
+            CancellationToken cancellationToken)
         {
-            var (content, functionCall) = ExtractFunctionCall(responseContent);
+            var (content, functionCalls) = ExtractFunctionCalls(responseContent);
 
-            if (functionCall != null)
+            if (functionCalls.Calls.Count > 0)
             {
-                if (policy.EnableLogging)
-                    Console.WriteLine($"  Executing function: {functionCall.Name}");
-
-                await ExecuteFunctionAsync(functionCall);
+                var results = await ProcessFunctionCallsAsync(
+                    functionCalls,
+                    policy,
+                    cancellationToken);
+                AddFunctionCallBatchToHistory(
+                    content,
+                    functionCalls,
+                    new Dictionary<string, object> { ["model"] = Model });
+                AddFunctionResultBatchToHistory(
+                    results,
+                    new Dictionary<string, object> { ["model"] = Model });
                 return RoundResult.Continue();
+            }
+
+            var finishReason = _protocol.ExtractFinishReason(responseContent);
+            if (!string.IsNullOrEmpty(finishReason))
+            {
+                if (!string.Equals(finishReason, "stop", StringComparison.Ordinal))
+                {
+                    throw new AIServiceException(
+                        $"Qwen ended the response with finish_reason={finishReason}; the partial response was not saved.");
+                }
+
+                if (!string.IsNullOrEmpty(content))
+                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, content));
+                return RoundResult.Complete(content ?? string.Empty);
             }
 
             if (string.IsNullOrEmpty(content))
@@ -179,51 +201,25 @@ namespace Mythosia.AI.Providers.Alibaba
         private RoundResult ProcessRegularResponse(string responseContent)
         {
             var result = ExtractResponseContent(responseContent);
+            var finishReason = _protocol.ExtractFinishReason(responseContent);
+            if (!string.IsNullOrEmpty(finishReason) &&
+                !string.Equals(finishReason, "stop", StringComparison.Ordinal))
+            {
+                throw new AIServiceException(
+                    $"Qwen ended the response with finish_reason={finishReason}; the partial response was not saved.");
+            }
+
+            if (string.Equals(finishReason, "stop", StringComparison.Ordinal) &&
+                string.IsNullOrEmpty(result))
+            {
+                return RoundResult.Complete(string.Empty);
+            }
+
             if (string.IsNullOrEmpty(result))
                 return RoundResult.Continue();
 
             ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
             return RoundResult.Complete(result);
-        }
-
-        private async Task ExecuteFunctionAsync(FunctionCall functionCall)
-        {
-            var functionCallMessage = new Message(ActorRole.Assistant, string.Empty)
-            {
-                Metadata = new Dictionary<string, object>
-                {
-                    [MessageMetadataKeys.MessageType] = "function_call",
-                    [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                    [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                    [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                    [MessageMetadataKeys.FunctionArguments] = JsonSerializer.Serialize(functionCall.Arguments),
-                    ["model"] = Model
-                }
-            };
-
-            ActivateChat.Messages.Add(functionCallMessage);
-
-            var result = await ProcessFunctionCallAsync(functionCall.Name, functionCall.Arguments);
-
-            if (string.IsNullOrEmpty(result))
-            {
-                Console.WriteLine($"[WARNING] Function {functionCall.Name} returned empty result");
-                result = "Function executed successfully";
-            }
-
-            var metadata = new Dictionary<string, object>
-            {
-                [MessageMetadataKeys.MessageType] = "function_result",
-                [MessageMetadataKeys.FunctionId] = functionCall.Id,
-                [MessageMetadataKeys.FunctionSource] = functionCall.Source,
-                [MessageMetadataKeys.FunctionName] = functionCall.Name,
-                ["model"] = Model
-            };
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Function, result)
-            {
-                Metadata = metadata
-            });
         }
 
         public override async Task<uint> GetInputTokenCountAsync()
@@ -252,16 +248,6 @@ namespace Mythosia.AI.Providers.Alibaba
             var encoding = TikToken.EncodingForModel("gpt-4");
             var tokens = encoding.Encode(prompt);
             return await Task.FromResult((uint)tokens.Count);
-        }
-
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("Qwen", "Image Generation");
-        }
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-        {
-            throw new MultimodalNotSupportedException("Qwen", "Image Generation");
         }
 
         public QwenService UseMaxModel()

@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Mythosia.AI.Models;
 
@@ -10,10 +13,10 @@ namespace Mythosia.AI.Models.Functions
     /// </summary>
     public class FunctionDefinition
     {
-        public string Name { get; set; }
-        public string Description { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         public FunctionParameters Parameters { get; set; }
-        public Func<Dictionary<string, object>, Task<string>> Handler { get; set; }
+        public Func<Dictionary<string, object>, Task<string>>? Handler { get; set; }
 
         public FunctionDefinition()
         {
@@ -42,11 +45,11 @@ namespace Mythosia.AI.Models.Functions
     /// </summary>
     public class ParameterProperty
     {
-        public string Type { get; set; }
-        public string Description { get; set; }
-        public List<string> Enum { get; set; }
-        public object Default { get; set; }
-        public ParameterProperty Items { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public List<string>? Enum { get; set; }
+        public object? Default { get; set; }
+        public ParameterProperty? Items { get; set; }
     }
 
     /// <summary>
@@ -70,7 +73,7 @@ namespace Mythosia.AI.Models.Functions
         /// <summary>
         /// The original ID from the source
         /// </summary>
-        public string Id { get; set; }
+        public string Id { get; set; } = string.Empty;
 
         /// <summary>
         /// Where this ID came from
@@ -80,16 +83,220 @@ namespace Mythosia.AI.Models.Functions
         /// <summary>
         /// Function name
         /// </summary>
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
 
         /// <summary>
         /// Function arguments
         /// </summary>
         public Dictionary<string, object> Arguments { get; set; }
 
+        /// <summary>
+        /// Stable provider-assigned position used to correlate streaming call and result events.
+        /// It can contain gaps when the provider interleaves non-function output items.
+        /// </summary>
+        public int Index { get; set; }
+
+        /// <summary>
+        /// Provider-specific data that must travel with this call, such as a Gemini thought signature.
+        /// </summary>
+        public Dictionary<string, object>? Metadata { get; set; }
+
         public FunctionCall()
         {
             Arguments = new Dictionary<string, object>();
+        }
+
+        internal FunctionCall Clone()
+        {
+            return new FunctionCall
+            {
+                Id = Id,
+                Source = Source,
+                Name = Name,
+                Arguments = ObjectGraphSnapshot.CloneDictionary(Arguments),
+                Index = Index,
+                Metadata = ObjectGraphSnapshot.CloneNullableDictionary(Metadata)
+            };
+        }
+    }
+
+    /// <summary>
+    /// All function calls requested by one assistant response, in provider order.
+    /// </summary>
+    public sealed class FunctionCallBatch
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public IReadOnlyList<FunctionCall> Calls { get; set; } = Array.Empty<FunctionCall>();
+        public Dictionary<string, object>? Metadata { get; set; }
+
+        public FunctionCallBatch()
+        {
+        }
+
+        public FunctionCallBatch(IEnumerable<FunctionCall> calls)
+        {
+            if (calls == null)
+                Calls = Array.Empty<FunctionCall>();
+            else
+                Calls = calls.ToList();
+        }
+
+        internal FunctionCallBatch Clone()
+        {
+            return new FunctionCallBatch(Calls.Select(call => call.Clone()))
+            {
+                Id = Id,
+                Metadata = ObjectGraphSnapshot.CloneNullableDictionary(Metadata)
+            };
+        }
+    }
+
+    /// <summary>
+    /// Result of one function call.
+    /// </summary>
+    public sealed class FunctionCallResult
+    {
+        public FunctionCall Call { get; set; } = new FunctionCall();
+        public string Content { get; set; } = string.Empty;
+        public bool IsError { get; set; }
+
+        internal FunctionCallResult Clone()
+        {
+            return new FunctionCallResult
+            {
+                Call = Call.Clone(),
+                Content = Content,
+                IsError = IsError
+            };
+        }
+    }
+
+    /// <summary>
+    /// Ordered results for one function-call batch.
+    /// </summary>
+    public sealed class FunctionCallResultBatch
+    {
+        public string FunctionCallBatchId { get; set; } = string.Empty;
+        public IReadOnlyList<FunctionCallResult> Results { get; set; } = Array.Empty<FunctionCallResult>();
+
+        public FunctionCallResultBatch()
+        {
+        }
+
+        public FunctionCallResultBatch(string functionCallBatchId, IEnumerable<FunctionCallResult> results)
+        {
+            FunctionCallBatchId = functionCallBatchId;
+            if (results == null)
+                Results = Array.Empty<FunctionCallResult>();
+            else
+                Results = results.ToList();
+        }
+
+        internal FunctionCallResultBatch Clone()
+        {
+            return new FunctionCallResultBatch(
+                FunctionCallBatchId,
+                Results.Select(result => result.Clone()));
+        }
+    }
+
+    /// <summary>
+    /// Copies mutable JSON-like data carried by function calls. Provider values such as
+    /// JsonElement are value types and remain unchanged, while dictionaries, lists, and arrays
+    /// are detached so handlers and stream consumers cannot rewrite stored call history.
+    /// </summary>
+    internal static class ObjectGraphSnapshot
+    {
+        public static Dictionary<string, object> CloneDictionary(
+            Dictionary<string, object>? source)
+        {
+            if (source == null)
+                return new Dictionary<string, object>();
+
+            return (Dictionary<string, object>)CloneValue(
+                source,
+                new Dictionary<object, object>(ReferenceIdentityComparer.Instance))!;
+        }
+
+        public static Dictionary<string, object>? CloneNullableDictionary(
+            Dictionary<string, object>? source)
+        {
+            return source == null ? null : CloneDictionary(source);
+        }
+
+        private static object? CloneValue(
+            object? value,
+            Dictionary<object, object> visited)
+        {
+            if (value == null || value is string || value.GetType().IsValueType)
+                return value;
+
+            if (visited.TryGetValue(value, out var existing))
+                return existing;
+
+            if (value is Dictionary<string, object> stringDictionary)
+            {
+                var clone = new Dictionary<string, object>(stringDictionary.Comparer);
+                visited[value] = clone;
+                foreach (var item in stringDictionary)
+                    clone[item.Key] = CloneValue(item.Value, visited)!;
+                return clone;
+            }
+
+            if (value is Array array && array.Rank == 1)
+            {
+                var clone = Array.CreateInstance(
+                    value.GetType().GetElementType() ?? typeof(object),
+                    array.Length);
+                visited[value] = clone;
+                for (var index = 0; index < array.Length; index++)
+                    clone.SetValue(CloneValue(array.GetValue(index), visited), index);
+                return clone;
+            }
+
+            if (value is IDictionary dictionary)
+            {
+                var clone = TryCreate<IDictionary>(value.GetType()) ?? new Hashtable();
+                visited[value] = clone;
+                foreach (DictionaryEntry item in dictionary)
+                    clone[CloneValue(item.Key, visited)!] = CloneValue(item.Value, visited);
+                return clone;
+            }
+
+            if (value is IList list)
+            {
+                var clone = TryCreate<IList>(value.GetType()) ?? new ArrayList();
+                visited[value] = clone;
+                foreach (var item in list)
+                    clone.Add(CloneValue(item, visited));
+                return clone;
+            }
+
+            // Supported providers deserialize arguments to JSON primitives or JsonElement.
+            // Unknown provider-specific reference types are treated as immutable.
+            return value;
+        }
+
+        private static T? TryCreate<T>(Type type)
+            where T : class
+        {
+            try
+            {
+                return Activator.CreateInstance(type) as T;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private sealed class ReferenceIdentityComparer : IEqualityComparer<object>
+        {
+            public static ReferenceIdentityComparer Instance { get; } = new ReferenceIdentityComparer();
+
+            public new bool Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+            public int GetHashCode(object obj) => RuntimeHelpers.GetHashCode(obj);
         }
     }
 
@@ -112,6 +319,8 @@ namespace Mythosia.AI.Models.Functions
         public const string FunctionSource = "function_source";  // ID source (OpenAI, Claude, etc)
         public const string FunctionName = "function_name";
         public const string FunctionArguments = "function_arguments";
+        public const string FunctionBatchId = "function_batch_id";
+        public const string FunctionCount = "function_count";
 
         // For preserving original message structure
         public const string OriginalContent = "original_content";

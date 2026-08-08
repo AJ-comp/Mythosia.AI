@@ -113,9 +113,10 @@ public abstract partial class AIServiceTestBase
             // Configuration chaining
             AI.WithSystemMessage("You are a math tutor")
               .WithTemperature(0.5f)
-              .WithMaxTokens(100);
+              .WithMaxTokens(8192);
 
-            string configuredResponse = await AI.GetCompletionAsync("What is calculus?");
+            string configuredResponse = await AI.GetCompletionAsync(
+                "What is calculus? Answer in one short sentence.");
             Assert.IsNotNull(configuredResponse);
             Console.WriteLine($"[Configured] {configuredResponse}");
         }

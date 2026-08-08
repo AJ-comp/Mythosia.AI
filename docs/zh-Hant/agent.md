@@ -2,7 +2,7 @@
 
 ## 為什麼需要 Agent 迴圈？
 
-在一般函式呼叫中，模型每次請求只執行**一次**函式呼叫。但許多實際任務需要模型自主規劃並執行**多個步驟**：
+一般函式呼叫也能將模型單次回應中的**多個函式依序組成批次執行**，並繼續後續工具回合。Agent API 將此機制封裝為具有明確**步驟上限**的目標導向 ReAct 迴圈，把每個批次的結果傳回模型，直到模型產生最終答案：
 
 - 「調研排名前 3 的 AI 公司並比較它們的股價」— 需要多次網路搜尋和股價查詢
 - 「查找相關政策，檢查訂單狀態，然後告訴我是否符合退款條件」— 需要按邏輯順序串聯不同工具
@@ -56,7 +56,7 @@ catch (AgentMaxStepsExceededException ex)
 控制 Agent 迴圈每輪的行為：
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

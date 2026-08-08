@@ -16,7 +16,7 @@ await foreach (var token in service.StreamAsync("이야기를 들려주세요"))
 `StreamAsync`는 텍스트와 타입 정보를 함께 담은 `StreamingContent` 객체를 반환할 수 있습니다:
 
 ```csharp
-await foreach (var content in service.StreamAsync("양자 컴퓨팅을 설명해 주세요"))
+await foreach (var content in service.StreamAsync("양자 컴퓨팅을 설명해 주세요", StreamOptions.Default))
 {
     Console.Write(content.Content);
 }
@@ -60,7 +60,7 @@ MyDto result = await run.Result;
 스트리밍이 완료되면 마지막 `Completion` 이벤트에 상세한 사용량 지표를 담은 `TokenUsage` 객체가 포함됩니다:
 
 ```csharp
-await foreach (var content in service.StreamAsync("양자 컴퓨팅을 설명해 주세요"))
+await foreach (var content in service.StreamAsync("양자 컴퓨팅을 설명해 주세요", StreamOptions.Default))
 {
     if (content.Type == StreamingContentType.Text)
         Console.Write(content.Content);
@@ -149,7 +149,7 @@ await foreach (var chunk in service.StreamOnceAsync(message))
 ```csharp
 await service.ApplySummaryPolicyIfNeededAsync();
 
-await foreach (var chunk in service.StreamAsync("대화를 이어가겠습니다..."))
+await foreach (var chunk in service.StreamAsync("대화를 이어가겠습니다...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
 
@@ -169,7 +169,7 @@ service.WithStreamDiagnostics(d => d
     .OnComplete(diag => logger.LogInformation("Stream finished: {Diag}", diag)));
 
 // 이후 모든 스트리밍 호출에 자동 적용
-await foreach (var chunk in service.StreamAsync(message))
+await foreach (var chunk in service.StreamAsync(message, StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
 
@@ -199,7 +199,7 @@ SSE 읽기 중 `IOException`이나 전송 오류가 발생하면 라이브러리
 ```csharp
 try
 {
-    await foreach (var chunk in service.StreamAsync(message))
+    await foreach (var chunk in service.StreamAsync(message, StreamOptions.Default))
         Console.Write(chunk.Content);
 }
 catch (StreamReadException ex)

@@ -2,23 +2,176 @@ name: Publish NuGet Packages
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated packages to NuGet.org
+        required: true
+        type: boolean
+        default: false
+      allow_partial_resume:
+        description: Resume only after verifying existing packages came from the same release commit
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nuget-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.301
 
-      - name: Run publish script
+      - name: Install DocFX
+        run: dotnet tool install -g docfx --version 2.78.5
+
+      - name: Reject publishing from a non-main ref
+        if: ${{ inputs.publish && github.ref != 'refs/heads/main' }}
+        shell: pwsh
+        run: throw "NuGet publication is allowed only from refs/heads/main."
+
+      - name: Reject resume without publication
+        if: ${{ inputs.allow_partial_resume && !inputs.publish }}
+        shell: pwsh
+        run: throw "allow_partial_resume is valid only when publish is enabled."
+
+      - name: Restore
+        run: dotnet restore Mythosia.AI.slnx
+
+      - name: Audit direct and transitive NuGet packages
+        shell: pwsh
+        run: ./build/test-package-vulnerabilities.ps1
+
+      - name: Verify NuGet publication safety contracts
+        shell: pwsh
+        run: ./build/test-publish-nuget-safety.ps1
+
+      - name: Verify release documentation and package metadata
+        shell: pwsh
+        run: ./build/test-release-documentation.ps1
+
+      - name: Verify test category coverage
+        shell: pwsh
+        run: ./build/test-test-categories.ps1
+
+      - name: Build the complete solution
+        run: dotnet build Mythosia.AI.slnx --configuration Release --no-restore -p:TreatWarningsAsErrors=true
+
+      - name: Prepare DocFX reference assemblies
+        shell: pwsh
+        run: ./build/prepare-docfx-references.ps1 -NoRestore
+
+      - name: Build documentation with warnings as errors
+        run: docfx docfx.json --warningsAsErrors
+
+      - name: Verify committed API manifest
+        run: git diff --exit-code -- api/.manifest
+
+      - name: Run deterministic unit tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj
+          --configuration Release
+          --no-build
+          --settings tests/Mythosia.AI.Test/serial.runsettings
+          --filter "TestCategory=Unit"
+
+      - name: Run RAG regression tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run document loader tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.Documents.Tests/Mythosia.Documents.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run MCP integration tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run vLLM serving tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Serving.Vllm.Tests/Mythosia.AI.Serving.Vllm.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Run vector database tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj
+          --configuration Release
+          --no-build
+
+      - name: Pack and validate the explicit release set
+        shell: pwsh
+        run: ./build/publish-nuget.ps1 -Mode Pack -ArtifactsDirectory ./artifacts
+
+      - name: Test packages from a clean consumer project
+        shell: pwsh
+        run: ./build/test-nuget-packages.ps1 -ArtifactsDirectory ./artifacts
+
+      - name: Upload validated packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: validated-nuget-packages
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: nuget-production
+
+    steps:
+      - name: Checkout validated source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.301
+
+      - name: Download validated packages
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: validated-nuget-packages
+          path: artifacts/
+
+      - name: Publish dependency-ordered packages
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          ./build/publish-nuget.ps1
+          $parameters = @{
+            Mode = "Push"
+            ArtifactsDirectory = "./artifacts"
+          }
+          if ("${{ inputs.allow_partial_resume }}" -eq "true") {
+            $parameters.AllowPartialResume = $true
+          }
+          ./build/publish-nuget.ps1 @parameters

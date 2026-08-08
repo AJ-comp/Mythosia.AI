@@ -9,16 +9,22 @@ Les modèles GPT-5.x et de la série o3 prennent en charge le contrôle de l'eff
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6 : Sol est le modèle phare ; Terra et Luna sont des options plus économiques.
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // Série GPT-5.4
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // Série GPT-5.2
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### Génération d'images
 
 ```csharp
-// Obtenir l'image en bytes
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "Une ville futuriste de nuit",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "Une ville futuriste de nuit",
+        Size = "1024x1024"
+    });
 
-// Obtenir l'image en URL
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "Une ville futuriste de nuit",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -101,8 +106,8 @@ Les niveaux élevés produisent des réponses plus approfondies mais augmentent 
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// Options : Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// Options : Auto, None, Low, Medium, High (selon le modèle)
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 Modèles disponibles : `QwenMax`, `QwenPlus`, `QwenTurbo`, `Qwen3` et variantes.
 
-La propriété `EndpointPlatform` permet de basculer entre Alibaba Cloud et des endpoints compatibles :
+Choisissez un endpoint compatible lors de la création du service avec `EndpointPlatform` :
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

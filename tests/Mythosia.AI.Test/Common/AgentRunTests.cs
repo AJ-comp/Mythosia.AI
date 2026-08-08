@@ -86,20 +86,14 @@ public class AgentRunTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
             => Task.CompletedTask;
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
     }
 
     /// <summary>
@@ -173,17 +167,11 @@ public class AgentRunTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
 
         private static IEnumerable<string> Chunk(string value, int size)
         {
@@ -251,20 +239,14 @@ public class AgentRunTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
             => Task.CompletedTask;
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
     }
 
     private class MockRoundUsageAgentService : AIService
@@ -370,20 +352,14 @@ public class AgentRunTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
             => Task.CompletedTask;
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
     }
 
     private sealed class QueueHttpMessageHandler : HttpMessageHandler
@@ -745,20 +721,14 @@ public class AgentRunTests
         public override Task<uint> GetInputTokenCountAsync(string prompt)
             => Task.FromResult(0u);
 
-        public override Task<byte[]> GenerateImageAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(Array.Empty<byte>());
-
-        public override Task<string> GenerateImageUrlAsync(string prompt, string size = "1024x1024")
-            => Task.FromResult(string.Empty);
-
         public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
             => Task.CompletedTask;
 
         protected override HttpRequestMessage CreateFunctionMessageRequest()
             => new(HttpMethod.Post, "https://localhost/");
 
-        protected override (string content, FunctionCall functionCall) ExtractFunctionCall(string response)
-            => (response, null!);
+        protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
+            => (response, new FunctionCallBatch());
     }
 
     #endregion
@@ -997,15 +967,15 @@ public class AgentRunTests
         var handler = new QueueHttpMessageHandler();
         handler.EnqueueSse(string.Join("\n", new[]
         {
-            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"name\":\"get_weather\",\"args\":{\"city\":\"Seoul\"}}}]}}]}",
-            "data: {\"usageMetadata\":{\"promptTokenCount\":10000,\"candidatesTokenCount\":100,\"totalTokenCount\":10100,\"cachedContentTokenCount\":12,\"thoughtsTokenCount\":3}}",
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"id\":\"call_weather\",\"name\":\"get_weather\",\"args\":{\"city\":\"Seoul\"}}}]},\"finishReason\":\"STOP\"}]}",
+            "data: {\"usageMetadata\":{\"promptTokenCount\":10000,\"candidatesTokenCount\":100,\"totalTokenCount\":10103,\"cachedContentTokenCount\":12,\"thoughtsTokenCount\":3}}",
             "data: [DONE]",
             ""
         }));
         handler.EnqueueSse(string.Join("\n", new[]
         {
-            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Seoul is sunny.\"}]}}]}",
-            "data: {\"usageMetadata\":{\"promptTokenCount\":13000,\"candidatesTokenCount\":1000,\"totalTokenCount\":14000,\"cachedContentTokenCount\":34,\"thoughtsTokenCount\":5}}",
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Seoul is sunny.\"}]},\"finishReason\":\"STOP\"}]}",
+            "data: {\"usageMetadata\":{\"promptTokenCount\":13000,\"candidatesTokenCount\":1000,\"totalTokenCount\":14005,\"cachedContentTokenCount\":34,\"thoughtsTokenCount\":5}}",
             "data: [DONE]",
             ""
         }));
@@ -1054,8 +1024,8 @@ public class AgentRunTests
         Assert.IsNotNull(roundUsageEvents[0].Usage);
         var firstGeminiRoundUsage = roundUsageEvents[0].Usage!;
         Assert.AreEqual(10000, firstGeminiRoundUsage.InputTokens);
-        Assert.AreEqual(100, firstGeminiRoundUsage.OutputTokens);
-        Assert.AreEqual(10100, firstGeminiRoundUsage.TotalTokens);
+        Assert.AreEqual(103, firstGeminiRoundUsage.OutputTokens);
+        Assert.AreEqual(10103, firstGeminiRoundUsage.TotalTokens);
         Assert.AreEqual(12, firstGeminiRoundUsage.CachedInputTokens);
         Assert.AreEqual(3, firstGeminiRoundUsage.ReasoningTokens);
 
@@ -1064,8 +1034,8 @@ public class AgentRunTests
         Assert.IsNotNull(roundUsageEvents[1].Usage);
         var secondGeminiRoundUsage = roundUsageEvents[1].Usage!;
         Assert.AreEqual(13000, secondGeminiRoundUsage.InputTokens);
-        Assert.AreEqual(1000, secondGeminiRoundUsage.OutputTokens);
-        Assert.AreEqual(14000, secondGeminiRoundUsage.TotalTokens);
+        Assert.AreEqual(1005, secondGeminiRoundUsage.OutputTokens);
+        Assert.AreEqual(14005, secondGeminiRoundUsage.TotalTokens);
         Assert.AreEqual(34, secondGeminiRoundUsage.CachedInputTokens);
         Assert.AreEqual(5, secondGeminiRoundUsage.ReasoningTokens);
 
@@ -1073,8 +1043,8 @@ public class AgentRunTests
         Assert.IsNotNull(completion.Usage);
         var geminiCompletionUsage = completion.Usage!;
         Assert.AreEqual(23000, geminiCompletionUsage.InputTokens);
-        Assert.AreEqual(1100, geminiCompletionUsage.OutputTokens);
-        Assert.AreEqual(24100, geminiCompletionUsage.TotalTokens);
+        Assert.AreEqual(1108, geminiCompletionUsage.OutputTokens);
+        Assert.AreEqual(24108, geminiCompletionUsage.TotalTokens);
     }
 
     #endregion

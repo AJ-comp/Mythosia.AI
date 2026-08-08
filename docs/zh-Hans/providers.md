@@ -9,16 +9,22 @@ GPT-5.x 和 o3 系列模型支持推理强度控制。通过设置级别在速�
 ```csharp
 using Mythosia.AI.Models;
 
+// GPT-5.6：Sol 是旗舰模型；Terra 和 Luna 是更经济的选择。
+service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
+service.WithGpt5_6Parameters(
+    reasoningEffort: Gpt5_6Reasoning.Medium, // None, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium);            // Low, Medium, High
+
 // GPT-5.4 系列
-service.Model = AIModels.OpenAI.Gpt5_4;
+service.ChangeModel(AIModels.OpenAI.Gpt5_4);
 service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High, XHigh
 
 // GPT-5.2 系列
-service.Model = AIModels.OpenAI.Gpt5_2;
+service.ChangeModel(AIModels.OpenAI.Gpt5_2);
 service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 
 // o3
-service.Model = AIModels.OpenAI.O3;
+service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
 
@@ -49,17 +55,16 @@ string transcript = await service.TranscribeAudioAsync(
 ### 图像生成
 
 ```csharp
-// 获取图像字节
-byte[] imageBytes = await service.GenerateImageAsync(
-    prompt: "夜晚的未来城市",
-    size: "1024x1024"
-);
+var result = await ((IImageGenerationService)service).GenerateImagesAsync(
+    new ImageGenerationRequest
+    {
+        Prompt = "夜晚的未来城市",
+        Size = "1024x1024"
+    });
 
-// 获取图像 URL
-string imageUrl = await service.GenerateImageUrlAsync(
-    prompt: "夜晚的未来城市",
-    size: "1024x1024"
-);
+GeneratedImage image = result.Images[0];
+byte[] imageBytes = image.Data;
+string? imageUrl = image.Url;
 ```
 
 ---
@@ -101,8 +106,8 @@ service.ThinkingLevel = GeminiThinkingLevel.High;
 ```csharp
 using Mythosia.AI.Models;
 
-service.ReasoningMode = GrokReasoning.High;
-// 选项：Off, Low, High
+service.ReasoningEffort = GrokReasoning.High;
+// 选项：Auto, None, Low, Medium, High（取决于模型）
 ```
 
 ---
@@ -149,8 +154,11 @@ var service = new QwenService(apiKey, http)
 
 可用模型：`QwenMax`、`QwenPlus`、`QwenTurbo`、`Qwen3` 及其变体。
 
-`EndpointPlatform` 属性允许在阿里云与兼容端点之间切换：
+创建服务时，使用 `EndpointPlatform` 选择兼容端点：
 
 ```csharp
-service.EndpointPlatform = EndpointPlatform.AlibabaCloud;
+var vllmService = new QwenService(
+    "http://localhost:8000",
+    EndpointPlatform.Vllm,
+    http);
 ```

@@ -2,7 +2,7 @@
 
 ## Por que um Loop de Agent?
 
-Com a chamada de funções comum, o modelo faz **uma** chamada de função por requisição. Mas muitas tarefas do mundo real exigem **múltiplas etapas** que o modelo precisa planejar e executar autonomamente:
+A chamada de funções comum pode executar **várias funções de uma resposta do modelo como um lote ordenado** e continuar por outras rodadas de ferramentas. A API de Agent reúne esse mecanismo em um loop ReAct orientado a objetivos com um **limite de etapas** explícito, devolvendo ao modelo os resultados de cada lote até que ele produza uma resposta final:
 
 - "Pesquise as 3 principais empresas de IA e compare os preços das ações" — requer múltiplas buscas
 - "Encontre a política relevante, verifique o status do pedido e diga se tenho direito ao reembolso" — requer encadeamento lógico de ferramentas
@@ -57,7 +57,7 @@ catch (AgentMaxStepsExceededException ex)
 Controle o comportamento do loop de agent por round:
 
 ```csharp
-service.FunctionCallingPolicy = new FunctionCallingPolicy
+service.DefaultPolicy = new FunctionCallingPolicy
 {
     MaxRounds = 10,
     TimeoutSeconds = 30

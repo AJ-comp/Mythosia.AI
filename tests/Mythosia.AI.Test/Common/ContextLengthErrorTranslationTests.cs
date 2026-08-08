@@ -25,6 +25,9 @@ public class ContextLengthErrorTranslationTests
     private const string GoogleBody =
         """{"error":{"code":400,"message":"The input token count (1050000) exceeds the maximum number of tokens allowed (1048576).","status":"INVALID_ARGUMENT"}}""";
 
+    private const string XaiBody =
+        """{"code":"invalid-argument","error":"This model's maximum prompt length is 256000 but the request contains 280193 tokens."}""";
+
     #region 감지되어야 하는 것
 
     [TestCategory("Unit")]
@@ -73,6 +76,18 @@ public class ContextLengthErrorTranslationTests
         Assert.IsTrue(detected);
         Assert.AreEqual(1048576, max);
         Assert.AreEqual(1050000, requested);
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    public void Xai_MaximumPromptLength_Detected()
+    {
+        var detected = AIHttpErrorFactory.IsContextLengthExceeded(400, XaiBody, out var max, out var requested);
+
+        Assert.IsTrue(detected);
+        Assert.AreEqual(256000, max);
+        Assert.AreEqual(280193, requested);
     }
 
     [TestCategory("Unit")]

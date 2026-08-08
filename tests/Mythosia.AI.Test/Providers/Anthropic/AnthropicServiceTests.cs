@@ -1,5 +1,7 @@
 ﻿using Mythosia.AI.Models;
 using Mythosia.AI.Services.Anthropic;
+using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Tests;
 using Mythosia.Azure;
@@ -8,6 +10,7 @@ namespace Mythosia.AI.Tests.Anthropic;
 
 // 1. 기존 클래스를 추상 클래스로 변경 (이름에 Base 추가)
 [TestClass]
+[TestCategory("Live")]
 public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
@@ -47,13 +50,15 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 
                 Assert.IsNotNull(response);
 
-                // Fable 5 and Opus 4.7+ use adaptive thinking: the model decides whether to emit a
+                // Claude 5, Fable 5, and Opus 4.7+ use adaptive thinking: the model decides whether to emit a
                 // thinking block and may legitimately skip it (the manual budget_tokens API used to
                 // force thinking, adaptive thinking does not). Thinking-content capture is already
                 // verified by the manual-thinking models below, so for adaptive models we only
                 // require a valid response and validate thinking content when it is present.
                 var model = claudeService.Model?.ToLowerInvariant() ?? string.Empty;
-                bool adaptiveThinking = model.Contains("fable-5") || model.Contains("opus-4-7") || model.Contains("opus-4-8");
+                bool adaptiveThinking = model.Contains("fable-5") || model.Contains("opus-5") ||
+                                        model.Contains("sonnet-5") || model.Contains("opus-4-7") ||
+                                        model.Contains("opus-4-8");
 
                 if (adaptiveThinking)
                 {
@@ -81,11 +86,25 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
         return service;
     }
 
+    protected override void ConfigureRequiredFunctionCall(string functionName)
+    {
+        AI.ForceFunctionName = functionName;
+    }
+
+    protected override void ConfigureFunctionCallingStreamEventsTest()
+    {
+        ConfigureRequiredFunctionCall("test_function");
+    }
+
+    protected override void ConfigureFunctionChainingStreamTest()
+    {
+        ConfigureRequiredFunctionCall("get_user_id");
+    }
+
     protected override bool SupportsMultimodal() => true;
     protected override bool SupportsFunctionCalling() => true;
     protected override bool SupportsArrayParameter() => true;
     protected override bool SupportsAudio() => false;
-    protected override bool SupportsImageGeneration() => false;
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning()
     {
@@ -197,36 +216,37 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
     [TestMethod]
     public async Task ClaudeModelVariantsTest()
     {
-        try
+        var failures = new List<string>();
+        var models = new[]
         {
-            var models = new[]
-            {
-               AIModels.Anthropic.ClaudeHaiku4_5_251001,
-               AIModels.Anthropic.ClaudeSonnet4_6
-           };
+            AIModels.Anthropic.ClaudeHaiku4_5_251001,
+            AIModels.Anthropic.ClaudeSonnet4_6
+        };
 
-            foreach (var model in models)
+        foreach (var model in models)
+        {
+            try
             {
-                try
-                {
-                    AI.ChangeModel(model);
-                    Console.WriteLine($"\n[Testing Model] {model}");
+                AI.ChangeModel(model);
+                Console.WriteLine($"\n[Testing Model] {model}");
 
-                    var response = await AI.GetCompletionAsync($"Hello from {model}!");
-                    Assert.IsNotNull(response);
-                    Console.WriteLine($"[Response] {response.Substring(0, Math.Min(100, response.Length))}...");
-                }
-                catch (Exception modelEx)
-                {
-                    Console.WriteLine($"[Model {model} Error] {modelEx.Message}");
-                }
+                var response = await AI.GetCompletionAsync($"Hello from {model}!");
+                Assert.IsFalse(
+                    string.IsNullOrWhiteSpace(response),
+                    $"Model {model} returned an empty response.");
+                Console.WriteLine($"[Response] {response[..Math.Min(100, response.Length)]}...");
+            }
+            catch (Exception modelEx)
+            {
+                Console.WriteLine($"[Model {model} Error] {modelEx.Message}");
+                failures.Add($"{model}: {modelEx.GetType().Name}: {modelEx.Message}");
             }
         }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[Model Variants Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
+
+        Assert.AreEqual(
+            0,
+            failures.Count,
+            "One or more Anthropic model variants failed:\n" + string.Join("\n", failures));
     }
 
     /// <summary>
@@ -285,6 +305,18 @@ public class Claude_Fable5 : AnthropicServiceTestsBase
 }
 
 [TestClass]
+public class Claude_Opus5 : AnthropicServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus5;
+}
+
+[TestClass]
+public class Claude_Sonnet5 : AnthropicServiceTestsBase
+{
+    protected override string ModelToTest => AIModels.Anthropic.ClaudeSonnet5;
+}
+
+[TestClass]
 public class Claude_Opus4_8 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_8;
@@ -294,18 +326,6 @@ public class Claude_Opus4_8 : AnthropicServiceTestsBase
 public class Claude_Opus4_7 : AnthropicServiceTestsBase
 {
     protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_7;
-}
-
-[TestClass]
-public class Claude_Opus4_1 : AnthropicServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_1_250805;
-}
-
-[TestClass]
-public class Claude_Opus4 : AnthropicServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.Anthropic.ClaudeOpus4_250514;
 }
 
 [TestClass]
@@ -326,6 +346,128 @@ public class Claude_Haiku4_5 : AnthropicServiceTestsBase
     protected override string ModelToTest => AIModels.Anthropic.ClaudeHaiku4_5_251001;
 }
 
+[TestClass]
+[TestCategory("Live")]
+public class AnthropicClaude5LiveContractTests
+{
+    private static string? apiKey;
+
+    [ClassInitialize]
+    public static async Task ClassInit(TestContext context)
+    {
+        var secretFetcher = new SecretFetcher(
+            "https://mythosia-key-vault.vault.azure.net/",
+            "momedit-antropic-secret");
+        apiKey = await secretFetcher.GetKeyValueAsync();
+    }
+
+    [TestMethod]
+    [TestCategory("ServiceSpecific")]
+    [DataRow(AIModels.Anthropic.ClaudeOpus5)]
+    [DataRow(AIModels.Anthropic.ClaudeSonnet5)]
+    public async Task DefaultOptOutAndAdaptiveThinking_BothComplete(string model)
+    {
+        var reasoningOff = CreateClaude5(model);
+        var offResponse = await reasoningOff.GetCompletionAsync("Reply with the single word OK.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(offResponse));
+
+        var adaptive = CreateClaude5(model);
+        adaptive.ThinkingBudget = 1024;
+        var adaptiveResponse = await adaptive.GetCompletionAsync("What is 7 * 8? Answer briefly.");
+        Assert.IsFalse(string.IsNullOrWhiteSpace(adaptiveResponse));
+    }
+
+    [TestMethod]
+    [TestCategory("ServiceSpecific")]
+    [DataRow(AIModels.Anthropic.ClaudeOpus5)]
+    [DataRow(AIModels.Anthropic.ClaudeSonnet5)]
+    public async Task AdaptiveThinking_ToolContinuationCompletes(string model)
+    {
+        var service = CreateClaude5(model);
+        service.ThinkingBudget = 1024;
+        var invocationCount = 0;
+        service.Functions.Add(new FunctionDefinition
+        {
+            Name = "get_contract_value",
+            Description = "Returns the required offline contract value.",
+            Handler = _ =>
+            {
+                invocationCount++;
+                return Task.FromResult("42");
+            }
+        });
+
+        var response = await service.GetCompletionAsync(
+            "You must call get_contract_value exactly once, then report its returned value.");
+
+        Assert.AreEqual(1, invocationCount);
+        Assert.IsFalse(string.IsNullOrWhiteSpace(response));
+        StringAssert.Contains(response, "42");
+    }
+
+    [TestMethod]
+    [TestCategory("ServiceSpecific")]
+    [DataRow(AIModels.Anthropic.ClaudeOpus5)]
+    [DataRow(AIModels.Anthropic.ClaudeSonnet5)]
+    public async Task AdaptiveThinking_StreamingToolContinuationCompletes(string model)
+    {
+        var service = CreateClaude5(model);
+        service.ThinkingBudget = 1024;
+        var invocationCount = 0;
+        service.Functions.Add(new FunctionDefinition
+        {
+            Name = "get_stream_contract_value",
+            Description = "Returns the required offline streaming contract value.",
+            Handler = _ =>
+            {
+                invocationCount++;
+                return Task.FromResult("84");
+            }
+        });
+
+        var events = new List<StreamingContent>();
+        await foreach (var content in service.StreamAsync(
+                           "You must call get_stream_contract_value exactly once, then report its returned value.",
+                           StreamOptions.WithFunctions.WithReasoning()))
+        {
+            events.Add(content);
+        }
+
+        Assert.AreEqual(1, invocationCount);
+        Assert.IsTrue(events.Any(content => content.Type == StreamingContentType.FunctionCall));
+        Assert.IsTrue(events.Any(content => content.Type == StreamingContentType.FunctionResult));
+        Assert.IsFalse(events.Any(content => content.Type == StreamingContentType.Error));
+        StringAssert.Contains(
+            string.Concat(events.Where(content => content.Type == StreamingContentType.Text)
+                                .Select(content => content.Content)),
+            "84");
+    }
+
+    [TestMethod]
+    [TestCategory("ServiceSpecific")]
+    [DataRow(AIModels.Anthropic.ClaudeOpus4_6)]
+    [DataRow(AIModels.Anthropic.ClaudeSonnet4_6)]
+    public async Task Claude46_ExplicitAdaptiveThinking_Completes(string model)
+    {
+        var service = CreateClaude5(model)
+            .WithAdaptiveThinkingParameters(
+                ClaudeReasoningEffort.Medium,
+                ClaudeThinkingDisplay.Omitted);
+
+        var response = await service.GetCompletionAsync("Reply with the single word OK.");
+
+        Assert.IsFalse(string.IsNullOrWhiteSpace(response));
+    }
+
+    private static AnthropicService CreateClaude5(string model)
+    {
+        var service = new AnthropicService(apiKey!, new HttpClient());
+        service.ChangeModel(model);
+        service.MaxTokens = 4096;
+        return service;
+    }
+}
+
 /// <summary>
 /// AIService.QuickAskAsync 정적 경로의 라이브 스모크 테스트.
 /// (회귀 방지: 이 경로는 v6.5.0까지 어떤 테스트도 호출하지 않아
@@ -333,6 +475,7 @@ public class Claude_Haiku4_5 : AnthropicServiceTestsBase
 /// 가장 저렴한 Haiku로 1회만 호출한다.
 /// </summary>
 [TestClass]
+[TestCategory("Live")]
 public class AnthropicQuickAskSmokeTests
 {
     private static string? apiKey;

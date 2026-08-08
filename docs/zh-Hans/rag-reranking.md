@@ -42,7 +42,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .WithReranker(new VllmReranker("http://localhost:8000"))
+    .WithReranker(new VllmReranker(baseUrl: "http://localhost:8000"))
     .AddDocument("corpus.txt")
 )
 ```
@@ -55,14 +55,14 @@
 .WithRag(rag => rag
     .WithTopK(5)                   // 最终返回的片段数
     .WithRetrievalMultiplier(3)    // 检索 topK × 3 个候选（用于重排序）
-    .WithMinScore(0.6)             // 最低相似度阈值
+    .WithScoreThreshold(0.6)       // 最低相似度阈值
     .AddDocument("corpus.txt")
 )
 ```
 
 - **`TopK`** — 最终进入 LLM 上下文的片段数
 - **`RetrievalMultiplier`** — 扩大检索范围以便重排序器有更多选择。乘数为 3 表示获取 15 个候选，然后重排序后保留最佳的 5 个。
-- **`MinScore`** — 丢弃低于此相似度阈值的结果，即使不足 `TopK` 个
+- **`WithScoreThreshold`** — 丢弃低于此相似度阈值的结果，即使不足 `TopK` 个
 
 ## 最终选择模式
 
