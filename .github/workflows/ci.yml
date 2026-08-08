@@ -41,10 +41,6 @@ jobs:
         shell: pwsh
         run: ./build/test-publish-nuget-safety.ps1
 
-      - name: Verify release documentation and package metadata
-        shell: pwsh
-        run: ./build/test-release-documentation.ps1
-
       - name: Verify test category coverage
         shell: pwsh
         run: ./build/test-test-categories.ps1
@@ -58,6 +54,10 @@ jobs:
 
       - name: Build documentation with warnings as errors
         run: docfx docfx.json --warningsAsErrors
+
+      - name: Verify release documentation and package metadata
+        shell: pwsh
+        run: ./build/test-release-documentation.ps1
 
       - name: Verify committed API manifest
         run: git diff --exit-code -- api/.manifest

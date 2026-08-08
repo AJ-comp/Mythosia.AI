@@ -32,10 +32,6 @@ jobs:
       - name: Restore NuGet packages
         run: dotnet restore Mythosia.AI.slnx
 
-      - name: Verify release documentation and package metadata
-        shell: pwsh
-        run: ./build/test-release-documentation.ps1
-
       - name: Build the complete solution
         run: dotnet build Mythosia.AI.slnx --configuration Release --no-restore -p:TreatWarningsAsErrors=true
 
@@ -45,6 +41,10 @@ jobs:
 
       - name: Build docs
         run: docfx docfx.json --warningsAsErrors
+
+      - name: Verify release documentation and package metadata
+        shell: pwsh
+        run: ./build/test-release-documentation.ps1
 
       - name: Verify committed API manifest
         run: git diff --exit-code -- api/.manifest
