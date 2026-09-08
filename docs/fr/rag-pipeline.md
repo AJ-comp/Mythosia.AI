@@ -11,6 +11,8 @@ Le pipeline RAG par défaut fonctionne bien tel quel, mais les projets réels on
 
 Ce chapitre couvre les outils qui vous donnent ce contrôle.
 
+Un pipeline personnalisé peut être associé à un run pour afficher la progression et permettre l’annulation pendant la réponse. Le [guide Run](execution-api-transition.md) précise quand la recherche a lieu et ce que changent les instructions supplémentaires.
+
 ## Suivi de la progression
 
 Suivez quelle étape RAG s'exécute via un callback asynchrone par requête :

@@ -2,12 +2,26 @@
 
 ## OpenAI (OpenAIService)
 
+> O suporte ao GPT-6 Astra e às chamadas assíncronas de ferramentas está disponível a partir de `Mythosia.AI` 7.1.0, com tipos compartilhados em `Mythosia.AI.Abstractions` 3.1.0.
+
+Uma consulta lenta não precisa interromper toda a resposta. Enquanto os dados do clima são carregados, por exemplo, o modelo pode explicar dicas gerais de viagem que não dependem do resultado.
+
+`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permite habilitar chamadas assíncronas para GPT-6 Astra via Responses. O padrão é `false`; modelos sem suporte aguardam o resultado do mesmo handler. Veja exemplos e o ciclo de vida da solicitação no [guia de chamadas de função](function-calling.md).
+
 ### Nível de Esforço de Reasoning
 
-Os modelos GPT-5.x e a série o3 suportam controle de esforço de reasoning:
+Os modelos GPT-6 Astra / GPT-5.x e a série o3 suportam controle de esforço de reasoning:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol é o modelo principal; Terra e Luna são opções mais econômicas.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -23,6 +37,10 @@ service.Gpt5_4ReasoningEffort = Gpt5_4Reasoning.High; // None, Low, Medium, High
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+O GPT-6 Astra usa a API Responses por padrão; chamadas de função exigem essa API. `Auto` equivale ao padrão da biblioteca, `Medium`; `None` e `Minimal` não estão disponíveis. `AIRequestProfile.DisableReasoning = true` usa `Low` no modo `Standard` e omite o resumo do raciocínio. Selecione `Gpt6ReasoningMode.Pro` para executar o modo Pro com o mesmo ID de modelo `gpt-6-astra`.
+
+Para tarefas comuns entre provedores, use [raciocínio e busca nativa](reasoning-and-search.md); as configurações específicas apresentadas a seguir continuam disponíveis.
 
 ### Texto para Fala
 

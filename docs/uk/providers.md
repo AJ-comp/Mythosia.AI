@@ -2,12 +2,26 @@
 
 ## OpenAI (OpenAIService)
 
+> Підтримка GPT-6 Astra та асинхронних викликів інструментів доступна з `Mythosia.AI` 7.1.0; спільні типи включено до `Mythosia.AI.Abstractions` 3.1.0.
+
+Якщо інструмент довго завантажує дані, GPT-6 Astra може тим часом продовжувати незалежні пояснення або інші частини завдання. `FunctionDefinition.AllowAsync = true` або `FunctionBuilder.WithAsync()` дозволяє асинхронні виклики для GPT-6 Astra через Responses. За замовчуванням використовується `false`; моделі без підтримки чекають результату того самого обробника. Приклади та життєвий цикл запиту описано в [посібнику з виклику функцій](function-calling.md).
+
+Як задавати рівень міркування для різних провайдерів і використовувати актуальну інформацію або проіндексовані документи, пояснює [посібник із міркування та пошуку](reasoning-and-search.md). У ньому наведено підтримувані моделі, умови збереження кешу та обмеження поєднань.
+
 ### Рівень міркувань
 
 Баланс між швидкістю та глибиною аналізу:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol — флагманська модель; Terra і Luna — економніші варіанти.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -24,6 +38,8 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High;
 ```
+
+GPT-6 Astra за замовчуванням використовує Responses API; виклики функцій потребують цього API. `Auto` відповідає типовому значенню бібліотеки — `Medium`; значення `None` і `Minimal` недоступні. `AIRequestProfile.DisableReasoning = true` задає рівень `Low` у режимі `Standard` і пропускає підсумок міркувань. Виберіть `Gpt6ReasoningMode.Pro` для режиму Pro з тим самим ідентифікатором моделі `gpt-6-astra`.
 
 ### Перетворення тексту в мовлення (TTS)
 

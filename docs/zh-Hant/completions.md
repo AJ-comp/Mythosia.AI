@@ -9,6 +9,8 @@ var response = await service.GetCompletionAsync("法國的首都在哪裡？");
 Console.WriteLine(response); // 巴黎
 ```
 
+只需要完整答案時，`GetCompletionAsync` 仍然適用。如需逐段顯示、執行中停止或追加指示，請參閱 [Run 使用指南](execution-api-transition.md)。
+
 ## 系統提示詞
 
 透過系統提示詞為模型設定角色或指令：

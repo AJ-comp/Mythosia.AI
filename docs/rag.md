@@ -2,6 +2,8 @@
 
 RAG lets the model answer questions based on your own documents by retrieving relevant chunks at query time.
 
+To display an answer while it is being written from retrieved material, or let the user stop it, use `RagEnabledService.StartRunAsync`. Retrieval runs once before execution; steering does not automatically retrieve again. See the [Run guide](execution-api-transition.md) for usage.
+
 ## Installation
 
 ```bash
@@ -96,6 +98,8 @@ var response = await service.GetCompletionAsync("Your question", options: option
 ```
 
 ## Next Steps
+
+If your provider already manages the document index, compare [hosted file search and RAG](reasoning-and-search.md) before choosing who will handle retrieval. The same guide explains reasoning options and hosted citations on a RAG answer.
 
 - [Hybrid Search](rag-hybrid-search.md) — combine semantic and keyword search
 - [Query Rewriting](rag-query-rewriting.md) — optimize queries with conversation context

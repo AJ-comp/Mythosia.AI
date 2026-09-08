@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: 빠른 시작
     href: getting-started.md
+  - name: 진행 중인 AI 작업 제어하기
+    href: execution-api-transition.md
 
 - name: 핵심 기능
   items:
@@ -13,6 +15,8 @@
     href: completions.md
   - name: 생성 파라미터
     href: generation-params.md
+  - name: 추론 깊이와 검색 출처 활용
+    href: reasoning-and-search.md
   - name: 스트리밍
     href: streaming.md
   - name: 토큰 사용량
@@ -84,4 +88,3 @@
     href: vector-filter.md
   - name: 마이그레이션
     href: vectordb-migration.md
-

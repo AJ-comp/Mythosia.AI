@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: Bắt đầu nhanh
     href: getting-started.md
+  - name: Điều khiển tác vụ đang chạy bằng Run
+    href: execution-api-transition.md
 
 - name: Tính năng cốt lõi
   items:
@@ -13,6 +15,8 @@
     href: completions.md
   - name: Tham số tạo văn bản
     href: generation-params.md
+  - name: Chọn mức suy luận và nguồn
+    href: reasoning-and-search.md
   - name: Streaming
     href: streaming.md
   - name: Sử dụng token

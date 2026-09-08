@@ -12,6 +12,10 @@ service.FrequencyPenalty = 0.0f;   // 繰り返しトークンペナルティ
 service.PresencePenalty = 0.0f;    // 既出トークンペナルティ
 ```
 
+GPT-6 Astra は `temperature` と `top_p` をサポートしません。共通プロパティやリクエストプロファイルで設定しても、Mythosia は両方を送信時に省略します。最大出力は 128,000 トークンです。[GPT-6 の設定](providers.md)も参照してください。
+
+
+下書きと検証で推論の深さを変えたい場合は、[共通の推論設定](reasoning-and-search.md)を使えます。キャッシュを保持する変更と通常のリクエスト単位の指定の違いも説明しています。
 
 ## フルーエント拡張メソッド
 

@@ -2,12 +2,28 @@
 
 ## OpenAI (OpenAIService)
 
+> GPT-6 Astra 지원과 비동기 도구 호출은 `Mythosia.AI` 7.1.0부터 제공하며, 공통 타입은 `Mythosia.AI.Abstractions` 3.1.0에 포함됩니다.
+
+초안과 검토 단계의 추론량을 바꾸거나 웹·문서를 근거로 답하려면 [공통 추론·검색 API](reasoning-and-search.md)를 사용합니다. 지원 범위 안에서 OpenAI·Anthropic·Google에 같은 호출 방식을 적용하며, 캐시 보존 변경과 출처 수집도 제공합니다. 아래의 공급자별 세부 설정도 계속 사용할 수 있습니다.
+
+외부 도구의 결과를 기다리는 동안에도 독립적인 설명이나 준비 작업을 진행하고 싶을 때 Astra의 비동기 도구 호출을 사용할 수 있습니다. 예를 들어 날씨 조회와 일반 여행 준비물 안내를 함께 처리하는 상황입니다.
+
+`FunctionDefinition.AllowAsync = true` 또는 `FunctionBuilder.WithAsync()`로 GPT-6 Astra의 Responses API에서 비동기 도구 호출을 선택적으로 허용합니다. 기본값은 `false`이며, 미지원 모델에서는 같은 핸들러의 결과를 기다립니다. 예제와 요청 수명은 [함수 호출 가이드](function-calling.md)를 참고하세요.
+
 ### 추론 수준
 
 속도와 분석 깊이 사이의 균형을 조절합니다:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol은 최상위 모델이며, Terra와 Luna는 비용을 낮춘 선택지입니다.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -27,6 +43,8 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra는 기본적으로 Responses API를 사용하며, 함수 호출에도 이 API가 필요합니다. `Auto`는 라이브러리 기본값인 `Medium`으로 적용되며 `None`과 `Minimal`은 지원하지 않습니다. `AIRequestProfile.DisableReasoning = true`는 `Standard` 모드에서 추론 수준을 `Low`로 낮추고 추론 요약을 생략합니다. `Gpt6ReasoningMode.Pro`를 선택하면 같은 모델 ID `gpt-6-astra`로 Pro 모드를 사용합니다.
 
 ### 텍스트 음성 변환 (TTS)
 

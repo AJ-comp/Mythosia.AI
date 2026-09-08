@@ -7,12 +7,16 @@
   - name: Швидкий старт
     href: getting-started.md
 
+  - name: Керування поточним завданням (Run)
+    href: execution-api-transition.md
 - name: Основні можливості
   items:
   - name: Генерація тексту
     href: completions.md
   - name: Параметри генерації
     href: generation-params.md
+  - name: Рівень міркування та джерела
+    href: reasoning-and-search.md
   - name: Потокова передача
     href: streaming.md
   - name: Використання токенів

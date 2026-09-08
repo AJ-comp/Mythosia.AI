@@ -9,6 +9,7 @@ using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services.OpenAI;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -69,8 +70,18 @@ namespace Mythosia.AI.Samples.ChatUi
             }
 
             sb.AppendLine($"// Generation settings");
-            sb.AppendLine($"service.Temperature = {svc.Temperature}f;");
-            sb.AppendLine($"service.TopP = {svc.TopP}f;");
+            if (svc is OpenAIService gpt && modelValue.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase))
+            {
+                sb.AppendLine($"service.Gpt6ReasoningEffort = Gpt6Reasoning.{gpt.Gpt6ReasoningEffort};");
+                sb.AppendLine($"service.Gpt6ReasoningSummary = {(gpt.Gpt6ReasoningSummary.HasValue ? $"ReasoningSummary.{gpt.Gpt6ReasoningSummary}" : "null")};");
+                sb.AppendLine($"service.Gpt6ReasoningMode = Gpt6ReasoningMode.{gpt.Gpt6ReasoningMode};");
+                sb.AppendLine($"service.Gpt6Verbosity = {(gpt.Gpt6Verbosity.HasValue ? $"Verbosity.{gpt.Gpt6Verbosity}" : "null")};");
+            }
+            else
+            {
+                sb.AppendLine($"service.Temperature = {svc.Temperature}f;");
+                sb.AppendLine($"service.TopP = {svc.TopP}f;");
+            }
             sb.AppendLine($"service.MaxTokens = {svc.MaxTokens};");
             sb.AppendLine($"service.StatelessMode = {svc.StatelessMode.ToString().ToLower()};");
             sb.AppendLine();

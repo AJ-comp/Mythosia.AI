@@ -1,5 +1,7 @@
 # Textvervollständigung
 
+Wenn die Anwendung nur die fertige Antwort benötigt, ist `GetCompletionAsync` weiterhin passend. Für Fortschrittsanzeige, Abbruch und unterstützte zusätzliche Anweisungen während der Arbeit hilft die [Run-Anleitung](execution-api-transition.md).
+
 ## Einfache Abfrage
 
 Die einfachste Verwendung — eine Nachricht senden, eine Antwort erhalten:

@@ -51,6 +51,9 @@ namespace Mythosia.AI.Models.Streaming
         /// </summary>
         public string? FunctionCallBatchId { get; set; }
 
+        /// <summary>A provider-supplied source reference for a response content part.</summary>
+        public AICitation? Citation { get; set; }
+
     }
 
     public enum StreamingContentType
@@ -62,7 +65,8 @@ namespace Mythosia.AI.Models.Streaming
         Status,         // Status message
         Error,          // Error occurred
         Completion,     // Stream completed
-        RoundUsage      // Token usage for one LLM round
+        RoundUsage,     // Token usage for one LLM round
+        Citation        // Provider-supplied source reference
     }
 
 }

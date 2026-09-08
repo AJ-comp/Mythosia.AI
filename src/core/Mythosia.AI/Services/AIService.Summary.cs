@@ -1,5 +1,6 @@
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Messages;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
@@ -89,6 +90,8 @@ namespace Mythosia.AI.Services.Base
         private async Task<SummaryCompactionResult> CompactAsync(bool force)
         {
             if (_isSummarizing) return SummaryCompactionResult.Skipped("reentrant");
+            var compactionBlock = GetConversationCompactionBlockReason();
+            if (compactionBlock != null) return SummaryCompactionResult.Skipped(compactionBlock);
             // No policy means no summary store — there is nothing to compact into.
             // Injecting a policy here would silently start deleting history the caller never opted into.
             if (ConversationPolicy == null) return SummaryCompactionResult.Skipped("no-policy");
@@ -99,9 +102,9 @@ namespace Mythosia.AI.Services.Base
 
             var (messagesToSummarize, keepFromIndex) = ConversationPolicy.GetMessagesToSummarize(ActivateChat.Messages);
 
-            // A function-call assistant message and its result message form one protocol turn.
-            // The regular trigger path needs the same boundary protection as forced recovery;
-            // otherwise KeepRecentCount/KeepRecentTokens can retain an orphan tool result.
+            // Keep every retained result with its originating call, including asynchronous
+            // results separated from their call by other assistant turns or partial results.
+            // The regular trigger path needs the same protection as forced recovery.
             keepFromIndex = ClampKeepIndexForFunctionPair(ActivateChat.Messages, keepFromIndex);
             messagesToSummarize = Take(ActivateChat.Messages, keepFromIndex);
 
@@ -196,11 +199,34 @@ namespace Mythosia.AI.Services.Base
             if (keepFromIndex <= 0) return 0;
             if (keepFromIndex > messages.Count) keepFromIndex = messages.Count;
 
-            // Walk back off any function result so its originating assistant turn stays with it.
+            // Imported legacy history has no typed batch identity, so preserve its adjacent
+            // assistant/function boundary before resolving typed result dependencies below.
             while (keepFromIndex > 0 && keepFromIndex < messages.Count &&
                    messages[keepFromIndex].Role == ActorRole.Function)
             {
                 keepFromIndex--;
+            }
+
+            var callIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var index = 0; index < messages.Count; index++)
+            {
+                var batchId = messages[index].FunctionCallBatch?.Id;
+                if (!string.IsNullOrEmpty(batchId) && !callIndexes.ContainsKey(batchId))
+                    callIndexes.Add(batchId, index);
+            }
+
+            // Scan backward with a moving boundary. Pulling the boundary back can expose
+            // another batch's retained result, whose own call must also remain in history.
+            // Retaining the full span also keeps every earlier partial result for that call.
+            for (var index = messages.Count - 1; index >= keepFromIndex; index--)
+            {
+                var batchId = messages[index].FunctionCallResultBatch?.FunctionCallBatchId;
+                if (!string.IsNullOrEmpty(batchId) &&
+                    callIndexes.TryGetValue(batchId, out var callIndex) &&
+                    callIndex < keepFromIndex)
+                {
+                    keepFromIndex = callIndex;
+                }
             }
 
             return keepFromIndex;

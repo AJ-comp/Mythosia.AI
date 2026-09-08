@@ -12,8 +12,12 @@ service.FrequencyPenalty = 0.0f;   // Penalize repeated tokens
 service.PresencePenalty = 0.0f;    // Penalize tokens already present
 ```
 
+GPT-6 Astra does not support `temperature` or `top_p`; Mythosia omits both even when the common properties or a request profile set them. Its maximum output is 128,000 tokens. Use the [GPT-6 reasoning settings](providers.md#reasoning-effort) to configure reasoning effort and verbosity.
+
 
 ## Fluent Extension Methods
+
+When a quick draft needs deeper review or an answer needs current/document sources, use [request-scoped reasoning and search](reasoning-and-search.md): `WithReasoning`, `WithWebSearch` and `WithFileSearch`. These copy options for the next logical request; the service defaults below remain available.
 
 These return `this` for chaining:
 

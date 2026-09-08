@@ -27,6 +27,10 @@
 
 </div>
 
+> Versions des packages documentées ici: [Mythosia.AI 7.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v710), [Abstractions 3.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310), [Alibaba 2.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201), [RAG 7.6.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+
+Pour une tâche d’IA longue, l’application peut afficher la progression et permettre à l’utilisateur d’arrêter le travail ou d’ajouter une instruction. Le [guide Run](execution-api-transition.md) explique quand et comment piloter cette même tâche en cours.
+
 ---
 
 ### Quels packages installer ?
@@ -48,16 +52,16 @@ dotnet add package Mythosia.VectorDb.Postgres     # optionnel : quand vous avez 
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.5.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.6.0</i>"]
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.0.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.0.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.1.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.1.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.0</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.1</i>"]
     end
 
     subgraph "🛰️ Serving — Control Plane"
@@ -122,7 +126,7 @@ Exécutez **`Mythosia.AI.Samples.ChatUi`** en local :
 
 ```bash
 # depuis la racine du dépôt
-dotnet run --project samples/Mythosia.AI.Samples.ChatUi
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
@@ -162,6 +166,8 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 }
 ```
 
+Si une tâche exige davantage de raisonnement ou des sources récentes ou documentaires, utilisez les [options communes de raisonnement et de recherche](reasoning-and-search.md).
+
 ### Appel de fonctions
 
 ```csharp
@@ -175,6 +181,10 @@ var service = new OpenAIService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
+
+Une consultation lente ne doit pas forcément suspendre toute la réponse. Pendant le chargement de la météo, par exemple, le modèle peut déjà formuler des conseils de voyage généraux qui ne dépendent pas du résultat.
+
+`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permet d’autoriser les appels asynchrones pour GPT-6 Astra via Responses. La valeur par défaut est `false` ; les modèles non compatibles attendent le résultat du même gestionnaire. Voir les exemples et la durée de vie des requêtes dans le [guide des appels de fonctions](function-calling.md).
 
 ### Sortie structurée (basique)
 
@@ -254,7 +264,7 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 | Fournisseur | Package | Modèles |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
 | **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite |
 | **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
@@ -330,7 +340,7 @@ src/
     Mythosia.VectorDb.Pinecone/         # Vector store Pinecone
     Mythosia.VectorDb.Postgres/         # Store PostgreSQL + pgvector
     Mythosia.VectorDb.Qdrant/           # Vector store Qdrant
-samples/                                # Applications d'exemple
+apps/                                   # Applications d'exemple
 tests/                                  # Projets de tests unitaires / d'intégration
 ```
 

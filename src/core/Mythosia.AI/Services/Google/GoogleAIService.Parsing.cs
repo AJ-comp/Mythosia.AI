@@ -43,6 +43,7 @@ namespace Mythosia.AI.Services.Google
 
             ApplySystemInstruction(requestBody);
             ApplySafetySettings(requestBody);
+            ApplyNativeGeminiTools(requestBody);
 
             return requestBody;
         }
@@ -67,6 +68,9 @@ namespace Mythosia.AI.Services.Google
 
         private object ConvertMessageForGemini(Message message)
         {
+            if (message.Role == ActorRole.Assistant &&
+                message.Metadata?.TryGetValue(NativeGeminiPartsKey, out var nativeParts) == true)
+                return new { role = "model", parts = JsonSerializer.Deserialize<JsonElement>(nativeParts.ToString()!) };
             var role = GetGeminiRole(message);
             var thoughtSig = ExtractThoughtSignature(message);
 
@@ -210,6 +214,8 @@ namespace Mythosia.AI.Services.Google
         /// </summary>
         private void ApplyThinkingConfig(Dictionary<string, object> generationConfig)
         {
+            if (ApplyCommonGeminiReasoning(generationConfig))
+                return;
             if (IsGemini3Model())
             {
                 if (ThinkingLevel == GeminiThinkingLevel.Minimal &&
@@ -539,6 +545,8 @@ namespace Mythosia.AI.Services.Google
             functionCalls.BeginChunk();
             var root = doc.RootElement;
             var parsedContents = new List<StreamingContent>();
+            foreach (var citation in ExtractGeminiCitations(root))
+                parsedContents.Add(new StreamingContent { Type = StreamingContentType.Citation, Citation = citation });
             var usage = TryParseUsageMetadata(root);
 
             if (!root.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)

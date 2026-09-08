@@ -1,5 +1,7 @@
 # Completions Básicas
 
+Se a aplicação precisa apenas da resposta concluída, `GetCompletionAsync` continua adequado. Para mostrar o progresso, cancelar ou acrescentar instruções durante o trabalho em modelos compatíveis, consulte o [guia de Run](execution-api-transition.md).
+
 ## Turno Único
 
 O uso mais simples — envie uma mensagem, receba uma resposta:

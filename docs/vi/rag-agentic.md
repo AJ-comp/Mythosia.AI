@@ -11,9 +11,11 @@ Trong RAG tiêu chuẩn, mỗi tin nhắn của user kích hoạt đúng **một
 
 Agentic RAG giải quyết tất cả những điều này. Thay vì pipeline retrieve-then-answer cố định, **agent tự quyết định** — khi nào tìm kiếm, tìm gì, có nên tìm lại không, và khi nào gọi các công cụ khác — tất cả trong một ReAct loop.
 
+Khi câu trả lời cần nhiều lần truy xuất hoặc công cụ bên ngoài, hãy khởi chạy Run từ dịch vụ đã đăng ký công cụ tìm kiếm để cung cấp tiến độ và thao tác dừng. [Hướng dẫn Run](execution-api-transition.md) giải thích phạm vi điều khiển khi chạy và chỉ dẫn bổ sung.
+
 ## Bắt đầu nhanh
 
-Đăng ký `RagStore` như một công cụ với `WithAgenticRag`, rồi giao cho `RunAgentAsync`:
+Đăng ký `RagStore` như một công cụ với `WithAgenticRag`, rồi giao cho `StartRunAsync(...)`:
 
 ```csharp
 // Xây dựng index một lần
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Tóm tắt chính sách hoàn tiền.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Tóm tắt chính sách hoàn tiền.");
+var answer = await run.Result;
 ```
 
 Agent tự động gọi `search_documents` khi cần context tài liệu, rồi tổng hợp câu trả lời cuối cùng từ các đoạn đã truy xuất.
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // Agent tìm kiếm tài liệu về chính sách VÀ gọi API để lấy dữ liệu đơn hàng trực tiếp
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Đơn hàng #12345 — tôi có đủ điều kiện hoàn tiền theo chính sách hiện tại không?");
+var answer = await run.Result;
 ```
 
 Trong ví dụ này, agent tự chủ:
@@ -75,7 +79,7 @@ Mô tả mơ hồ như "Tìm kiếm tài liệu" có thể khiến agent gọi R
 | Đặt câu truy vấn | QueryRewriter | Agent tự đặt |
 | Số lần tìm kiếm | Một lần mỗi lượt | Một hoặc nhiều lần tùy nhu cầu |
 | Kết hợp công cụ | Không áp dụng | Bất kỳ công cụ nào đã đăng ký |
-| Thiết lập | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| Thiết lập | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **Lưu ý:** `QueryRewriter` cố tình bị bỏ qua trong Agentic RAG. Agent tự đặt truy vấn tìm kiếm tự chứa, nên bước viết lại riêng biệt sẽ thừa và có thể làm sai lệch ý định của agent.
 

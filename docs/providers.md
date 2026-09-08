@@ -2,12 +2,28 @@
 
 ## OpenAI (OpenAIService)
 
+> GPT-6 Astra support and async tool calling are available from `Mythosia.AI` 7.1.0, with shared types in `Mythosia.AI.Abstractions` 3.1.0.
+
+To switch effort between drafting and review, or answer from web/document sources, use the [common reasoning and search API](reasoning-and-search.md). It covers OpenAI, Anthropic and Google where supported, including cache-preserving changes and retained citations. The settings below remain available for provider-specific control.
+
+Astra's async tool calling is useful when the model can explain or prepare something independently while an external lookup runs, such as giving general packing advice while checking the weather.
+
+`FunctionDefinition.AllowAsync = true` or `FunctionBuilder.WithAsync()` enables opt-in async function calls on GPT-6 Astra through Responses. The default is `false`; unsupported models keep the same handler and wait for its result. See [async tool calling](function-calling.md#async-tool-calling) for examples and request-lifetime details.
+
 ### Reasoning Effort
 
-GPT-5.x and o3 series models support reasoning effort control. Set the level to trade off speed vs. depth:
+GPT-6 Astra, GPT-5.x, and o3 series models support reasoning effort control. Set the level to trade off speed vs. depth:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: the alias routes to Sol; Terra lowers cost; Luna targets efficient volume.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6);
@@ -27,6 +43,8 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.WithO3Parameters(Gpt5Reasoning.High); // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra uses the Responses API by default; function calling requires it. `Auto` resolves to the library default, `Medium`, and `None`/`Minimal` are unavailable. `AIRequestProfile.DisableReasoning = true` uses `Low` effort in `Standard` mode and omits reasoning summaries. Select `Gpt6ReasoningMode.Pro` for Pro execution with the same `gpt-6-astra` model ID.
 
 ### Text-to-Speech
 

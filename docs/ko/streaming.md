@@ -1,6 +1,24 @@
 # 스트리밍
 
-## 기본 스트리밍
+긴 답변이 완성될 때까지 기다리면 사용자는 작업이 진행 중인지 알기 어렵습니다. 스트리밍으로 도착한 텍스트부터 표시하고, `StartRunAsync`가 반환한 실행 객체로 누적 결과와 중지를 함께 관리할 수 있습니다. 도구 이벤트와 추가 지시까지 필요한 경우에는 [Run 사용 안내](execution-api-transition.md)를 참고하세요.
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "긴 문서를 요약해줘.",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+## 기존 입력형 스트리밍 API
+
+아래의 `service.StreamAsync(...)` 호출은 이번 마이너에서 유지하며 다음 메이저에서는 공개 API에서 제외할 예정입니다. 새 실행 제어는 위의 Run 예제를 참고하세요.
 
 `StreamAsync`를 사용해 토큰이 생성되는 즉시 수신합니다:
 

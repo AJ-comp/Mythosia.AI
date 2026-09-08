@@ -1,5 +1,30 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v7.6.0
+
+### Added
+
+- **Control a RAG answer with Run:** `RagEnabledService.StartRunAsync` retrieves documents once, forwards the augmented request to the inner service, and returns the same `AIRun` for text callbacks, output events, the collected result, cancellation, and supported steering. Message content and request context are preserved. Steering does not repeat the initial retrieval.
+- **Reasoning and hosted search:** `WithReasoning`, `WithWebSearch`, and `WithFileSearch` configure the final answer, including completion, structured-output repair, and Run paths. Provider sources are available through `LastCitations` and the returned run; RAG retrieval references remain on `RagProcessedQuery`.
+- **Agentic RAG with Run:** existing `WithAgenticRag` tools work with `StartRunAsync` and the configured function-round policy when additional model-directed searches are needed.
+
+### Changed
+
+- Request features are captured before retrieval and consumed for one logical request. Internal query rewriting does not inherit final-answer search settings; retrieval and validation failures do not leak pending options to the next request.
+- NuGet packages now include these full release notes and symbol packages, with repository and license metadata.
+
+### Fixed
+
+- **Duplicate-source filtering:** when every input document path has already been processed, `RagBuilder` now returns an empty list. Overlapping file and directory registration no longer re-embeds those documents or changes their splitter selection through a later registration.
+
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` v3.1.0+ and `Mythosia.AI.Rag.Abstractions` v6.2.0+. The package continues to depend on the lightweight AI contracts, not the full `Mythosia.AI` implementation.
+- Existing completion and streaming APIs remain callable. Run requires an inner service implementing optional `IAIRunService`; common request features require `IAIRequestFeatureService`. Unsupported capabilities fail explicitly.
+- See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) and [reasoning/search guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/reasoning-and-search.md) for provider support and migration examples.
+
+---
+
 ## v7.5.0
 
 ### Fixed

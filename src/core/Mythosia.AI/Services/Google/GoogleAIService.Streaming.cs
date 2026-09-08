@@ -129,7 +129,13 @@ namespace Mythosia.AI.Services.Google
                 // Gemini emits only thought parts and no visible text. The non-streaming path
                 // already records that empty terminal turn; streaming must preserve the same
                 // conversation state so the history cannot end on a stale function result.
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
+                var assistant = new Message(ActorRole.Assistant, textBuffer.ToString());
+                if (HasNativeGeminiSearch)
+                    assistant.Metadata = new Dictionary<string, object>
+                    {
+                        [NativeGeminiPartsKey] = JsonSerializer.Serialize(functionCalls.ResponseParts)
+                    };
+                ActivateChat.Messages.Add(assistant);
             }
         }
 
@@ -202,7 +208,8 @@ namespace Mythosia.AI.Services.Google
                     if (parsedContent.Usage != null)
                         lastUsage = CopyTokenUsage(parsedContent.Usage);
 
-                    if (parsedContent.Type == StreamingContentType.FunctionCall)
+                    if (parsedContent.Type == StreamingContentType.FunctionCall ||
+                        parsedContent.Type == StreamingContentType.Citation)
                     {
                         yield return parsedContent;
                     }
@@ -269,6 +276,7 @@ namespace Mythosia.AI.Services.Google
             public string BatchId { get; } = Guid.NewGuid().ToString();
 
             public IReadOnlyList<FunctionCall> Calls => _calls;
+            public IReadOnlyList<JsonElement> ResponseParts => _responseParts;
 
             public GeminiFunctionCallCollector(bool requireProviderCallId)
             {

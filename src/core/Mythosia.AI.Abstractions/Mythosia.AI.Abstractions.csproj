@@ -19,9 +19,9 @@
 		<PackageId>Mythosia.AI.Abstractions</PackageId>
 		<IsPackable>true</IsPackable>
 		<Company>Mythosia</Company>
-		<PackageTags>AI;LLM;Abstractions;IAIService;IImageGenerationService;ImageGeneration;ImageEditing;Multimodal;Reasoning;Streaming;FunctionCalling;ParallelFunctionCalling</PackageTags>
+		<PackageTags>AI;LLM;Abstractions;IAIService;IAIRunService;IAIRequestFeatureService;IImageGenerationService;ImageGeneration;ImageEditing;Multimodal;Reasoning;Streaming;FunctionCalling;AsyncFunctionCalling;ParallelFunctionCalling;Run;WebSearch;FileSearch;Citations</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>Provider-neutral contracts and shared models for Mythosia.AI. Defines IAIService, the optional IImageGenerationService capability, messages, streaming content, image request/results, model identifiers, ordered function-call/result batches, and sequential or bounded-parallel execution policy. Depends only on the lightweight Mythosia base package and no provider SDKs.</Description>
+		<Description>Provider-neutral contracts and shared models for Mythosia.AI. Defines IAIService and the optional IAIRunService, IAIRequestFeatureService, and IImageGenerationService capabilities; controllable run handles; common reasoning and hosted-search options; citations; messages and streaming content; GPT-6 model configuration; image request/results; and ordered function batches with opt-in asynchronous-call metadata. Existing IAIService implementations gain no required members. Depends only on the lightweight Mythosia base package and no provider SDKs.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions</PackageProjectUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -30,9 +30,9 @@
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v3.0.0 is a breaking release. Adds current provider model constants and reasoning enums, the optional IImageGenerationService contract and image models, typed FunctionCallBatch/FunctionCallResultBatch fields, and FunctionExecutionMode for sequential or bounded-parallel handlers. Removes ChatBlock.RemoveFunctionMessages(), retired model constants, and GrokReasoning.Off. Full notes and migration guide: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v300</PackageReleaseNotes>
+		<PackageReleaseNotes>v3.1.0 adds optional Run and request-feature capabilities, AIRun, common reasoning and hosted-search options, citations, GPT-6 Astra contracts, and opt-in asynchronous function metadata. Existing IAIService implementations gain no required members; existing streaming enum values are preserved. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310</PackageReleaseNotes>
 
-		<Version>3.0.0</Version>
+		<Version>3.1.0</Version>
 
 	</PropertyGroup>
 

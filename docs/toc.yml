@@ -8,6 +8,8 @@
     href: getting-started.md
   - name: Migrating to v7
     href: v7-migration.md
+  - name: Control Ongoing AI Tasks with Run
+    href: execution-api-transition.md
 
 - name: Core Features
   items:
@@ -15,6 +17,8 @@
     href: completions.md
   - name: Generation Parameters
     href: generation-params.md
+  - name: Reasoning and Search with Sources
+    href: reasoning-and-search.md
   - name: Streaming
     href: streaming.md
   - name: Token Usage

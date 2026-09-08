@@ -9,6 +9,8 @@ var response = await service.GetCompletionAsync("Thủ đô của Pháp là gì?
 Console.WriteLine(response); // Paris
 ```
 
+`GetCompletionAsync` vẫn phù hợp khi chỉ cần câu trả lời hoàn chỉnh. Nếu cần hiển thị từng phần, dừng giữa chừng hoặc bổ sung chỉ dẫn, hãy xem [hướng dẫn Run](execution-api-transition.md).
+
 ## System Prompt
 
 Đặt system prompt để định hướng vai trò hoặc hành vi của model:

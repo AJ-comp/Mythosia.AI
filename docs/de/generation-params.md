@@ -12,6 +12,10 @@ service.FrequencyPenalty = 0.0f;   // Wiederholte Tokens bestrafen
 service.PresencePenalty = 0.0f;    // Bereits vorhandene Tokens bestrafen
 ```
 
+GPT-6 Astra unterstützt weder `temperature` noch `top_p`; Mythosia lässt beide auch dann weg, wenn sie über gemeinsame Eigenschaften oder ein Anfrageprofil gesetzt werden. Die maximale Ausgabe beträgt 128.000 Tokens. Weitere Einstellungen: [GPT-6](providers.md).
+
+
+Den Reasoning-Aufwand einer Aufgabe und ihre Quellen wählen Sie mit den [gemeinsamen Reasoning- und Suchoptionen](reasoning-and-search.md); vorhandene Anbieterparameter bleiben erhalten.
 
 ## Fluent-Erweiterungsmethoden
 

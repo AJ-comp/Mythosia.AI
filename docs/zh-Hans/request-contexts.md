@@ -40,6 +40,21 @@ var answer = await service.GetCompletionAsync(userQuestion,
 
 系统消息仅在本次调用中被修改。下一次请求仍使用原始系统消息。无需清理。
 
+## 在 Run 中复用单次请求上下文
+
+如果希望给正在生成的报告附加今天的日期，同时不把它留在服务设置或对话历史中，也可以向 `StartRunAsync` 传入相同的 `AIRequestContext`。结合进度显示和取消的方式见 [Run 使用指南](execution-api-transition.md)。
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "总结文档。",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"今天的日期: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
 ## 可用属性
 
 ### SystemMessagePrefix
@@ -223,7 +238,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### 工作原理
 
-通过 `WithSystemMessageProvider` fluent 辅助方法注册一次回调。每个外发调用（`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）都会自动调用它来构建基线上下文：
+通过 `WithSystemMessageProvider` fluent 辅助方法注册一次回调。每个外发调用（`StartRunAsync`、`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）都会自动调用它来构建基线上下文：
 
 ```csharp
 // 通常在服务构造 / DI 设置时注册
@@ -254,7 +269,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-非流式路径（`GetCompletionAsync`、`RunAgentAsync`）在设计上不支持取消 — 其签名不接受 `CancellationToken`，始终向 provider 传递 `CancellationToken.None`。如果您的 provider 需要取消（例如长时间运行的 DB 查询），请使用流式路径（`StreamAsync`、`RunAgentStreamAsync`），它们会将调用者的 token 传递到 provider 回调。
+`GetCompletionAsync` 和旧 `RunAgentAsync` 不接收 `CancellationToken`，向上下文 provider 传入的是 `CancellationToken.None`。如需取消长时间的数据库查询，可以使用 `StartRunAsync(..., cancellationToken: token)`；即使不读取输出、只等待 `run.Result`，令牌也会传递给 provider。旧 `StreamAsync` 和 `RunAgentStreamAsync` 同样传递调用者令牌。仅取消 `run.StreamAsync(token)` 会停止观察，不会取消 provider 或整个执行。
 
 ### 与显式 per-call 上下文合并
 

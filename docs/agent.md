@@ -8,9 +8,24 @@ Regular function calling can execute **multiple functions from one model respons
 - "Find the relevant policy, check the order status, then tell me if I qualify for a refund" — requires chaining different tools in a logical sequence
 - The model might need to **retry or refine** a search if the first result is insufficient
 
-Writing this orchestration loop yourself is tedious and error-prone. The **agent loop** (ReAct pattern: Reason → Act → Observe → Repeat) handles it automatically — the model decides what to do next at each step until it reaches a final answer.
+`GetCompletionAsync` and `StartRunAsync` already execute the shared model/tool loop. The legacy agent helpers add a per-call round limit and agent-specific error translation; they do not introduce an independent planner or a separate execution engine.
 
-## Basic Usage
+## Run with progress and control
+
+Keep the handle returned by `StartRunAsync` to display or stop a task that uses several tools. Supported models can also accept another instruction while working. See the [Run guide](execution-api-transition.md) for choosing an execution API.
+
+```csharp
+// Register functions on service before starting the task.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Find the policy, check the order, and explain the outcome.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## Legacy agent compatibility
+
+`RunAgentAsync` and `RunAgentStreamAsync` retain their behavior with `[Obsolete]` warnings. Use the examples below when maintaining or migrating existing calls.
 
 Register functions, then call `RunAgentAsync` with a goal:
 
@@ -62,19 +77,24 @@ Control the per-round behavior of the agent loop:
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// Or via extension methods:
-service.WithMaxRounds(15).WithTimeout(60);
+// Legacy RunAgentAsync uses DefaultPolicy and the explicit maxSteps argument.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "Research and summarize...", maxSteps: 15);
 ```
 
 Predefined policies:
 
 ```csharp
-service.WithFastPolicy();    // Low timeout, fewer rounds — quick tasks
-service.WithComplexPolicy(); // Higher timeout, more rounds — deep research
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // Low timeout, fewer rounds — quick tasks
+var fastResult = await service.RunAgentAsync(
+    "Research and summarize...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // Higher timeout, more rounds — deep research
+var complexResult = await service.RunAgentAsync(
+    "Research and summarize...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## Per-Call Request Context
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-Context flows through an `AsyncLocal`, so concurrent agent runs on the same service instance do not interfere with each other.
+`AIRequestContext` uses `AsyncLocal` for context propagation. This does not make the mutable service, its conversation history, or execution policies safe for overlapping operations. Use separate service instances for independent concurrent tasks.
 
 See [AIRequestContext](request-contexts.md) for the full list of available properties (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

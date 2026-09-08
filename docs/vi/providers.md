@@ -2,12 +2,28 @@
 
 ## OpenAI (OpenAIService)
 
+> GPT-6 Astra và tính năng gọi công cụ bất đồng bộ được hỗ trợ từ `Mythosia.AI` 7.1.0, với các kiểu dùng chung trong `Mythosia.AI.Abstractions` 3.1.0.
+
+Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.
+
+Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
+
+Xem [hướng dẫn suy luận và tìm kiếm](reasoning-and-search.md) để đặt mức suy luận giữa các nhà cung cấp và dùng thông tin mới hoặc tài liệu đã lập chỉ mục. Hướng dẫn nêu rõ mô hình hỗ trợ, cách giữ bộ nhớ đệm và giới hạn kết hợp.
+
 ### Mức độ suy luận
 
-GPT-5.x và dòng o3 hỗ trợ kiểm soát mức độ suy luận. Đặt mức để cân bằng giữa tốc độ và độ sâu:
+GPT-6 Astra / GPT-5.x và dòng o3 hỗ trợ kiểm soát mức độ suy luận. Đặt mức để cân bằng giữa tốc độ và độ sâu:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol là mô hình hàng đầu; Terra và Luna là các lựa chọn tiết kiệm hơn.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -27,6 +43,8 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra mặc định dùng Responses API; việc gọi hàm cũng yêu cầu API này. `Auto` tương ứng với giá trị mặc định của thư viện, `Medium`; không có `None` hoặc `Minimal`. `AIRequestProfile.DisableReasoning = true` dùng mức `Low` trong chế độ `Standard` và bỏ phần tóm tắt suy luận. Chọn `Gpt6ReasoningMode.Pro` để dùng chế độ Pro với cùng mã mô hình `gpt-6-astra`.
 
 ### Text-to-Speech
 

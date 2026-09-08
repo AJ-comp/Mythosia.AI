@@ -115,6 +115,31 @@ namespace Mythosia.AI.Models
     }
 
     /// <summary>
+    /// Reasoning effort level for GPT-6 models.
+    /// Auto uses the library default (Medium).
+    /// GPT-6 supports low, medium, high, xhigh, and max; reasoning cannot be disabled.
+    /// </summary>
+    public enum Gpt6Reasoning
+    {
+        Auto,
+        Low,
+        Medium,
+        High,
+        XHigh,
+        Max
+    }
+
+    /// <summary>
+    /// Reasoning execution mode for GPT-6 models.
+    /// Standard omits the API mode parameter; Pro sends reasoning.mode as pro.
+    /// </summary>
+    public enum Gpt6ReasoningMode
+    {
+        Standard,
+        Pro
+    }
+
+    /// <summary>
     /// Adaptive-thinking effort for current Claude models.
     /// Auto preserves the legacy <c>ThinkingBudget</c>-to-effort mapping.
     /// </summary>

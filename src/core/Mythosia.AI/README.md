@@ -4,13 +4,17 @@
 
 > ⚠️ **Upgrading from v5.x?** Read the **[v6.0 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#migration-from-v5x)** first, then apply the v7 migration above.
 
+## Current release: 7.1.0
+
+GPT-6 Astra configuration, `StartRunAsync`, supported steering, opt-in native asynchronous tools, and the common reasoning/search/citation APIs require **Mythosia.AI 7.1.0 or later** and **Mythosia.AI.Abstractions 3.1.0 or later**. This minor release retains `GetCompletionAsync` and existing streaming methods; the legacy Agent methods now emit migration warnings. See the [v7.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710) for the changes and compatibility details.
+
 ## Package Summary
 
-The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **OpenAI and Gemini image generation and editing**, **function calling**, **reasoning streaming**, **round-level token usage**, **automatic context-overflow recovery**, and **advanced streaming capabilities**.
+The `Mythosia.AI` library provides a unified interface for various AI models with **multimodal support**, **OpenAI and Gemini image generation and editing**, **function calling**, **controllable runs**, **common reasoning and hosted search with citations**, **reasoning streaming**, **round-level token usage**, and **automatic context-overflow recovery**.
 
 ### Supported Providers
 
-- **OpenAI** — GPT-5.6 alias / Sol / Terra / Luna, GPT-5.5 / 5.5 Pro, GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro, GPT-5.3 Codex, GPT-5.2 / 5.2 Pro, GPT-5.1, GPT-5 / 5 Mini / 5 Nano / 5 Pro, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro
+- **OpenAI** — GPT-6 Astra, GPT-5.6 alias / Sol / Terra / Luna, GPT-5.5 / 5.5 Pro, GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro, GPT-5.3 Codex, GPT-5.2 / 5.2 Pro, GPT-5.1, GPT-5 / 5 Mini / 5 Nano / 5 Pro, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro
 - **Anthropic** — Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5
 - **Google** — Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, and Gemini 3 Pro Image
 - **DeepSeek** — Chat and Reasoner models
@@ -21,7 +25,8 @@ The `Mythosia.AI` library provides a unified interface for various AI models wit
 
 - **[Getting Started](https://aj-comp.github.io/Mythosia.AI/docs/getting-started.html)** — Installation, provider setup, and first completion
 - **[Function Calling](https://aj-comp.github.io/Mythosia.AI/docs/function-calling.html)** — Registration, execution policy, and streaming events
-- **[Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md)** — Full version history and migration guides
+- **[Reasoning and Search](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/reasoning-and-search.md)** — Move from quick drafts to deeper review, search hosted sources, and retain citations through common Fluent options
+- **[v7.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710)** — Current changes, compatibility details, and full version history
 - **[Relationship to Microsoft.Extensions.AI](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions#relationship-to-microsoftextensionsai)** — How IAIService and IChatClient differ
 
 > Claude Fable 5 and Claude Mythos 5 require 30-day data retention and cannot use zero-data-retention arrangements. Adaptive thinking is always on; a reasoning-off request is represented by low effort with readable reasoning omitted. Mythos 5 is limited to approved Project Glasswing customers.
@@ -79,6 +84,20 @@ var geminiService = new GoogleAIService(apiKey, httpClient);
 geminiService.ChangeModel(AIModels.Google.Gemini3_6Flash);
 var geminiResponse = await geminiService.GetCompletionAsync("Hello!");
 ```
+
+## Control ongoing tasks
+
+A report or tool-assisted investigation may take time. Use a run to display progress, connect a Stop button, and submit additional requirements on a supported model. See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for choosing between a run and `GetCompletionAsync`.
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Read the documents and write a report.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+The same run can expose `run.StreamAsync()` events for tools and usage. `run.Result` accumulates all emitted text, including intermediate tool-round and pre-steering output; observing the stream is optional. For supported GPT-6 Astra runs, call `run.SteerAsync(...)` while work is active. Success acknowledges queued input; it does not undo earlier output or actions.
 
 ## Image Generation and Editing
 
@@ -157,7 +176,9 @@ service.ChangeModel(AIModels.Google.Gemini3_6Flash);
 service.ChangeModel(AIModels.xAI.Grok4_5);
 ```
 
-`AIModels.OpenAI.Gpt5_6` is the rolling GPT-5.6 alias and currently routes to Sol. Use `Gpt5_6Sol` for an explicit flagship-capability selection, `Gpt5_6Terra` for strong performance at a lower price, or `Gpt5_6Luna` for efficient high-volume workloads.
+`AIModels.OpenAI.Gpt6Astra` selects `gpt-6-astra`. Pro execution uses the same model ID with `Gpt6ReasoningMode.Pro`.
+
+`AIModels.OpenAI.Gpt5_6` is the rolling GPT-5.6 alias and currently routes to Sol. Use `Gpt5_6Sol` for an explicit Sol selection, `Gpt5_6Terra` for strong performance at a lower price, or `Gpt5_6Luna` for efficient high-volume workloads.
 
 ## Static Quick Helpers
 
@@ -167,6 +188,33 @@ For simple stateless usage, use `AIService` static helpers.
 var answer = await AIService.QuickAskAsync(apiKey, "Summarize this text.");
 var vision = await AIService.QuickAskWithImageAsync(apiKey, "Describe this image.", imagePath);
 ```
+
+## GPT-6 Astra Configuration
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var astra = new OpenAIService(apiKey, httpClient);
+astra.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+astra.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium,
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
+
+var answer = await astra.GetCompletionAsync("Explain this design.");
+```
+
+`Gpt6Reasoning` supports `Auto`, `Low`, `Medium`, `High`, `XHigh`, and `Max`; `Auto` resolves to the library default, `Medium`. The values shown above are the `WithGpt6Parameters()` defaults. Configure them individually through `Gpt6ReasoningEffort`, `Gpt6Verbosity`, `Gpt6ReasoningSummary`, and `Gpt6ReasoningMode`. Select `Gpt6ReasoningMode.Pro` for Pro execution on the same `gpt-6-astra` model ID.
+
+Mythosia routes GPT-6 Astra through the Responses API by default, including completions, streaming, structured outputs, vision input, and function calling. GPT-6 tool calling requires Responses. `Temperature` and `TopP` are omitted automatically, including request-profile overrides. The model supports up to 128,000 output tokens; `MaxTokens` controls the requested budget. See the [official model details](https://developers.openai.com/api/docs/models/gpt-6-astra) and [migration guidance](https://developers.openai.com/api/docs/guides/latest-model?model=gpt-6-astra).
+
+GPT-6 reasoning is always enabled: `None` and `Minimal` are unavailable. `AIRequestProfile.DisableReasoning = true` temporarily uses `Low` effort in `Standard` mode and omits the reasoning summary, then restores the configured settings. Set `Gpt6ReasoningSummary = null` when only the summary should be disabled.
+
+GPT-6 internal summarization and query-rewrite profiles reserve at least 4,096 output tokens to accommodate mandatory reasoning. General request token budgets remain caller-controlled.
+
+To continue independent work during a slow lookup, use GPT-6 Astra's opt-in async tools through `FunctionDefinition.AllowAsync` or `FunctionBuilder.WithAsync()`. See [Async Tool Calling](#async-tool-calling). To add a requirement while the model is working, start a run, check `run.CanSteer`, and call `run.SteerAsync(...)`; see [control ongoing tasks](#control-ongoing-tasks).
 
 ## GPT-5 Family Configuration
 
@@ -223,7 +271,7 @@ gptService.WithGpt5_6Parameters(
 
 `Auto` uses the model-appropriate default (e.g., Medium for GPT-5 and GPT-5.6, None for GPT-5.1/5.2, Medium for GPT-5.2 Pro and GPT-5.3 Codex, None for GPT-5.4, Medium for GPT-5.4 Pro, Medium for GPT-5.5, and High for GPT-5.5 Pro). GPT-5 Pro is forced to High; GPT-5.2/5.4/5.5 Pro clamp unsupported `None`/`Low` values to Medium. GPT-5.6 Pro is selected with `Gpt5_6ReasoningMode.Pro` on the same model ID.
 
-GPT-5.6 requests use `reasoning.context: "current_turn"` because Mythosia rebuilds conversation history locally instead of relying on `previous_response_id`. During tool calls, the original reasoning and function output items are replayed within the active turn.
+GPT-5.6 and GPT-6 requests use `reasoning.context: "current_turn"` because Mythosia rebuilds conversation history locally instead of relying on `previous_response_id`. During tool calls, the original reasoning and function output items are replayed within the active turn.
 
 For OpenAI Responses API calls, Mythosia consumes output and executes tools only after a top-level `status: "completed"`. Failed, incomplete, refused, malformed, or prematurely ended responses surface as errors; collected function calls are discarded before a handler can run. Function-call requests preserve multimodal message parts and image detail, structured-output `text.format`, forced function selection, and each parameter's declared required/optional contract. Empty, malformed, or non-object function arguments also fail before handler execution.
 
@@ -361,7 +409,7 @@ For the full flow and before/after comparisons, see [`docs/request-contexts.md`]
 
 ## `SystemMessageProvider` — Automatic Baseline Injection
 
-When the same dynamic data (today's date, active folder, session info) must be injected on **every** LLM call, passing an `AIRequestContext` at every entry point gets tedious and error-prone. `AIService.SystemMessageProvider` lets you register a callback once, and every outbound call (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) automatically invokes it to build a baseline context.
+When the same dynamic data (today's date, active folder, session info) must be injected on **every** LLM call, passing an `AIRequestContext` at every entry point gets tedious and error-prone. `AIService.SystemMessageProvider` lets you register a callback once, and every outbound call (`GetCompletionAsync`, `StartRunAsync`, and the retained legacy entry points) automatically invokes it to build a baseline context.
 
 ```csharp
 // Register once — typically at service construction / DI setup
@@ -375,7 +423,8 @@ service.WithSystemMessageProvider(() => new AIRequestContext
 // Every call below automatically receives the baseline context
 var answer = await service.GetCompletionAsync(userQuery);
 await foreach (var chunk in service.StreamAsync(msg, options)) { /* ... */ }
-var agentResult = await service.RunAgentAsync(goal);
+await using var run = await service.WithMaxRounds(10).StartRunAsync(goal);
+var agentResult = await run.Result;
 ```
 
 When the baseline comes from a database, cache, or HTTP call, use the async overload so the provider does not have to block on `.Result`. Overload resolution picks the right one by lambda arity — no arg for sync, one `CancellationToken` for async:
@@ -391,7 +440,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Streaming paths (`StreamAsync`, `RunAgentStreamAsync`) forward the caller's `CancellationToken` through to the async provider. Non-streaming paths (`GetCompletionAsync`, `RunAgentAsync`) do not support cancellation — use the streaming counterparts if your provider needs to be cancellable.
+`StartRunAsync` forwards its cancellation token to the async context provider whether or not output is observed. Legacy streaming paths also forward the caller token. Existing `GetCompletionAsync` and `RunAgentAsync` signatures do not accept a cancellation token; use a run when cancellation is needed.
 
 When a call also passes an explicit `AIRequestContext`, the two merge field-by-field: explicit values win on scalar fields (`SystemMessagePrefix`, `SystemMessageSuffix`, `RequestMessageOverride`); `AdditionalMessages` concatenates (provider first, then explicit).
 
@@ -519,7 +568,7 @@ var configuredResponse = await service
     .SendAsync();
 ```
 
-`Sequential` is the default for local handler scheduling and preserves one-at-a-time
+`Sequential` is the default for ordinary handler scheduling and preserves one-at-a-time
 execution. The provider response and conversation history still retain the complete
 multi-call batch introduced in v7.
 `Parallel` runs calls from the same provider response concurrently up to
@@ -533,6 +582,44 @@ an already-running handler is not interrupted by request cancellation or timeout
 Streaming uses one timeout for the complete round loop, including response headers
 and the SSE body. Policy expiry raises `AIServiceException`; cancelling the token
 passed to `StreamAsync` remains an `OperationCanceledException` with the caller token.
+
+### Async Tool Calling
+
+A slow lookup can leave time for useful work that does not depend on its result. For example, the model can explain general packing advice while a weather tool runs, then incorporate the forecast once it arrives. Allow this overlap for the selected handler:
+
+```csharp
+using System.Threading.Tasks;
+using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+var weatherTool = FunctionBuilder.Create("get_demo_weather")
+    .WithDescription("Returns a demo weather snapshot for Seoul")
+    .WithAsync()
+    .WithHandler(async _ =>
+    {
+        await Task.Delay(5000);
+        return "Demo weather in Seoul: clear, 24 C";
+    })
+    .Build();
+service.WithFunction(weatherTool);
+
+var answer = await service.GetCompletionAsync(
+    "Check the demo Seoul weather. While waiting, list three packing essentials.");
+```
+
+`WithAsync()` sets `FunctionDefinition.AllowAsync = true`; its default is `false`, and `WithAsync(false)` disables the option. Attribute-based registration also accepts `[AiFunction("lookup", "Look up data", AllowAsync = true)]`. This permission is independent of `WithFunctionAsync` and `FunctionExecutionMode.Parallel`: those control .NET handlers, while `AllowAsync` allows the model to continue before a result arrives. Enable it only when overlapping model work is appropriate for that function.
+
+Mythosia enables the API option for GPT-6 Astra through Responses. Other models and APIs omit the option and execute the same handler with the existing wait-for-result behavior, without modifying `AllowAsync`. The provider must also mark the actual call as async (`FunctionCall.IsAsync`); permission alone does not guarantee async execution. See the [official async tool calling guide](https://developers.openai.com/api/docs/guides/async-tool-calling).
+
+`FunctionExecutionMode` still controls ordinary calls. Opted-in async jobs can overlap even in `Sequential` mode and share a separate pending-job limit set by `MaxConcurrency`.
+
+Completion calls, existing input-taking streams, and `StartRunAsync` each manage their pending tool jobs within the originating execution and deliver outputs with their original call IDs. A successful completion or run `Result` waits for pending results to be processed. Registered handlers do not receive cancellation tokens, so execution cancellation, timeout, and errors wait for already-started handlers during cleanup. Disposing the existing `service.StreamAsync` iterator also cleans up execution. Ending a `run.StreamAsync()` reader only stops observation; use `run.Cancel()` or dispose the run to stop execution.
+
+When async tools are used, `GetCompletionAsync` returns the intermediate independent text and the final text accumulated in order, after the request finishes. `StreamAsync` emits text as it arrives across those rounds.
+
+Streaming starts handlers after complete function calls and a valid response boundary have been received, then continues the next model round while async jobs run. It does not dispatch handlers from incomplete call events. When the model returns no new calls while jobs remain pending, the library waits for results before resuming another round. Pending calls also prevent automatic context-overflow summarization retries, which could otherwise omit unfinished calls from history.
 
 ### Function Calling with Streaming
 
@@ -557,18 +644,19 @@ await foreach (var content in service.StreamAsync(
 }
 ```
 
-### ReAct Agent Helpers
+### Tool tasks through the common run
 
 ```csharp
-// Non-streaming agent helper
-var answer = await service.RunAgentAsync(
+// Collect the run result without observing events
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Find the weather in Seoul and explain what to wear today."
 );
+var answer = await run.Result;
 
-// Streaming agent helper
-await foreach (var content in service.RunAgentStreamAsync(
-    "Find the weather in Seoul and explain what to wear today.",
-    maxSteps: 10))
+// Observe a second task after the first task has finished
+await using var streamedRun = await service.WithMaxRounds(10).StartRunAsync(
+    "Find the weather in Seoul and explain what to wear today.");
+await foreach (var content in streamedRun.StreamAsync())
 {
     if (content.Type == StreamingContentType.FunctionCall)
     {
@@ -585,7 +673,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-`RunAgentStreamAsync(...)` is the streaming counterpart to `RunAgentAsync(...)`. It keeps function calling enabled for the request and disables `TextOnly` so agent runs can emit function call, function result, and completion events.
+Normal completion and run execution already share the multi-round function loop. `RunAgentAsync` and `RunAgentStreamAsync` are obsolete compatibility helpers, retaining their legacy 10-round default and max-step exception behavior. `WithMaxRounds(10)` preserves the limit when migrating; new run failures use the common error contract.
 
 ### Disabling Functions Temporarily
 
@@ -922,9 +1010,9 @@ await foreach (var content in service.StreamAsync(message, StreamOptions.FullOpt
 int? contextTokenMeter = null;
 TokenUsage? cumulativeRunUsage = null;
 
-await foreach (var content in service.RunAgentStreamAsync(
-    "Find the weather in Seoul and answer briefly.",
-    maxSteps: 10))
+await using var streamedRun = await service.WithMaxRounds(10).StartRunAsync(
+    "Find the weather in Seoul and answer briefly.");
+await foreach (var content in streamedRun.StreamAsync())
 {
     if (content.Type == StreamingContentType.RoundUsage && content.Usage != null)
     {
@@ -1000,6 +1088,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 
 | Service | Function Calling | Streaming | Reasoning | Notes |
 |---------|-----------------|-----------|-----------|--------|
+| **OpenAI GPT-6 Astra** | ✅ | ✅ | ✅ | Responses API, opt-in async function calls, mandatory reasoning through `Max`, verbosity, summaries, optional Pro reasoning mode |
 | **OpenAI GPT-5.6 Sol / Terra / Luna** | ✅ | ✅ | ✅ | `Max` effort, verbosity, summaries, optional Pro reasoning mode |
 | **OpenAI GPT-5.5 / 5.5 Pro / 5 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |

@@ -12,6 +12,10 @@ service.FrequencyPenalty = 0.0f;   // Phạt token lặp lại
 service.PresencePenalty = 0.0f;    // Phạt token đã xuất hiện
 ```
 
+GPT-6 Astra không hỗ trợ `temperature` hoặc `top_p`; Mythosia bỏ cả hai ngay cả khi được đặt qua thuộc tính chung hoặc hồ sơ yêu cầu. Đầu ra tối đa là 128.000 token. Xem [cấu hình GPT-6](providers.md).
+
+
+Khi soạn nháp và rà soát cần độ sâu suy luận khác nhau, hãy dùng [thiết lập suy luận chung](reasoning-and-search.md). Hướng dẫn cũng phân biệt thay đổi giữ bộ nhớ đệm với thiết lập thông thường cho một yêu cầu.
 
 ## Phương thức fluent
 

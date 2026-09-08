@@ -27,6 +27,10 @@
 
 </div>
 
+> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 7.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v710), [Abstractions 3.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310), [Alibaba 2.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201), [RAG 7.6.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+
+เมื่อต้องแสดงความคืบหน้าของงานยาว หยุดงาน หรือส่งเงื่อนไขเพิ่มเติม ให้ใช้ [Run](execution-api-transition.md) หากต้องการเพียงคำตอบที่เสร็จแล้ว ยังใช้ `GetCompletionAsync` ได้ตามเดิม
+
 ---
 
 ### ติดตั้ง Package ไหน?
@@ -48,16 +52,16 @@ dotnet add package Mythosia.VectorDb.Postgres     # เพิ่มเติม:
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.5.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.6.0</i>"]
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.0.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.0.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.1.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.1.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.0</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.1</i>"]
     end
 
     subgraph "🛰️ Serving — Control Plane"
@@ -111,7 +115,7 @@ Repository นี้มีตัวอย่าง Chat UI ที่สร้า
 
 ```bash
 # จาก root ของ repository
-dotnet run --project samples/Mythosia.AI.Samples.ChatUi
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
@@ -129,6 +133,8 @@ var response = await service.GetCompletionAsync("สวัสดี!");
 ```
 
 ### Streaming
+
+ตัวอย่างนี้ใช้ `service.StreamAsync` แบบรับอินพุตเดิมที่เก็บไว้เพื่อความเข้ากันได้ โค้ดใหม่ดู[การอ่านสตรีมผ่าน Run](execution-api-transition.md)
 
 ```csharp
 await foreach (var token in service.StreamAsync("เล่าเรื่องให้ฟังหน่อย"))
@@ -164,6 +170,10 @@ var service = new OpenAIService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("อากาศที่กรุงเทพเป็นอย่างไร?");
 ```
+
+หากมีงานที่ทำได้โดยไม่ต้องรอผล เช่น อธิบายของที่ควรเตรียมเดินทางระหว่างเครื่องมือกำลังดึงข้อมูลอากาศ โมเดลสามารถทำส่วนนั้นก่อนได้โดยไม่ต้องหยุดรอทั้งคำตอบ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md)
+
+หากคำตอบต้องใช้ข้อมูลใหม่หรือหลักฐานจากเอกสาร ดู[คู่มือการให้เหตุผลและการค้นหา](reasoning-and-search.md) เพื่อเปิดการค้นหาเว็บหรือใช้ที่เก็บเอกสารที่มีอยู่ผ่านตัวเลือกร่วม และรับแหล่งอ้างอิงของคำตอบ
 
 ### Structured output (พื้นฐาน)
 
@@ -243,7 +253,7 @@ var response = await service.GetCompletionAsync("นโยบายการค�
 
 | Provider | Package | Model |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
 | **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite |
 | **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
@@ -319,7 +329,7 @@ src/
     Mythosia.VectorDb.Pinecone/         # Vector store Pinecone
     Mythosia.VectorDb.Postgres/         # PostgreSQL + pgvector
     Mythosia.VectorDb.Qdrant/           # Vector store Qdrant
-samples/                                # แอปพลิเคชันตัวอย่าง
+apps/                                   # แอปพลิเคชันตัวอย่าง
 tests/                                  # Project test unit / integration
 ```
 

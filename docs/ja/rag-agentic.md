@@ -20,9 +20,11 @@
 
 これらの判断がすべて**ReActループ**の中で自動的に行われます。人が図書館で資料を探すとき「この本だけでは足りないから別の棚も探そう」と自分で判断するのと似ています。
 
+複数の検索や外部ツールを使う回答で、ユーザーに進捗や停止操作を提供するには、検索ツールを登録したサービスからRunを開始します。[Runの利用ガイド](execution-api-transition.md)では実行中の制御と追加指示の扱いを説明しています。
+
 ## クイックスタート
 
-`WithAgenticRag`でドキュメントインデックスをToolとして登録し、`RunAgentAsync`でエージェントを実行します：
+`WithAgenticRag`でドキュメントインデックスをToolとして登録し、`StartRunAsync(...)`でエージェントを実行します：
 
 ```csharp
 // インデックスを一度だけビルド
@@ -35,7 +37,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("返金ポリシーを要約してください。");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("返金ポリシーを要約してください。");
+var answer = await run.Result;
 ```
 
 エージェントはドキュメントが必要だと判断すると自動的に`search_documents`を呼び出し、検索された内容をもとに最終的な回答を生成します。
@@ -53,8 +56,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // エージェントがポリシーはドキュメントから検索し、注文状況はAPIから取得
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "注文 #12345 — 現在のポリシーで返金対象ですか？");
+var answer = await run.Result;
 ```
 
 上記の例では、エージェントが自律的に以下のプロセスを実行します：
@@ -84,7 +88,7 @@ service.WithAgenticRag(ragStore,
 | クエリ生成 | QueryRewriterが処理 | エージェントが直接生成 |
 | 検索回数 | ターンごとに1回固定 | 必要に応じて複数回 |
 | Toolの組み合わせ | ドキュメント検索のみ | API呼び出しなど他のToolと自由に組み合わせ |
-| 設定方法 | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| 設定方法 | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **注意：** エージェンティックRAGでは`QueryRewriter`は意図的に使用されません。エージェントが自ら独立した検索クエリを作るため、別途の書き換えステップは不要であり、むしろエージェントの意図を歪める可能性があります。
 

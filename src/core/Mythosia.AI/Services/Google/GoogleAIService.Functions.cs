@@ -54,6 +54,7 @@ namespace Mythosia.AI.Services.Google
             ApplyFunctionDeclarations(requestBody);
             ApplySystemInstruction(requestBody);
             ApplySafetySettings(requestBody);
+            ApplyNativeGeminiTools(requestBody);
 
             return requestBody;
         }

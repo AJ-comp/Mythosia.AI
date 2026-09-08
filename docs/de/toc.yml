@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: Schnellstart
     href: getting-started.md
+  - name: Laufende Aufgaben mit Run steuern
+    href: execution-api-transition.md
 
 - name: Kernfunktionen
   items:
@@ -13,6 +15,8 @@
     href: completions.md
   - name: Generierungsparameter
     href: generation-params.md
+  - name: Reasoning und Antworten mit Quellen
+    href: reasoning-and-search.md
   - name: Streaming
     href: streaming.md
   - name: Token-Nutzung

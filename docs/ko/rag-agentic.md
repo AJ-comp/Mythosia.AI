@@ -12,7 +12,9 @@
 - 최종 답변이 문서와 실시간 API 데이터 모두에 의존하는 경우
 - 각 검색 단계마다 권한 필터나 진단 정보를 적용해야 하는 경우
 
-에이전틱 RAG는 `RunAgentAsync(...)` 또는 `RunAgentStreamAsync(...)`가 RAG를 에이전트의 등록된 함수 중 하나로 사용하도록 만들어 이런 상황을 처리합니다.
+에이전틱 RAG는 `StartRunAsync(...)`가 RAG를 에이전트의 등록된 함수 중 하나로 사용하도록 만들어 이런 상황을 처리합니다.
+
+여러 번 검색하는 동안 도구 활동을 표시하거나 조건을 추가하고 싶다면 `StartRunAsync`의 실행 객체를 보관합니다. 지원되는 추가 지시와 실행 제어는 [Run 사용 안내](execution-api-transition.md)를 참고하세요. `WithAgenticRag`는 검색 도구를 등록하는 API로 계속 유지합니다.
 
 ## 빠른 시작
 
@@ -27,21 +29,22 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("환불 정책을 요약해 줘.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("환불 정책을 요약해 줘.");
+var answer = await run.Result;
 ```
 
 기본적으로 `WithAgenticRag(...)`는 `search_documents`라는 도구를 등록합니다. 에이전트는 문서 컨텍스트가 필요하다고 판단하면 이 도구를 자동으로 호출하고, 검색된 발췌문을 바탕으로 최종 답변을 생성합니다.
 
 ## 스트리밍 에이전틱 RAG
 
-UI에서 답변 텍스트를 스트리밍하면서 도구 호출과 도구 결과도 함께 관찰해야 한다면 `RunAgentStreamAsync(...)`를 사용합니다.
+UI에서 답변 텍스트를 스트리밍하면서 도구 호출과 도구 결과도 함께 관찰해야 한다면 `run.StreamAsync()`를 사용합니다.
 
 ```csharp
 service.WithAgenticRag(ragStore);
 
-await foreach (var content in service.RunAgentStreamAsync(
-    "환불 정책을 요약하고 주요 자격 조건도 알려 줘.",
-    maxSteps: 10))
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "환불 정책을 요약하고 주요 자격 조건도 알려 줘.");
+await foreach (var content in run.StreamAsync())
 {
     if (content.Type == StreamingContentType.FunctionCall)
     {
@@ -54,7 +57,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-`RunAgentStreamAsync(...)`는 채팅 UI에 적합합니다. 에이전트가 문서를 검색하고 다른 도구를 호출하고 최종 답변을 작성하는 동안 사용자에게 진행 중인 텍스트를 보여줄 수 있습니다.
+`run.StreamAsync()`는 채팅 UI에 적합합니다. 에이전트가 문서를 검색하고 다른 도구를 호출하고 최종 답변을 작성하는 동안 사용자에게 진행 중인 텍스트를 보여줄 수 있습니다.
 
 ## 다른 도구와 조합하기
 
@@ -68,8 +71,9 @@ service.WithAgenticRag(ragStore)
            ("order_id", "조회할 주문 ID.", required: true),
            async id => await orderApi.GetStatusAsync(id));
 
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "주문 #12345는 현재 정책 기준으로 환불 대상인가요?");
+var answer = await run.Result;
 ```
 
 이 예제에서 에이전트는 환불 규칙을 문서에서 검색하고, 주문 API로 실시간 주문 상태를 조회한 뒤, 두 정보를 합쳐 최종 답변을 생성할 수 있습니다.
@@ -202,7 +206,7 @@ service
 | 도구 조합 | 문서 검색 중심 | 등록된 모든 함수/도구와 조합 |
 | 단계별 필터 | 요청 옵션 | 도구 호출마다 `queryOptions` callback |
 | 관찰성 | RAG 결과/진단 | 검색 단계별 `AgenticRagSearchTrace` |
-| 설정 방식 | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync(...)` 또는 `RunAgentStreamAsync(...)` |
+| 설정 방식 | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 ## 언제 무엇을 선택할까?
 
@@ -211,7 +215,7 @@ service
 
 ## 실무 팁
 
-- 에이전트가 검색하고 결과를 검토하고 필요하면 다시 검색할 수 있도록 `maxSteps`를 충분히 잡으세요.
+- 에이전트가 검색하고 결과를 검토하고 필요하면 다시 검색할 수 있도록 `WithMaxRounds(...)`를 충분히 잡으세요.
 - 도구 설명은 단순한 이름표가 아니라 사용 정책처럼 작성하세요.
 - tenant isolation과 permission boundary는 per-call `StoreFilter`로 적용하세요.
 - citations, reference panel, audit log, retrieval diagnostics가 필요하면 trace를 수집하세요.

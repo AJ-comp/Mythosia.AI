@@ -8,9 +8,24 @@ Function calling thông thường có thể thực thi **nhiều hàm từ một
 - "Tìm chính sách liên quan, kiểm tra trạng thái đơn hàng, rồi cho tôi biết tôi có đủ điều kiện hoàn tiền không" — cần nối chuỗi các công cụ khác nhau theo thứ tự logic
 - Model có thể cần **thử lại hoặc tinh chỉnh** tìm kiếm nếu kết quả đầu tiên chưa đủ
 
-Tự viết vòng lặp điều phối này rất tẻ nhạt và dễ sai. **Agent loop** (pattern ReAct: Reason → Act → Observe → Repeat) xử lý tự động — model tự quyết định bước tiếp theo cho đến khi đạt được câu trả lời cuối cùng.
+`GetCompletionAsync` và `StartRunAsync` đã thực thi vòng lặp chung giữa mô hình và công cụ. Các hàm agent cũ chỉ thêm giới hạn vòng cho từng lần gọi và chuyển đổi lỗi riêng, không tạo bộ lập kế hoạch hay bộ thực thi độc lập.
 
-## Sử dụng cơ bản
+## Hiển thị tiến độ tác vụ công cụ bằng Run
+
+Để người dùng theo dõi tiến độ của tác vụ dùng nhiều công cụ hoặc dừng giữa chừng, hãy dùng `StartRunAsync`. Xem hỗ trợ chỉ dẫn bổ sung và cách lấy kết quả trong [hướng dẫn Run](execution-api-transition.md).
+
+```csharp
+// Đăng ký các hàm trên service trước khi bắt đầu tác vụ.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Tìm chính sách, kiểm tra đơn hàng và giải thích kết quả.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## Ví dụ tương thích với API cũ
+
+`RunAgentAsync` và `RunAgentStreamAsync` bên dưới là API tương thích có cảnh báo `[Obsolete]`. Với mã mới, dùng Run ở trên và ghi rõ `WithMaxRounds(10)` để giữ giới hạn 10 vòng trước đây. Nếu phụ thuộc cách xử lý ngoại lệ riêng của API cũ, hãy đọc hướng dẫn chuyển đổi trước.
 
 Đăng ký hàm, rồi gọi `RunAgentAsync` với mục tiêu:
 
@@ -62,19 +77,24 @@ Kiểm soát hành vi của mỗi vòng trong agent loop:
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// Hoặc dùng extension method:
-service.WithMaxRounds(15).WithTimeout(60);
+// RunAgentAsync dùng DefaultPolicy và tham số maxSteps được chỉ định.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "Nghiên cứu và tóm tắt...", maxSteps: 15);
 ```
 
 Policy định sẵn:
 
 ```csharp
-service.WithFastPolicy();    // Timeout thấp, ít vòng — tác vụ nhanh
-service.WithComplexPolicy(); // Timeout cao hơn, nhiều vòng hơn — nghiên cứu sâu
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // Timeout thấp, ít vòng — tác vụ nhanh
+var fastResult = await service.RunAgentAsync(
+    "Nghiên cứu và tóm tắt...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // Timeout cao hơn, nhiều vòng hơn — nghiên cứu sâu
+var complexResult = await service.RunAgentAsync(
+    "Nghiên cứu và tóm tắt...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## Ngữ cảnh yêu cầu theo từng lệnh gọi
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-Context được truyền qua `AsyncLocal`, do đó các lần chạy agent song song trên cùng một instance service sẽ không gây nhiễu lẫn nhau.
+`AIRequestContext` được truyền qua `AsyncLocal`, nhưng lịch sử hội thoại và chính sách của dịch vụ không vì thế mà an toàn cho thao tác đồng thời. Hãy dùng các phiên bản dịch vụ riêng cho các tác vụ đồng thời độc lập.
 
 Xem danh sách đầy đủ các thuộc tính trong [AIRequestContext](request-contexts.md) (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

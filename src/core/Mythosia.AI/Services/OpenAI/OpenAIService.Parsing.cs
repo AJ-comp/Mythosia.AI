@@ -31,11 +31,21 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             ApplyModelSpecificParameters(requestBody);
+            ApplyNativeRequestFeatures(requestBody);
             return requestBody;
         }
 
         private void BuildNewApiBody(Dictionary<string, object> requestBody)
         {
+            if (ShouldPreserveResponseItems)
+            {
+                BuildNewApiRequest(requestBody);
+                requestBody.Remove("tools");
+                requestBody.Remove("tool_choice");
+                requestBody.Remove("parallel_tool_calls");
+                return;
+            }
+
             var inputList = new List<object>();
 
             foreach (var message in GetLatestMessagesWithFunctionFallback())

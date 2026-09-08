@@ -7,6 +7,7 @@ namespace Mythosia.AI.Samples.ChatUi
     {
         private static readonly (string Provider, string Name, string Value)[] Catalogue =
         {
+            ("OpenAI", nameof(AIModels.OpenAI.Gpt6Astra), AIModels.OpenAI.Gpt6Astra),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt5_6), AIModels.OpenAI.Gpt5_6),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt5_6Sol), AIModels.OpenAI.Gpt5_6Sol),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt5_6Terra), AIModels.OpenAI.Gpt5_6Terra),
@@ -126,6 +127,9 @@ namespace Mythosia.AI.Samples.ChatUi
         public static object? GetReasoningLevels(string model)
         {
             var name = model;
+            // GPT-6 always reasons; Auto uses the library default (Medium).
+            if (name.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase))
+                return new { type = "gpt6", levels = new[] { "Auto", "Low", "Medium", "High", "XHigh", "Max" } };
             // OpenAI GPT-5
             if (name.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) &&
                 !name.StartsWith("gpt-5.1", StringComparison.OrdinalIgnoreCase) &&
@@ -220,6 +224,7 @@ namespace Mythosia.AI.Samples.ChatUi
         {
             var name = model.Trim();
             if (name.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
+                name.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase) ||
                 name.StartsWith("o3", StringComparison.OrdinalIgnoreCase) ||
                 name.StartsWith("gpt-4.1", StringComparison.OrdinalIgnoreCase))
                 return new { temperature = false, topP = false };
@@ -268,6 +273,7 @@ namespace Mythosia.AI.Samples.ChatUi
                     _ when desc.StartsWith("o3") => 100000,
                     _ when desc == AIModels.OpenAI.Gpt5Pro => 272000,
                     _ when desc.StartsWith("gpt-5") => 128000,
+                    _ when desc.StartsWith("gpt-6") => 128000,
                     _ when desc.StartsWith("gpt-4.1") => 32768,
                     _ when desc.Contains("4o-mini") => 16384,
                     _ when desc.Contains("4o") => 16384,

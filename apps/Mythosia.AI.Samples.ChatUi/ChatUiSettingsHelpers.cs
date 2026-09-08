@@ -31,6 +31,23 @@ internal static class ChatUiSettingsHelpers
         }
     }
 
+    internal static object? GetReasoningState(AIService service)
+    {
+        if (service is not OpenAIService gpt ||
+            !gpt.Model.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return new
+        {
+            type = "gpt6",
+            alwaysOn = true,
+            effort = gpt.Gpt6ReasoningEffort.ToString(),
+            summary = gpt.Gpt6ReasoningSummary?.ToString(),
+            mode = gpt.Gpt6ReasoningMode.ToString(),
+            verbosity = gpt.Gpt6Verbosity?.ToString()
+        };
+    }
+
     private static void ApplyEnabledReasoningSettings(
         AIService service,
         string reasoningType,
@@ -40,6 +57,12 @@ internal static class ChatUiSettingsHelpers
         {
             switch (reasoningType)
             {
+                case "gpt6":
+                    if (Enum.TryParse<Gpt6Reasoning>(reasoningLevel, out var g6) &&
+                        Enum.IsDefined(g6))
+                        gpt.Gpt6ReasoningEffort = g6;
+                    gpt.Gpt6ReasoningSummary = ReasoningSummary.Detailed;
+                    break;
                 case "o3":
                     if (Enum.TryParse<Gpt5Reasoning>(reasoningLevel, out var o3))
                         gpt.Gpt5ReasoningEffort = o3;
@@ -140,6 +163,10 @@ internal static class ChatUiSettingsHelpers
             gptOff.Gpt5_6ReasoningEffort = Gpt5_6Reasoning.None;
             gptOff.Gpt5_6ReasoningSummary = null;
             gptOff.Gpt5_6ReasoningMode = Gpt5_6ReasoningMode.Standard;
+            // GPT-6 cannot disable reasoning; use its lowest effort and omit the summary.
+            gptOff.Gpt6ReasoningEffort = Gpt6Reasoning.Low;
+            gptOff.Gpt6ReasoningSummary = null;
+            gptOff.Gpt6ReasoningMode = Gpt6ReasoningMode.Standard;
         }
         else if (service is AnthropicService claudeOff)
         {

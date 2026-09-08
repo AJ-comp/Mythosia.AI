@@ -7,9 +7,24 @@
 - 「調研排名前 3 的 AI 公司並比較它們的股價」— 需要多次網路搜尋和股價查詢
 - 「查找相關政策，檢查訂單狀態，然後告訴我是否符合退款條件」— 需要按邏輯順序串聯不同工具
 
-**Agent 迴圈**（ReAct 模式：推理 → 行動 → 觀察 → 重複）自動處理這些 — 模型在每一步自行決定下一步該做什麼，直到得出最終答案。
+`GetCompletionAsync`與`StartRunAsync`已執行共用的模型與工具循環。舊版Agent輔助方法增加的是每次呼叫的輪數限制與專用例外轉換，並不是獨立的規劃器或執行引擎。
 
-## 基本用法
+## 使用 Run 顯示工具工作的進度
+
+如果需要讓使用者查看多工具工作的進度，或在中途停止工作，可以使用 `StartRunAsync`。追加指示支援和結果取得方式見 [Run 使用指南](execution-api-transition.md)。
+
+```csharp
+// 在工作開始前向 service 註冊函式。
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "查找政策、檢查訂單並說明結果。",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## 舊API相容範例
+
+下文的 `RunAgentAsync` 和 `RunAgentStreamAsync` 是帶 `[Obsolete]` 警告的相容 API。新程式碼可使用上面的 Run；明確指定 `WithMaxRounds(10)` 可保留原來的 10 回合限制。如果依賴舊方法的專用例外處理，請先查看移轉指南。
 
 註冊函式後，使用目標呼叫 `RunAgentAsync`：
 
@@ -58,18 +73,24 @@ catch (AgentMaxStepsExceededException ex)
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-service.WithMaxRounds(15).WithTimeout(60);
+// 舊版RunAgentAsync使用DefaultPolicy與明確的maxSteps參數。
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "調研並摘要...", maxSteps: 15);
 ```
 
 預定義策略：
 
 ```csharp
-service.WithFastPolicy();    // 低逾時，少輪數 — 快速任務
-service.WithComplexPolicy(); // 高逾時，多輪數 — 深度調研
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // 低逾時，少輪數 — 快速任務
+var fastResult = await service.RunAgentAsync(
+    "調研並摘要...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // 高逾時，多輪數 — 深度調研
+var complexResult = await service.RunAgentAsync(
+    "調研並摘要...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## 每次呼叫的請求內容
@@ -103,7 +124,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-內容透過 `AsyncLocal` 傳遞，因此同一服務實例上並行執行的多個 agent 呼叫不會互相干擾。
+`AIRequestContext`透過`AsyncLocal`傳播，但這不代表服務的對話歷史與執行策略可安全地並行修改。獨立的並行工作應使用不同的服務執行個體。
 
 完整的可用屬性清單請參閱 [AIRequestContext](request-contexts.md)（`SystemMessagePrefix`、`SystemMessageSuffix`、`AdditionalMessages`、`RequestMessageOverride`）。
 

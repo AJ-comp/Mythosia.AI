@@ -1,5 +1,7 @@
 # RAG Agéntico
 
+Una pregunta con varias partes puede necesitar otra búsqueda o una fuente distinta. La [guía de Run](execution-api-transition.md) explica cómo observar y controlar ese trabajo durante la ejecución.
+
 ## ¿Por qué RAG Agéntico?
 
 En el RAG estándar, cada mensaje del usuario dispara exactamente **una** búsqueda. El sistema busca, construye el contexto y genera la respuesta — sin excepciones. Esto funciona bien para preguntas simples, pero se queda corto cuando:
@@ -13,7 +15,7 @@ El RAG Agéntico resuelve todo esto. En lugar de un pipeline fijo de recuperar-y
 
 ## Inicio Rápido
 
-Registra el `RagStore` como herramienta con `WithAgenticRag` y delega a `RunAgentAsync`:
+Registra el `RagStore` como herramienta con `WithAgenticRag` y delega a `StartRunAsync(...)`:
 
 ```csharp
 // Construir el índice una vez
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Resume la política de reembolso.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Resume la política de reembolso.");
+var answer = await run.Result;
 ```
 
 El agente llama a `search_documents` automáticamente cuando necesita contexto documental y sintetiza la respuesta final a partir de los fragmentos recuperados.
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // El agente busca la política en documentos Y llama a la API para datos del pedido
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Pedido #12345 — ¿tengo derecho a reembolso según la política actual?");
+var answer = await run.Result;
 ```
 
 En este ejemplo, el agente de forma autónoma:
@@ -75,7 +79,7 @@ Una descripción vaga como "Buscar documentos" puede hacer que el agente llame a
 | Formulación de la consulta | QueryRewriter | El propio agente |
 | Número de búsquedas | Una por turno | Una o más según sea necesario |
 | Combinación de herramientas | No aplica | Cualquier herramienta registrada |
-| Configuración | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| Configuración | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **Nota:** El `QueryRewriter` se omite intencionalmente en RAG Agéntico. El agente formula su propia consulta de búsqueda autocontenida, por lo que un paso de reescritura separado sería redundante y podría distorsionar la intención del agente.
 

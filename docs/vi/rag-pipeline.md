@@ -9,6 +9,8 @@ Pipeline RAG mặc định hoạt động tốt ngay từ đầu, nhưng các d�
 - **Kiến trúc** — nhiều service chia sẻ một index tiết kiệm bộ nhớ và giữ embedding nhất quán
 - **Kiểm tra** — đôi khi bạn cần xem kết quả truy xuất *trước* khi gửi đến LLM
 
+Ngoài tiến độ truy xuất, nếu cần điều khiển hiển thị và dừng trong lúc tạo câu trả lời, hãy dùng Run trả về từ `RagEnabledService.StartRunAsync`. Chỉ dẫn bổ sung không tự chạy lại truy xuất RAG. Xem [hướng dẫn Run](execution-api-transition.md).
+
 ## Theo dõi tiến độ
 
 Theo dõi giai đoạn RAG nào đang thực thi qua callback async theo từng query:

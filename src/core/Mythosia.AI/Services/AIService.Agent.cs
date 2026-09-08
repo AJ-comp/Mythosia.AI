@@ -32,6 +32,7 @@ namespace Mythosia.AI.Services.Base
         /// Thrown when maxSteps is exceeded without a final answer.
         /// The exception contains a PartialResponse property with the last assistant message, if any.
         /// </exception>
+        [System.Obsolete("Use StartRunAsync with the desired function-calling round policy and await run.Result. This compatibility method remains supported.", false)]
         public virtual async Task<string> RunAgentAsync(string goal, int maxSteps = 10, AIRequestContext? context = null)
         {
             var agentPolicy = (DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
@@ -68,6 +69,7 @@ namespace Mythosia.AI.Services.Base
         /// Thrown when maxSteps is exceeded without a final completion event.
         /// The exception contains a PartialResponse property with the last assistant message, if any.
         /// </exception>
+        [System.Obsolete("Use StartRunAsync with the desired function-calling round policy and observe run.StreamAsync(). This compatibility method remains supported.", false)]
         public virtual async IAsyncEnumerable<StreamingContent> RunAgentStreamAsync(
             string goal,
             int maxSteps = 10,

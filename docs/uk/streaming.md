@@ -1,5 +1,25 @@
 # Потокова передача
 
+Показуйте текст у міру надходження, щоб користувач бачив перебіг підготовки відповіді. Як додати події інструментів і кнопку зупинки, описано в [настанові щодо Run](execution-api-transition.md).
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Підсумуйте документи.",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+## Приклади сумісності зі старим API
+
+Наведені нижче приклади використовують `service.StreamAsync`, що приймає ввід. Він залишається доступним у мінорній версії, але запланований до вилучення з публічного API в наступній мажорній; для нового коду використовуйте `StartRunAsync` і `run.StreamAsync()`.
+
 ## Базовий стримінг
 
 `StreamAsync` дозволяє отримувати токени в міру їх генерації:

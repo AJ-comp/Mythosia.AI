@@ -1,16 +1,31 @@
 # Agent (boucle ReAct)
 
+Rechercher une politique et vérifier une commande peut demander plusieurs appels d’outils. Le [guide Run](execution-api-transition.md) montre comment suivre ce travail, l’annuler et ajouter des instructions lorsque le modèle le permet.
+
 ## Pourquoi une boucle agentique ?
 
-L'appel de fonctions classique peut exécuter **plusieurs fonctions d'une même réponse du modèle sous forme de lot ordonné** et poursuivre les cycles d'outils. L'API Agent encapsule ce mécanisme dans une boucle ReAct orientée objectif avec une **limite d'étapes** explicite, en renvoyant au modèle les résultats de chaque lot jusqu'à ce qu'il produise une réponse finale :
+Certaines questions demandent plusieurs sources : le modèle choisit un outil, examine son résultat puis appelle éventuellement d’autres outils. La boucle commune entre modèle et outils répète ces étapes jusqu’à la réponse, avec une limite de tours pour borner l’exécution :
 
 - « Recherche les 3 principales entreprises d'IA et compare leurs cours boursiers » — nécessite plusieurs recherches web et récupérations de cours
 - « Trouve la politique applicable, vérifie le statut de la commande, puis dis-moi si j'ai droit à un remboursement » — nécessite d'enchaîner différents outils dans un ordre logique
 - Le modèle peut avoir besoin de **réessayer ou d'affiner** une recherche si le premier résultat est insuffisant
 
-Écrire cette boucle d'orchestration soi-même est fastidieux et source d'erreurs. La **boucle agentique** (pattern ReAct : Raisonner → Agir → Observer → Répéter) s'en charge automatiquement — le modèle décide quoi faire à chaque étape jusqu'à produire une réponse finale.
+`GetCompletionAsync` et `StartRunAsync` exécutent déjà la boucle commune entre modèle et outils. Les anciennes méthodes d’agent ajoutent une limite de tours par appel et une traduction spécifique des erreurs, sans planificateur ni moteur d’exécution indépendant.
 
-## Utilisation de base
+## Démarrer une tâche avec outils via Run
+
+```csharp
+// Enregistrer les fonctions sur le service avant de démarrer la tâche.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Trouve la politique, vérifie la commande et explique le résultat.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## Ancienne API d’agent : exemples de compatibilité
+
+Les exemples suivants documentent `RunAgentAsync` et `RunAgentStreamAsync`, qui restent appelables avec des avertissements `[Obsolete]`. Les nouveaux appels peuvent utiliser `StartRunAsync` ; le [guide Run](execution-api-transition.md) détaille les différences de limites de tours et de traitement des erreurs.
 
 Enregistrez les fonctions, puis appelez `RunAgentAsync` avec un objectif :
 
@@ -62,19 +77,24 @@ Contrôlez le comportement de la boucle agentique à chaque cycle :
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// Ou via méthodes d'extension :
-service.WithMaxRounds(15).WithTimeout(60);
+// RunAgentAsync utilise DefaultPolicy et le paramètre explicite maxSteps.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "Recherche et résume...", maxSteps: 15);
 ```
 
 Politiques prédéfinies :
 
 ```csharp
-service.WithFastPolicy();    // Timeout court, peu de cycles — tâches rapides
-service.WithComplexPolicy(); // Timeout plus long, plus de cycles — recherche approfondie
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // Timeout court, peu de cycles — tâches rapides
+var fastResult = await service.RunAgentAsync(
+    "Recherche et résume...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // Timeout plus long, plus de cycles — recherche approfondie
+var complexResult = await service.RunAgentAsync(
+    "Recherche et résume...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## Contexte de requête par appel
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-Le contexte est propagé via `AsyncLocal`, ce qui permet à plusieurs exécutions d'agent concurrentes sur la même instance de service de ne pas interférer entre elles.
+`AIRequestContext` se propage via `AsyncLocal`, mais cela ne rend pas sûres les modifications simultanées de l’historique et des politiques du service. Utilisez des instances distinctes pour les tâches concurrentes indépendantes.
 
 Consultez [AIRequestContext](request-contexts.md) pour la liste complète des propriétés disponibles (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

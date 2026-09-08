@@ -1,5 +1,23 @@
 # 串流輸出
 
+逐段顯示收到的文字，讓使用者不必等長答案全部產生後才能閱讀。如果還需要停止按鈕和工具狀態，可透過 `StartRunAsync` 啟動工作並讀取 `run.StreamAsync()`。[Run 使用指南](execution-api-transition.md)提供回呼和取消的範例。
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "摘要文件。",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+以下範例使用接收輸入的舊 `service.StreamAsync`，用於相容現有程式碼。本次次要版本更新中仍可呼叫，計畫在下一個主要版本移出公開 API。`run.StreamAsync()` 是觀察已啟動 Run 輸出的另一種方法。
+
 ## 基本串流輸出
 
 使用 `StreamAsync` 在 Token 生成時逐個接收：

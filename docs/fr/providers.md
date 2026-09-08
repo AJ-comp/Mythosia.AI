@@ -2,12 +2,26 @@
 
 ## OpenAI (OpenAIService)
 
+> GPT-6 Astra et les appels d’outils asynchrones sont pris en charge à partir de `Mythosia.AI` 7.1.0, avec les types partagés dans `Mythosia.AI.Abstractions` 3.1.0.
+
+Une consultation lente ne doit pas forcément suspendre toute la réponse. Pendant le chargement de la météo, par exemple, le modèle peut déjà formuler des conseils de voyage généraux qui ne dépendent pas du résultat.
+
+`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permet d’autoriser les appels asynchrones pour GPT-6 Astra via Responses. La valeur par défaut est `false` ; les modèles non compatibles attendent le résultat du même gestionnaire. Voir les exemples et la durée de vie des requêtes dans le [guide des appels de fonctions](function-calling.md).
+
 ### Niveau d'effort de raisonnement
 
-Les modèles GPT-5.x et de la série o3 prennent en charge le contrôle de l'effort de raisonnement. Ajustez le niveau pour trouver le bon équilibre entre vitesse et profondeur :
+Les modèles GPT-6 Astra / GPT-5.x et de la série o3 prennent en charge le contrôle de l'effort de raisonnement. Ajustez le niveau pour trouver le bon équilibre entre vitesse et profondeur :
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6 : Sol est le modèle phare ; Terra et Luna sont des options plus économiques.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -27,6 +41,10 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra utilise l’API Responses par défaut ; les appels de fonctions l’exigent. `Auto` correspond à la valeur par défaut de la bibliothèque, `Medium` ; `None` et `Minimal` ne sont pas disponibles. `AIRequestProfile.DisableReasoning = true` utilise `Low` en mode `Standard` et omet le résumé du raisonnement. Sélectionnez `Gpt6ReasoningMode.Pro` pour activer le mode Pro avec le même identifiant de modèle `gpt-6-astra`.
+
+Pour les tâches communes aux fournisseurs, utilisez [le raisonnement et la recherche native](reasoning-and-search.md) ; les réglages propres aux fournisseurs présentés ci-dessous restent disponibles.
 
 ### Synthèse vocale
 

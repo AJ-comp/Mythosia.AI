@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: クイックスタート
     href: getting-started.md
+  - name: Runで実行中のタスクを制御する
+    href: execution-api-transition.md
 
 - name: コア機能
   items:
@@ -13,6 +15,8 @@
     href: completions.md
   - name: 生成パラメータ
     href: generation-params.md
+  - name: 推論の選択と出典付きの回答
+    href: reasoning-and-search.md
   - name: ストリーミング
     href: streaming.md
   - name: トークン使用量

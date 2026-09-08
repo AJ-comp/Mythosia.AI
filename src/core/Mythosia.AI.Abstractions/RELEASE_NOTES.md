@@ -1,5 +1,29 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v3.1.0
+
+### Added
+
+- **GPT-6 Astra contracts** — `AIModels.OpenAI.Gpt6Astra`, `Gpt6Reasoning` with `Max`, and `Gpt6ReasoningMode` for Standard/Pro configuration.
+- **Optional run capability** — `IAIRunService`, `AIRun`, and `IAIService` extension bridges expose one execution's result, output events, cancellation, asynchronous disposal, and supported steering. Startup reuses the existing `StreamOptions` and `AIRequestContext` types.
+- **Optional request features** — `IAIRequestFeatureService`, `AIRequestFeatures`, common reasoning levels and cache-preservation options, native web-search options, and provider-bound file-search store descriptors.
+- **Fluent request configuration** — `WithReasoning`, `WithWebSearch`, and `WithFileSearch` retain the concrete service type while delegating to the optional request-feature capability; `GetLastCitations` reads its source references.
+- **Citations** — `AICitation`, `StreamingContent.Citation`, `StreamingContentType.Citation`, and `AIRun.Citations` carry provider-supplied web and file references with response/content-local offsets.
+- **Asynchronous function metadata** — `FunctionDefinition.AllowAsync`, `AiFunctionAttribute.AllowAsync`, and `FunctionCall.IsAsync` distinguish an opted-in function declaration from a provider's actual asynchronous invocation. Function-call snapshots preserve `IsAsync`.
+
+### Changed
+
+- Function policy documentation distinguishes ordinary sequential or bounded-parallel batches from the separately bounded pool of native asynchronous handlers. Async results may be delivered as completed subsets with their original call IDs.
+- Input-taking `IAIService.StreamAsync` methods document their planned public withdrawal in the next major release; the existing signatures remain available during the minor transition.
+
+### Compatibility
+
+- Additive minor release: `IAIRunService` and `IAIRequestFeatureService` are optional capabilities, so existing custom `IAIService` implementations gain no required members. Extension calls fail explicitly when the capability is unavailable.
+- Existing `StreamingContentType` numeric values are preserved. `AIRun.Citations` provides a default implementation for custom run subclasses.
+- `AllowAsync` defaults to `false`; provider implementations without native asynchronous calls retain ordinary execution. The implementation of these new capabilities is supplied by `Mythosia.AI` v7.1.0; this contracts package does not acquire a dependency on it or on provider SDKs.
+
+---
+
 ## v3.0.0
 
 > This is the abstractions release paired with Mythosia.AI v7. Follow the [v7 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) before upgrading.

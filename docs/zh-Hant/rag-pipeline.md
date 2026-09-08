@@ -4,6 +4,8 @@
 
 預設 RAG 管線開箱即用效果良好，但實際專案往往需要更多控制 — 除錯、提示詞工程、架構設計和檢查。
 
+除了檢索階段進度，如果還要控制答案產生時的顯示和停止，可使用 `RagEnabledService.StartRunAsync` 傳回的 Run。追加指示不會自動重複 RAG 檢索。參見 [Run 使用指南](execution-api-transition.md)。
+
 ## 進度追蹤
 
 ```csharp

@@ -422,7 +422,8 @@ namespace Mythosia.AI.Extensions
             var description = attr?.Description ?? $"Executes {functionName}";
 
             var builder = FunctionBuilder.Create(functionName)
-                .WithDescription(description);
+                .WithDescription(description)
+                .WithAsync(attr?.AllowAsync ?? false);
 
             // Process parameters
             var parameters = method.GetParameters();

@@ -37,6 +37,16 @@ namespace Mythosia.AI.Builders
         }
 
         /// <summary>
+        /// Allows supporting models and APIs to continue while this function executes.
+        /// Unsupported providers retain the ordinary blocking tool-call flow.
+        /// </summary>
+        public FunctionBuilder WithAsync(bool allowAsync = true)
+        {
+            _function.AllowAsync = allowAsync;
+            return this;
+        }
+
+        /// <summary>
         /// Adds a parameter to the function
         /// </summary>
         public FunctionBuilder AddParameter(

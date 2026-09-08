@@ -22,7 +22,7 @@ Tous les fournisseurs sont inclus dans le package principal `Mythosia.AI` (sauf 
 
 | Fournisseur | Modèles |
 |----------|--------|
-| **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, série o3 |
+| **OpenAI** | GPT-6 Astra, GPT-5.x, GPT-4.1, GPT-4o, série o3 |
 | **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / série 3 |
 | **xAI** | série Grok 4, Grok Build |

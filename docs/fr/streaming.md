@@ -1,5 +1,25 @@
 # Streaming
 
+Afficher le texte dès son arrivée permet de lire une réponse longue pendant sa rédaction. `StartRunAsync` permet aussi d’annuler cette même tâche et d’envoyer des instructions sur les modèles compatibles ; consultez le [guide Run](execution-api-transition.md).
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Résume le document.",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+## Exemples de compatibilité avec l’ancienne API
+
+Les exemples suivants utilisent les méthodes de service existantes qui reçoivent une entrée. Leur retrait public est prévu à la prochaine version majeure, tout en conservant l’exécution interne. Pour de nouvelles tâches pilotables, utilisez `StartRunAsync`, puis observez la sortie avec `run.StreamAsync()`.
+
 ## Streaming de base
 
 Utilisez `StreamAsync` pour recevoir les tokens au fur et à mesure de leur génération :

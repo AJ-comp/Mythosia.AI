@@ -2,12 +2,26 @@
 
 ## OpenAI (OpenAIService)
 
+> GPT-6 Astra und Async-Tool-Aufrufe werden ab `Mythosia.AI` 7.1.0 unterstützt; die gemeinsamen Typen sind ab `Mythosia.AI.Abstractions` 3.1.0 verfügbar.
+
+Eine langsame Abfrage muss die Antwort nicht vollständig anhalten. Während etwa Wetterdaten geladen werden, kann das Modell bereits allgemeine Reisetipps formulieren, die nicht vom Ergebnis abhängen.
+
+Mit `FunctionDefinition.AllowAsync = true` oder `FunctionBuilder.WithAsync()` erlaubst du GPT-6 Astra über Responses asynchrone Tool-Aufrufe. Standard ist `false`; nicht unterstützte Modelle warten auf das Ergebnis desselben Handlers. Beispiele und Details zur Lebensdauer des Requests stehen im [Leitfaden für Funktionsaufrufe](function-calling.md).
+
 ### Reasoning-Aufwand
 
-GPT-5.x- und o3-Serienmodelle unterstützen die Steuerung des Reasoning-Aufwands. Stelle die Stufe ein, um Geschwindigkeit und Tiefe abzuwägen:
+GPT-6 Astra / GPT-5.x- und o3-Serienmodelle unterstützen die Steuerung des Reasoning-Aufwands. Stelle die Stufe ein, um Geschwindigkeit und Tiefe abzuwägen:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol ist das Flaggschiff; Terra und Luna sind kostengünstigere Optionen.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -27,6 +41,10 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra verwendet standardmäßig die Responses API; Funktionsaufrufe erfordern sie. `Auto` entspricht dem Bibliotheksstandard `Medium`; `None` und `Minimal` sind nicht verfügbar. `AIRequestProfile.DisableReasoning = true` verwendet `Low` im Modus `Standard` und lässt die Zusammenfassung der Schlussfolgerungen weg. Mit `Gpt6ReasoningMode.Pro` wird der Pro-Modus für dieselbe Modell-ID `gpt-6-astra` aktiviert.
+
+Für gemeinsame Aufgaben können Sie [Reasoning und native Suche](reasoning-and-search.md) verwenden; die folgenden anbieterspezifischen Einstellungen bleiben verfügbar.
 
 ### Text-to-Speech
 

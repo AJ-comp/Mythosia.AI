@@ -1,5 +1,7 @@
 # Агентний RAG
 
+Коли одного пошуку недостатньо, зареєструйте RAG як інструмент: модель зможе уточнювати запит і шукати знову. Для спостереження за такою роботою використовуйте [Run](execution-api-transition.md).
+
 ## Навіщо потрібен агентний RAG
 
 У стандартному RAG кожне повідомлення користувача запускає рівно **один** пошук. Система шукає, формує контекст і генерує відповідь — незалежно від ситуації. Це працює для простих запитань, але не справляється, коли:
@@ -13,7 +15,7 @@
 
 ## Швидкий старт
 
-Зареєструйте `RagStore` як інструмент через `WithAgenticRag`, потім запустіть `RunAgentAsync`:
+Зареєструйте `RagStore` як інструмент через `WithAgenticRag`, потім запустіть `StartRunAsync(...)`:
 
 ```csharp
 // Будуємо індекс один раз
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Summarise the refund policy.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Summarise the refund policy.");
+var answer = await run.Result;
 ```
 
 Агент автоматично викликає `search_documents`, коли йому потрібен контекст із документів, а потім синтезує фінальну відповідь із отриманих фрагментів.
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // Агент шукає в документах політику І викликає API для отримання даних замовлення
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Order #12345 — am I eligible for a refund based on the current policy?");
+var answer = await run.Result;
 ```
 
 У цьому прикладі агент автоматично:
@@ -75,7 +79,7 @@ service.WithAgenticRag(ragStore,
 | Формулювання запиту | QueryRewriter | Сам агент |
 | Кількість пошуків | Один за хід | Один або кілька за потребою |
 | Комбінація інструментів | Не застосовно | Будь-який зареєстрований інструмент |
-| Підключення | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| Підключення | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **Примітка:** `QueryRewriter` навмисно не використовується в агентному RAG. Агент сам формулює самодостатній пошуковий запит, тому окремий етап переписування був би зайвим і міг би спотворити намір агента.
 

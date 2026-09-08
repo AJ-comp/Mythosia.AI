@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: 開始使用
     href: getting-started.md
+  - name: 使用 Run 控制執行中的工作
+    href: execution-api-transition.md
 
 - name: 核心功能
   items:
@@ -13,6 +15,8 @@
     href: completions.md
   - name: 生成參數
     href: generation-params.md
+  - name: 推理選擇與來源引用
+    href: reasoning-and-search.md
   - name: 串流輸出
     href: streaming.md
   - name: Token 用量

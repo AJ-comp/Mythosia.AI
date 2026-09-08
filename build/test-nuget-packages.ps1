@@ -88,7 +88,8 @@ $packages = @($manifest.packages)
 $expectedIds = @(
     "Mythosia.AI.Abstractions",
     "Mythosia.AI",
-    "Mythosia.AI.Providers.Alibaba"
+    "Mythosia.AI.Providers.Alibaba",
+    "Mythosia.AI.Rag"
 )
 if ($packages.Count -ne $expectedIds.Count) {
     throw "Unexpected release manifest package count."
@@ -199,7 +200,7 @@ function Invoke-PackageConsumer {
         }
     }
     foreach ($unexpectedLibrary in $UnexpectedLibraries) {
-        if ($libraries -contains $unexpectedLibrary) {
+        if (@($libraries | Where-Object { $_ -like $unexpectedLibrary }).Count -gt 0) {
             throw "$Name unexpectedly resolved package $unexpectedLibrary."
         }
     }
@@ -236,9 +237,21 @@ function Invoke-PackageConsumer {
     }
 }
 
+function Get-ReleasePackageSourceMapping {
+    param([string[]]$PackageIds)
+
+    # Pin only this release set locally. Unchanged dependencies such as
+    # Mythosia.AI.Rag.Abstractions must still resolve from nuget.org.
+    return ($PackageIds | ForEach-Object {
+        $escapedId = [System.Security.SecurityElement]::Escape($_)
+        "      <package pattern=`"$escapedId`" />"
+    }) -join [Environment]::NewLine
+}
+
 try {
     $escapedArtifactsDir = [System.Security.SecurityElement]::Escape($artifactsDir)
     $escapedGlobalPackagesFolder = [System.Security.SecurityElement]::Escape($globalPackagesFolder)
+    $releasePackageSourceMapping = Get-ReleasePackageSourceMapping -PackageIds $expectedIds
     $nugetConfig = @"
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -252,7 +265,7 @@ try {
   </packageSources>
   <packageSourceMapping>
     <packageSource key="release-artifacts">
-      <package pattern="Mythosia.AI*" />
+$releasePackageSourceMapping
     </packageSource>
     <packageSource key="nuget.org">
       <package pattern="*" />
@@ -450,6 +463,77 @@ namespace PackageSmoke
             "Mythosia.AI.Providers.Alibaba/$($versions['Mythosia.AI.Providers.Alibaba'])",
             "Mythosia.AI/$($versions['Mythosia.AI'])",
             "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
+        -TargetFramework "netstandard2.1" `
+        -BuildOnly
+
+    $ragProgram = @'
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Runs;
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(builder => builder
+    .AddText("PACKAGE_SMOKE_SHIPPING takes three days.", id: "package-smoke")
+    .UseLocalEmbedding(64)
+    .UseInMemoryStore()
+    .WithTopK(1));
+var result = await store.QueryAsync("PACKAGE_SMOKE_SHIPPING");
+if (!result.HasReferences || !result.RequestMessageContent.Contains("PACKAGE_SMOKE_SHIPPING takes three days."))
+    throw new InvalidOperationException("The packaged RAG pipeline did not retrieve its local document.");
+
+// Compile the new wrapper surface without invoking any hosted service.
+Func<RagEnabledService, RagEnabledService> configure = service => service
+    .WithReasoning(ReasoningLevel.High, CachePreservation.None)
+    .WithWebSearch()
+    .WithFileSearch(new FileSearchStore("OpenAI", "vs_package_smoke"));
+Func<RagEnabledService, Task<AIRun>> start = service => service.StartRunAsync("package smoke");
+Func<RagEnabledService, int> citationCount = service => service.LastCitations.Count;
+GC.KeepAlive(new Delegate[] { configure, start, citationCount });
+if (typeof(RagEnabledService).Assembly.GetName().Name != "Mythosia.AI.Rag")
+    throw new InvalidOperationException("The packaged RAG assembly did not load.");
+
+Console.WriteLine("RAG-only consumer retrieval and public API smoke test passed.");
+'@
+    Invoke-PackageConsumer `
+        -Name "RagConsumer" `
+        -PackageId "Mythosia.AI.Rag" `
+        -Version $versions["Mythosia.AI.Rag"] `
+        -Program $ragProgram `
+        -ExpectedLibraries @(
+            "Mythosia.AI.Rag/$($versions['Mythosia.AI.Rag'])",
+            "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
+        -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")
+
+    $ragNetStandardProgram = @'
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Runs;
+using Mythosia.AI.Rag;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace PackageSmoke
+{
+    public static class RagPublicApiProbe
+    {
+        public static Task<AIRun> CompileRunAndRequestFeatures(RagEnabledService service)
+            => service.WithReasoning(ReasoningLevel.High, CachePreservation.None)
+                .WithWebSearch()
+                .WithFileSearch(new FileSearchStore("OpenAI", "vs_package_smoke"))
+                .StartRunAsync("package smoke");
+
+        public static IReadOnlyList<AICitation> ReadCitations(RagEnabledService service)
+            => service.LastCitations;
+    }
+}
+'@
+    Invoke-PackageConsumer `
+        -Name "RagNetStandardConsumer" `
+        -PackageId "Mythosia.AI.Rag" `
+        -Version $versions["Mythosia.AI.Rag"] `
+        -Program $ragNetStandardProgram `
+        -ExpectedLibraries @(
+            "Mythosia.AI.Rag/$($versions['Mythosia.AI.Rag'])",
+            "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
+        -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*") `
         -TargetFramework "netstandard2.1" `
         -BuildOnly
 }

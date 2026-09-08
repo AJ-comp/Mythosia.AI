@@ -1,16 +1,31 @@
 # Agent (Loop ReAct)
 
+Buscar uma política e conferir um pedido pode exigir várias chamadas de ferramentas. O [guia de Run](execution-api-transition.md) mostra como acompanhar esse trabalho, cancelá-lo e acrescentar instruções quando o modelo oferece suporte.
+
 ## Por que um Loop de Agent?
 
-A chamada de funções comum pode executar **várias funções de uma resposta do modelo como um lote ordenado** e continuar por outras rodadas de ferramentas. A API de Agent reúne esse mecanismo em um loop ReAct orientado a objetivos com um **limite de etapas** explícito, devolvendo ao modelo os resultados de cada lote até que ele produza uma resposta final:
+Algumas perguntas exigem várias fontes: o modelo escolhe uma ferramenta, examina seu resultado e pode solicitar outras ferramentas. O ciclo comum entre modelo e ferramentas repete essas etapas até produzir a resposta; um limite de rodadas restringe a execução:
 
 - "Pesquise as 3 principais empresas de IA e compare os preços das ações" — requer múltiplas buscas
 - "Encontre a política relevante, verifique o status do pedido e diga se tenho direito ao reembolso" — requer encadeamento lógico de ferramentas
 - O modelo pode precisar **tentar novamente ou refinar** uma busca se o primeiro resultado for insuficiente
 
-O **loop de agent** (padrão ReAct: Raciocinar → Agir → Observar → Repetir) cuida disso automaticamente.
+`GetCompletionAsync` e `StartRunAsync` já executam o ciclo compartilhado entre modelo e ferramentas. Os antigos métodos de agente acrescentam um limite de rodadas por chamada e tradução de erros específica, sem um planejador ou mecanismo de execução independente.
 
-## Uso Básico
+## Iniciar uma tarefa com ferramentas usando Run
+
+```csharp
+// Registre as funções no serviço antes de iniciar a tarefa.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Encontre a política, confira o pedido e explique o resultado.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## API anterior de agente: exemplos de compatibilidade
+
+Os exemplos a seguir documentam `RunAgentAsync` e `RunAgentStreamAsync`, que continuam disponíveis com avisos `[Obsolete]`. Novas chamadas podem usar `StartRunAsync`; o [guia de Run](execution-api-transition.md) detalha diferenças nos limites de rodadas e no tratamento de erros.
 
 Registre funções e chame `RunAgentAsync` com um objetivo:
 
@@ -59,19 +74,24 @@ Controle o comportamento do loop de agent por round:
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// Ou via métodos de extensão:
-service.WithMaxRounds(15).WithTimeout(60);
+// RunAgentAsync usa DefaultPolicy e o argumento explícito maxSteps.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "Pesquise e resuma...", maxSteps: 15);
 ```
 
 Políticas predefinidas:
 
 ```csharp
-service.WithFastPolicy();    // Baixo timeout, menos rounds — tarefas rápidas
-service.WithComplexPolicy(); // Maior timeout, mais rounds — pesquisa aprofundada
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // Baixo timeout, menos rounds — tarefas rápidas
+var fastResult = await service.RunAgentAsync(
+    "Pesquise e resuma...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // Maior timeout, mais rounds — pesquisa aprofundada
+var complexResult = await service.RunAgentAsync(
+    "Pesquise e resuma...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## Contexto de solicitação por chamada
@@ -105,7 +125,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-O contexto é propagado através de `AsyncLocal`, então execuções concorrentes de agent na mesma instância de serviço não interferem entre si.
+`AIRequestContext` é propagado por `AsyncLocal`, mas isso não torna seguras as alterações simultâneas no histórico e nas políticas do serviço. Use instâncias separadas para tarefas concorrentes independentes.
 
 Consulte [AIRequestContext](request-contexts.md) para a lista completa de propriedades disponíveis (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

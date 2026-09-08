@@ -1,4 +1,5 @@
 using Mythosia.AI.Exceptions;
+#pragma warning disable CS0618 // These tests intentionally exercise the retained Agent compatibility APIs.
 using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;

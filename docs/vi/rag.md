@@ -2,6 +2,8 @@
 
 RAG cho phép model trả lời câu hỏi dựa trên tài liệu của riêng bạn bằng cách truy xuất các đoạn liên quan tại thời điểm truy vấn.
 
+Để hiển thị dần câu trả lời dựa trên tài liệu truy xuất và cho phép dừng tạo nội dung, có thể dùng `RagEnabledService.StartRunAsync`. Truy xuất diễn ra trước Run; chỉ dẫn bổ sung không tự kích hoạt truy xuất lại. Xem ví dụ và phạm vi trong [hướng dẫn Run](execution-api-transition.md).
+
 ## Cài đặt
 
 ```bash
@@ -25,6 +27,8 @@ var response = await service.GetCompletionAsync("Chính sách hoàn tiền là g
 ```
 
 Tài liệu được tách, embed và lưu trữ tự động. Tại thời điểm truy vấn, các đoạn liên quan nhất được truy xuất và inject vào prompt.
+
+Nếu nhà cung cấp đã quản lý chỉ mục tài liệu, hãy so sánh [tìm kiếm tệp được lưu trữ và RAG](reasoning-and-search.md). Tham chiếu truy xuất RAG được lưu riêng với nguồn do nhà cung cấp trả về.
 
 ## Thêm tài liệu
 

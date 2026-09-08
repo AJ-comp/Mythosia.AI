@@ -1,5 +1,25 @@
 # Streaming
 
+แสดงข้อความทันทีที่ได้รับเพื่อให้ผู้ใช้ติดตามการเขียนคำตอบได้ ดูวิธีเพิ่มเหตุการณ์เครื่องมือและปุ่มหยุดใน[คู่มือ Run](execution-api-transition.md)
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "สรุปเอกสาร",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+## ตัวอย่างความเข้ากันได้กับ API เดิม
+
+ตัวอย่างด้านล่างใช้ `service.StreamAsync` แบบรับอินพุต ซึ่งยังใช้ได้ในเวอร์ชันย่อยนี้ แต่มีแผนถอนจาก API สาธารณะในเวอร์ชันหลักถัดไป โค้ดใหม่ควรใช้ `StartRunAsync` และ `run.StreamAsync()`
+
 ## Streaming พื้นฐาน
 
 ใช้ `StreamAsync` เพื่อรับ token ขณะที่กำลังสร้าง:

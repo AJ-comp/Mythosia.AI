@@ -21,6 +21,12 @@ namespace Mythosia.AI.Attributes
         public string? Description { get; set; }
 
         /// <summary>
+        /// Allows supporting models and APIs to continue while this function executes.
+        /// Defaults to false; unsupported providers use the ordinary tool-call flow.
+        /// </summary>
+        public bool AllowAsync { get; set; }
+
+        /// <summary>
         /// Creates an AI function with auto-generated name
         /// </summary>
         public AiFunctionAttribute(string description)

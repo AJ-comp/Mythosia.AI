@@ -8,9 +8,24 @@
 - 「関連ポリシーを見つけ、注文状況を確認し、返金対象か教えて」 — 異なるツールを論理的な順序で連鎖させる必要がある
 - 最初の結果が不十分な場合、モデルが検索を**リトライまたは改善**する必要がある場合も
 
-このオーケストレーションループを自分で書くのは面倒でエラーが起きやすいです。**エージェントループ**（ReActパターン：推論 → 行動 → 観察 → 繰り返し）がこれを自動的に処理します — モデルが最終回答に到達するまで各ステップで次の行動を自ら決定します。
+`GetCompletionAsync`と`StartRunAsync`も共通のモデル・ツール反復処理を実行します。既存のエージェント関数が追加するのは呼び出しごとのラウンド制限と専用の例外変換であり、独立したプランナーや実行エンジンではありません。
 
-## 基本的な使い方
+## Runでツール処理の進捗を表示する
+
+複数のツールを使うタスクで進捗を表示したり、ユーザーが途中で止めたりできるようにするには、`StartRunAsync`を使います。追加指示への対応と結果の取得は[Runの利用ガイド](execution-api-transition.md)を参照してください。
+
+```csharp
+// タスクの開始前にserviceへ関数を登録します。
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "ポリシーを探し、注文を確認して結果を説明してください。",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## 既存APIの互換性例
+
+以下の`RunAgentAsync`と`RunAgentStreamAsync`は`[Obsolete]`警告付きの互換APIです。新しいコードでは上記のRunを使用します。既存の上限10回を維持するには`WithMaxRounds(10)`を指定し、専用の例外処理がある場合は移行ガイドを確認してください。
 
 関数を登録してから、目標と共に`RunAgentAsync`を呼び出します:
 
@@ -62,19 +77,24 @@ catch (AgentMaxStepsExceededException ex)
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// または拡張メソッドで:
-service.WithMaxRounds(15).WithTimeout(60);
+// 既存のRunAgentAsyncはDefaultPolicyと明示的なmaxStepsを使用します。
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "調査して要約してください...", maxSteps: 15);
 ```
 
 事前定義されたポリシー:
 
 ```csharp
-service.WithFastPolicy();    // 低タイムアウト、少ないラウンド — 素早いタスク用
-service.WithComplexPolicy(); // 高タイムアウト、多いラウンド — 詳細な調査用
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // 低タイムアウト、少ないラウンド — 素早いタスク用
+var fastResult = await service.RunAgentAsync(
+    "調査して要約してください...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // 高タイムアウト、多いラウンド — 詳細な調査用
+var complexResult = await service.RunAgentAsync(
+    "調査して要約してください...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## 呼び出しごとのリクエストコンテキスト
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-コンテキストは`AsyncLocal`を介して伝播されるため、同じサービスインスタンスで並行して実行される複数のエージェント呼び出しは互いに干渉しません。
+`AIRequestContext`は`AsyncLocal`で伝播しますが、サービスの会話履歴や実行ポリシーを並行操作してよいという意味ではありません。独立した同時タスクには別のサービスインスタンスを使用してください。
 
 利用可能なプロパティの全リストは [AIRequestContext](request-contexts.md) を参照してください (`SystemMessagePrefix`、`SystemMessageSuffix`、`AdditionalMessages`、`RequestMessageOverride`)。
 

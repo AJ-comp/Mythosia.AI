@@ -15,7 +15,7 @@ namespace Mythosia.AI.Rag
     public static class AgenticRagExtensions
     {
         /// <summary>
-        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>.
+        /// Registers the RAG pipeline as a search tool for completion and <c>StartRunAsync</c> calls.
         /// <para>
         /// In Agentic RAG mode the agent autonomously decides when to search and what query to use.
         /// The <see cref="RagStore"/>'s QueryRewriter is intentionally bypassed for this tool because
@@ -42,7 +42,7 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
-        /// Registers the RAG pipeline as a search tool for use with <c>RunAgentAsync</c>
+        /// Registers the RAG pipeline as a search tool for completion and <c>StartRunAsync</c> calls
         /// with per-tool-call query overrides.
         /// </summary>
         public static TService WithAgenticRag<TService>(

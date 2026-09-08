@@ -101,6 +101,8 @@ namespace Mythosia.AI.Services.Anthropic
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            using var featureScope = BeginRequestFeaturesScope(message);
+            _nativeServerContinuation = false;
             // Get policy (current or default)
             var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
@@ -128,6 +130,7 @@ namespace Mythosia.AI.Services.Anthropic
                 // Function calling loop - use policy.MaxRounds
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    using var reasoningAttempt = new ClaudeReasoningAttempt(this);
                     if (policy.EnableLogging)
                     {
                         Console.WriteLine($"[Claude Round {round + 1}/{policy.MaxRounds}]");
@@ -162,11 +165,20 @@ namespace Mythosia.AI.Services.Anthropic
 
                     if (string.Equals(stopReason, "pause_turn", StringComparison.Ordinal))
                     {
+                        if (CurrentRequestFeatures.WebSearch != null)
+                        {
+                            RecordClaudeResponseCitations(responseContent);
+                            ActivateChat.Messages.Add(CreateNativeClaudeAssistantMessage(
+                                ExtractResponseContent(responseContent), ExtractClaudeRawContent(responseContent)));
+                            reasoningAttempt.Accept();
+                            continue;
+                        }
                         throw CreateStopReasonException(
                             stopReason!,
                             "Claude paused a server-tool turn, which this client-side tool loop cannot resume automatically.");
                     }
 
+                    RecordClaudeResponseCitations(responseContent);
                     if (useFunctions)
                     {
                         var (textContent, functionCalls) = ExtractFunctionCalls(responseContent);
@@ -191,6 +203,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 Console.WriteLine($"  Executing {functionCalls.Calls.Count} function(s)");
                             }
 
+                            reasoningAttempt.Accept();
                             await ProcessToolUseBatchAsync(
                                 functionCalls,
                                 textContent,
@@ -211,14 +224,20 @@ namespace Mythosia.AI.Services.Anthropic
                         // No more function calls: end the request even when Claude intentionally
                         // returns content:[] with end_turn. Retrying that empty terminal response
                         // would repeat billing and can never manufacture a missing tool call.
-                        if (!string.IsNullOrEmpty(textContent))
-                            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textContent));
+                        if (!string.IsNullOrEmpty(textContent) || CurrentRequestFeatures.WebSearch != null)
+                            ActivateChat.Messages.Add(CurrentRequestFeatures.WebSearch != null
+                                ? CreateNativeClaudeAssistantMessage(textContent, ExtractClaudeRawContent(responseContent))
+                                : new Message(ActorRole.Assistant, textContent));
+                        reasoningAttempt.Accept();
                         return textContent;
                     }
                     else
                     {
                         var result = ExtractResponseContent(responseContent);
-                        ActivateChat.Messages.Add(new Message(ActorRole.Assistant, result));
+                        ActivateChat.Messages.Add(CurrentRequestFeatures.WebSearch != null
+                            ? CreateNativeClaudeAssistantMessage(result, ExtractClaudeRawContent(responseContent))
+                            : new Message(ActorRole.Assistant, result));
+                        reasoningAttempt.Accept();
                         return result;
                     }
                 }
@@ -344,6 +363,9 @@ namespace Mythosia.AI.Services.Anthropic
         {
             request.Headers.Add("x-api-key", ApiKey);
             request.Headers.Add("anthropic-version", AnthropicApiVersion);
+            if (SupportsPerMessageClaudeEffort() &&
+                ActivateChat.Messages.Any(message => message.Metadata?.ContainsKey(ClaudeEffortMessageKey) == true))
+                request.Headers.TryAddWithoutValidation("anthropic-beta", ClaudeEffortBeta);
 
             foreach (var beta in betaHeaders)
             {

@@ -1,5 +1,7 @@
 # Agentic RAG
 
+หากการค้นหาครั้งเดียวไม่พอ ให้ลงทะเบียน RAG เป็นเครื่องมือเพื่อให้โมเดลปรับคำค้นและค้นใหม่ได้ แล้วใช้ [Run](execution-api-transition.md) เพื่อติดตามการทำงาน
+
 ## ทำไมต้องใช้ Agentic RAG?
 
 ใน RAG มาตรฐาน ทุกข้อความของผู้ใช้กระตุ้น **หนึ่งครั้ง** การดึงข้อมูล ระบบค้นหา สร้าง context และสร้างคำตอบ — ไม่ว่าจะเป็นอะไร วิธีนี้ใช้ได้ดีกับคำถามง่าย ๆ แต่ไม่เพียงพอเมื่อ:
@@ -13,7 +15,7 @@ Agentic RAG แก้ทั้งหมดนี้ แทนที่จะเ�
 
 ## เริ่มต้นใช้งาน
 
-Register `RagStore` เป็นเครื่องมือด้วย `WithAgenticRag` แล้วส่งต่อให้ `RunAgentAsync`:
+Register `RagStore` เป็นเครื่องมือด้วย `WithAgenticRag` แล้วส่งต่อให้ `StartRunAsync(...)`:
 
 ```csharp
 // สร้าง index ครั้งเดียว
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("สรุปนโยบายการคืนสินค้า");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("สรุปนโยบายการคืนสินค้า");
+var answer = await run.Result;
 ```
 
 Agent จะเรียก `search_documents` อัตโนมัติเมื่อต้องการ context จากเอกสาร จากนั้นสังเคราะห์คำตอบสุดท้ายจาก excerpt ที่ดึงมา
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // Agent ค้นเอกสารเรื่องนโยบาย และเรียก API สำหรับข้อมูลคำสั่งซื้อสด
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "คำสั่งซื้อ #12345 — ฉันมีสิทธิ์คืนสินค้าตามนโยบายปัจจุบันหรือไม่?");
+var answer = await run.Result;
 ```
 
 ในตัวอย่างนี้ agent ดำเนินการเองโดยอัตโนมัติ:
@@ -75,7 +79,7 @@ service.WithAgenticRag(ragStore,
 | การตั้งคำค้นหา | QueryRewriter | Agent ตั้งเอง |
 | จำนวนการค้นหา | หนึ่งครั้งต่อรอบ | หนึ่งหรือหลายครั้งตามต้องการ |
 | รวมเครื่องมือ | ไม่รองรับ | เครื่องมือใด ๆ ที่ register ไว้ |
-| การตั้งค่า | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| การตั้งค่า | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **หมายเหตุ:** `QueryRewriter` ถูกข้ามโดยตั้งใจใน Agentic RAG agent ตั้งคำค้นหาที่สมบูรณ์ในตัวเองเอง การเขียน query ซ้ำจะเป็นสิ่งที่เกินความจำเป็นและอาจบิดเบือนความตั้งใจของ agent
 

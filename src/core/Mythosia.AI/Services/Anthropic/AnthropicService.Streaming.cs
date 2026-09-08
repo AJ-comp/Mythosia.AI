@@ -27,6 +27,8 @@ namespace Mythosia.AI.Services.Anthropic
             FunctionCallingPolicy policy,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
+            _nativeServerContinuation = false;
+            using var reasoningAttempt = new ClaudeReasoningAttempt(this);
             if (policy.EnableLogging)
                 Console.WriteLine($"[Claude Stream Round]");
 
@@ -61,6 +63,7 @@ namespace Mythosia.AI.Services.Anthropic
             bool messageCompleted = false;
             string? finalStopReason = null;
             string? currentModel = null;
+            string? responseId = null;
             int? accInputTokens = null;
             int? accOutputTokens = null;
             int? accCachedInputTokens = null;
@@ -110,6 +113,8 @@ namespace Mythosia.AI.Services.Anthropic
 
                     if (currentModel == null && parseResult.Model != null)
                         currentModel = parseResult.Model;
+                    if (parseResult.ResponseId != null)
+                        responseId = parseResult.ResponseId;
                     if (parseResult.InputTokens.HasValue)
                         accInputTokens = parseResult.InputTokens;
                     if (parseResult.OutputTokens.HasValue)
@@ -146,7 +151,8 @@ namespace Mythosia.AI.Services.Anthropic
                         finalStopReason = parseResult.StopReason;
 
                     if (IsTruncationStopReason(parseResult.StopReason) ||
-                        string.Equals(parseResult.StopReason, "pause_turn", StringComparison.Ordinal))
+                        (string.Equals(parseResult.StopReason, "pause_turn", StringComparison.Ordinal) &&
+                         CurrentRequestFeatures.WebSearch == null))
                     {
                         streamFailed = true;
                         collectedToolUses.Clear();
@@ -372,6 +378,10 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
                         }
 
+                        reasoningAttempt.Accept();
+                        foreach (var citation in ExtractClaudeCitations(assistantContent.Serialize(), responseId))
+                            yield return new StreamingContent { Type = StreamingContentType.Citation, Citation = citation };
+
                         if (!options.TextOnly)
                         {
                             var completionContent = new StreamingContent
@@ -426,6 +436,14 @@ namespace Mythosia.AI.Services.Anthropic
                         ["stop_reason"] = finalStopReason ?? "missing"
                     }
                 };
+                yield break;
+            }
+
+            if (string.Equals(finalStopReason, "pause_turn", StringComparison.Ordinal))
+            {
+                ActivateChat.Messages.Add(CreateNativeClaudeAssistantMessage(
+                    textBuffer.ToString(), assistantContent.Serialize()));
+                _nativeServerContinuation = true;
                 yield break;
             }
 
@@ -505,9 +523,11 @@ namespace Mythosia.AI.Services.Anthropic
                     };
                 }
             }
-            else if (textBuffer.Length > 0)
+            else if (textBuffer.Length > 0 || CurrentRequestFeatures.WebSearch != null)
             {
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
+                ActivateChat.Messages.Add(CurrentRequestFeatures.WebSearch != null
+                    ? CreateNativeClaudeAssistantMessage(textBuffer.ToString(), assistantContent.Serialize())
+                    : new Message(ActorRole.Assistant, textBuffer.ToString()));
             }
         }
 
@@ -540,6 +560,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private class ClaudeStreamParseResult
         {
+            public string? ResponseId { get; set; }
             public string? TextContent { get; set; }
             public string? ThinkingContent { get; set; }
             public ToolUseData? StartedToolUse { get; set; }
@@ -574,6 +595,9 @@ namespace Mythosia.AI.Services.Anthropic
                     block.ApplyDelta(delta);
             }
 
+            public bool IsServerToolBlock(int index) =>
+                _blocks.TryGetValue(index, out var block) && block.IsServerTool;
+
             public string? Serialize()
             {
                 if (_blocks.Count == 0) return null;
@@ -591,6 +615,7 @@ namespace Mythosia.AI.Services.Anthropic
             private readonly StringBuilder _input = new StringBuilder();
             private readonly List<string> _citations = new List<string>();
             private bool _inputTouched;
+            public bool IsServerTool => _type == "server_tool_use";
 
             public ClaudeStreamBlockAccumulator(JsonElement contentBlock)
             {
@@ -714,6 +739,7 @@ namespace Mythosia.AI.Services.Anthropic
                             // Message start - can extract metadata and input token count
                             if (root.TryGetProperty("message", out var msgStart))
                             {
+                                result.ResponseId = ReadClaudeString(msgStart, "id");
                                 if (msgStart.TryGetProperty("model", out var msgModel))
                                 {
                                     result.Model = msgModel.GetString();
@@ -812,6 +838,8 @@ namespace Mythosia.AI.Services.Anthropic
                                     }
                                     else if (deltaTypeStr == "input_json_delta")
                                     {
+                                        if (hasDeltaIndex && contentAccumulator.IsServerToolBlock(deltaBlockIndex))
+                                            break;
                                         if (!hasDeltaIndex || !toolUsesByIndex.TryGetValue(deltaBlockIndex, out var deltaToolUseData))
                                         {
                                             throw new InvalidOperationException(

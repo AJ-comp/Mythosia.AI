@@ -1,16 +1,31 @@
 # Agent (Bucle ReAct)
 
+Buscar una política y comprobar un pedido puede requerir varias llamadas a herramientas. La [guía de Run](execution-api-transition.md) muestra cómo seguir ese trabajo, cancelarlo y añadir instrucciones cuando el modelo lo admite.
+
 ## ¿Por qué un Bucle de Agent?
 
-La llamada de funciones normal puede ejecutar **varias funciones de una respuesta del modelo como un lote ordenado** y continuar durante más rondas de herramientas. La API de Agent empaqueta ese mecanismo como un bucle ReAct orientado a objetivos con un **límite de pasos** explícito y devuelve al modelo los resultados de cada lote hasta que produce una respuesta final:
+Algunas preguntas requieren varias fuentes: el modelo elige una herramienta, examina su resultado y puede solicitar otras herramientas. El bucle común entre modelo y herramientas repite esos pasos hasta obtener la respuesta; un límite de rondas acota la ejecución:
 
 - "Investiga las 3 principales empresas de IA y compara sus precios de acciones" — requiere múltiples búsquedas
 - "Encuentra la política relevante, verifica el estado del pedido y dime si tengo derecho al reembolso" — requiere encadenar herramientas lógicamente
 - El modelo puede necesitar **reintentar o refinar** una búsqueda si el primer resultado es insuficiente
 
-El **bucle de agent** (patrón ReAct: Razonar → Actuar → Observar → Repetir) maneja todo esto automáticamente.
+`GetCompletionAsync` y `StartRunAsync` ya ejecutan el bucle compartido entre modelo y herramientas. Los métodos de agente anteriores añaden un límite de rondas por llamada y una traducción de errores específica, no un planificador ni un motor de ejecución independiente.
 
-## Uso Básico
+## Iniciar una tarea con herramientas mediante Run
+
+```csharp
+// Registra las funciones en el servicio antes de iniciar la tarea.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Busca la política, comprueba el pedido y explica el resultado.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## API anterior de agente: ejemplos de compatibilidad
+
+Los ejemplos siguientes documentan `RunAgentAsync` y `RunAgentStreamAsync`, que siguen siendo invocables con advertencias `[Obsolete]`. Las nuevas llamadas pueden utilizar `StartRunAsync`; la [guía de Run](execution-api-transition.md) detalla las diferencias en límites de rondas y tratamiento de errores.
 
 Registra funciones y llama a `RunAgentAsync` con un objetivo:
 
@@ -59,19 +74,24 @@ Controla el comportamiento del bucle de agent por ronda:
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// O mediante métodos de extensión:
-service.WithMaxRounds(15).WithTimeout(60);
+// RunAgentAsync usa DefaultPolicy y el argumento explícito maxSteps.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "Investiga y resume...", maxSteps: 15);
 ```
 
 Políticas predefinidas:
 
 ```csharp
-service.WithFastPolicy();    // Bajo timeout, menos rondas — tareas rápidas
-service.WithComplexPolicy(); // Mayor timeout, más rondas — investigación profunda
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // Bajo timeout, menos rondas — tareas rápidas
+var fastResult = await service.RunAgentAsync(
+    "Investiga y resume...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // Mayor timeout, más rondas — investigación profunda
+var complexResult = await service.RunAgentAsync(
+    "Investiga y resume...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## Contexto de solicitud por llamada
@@ -105,7 +125,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-El contexto se propaga a través de `AsyncLocal`, por lo que las ejecuciones concurrentes de agent en la misma instancia de servicio no interfieren entre sí.
+`AIRequestContext` se propaga mediante `AsyncLocal`, pero esto no permite modificar de forma segura el historial y las políticas del servicio durante operaciones simultáneas. Usa instancias separadas para tareas concurrentes independientes.
 
 Consulta [AIRequestContext](request-contexts.md) para la lista completa de propiedades disponibles (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

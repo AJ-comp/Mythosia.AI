@@ -27,6 +27,7 @@ namespace Mythosia.AI.Services.Base
         protected const string StreamItemIdMetadataKey = "stream_item_id";
         protected const string StreamIndexExplicitMetadataKey = "stream_index_explicit";
         protected const string RequiresProviderCallIdMetadataKey = "requires_provider_call_id";
+        protected const string AsyncCallSpecifiedMetadataKey = "async_call_specified";
 
         protected OpenAICompatibleService(string? apiKey, string baseUrl, HttpClient httpClient)
             : base(apiKey, baseUrl, httpClient)
@@ -62,9 +63,8 @@ namespace Mythosia.AI.Services.Base
             // for the complete round loop, so the same policy timeout covers both headers and the
             // SSE response body without resetting between function-calling rounds.
             OnStreamRoundStarting();
-            var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
-            var response = await HttpClient.SendAsync(
-                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            using var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+            using var response = await SendStreamingRequestAsync(request, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -89,7 +89,7 @@ namespace Mythosia.AI.Services.Base
             string? finishReason = null;
             StreamingContent? streamFailure = null;
 
-            await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
+            await foreach (var line in ReadStreamingResponseLinesAsync(response, diagnostics, cancellationToken))
             {
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
                     continue;
@@ -163,6 +163,12 @@ namespace Mythosia.AI.Services.Base
                         Metadata = chunk.Metadata
                     };
                 }
+
+                if (chunk.ReplaceFunctionCalls)
+                    streamData.ClearFunctionCalls();
+
+                if (chunk.Status != null)
+                    yield return chunk.Status;
 
                 // Function call — collect for post-processing
                 foreach (var functionCallDelta in chunk.FunctionCalls)
@@ -302,43 +308,47 @@ namespace Mythosia.AI.Services.Base
                 // Capture provider-specific continuation data before invoking user handlers.
                 EnrichStreamAssistantMessage(pendingFunctionCallMessage);
             }
-            else if (streamData.HasContent)
+            else if (streamData.HasContent || (useFunctions && UsedAsyncFunctions))
             {
                 var assistantMsg = new Message(ActorRole.Assistant, streamData.TextContent);
                 EnrichStreamAssistantMessage(assistantMsg);
                 ActivateChat.Messages.Add(assistantMsg);
             }
 
-            // 4. Execute function if detected — yield FunctionResult to signal next round
-            if (functionCalls != null)
+            // 4. Dispatch calls and return available results. Native async calls may keep running
+            // during the next model round; a response without new calls waits for one result.
+            IReadOnlyList<FunctionCallResultBatch> completedBatches = Array.Empty<FunctionCallResultBatch>();
+            try
             {
-                FunctionCallResultBatch functionResults;
-                try
+                if (functionCalls != null)
                 {
-                    functionResults = await ProcessFunctionCallsAsync(
+                    completedBatches = await ProcessFunctionBatchForRoundAsync(
+                        streamData.TextContent,
                         functionCalls,
+                        pendingFunctionCallMessage?.Metadata,
                         policy,
                         cancellationToken);
                 }
-                catch
+                else if (useFunctions && HasPendingAsyncFunctions && !HasPendingRunContinuation)
                 {
-                    OnStreamRoundFailed();
-                    throw;
+                    completedBatches = await CollectPendingStreamingFunctionResultsAsync(cancellationToken);
                 }
+            }
+            catch
+            {
+                OnStreamRoundFailed();
+                throw;
+            }
 
-                AddFunctionCallBatchToHistory(
-                    streamData.TextContent,
-                    functionCalls,
-                    pendingFunctionCallMessage?.Metadata);
-                AddFunctionResultBatchToHistory(functionResults);
-
+            foreach (var functionResults in completedBatches)
+            {
                 foreach (var functionResult in functionResults.Results)
                 {
                     yield return new StreamingContent
                     {
                         Type = StreamingContentType.FunctionResult,
                         FunctionResult = functionResult.Clone(),
-                        FunctionCallBatchId = functionCalls.Id,
+                        FunctionCallBatchId = functionResults.FunctionCallBatchId,
                         Content = functionResult.Content,
                         Metadata = new Dictionary<string, object>
                         {
@@ -360,6 +370,20 @@ namespace Mythosia.AI.Services.Base
         /// Each provider overrides this to handle its specific JSON format.
         /// </summary>
         protected abstract OpenAIStreamChunk ParseStreamChunk(string jsonData, StreamOptions options);
+
+        /// <summary>Opens a provider streaming round using the request's transport.</summary>
+        protected virtual Task<HttpResponseMessage> SendStreamingRequestAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+            => HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+        /// <summary>Reads transport events in the line format consumed by the common parser.</summary>
+        protected virtual IAsyncEnumerable<string> ReadStreamingResponseLinesAsync(
+            HttpResponseMessage response, StreamDiagnostics diagnostics, CancellationToken cancellationToken)
+            => ReadSseLinesAsync(response, diagnostics, cancellationToken);
+
+        /// <summary>Waits for pending results unless a duplex transport needs another model turn.</summary>
+        protected virtual Task<IReadOnlyList<FunctionCallResultBatch>> CollectPendingStreamingFunctionResultsAsync(
+            CancellationToken cancellationToken) => CollectAsyncFunctionResultsAsync(true, cancellationToken);
 
         /// <summary>
         /// Lets providers turn a malformed SSE data event into an explicit terminal error.
@@ -499,6 +523,8 @@ namespace Mythosia.AI.Services.Base
             public bool IsCompletion { get; set; }
             public string? FinishReason { get; set; }
             public StreamingContent? Error { get; set; }
+            public StreamingContent? Status { get; set; }
+            public bool ReplaceFunctionCalls { get; set; }
             public List<FunctionCall> FunctionCalls { get; } = new List<FunctionCall>();
             public string? Model { get; set; }
             public Dictionary<string, object>? Metadata { get; set; }
@@ -521,6 +547,13 @@ namespace Mythosia.AI.Services.Base
             public bool HasContent => TextBuffer.Length > 0;
             public bool HasFunctionCalls => _functionCalls.Count > 0;
             public string TextContent => TextBuffer.ToString();
+
+            public void ClearFunctionCalls()
+            {
+                _functionCalls.Clear();
+                _functionCallIndexesById.Clear();
+                _functionCallIndexesByStreamKey.Clear();
+            }
 
             public FunctionCall UpdateFunctionCall(FunctionCall functionCallDelta)
             {
@@ -680,6 +713,11 @@ namespace Mythosia.AI.Services.Base
                     if (!string.IsNullOrEmpty(delta.Name))
                         Call.Name = delta.Name;
                     Call.Source = delta.Source;
+                    if (delta.Metadata?.TryGetValue(AsyncCallSpecifiedMetadataKey, out var asyncSpecified) == true &&
+                        asyncSpecified is true)
+                        Call.IsAsync = delta.IsAsync;
+                    else
+                        Call.IsAsync |= delta.IsAsync;
 
                     if (delta.Metadata != null)
                     {

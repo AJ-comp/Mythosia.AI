@@ -33,6 +33,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private object BuildRequestBodyWithFunctions()
         {
+            PrepareClaudeFeatureMessage();
             var messagesList = new List<object>();
             var messages = GetLatestMessages().ToList();
             EnsureUserFirstMessage(messages);
@@ -40,6 +41,7 @@ namespace Mythosia.AI.Services.Anthropic
             for (int i = 0; i < messages.Count; i++)
             {
                 var message = messages[i];
+                AppendClaudeEffortMarker(messagesList, message);
 
                 if (message.FunctionCallBatch != null)
                 {
@@ -104,8 +106,10 @@ namespace Mythosia.AI.Services.Anthropic
 
             ApplySystemMessage(requestBody);
             ApplyThinkingConfig(requestBody);
+            ApplyCommonClaudeReasoning(requestBody);
             ApplyTemperaturePolicy(requestBody);
             ApplyToolsConfig(requestBody);
+            ApplyNativeClaudeTools(requestBody);
 
             return requestBody;
         }
@@ -333,6 +337,9 @@ namespace Mythosia.AI.Services.Anthropic
 
         private bool UsesManualExtendedThinkingForRequest()
         {
+            if (CurrentRequestFeatures.Reasoning != null &&
+                CurrentRequestFeatures.Reasoning.Level != ReasoningLevel.Auto)
+                return CurrentRequestFeatures.Reasoning.Level != ReasoningLevel.None && !ModelSupportsAdaptiveThinking() && IsThinkingEnabled;
             return IsThinkingEnabled && !UsesAdaptiveThinkingForRequest();
         }
 

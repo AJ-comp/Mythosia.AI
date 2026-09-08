@@ -1,5 +1,42 @@
 # Mythosia.AI - Release Notes
 
+## v7.1.0
+
+### Added
+
+- **GPT-6 Astra** — Responses API routing, model-aware output limits and sampling validation, and `WithGpt6Parameters` configuration for reasoning effort, Standard/Pro mode, verbosity, and reasoning summaries.
+- **Controllable runs** — `StartRunAsync` returns an `AIRun` with `Result`, output-only `StreamAsync`, `Cancel`, and asynchronous disposal. The startup `onText` callback can accompany one event reader. Registered tools use the existing function-round policy, including `WithMaxRounds`.
+- **Mid-turn steering** — supported Astra runs use the Responses WebSocket transport for `SteerAsync`; `CanSteer` reports availability. Other providers run through their existing streaming implementations. Successful steering submission means the instruction was accepted for delivery, not that it has already changed the output.
+- **Native asynchronous tools** — `FunctionBuilder.WithAsync()`, `FunctionDefinition.AllowAsync`, and the matching attribute option permit supported Astra calls to overlap model work. A request-owned dispatcher tracks pending calls, bounded handler concurrency, and outputs with their original call IDs.
+- **Common reasoning and hosted search** — `WithReasoning`, `WithWebSearch`, and `WithFileSearch` configure completed answers, structured-output requests, and runs. Supported native web tools are available through OpenAI, Anthropic, and Google; existing provider-owned file-search stores are supported through OpenAI and Google.
+- **Cache-preserving effort changes** — `CachePreservation.Required` uses configuration updates for supported Astra Standard runs and requests, or the per-message effort protocol on Claude Opus 5, Fable 5.1, and Mythos 5.1. Accepted changes persist in the tracked conversation; ordinary `CachePreservation.None` overrides remain request-scoped.
+- **Provider source references** — `LastCitations`, `GetLastCitations()`, `run.Citations`, and citation events retain native web and file references independently of text observation.
+
+### Changed
+
+- `RunAgentAsync` and `RunAgentStreamAsync` now emit non-error `[Obsolete]` warnings pointing to `StartRunAsync` and the existing function-round policy. Their signatures, default ten-step limit, and legacy behavior are retained.
+- Common request features are captured once for a logical request, including tool continuations and structured-output repairs. Internal summarization and query rewriting do not inherit the final answer's hosted tools or consume its pending settings.
+- Provider-native reasoning, hosted-tool results, and citations are preserved through HTTP, streaming, and supported WebSocket continuations. Anthropic hosted-tool `pause_turn` responses continue through the native protocol.
+- Run startup captures built-in message content and per-request settings. Its timeout covers preparation and all rounds; cancellation and disposal wait for provider cleanup and already-started handlers.
+
+### Fixed
+
+- Failed or cancelled, unaccepted OpenAI and Anthropic requests no longer leave persistent reasoning changes or an unverified cache baseline in the conversation. State accepted in earlier successful rounds is preserved.
+- OpenAI-compatible completion overrides now enter the common request-feature scope so unsupported options are rejected and consumed instead of bypassing validation or affecting a later request.
+
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` v3.1.0. Existing provider-specific configuration APIs remain available.
+- `GetCompletionAsync`, including typed overloads, remains public and supported. Existing completion and streaming entry points are not removed. Input-taking service `StreamAsync` methods remain supported during the minor transition; their documentation records planned public withdrawal in the next major release while retaining implementation hooks.
+- Native asynchronous tools remain opt-in, with `AllowAsync` defaulting to `false`. Unsupported providers use ordinary handler execution. Enabling permission does not force the model to return an asynchronous call.
+- One service supports one active run. A single event reader can join the text callback; the 1,024-event observation buffer may fail if it overflows, while execution, the callback, and `Result` continue. Ending an event reader stops observation; use `Cancel`, the startup token, or run disposal to cancel execution.
+- `Result` concatenates all text emitted during the run, including intermediate output and text produced before steering. Steering does not undo output or cancel already-started tools. Citation offsets are local to their provider response/content part, not offsets into the concatenated result.
+- Unsupported model, provider, transport, and option combinations fail explicitly. Google web and file search cannot be combined, and Google domain allowlists are unsupported. Anthropic has no native file-store search adapter; use RAG. Hosted file search uses existing stores and does not create stores or upload files.
+- Required cache preservation needs tracked, stateful history and a compatible model and endpoint; it blocks incompatible history compaction and does not guarantee a cache hit. Start a new conversation when changing that baseline.
+- Custom message-content types retain their original references and must remain unchanged until the run ends. Existing handlers do not accept cancellation tokens, so cancellation does not interrupt an already-started handler. Astra runs use a WebSocket transport; an injected `HttpClient` handler does not replace that transport.
+
+---
+
 ## v7.0.0
 
 > This is a breaking release. Follow the [v7 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) before upgrading production applications.

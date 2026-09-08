@@ -22,7 +22,7 @@ Mythosia.AIは、複数のAIプロバイダー、RAGパイプライン、ドキ�
 
 | プロバイダー | モデル |
 |------------|--------|
-| **OpenAI** | GPT-5.x、GPT-4.1、GPT-4o、o3シリーズ |
+| **OpenAI** | GPT-6 Astra、GPT-5.x、GPT-4.1、GPT-4o、o3シリーズ |
 | **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3シリーズ |
 | **xAI** | Grok 4シリーズ、Grok Build |

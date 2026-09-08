@@ -6,6 +6,10 @@ namespace Mythosia.AI.Services.OpenAI
 {
     public partial class OpenAIService
     {
+        protected override bool SupportsAsyncFunctionCalls =>
+            string.Equals(Model, AIModels.OpenAI.Gpt6Astra, StringComparison.OrdinalIgnoreCase) ||
+            Model.StartsWith(AIModels.OpenAI.Gpt6Astra + "-", StringComparison.OrdinalIgnoreCase);
+
         /// <summary>
         /// Applies model-specific parameter configurations to the request body
         /// </summary>
@@ -20,6 +24,10 @@ namespace Mythosia.AI.Services.OpenAI
             if (IsO3Model(model))
             {
                 ConfigureO3Parameters(requestBody, model);
+            }
+            else if (IsGpt6Model(model))
+            {
+                ConfigureGpt6Parameters(requestBody);
             }
             else if (IsGpt5_6Model(model))
             {
@@ -346,6 +354,39 @@ namespace Mythosia.AI.Services.OpenAI
             SetTextVerbosity(requestBody, Gpt5_6Verbosity ?? Verbosity.Medium);
         }
 
+        /// <summary>
+        /// Configures GPT-6 reasoning and text output. Reasoning is always enabled.
+        /// Pro is selected with reasoning.mode without changing the model ID.
+        /// </summary>
+        private void ConfigureGpt6Parameters(Dictionary<string, object> requestBody)
+        {
+            var resolvedEffort = Gpt6ReasoningEffort == Gpt6Reasoning.Auto
+                ? Gpt6Reasoning.Medium
+                : Gpt6ReasoningEffort;
+
+            if (!requestBody.ContainsKey("reasoning"))
+            {
+                var reasoning = new Dictionary<string, object>
+                {
+                    ["effort"] = resolvedEffort.ToString().ToLowerInvariant(),
+                    // Conversation history is reconstructed locally. Tool continuations
+                    // replay the complete output items from the active turn.
+                    ["context"] = "current_turn"
+                };
+
+                var summary = Gpt6ReasoningSummary?.ToString().ToLowerInvariant();
+                if (summary != null)
+                    reasoning["summary"] = summary;
+
+                if (Gpt6ReasoningMode == global::Mythosia.AI.Models.Gpt6ReasoningMode.Pro)
+                    reasoning["mode"] = "pro";
+
+                requestBody["reasoning"] = reasoning;
+            }
+
+            SetTextVerbosity(requestBody, Gpt6Verbosity ?? Verbosity.Medium);
+        }
+
         private static void SetTextVerbosity(Dictionary<string, object> requestBody, Verbosity verbosity)
         {
             var serializedVerbosity = verbosity.ToString().ToLowerInvariant();
@@ -407,11 +448,19 @@ namespace Mythosia.AI.Services.OpenAI
                 unsupported.Add("top_p"); // Some o3 models might not support this
             }
 
-            if (IsGpt5Family(model))
+            if (IsGpt5Family(model) || IsGpt6Model(model))
             {
-                // GPT-5 family doesn't support these params
+                // GPT-5 and GPT-6 do not support these penalties.
                 unsupported.Add("frequency_penalty");
                 unsupported.Add("presence_penalty");
+            }
+
+            if (IsGpt6Model(model))
+            {
+                unsupported.Add("temperature");
+                unsupported.Add("top_p");
+                unsupported.Add("logprobs");
+                unsupported.Add("top_logprobs");
             }
 
             return unsupported;
@@ -487,6 +536,14 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
+        /// Matches GPT-6 models, including GPT-6 Astra.
+        /// </summary>
+        private bool IsGpt6Model(string model)
+        {
+            return model.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// Matches GPT-5.3 Codex models: gpt-5.3-codex and its snapshots.
         /// Codex supports reasoning effort: low, medium (default), high, xhigh (no 'none').
         /// </summary>
@@ -508,11 +565,12 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// Determines if the model uses the Responses API (/v1/responses).
-        /// All GPT-5 family, o3, and GPT-4.1 models use the new API.
+        /// GPT-5, GPT-6, o3, and GPT-4.1 models use the Responses API.
         /// </summary>
         private bool IsNewApiModel(string model)
         {
-            return IsGpt5Family(model) ||
+            return IsGpt6Model(model) ||
+                   IsGpt5Family(model) ||
                    IsO3Model(model) ||
                    model.StartsWith("gpt-4.1", StringComparison.OrdinalIgnoreCase);
         }

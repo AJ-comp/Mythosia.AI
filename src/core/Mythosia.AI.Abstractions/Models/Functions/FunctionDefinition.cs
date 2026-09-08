@@ -18,6 +18,13 @@ namespace Mythosia.AI.Models.Functions
         public FunctionParameters Parameters { get; set; }
         public Func<Dictionary<string, object>, Task<string>>? Handler { get; set; }
 
+        /// <summary>
+        /// Allows a supporting model and API to continue working while this function executes.
+        /// Defaults to false. Unsupported providers use the ordinary blocking tool-call flow
+        /// without changing this setting.
+        /// </summary>
+        public bool AllowAsync { get; set; }
+
         public FunctionDefinition()
         {
             Parameters = new FunctionParameters();
@@ -86,6 +93,12 @@ namespace Mythosia.AI.Models.Functions
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
+        /// Whether the provider marked this call as asynchronous. Execution also requires
+        /// provider support and the registered function's AllowAsync opt-in.
+        /// </summary>
+        public bool IsAsync { get; set; }
+
+        /// <summary>
         /// Function arguments
         /// </summary>
         public Dictionary<string, object> Arguments { get; set; }
@@ -113,6 +126,7 @@ namespace Mythosia.AI.Models.Functions
                 Id = Id,
                 Source = Source,
                 Name = Name,
+                IsAsync = IsAsync,
                 Arguments = ObjectGraphSnapshot.CloneDictionary(Arguments),
                 Index = Index,
                 Metadata = ObjectGraphSnapshot.CloneNullableDictionary(Metadata)
@@ -172,7 +186,8 @@ namespace Mythosia.AI.Models.Functions
     }
 
     /// <summary>
-    /// Ordered results for one function-call batch.
+    /// Results for one function-call batch. Ordinary execution preserves provider order;
+    /// native asynchronous execution can deliver completed subsets in separate result batches.
     /// </summary>
     public sealed class FunctionCallResultBatch
     {

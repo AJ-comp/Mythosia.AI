@@ -1,5 +1,7 @@
 # AIRequestContext
 
+A data, as informações do usuário e os documentos encontrados muitas vezes devem valer apenas para a tarefa atual. O contexto restringe esses acréscimos à requisição e também pode acompanhar uma tarefa controlável; consulte o [guia de Run](execution-api-transition.md).
+
 ## O que É?
 
 `AIRequestContext` permite modificar **o que o modelo vê** para uma única requisição — injetar instruções extras, adicionar documentos de referência ou substituir completamente a mensagem do usuário — sem alterar permanentemente a mensagem do sistema ou o histórico de conversa do serviço.
@@ -17,6 +19,19 @@ var answer = await service.GetCompletionAsync(userQuestion,
     {
         SystemMessageSuffix = $"\n\nUse o seguinte contexto para responder:\n{retrievedDocs}"
     });
+```
+
+## Contexto de uma tarefa em andamento
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Resuma os documentos.",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Data de hoje: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
 ```
 
 ## Propriedades Disponíveis
@@ -150,7 +165,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### Como funciona
 
-Registre o callback uma vez via o helper fluent `WithSystemMessageProvider`. Cada chamada de saída (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) o invoca automaticamente para construir um contexto base:
+Registre o callback uma vez via o helper fluent `WithSystemMessageProvider`. Cada chamada de saída (`StartRunAsync`, `GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) o invoca automaticamente para construir um contexto base:
 
 ```csharp
 // Tipicamente na construção do serviço / configuração DI
@@ -181,7 +196,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Os caminhos não-streaming (`GetCompletionAsync`, `RunAgentAsync`) não suportam cancelamento por design — suas assinaturas não aceitam um `CancellationToken`, e `CancellationToken.None` é sempre passado ao provider. Se seu provider precisa de cancelamento (ex: uma consulta DB longa), use os caminhos de streaming (`StreamAsync`, `RunAgentStreamAsync`), que propagam o token do chamador até o callback do provider.
+`GetCompletionAsync` e as sobrecargas anteriores de `RunAgentAsync` não aceitam `CancellationToken`; o provedor de contexto recebe `CancellationToken.None`. Se o provedor precisar de cancelamento, por exemplo durante uma consulta longa ao banco de dados, use `StartRunAsync(..., cancellationToken: token)`. Os caminhos anteriores de streaming (`StreamAsync`, `RunAgentStreamAsync`) também repassam o token do chamador ao callback do provedor.
 
 ### Fusão com um contexto per-call explícito
 

@@ -27,6 +27,10 @@
 
 </div>
 
+> 本文档对应的包版本: [Mythosia.AI 7.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v710), [Abstractions 3.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310), [Alibaba 2.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201), [RAG 7.6.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+
+需要显示长答案或工具执行的进度，并把停止和追加指令关联到同一个任务时，可以使用 `StartRunAsync` 返回的 Run。选择方式和示例见 [Run 使用指南](execution-api-transition.md)。
+
 ---
 
 ### 需要安装哪些包？
@@ -48,16 +52,16 @@ dotnet add package Mythosia.VectorDb.Postgres     # 可选：需要生产级向�
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.5.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.6.0</i>"]
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.0.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.0.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.1.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.1.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.0</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.1</i>"]
     end
 
     subgraph "🛰️ Serving — 控制平面"
@@ -122,7 +126,7 @@ graph TD
 
 ```bash
 # 在仓库根目录下
-dotnet run --project samples/Mythosia.AI.Samples.ChatUi
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
@@ -175,6 +179,12 @@ var service = new OpenAIService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
+
+天气查询较慢时，模型仍可先介绍不依赖天气结果的通用旅行用品。模型原生异步工具调用用于在这种等待期间继续独立工作；依赖查询结果的判断仍应等结果返回后再进行。
+
+通过 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可选择允许 GPT-6 Astra 在 Responses API 中异步调用工具。默认值为 `false`；不支持的模型仍等待同一个处理器的结果。示例和请求生命周期见[函数调用指南](function-calling.md)。
+
+如果回答需要最新信息或文档依据，请参阅[推理与搜索指南](reasoning-and-search.md)。通用选项可启用网页搜索或已有文档存储，并获取回答的来源引用。
 
 ### 结构化输出（基础）
 
@@ -254,7 +264,7 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 | 提供商 | 包 | 模型 |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
 | **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite |
 | **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
@@ -330,7 +340,7 @@ src/
     Mythosia.VectorDb.Pinecone/         # Pinecone 向量存储
     Mythosia.VectorDb.Postgres/         # PostgreSQL + pgvector 存储
     Mythosia.VectorDb.Qdrant/           # Qdrant 向量存储
-samples/                                # 示例应用
+apps/                                   # 示例应用
 tests/                                  # 单元/集成测试项目
 ```
 

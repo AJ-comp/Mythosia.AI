@@ -1,5 +1,6 @@
 using Mythosia.Documents;
 using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Splitters;
 using Mythosia.VectorDb;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
@@ -76,6 +77,60 @@ public class LoaderRoutingTests
         CollectionAssert.AreEquivalent(expectedChunks, embedding.EmbeddedTexts.ToArray());
         CollectionAssert.AreEquivalent(expectedChunks, store.Records.Select(r => r.Content).ToArray());
         Assert.AreEqual(expectedChunks.Length, store.Records.Count);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task AddDocuments_WithIndividuallyRegisteredFile_PreservesFileSplitter(bool includeNewFile)
+    {
+        using var tempDir = new TempDirectory();
+        var filePath = tempDir.CreateFile("contract.txt", "abcdefghij");
+        if (includeNewFile)
+            tempDir.CreateFile("report.txt", "klmnop");
+
+        var embedding = new TrackingEmbeddingProvider(8);
+        var store = new TrackingVectorStore();
+
+        await RagStore.BuildAsync(config => config
+            .AddDocuments(tempDir.RootPath, src => src
+                .WithExtension(".txt")
+                .WithTextSplitter(new CharacterTextSplitter(3, 0)))
+            .AddDocument(filePath)
+            .UseEmbedding(embedding)
+            .UseStore(store)
+            .WithChunkSize(5)
+            .WithChunkOverlap(0)
+        );
+
+        var expectedChunks = includeNewFile
+            ? new[] { "abcde", "fghij", "klm", "nop" }
+            : new[] { "abcde", "fghij" };
+        CollectionAssert.AreEquivalent(expectedChunks, embedding.EmbeddedTexts.ToArray());
+        CollectionAssert.AreEquivalent(expectedChunks, store.Records.Select(r => r.Content).ToArray());
+    }
+
+    [TestMethod]
+    public async Task AddDocument_RegisteredTwice_EmbedsOnlyOnce()
+    {
+        using var tempDir = new TempDirectory();
+        var filePath = tempDir.CreateFile("contract.txt", "abcdefghij");
+        var equivalentPath = Path.Combine(tempDir.RootPath, ".", "contract.txt");
+        var embedding = new TrackingEmbeddingProvider(8);
+        var store = new TrackingVectorStore();
+
+        await RagStore.BuildAsync(config => config
+            .AddDocument(filePath)
+            .AddDocument(equivalentPath)
+            .UseEmbedding(embedding)
+            .UseStore(store)
+            .WithChunkSize(5)
+            .WithChunkOverlap(0)
+        );
+
+        var expectedChunks = new[] { "abcde", "fghij" };
+        CollectionAssert.AreEquivalent(expectedChunks, embedding.EmbeddedTexts.ToArray());
+        CollectionAssert.AreEquivalent(expectedChunks, store.Records.Select(r => r.Content).ToArray());
     }
 
     private sealed class TrackingLoader : IDocumentLoader

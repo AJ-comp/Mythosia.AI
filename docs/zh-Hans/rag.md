@@ -2,6 +2,8 @@
 
 RAG 通过在查询时检索相关文本片段，让模型基于你自己的文档来回答问题。
 
+需要逐段显示基于检索结果的答案并允许停止生成时，可以使用 `RagEnabledService.StartRunAsync`。检索在 Run 之前执行，追加指令不会自动触发重新检索。示例和适用范围见 [Run 使用指南](execution-api-transition.md)。
+
 ## 安装
 
 ```bash
@@ -25,6 +27,8 @@ var response = await service.GetCompletionAsync("退款政策是什么？");
 ```
 
 文档会被自动分割、嵌入并存储。查询时，最相关的文本片段会被检索并注入到提示词中。
+
+如果文档索引已由提供商管理，请比较[托管文件搜索与 RAG](reasoning-and-search.md)的适用场景。RAG 检索引用与提供商返回的来源引用分别保存。
 
 ## 添加文档
 

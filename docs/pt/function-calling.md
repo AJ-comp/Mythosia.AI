@@ -150,3 +150,46 @@ var fn = FunctionBuilder
 
 service.WithFunction(fn);
 ```
+
+## Chamadas assíncronas de ferramentas
+
+Uma consulta lenta não precisa interromper toda a resposta. Enquanto os dados do clima são carregados, por exemplo, o modelo pode explicar dicas gerais de viagem que não dependem do resultado. As chamadas assíncronas de ferramentas permitem esse trabalho independente; afirmações que precisam do resultado ainda devem aguardá-lo.
+
+O suporte ao GPT-6 Astra e às chamadas assíncronas de ferramentas está disponível a partir de `Mythosia.AI` 7.1.0, com tipos compartilhados em `Mythosia.AI.Abstractions` 3.1.0.
+
+`FunctionDefinition.AllowAsync` é `false` por padrão. Defina como `true` ou use `FunctionBuilder.WithAsync()` somente quando o modelo puder continuar trabalhando enquanto essa função é executada. `WithAsync(false)` desativa a permissão. A mesma definição e o mesmo handler podem ser reutilizados entre provedores.
+
+O registro por atributos aceita a mesma permissão: `[AiFunction("lookup", "Consultar dados", AllowAsync = true)]`.
+
+```csharp
+using System.Threading.Tasks;
+using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+var weatherTool = FunctionBuilder.Create("get_demo_weather")
+    .WithDescription("Retorna um exemplo do clima em Seul")
+    .WithAsync()
+    .WithHandler(async _ =>
+    {
+        await Task.Delay(5000);
+        return "{\"city\":\"Seoul\",\"temperature_c\":24,\"source\":\"demo\"}";
+    })
+    .Build();
+service.WithFunction(weatherTool);
+var answer = await service.GetCompletionAsync(
+    "Consulte o exemplo do clima em Seul. Enquanto isso, liste três itens essenciais para uma viagem.");
+```
+
+Mythosia envia `async: true` para GPT-6 Astra pela API Responses. Para modelos e APIs sem suporte, omite o campo e aguarda o resultado do mesmo handler, sem alterar `AllowAsync`. O provedor também precisa marcar a chamada real como assíncrona (`FunctionCall.IsAsync`); ativar a permissão não garante execução assíncrona.
+
+`WithFunctionAsync` registra um handler assíncrono de .NET, e `FunctionExecutionMode.Parallel` controla a execução local dos handlers. Nenhum deles ativa automaticamente essa permissão. `AllowAsync` permite que o modelo continue antes de receber o resultado da função. `FunctionExecutionMode` continua controlando as chamadas comuns. Os trabalhos assíncronos habilitados podem se sobrepor mesmo no modo `Sequential` e compartilham um limite separado de trabalhos definido por `MaxConcurrency`.
+
+Os trabalhos pendentes pertencem à requisição ativa: `GetCompletionAsync`, o antigo `service.StreamAsync` ou um `AIRun` iniciado com `StartRunAsync`. Cada resultado é associado depois ao ID original da chamada. A conclusão bem-sucedida da requisição ou de `run.Result` aguarda o processamento dos resultados pendentes. Não existe uma sessão pública de trabalhos em segundo plano independente da requisição.
+
+Com ferramentas assíncronas, `GetCompletionAsync` retorna ao término da solicitação o texto intermediário independente e o texto final acumulados na ordem. `StreamAsync` entrega o texto de cada rodada conforme ele chega. `run.StreamAsync()` também transmite o texto conforme ele chega; `run.Result` concatena todos os eventos de texto do run.
+
+Os handlers não recebem tokens de cancelamento. Após cancelamento, timeout ou erro, a limpeza aguarda os handlers já iniciados. Encerrar antecipadamente o fluxo antigo do serviço termina sua execução; encerrar `run.StreamAsync()` interrompe somente a observação. Para cancelar o run, use `run.Cancel()` ou libere-o. A integração abrange os handlers registrados; consulte o [protocolo da API](https://developers.openai.com/api/docs/guides/async-tool-calling) e o [guia de Run](execution-api-transition.md).
+
+No streaming, os handlers começam após a confirmação de chamadas de função completas e de um limite válido da resposta do provedor. Depois, a próxima rodada do modelo pode avançar enquanto os trabalhos assíncronos são executados; chamadas incompletas não iniciam a execução. Se o modelo não retornar novas chamadas e houver trabalhos pendentes, Mythosia aguarda seus resultados. Novas tentativas com resumo automático por excesso de contexto permanecem desativadas durante chamadas pendentes para preservar as chamadas inacabadas no histórico.

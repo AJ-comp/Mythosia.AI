@@ -108,7 +108,7 @@ service.DefaultPolicy = new FunctionCallingPolicy
 };
 ```
 
-Parallel handlers may finish out of order, but Mythosia preserves the provider's original call order in the `FunctionCallResultBatch`. Once a validated batch starts, its handlers run to completion so conversation history cannot contain calls without matching results; registered handlers do not currently receive a `CancellationToken`.
+For ordinary calls, parallel handlers may finish out of order, but Mythosia preserves the provider's original call order in the `FunctionCallResultBatch`. Once a validated batch starts, its handlers run to completion so conversation history cannot contain calls without matching results; registered handlers do not currently receive a `CancellationToken`.
 
 ## Bulk Registration from a Class
 
@@ -173,3 +173,46 @@ var fn = FunctionBuilder
 
 service.WithFunction(fn);
 ```
+
+## Async Tool Calling
+
+A slow external lookup does not always prevent useful work. While checking the weather, for example, the model can explain general packing advice that does not depend on the forecast. Async tool calling allows that independent work to continue and incorporates the lookup result when it is ready. Decisions that depend on the result still need the actual tool output.
+
+GPT-6 Astra support and async tool calling are available from `Mythosia.AI` 7.1.0, with shared types in `Mythosia.AI.Abstractions` 3.1.0.
+
+`FunctionDefinition.AllowAsync` defaults to `false`. Set it to `true`, or call `FunctionBuilder.WithAsync()`, only for functions whose execution may overlap further model work. `WithAsync(false)` turns the permission off. The same function definition and handler can be reused across providers.
+
+Attribute registration supports the same permission: `[AiFunction("lookup", "Look up data", AllowAsync = true)]`.
+
+```csharp
+using System.Threading.Tasks;
+using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+var weatherTool = FunctionBuilder.Create("get_demo_weather")
+    .WithDescription("Returns a demo weather snapshot for Seoul")
+    .WithAsync()
+    .WithHandler(async _ =>
+    {
+        await Task.Delay(5000);
+        return "{\"city\":\"Seoul\",\"temperature_c\":24,\"source\":\"demo\"}";
+    })
+    .Build();
+service.WithFunction(weatherTool);
+var answer = await service.GetCompletionAsync(
+    "Check the demo Seoul weather. While waiting, list three packing essentials.");
+```
+
+Mythosia sends `async: true` for GPT-6 Astra through Responses. Unsupported models and APIs omit that field and wait for the same handler's result, leaving your `AllowAsync` setting unchanged. The provider must also return an async call (`FunctionCall.IsAsync`); enabling the permission does not guarantee async execution.
+
+`WithFunctionAsync` only accepts a .NET asynchronous handler, and `FunctionExecutionMode.Parallel` controls local handler scheduling. Neither enables this permission. `AllowAsync` lets the model continue before a function result arrives. `FunctionExecutionMode` still controls ordinary calls. Opted-in async jobs can overlap even in `Sequential` mode and share a separate pending-job limit set by `MaxConcurrency`.
+
+Pending tool jobs belong to the `GetCompletionAsync`, existing `service.StreamAsync`, or `StartRunAsync` execution that started them. Results retain their original call IDs. A successful completion or run `Result` waits for pending results to be processed. Controlling execution through `AIRun`, as shown in the [Run guide](execution-api-transition.md), does not detach tool jobs from that execution.
+
+When async tools are used, `GetCompletionAsync` returns the intermediate independent text and the final text accumulated in order, after the request finishes. `StreamAsync` emits text as it arrives across those rounds.
+
+Handlers do not receive cancellation tokens, so cancellation, timeout, or execution errors wait for already-started handlers during cleanup. Early disposal of the existing input-taking `service.StreamAsync` also cleans up execution; ending a `run.StreamAsync()` reader only stops observation. Call `run.Cancel()` or dispose the run to stop its execution. See the [official API guide](https://developers.openai.com/api/docs/guides/async-tool-calling) for the protocol.
+
+Streaming starts handlers after complete function calls and a valid response boundary have been received, then can continue another model round while async jobs run. Incomplete call events do not trigger execution. If the model returns no new calls while jobs remain pending, Mythosia waits for results before resuming. Automatic context-overflow summarization retries are disabled while calls are pending to avoid dropping unfinished calls from history.

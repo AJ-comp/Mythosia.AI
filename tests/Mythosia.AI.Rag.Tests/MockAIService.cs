@@ -14,6 +14,7 @@ namespace Mythosia.AI.Rag.Tests;
 internal class MockAIService : AIService
 {
     public string? LastReceivedPrompt { get; set; }
+    public Message? LastReceivedMessage { get; private set; }
     public string CompletionResponse { get; set; } = "Mock LLM response";
 
     public MockAIService() : base("fake-key", "https://localhost/", new HttpClient())
@@ -27,14 +28,16 @@ internal class MockAIService : AIService
     {
         ActivateChat.Messages.Add(message);
         var resolved = GetLatestMessages().LastOrDefault();
+        LastReceivedMessage = resolved;
         LastReceivedPrompt = resolved?.Content ?? message.Content;
         return Task.FromResult(CompletionResponse);
     }
 
     public override Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
     {
-        ActivateChat.Messages.Add(message);
+        if (!ActivateChat.Messages.Contains(message)) ActivateChat.Messages.Add(message);
         var resolved = GetLatestMessages().LastOrDefault();
+        LastReceivedMessage = resolved;
         LastReceivedPrompt = resolved?.Content ?? message.Content;
         return messageReceivedAsync(CompletionResponse);
     }

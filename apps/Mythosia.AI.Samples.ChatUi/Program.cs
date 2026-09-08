@@ -647,6 +647,8 @@ app.MapGet("/api/state", async () =>
         frequencyPenalty = svc.FrequencyPenalty,
         presencePenalty = svc.PresencePenalty,
         stream = svc.Stream,
+        reasoning = ChatUiSettingsHelpers.GetReasoningState(svc),
+        sampling = GetSamplingControls(svc.Model),
 
         // Modes
         statelessMode = svc.StatelessMode,

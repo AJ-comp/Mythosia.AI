@@ -1,5 +1,6 @@
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Utilities;
 using System;
 using System.Text.Json;
@@ -43,6 +44,7 @@ namespace Mythosia.AI.Services.Base
         /// <exception cref="StructuredOutputException">Thrown when deserialization fails after all retry attempts.</exception>
         public async Task<T> GetCompletionAsync<T>(string prompt) where T : class
         {
+            var requestMessage = new Message(ActorRole.User, prompt);
             _structuredOutputSchemaJson = JsonSchemaGenerator.Generate(typeof(T));
             var policy = _currentStructuredOutputPolicy;
             _currentStructuredOutputPolicy = null;
@@ -54,13 +56,15 @@ namespace Mythosia.AI.Services.Base
 
             try
             {
+                using var featureScope = BeginRequestFeaturesScope(requestMessage);
                 for (int attempt = 1; attempt <= maxAttempts; attempt++)
                 {
                     string rawResult;
 
                     if (attempt == 1)
                     {
-                        rawResult = await GetCompletionAsync(prompt);
+                        await ApplySummaryPolicyIfNeededAsync();
+                        rawResult = await GetCompletionAsync(requestMessage, profile: null, context: null);
                     }
                     else
                     {

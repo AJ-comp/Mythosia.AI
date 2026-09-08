@@ -1,16 +1,31 @@
 # Agent (ReAct-Loop)
 
+Die Suche in Dokumenten und das Prüfen einer Bestellung können mehrere Werkzeugaufrufe erfordern. Wie du dabei Fortschritt, Abbruch und unterstützte zusätzliche Anweisungen anbietest, zeigt die [Run-Anleitung](execution-api-transition.md).
+
 ## Warum ein Agent-Loop?
 
-Der normale Funktionsaufruf kann **mehrere Funktionen aus einer Modellantwort als geordneten Batch** ausführen und über weitere Tool-Runden fortfahren. Die Agent-API fasst diesen Mechanismus als zielorientierten ReAct-Loop mit einem ausdrücklichen **Schrittlimit** zusammen und gibt die Ergebnisse jedes Batches an das Modell zurück, bis es eine endgültige Antwort liefert:
+Manche Fragen brauchen mehrere Informationsquellen: Das Modell muss ein Werkzeug auswählen, dessen Ergebnis prüfen und gegebenenfalls weitere Werkzeuge aufrufen. Eine gemeinsame Modell-/Werkzeugschleife führt diese Schritte bis zur Antwort aus; ein Rundenlimit begrenzt die Ausführung:
 
 - „Recherchiere die 3 wichtigsten KI-Unternehmen und vergleiche ihre Aktienkurse" — erfordert mehrere Web-Suchen und Kursabfragen
 - „Finde die relevante Richtlinie, prüfe den Bestellstatus und sag mir, ob ich Anspruch auf eine Rückerstattung habe" — erfordert verschiedene Tools in logischer Reihenfolge
 - Das Modell muss eine Suche eventuell **wiederholen oder verfeinern**, falls das erste Ergebnis unzureichend ist
 
-Diesen Orchestrierungs-Loop selbst zu schreiben ist mühsam und fehleranfällig. Der **Agent-Loop** (ReAct-Muster: Reason → Act → Observe → Repeat) übernimmt das automatisch — das Modell entscheidet bei jedem Schritt, was als nächstes zu tun ist, bis es eine endgültige Antwort liefert.
+`GetCompletionAsync` und `StartRunAsync` führen bereits die gemeinsame Modell-/Werkzeugschleife aus. Die bisherigen Agent-Hilfsmethoden ergänzen ein Rundenlimit pro Aufruf und eine eigene Fehlerübersetzung, keinen unabhängigen Planer oder Ausführungsmechanismus.
 
-## Grundlegende Verwendung
+## Werkzeugaufgaben mit Run starten
+
+```csharp
+// Registriere die Funktionen vor dem Start auf dem Service.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Finde die Richtlinie, prüfe die Bestellung und erkläre das Ergebnis.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## Bisherige Agent-API: Kompatibilitätsbeispiele
+
+Die folgenden Beispiele dokumentieren die weiterhin aufrufbaren Methoden `RunAgentAsync` und `RunAgentStreamAsync`. Sie zeigen jetzt `[Obsolete]`-Warnungen; neue Aufrufe können `StartRunAsync` verwenden. Unterschiede bei Rundenlimits und Fehlern stehen in der [Run-Anleitung](execution-api-transition.md).
 
 Funktionen registrieren, dann `RunAgentAsync` mit einem Ziel aufrufen:
 
@@ -62,19 +77,24 @@ Das Verhalten des Agent-Loops pro Runde steuern:
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// Oder per Erweiterungsmethoden:
-service.WithMaxRounds(15).WithTimeout(60);
+// RunAgentAsync verwendet DefaultPolicy und das explizite Argument maxSteps.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "Recherchiere und fasse zusammen...", maxSteps: 15);
 ```
 
 Vordefinierte Policies:
 
 ```csharp
-service.WithFastPolicy();    // Niedriges Timeout, wenige Runden — schnelle Aufgaben
-service.WithComplexPolicy(); // Höheres Timeout, mehr Runden — tiefe Recherche
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // Niedriges Timeout, wenige Runden — schnelle Aufgaben
+var fastResult = await service.RunAgentAsync(
+    "Recherchiere und fasse zusammen...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // Höheres Timeout, mehr Runden — tiefe Recherche
+var complexResult = await service.RunAgentAsync(
+    "Recherchiere und fasse zusammen...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## Anforderungskontext pro Aufruf
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-Der Context wird über `AsyncLocal` weitergereicht, sodass gleichzeitige Agent-Läufe auf derselben Service-Instanz sich nicht gegenseitig beeinflussen.
+`AIRequestContext` wird über `AsyncLocal` weitergegeben. Das macht den veränderlichen Dienst, seinen Gesprächsverlauf und seine Ausführungsrichtlinien nicht nebenläufig sicher. Verwende getrennte Dienstinstanzen für unabhängige gleichzeitige Aufgaben.
 
 Die vollständige Liste der verfügbaren Eigenschaften findest du in [AIRequestContext](request-contexts.md) (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

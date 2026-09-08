@@ -1,10 +1,14 @@
 # Mythosia.AI.Abstractions
 
 Core contracts and shared models for the **Mythosia.AI** ecosystem.
-Defines `IAIService`, the optional `IImageGenerationService` capability, provider-neutral model types, and streaming primitives.
+Defines `IAIService`, the optional `IAIRunService`, `IAIRequestFeatureService` and `IImageGenerationService` capabilities, provider-neutral model types, and streaming primitives.
 Consumed by `Mythosia.AI.Rag` and any library that needs the AI service contract without pulling in heavy provider implementations.
 
 > **Upgrading to v3?** This is the abstractions release paired with `Mythosia.AI` v7. See the [v3.0 release notes and migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v300).
+
+## Current release: 3.1.0
+
+The Run and request-feature capabilities, GPT-6 Astra contracts, common reasoning/search options, citations, and `AllowAsync` metadata require **Mythosia.AI.Abstractions 3.1.0 or later**. Use **Mythosia.AI 7.1.0 or later** for the supplied provider implementations. The new capabilities are optional; existing `IAIService` implementations gain no required members. See the [v3.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310).
 
 ## Installation
 
@@ -65,6 +69,29 @@ All concrete providers (`OpenAIService`, `AnthropicService`, `GoogleAIService`, 
 
 ---
 
+### `IAIRunService` and `AIRun`
+
+Libraries that need to display or cancel ongoing work can depend on `IAIRunService` without referencing a concrete provider. See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for application examples.
+
+To adjust effort for a task or ground an answer in hosted sources without coupling middleware to a provider, use optional `IAIRequestFeatureService`. Its `WithReasoning`, `WithWebSearch` and `WithFileSearch` extensions retain the concrete service type, copy settings for the next logical request, and reject unsupported capabilities explicitly. `AICitation`, `StreamingContent.Citation` and `AIRun.Citations` carry provider source references independently of text observation. Existing `IAIService` implementations need no new required members. See [reasoning and search](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/reasoning-and-search.md) for scope, provider support and citation indexing.
+
+Run startup is an optional capability, so existing custom `IAIService` implementations gain no mandatory members. It exposes `StartRunAsync` overloads for string and `Message` input with `onText`, streaming options, request context, and cancellation.
+
+```csharp
+using Mythosia.AI.Services;
+
+if (service is IAIRunService runService)
+{
+    await using var run = await runService.StartRunAsync(
+        "Summarize the documents.",
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+    string answer = await run.Result;
+}
+```
+
+`AIRun` is in `Mythosia.AI.Models.Runs`. It exposes `Result`, output-only `StreamAsync`, `CanSteer`, `SteerAsync`, `Cancel`, and `DisposeAsync`. A single event reader may accompany the text callback. Execution and result collection continue without an event reader; see the [run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for buffering and lifetime contracts.
+
 ### `IImageGenerationService`
 
 Image generation is an optional provider capability rather than part of the LLM-focused `IAIService` contract. Consumers can depend on the abstraction without assuming that every chat provider can generate images.
@@ -101,7 +128,9 @@ if (service is IImageGenerationService imageService)
 | `ActorRole` | Message role enum (`System`, `User`, `Assistant`, `Function`) |
 | `AIRequestContext` | Per-request context overrides (system message prefix/suffix, message override) |
 | `AIRequestProfile` | Per-request parameter overrides (temperature, max tokens, stateless mode) |
-| `AIModels` | Model identifier constants for all supported providers, including GPT-5.6 and Grok 4.5/current xAI aliases |
+| `AIModels` | Model identifier constants for all supported providers, including `AIModels.OpenAI.Gpt6Astra` (`gpt-6-astra`), GPT-5.6, and Grok 4.5/current xAI aliases |
+| `Gpt6Reasoning` | GPT-6 Astra reasoning effort (`Auto`, `Low`, `Medium`, `High`, `XHigh`, `Max`); reasoning cannot be disabled |
+| `Gpt6ReasoningMode` | Standard or Pro reasoning execution on the same GPT-6 Astra model ID |
 | `Gpt5_6Reasoning` | GPT-5.6 reasoning effort (`Auto`, `None`, `Low`, `Medium`, `High`, `XHigh`, `Max`) |
 | `Gpt5_6ReasoningMode` | Standard or Pro reasoning execution; Pro is a request mode, not a separate GPT-5.6 model ID |
 | `GrokReasoning` | xAI reasoning effort (`Auto`, `None`, `Low`, `Medium`, `High`); valid levels depend on the selected Grok model |
@@ -127,15 +156,19 @@ if (service is IImageGenerationService imageService)
 
 | Type | Description |
 | --- | --- |
-| `FunctionDefinition` | Function schema for LLM function calling |
-| `FunctionCall` | One typed provider function call with ID, order, arguments, and provider metadata |
+| `FunctionDefinition` | Function schema with optional `AllowAsync` permission (default `false`) |
+| `FunctionCall` | One typed provider function call with ID, order, arguments, provider metadata, and actual provider `IsAsync` status |
 | `FunctionCallBatch` | Ordered calls returned by one assistant response |
 | `FunctionCallResult` | Output or isolated error for one call |
-| `FunctionCallResultBatch` | Ordered results correlated to one function-call batch |
+| `FunctionCallResultBatch` | Results correlated to one function-call batch; native async delivery can be partial |
 | `FunctionCallingPolicy` | Controls function calling behavior and iteration limits |
-| `FunctionExecutionMode` | Selects sequential or bounded-parallel execution for one function-call batch |
-| `AiFunctionAttribute` | Marks a method as an AI-callable function |
+| `FunctionExecutionMode` | Selects sequential or bounded-parallel execution for ordinary calls; opted-in async jobs use a separate `MaxConcurrency` limit |
+| `AiFunctionAttribute` | Marks a method as an AI-callable function, with optional `AllowAsync` permission (default `false`) |
 | `AiParameterAttribute` | Describes a function parameter for the AI |
+
+When a slow lookup leaves room for independent model work, such as giving general advice while waiting for a forecast, `AllowAsync` permits the two to overlap on a supporting provider, model, and API. The implementation currently enables it for GPT-6 Astra through Responses; other connections omit the API option and wait for the same handler's result. The permission is preserved when switching models. `FunctionCall.IsAsync` records the provider's actual call status, so enabling the permission does not guarantee async execution. In `Mythosia.AI`, `FunctionBuilder.WithAsync()` is the fluent equivalent of `AllowAsync = true`.
+
+This is separate from `Task`-returning handlers and `FunctionExecutionMode.Parallel`. Pending function jobs belong to the existing completion or streaming request; they are completed and cleaned up before that request ends. Handlers do not receive cancellation tokens, so cancelling or disposing the request does not interrupt an already-started handler.
 
 ## Exceptions
 
@@ -173,4 +206,4 @@ By depending on abstractions rather than the full implementation package, librar
 - [Mythosia.AI (implementation)](https://www.nuget.org/packages/Mythosia.AI)
 - [GitHub](https://github.com/AJ-comp/Mythosia.AI)
 - [Documentation](https://aj-comp.github.io/Mythosia.AI/)
-- [Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md)
+- [v3.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310)

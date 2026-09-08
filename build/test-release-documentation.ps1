@@ -49,27 +49,35 @@ function Get-ProjectPropertyValue {
 $releasePackages = @(
     [pscustomobject]@{
         Id = "Mythosia.AI.Abstractions"
-        Version = "3.0.0"
+        Version = "3.1.0"
         Project = "src/core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj"
         Readme = "src/core/Mythosia.AI.Abstractions/README.md"
         ReleaseNotes = "src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v300"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310"
     },
     [pscustomobject]@{
         Id = "Mythosia.AI"
-        Version = "7.0.0"
+        Version = "7.1.0"
         Project = "src/core/Mythosia.AI/Mythosia.AI.csproj"
         Readme = "src/core/Mythosia.AI/README.md"
         ReleaseNotes = "src/core/Mythosia.AI/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v700"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710"
     },
     [pscustomobject]@{
         Id = "Mythosia.AI.Providers.Alibaba"
-        Version = "2.0.0"
+        Version = "2.0.1"
         Project = "src/core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj"
         Readme = "src/core/Mythosia.AI.Providers.Alibaba/README.md"
         ReleaseNotes = "src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201"
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.AI.Rag"
+        Version = "7.6.0"
+        Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
+        Readme = "src/rag/Mythosia.AI.Rag/README.md"
+        ReleaseNotes = "src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760"
     }
 )
 
@@ -130,10 +138,12 @@ foreach ($package in $releasePackages) {
     }
 
     $releaseNotesText = Get-Content -Raw -LiteralPath $releaseNotesPath
-    if (-not $releaseNotesText.Contains("## v$($package.Version)")) {
-        Add-Issue "$($package.ReleaseNotes) does not contain the current version heading."
+    $firstReleaseHeading = [regex]::Match($releaseNotesText, '(?m)^## v(?<version>[^\r\n]+)').Groups["version"].Value.Trim()
+    if ($firstReleaseHeading -ne $package.Version) {
+        Add-Issue "$($package.ReleaseNotes) must start with release v$($package.Version), found '$firstReleaseHeading'."
     }
-    if (-not $releaseNotesText.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md")) {
+    if ($package.Id -ne "Mythosia.AI.Rag" -and
+        -not $releaseNotesText.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md")) {
         Add-Issue "$($package.ReleaseNotes) does not link to the v7 migration guide."
     }
 
@@ -213,11 +223,72 @@ if ($configuredReferences.Count -ne 1 -or
     Add-Issue "docfx.json must resolve external API dependencies from the prepared DocFX reference directory."
 }
 
+$packageReadmes = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot "src") -Filter "README.md" -File -Recurse |
+    Where-Object { $_.FullName -notmatch '[/\\](bin|obj)[/\\]' })
+$internalDocumentation = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot "src") -Filter "*.md" -File -Recurse |
+    Where-Object { $_.FullName -match '[/\\]docs[/\\]' -and $_.FullName -notmatch '[/\\](bin|obj)[/\\]' })
+
 $activeDocumentation = @(
     Get-Item -LiteralPath (Join-Path $repoRoot "README.md")
     Get-ChildItem -LiteralPath (Join-Path $repoRoot "docs") -Filter "*.md" -File -Recurse
-    $releasePackages | ForEach-Object { Get-Item -LiteralPath (Join-Path $repoRoot $_.Readme) }
-)
+    $packageReadmes
+    $internalDocumentation
+) | Sort-Object -Property FullName -Unique
+
+# A translated page pointing at the English guide is a valid link, but an incomplete translation.
+# Check each published locale independently so missing guides cannot pass the link-only check.
+$documentationRoot = Join-Path $repoRoot "docs"
+$localizedDirectories = @(Get-ChildItem -LiteralPath $documentationRoot -Directory |
+    Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "toc.yml") -PathType Leaf })
+$guideDirectories = @(Get-Item -LiteralPath $documentationRoot) + $localizedDirectories
+foreach ($directory in $guideDirectories) {
+    $guidePath = Join-Path $directory.FullName "execution-api-transition.md"
+    $tocPath = Join-Path $directory.FullName "toc.yml"
+    if (-not (Test-Path -LiteralPath $guidePath -PathType Leaf)) {
+        Add-Issue "Missing Run guide: $(Get-RepositoryRelativePath -Path $guidePath)"
+    }
+    $tocText = Get-Content -Raw -LiteralPath $tocPath
+    $guideEntries = [regex]::Matches($tocText, '(?m)^\s*href:\s*execution-api-transition\.md\s*$')
+    if ($guideEntries.Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local Run guide exactly once."
+    }
+
+    $featureGuidePath = Join-Path $directory.FullName "reasoning-and-search.md"
+    if (-not (Test-Path -LiteralPath $featureGuidePath -PathType Leaf)) {
+        Add-Issue "Missing reasoning/search guide: $(Get-RepositoryRelativePath -Path $featureGuidePath)"
+    }
+    else {
+        $featureGuideText = Get-Content -Raw -LiteralPath $featureGuidePath
+        foreach ($requiredFeature in @('WithReasoning', 'CachePreservation.Required', 'WithWebSearch',
+                'WithFileSearch', 'FileSearchStore', 'run.Citations', 'ContentIndex', 'IAIRequestFeatureService')) {
+            if (-not $featureGuideText.Contains($requiredFeature)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $featureGuidePath) omits the $requiredFeature contract."
+            }
+        }
+        if ([regex]::Matches($featureGuideText, '(?m)^## ').Count -ne 6 -or
+            [regex]::Matches($featureGuideText, '(?m)^```csharp\s*$').Count -ne 6) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $featureGuidePath) must retain all six guide sections and examples."
+        }
+        if ($directory.FullName -ne $documentationRoot -and
+            $featureGuideText.StartsWith('# Choose reasoning effort and answer with sources')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $featureGuidePath) still uses the English guide title."
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*reasoning-and-search\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local reasoning/search guide exactly once."
+    }
+}
+foreach ($directory in $localizedDirectories) {
+    foreach ($document in Get-ChildItem -LiteralPath $directory.FullName -Filter "*.md" -File -Recurse) {
+        $text = Get-Content -Raw -LiteralPath $document.FullName
+        if ($text -match '\]\(\.\./execution-api-transition\.md(?:[?#][^)]*)?\)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated Run guide."
+        }
+        if ($text -match '\]\(\.\./reasoning-and-search\.md(?:[?#][^)]*)?\)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated reasoning/search guide."
+        }
+    }
+}
 
 $forbiddenPatterns = [ordered]@{
     'service.FunctionCallingPolicy assignment' = 'service\.FunctionCallingPolicy\s*='
@@ -227,6 +298,7 @@ $forbiddenPatterns = [ordered]@{
     'removed generic AlibabaModels.Qwen3 constant' = 'AlibabaModels\.Qwen3\b'
     'nonexistent UseQwenMaxModel helper' = '\.UseQwenMaxModel\('
     'stale GitHub Wiki link' = 'https://github\.com/AJ-comp/Mythosia\.AI/wiki'
+    'old Chat UI samples directory' = 'samples/Mythosia\.AI\.Samples\.ChatUi'
 }
 
 foreach ($document in $activeDocumentation) {
@@ -246,10 +318,9 @@ if ($alibabaReadme -match '(?s)StreamAsync\([^)]*\).*?chunk\.Content') {
 }
 
 $linkDocuments = @(
-    Get-Item -LiteralPath (Join-Path $repoRoot "README.md")
-    Get-ChildItem -LiteralPath (Join-Path $repoRoot "docs") -Filter "*.md" -File -Recurse
+    $activeDocumentation
+    Get-Item -LiteralPath (Join-Path $repoRoot "RELEASE_NOTES.md")
     $releasePackages | ForEach-Object {
-        Get-Item -LiteralPath (Join-Path $repoRoot $_.Readme)
         Get-Item -LiteralPath (Join-Path $repoRoot $_.ReleaseNotes)
     }
 ) | Sort-Object -Property FullName -Unique
@@ -311,3 +382,4 @@ if ($issues.Count -ne 0) {
 
 Write-Host "Release documentation and NuGet metadata validation passed."
 Write-Host "Validated $($releasePackages.Count) release packages and $($linkDocuments.Count) Markdown files."
+Write-Host "Validated Run and reasoning/search guide coverage and navigation for $($guideDirectories.Count) documentation languages."

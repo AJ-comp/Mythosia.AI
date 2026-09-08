@@ -1,11 +1,18 @@
 # Provider-Specific Configuration 아키텍처
 
+> GPT-6 Astra, `AllowAsync`, `StartRunAsync`, 공통 추론·검색 API는 `Mythosia.AI` 7.1.0부터 제공하며, 공통 타입은 `Mythosia.AI.Abstractions` 3.1.0에 포함됩니다.
+
 ## 원칙
+
+애플리케이션은 [공통 추론·검색 API](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ko/reasoning-and-search.md)로 작업에 필요한 추론량과 내장 검색을 표현할 수 있습니다. `AIRequestFeatures`는 한 논리적 요청에 복사하고 공급자 어댑터가 검증·변환하며, 공급자별 기본값은 서비스에 유지합니다. 캐시 보존 변경의 프로토콜 상태는 추적 중인 대화에 남습니다. `AICitation`은 스트림 관찰과 독립적으로 출처를 보관합니다. 사용자 서비스는 `IAIRequestFeatureService`로 선택적으로 지원하며 `IAIService`에 필수 멤버를 추가하지 않습니다.
 
 | 설정 유형 | 위치 | 예시 |
 |-----------|------|------|
 | **공통 설정** | `ChatBlock` | Temperature, TopP, MaxTokens, FrequencyPenalty 등 |
 | **전용 설정** | 각 서비스 클래스 | ThinkingBudget (Gemini), ReasoningEffort (GPT) 등 |
+| **함수별 실행 허용** | `FunctionDefinition` | `AllowAsync` (기본값 `false`) |
+
+`AllowAsync`는 호출자가 선택하는 허용 옵션이며, 모델·API의 지원 여부는 서비스가 내부적으로 판단합니다. `FunctionBuilder.WithAsync()`와 `[AiFunction("lookup", "데이터 조회", AllowAsync = true)]`도 같은 옵션을 켭니다. GPT-6 Astra는 Responses에서 이를 사용하고, 미지원 모델은 API 옵션을 생략한 뒤 같은 핸들러의 결과를 기다립니다. 사용자가 지정한 허용 값은 바꾸지 않습니다.
 
 ## 현재 구현: 서비스 레벨
 
@@ -51,3 +58,7 @@ chatBlock.Gemini.ThinkingBudget = 1024;
 ## 결정 이력
 
 - **2026-02-12**: 최초 Option B (ChatBlock 레벨)로 구현 후, 서비스 레벨로 롤백. 전용 설정은 서비스에 두는 것이 자연스럽다고 판단.
+
+## 실행 제어를 선택하는 이유
+
+오래 걸리는 작업에서는 진행 상황을 표시하거나 사용자가 중간에 조건을 바꿀 수 있어야 합니다. `StartRunAsync`가 반환하는 `AIRun`으로 해당 작업을 제어하며, 작업 중 추가 지시의 지원 여부는 provider가 결정합니다. 모델 설정은 서비스에서 실행 전에 구성하고, 추가 지시 전에는 `run.CanSteer`를 확인합니다. 사용 상황과 예제·취소·호환성은 [Run 사용 안내](../../../../../docs/ko/execution-api-transition.md)를 참고하세요.

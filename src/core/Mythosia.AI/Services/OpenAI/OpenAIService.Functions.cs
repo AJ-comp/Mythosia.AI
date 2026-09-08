@@ -51,6 +51,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             // Apply model-specific parameter configurations
             ApplyModelSpecificParameters(requestBody);
+            ApplyNativeRequestFeatures(requestBody);
 
             return requestBody;
         }
@@ -188,12 +189,25 @@ namespace Mythosia.AI.Services.OpenAI
 
         private void BuildNewApiRequest(Dictionary<string, object> requestBody)
         {
+            PreparePreservedReasoning();
             var inputList = new List<object>();
+            var historyIndex = 0;
 
             // Convert messages to new format
             foreach (var message in GetLatestMessages())
             {
-                if (message.FunctionCallBatch != null)
+                AppendReasoningUpdate(inputList, historyIndex++);
+                if (message.FunctionCallBatch == null &&
+                    message.Role == ActorRole.Assistant &&
+                    message.Metadata?.TryGetValue(
+                        ResponsesOutputItemsMetadataKey,
+                        out var messageOutputItemsObject) == true &&
+                    messageOutputItemsObject is IReadOnlyList<JsonElement> messageOutputItems)
+                {
+                    foreach (var outputItem in messageOutputItems)
+                        inputList.Add(outputItem);
+                }
+                else if (message.FunctionCallBatch != null)
                 {
                     if (message.FunctionCallBatch.Metadata?.TryGetValue(
                             ResponsesOutputItemsMetadataKey,
@@ -210,13 +224,16 @@ namespace Mythosia.AI.Services.OpenAI
                             var openAiCallId = FunctionIdConverter.ToOpenAIId(
                                 functionCall.Id,
                                 functionCall.Source);
-                            inputList.Add(new
+                            var callItem = new Dictionary<string, object>
                             {
-                                type = "function_call",
-                                call_id = openAiCallId,
-                                name = functionCall.Name,
-                                arguments = JsonSerializer.Serialize(functionCall.Arguments)
-                            });
+                                ["type"] = "function_call",
+                                ["call_id"] = openAiCallId,
+                                ["name"] = functionCall.Name,
+                                ["arguments"] = JsonSerializer.Serialize(functionCall.Arguments)
+                            };
+                            if (SupportsAsyncFunctionCalls && functionCall.IsAsync)
+                                callItem["async"] = true;
+                            inputList.Add(callItem);
                         }
                     }
                 }
@@ -301,20 +318,26 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Convert functions to tools format using unified schema
-            var tools = Functions.Select(f => new Dictionary<string, object>
+            var tools = Functions.Select(f =>
             {
-                ["type"] = "function",
-                ["name"] = f.Name,
-                ["description"] = f.Description,
-                ["parameters"] = CreateFunctionParameterSchema(f, isNewApi: true),
-                ["strict"] = CanUseStrictFunctionSchema(f)
+                var tool = new Dictionary<string, object>
+                {
+                    ["type"] = "function",
+                    ["name"] = f.Name,
+                    ["description"] = f.Description,
+                    ["parameters"] = CreateFunctionParameterSchema(f, isNewApi: true),
+                    ["strict"] = CanUseStrictFunctionSchema(f)
+                };
+                if (SupportsAsyncFunctionCalls && f.AllowAsync)
+                    tool["async"] = true;
+                return tool;
             }).ToList();
 
             requestBody["model"] = Model;
             requestBody["input"] = inputList;
             requestBody["tools"] = tools;
-            // This allows the model to request multiple tools in one response. Handlers are still
-            // Execution order is selected locally by FunctionCallingPolicy.ExecutionMode.
+            // This allows the model to request multiple tools in one response. Ordinary handler
+            // execution order is selected locally by FunctionCallingPolicy.ExecutionMode.
             requestBody["parallel_tool_calls"] = true;
 
             var instructions = GetEffectiveSystemMessageWithRequestContext();
@@ -508,6 +531,9 @@ namespace Mythosia.AI.Services.OpenAI
 
         private bool IsFunctionContinuation()
         {
+            if (HasPendingAsyncFunctions || UsedAsyncFunctions)
+                return true;
+
             var lastMessage = GetLatestMessages().LastOrDefault();
             return lastMessage?.Role == ActorRole.Function ||
                    lastMessage?.FunctionCallResultBatch != null ||
@@ -583,7 +609,9 @@ namespace Mythosia.AI.Services.OpenAI
                         Name = item.GetProperty("name").GetString() ?? string.Empty,
                         Arguments = new Dictionary<string, object>(),
                         Source = IdSource.OpenAI,
-                        Index = functionCalls.Count
+                        Index = functionCalls.Count,
+                        IsAsync = item.TryGetProperty("async", out var asyncElement) &&
+                                  asyncElement.ValueKind == JsonValueKind.True
                     };
 
                     // Responses continuations require the exact provider call_id. Synthesizing one

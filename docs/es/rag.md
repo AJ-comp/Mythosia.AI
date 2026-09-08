@@ -2,6 +2,8 @@
 
 El RAG permite que el modelo responda preguntas basándose en tus propios documentos, recuperando chunks relevantes en el momento de la consulta.
 
+Para que el usuario pueda seguir o detener la redacción de una respuesta basada en sus documentos, combina la búsqueda RAG con un run. La [guía de Run](execution-api-transition.md) explica el flujo y los límites de las instrucciones adicionales.
+
 ## Instalación
 
 ```bash
@@ -94,6 +96,8 @@ var options = new RagQueryOptions
 
 var response = await service.GetCompletionAsync("Tu pregunta", options: options);
 ```
+
+Si el índice ya está alojado por el proveedor del modelo, compare RAG con la [búsqueda nativa de archivos y las opciones comunes de razonamiento](reasoning-and-search.md).
 
 ## Próximos Pasos
 

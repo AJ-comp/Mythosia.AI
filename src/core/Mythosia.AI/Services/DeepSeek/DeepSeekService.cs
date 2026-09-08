@@ -43,6 +43,7 @@ namespace Mythosia.AI.Services.DeepSeek
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            using var featureScope = BeginRequestFeaturesScope(message);
             // DeepSeek doesn't support function calling yet
             Stream = false;
 

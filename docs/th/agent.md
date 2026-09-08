@@ -1,5 +1,7 @@
 # Agent (ReAct Loop)
 
+งานที่ใช้หลายเครื่องมือต้องมีขีดจำกัดจำนวนรอบและวิธีควบคุมงานที่กำลังทำ วงรอบร่วมของไลบรารีรองรับอยู่แล้ว ดู[วิธีควบคุมด้วย Run](execution-api-transition.md)
+
 ## ทำไมต้องใช้ Agent Loop?
 
 function calling ปกติสามารถรัน **หลายฟังก์ชันจากคำตอบเดียวของ model เป็น batch ที่เรียงลำดับไว้** และดำเนินต่อผ่าน tool round ถัดไปได้ ส่วน Agent API นำกลไกนี้มาจัดเป็น ReAct loop ที่มุ่งสู่เป้าหมายพร้อม **ขีดจำกัดจำนวนขั้นตอน** ที่ชัดเจน โดยส่งผลลัพธ์ของแต่ละ batch กลับให้ model จนกว่าจะได้คำตอบสุดท้าย:
@@ -8,9 +10,22 @@ function calling ปกติสามารถรัน **หลายฟัง
 - "หานโยบายที่เกี่ยวข้อง ตรวจสถานะคำสั่งซื้อ แล้วบอกว่าฉันคืนสินค้าได้ไหม" — ต้องเชื่อมเครื่องมือต่าง ๆ ตามลำดับ
 - Model อาจต้อง **ลองใหม่** หากผลการค้นหาแรกยังไม่เพียงพอ
 
-การเขียน orchestration loop เองนั้นยุ่งยากและเสี่ยงผิดพลาด **Agent loop** (pattern ReAct: Reason → Act → Observe → Repeat) จัดการให้อัตโนมัติ — model ตัดสินใจขั้นตอนต่อไปเองจนได้คำตอบสุดท้าย
+`GetCompletionAsync` และ `StartRunAsync` ทำวงรอบโมเดลและเครื่องมือร่วมกันอยู่แล้ว เมธอด agent เดิมเพิ่มเพียงขีดจำกัดรอบต่อคำขอและการแปลงข้อผิดพลาดเฉพาะ ไม่ได้เพิ่มตัววางแผนหรือกลไกการทำงานแยกต่างหาก
 
-## การใช้งานพื้นฐาน
+## ควบคุมงานด้วย Run
+
+```csharp
+// ลงทะเบียนเครื่องมือบนบริการก่อนเริ่มงาน
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "ค้นหานโยบาย ตรวจสอบคำสั่งซื้อ และอธิบายผลลัพธ์",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## ตัวอย่างสำหรับ API agent เดิม
+
+ตัวอย่างต่อไปนี้เก็บไว้เพื่อความเข้ากันได้ `RunAgentAsync` และ `RunAgentStreamAsync` จะแสดงคำเตือน `[Obsolete]` และคงขีดจำกัดเดิม 10 รอบ โค้ดใหม่ควรใช้ Run โดยรักษาขีดจำกัดและการจัดการข้อผิดพลาดที่ต้องการเมื่อย้ายมาใช้
 
 Register ฟังก์ชัน แล้วเรียก `RunAgentAsync` พร้อมเป้าหมาย:
 
@@ -62,19 +77,24 @@ catch (AgentMaxStepsExceededException ex)
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// หรือใช้ extension method:
-service.WithMaxRounds(15).WithTimeout(60);
+// RunAgentAsync ใช้ DefaultPolicy และอาร์กิวเมนต์ maxSteps ที่ระบุโดยตรง
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "ค้นคว้าและสรุป...", maxSteps: 15);
 ```
 
 Policy ที่กำหนดไว้ล่วงหน้า:
 
 ```csharp
-service.WithFastPolicy();    // timeout ต่ำ รอบน้อย — งานเบา
-service.WithComplexPolicy(); // timeout สูง รอบมาก — งานซับซ้อน
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // timeout ต่ำ รอบน้อย — งานเบา
+var fastResult = await service.RunAgentAsync(
+    "ค้นคว้าและสรุป...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // timeout สูง รอบมาก — งานซับซ้อน
+var complexResult = await service.RunAgentAsync(
+    "ค้นคว้าและสรุป...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## บริบทคำขอต่อการเรียกใช้
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-Context ส่งผ่าน `AsyncLocal` ดังนั้นการรัน agent พร้อมกันบน service instance เดียวกันจะไม่รบกวนซึ่งกันและกัน
+`AIRequestContext` ส่งต่อผ่าน `AsyncLocal` แต่ไม่ได้ทำให้ประวัติสนทนาและนโยบายของบริการปลอดภัยสำหรับการทำงานพร้อมกัน ควรใช้บริการคนละอินสแตนซ์สำหรับงานพร้อมกันที่เป็นอิสระ
 
 ดูรายชื่อคุณสมบัติทั้งหมดได้ที่ [AIRequestContext](request-contexts.md) (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`)
 

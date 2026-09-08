@@ -9,6 +9,8 @@ O pipeline RAG padrão funciona bem fora da caixa, mas projetos reais frequentem
 - **Arquitetura** — múltiplos serviços compartilhando um índice economiza memória e mantém os embeddings consistentes
 - **Inspeção** — às vezes você precisa ver o que a recuperação retorna *antes* de enviar ao LLM
 
+O pipeline personalizado pode ser combinado com um run para mostrar o progresso e permitir cancelamento durante a resposta. O [guia de Run](execution-api-transition.md) explica quando a busca acontece e o que as instruções adicionais modificam.
+
 ## Rastreamento de Progresso
 
 Rastreie qual estágio RAG está executando via callback assíncrono por consulta:

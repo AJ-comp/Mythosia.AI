@@ -1,6 +1,10 @@
 # Mythosia.AI.Providers.Alibaba
 
-> **Upgrading to v2?** This release targets `Mythosia.AI` v7 and removes the unsupported legacy image methods. See the [v2.0 release notes and migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200).
+> **Upgrading to v2?** Version 2.0.0 moved to `Mythosia.AI` v7 and removed the unsupported legacy image methods. See the [v2.0 release notes and migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200).
+
+## Current release: 2.0.1
+
+This patch connects Qwen completions to the core request-feature scope so unsupported common options are validated and consumed. It requires **Mythosia.AI 7.1.0 or later**, including the inherited Run controls, and retains existing Qwen settings and APIs. See the [v2.0.1 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201).
 
 ## Package Summary
 
@@ -8,7 +12,9 @@
 
 It is intended for projects that want to keep using the common `AIService` abstraction while calling Qwen-compatible chat completion endpoints through `DashScope`, `vLLM`, or `Ollama`.
 
-Version 2.0.0 requires `Mythosia.AI` 7.0.0 or later and is built for the v7 API surface. `QwenService` is a chat-completion provider and does not implement the optional `IImageGenerationService` capability; the unsupported legacy image-method stubs were removed in v2.0.0.
+Version 2.0.1 requires `Mythosia.AI` 7.1.0 or later, which brings `Mythosia.AI.Abstractions` 3.1.0 or later transitively. `QwenService` is a chat-completion provider and does not implement the optional `IImageGenerationService` capability; the unsupported legacy image-method stubs were removed in v2.0.0.
+
+To show Qwen output while a task is running and allow cancellation, use `StartRunAsync`, inherited from `Mythosia.AI` 7.1.0 or later. Qwen runs expose `CanSteer = false`; their normal execution and registered tools remain available. This adapter does not support the common native reasoning/search options or native asynchronous tools; continue using its provider-specific `ThinkingMode` controls. See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for control and compatibility details.
 
 ## Features
 
@@ -208,4 +214,4 @@ var result = await service.GetCompletionAsync("What's the weather in Seoul?");
 
 - Main package: [GitHub Repository](https://github.com/AJ-comp/Mythosia.AI)
 - Core documentation: [Mythosia.AI Provider Guide](https://aj-comp.github.io/Mythosia.AI/docs/providers.html)
-- Release notes: [Mythosia.AI.Providers.Alibaba v2.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200)
+- Release notes: [Mythosia.AI.Providers.Alibaba v2.0.1 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201)

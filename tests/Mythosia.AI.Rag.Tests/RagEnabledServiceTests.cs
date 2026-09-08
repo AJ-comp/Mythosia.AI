@@ -1,10 +1,98 @@
 using Mythosia.AI.Rag;
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models.Streaming;
 
 namespace Mythosia.AI.Rag.Tests;
 
 [TestClass]
 public class RagEnabledServiceTests
 {
+    [TestMethod]
+    public async Task StartRunAsync_AugmentsRequest_PreservesOriginalHistory_AndSharesResult()
+    {
+        var service = new MockAIService { CompletionResponse = "배송은 2-3일입니다." };
+        var rag = service.WithRag(config => config
+            .AddText("배송은 2-3일 소요됩니다.", id: "shipping")
+            .UseLocalEmbedding(256));
+        var callbackText = new System.Text.StringBuilder();
+        const string query = "배송 기간은?";
+
+        await using var run = await rag.StartRunAsync(query, onText: text => callbackText.Append(text));
+        var result = await run.Result.WaitAsync(TimeSpan.FromSeconds(10));
+        var events = new List<StreamingContent>();
+        await foreach (var item in run.StreamAsync()) events.Add(item);
+
+        Assert.AreEqual(service.CompletionResponse, result);
+        Assert.AreEqual(result, callbackText.ToString());
+        Assert.AreEqual(result, string.Concat(events.Where(item => item.Type == StreamingContentType.Text).Select(item => item.Content)));
+        Assert.AreEqual(1, events.Count(item => item.Type == StreamingContentType.Completion));
+        StringAssert.Contains(service.LastReceivedPrompt!, query);
+        StringAssert.Contains(service.LastReceivedPrompt!, "2-3일");
+        Assert.IsTrue(service.ActivateChat.Messages.Where(message => message.Role == ActorRole.User)
+            .All(message => message.Content == query), "Retrieved context must not replace the stored user's query.");
+    }
+
+    [TestMethod]
+    public async Task StartRunAsync_MessageInput_ForwardsQueryOptions()
+    {
+        var service = new MockAIService();
+        var rag = service.WithRag(config => config
+            .AddText("RUN_CONTEXT_TOKEN", id: "doc")
+            .UseLocalEmbedding(128)
+            .WithPromptTemplate("{context}\n{question}"));
+        var message = new Message(ActorRole.User, "original question");
+
+        await using var run = await rag.StartRunAsync(message,
+            options: new RagQueryOptions { FinalFilter = new RagFilter { MinScore = 2.0 } },
+            streamOptions: StreamOptions.TextOnlyOptions);
+        await run.Result.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.IsFalse(service.LastReceivedPrompt!.Contains("RUN_CONTEXT_TOKEN"), "Per-query MinScore must filter retrieval.");
+        Assert.IsTrue(service.ActivateChat.Messages.Any(stored => stored.Role == message.Role && stored.Content == message.Content));
+        Assert.IsFalse(run.CanSteer);
+        await Assert.ThrowsAsync<NotSupportedException>(() => run.SteerAsync("additional instruction"));
+    }
+
+    [TestMethod]
+    public async Task StartRunAsync_CanceledBeforeRetrieval_DoesNotCallProvider()
+    {
+        var service = new MockAIService();
+        var rag = service.WithRag(config => config.AddText("unused", id: "doc").UseLocalEmbedding(128));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => rag.StartRunAsync("query", cancellationToken: cancellation.Token));
+
+        Assert.IsNull(service.LastReceivedPrompt);
+        Assert.AreEqual(0, service.ActivateChat.Messages.Count);
+    }
+
+    [TestMethod]
+    public async Task StartRunAsync_MultimodalMessage_PreservesMediaAndMetadataInAugmentedRequest()
+    {
+        var service = new MockAIService();
+        var rag = service.WithRag(config => config.AddText("image policy context", id: "doc").UseLocalEmbedding(128));
+        var message = new Message(ActorRole.User, new List<MessageContent>
+        {
+            new TextContent("describe this image"),
+            new ImageContent(new byte[] { 1, 2, 3 }, "image/png") { IsHighDetail = true }
+        }) { Metadata = new Dictionary<string, object> { ["request_tag"] = "image-request" } };
+
+        await using var run = await rag.StartRunAsync(message);
+        await run.Result.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.IsNotNull(service.LastReceivedMessage);
+        var image = Assert.ContainsSingle(service.LastReceivedMessage.Contents.OfType<ImageContent>());
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, image.Data);
+        Assert.IsTrue(image.IsHighDetail);
+        Assert.AreEqual("image-request", service.LastReceivedMessage.Metadata!["request_tag"]);
+        StringAssert.Contains(Assert.ContainsSingle(service.LastReceivedMessage.Contents.OfType<TextContent>()).Text, "image policy context");
+        Assert.AreEqual("describe this image", message.Content);
+        Assert.IsTrue(service.ActivateChat.Messages.Where(stored => stored.Role == ActorRole.User)
+            .All(stored => stored.Content == "describe this image"));
+    }
+
     /// <summary>
     /// Tests WithRag(Action&lt;RagBuilder&gt;) + GetCompletionAsync end-to-end.
     /// Verifies that the request message content sent to the LLM contains the RAG context.

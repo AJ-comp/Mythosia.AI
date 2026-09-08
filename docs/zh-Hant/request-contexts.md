@@ -26,6 +26,21 @@ var answer = await service.GetCompletionAsync(userQuestion,
     });
 ```
 
+## 在 Run 中重用單次要求內容
+
+如果希望給正在產生的報告附加今天的日期，同時不把它留在服務設定或對話歷程中，也可以向 `StartRunAsync` 傳入相同的 `AIRequestContext`。結合進度顯示和取消的方式見 [Run 使用指南](execution-api-transition.md)。
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "摘要文件。",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"今天的日期: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
 ## 可用屬性
 
 ### SystemMessagePrefix
@@ -153,7 +168,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### 運作方式
 
-透過 `WithSystemMessageProvider` fluent 輔助方法註冊一次回呼。每個外發呼叫（`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）都會自動呼叫它以建構基準上下文：
+透過 `WithSystemMessageProvider` fluent 輔助方法註冊一次回呼。每個外發呼叫（`StartRunAsync`、`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）都會自動呼叫它以建構基準上下文：
 
 ```csharp
 // 通常在服務建構 / DI 設定時註冊
@@ -184,7 +199,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-非串流路徑（`GetCompletionAsync`、`RunAgentAsync`）在設計上不支援取消 — 其簽章不接受 `CancellationToken`，始終向 provider 傳遞 `CancellationToken.None`。如果您的 provider 需要取消（例如長時間執行的 DB 查詢），請使用串流路徑（`StreamAsync`、`RunAgentStreamAsync`），它們會將呼叫者的 token 傳遞到 provider 回呼。
+`GetCompletionAsync` 和舊 `RunAgentAsync` 不接收 `CancellationToken`，向內容 provider 傳入的是 `CancellationToken.None`。如需取消長時間的資料庫查詢，可以使用 `StartRunAsync(..., cancellationToken: token)`；即使不讀取輸出、只等待 `run.Result`，權杖也會傳遞給 provider。舊 `StreamAsync` 和 `RunAgentStreamAsync` 同樣傳遞呼叫端權杖。僅取消 `run.StreamAsync(token)` 會停止觀察，不會取消 provider 或整個執行。
 
 ### 與顯式 per-call 上下文合併
 

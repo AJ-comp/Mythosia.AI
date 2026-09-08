@@ -40,6 +40,21 @@ var answer = await service.GetCompletionAsync(userQuestion,
 
 시스템 메시지는 이 한 번의 호출에서만 수정됩니다. 다음 요청은 원래 시스템 메시지를 봅니다. 정리가 필요 없습니다.
 
+## Run에 요청별 문맥 전달하기
+
+보고서의 기준 날짜나 참고 자료를 이번 실행에만 적용하고 싶을 때도 같은 요청 컨텍스트를 사용합니다. `StartRunAsync`의 `context` 인자로 전달하면 됩니다. 진행 표시·취소·추가 지시는 [Run 사용 안내](execution-api-transition.md)를 참고하세요.
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "문서를 요약해줘.",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"오늘 날짜: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
 ## 사용 가능한 속성
 
 ### SystemMessagePrefix
@@ -223,7 +238,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### 동작 방식
 
-`WithSystemMessageProvider` 플루언트 헬퍼로 콜백을 한 번 등록합니다. 모든 외부 호출(`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`)이 자동으로 이를 호출해 베이스라인 컨텍스트를 만듭니다:
+`WithSystemMessageProvider` 플루언트 헬퍼로 콜백을 한 번 등록합니다. 모든 외부 호출(`GetCompletionAsync`, `StartRunAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`)이 자동으로 이를 호출해 베이스라인 컨텍스트를 만듭니다:
 
 ```csharp
 // 보통 서비스 생성 / DI 설정 시점에 등록
@@ -254,7 +269,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-비스트리밍 경로(`GetCompletionAsync`, `RunAgentAsync`)는 설계상 취소를 지원하지 않습니다 — 시그니처에 `CancellationToken`을 받지 않으며 provider에는 항상 `CancellationToken.None`이 전달됩니다. Provider에서 취소가 필요한 경우(예: 오래 걸리는 DB 쿼리)에는 호출자의 토큰을 provider 콜백까지 전파하는 스트리밍 경로(`StreamAsync`, `RunAgentStreamAsync`)를 사용하세요.
+기존 `GetCompletionAsync`와 `RunAgentAsync` 시그니처는 취소 토큰을 받지 않아 문맥 provider에 `CancellationToken.None`을 전달합니다. 오래 걸리는 DB 조회처럼 문맥 생성에도 취소가 필요하면 `StartRunAsync(..., cancellationToken: token)`을 사용하세요. 출력 관찰 없이 `run.Result`만 기다리는 경우에도 토큰이 provider 콜백까지 전달됩니다. 기존 `StreamAsync`와 `RunAgentStreamAsync`도 호출자의 취소 토큰을 전달합니다.
 
 ### 명시적 per-call 컨텍스트와의 병합
 

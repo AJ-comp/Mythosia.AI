@@ -40,6 +40,21 @@ var answer = await service.GetCompletionAsync(userQuestion,
 
 The system message is only modified for this one call. The next request sees the original system message. No cleanup required.
 
+## Apply context to a run
+
+Use the same request context when a report needs a date or reference material for this execution only. Pass it through the `context` parameter of `StartRunAsync`. See the [Run guide](execution-api-transition.md) for progress, cancellation, and steering.
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Summarize the documents.",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Today's date: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
 ## Available Properties
 
 ### SystemMessagePrefix
@@ -223,7 +238,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### How It Works
 
-Register the callback once via the `WithSystemMessageProvider` fluent helper. Every outbound call (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) automatically invokes it to build a baseline context:
+Register the callback once via the `WithSystemMessageProvider` fluent helper. Every outbound call (`GetCompletionAsync`, `StartRunAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) automatically invokes it to build a baseline context:
 
 ```csharp
 // Typically at service construction / DI setup
@@ -254,7 +269,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Non-streaming paths (`GetCompletionAsync`, `RunAgentAsync`) do not support cancellation by design — their signatures do not accept a `CancellationToken`, and `CancellationToken.None` is always passed to the provider. If your provider needs cancellation (e.g. a long-running DB query), use the streaming paths (`StreamAsync`, `RunAgentStreamAsync`) which forward the caller's token through to the provider callback.
+The existing `GetCompletionAsync` and `RunAgentAsync` signatures do not accept a cancellation token, so their context provider receives `CancellationToken.None`. For cancellable context loading, such as a long database query, use `StartRunAsync(..., cancellationToken: token)`. The token reaches the provider callback even when you only await `run.Result` without observing output. Existing `StreamAsync` and `RunAgentStreamAsync` calls also forward the caller's token.
 
 ### Merging with an explicit per-call context
 

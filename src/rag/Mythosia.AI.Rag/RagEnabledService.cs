@@ -1,5 +1,8 @@
 using Mythosia.AI.Models;
+using Mythosia.AI.Extensions;
 using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models.Runs;
+using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services;
 using System;
 using System.Collections.Generic;
@@ -46,7 +49,73 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public IAIService WithoutRag() => _innerService;
 
+        /// <summary>Requests a reasoning level for the next answer, after RAG retrieval.</summary>
+        public RagEnabledService WithReasoning(ReasoningLevel level, CachePreservation cache = CachePreservation.None)
+        {
+            _innerService.WithReasoning(level, cache);
+            return this;
+        }
+
+        /// <summary>Adds the provider's hosted web search to the next RAG answer.</summary>
+        public RagEnabledService WithWebSearch(WebSearchOptions? options = null)
+        {
+            _innerService.WithWebSearch(options);
+            return this;
+        }
+
+        /// <summary>Adds existing provider-hosted document stores to the next RAG answer.</summary>
+        public RagEnabledService WithFileSearch(params FileSearchStore[] stores)
+        {
+            _innerService.WithFileSearch(stores);
+            return this;
+        }
+
+        /// <summary>Hosted-search sources returned by the last answer. RAG retrieval references remain on RagProcessedQuery.</summary>
+        public IReadOnlyList<AICitation> LastCitations =>
+            (_innerService as IAIRequestFeatureService)?.LastCitations ?? Array.Empty<AICitation>();
+
         #region Core Methods
+
+        /// <summary>
+        /// Retrieves RAG context and starts one run whose result, output, and steering share the same execution.
+        /// </summary>
+        /// <remarks>
+        /// Retrieval happens once before the run starts. Steering uses the underlying provider's capability;
+        /// it does not repeat retrieval. The original query remains in conversation history.
+        /// </remarks>
+        public Task<AIRun> StartRunAsync(
+            string query,
+            Action<string>? onText = null,
+            RagQueryOptions? options = null,
+            StreamOptions? streamOptions = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (query == null) throw new ArgumentNullException(nameof(query));
+            return StartRunAsync(new Message(ActorRole.User, query), onText, options, streamOptions, cancellationToken);
+        }
+
+        /// <summary>
+        /// Retrieves context for a message and starts a run without replacing the message stored in history.
+        /// </summary>
+        public async Task<AIRun> StartRunAsync(
+            Message message,
+            Action<string>? onText = null,
+            RagQueryOptions? options = null,
+            StreamOptions? streamOptions = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (message == null) throw new ArgumentNullException(nameof(message));
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!(_innerService is IAIRunService runService))
+                throw new NotSupportedException("The wrapped AI service does not implement IAIRunService.");
+
+            using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
+
+            var query = message.Content ?? message.GetDisplayText();
+            var processed = await RewriteAndProcessAsync(query, options, cancellationToken).ConfigureAwait(false);
+            return await runService.StartRunAsync(
+                message, onText, streamOptions, BuildRunRequestContext(processed, message), cancellationToken).ConfigureAwait(false);
+        }
 
         /// <summary>
         /// Processes the query through RAG pipeline, then sends the request message content to the LLM.
@@ -65,9 +134,11 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            var message = new Message(ActorRole.User, query);
+            using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(
-                new Message(ActorRole.User, query),
+                message,
                 context: BuildRequestContext(processed));
         }
 
@@ -88,6 +159,7 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
             var query = message.Content ?? message.GetDisplayText();
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
             return await _innerService.GetCompletionAsync(message, context: BuildRequestContext(processed));
@@ -96,6 +168,12 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Streams the LLM response after RAG augmentation.
         /// </summary>
+        /// <remarks>
+        /// This public entry point is planned to become non-public in the next major version,
+        /// after the replacement run API is available. It remains supported during the minor-version
+        /// transition, and the RAG retrieval and augmentation implementation will be retained.
+        /// Use StartRunAsync and observe the returned run's StreamAsync method for new integrations.
+        /// </remarks>
         public async IAsyncEnumerable<string> StreamAsync(
             string prompt,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -109,15 +187,23 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Streams the LLM response after RAG augmentation with per-request query overrides.
         /// </summary>
+        /// <remarks>
+        /// This public entry point is planned to become non-public in the next major version,
+        /// after the replacement run API is available. It remains supported during the minor-version
+        /// transition, and the RAG retrieval and augmentation implementation will be retained.
+        /// Use StartRunAsync and observe the returned run's StreamAsync method for new integrations.
+        /// </remarks>
         public async IAsyncEnumerable<string> StreamAsync(
             string prompt,
             RagQueryOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            var message = new Message(ActorRole.User, prompt);
+            using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
             var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
 
             await foreach (var chunk in _innerService.StreamAsync(
-                new Message(ActorRole.User, prompt),
+                message,
                 BuildRequestContext(processed),
                 cancellationToken))
             {
@@ -147,14 +233,15 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
-
+            var message = new Message(ActorRole.User, prompt);
             var originalMode = _innerService.StatelessMode;
             _innerService.StatelessMode = true;
             try
             {
+                using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
+                var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
                 await foreach (var chunk in _innerService.StreamAsync(
-                    new Message(ActorRole.User, prompt),
+                    message,
                     BuildRequestContext(processed),
                     cancellationToken))
                 {
@@ -281,6 +368,18 @@ namespace Mythosia.AI.Rag
             {
                 RequestMessageOverride = new Message(ActorRole.User, processed.RequestMessageContent)
             };
+        }
+
+        private static AIRequestContext BuildRunRequestContext(RagProcessedQuery processed, Message original)
+        {
+            var requestMessage = original.Clone();
+            requestMessage.Content = processed.RequestMessageContent;
+            if (original.HasMultimodalContent)
+            {
+                requestMessage.Contents = new List<MessageContent> { new TextContent(processed.RequestMessageContent) };
+                requestMessage.Contents.AddRange(original.Contents.Where(content => !(content is TextContent)));
+            }
+            return new AIRequestContext { RequestMessageOverride = requestMessage };
         }
 
         #endregion

@@ -26,6 +26,10 @@
 
 </div>
 
+> Package versions documented here: [Mythosia.AI 7.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v710), [Abstractions 3.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310), [Alibaba 2.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201), [RAG 7.6.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+
+> To show progress, stop ongoing work, or send an additional requirement to a supported model, see the [Run guide](docs/execution-api-transition.md). Keep using `GetCompletionAsync` when only the completed result is needed.
+
 ---
 
 > **Upgrading to Mythosia.AI 7.0.0?** This is a breaking release. Read the [v7 migration guide](docs/v7-migration.md) before updating `Mythosia.AI`, `Mythosia.AI.Abstractions`, or `Mythosia.AI.Providers.Alibaba`.
@@ -49,16 +53,16 @@ dotnet add package Mythosia.VectorDb.Postgres     # optional: when you need a pr
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.5.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.6.0</i>"]
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.0.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.0.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.1.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.1.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.0</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.1</i>"]
     end
 
     subgraph "🛰️ Serving — Control Plane"
@@ -143,10 +147,10 @@ var response = await service.GetCompletionAsync("Hello!");
 ### Streaming
 
 ```csharp
-await foreach (var token in service.StreamAsync("Tell me a story"))
-{
-    Console.Write(token);
-}
+await using var run = await service.StartRunAsync(
+    "Tell me a story",
+    onText: text => Console.Write(text));
+string answer = await run.Result;
 ```
 
 ### Reasoning Streaming
@@ -154,7 +158,9 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 All reasoning-capable providers (OpenAI, Claude, Gemini, Grok, DeepSeek) share the same streaming pattern:
 
 ```csharp
-await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+await using var run = await service.StartRunAsync(
+    message, options: new StreamOptions().WithReasoning());
+await foreach (var content in run.StreamAsync())
 {
     if (content.Type == StreamingContentType.Reasoning)
         Console.Write($"[Think] {content.Content}");
@@ -193,13 +199,23 @@ service.DefaultPolicy = new FunctionCallingPolicy
 };
 ```
 
-Results are still sent back to the model in the provider's original call order.
+Ordinary batch results are sent back to the model in the provider's original call order.
 Once a validated batch begins, its handlers run to completion so call/result history
 cannot be left partial; registered handlers do not currently receive cancellation tokens.
 `FunctionCallingPolicy.TimeoutSeconds` covers the complete streaming round loop,
 including response headers and the SSE body, without resetting between tool rounds.
 Policy expiry raises `AIServiceException`; caller cancellation remains an
 `OperationCanceledException` associated with the caller's token.
+
+When a slow lookup is running, the model may still have useful independent work,
+such as explaining general packing advice before a weather forecast arrives.
+Set `FunctionDefinition.AllowAsync = true`, or use `FunctionBuilder.WithAsync()`,
+to let a supported model continue while that function runs. The default is `false`.
+GPT-6 Astra uses this option through the Responses API; unsupported models keep the
+same handler and wait for its result without sending the unsupported API option.
+This is separate from C# `async` handlers and parallel handler scheduling. See
+[async tool calling](docs/function-calling.md#async-tool-calling) for the example
+and request-lifetime behavior.
 
 ### Image Generation and Editing
 
@@ -298,13 +314,13 @@ var service = new AnthropicService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
 
-For agent-controlled retrieval, register the store with `WithAgenticRag(...)` and run either `RunAgentAsync(...)` or `RunAgentStreamAsync(...)`. See [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md) for full examples.
+For agent-controlled retrieval, register the store with `WithAgenticRag(...)` and start work with `service.WithMaxRounds(10).StartRunAsync(...)`. Await `run.Result` or observe `run.StreamAsync()` on the same task. See [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md) for full examples.
 
 ## Supported Providers
 
 | Provider | Package | Models |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
 | **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
@@ -399,6 +415,8 @@ dotnet add package System.Linq.Async
 ```
 
 ## Documentation
+
+For quick drafts followed by deeper review, or answers grounded in current information and hosted documents, see [reasoning and search with sources](docs/reasoning-and-search.md).
 
 - **[📖 Full Documentation Site](https://aj-comp.github.io/Mythosia.AI/)** — DocFX-generated docs covering all features, RAG pipeline, vector stores, and API reference
 - [Basic Usage Guide](docs/getting-started.md)

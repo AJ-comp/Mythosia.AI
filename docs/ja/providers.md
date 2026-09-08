@@ -2,12 +2,28 @@
 
 ## OpenAI (OpenAIService)
 
+> GPT-6 Astra と非同期ツール呼び出しは `Mythosia.AI` 7.1.0 から利用でき、共通型は `Mythosia.AI.Abstractions` 3.1.0 に含まれます。
+
+天気の取得に時間がかかるときでも、その結果に依存しない一般的な旅行の持ち物は先に説明できます。モデルによる非同期ツール呼び出しは、このように待ち時間に独立した作業を進めるために使います。結果に依存する判断は、結果が届いてから行う必要があります。
+
+`FunctionDefinition.AllowAsync = true` または `FunctionBuilder.WithAsync()` で、GPT-6 Astra の Responses API による非同期ツール呼び出しを選択的に許可できます。既定値は `false` で、未対応のモデルでは同じハンドラーの結果を待ちます。例とリクエストの有効期間は[関数呼び出しガイド](function-calling.md)を参照してください。
+
+プロバイダー間で推論レベルを指定し、最新情報や索引済みの文書を回答の根拠にする方法は、[推論と検索のガイド](reasoning-and-search.md)を参照してください。対応モデル、キャッシュ保持、設定の組み合わせの制限をまとめています。
+
 ### 推論レベル
 
 応答速度と分析の深さのバランスを調整します:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol は最上位モデルで、Terra と Luna は低コストの選択肢です。
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -27,6 +43,8 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra は既定で Responses API を使用し、関数呼び出しにもこの API が必要です。`Auto` はライブラリの既定値 `Medium` に解決され、`None` と `Minimal` は使用できません。`AIRequestProfile.DisableReasoning = true` は`Standard` モードで推論を `Low` に設定し、推論要約を省略します。`Gpt6ReasoningMode.Pro` を選択すると、同じモデル ID `gpt-6-astra` で Pro モードを使用できます。
 
 ### テキスト音声変換 (TTS)
 

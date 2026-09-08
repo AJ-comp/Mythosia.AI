@@ -1,5 +1,7 @@
 # AIRequestContext
 
+Datum, Benutzerinformationen oder gefundene Dokumente sollen oft nur für die aktuelle Aufgabe gelten. Der Anfragekontext begrenzt diese Ergänzungen auf den Aufruf und kann auch beim Start eines steuerbaren Auftrags verwendet werden; siehe [Run-Anleitung](execution-api-transition.md).
+
 ## Was ist das?
 
 `AIRequestContext` ermöglicht es, **was das Modell für eine einzelne Anfrage sieht** zu verändern — zusätzliche Anweisungen injizieren, Referenzdokumente hinzufügen oder die Nachricht des Benutzers komplett ersetzen — ohne die System-Nachricht oder den Gesprächsverlauf des Services dauerhaft zu ändern.
@@ -39,6 +41,19 @@ var answer = await service.GetCompletionAsync(userQuestion,
 ```
 
 Die System-Nachricht wird nur für diesen einen Aufruf geändert. Die nächste Anfrage sieht die ursprüngliche System-Nachricht. Kein Aufräumen nötig.
+
+## Kontext für eine laufende Aufgabe
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Fasse die Dokumente zusammen.",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Heutiges Datum: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
 
 ## Verfügbare Eigenschaften
 
@@ -223,7 +238,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### Wie es funktioniert
 
-Registriere den Callback einmal über den `WithSystemMessageProvider` fluent Helper. Jeder ausgehende Aufruf (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) ruft ihn automatisch auf, um einen Basis-Context zu erstellen:
+Registriere den Callback einmal über den `WithSystemMessageProvider` fluent Helper. Jeder ausgehende Aufruf (`StartRunAsync`, `GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) ruft ihn automatisch auf, um einen Basis-Context zu erstellen:
 
 ```csharp
 // Typischerweise bei Service-Konstruktion / DI-Setup
@@ -254,7 +269,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Nicht-Streaming-Pfade (`GetCompletionAsync`, `RunAgentAsync`) unterstützen bewusst keine Cancellation — ihre Signaturen akzeptieren keinen `CancellationToken`, und an den Provider wird immer `CancellationToken.None` übergeben. Wenn dein Provider Cancellation benötigt (z. B. eine langlaufende DB-Abfrage), verwende die Streaming-Pfade (`StreamAsync`, `RunAgentStreamAsync`), die das Token des Aufrufers bis zum Provider-Callback durchreichen.
+`GetCompletionAsync` und die bisherigen `RunAgentAsync`-Überladungen akzeptieren kein `CancellationToken`; der Kontext-Provider erhält dort `CancellationToken.None`. Benötigt der Provider Abbruchunterstützung, etwa für eine lange Datenbankabfrage, verwende `StartRunAsync(..., cancellationToken: token)`. Auch die bisherigen Streaming-Pfade (`StreamAsync`, `RunAgentStreamAsync`) reichen das Token des Aufrufers an den Provider-Callback weiter.
 
 ### Merging mit einem expliziten per-call-Context
 

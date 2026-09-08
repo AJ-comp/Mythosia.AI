@@ -2,7 +2,8 @@
 namespace Mythosia.AI.Models.Functions
 {
     /// <summary>
-    /// Controls how function calls returned in one provider response are executed.
+    /// Controls how ordinary function calls returned in one provider response are executed.
+    /// Opted-in native asynchronous calls use a separate bounded execution pool.
     /// </summary>
     public enum FunctionExecutionMode
     {
@@ -35,12 +36,14 @@ namespace Mythosia.AI.Models.Functions
         public int? TimeoutSeconds { get; set; } = 100;
 
         /// <summary>
-        /// One provider response's function-call execution mode.
+        /// One provider response's ordinary function-call execution mode. Native asynchronous
+        /// calls can overlap model work and other handlers even when this is Sequential.
         /// </summary>
         public FunctionExecutionMode ExecutionMode { get; set; } = FunctionExecutionMode.Sequential;
 
         /// <summary>
-        /// 병렬 실행 시 최대 동시 실행 수
+        /// Maximum concurrent ordinary handlers per parallel batch. Also limits the separate
+        /// pool of native asynchronous handlers across all rounds of one request.
         /// </summary>
         public int MaxConcurrency { get; set; } = 5;
 

@@ -47,9 +47,29 @@ namespace Mythosia.AI.Services
 
         #region Streaming
 
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         IAsyncEnumerable<string> StreamAsync(string prompt, CancellationToken cancellationToken = default);
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         IAsyncEnumerable<string> StreamAsync(Message message, AIRequestContext? context = null, CancellationToken cancellationToken = default);
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         IAsyncEnumerable<StreamingContent> StreamAsync(string prompt, StreamOptions options, CancellationToken cancellationToken = default);
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         IAsyncEnumerable<StreamingContent> StreamAsync(Message message, StreamOptions options, AIRequestContext? context = null, CancellationToken cancellationToken = default);
 
         #endregion

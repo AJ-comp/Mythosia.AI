@@ -40,6 +40,21 @@ var answer = await service.GetCompletionAsync(userQuestion,
 
 System message chỉ được sửa đổi cho lần gọi này. Request tiếp theo thấy system message gốc. Không cần dọn dẹp.
 
+## Dùng lại context của một yêu cầu với Run
+
+Khi muốn thêm ngày hiện tại vào báo cáo đang tạo mà không lưu vào thiết lập dịch vụ hoặc lịch sử hội thoại, bạn cũng có thể truyền cùng `AIRequestContext` cho `StartRunAsync`. Xem cách kết hợp với hiển thị tiến độ và hủy trong [hướng dẫn Run](execution-api-transition.md).
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Tóm tắt tài liệu.",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Ngày hôm nay: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
 ## Các thuộc tính
 
 ### SystemMessagePrefix
@@ -223,7 +238,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### Cách hoạt động
 
-Đăng ký callback một lần qua helper fluent `WithSystemMessageProvider`. Mỗi lệnh gọi ra (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) tự động gọi nó để dựng context cơ sở:
+Đăng ký callback một lần qua helper fluent `WithSystemMessageProvider`. Mỗi lệnh gọi ra (`StartRunAsync`, `GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) tự động gọi nó để dựng context cơ sở:
 
 ```csharp
 // Thường tại thời điểm tạo service / cấu hình DI
@@ -254,7 +269,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Các đường dẫn không streaming (`GetCompletionAsync`, `RunAgentAsync`) không hỗ trợ hủy theo thiết kế — chữ ký của chúng không nhận `CancellationToken`, và `CancellationToken.None` luôn được truyền tới provider. Nếu provider của bạn cần hủy (ví dụ: truy vấn DB lâu), hãy dùng các đường dẫn streaming (`StreamAsync`, `RunAgentStreamAsync`), chúng sẽ truyền token của người gọi tới callback provider.
+`GetCompletionAsync` và `RunAgentAsync` cũ không nhận `CancellationToken`, nên truyền `CancellationToken.None` cho context provider. Nếu cần hủy truy vấn cơ sở dữ liệu lâu, có thể dùng `StartRunAsync(..., cancellationToken: token)`; token vẫn được truyền tới provider khi bạn chỉ chờ `run.Result` mà không đọc đầu ra. `StreamAsync` và `RunAgentStreamAsync` cũ cũng truyền token của bên gọi. Chỉ hủy `run.StreamAsync(token)` sẽ dừng theo dõi, không hủy provider hoặc toàn bộ tác vụ.
 
 ### Gộp với context per-call tường minh
 

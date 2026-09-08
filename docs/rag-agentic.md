@@ -12,7 +12,9 @@ Standard RAG is a fixed retrieve-then-answer flow. That is simple and fast, but 
 - The final answer depends on documents plus live data from APIs or other tools.
 - The application needs per-request permission filters or step-level diagnostics for each search.
 
-Agentic RAG handles those cases by letting `RunAgentAsync(...)` or `RunAgentStreamAsync(...)` use RAG as one tool among the agent's registered functions.
+Agentic RAG handles those cases by letting `StartRunAsync(...)` use RAG as one tool among the agent's registered functions.
+
+Keep the handle from `StartRunAsync` when your application needs to display search activity or add a requirement during a longer task. See the [Run guide](execution-api-transition.md) for execution control and supported steering. `WithAgenticRag` remains the API for registering the search tool.
 
 ## Quick Start
 
@@ -27,21 +29,22 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Summarise the refund policy.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Summarise the refund policy.");
+var answer = await run.Result;
 ```
 
 By default, `WithAgenticRag(...)` registers a tool named `search_documents`. The agent calls that tool automatically whenever it needs document context, then uses the returned excerpts to produce the final answer.
 
 ## Streaming Agentic RAG
 
-Use `RunAgentStreamAsync(...)` when the UI should receive streamed text while still observing tool calls and tool results from the agent loop:
+Use `run.StreamAsync()` when the UI should receive streamed text while still observing tool calls and tool results from the agent loop:
 
 ```csharp
 service.WithAgenticRag(ragStore);
 
-await foreach (var content in service.RunAgentStreamAsync(
-    "Summarise the refund policy and mention the key eligibility rules.",
-    maxSteps: 10))
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "Summarise the refund policy and mention the key eligibility rules.");
+await foreach (var content in run.StreamAsync())
 {
     if (content.Type == StreamingContentType.FunctionCall)
     {
@@ -54,7 +57,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-`RunAgentStreamAsync(...)` is useful for chat UIs because the user can see progress while the agent searches documents, calls other tools, and writes the final response.
+`run.StreamAsync()` is useful for chat UIs because the user can see progress while the agent searches documents, calls other tools, and writes the final response.
 
 ## Combining with Other Tools
 
@@ -68,8 +71,9 @@ service.WithAgenticRag(ragStore)
            ("order_id", "The order ID to look up.", required: true),
            async id => await orderApi.GetStatusAsync(id));
 
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Order #12345: am I eligible for a refund based on the current policy?");
+var answer = await run.Result;
 ```
 
 In this example, the agent can search documents for the refund rules, call the order API for live order data, and combine both pieces of context in the final answer.
@@ -202,7 +206,7 @@ The `RagStore` still respects its configured retrieval strategy and pipeline opt
 | Tool combination | Document retrieval only | Any registered function or tool |
 | Per-step filters | Request options | `queryOptions` callback per tool call |
 | Observability | RAG result/diagnostics | `AgenticRagSearchTrace` per search step |
-| Setup | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync(...)` or `RunAgentStreamAsync(...)` |
+| Setup | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 ## When to Choose Which
 
@@ -211,7 +215,7 @@ The `RagStore` still respects its configured retrieval strategy and pipeline opt
 
 ## Practical Guidance
 
-- Keep `maxSteps` high enough for the agent to search, inspect results, and retry when needed.
+- Keep `WithMaxRounds(...)` high enough for the agent to search, inspect results, and retry when needed.
 - Write the tool description as a usage policy, not just a label.
 - Use per-call `StoreFilter` for tenant isolation and permission boundaries.
 - Capture traces when you need citations, reference panels, audit logs, or retrieval diagnostics.

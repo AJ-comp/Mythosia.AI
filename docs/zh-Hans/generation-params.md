@@ -12,6 +12,10 @@ service.FrequencyPenalty = 0.0f;   // 对重复 Token 的惩罚
 service.PresencePenalty = 0.0f;    // 对已出现 Token 的惩罚
 ```
 
+GPT-6 Astra 不支持 `temperature` 和 `top_p`；即使通过通用属性或请求配置设置它们，Mythosia 也会在发送时省略这两个字段。最大输出为 128,000 个 token。参见 [GPT-6 配置](providers.md)。
+
+
+如果起草和审查需要不同的推理深度，可以使用[通用推理设置](reasoning-and-search.md)。指南也说明了保留缓存的变更与普通单次请求设置的区别。
 
 ## 流式扩展方法
 

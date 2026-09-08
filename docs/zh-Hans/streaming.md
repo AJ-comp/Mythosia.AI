@@ -1,5 +1,23 @@
 # 流式输出
 
+逐段显示到达的文本，让用户不必等长答案全部生成后才能阅读。如果还需要停止按钮和工具状态，可通过 `StartRunAsync` 启动任务并读取 `run.StreamAsync()`。[Run 使用指南](execution-api-transition.md)提供回调和取消的示例。
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "总结文档。",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+以下示例使用接收输入的旧 `service.StreamAsync`，用于兼容现有代码。本次次版本更新中仍可调用，计划在下一个主版本移出公开 API。`run.StreamAsync()` 是观察已启动 Run 输出的另一种方法。
+
 ## 基本流式输出
 
 使用 `StreamAsync` 在 Token 生成时逐个接收：

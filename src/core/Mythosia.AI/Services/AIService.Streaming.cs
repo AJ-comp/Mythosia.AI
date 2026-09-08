@@ -19,6 +19,11 @@ namespace Mythosia.AI.Services.Base
         /// <summary>
         /// Simple text streaming (most common use case)
         /// </summary>
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         public async IAsyncEnumerable<string> StreamAsync(
             string prompt,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
@@ -33,6 +38,11 @@ namespace Mythosia.AI.Services.Base
         /// <summary>
         /// Simple text streaming with Message input
         /// </summary>
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         public async IAsyncEnumerable<string> StreamAsync(
             Message message,
             AIRequestContext? context = null,
@@ -58,6 +68,11 @@ namespace Mythosia.AI.Services.Base
         /// <summary>
         /// Advanced streaming with options
         /// </summary>
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         public async IAsyncEnumerable<StreamingContent> StreamAsync(
             string prompt,
             StreamOptions options,
@@ -77,12 +92,19 @@ namespace Mythosia.AI.Services.Base
         /// Providers that do not support function calling rounds (e.g., DeepSeek, Sonar)
         /// may override this method directly.
         /// </summary>
+        /// <remarks>
+        /// Planned for withdrawal from the public API in the next major release, once the replacement is available.
+        /// This API remains supported during the minor transition. Use <c>StartRunAsync</c> and the returned run's output stream for new integrations.
+        /// Execution logic will be preserved behind non-public implementation hooks.
+        /// </remarks>
         public virtual async IAsyncEnumerable<StreamingContent> StreamAsync(
             Message message,
             StreamOptions options,
             AIRequestContext? context = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            using var featureScope = BeginRequestFeaturesScope(message);
+            var featureExecution = _requestFeatureExecution.Value!;
             var effectiveContext = await BuildEffectiveContextAsync(context, cancellationToken).ConfigureAwait(false);
             Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
             try
@@ -91,13 +113,35 @@ namespace Mythosia.AI.Services.Base
                 // loop, where a failed round can be replayed on its own. Recovering at this level
                 // would have to discard every round already streamed, and cannot help at all once
                 // any chunk has gone out.
-                await foreach (var content in StreamCoreAsync(message, options, cancellationToken))
-                    yield return content;
+                var enumerator = StreamCoreAsync(message, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
+                try
+                {
+                    while (await MoveNextWithFeaturesAsync(enumerator, featureExecution).ConfigureAwait(false))
+                    {
+                        var content = enumerator.Current;
+                        if (content.Citation != null) featureExecution.Add(content.Citation);
+                        yield return content;
+                    }
+                }
+                finally
+                {
+                    using var disposeFeatures = UseRequestFeatureExecution(featureExecution);
+                    await enumerator.DisposeAsync().ConfigureAwait(false);
+                }
             }
             finally
             {
                 restoreContext();
             }
+        }
+
+        private async ValueTask<bool> MoveNextWithFeaturesAsync(IAsyncEnumerator<StreamingContent> enumerator,
+            RequestFeatureExecution execution)
+        {
+            // AsyncLocal changes inside an iterator do not survive the caller's next MoveNext.
+            // Reestablish the captured request for every provider advancement, including tool rounds.
+            using var scope = UseRequestFeatureExecution(execution);
+            return await enumerator.MoveNextAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -137,6 +181,7 @@ namespace Mythosia.AI.Services.Base
                 ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
             }
 
+            var finishAsyncFunctions = BeginAsyncFunctionScope(useFunctions);
             try
             {
                 Stream = true;
@@ -181,7 +226,8 @@ namespace Mythosia.AI.Services.Base
                                 var content = enumerator.Current;
 
                                 if (!roundEmittedAny && attempt < ContextRecoveryMaxRetries &&
-                                    !_isSummarizing && !StatelessMode && IsContextOverflowChunk(content))
+                                    !_isSummarizing && !StatelessMode && !HasPendingAsyncFunctions &&
+                                    GetConversationCompactionBlockReason() == null && IsContextOverflowChunk(content))
                                 {
                                     withheld = content;
                                     break;
@@ -192,7 +238,7 @@ namespace Mythosia.AI.Services.Base
                                 if (content.Type == StreamingContentType.FunctionResult)
                                     hasFunctionResult = true;
                                 else if (content.Type == StreamingContentType.Error &&
-                                         !IsContextOverflowChunk(content))
+                                         (!IsContextOverflowChunk(content) || HasPendingAsyncFunctions))
                                     roundFailed = true;
 
                                 // Providers can attach usage to different chunk types.
@@ -260,12 +306,12 @@ namespace Mythosia.AI.Services.Base
                         {
                             yield return CreateRoundUsageContent(
                                 round + 1,
-                                isFinalRound: !hasFunctionResult,
+                                isFinalRound: !(hasFunctionResult && FunctionResultsRequireContinuation) && !HasPendingAsyncFunctions && !HasPendingRunContinuation,
                                 roundUsage);
                         }
                     }
 
-                    if (!hasFunctionResult)
+                    if (!(hasFunctionResult && FunctionResultsRequireContinuation) && !HasPendingAsyncFunctions && !HasPendingRunContinuation)
                     {
                         // Final round — yield Completion with accumulated usage
                         if (!options.TextOnly)
@@ -319,10 +365,23 @@ namespace Mythosia.AI.Services.Base
             }
             finally
             {
-                if (originalChat != null)
-                    ActivateChat = originalChat;
+                try
+                {
+                    await finishAsyncFunctions().ConfigureAwait(false);
+                }
+                finally
+                {
+                    if (originalChat != null)
+                        ActivateChat = originalChat;
+                }
             }
         }
+
+        /// <summary>Whether the transport will continue this run without a new user request.</summary>
+        protected virtual bool HasPendingRunContinuation => false;
+
+        /// <summary>Whether observed tool results still require a separate provider round.</summary>
+        protected virtual bool FunctionResultsRequireContinuation => true;
 
         private static async Task<bool> MoveNextStreamRoundAsync(
             IAsyncEnumerator<StreamingContent> enumerator,
@@ -385,7 +444,8 @@ namespace Mythosia.AI.Services.Base
         /// Executes a single streaming round: sends an HTTP request, reads the SSE stream,
         /// yields chunks, and handles function execution if detected.
         /// Yield a <see cref="StreamingContentType.FunctionResult"/> to signal the template
-        /// to continue to the next round; otherwise the stream ends.
+        /// to continue to the next round. Pending native asynchronous calls also keep the
+        /// round loop active until their results have been delivered and the model finishes.
         /// </summary>
         protected virtual async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
             StreamOptions options,

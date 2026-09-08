@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
+#pragma warning disable CS0618 // Keep live coverage of the retained Agent compatibility APIs.
+
 namespace Mythosia.AI.Tests;
 
 public abstract partial class AIServiceTestBase

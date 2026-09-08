@@ -159,7 +159,7 @@ $releasePackages = @(
         Project = "src/core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj"
         Assembly = "Mythosia.AI.Abstractions.dll"
         ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v300"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310"
         Dependencies = @{}
         FixedDependencies = @{
             "Mythosia" = "1.4.0"
@@ -170,7 +170,7 @@ $releasePackages = @(
         Project = "src/core/Mythosia.AI/Mythosia.AI.csproj"
         Assembly = "Mythosia.AI.dll"
         ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v700"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710"
         Dependencies = @{
             "Mythosia.AI.Abstractions" = "Mythosia.AI.Abstractions"
         }
@@ -187,12 +187,28 @@ $releasePackages = @(
         Project = "src/core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj"
         Assembly = "Mythosia.AI.Providers.Alibaba.dll"
         ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201"
         Dependencies = @{
             "Mythosia.AI" = "Mythosia.AI"
         }
         FixedDependencies = @{
             "TiktokenSharp" = "1.2.1"
+        }
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.AI.Rag"
+        Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
+        Assembly = "Mythosia.AI.Rag.dll"
+        ProjectUrl = "https://aj-comp.github.io/Mythosia.AI/docs/rag.html"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760"
+        Dependencies = @{
+            "Mythosia.AI.Abstractions" = "Mythosia.AI.Abstractions"
+        }
+        FixedDependencies = @{
+            "Mythosia.Documents.Office" = "1.1.0"
+            "Mythosia.Documents.Pdf" = "1.1.1"
+            "Mythosia.AI.Rag.Abstractions" = "6.2.0"
+            "Mythosia.VectorDb.InMemory" = "4.1.0"
         }
     }
 )

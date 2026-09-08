@@ -7,6 +7,12 @@ Install this package to add `.WithRag()` to any `IAIService` — no changes to t
 
 > **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v6.x`**
 
+## What's new in v7.6.0
+
+Control a RAG answer through `StartRunAsync`, configure its reasoning and hosted search, and retain provider citations. Duplicate file/directory registrations now correctly skip every already-processed document. Existing completion and streaming APIs remain available.
+
+Run and common request features require `Mythosia.AI.Abstractions` v3.1.0+ and a supporting inner service, such as `Mythosia.AI` v7.1.0+. See the [full v7.6.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+
 ## Installation
 
 ```bash
@@ -29,7 +35,24 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 That's it. Documents are automatically loaded, chunked, embedded, and indexed on the first query (lazy initialization).
 
+## Start a RAG run
+
+After finding relevant documents, a long answer may still take time to write. Use a run to display that answer as it arrives and let the user stop execution. See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for additional controls and supported steering.
+
+```csharp
+// ragService is returned by service.WithRag(...).
+await using var run = await ragService.StartRunAsync(
+    "What is the refund policy?",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+The wrapper retrieves and augments context once before the model run. `options:` accepts per-query `RagQueryOptions`; `streamOptions:` controls displayed event detail. The returned run supports the inner provider's controls, but steering does not automatically repeat retrieval. Use `WithAgenticRag` when the model should request further searches as a tool. Custom inner services must implement optional `IAIRunService`; unsupported services fail before indexing.
+
 ## Document Sources
+
+If the provider already manages your document index, [hosted file search](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/reasoning-and-search.md) can search it directly. RAG remains useful when your application needs control of loading, splitting, embeddings and retrieval. `RagEnabledService.WithReasoning`, `.WithWebSearch` and `.WithFileSearch` configure its final answer without affecting the internal query rewrite; `LastCitations` contains hosted sources, while RAG retrieval references remain on `RagProcessedQuery`.
 
 ```csharp
 .WithRag(rag => rag
@@ -328,7 +351,7 @@ var store = await RagStore.BuildAsync(config => config
 
 In standard RAG the pipeline runs once per user message. In Agentic RAG the agent decides **when** to search, **what** to search for, and whether to search **again** if the first result is insufficient — all autonomously inside a ReAct loop.
 
-Register the `RagStore` as a search tool with `WithAgenticRag`, then run `RunAgentAsync` for a final answer or `RunAgentStreamAsync` for streaming:
+Register the `RagStore` as a search tool with `WithAgenticRag`, then use `StartRunAsync` for both the collected result and optional streaming:
 
 ```csharp
 // Build the index once
@@ -341,7 +364,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Summarise the refund policy.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Summarise the refund policy.");
+var answer = await run.Result;
 ```
 
 ### Streaming Agentic RAG
@@ -357,9 +381,9 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-await foreach (var content in service.RunAgentStreamAsync(
-    "Summarise the refund policy and mention the key eligibility rules.",
-    maxSteps: 10))
+await using var streamedRun = await service.WithMaxRounds(10).StartRunAsync(
+    "Summarise the refund policy and mention the key eligibility rules.");
+await foreach (var content in streamedRun.StreamAsync())
 {
     if (content.Type == StreamingContentType.FunctionCall)
     {
@@ -372,7 +396,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-`RunAgentStreamAsync(...)` keeps token streaming while still emitting tool-call and tool-result events from the agent loop.
+`streamedRun.StreamAsync()` emits text, tool-call, and tool-result events from the same run. The library executes registered tools automatically.
 
 ### Combining with Other Tools
 
@@ -383,8 +407,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // The agent searches documents for policy AND calls the API for live order data
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Order #12345 — am I eligible for a refund based on the current policy?");
+var answer = await run.Result;
 ```
 
 ### Custom Tool Description
@@ -452,7 +477,7 @@ Each `AgenticRagSearchTrace` contains:
 - `Succeeded` / `Exception` ??whether the search completed successfully and why it failed when it did not
 
 This makes it easier to implement permission-aware Agentic RAG, reference panels, search-quality analysis,
-and audit logging without coupling `RunAgentAsync(...)` itself to RAG-specific request types.
+and audit logging without coupling `StartRunAsync(...)` itself to RAG-specific request types.
 
 ### How It Differs from Standard RAG
 
@@ -462,7 +487,7 @@ and audit logging without coupling `RunAgentAsync(...)` itself to RAG-specific r
 | Query formulation | QueryRewriter | Agent itself |
 | Number of searches | Once per turn | One or more as needed |
 | Tool combination | Not applicable | Any registered tool |
-| Setup | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` / `RunAgentStreamAsync` |
+| Setup | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync` |
 
 > `QueryRewriter` is intentionally bypassed in Agentic RAG. The agent formulates its own self-contained search query, so a separate rewriting step is redundant and could distort the agent's intent.
 

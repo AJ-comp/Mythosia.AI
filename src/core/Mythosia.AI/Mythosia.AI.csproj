@@ -18,9 +18,9 @@
     <PackageId>Mythosia.AI</PackageId>
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
-    <PackageTags>AI;LLM;OpenAI;Anthropic;Claude;Google;Gemini;xAI;Grok;DeepSeek;Perplexity;ImageGeneration;ImageEditing;Multimodal;Reasoning;FunctionCalling;ParallelFunctionCalling;StructuredOutput;Streaming</PackageTags>
+    <PackageTags>AI;LLM;OpenAI;Anthropic;Claude;Google;Gemini;xAI;Grok;DeepSeek;Perplexity;ImageGeneration;ImageEditing;Multimodal;Reasoning;FunctionCalling;AsyncFunctionCalling;ParallelFunctionCalling;StructuredOutput;Streaming;Run;Steering;WebSearch;FileSearch;Citations</PackageTags>
     <Authors>JJW</Authors>
-    <Description>Provider-neutral .NET library for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, DeepSeek, and Perplexity. Provides text and multimodal completions, streaming, reasoning, structured output, token usage, context recovery, ordered function-call batches with sequential or bounded-parallel handler execution, and optional OpenAI/Gemini image generation and editing. Targets .NET Standard 2.1.</Description>
+    <Description>Provider-neutral .NET library for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, DeepSeek, and Perplexity. Provides text and multimodal completions, controllable runs with streaming and cancellation, GPT-6 Astra steering and opt-in asynchronous tools, common reasoning and hosted search with citations, structured output, token usage, context recovery, ordered function-call batches, and optional OpenAI/Gemini image generation and editing. Feature support is validated per provider and model. Requires Mythosia.AI.Abstractions 3.1.0. Targets .NET Standard 2.1.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -29,8 +29,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v7.0.0 is a breaking major release. Adds current OpenAI, Anthropic, Gemini, and xAI model contracts; provider-neutral image generation/editing; and ordered multi-function batches with sequential or bounded-parallel local handler execution. Strengthens terminal-response, continuation, refusal, malformed-tool, and usage handling across providers. Removes the legacy image methods, message-count windowing, unsafe function-message removal, retired model constants, GrokReasoning.Off, and single-function custom-provider extension signatures. Requires Mythosia.AI.Abstractions v3.0.0. Full notes and migration guide: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v700</PackageReleaseNotes>
-    <Version>7.0.0</Version>
+    <PackageReleaseNotes>v7.1.0 adds GPT-6 Astra, StartRunAsync with result/stream/cancellation and supported steering, opt-in native asynchronous tools, and common reasoning, hosted search, and citations. Preserves accepted cache-aware reasoning changes and rolls back failed changes. Legacy Agent methods now warn; existing completion and streaming APIs remain supported. Requires Mythosia.AI.Abstractions 3.1.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710</PackageReleaseNotes>
+    <Version>7.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

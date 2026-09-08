@@ -1,5 +1,7 @@
 # Générer du texte
 
+Si l’application a seulement besoin de la réponse terminée, `GetCompletionAsync` reste adapté. Pour afficher la progression, annuler ou ajouter des instructions pendant le travail lorsque le modèle le permet, consultez le [guide Run](execution-api-transition.md).
+
 ## Requête simple
 
 L'usage le plus basique — envoyer un message, recevoir une réponse :

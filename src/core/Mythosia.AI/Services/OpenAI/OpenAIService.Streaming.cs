@@ -23,11 +23,13 @@ namespace Mythosia.AI.Services.OpenAI
         protected override void OnStreamRoundStarting()
         {
             ResetCurrentStreamOutputItems();
+            ResetNativeStreamState();
         }
 
         protected override void OnStreamRoundFailed()
         {
             ResetCurrentStreamOutputItems();
+            _pendingNativeCitations.Clear();
         }
 
         protected override StreamingContent? CreateStreamParseFailure(
@@ -73,7 +75,7 @@ namespace Mythosia.AI.Services.OpenAI
             try
             {
                 var functionCalls = assistantMessage.FunctionCallBatch;
-                if (functionCalls == null)
+                if (functionCalls == null && !UsedAsyncFunctions && !ShouldPreserveResponseItems)
                     return;
 
                 var outputItems = _currentStreamResponseOutputItems;
@@ -85,9 +87,17 @@ namespace Mythosia.AI.Services.OpenAI
 
                 if (outputItems != null && outputItems.Count > 0)
                 {
-                    functionCalls.Metadata ??= new Dictionary<string, object>();
-                    functionCalls.Metadata[ResponsesOutputItemsMetadataKey] =
-                        outputItems.Select(item => item.Clone()).ToList();
+                    var detachedOutputItems = outputItems.Select(item => item.Clone()).ToList();
+                    if (functionCalls != null)
+                    {
+                        functionCalls.Metadata ??= new Dictionary<string, object>();
+                        functionCalls.Metadata[ResponsesOutputItemsMetadataKey] = detachedOutputItems;
+                    }
+                    else
+                    {
+                        assistantMessage.Metadata ??= new Dictionary<string, object>();
+                        assistantMessage.Metadata[ResponsesOutputItemsMetadataKey] = detachedOutputItems;
+                    }
                 }
             }
             finally
@@ -102,6 +112,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             using var doc = JsonDocument.Parse(jsonData);
             var root = doc.RootElement;
+            CaptureNativeStreamEvent(root);
 
             if (root.TryGetProperty("error", out var errorElement) &&
                 !root.TryGetProperty("type", out _))
@@ -147,6 +158,7 @@ namespace Mythosia.AI.Services.OpenAI
                 usage.ValueKind == JsonValueKind.Object)
                 chunk.Usage = ParseOpenAICompatibleUsage(usage);
 
+            PopulateNativeStreamStatus(root, chunk);
             return chunk;
         }
 
@@ -154,6 +166,9 @@ namespace Mythosia.AI.Services.OpenAI
         {
             switch (type)
             {
+                case "mythosia.run.function_result" when _openAIRunSession.Value != null:
+                    chunk.Status = _openAIRunSession.Value.TakeToolEvent();
+                    break;
                 // 텍스트 델타
                 case "response.output_text.delta":
                     ParseStreamTextDelta(root, chunk);
@@ -188,6 +203,20 @@ namespace Mythosia.AI.Services.OpenAI
                 // Response lifecycle events.
                 case "response.created":
                     ParseStreamCreatedEvent(root, chunk);
+                    if (_openAIRunSession.Value is OpenAIRunSession runSession &&
+                        root.TryGetProperty("response", out var createdResponse) &&
+                        GetString(createdResponse, "id") is string createdResponseId)
+                    {
+                        chunk.Status = new StreamingContent
+                        {
+                            Type = StreamingContentType.Status,
+                            Metadata = new Dictionary<string, object>
+                            {
+                                ["response_id"] = createdResponseId,
+                                ["steering_continuation"] = runSession.IsSteeredResponse(createdResponseId)
+                            }
+                        };
+                    }
                     break;
 
                 // Only response.completed commits a Responses API stream.
@@ -198,7 +227,16 @@ namespace Mythosia.AI.Services.OpenAI
                 case "response.failed":
                 case "response.incomplete":
                 case "error":
-                    ParseStreamFailureEvent(root, type, chunk);
+                    if (type == "response.incomplete" && _openAIRunSession.Value != null && IsSteeredTerminal(root))
+                    {
+                        // An interrupted response is a normal boundary within a steered run.
+                        // Its terminal snapshot, rather than partial deltas, decides which tools
+                        // are complete enough to execute.
+                        chunk.ReplaceFunctionCalls = true;
+                        ParseStreamCompletionEvent(root, chunk, allowSteered: true);
+                    }
+                    else
+                        ParseStreamFailureEvent(root, type, chunk);
                     break;
 
                 case "response.refusal.delta":
@@ -235,6 +273,11 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 if (root.TryGetProperty("function_call", out var fc))
                 {
+                    if (fc.TryGetProperty("async", out var asyncElement))
+                    {
+                        functionCall.IsAsync = asyncElement.ValueKind == JsonValueKind.True;
+                        functionCall.Metadata![AsyncCallSpecifiedMetadataKey] = true;
+                    }
                     if (fc.TryGetProperty("name", out var n))
                         functionCall.Name = n.GetString() ?? string.Empty;
                     if (fc.TryGetProperty("call_id", out var callId))
@@ -444,7 +487,7 @@ namespace Mythosia.AI.Services.OpenAI
         /// <summary>
         /// Parses the response.completed terminal event.
         /// </summary>
-        private void ParseStreamCompletionEvent(JsonElement root, OpenAIStreamChunk chunk)
+        private void ParseStreamCompletionEvent(JsonElement root, OpenAIStreamChunk chunk, bool allowSteered = false)
         {
             if (!root.TryGetProperty("response", out var doneResp) ||
                 doneResp.ValueKind != JsonValueKind.Object)
@@ -460,7 +503,8 @@ namespace Mythosia.AI.Services.OpenAI
                          statusElement.ValueKind == JsonValueKind.String
                 ? statusElement.GetString()
                 : null;
-            if (!string.Equals(status, "completed", StringComparison.Ordinal))
+            if (!string.Equals(status, "completed", StringComparison.Ordinal) &&
+                !(allowSteered && status == "incomplete" && IsSteeredTerminal(root)))
             {
                 chunk.Error = CreateResponsesStreamError(
                     "OpenAI Responses API emitted response.completed without completed status; the partial response was not saved and no tools were executed.",
@@ -480,6 +524,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             chunk.IsCompletion = true;
+            AcceptPreservedReasoning();
             chunk.Metadata ??= new Dictionary<string, object>();
             chunk.Metadata["finish_reason"] = "stop";
             if (doneResp.TryGetProperty("usage", out var usage) &&
@@ -506,6 +551,11 @@ namespace Mythosia.AI.Services.OpenAI
                     if (item.TryGetProperty("type", out var itemType) &&
                         itemType.GetString() == "function_call")
                     {
+                        if (allowSteered && GetString(item, "status") != "completed")
+                        {
+                            outputIndex++;
+                            continue;
+                        }
                         if (!item.TryGetProperty("call_id", out var callId) ||
                             callId.ValueKind != JsonValueKind.String ||
                             string.IsNullOrWhiteSpace(callId.GetString()))
@@ -877,6 +927,11 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 functionCall.Name = name.GetString() ?? string.Empty;
             }
+            if (root.TryGetProperty("async", out var asyncElement))
+            {
+                functionCall.IsAsync = asyncElement.ValueKind == JsonValueKind.True;
+                functionCall.Metadata[AsyncCallSpecifiedMetadataKey] = true;
+            }
 
             return functionCall;
         }
@@ -887,11 +942,15 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 Source = IdSource.OpenAI,
                 Index = outputIndex,
+                IsAsync = item.HasValue &&
+                          item.Value.TryGetProperty("async", out var asyncElement) &&
+                          asyncElement.ValueKind == JsonValueKind.True,
                 Arguments = new Dictionary<string, object> { ["_missing"] = true },
                 Metadata = new Dictionary<string, object>
                 {
                     [StreamIndexExplicitMetadataKey] = true,
-                    [RequiresProviderCallIdMetadataKey] = true
+                    [RequiresProviderCallIdMetadataKey] = true,
+                    [AsyncCallSpecifiedMetadataKey] = item.HasValue && item.Value.TryGetProperty("async", out _)
                 }
             };
 

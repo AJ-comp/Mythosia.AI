@@ -9,6 +9,8 @@ var response = await service.GetCompletionAsync("フランスの首都はどこ�
 Console.WriteLine(response); // パリ
 ```
 
+完成した回答だけを受け取る場合、`GetCompletionAsync`は引き続き適しています。表示を逐次更新したり、実行中に停止・追加指示を行ったりする場合は[Runの利用ガイド](execution-api-transition.md)を参照してください。
+
 ## システムプロンプト
 
 モデルにペルソナや指示を与えるシステムプロンプトを設定します:

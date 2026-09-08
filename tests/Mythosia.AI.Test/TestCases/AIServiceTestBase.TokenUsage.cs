@@ -107,6 +107,7 @@ public abstract partial class AIServiceTestBase
 
                 var events = new List<StreamingContent>();
 
+#pragma warning disable CS0618 // Verify usage reporting on the retained Agent streaming API.
                 await foreach (var content in AI.RunAgentStreamAsync(
                     "You must call get_token_meter_weather for Seoul exactly once before answering. " +
                     "After the tool result, answer in one short sentence.",
@@ -115,6 +116,7 @@ public abstract partial class AIServiceTestBase
                 {
                     events.Add(content);
                 }
+#pragma warning restore CS0618
 
                 var errors = events.Where(e => e.Type == StreamingContentType.Error).ToList();
                 Assert.IsFalse(errors.Any(),

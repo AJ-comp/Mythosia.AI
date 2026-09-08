@@ -22,7 +22,7 @@ Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더,
 
 | 프로바이더 | 모델 |
 |------------|------|
-| **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, o3 시리즈 |
+| **OpenAI** | GPT-6 Astra, GPT-5.x, GPT-4.1, GPT-4o, o3 시리즈 |
 | **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3 시리즈 |
 | **xAI** | Grok 4 시리즈, Grok Build |

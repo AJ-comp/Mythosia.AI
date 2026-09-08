@@ -41,6 +41,8 @@ RAG는 크게 두 단계로 나뉩니다.
 3. **프롬프트 구성** — 찾아온 청크들을 프롬프트에 넣어 AI에게 전달합니다
 4. **답변 생성** — AI가 전달받은 문서 내용을 참고하여 답변을 생성합니다
 
+검색한 자료로 답변을 작성하는 동안 텍스트를 표시하거나 실행을 중지하려면 `RagEnabledService.StartRunAsync`를 사용합니다. 검색은 실행 전에 한 번 수행하며, 추가 지시가 자동으로 재검색을 하지는 않습니다. 사용법은 [Run 사용 안내](execution-api-transition.md)를 참고하세요.
+
 ## 설치
 
 ```bash
@@ -135,6 +137,8 @@ var response = await service.GetCompletionAsync("질문", options: options);
 ```
 
 ## 다음 단계
+
+공급자가 이미 문서 색인을 관리한다면 [내장 파일 검색과 RAG](reasoning-and-search.md)를 비교해 검색을 누가 담당할지 정하세요. 같은 가이드에서 RAG 답변에 적용하는 추론 옵션과 공급자의 출처 수집도 설명합니다.
 
 기본 RAG를 익혔다면, 다음 기능들로 검색 품질을 한 단계 높여보세요:
 

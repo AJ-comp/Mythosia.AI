@@ -16,6 +16,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private object BuildRequestBody()
         {
+            PrepareClaudeFeatureMessage();
             var messagesList = new List<object>();
 
             // Convert messages to Claude format
@@ -23,6 +24,7 @@ namespace Mythosia.AI.Services.Anthropic
             EnsureUserFirstMessage(messages);
             foreach (var message in messages)
             {
+                AppendClaudeEffortMarker(messagesList, message);
                 messagesList.Add(ConvertMessageForClaude(message));
             }
 
@@ -38,13 +40,18 @@ namespace Mythosia.AI.Services.Anthropic
 
             ApplySystemMessage(requestBody);
             ApplyThinkingConfig(requestBody);
+            ApplyCommonClaudeReasoning(requestBody);
             ApplyTemperaturePolicy(requestBody);
+            ApplyNativeClaudeTools(requestBody);
 
             return requestBody;
         }
 
         private object ConvertMessageForClaude(Message message)
         {
+            if (message.Role == ActorRole.Assistant &&
+                message.Metadata?.TryGetValue(ClaudeNativeContentKey, out var nativeContent) == true)
+                return new { role = "assistant", content = JsonSerializer.Deserialize<JsonElement>(nativeContent.ToString()!) };
             var role = message.Role.ToDescription();
 
             if (!message.HasMultimodalContent)

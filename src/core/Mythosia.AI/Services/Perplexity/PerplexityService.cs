@@ -45,6 +45,7 @@ namespace Mythosia.AI.Services.Perplexity
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            using var featureScope = BeginRequestFeaturesScope(message);
             Stream = false;
 
             if (StatelessMode)

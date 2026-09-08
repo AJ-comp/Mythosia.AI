@@ -72,13 +72,23 @@ function renderState(s) {
   ]);
 
   html += section('Generation Settings', [
-    row('Temperature', s.temperature?.toFixed(2)),
-    row('Top P', s.topP?.toFixed(2)),
+    row('Temperature', s.sampling?.temperature === false ? '(not supported)' : s.temperature?.toFixed(2)),
+    row('Top P', s.sampling?.topP === false ? '(not supported)' : s.topP?.toFixed(2)),
     row('Max Output Tokens', s.maxTokens),
     row('Freq Penalty', s.frequencyPenalty?.toFixed(2)),
     row('Pres Penalty', s.presencePenalty?.toFixed(2)),
     row('Stream', s.stream, 'bool'),
   ]);
+
+  if (s.reasoning) {
+    html += section('Reasoning', [
+      row('Always On', s.reasoning.alwaysOn, 'bool'),
+      row('Effort', s.reasoning.effort),
+      row('Summary', s.reasoning.summary ?? '(omitted)'),
+      row('Mode', s.reasoning.mode),
+      row('Verbosity', s.reasoning.verbosity ?? '(default)'),
+    ]);
+  }
 
   html += section('Modes', [
     row('Stateless', s.statelessMode, 'bool'),

@@ -8,9 +8,24 @@
 - "관련 정책을 찾고, 주문 상태를 확인한 다음, 환불 대상인지 알려줘" — 다른 도구들을 논리적 순서로 연결해야 함
 - 첫 번째 결과가 부족하면 모델이 검색을 **재시도하거나 개선**해야 할 수도 있음
 
-이 오케스트레이션 루프를 직접 작성하는 것은 번거롭고 오류가 발생하기 쉽습니다. **에이전트 루프**(ReAct 패턴: 추론 → 행동 → 관찰 → 반복)가 이를 자동으로 처리합니다 — 모델이 최종 답변에 도달할 때까지 각 단계에서 다음 행동을 스스로 결정합니다.
+`GetCompletionAsync`와 `StartRunAsync`도 공통 모델·도구 반복 실행을 처리합니다. 기존 에이전트 편의 함수가 추가하는 것은 호출별 라운드 제한과 에이전트 전용 오류 변환이며, 별도의 계획 엔진이나 실행 엔진을 만드는 것은 아닙니다.
 
-## 기본 사용법
+## 진행 상황을 제어하며 실행하기
+
+여러 도구를 거치는 작업을 화면에 표시하거나 중단하려면 `StartRunAsync`로 실행 객체를 보관합니다. 지원 모델에서는 작업 중 추가 지시도 보낼 수 있습니다. 자세한 선택 기준은 [Run 사용 안내](execution-api-transition.md)를 참고하세요.
+
+```csharp
+// 작업을 시작하기 전에 service에 함수를 등록합니다.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "정책을 찾고 주문 상태를 확인해서 결과를 설명해줘.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## 기존 에이전트 API 호환
+
+`RunAgentAsync`와 `RunAgentStreamAsync`는 `[Obsolete]` 경고와 함께 기존 동작을 유지합니다. 아래는 기존 호출을 유지·이관할 때 참고할 예제입니다.
 
 함수를 등록한 후 목표와 함께 `RunAgentAsync`를 호출합니다:
 
@@ -62,19 +77,24 @@ catch (AgentMaxStepsExceededException ex)
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// 또는 확장 메서드로:
-service.WithMaxRounds(15).WithTimeout(60);
+// 기존 RunAgentAsync는 DefaultPolicy와 명시적인 maxSteps 인자를 사용합니다.
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "조사하고 요약해 주세요...", maxSteps: 15);
 ```
 
 미리 정의된 정책:
 
 ```csharp
-service.WithFastPolicy();    // 낮은 타임아웃, 적은 라운드 — 빠른 작업용
-service.WithComplexPolicy(); // 높은 타임아웃, 많은 라운드 — 심층 연구용
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // 낮은 타임아웃, 적은 라운드 — 빠른 작업용
+var fastResult = await service.RunAgentAsync(
+    "조사하고 요약해 주세요...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // 높은 타임아웃, 많은 라운드 — 심층 연구용
+var complexResult = await service.RunAgentAsync(
+    "조사하고 요약해 주세요...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## 호출별 요청 컨텍스트
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-컨텍스트는 `AsyncLocal`을 통해 전파되므로, 동일한 서비스 인스턴스에서 동시에 실행되는 여러 에이전트 호출이 서로 간섭하지 않습니다.
+`AIRequestContext`는 `AsyncLocal`로 전파되지만 서비스의 대화 기록과 실행 정책까지 동시 사용에 안전해지는 것은 아닙니다. 독립적인 동시 작업에는 별도 서비스 인스턴스를 사용하세요.
 
 사용 가능한 속성 전체 목록은 [AIRequestContext](request-contexts.md) 문서를 참고하세요 (`SystemMessagePrefix`, `SystemMessageSuffix`, `AdditionalMessages`, `RequestMessageOverride`).
 

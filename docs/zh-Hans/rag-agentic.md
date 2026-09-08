@@ -11,9 +11,11 @@
 
 Agent 式 RAG 解决了所有这些问题。它不是固定的检索-回答管道，而是由 **Agent 自主决定** — 何时搜索、搜索什么、是否再搜一次、何时调用其他工具 — 所有操作都在 ReAct 循环中完成。
 
+当回答需要多次检索或外部工具时，可以从注册了检索工具的服务启动 Run，为用户提供进度显示和停止操作。[Run 使用指南](execution-api-transition.md)说明执行中控制和追加指令的边界。
+
 ## 快速上手
 
-通过 `WithAgenticRag` 将 `RagStore` 注册为工具，然后使用 `RunAgentAsync`：
+通过 `WithAgenticRag` 将 `RagStore` 注册为工具，然后使用 `StartRunAsync(...)`：
 
 ```csharp
 // 构建一次索引
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("总结退款政策。");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("总结退款政策。");
+var answer = await run.Result;
 ```
 
 当 Agent 需要文档上下文时，会自动调用 `search_documents`，然后从检索到的片段中综合生成最终回答。
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // Agent 搜索文档获取政策，同时调用 API 获取实时订单数据
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "订单 #12345 — 根据当前政策，我是否有资格退款？");
+var answer = await run.Result;
 ```
 
 在这个例子中，Agent 自主完成：
@@ -75,7 +79,7 @@ service.WithAgenticRag(ragStore,
 | 查询构建 | QueryRewriter | Agent 自身 |
 | 搜索次数 | 每轮一次 | 按需一次或多次 |
 | 工具组合 | 不适用 | 任意已注册工具 |
-| 使用方式 | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| 使用方式 | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **注意：** Agent 式 RAG 中故意绕过了 `QueryRewriter`。Agent 会自行构建独立的搜索查询，单独的改写步骤既多余又可能扭曲 Agent 的意图。
 

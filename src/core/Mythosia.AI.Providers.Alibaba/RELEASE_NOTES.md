@@ -1,5 +1,23 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v2.0.1
+
+### Fixed
+
+- Qwen's non-streaming completion override now enters the common request-feature scope. Unsupported common reasoning or hosted-search options are validated and consumed before an HTTP request, rather than bypassing validation or leaking into a later call.
+
+### Changed
+
+- Targets `Mythosia.AI` v7.1.0 and its request-scope implementation. Qwen inherits the core `StartRunAsync` controls for output, final results, cancellation, and disposal; existing tools continue through the common round policy.
+
+### Compatibility
+
+- Requires `Mythosia.AI` v7.1.0, which depends on `Mythosia.AI.Abstractions` v3.1.0. No existing Qwen public member is removed or changed.
+- DashScope, vLLM, and Ollama retain their provider-specific `ThinkingMode` and endpoint settings. This adapter does not gain native steering, hosted search, or native asynchronous-tool support; Qwen runs report `CanSteer = false`. Functions with `AllowAsync` set still use ordinary execution.
+- Qwen remains a chat-completion provider and does not implement `IImageGenerationService`. The v2.0.0 migration notes below still apply when upgrading from v1.x.
+
+---
+
 ## v2.0.0
 
 > This is the Alibaba provider release paired with Mythosia.AI v7. Follow the [v7 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) before upgrading.

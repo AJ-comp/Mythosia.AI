@@ -1,5 +1,7 @@
 # AIRequestContext
 
+Контекст запиту дає змогу додати актуальні відомості лише до потрібного завдання. Його можна передати й під час [запуску Run](execution-api-transition.md), зберігши можливість спостереження та скасування.
+
 ## Огляд
 
 `AIRequestContext` **змінює те, що бачить модель, лише для одного запиту** — додавання інструкцій, довідкових документів або повна заміна повідомлення користувача — без постійної зміни системного повідомлення чи історії діалогу.
@@ -21,6 +23,19 @@ var answer = await service.GetCompletionAsync(userQuestion,
     {
         SystemMessageSuffix = $"\n\nВідповідайте за контекстом:\n{retrievedDocs}"
     });
+```
+
+## Передавання контексту поточному завданню
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Підсумуйте документи.",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"Сьогодні: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
 ```
 
 ## Доступні властивості
@@ -227,7 +242,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### Як це працює
 
-Зареєструйте колбек один раз через fluent-хелпер `WithSystemMessageProvider`. Кожен вихідний виклик (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) автоматично викликає його для побудови базового контексту:
+Зареєструйте колбек один раз через fluent-хелпер `WithSystemMessageProvider`. Кожен вихідний виклик (`GetCompletionAsync`, `StartRunAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) автоматично викликає його для побудови базового контексту:
 
 ```csharp
 // Зазвичай при створенні сервісу / налаштуванні DI
@@ -258,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Непотокові шляхи (`GetCompletionAsync`, `RunAgentAsync`) не підтримують скасування за дизайном — їхні сигнатури не приймають `CancellationToken`, і provider завжди отримує `CancellationToken.None`. Якщо вашому provider потрібне скасування (наприклад, довгий DB-запит), використовуйте потокові шляхи (`StreamAsync`, `RunAgentStreamAsync`), які пробрасують токен того, хто викликає, аж до колбека provider.
+`StartRunAsync` передає токен скасування асинхронному постачальнику контексту незалежно від того, чи читає застосунок потік. Попередні `StreamAsync` і `RunAgentStreamAsync` також передають токен виклику. Сигнатури `GetCompletionAsync` і `RunAgentAsync` не приймають `CancellationToken`; якщо потрібен скасовуваний запит до бази даних чи іншого джерела контексту, використовуйте Run.
 
 ### Злиття з явним per-call контекстом
 

@@ -158,3 +158,46 @@ var fn = FunctionBuilder
 
 service.WithFunction(fn);
 ```
+
+## 模型异步工具调用
+
+天气查询较慢时，模型仍可先介绍不依赖天气结果的通用旅行用品。模型原生异步工具调用用于在这种等待期间继续独立工作；依赖查询结果的判断仍应等结果返回后再进行。
+
+GPT-6 Astra 支持和异步工具调用从 `Mythosia.AI` 7.1.0 开始提供，共享类型包含在 `Mythosia.AI.Abstractions` 3.1.0 中。
+
+`FunctionDefinition.AllowAsync` 默认为 `false`。只有在函数执行期间允许模型继续其他工作时，才将其设为 `true`，或调用 `FunctionBuilder.WithAsync()`。使用 `WithAsync(false)` 可关闭该选项。同一份函数定义和处理器可以在多个提供商之间复用。
+
+使用特性注册时，也可以通过 `[AiFunction("lookup", "查询数据", AllowAsync = true)]` 指定同一许可。
+
+```csharp
+using System.Threading.Tasks;
+using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+var weatherTool = FunctionBuilder.Create("get_demo_weather")
+    .WithDescription("返回首尔的示例天气")
+    .WithAsync()
+    .WithHandler(async _ =>
+    {
+        await Task.Delay(5000);
+        return "{\"city\":\"Seoul\",\"temperature_c\":24,\"source\":\"demo\"}";
+    })
+    .Build();
+service.WithFunction(weatherTool);
+var answer = await service.GetCompletionAsync(
+    "查询首尔的示例天气。等待时请介绍三件旅行必备物品。");
+```
+
+Mythosia 在 GPT-6 Astra 的 Responses API 中发送 `async: true`。对于不支持的模型和 API，会省略该字段并等待同一个处理器的结果，不会修改用户设置的 `AllowAsync` 值。提供商还必须将实际调用标为异步（`FunctionCall.IsAsync`）；开启许可不代表一定异步执行。
+
+`WithFunctionAsync` 用于注册 .NET 异步处理器，`FunctionExecutionMode.Parallel` 控制本地处理器调度，两者都不会自动开启此选项。`AllowAsync` 允许模型在函数结果返回前继续工作。 `FunctionExecutionMode` 仍控制普通调用。允许的异步任务即使在 `Sequential` 模式下也可重叠执行，并在独立任务池内共享 `MaxConcurrency` 上限。
+
+运行中的工具任务由 `GetCompletionAsync`、接收输入的旧 `StreamAsync`，或 `StartRunAsync` 返回的 `AIRun` 管理；完成后使用原始调用 ID 发送结果。成功的最终返回或 Run 完成会等待待处理结果完成处理。Run 独立于输出观察继续运行，但工具任务并不是脱离 Run 存续的公开后台会话。
+
+使用异步工具时，`GetCompletionAsync` 在请求结束后按顺序汇总中间的独立说明与最终文本。旧 `StreamAsync` 和 `run.StreamAsync()` 都在各轮文本到达时通知读取者；`run.Result` 同样是 Run 中所有文本的连接结果。
+
+处理器不接收取消令牌。因此，在取消、超时、错误或提前结束接收输入的旧流时，清理仍会等待已启动的处理器完成。仅停止读取 `run.StreamAsync()` 不会停止执行；取消 Run 应使用 `run.Cancel()`、启动时的令牌或释放 Run。此集成适用于已注册的函数处理器。底层协议见[官方 API 指南](https://developers.openai.com/api/docs/guides/async-tool-calling)。
+
+流式调用在确认函数调用完整且到达有效响应边界后才启动处理器，随后可在异步任务执行期间继续下一轮模型请求。未完成的调用事件不会触发执行。如果模型没有发起新调用但仍有任务未完成，Mythosia 会等待结果后再继续。为避免未完成的调用从历史中丢失，存在待处理调用时会禁用上下文超限后的自动摘要和重试。

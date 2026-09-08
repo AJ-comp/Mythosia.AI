@@ -11,6 +11,8 @@
 
 本章介绍提供这些控制能力的工具。
 
+除检索阶段进度外，如果还要控制答案生成时的显示和停止，可使用 `RagEnabledService.StartRunAsync` 返回的 Run。追加指令不会自动重复 RAG 检索。参见 [Run 使用指南](execution-api-transition.md)。
+
 ## 进度追踪
 
 通过每次查询的异步回调追踪当前正在执行的 RAG 阶段：

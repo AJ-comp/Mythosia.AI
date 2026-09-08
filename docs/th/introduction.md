@@ -22,7 +22,7 @@ Provider ทั้งหมดอยู่ใน package `Mythosia.AI` (ยก�
 
 | Provider | Models |
 |----------|--------|
-| **OpenAI** | GPT-5.x, GPT-4.1, GPT-4o, o3 series |
+| **OpenAI** | GPT-6 Astra, GPT-5.x, GPT-4.1, GPT-4o, o3 series |
 | **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 2.5 / 3 series |
 | **xAI** | Grok 4 series, Grok Build |

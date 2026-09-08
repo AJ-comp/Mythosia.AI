@@ -158,3 +158,46 @@ var fn = FunctionBuilder
 
 service.WithFunction(fn);
 ```
+
+## Asynchrone Tool-Aufrufe
+
+Eine langsame Abfrage muss die Antwort nicht vollständig anhalten. Während etwa Wetterdaten geladen werden, kann das Modell bereits allgemeine Reisetipps formulieren, die nicht vom Ergebnis abhängen. Asynchrone Werkzeugaufrufe erlauben diese unabhängige Arbeit; Aussagen, die das Ergebnis benötigen, müssen weiterhin darauf warten.
+
+GPT-6 Astra und Async-Tool-Aufrufe werden ab `Mythosia.AI` 7.1.0 unterstützt; die gemeinsamen Typen sind ab `Mythosia.AI.Abstractions` 3.1.0 verfügbar.
+
+`FunctionDefinition.AllowAsync` ist standardmäßig `false`. Setze es auf `true` oder rufe `FunctionBuilder.WithAsync()` auf, wenn das Modell während dieser Funktion weiterarbeiten darf. `WithAsync(false)` deaktiviert die Erlaubnis. Funktionsdefinition und Handler lassen sich unverändert bei mehreren Anbietern verwenden.
+
+Bei der Registrierung per Attribut setzt `[AiFunction("lookup", "Daten abfragen", AllowAsync = true)]` dieselbe Erlaubnis.
+
+```csharp
+using System.Threading.Tasks;
+using Mythosia.AI.Builders;
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+var weatherTool = FunctionBuilder.Create("get_demo_weather")
+    .WithDescription("Liefert Beispielwetter für Seoul")
+    .WithAsync()
+    .WithHandler(async _ =>
+    {
+        await Task.Delay(5000);
+        return "{\"city\":\"Seoul\",\"temperature_c\":24,\"source\":\"demo\"}";
+    })
+    .Build();
+service.WithFunction(weatherTool);
+var answer = await service.GetCompletionAsync(
+    "Prüfe das Beispielwetter für Seoul. Nenne währenddessen drei wichtige Dinge fürs Reisegepäck.");
+```
+
+Mythosia sendet `async: true` für GPT-6 Astra über die Responses API. Bei nicht unterstützten Modellen und APIs wird das Feld weggelassen und das Ergebnis desselben Handlers abgewartet; `AllowAsync` bleibt unverändert. Der Anbieter muss auch den tatsächlichen Aufruf als asynchron kennzeichnen (`FunctionCall.IsAsync`). Die Erlaubnis garantiert daher keine asynchrone Ausführung.
+
+`WithFunctionAsync` registriert einen asynchronen .NET-Handler; `FunctionExecutionMode.Parallel` steuert die lokale Handler-Ausführung. Beide aktivieren diese Erlaubnis nicht automatisch. `AllowAsync` erlaubt dem Modell, vor Eingang des Funktionsergebnisses weiterzuarbeiten. `FunctionExecutionMode` steuert weiterhin gewöhnliche Aufrufe. Erlaubte asynchrone Aufgaben können auch im Modus `Sequential` überlappen; für ihren separaten Aufgabenpool gilt gemeinsam die Grenze `MaxConcurrency`.
+
+Ausstehende Aufgaben gehören zur laufenden Anfrage: `GetCompletionAsync`, der bisherige `service.StreamAsync` oder ein mit `StartRunAsync` gestarteter `AIRun`. Jedes Ergebnis wird später seiner ursprünglichen Aufruf-ID zugeordnet. Erfolgreicher Abschluss beziehungsweise `run.Result` wartet auf die Verarbeitung ausstehender Ergebnisse. Eine vom Auftrag losgelöste öffentliche Sitzung für Hintergrundaufgaben gibt es nicht.
+
+Bei asynchronen Tools gibt `GetCompletionAsync` nach Abschluss des Requests die unabhängigen Zwischentexte und den abschließenden Text in ihrer Reihenfolge gesammelt zurück. `StreamAsync` liefert die Texte der einzelnen Runden, sobald sie eintreffen. `run.StreamAsync()` liefert ebenfalls eintreffende Texte; `run.Result` verbindet die gesamten Textereignisse des Runs.
+
+Handler erhalten keine Abbruchtokens. Bei Abbruch, Zeitüberschreitung oder Fehlern wartet die Bereinigung deshalb auf bereits gestartete Handler. Das frühe Beenden des bisherigen Service-Streams beendet dessen Ausführung; das Beenden von `run.StreamAsync()` beendet dagegen nur die Beobachtung. Zum Abbrechen des Runs verwende `run.Cancel()` oder gib ihn frei. Die Integration gilt für registrierte Funktionshandler; siehe [API-Protokoll](https://developers.openai.com/api/docs/guides/async-tool-calling) und [Run-Anleitung](execution-api-transition.md).
+
+Beim Streaming starten Handler erst, nachdem vollständige Funktionsaufrufe und ein gültiger Abschluss der Anbieterantwort bestätigt wurden. Die nächste Modellrunde kann anschließend während laufender asynchroner Aufgaben beginnen; unvollständige Funktionsaufrufe lösen keine Ausführung aus. Gibt das Modell keine neuen Aufrufe zurück, obwohl Aufgaben ausstehen, wartet Mythosia auf Ergebnisse. Automatische Zusammenfassungs- und Wiederholungsversuche bei Kontextüberlauf bleiben während ausstehender Aufrufe deaktiviert, damit unvollständige Aufrufe im Verlauf erhalten bleiben.

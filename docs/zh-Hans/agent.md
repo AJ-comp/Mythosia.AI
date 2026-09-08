@@ -8,9 +8,24 @@
 - "查找相关政策，检查订单状态，然后告诉我是否符合退款条件" — 需要按逻辑顺序串联不同工具
 - 模型可能需要在第一次搜索结果不够理想时**重试或优化**搜索
 
-手动编写这种编排逻辑既繁琐又容易出错。**Agent 循环**（ReAct 模式：推理 → 行动 → 观察 → 重复）自动处理这些 — 模型在每一步自行决定下一步该做什么，直到得出最终答案。
+`GetCompletionAsync`和`StartRunAsync`已经执行共用的模型与工具循环。旧版Agent辅助方法增加的是每次调用的轮数限制和专用异常转换，并不是独立的规划器或执行引擎。
 
-## 基本用法
+## 使用 Run 显示工具任务的进度
+
+如果需要让用户查看多工具任务的进度，或在中途停止任务，可以使用 `StartRunAsync`。追加指令支持和结果获取方式见 [Run 使用指南](execution-api-transition.md)。
+
+```csharp
+// 在任务开始前向 service 注册函数。
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "查找政策、检查订单并说明结果。",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+## 旧API兼容示例
+
+下文的 `RunAgentAsync` 和 `RunAgentStreamAsync` 是带 `[Obsolete]` 警告的兼容 API。新代码可使用上面的 Run；明确指定 `WithMaxRounds(10)` 可保留原来的 10 轮限制。如果依赖旧方法的专用异常处理，请先查看迁移指南。
 
 注册函数后，使用目标调用 `RunAgentAsync`：
 
@@ -62,19 +77,24 @@ catch (AgentMaxStepsExceededException ex)
 ```csharp
 service.DefaultPolicy = new FunctionCallingPolicy
 {
-    MaxRounds = 10,
     TimeoutSeconds = 30
 };
 
-// 或使用扩展方法：
-service.WithMaxRounds(15).WithTimeout(60);
+// 旧版RunAgentAsync使用DefaultPolicy和显式maxSteps参数。
+service.DefaultPolicy.TimeoutSeconds = 60;
+var policyResult = await service.RunAgentAsync(
+    "调研并总结...", maxSteps: 15);
 ```
 
 预定义策略：
 
 ```csharp
-service.WithFastPolicy();    // 低超时，少轮数 — 快速任务
-service.WithComplexPolicy(); // 高超时，多轮数 — 深度调研
+service.DefaultPolicy = FunctionCallingPolicy.Fast;    // 低超时，少轮数 — 快速任务
+var fastResult = await service.RunAgentAsync(
+    "调研并总结...", maxSteps: service.DefaultPolicy.MaxRounds);
+service.DefaultPolicy = FunctionCallingPolicy.Complex; // 高超时，多轮数 — 深度调研
+var complexResult = await service.RunAgentAsync(
+    "调研并总结...", maxSteps: service.DefaultPolicy.MaxRounds);
 ```
 
 ## 每次调用的请求上下文
@@ -108,7 +128,7 @@ await foreach (var content in service.RunAgentStreamAsync(
 }
 ```
 
-上下文通过 `AsyncLocal` 传播，因此同一服务实例上并发执行的多个 agent 调用不会互相干扰。
+`AIRequestContext`通过`AsyncLocal`传播，但这不意味着服务的对话历史和执行策略可以安全地并发修改。独立的并发任务应使用不同的服务实例。
 
 完整的可用属性列表请参阅 [AIRequestContext](request-contexts.md)（`SystemMessagePrefix`、`SystemMessageSuffix`、`AdditionalMessages`、`RequestMessageOverride`）。
 

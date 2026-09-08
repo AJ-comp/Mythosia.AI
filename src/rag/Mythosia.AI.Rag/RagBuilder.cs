@@ -751,18 +751,17 @@ namespace Mythosia.AI.Rag
             if (documents.Count == 0 || processedPaths.Count == 0)
                 return documents;
 
-            List<RagDocument>? filtered = null;
+            var filtered = new List<RagDocument>();
             foreach (var doc in documents)
             {
                 var normalized = TryNormalizePath(doc.Source);
                 if (normalized != null && processedPaths.Contains(normalized))
                     continue;
 
-                filtered ??= new List<RagDocument>();
                 filtered.Add(doc);
             }
 
-            return filtered ?? documents;
+            return filtered;
         }
 
         private static void TrackProcessedPaths(

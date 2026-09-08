@@ -2,12 +2,26 @@
 
 ## OpenAI (OpenAIService)
 
+> การรองรับ GPT-6 Astra และการเรียกเครื่องมือแบบอะซิงโครนัสเริ่มใน `Mythosia.AI` 7.1.0 โดยชนิดข้อมูลร่วมอยู่ใน `Mythosia.AI.Abstractions` 3.1.0
+
+หากเครื่องมือใช้เวลานานในการดึงข้อมูล GPT-6 Astra สามารถอธิบายหรือทำส่วนอื่นของงานที่ไม่ขึ้นกับผลนั้นต่อได้ระหว่างรอ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md)
+
+ดูวิธีตั้งระดับการให้เหตุผลข้ามผู้ให้บริการและใช้ข้อมูลใหม่หรือเอกสารที่จัดทำดัชนีแล้วใน[คู่มือการให้เหตุผลและการค้นหา](reasoning-and-search.md) ซึ่งระบุโมเดลที่รองรับ การรักษาแคช และข้อจำกัดการใช้ตัวเลือกร่วมกัน
+
 ### ระดับ Reasoning
 
-GPT-5.x และ o3 series รองรับการควบคุมระดับ reasoning เพื่อปรับสมดุลระหว่างความเร็วและความลึก:
+GPT-6 Astra / GPT-5.x และ o3 series รองรับการควบคุมระดับ reasoning เพื่อปรับสมดุลระหว่างความเร็วและความลึก:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol เป็นรุ่นเรือธง ส่วน Terra และ Luna เป็นตัวเลือกที่ประหยัดกว่า
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -27,6 +41,8 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High; // Minimal, Low, Medium, High
 ```
+
+GPT-6 Astra ใช้ Responses API เป็นค่าเริ่มต้น และการเรียกฟังก์ชันต้องใช้ API นี้ `Auto` ใช้ค่าเริ่มต้นของไลบรารีคือ `Medium` และไม่รองรับ `None` กับ `Minimal` ส่วน `AIRequestProfile.DisableReasoning = true` จะใช้ระดับ `Low` ในโหมด `Standard` และไม่ส่งสรุปการให้เหตุผล เลือก `Gpt6ReasoningMode.Pro` เพื่อใช้โหมด Pro กับรหัสโมเดลเดิม `gpt-6-astra`
 
 ### Text-to-Speech
 

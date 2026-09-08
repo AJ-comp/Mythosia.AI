@@ -2,12 +2,24 @@
 
 ## OpenAI (OpenAIService)
 
+> Поддержка GPT-6 Astra и асинхронных вызовов инструментов доступна с `Mythosia.AI` 7.1.0; общие типы включены в `Mythosia.AI.Abstractions` 3.1.0.
+
+Если инструмент долго загружает данные, GPT-6 Astra может в это время продолжать независимые пояснения или другие части задачи. `FunctionDefinition.AllowAsync = true` или `FunctionBuilder.WithAsync()` разрешает асинхронные вызовы для GPT-6 Astra через Responses. По умолчанию используется `false`; неподдерживаемые модели ждут результата того же обработчика. Примеры и жизненный цикл запроса описаны в [руководстве по вызовам функций](function-calling.md).
+
 ### Уровень рассуждений
 
 Баланс между скоростью и глубиной анализа:
 
 ```csharp
 using Mythosia.AI.Models;
+
+// GPT-6 Astra
+service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+service.WithGpt6Parameters(
+    reasoningEffort: Gpt6Reasoning.Medium, // Auto, Low, Medium, High, XHigh, Max
+    verbosity: Verbosity.Medium,
+    reasoningSummary: ReasoningSummary.Auto,
+    reasoningMode: Gpt6ReasoningMode.Standard);
 
 // GPT-5.6: Sol — флагманская модель; Terra и Luna — более экономичные варианты.
 service.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
@@ -24,6 +36,10 @@ service.Gpt5_2ReasoningEffort = Gpt5_2Reasoning.Medium;
 service.ChangeModel(AIModels.OpenAI.O3);
 service.Gpt5ReasoningEffort = Gpt5Reasoning.High;
 ```
+
+GPT-6 Astra по умолчанию использует Responses API; вызовы функций требуют этот API. `Auto` соответствует значению библиотеки по умолчанию — `Medium`; значения `None` и `Minimal` недоступны. `AIRequestProfile.DisableReasoning = true` задаёт уровень `Low` в режиме `Standard` и исключает сводку рассуждений. Выберите `Gpt6ReasoningMode.Pro` для режима Pro с тем же идентификатором модели `gpt-6-astra`.
+
+Для общих задач используйте [рассуждение и нативный поиск](reasoning-and-search.md); описанные ниже настройки отдельных провайдеров остаются доступны.
 
 ### Преобразование текста в речь (TTS)
 

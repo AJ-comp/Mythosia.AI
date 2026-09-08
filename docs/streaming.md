@@ -1,6 +1,24 @@
 # Streaming
 
-## Basic Streaming
+While a long answer is being written, users need feedback that work is progressing. Streaming displays text as it arrives, and the handle from `StartRunAsync` also provides the collected result and cancellation. See the [Run guide](execution-api-transition.md) for tool events and supported mid-turn instructions.
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Summarize the document.",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+## Existing input-taking streaming API
+
+The `service.StreamAsync(...)` calls below remain available in this minor update and are planned to leave the public API in the next major release. Use the Run example above for new execution control.
 
 Use `StreamAsync` to receive tokens as they are generated:
 

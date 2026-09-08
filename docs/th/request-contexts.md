@@ -1,5 +1,7 @@
 # AIRequestContext
 
+request context ช่วยเพิ่มข้อมูลล่าสุดเฉพาะงานที่ต้องใช้ โดยส่งให้[การเริ่ม Run](execution-api-transition.md) ได้เช่นกัน พร้อมความสามารถสังเกตและยกเลิกงาน
+
 ## คืออะไร?
 
 `AIRequestContext` ให้คุณเปลี่ยน **สิ่งที่ model เห็น** สำหรับ request เดียว — inject คำสั่งเพิ่มเติม เพิ่มเอกสารอ้างอิง หรือแทนที่ข้อความของ user ทั้งหมด — โดยไม่เปลี่ยน system message หรือประวัติการสนทนาของ service อย่างถาวร
@@ -39,6 +41,19 @@ var answer = await service.GetCompletionAsync(userQuestion,
 ```
 
 System message ถูกแก้เฉพาะ call นี้เท่านั้น request ถัดไปเห็น system message เดิม ไม่ต้อง cleanup
+
+## ส่งบริบทให้กับงานที่กำลังทำ
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "สรุปเอกสาร",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"วันนี้: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
 
 ## Properties ที่ใช้ได้
 
@@ -221,7 +236,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### วิธีการทำงาน
 
-ลงทะเบียน callback ครั้งเดียวผ่าน fluent helper `WithSystemMessageProvider` ทุก call ขาออก (`GetCompletionAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) จะเรียกมันโดยอัตโนมัติเพื่อสร้าง baseline context:
+ลงทะเบียน callback ครั้งเดียวผ่าน fluent helper `WithSystemMessageProvider` ทุก call ขาออก (`GetCompletionAsync`, `StartRunAsync`, `StreamAsync`, `RunAgentAsync`, `RunAgentStreamAsync`) จะเรียกมันโดยอัตโนมัติเพื่อสร้าง baseline context:
 
 ```csharp
 // โดยทั่วไปตอนสร้าง service / ตั้งค่า DI
@@ -252,7 +267,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-Path ที่ไม่ใช่ streaming (`GetCompletionAsync`, `RunAgentAsync`) ไม่รองรับการยกเลิกโดยการออกแบบ — ลายเซ็นไม่รับ `CancellationToken` และจะส่ง `CancellationToken.None` ไปยัง provider เสมอ หาก provider ของคุณต้องการการยกเลิก (เช่น query DB ที่ใช้เวลานาน) ให้ใช้ path แบบ streaming (`StreamAsync`, `RunAgentStreamAsync`) ซึ่งจะส่งผ่าน token ของผู้เรียกไปยัง callback ของ provider
+`StartRunAsync` ส่งโทเคนยกเลิกให้ตัวจัดหาบริบทแบบอะซิงโครนัส ไม่ว่าแอปจะอ่านสตรีมหรือไม่ ส่วน `StreamAsync` และ `RunAgentStreamAsync` เดิมก็ส่งโทเคนของผู้เรียกเช่นกัน ซิกเนเจอร์ของ `GetCompletionAsync` และ `RunAgentAsync` ไม่รับ `CancellationToken` หากต้องการยกเลิกการค้นฐานข้อมูลหรือแหล่งบริบทอื่น ให้ใช้ Run
 
 ### การ merge กับ context per-call ที่ระบุชัดเจน
 

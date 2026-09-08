@@ -40,6 +40,21 @@ var answer = await service.GetCompletionAsync(userQuestion,
 
 システムメッセージはこの1回の呼び出しでのみ変更されます。次のリクエストは元のシステムメッセージを見ます。クリーンアップは不要です。
 
+## Runにも同じリクエスト限定のコンテキストを使う
+
+作業中のレポートに今日の日付などを添えながら、サービスや会話履歴に残したくない場合も、`StartRunAsync`に同じ`AIRequestContext`を渡せます。進捗表示やキャンセルとの組み合わせは[Runの利用ガイド](execution-api-transition.md)を参照してください。
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "文書を要約してください。",
+    context: new AIRequestContext
+    {
+        SystemMessagePrefix = $"今日の日付: {DateTime.UtcNow:yyyy-MM-dd}.\n"
+    },
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
 ## 利用可能なプロパティ
 
 ### SystemMessagePrefix
@@ -223,7 +238,7 @@ await foreach (var token in service.RunAgentStreamAsync(goal)) { /* ... */ }
 
 ### 動作の仕組み
 
-`WithSystemMessageProvider` fluent ヘルパーでコールバックを一度登録します。すべての外向き呼び出し（`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）が自動的にそれを呼び出してベースラインコンテキストを構築します:
+`WithSystemMessageProvider` fluent ヘルパーでコールバックを一度登録します。すべての外向き呼び出し（`StartRunAsync`、`GetCompletionAsync`、`StreamAsync`、`RunAgentAsync`、`RunAgentStreamAsync`）が自動的にそれを呼び出してベースラインコンテキストを構築します:
 
 ```csharp
 // 通常はサービス構築 / DI セットアップ時に登録
@@ -254,7 +269,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-非ストリーミングパス（`GetCompletionAsync`、`RunAgentAsync`）は設計上キャンセルをサポートしません — シグネチャが `CancellationToken` を受け取らず、provider には常に `CancellationToken.None` が渡されます。Provider でキャンセルが必要な場合（例: 長時間の DB クエリ）は、呼び出し元のトークンを provider コールバックまで伝播するストリーミングパス（`StreamAsync`、`RunAgentStreamAsync`）を使用してください。
+`GetCompletionAsync`と旧`RunAgentAsync`は`CancellationToken`を受け取らず、コンテキストproviderには`CancellationToken.None`を渡します。長いDB照会などをキャンセルしたい場合は、`StartRunAsync(..., cancellationToken: token)`を使えます。出力を読み取らず`run.Result`だけを待つ場合でも、トークンはproviderへ伝播します。既存の`StreamAsync`と`RunAgentStreamAsync`も呼び出し元のトークンを渡します。`run.StreamAsync(token)`だけのキャンセルは観測を止めるもので、providerや実行全体はキャンセルしません。
 
 ### 明示的な per-call コンテキストとのマージ
 

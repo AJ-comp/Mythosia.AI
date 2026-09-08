@@ -32,6 +32,65 @@ if (@($parseErrors).Count -ne 0) {
 $publishText = [System.IO.File]::ReadAllText($publishScriptPath)
 $consumerText = [System.IO.File]::ReadAllText($consumerScriptPath)
 $prepareDocfxText = [System.IO.File]::ReadAllText($prepareDocfxScriptPath)
+$consumerAst = [System.Management.Automation.Language.Parser]::ParseFile(
+    $consumerScriptPath,
+    [ref]$tokens,
+    [ref]$parseErrors)
+Assert-True (@($parseErrors).Count -eq 0) `
+    "test-nuget-packages.ps1 must parse before consumer validation can run."
+
+$releaseSetAssignment = $publishAst.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+        $node.Left.VariablePath.UserPath -eq 'releasePackages'
+}, $true)
+$consumerIdsAssignment = $consumerAst.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+        $node.Left.VariablePath.UserPath -eq 'expectedIds'
+}, $true)
+Assert-True ($null -ne $releaseSetAssignment -and $null -ne $consumerIdsAssignment) `
+    "Both publication and consumer validation must declare their explicit release set."
+$releaseDefinitions = @(Invoke-Expression $releaseSetAssignment.Right.Extent.Text)
+$consumerIds = @(Invoke-Expression $consumerIdsAssignment.Right.Extent.Text)
+$expectedReleaseIds = @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba", "Mythosia.AI.Rag")
+$releaseIds = @($releaseDefinitions | ForEach-Object { [string]$_.Id })
+Assert-True (($releaseIds -join '|') -ceq ($expectedReleaseIds -join '|')) `
+    "Publication must include exactly the four dependency-ordered release packages, including RAG."
+Assert-True (($consumerIds -join '|') -ceq ($releaseIds -join '|')) `
+    "Package consumers must validate the same explicit release set that publication packs."
+
+$mappingFunction = $consumerAst.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -eq 'Get-ReleasePackageSourceMapping'
+}, $true)
+Assert-True ($null -ne $mappingFunction) `
+    "Consumer package source mapping must be generated from the explicit release set."
+Invoke-Expression $mappingFunction.Extent.Text
+[xml]$mappingXml = '<mapping>' + (Get-ReleasePackageSourceMapping -PackageIds $consumerIds) + '</mapping>'
+$mappedIds = @($mappingXml.mapping.package | ForEach-Object { [string]$_.pattern })
+Assert-True (($mappedIds -join '|') -ceq ($releaseIds -join '|')) `
+    "Each released package must map to local artifacts by exact ID, allowing unchanged RAG dependencies from NuGet."
+Assert-True ($consumerText.Contains('Get-ReleasePackageSourceMapping -PackageIds $expectedIds') -and
+    [regex]::IsMatch($consumerText, '<packageSource key="release-artifacts">\r?\n\$releasePackageSourceMapping')) `
+    "The generated exact-ID source mapping must be used in the consumer NuGet.config."
+
+$consumerCommands = @($consumerAst.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Invoke-PackageConsumer'
+}, $true))
+foreach ($consumerName in @('RagConsumer', 'RagNetStandardConsumer')) {
+    $ragConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
+    Assert-True ($ragConsumers.Count -eq 1 -and
+        $ragConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Rag"') -and
+        $ragConsumers[0].Extent.Text.Contains('"Mythosia.AI.Abstractions/$($versions[''Mythosia.AI.Abstractions''])"') -and
+        $ragConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")')) `
+        "$consumerName must consume the RAG package with the released abstractions and without the core implementation."
+}
 Assert-True ($publishText.Contains('Add-Type -AssemblyName System.Net.Http')) `
     "Windows PowerShell publication paths must load System.Net.Http before creating HttpClient."
 
@@ -246,6 +305,10 @@ $workflowPaths = @(
 $workflowText = ($workflowPaths | ForEach-Object {
     [System.IO.File]::ReadAllText($_)
 }) -join [Environment]::NewLine
+foreach ($workflowPath in $workflowPaths | Select-Object -First 2) {
+    Assert-True ([System.IO.File]::ReadAllText($workflowPath).Contains('./build/test-nuget-packages.ps1 -ArtifactsDirectory ./artifacts')) `
+        "CI and NuGet publication must run the shared four-package consumer validation."
+}
 
 $actionReferences = [regex]::Matches(
     $workflowText,

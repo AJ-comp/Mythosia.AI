@@ -5,13 +5,19 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>7.5.0</Version>
+    <Version>7.6.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI. Implements Mythosia.AI.Rag.Abstractions v6.x. Includes RagPipeline, text splitters, context builder, OpenAI/vLLM embedding providers, hybrid search (BM25 + Vector + RRF), re-ranking (Cohere, LLM, vLLM), Agentic RAG tool registration with per-call RagQueryOptions and structured search traces, search gate, keyword extraction, weighted-blend final selection, progress reporting, DoclingDocument-to-RagDocument conversion, and per-query VectorFilter passthrough (StoreFilter). Depends on Mythosia.AI.Abstractions (IAIService) instead of the full Mythosia.AI implementation.</Description>
-    <PackageTags>AI;RAG;AgenticRag;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking;MetadataFilter;Observability</PackageTags>
+    <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI, with document loading, splitting, embeddings, hybrid search, reranking, metadata filters, and Agentic RAG tools. Adds Run execution with streaming, cancellation, and supported steering, plus request-scoped reasoning and hosted-search forwarding. Requires Mythosia.AI.Abstractions 3.1.0 and Mythosia.AI.Rag.Abstractions 6.2.0; does not depend on the full Mythosia.AI implementation.</Description>
+    <PackageTags>AI;RAG;AgenticRag;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking;MetadataFilter;Observability;Run;Streaming;Reasoning;Search</PackageTags>
     <PackageProjectUrl>https://aj-comp.github.io/Mythosia.AI/docs/rag.html</PackageProjectUrl>
-    <PackageReleaseNotes>v7.5.0: Fixed RagPipeline.QueryAsync(query, topK, ...) silently dropping ProgressAsync and StoreFilter from RagPipelineOptions.DefaultQuery — the convenience overload now clones DefaultQuery via the new RagQueryOptions.Clone() and only overrides FinalFilter.TopK. Removed the PromptTemplate-keyed context builder cache that could tear under concurrent queries, and made RagStore.UpdateOptions configure a cloned options snapshot before atomically swapping it into the pipeline.</PackageReleaseNotes>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReleaseNotes>v7.6.0 adds RagEnabledService.StartRunAsync with one retrieval pass, streaming, cancellation, and supported steering; forwards request-scoped reasoning and hosted search to the final answer; and fixes all-duplicate source lists being embedded again. Existing completion and streaming APIs remain available. Requires Mythosia.AI.Abstractions 3.1.0 and Mythosia.AI.Rag.Abstractions 6.2.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
@@ -25,6 +31,10 @@
 
   <ItemGroup>
     <None Update="README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Update="RELEASE_NOTES.md">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>

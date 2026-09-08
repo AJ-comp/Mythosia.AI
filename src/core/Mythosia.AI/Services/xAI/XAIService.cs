@@ -53,6 +53,7 @@ namespace Mythosia.AI.Services.xAI
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            using var featureScope = BeginRequestFeaturesScope(message);
             var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
 

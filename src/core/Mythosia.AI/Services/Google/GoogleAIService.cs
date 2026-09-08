@@ -114,6 +114,7 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            using var featureScope = BeginRequestFeaturesScope(message);
             LastThinkingContent = null;
             var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
             CurrentPolicy = null;
@@ -158,7 +159,7 @@ namespace Mythosia.AI.Services.Google
 
                 if (functionCalls.Calls.Count == 0)
                 {
-                    AddAssistantMessage(content, thoughtSignature);
+                    AddAssistantMessage(content, thoughtSignature, responseContent);
                     return content;
                 }
 
@@ -183,11 +184,11 @@ namespace Mythosia.AI.Services.Google
         {
             var (text, thinking, sig) = ExtractResponseContentWithSignature(responseContent);
             LastThinkingContent = thinking;
-            AddAssistantMessage(text, sig);
+            AddAssistantMessage(text, sig, responseContent);
             return text;
         }
 
-        private void AddAssistantMessage(string content, string? thoughtSignature)
+        private void AddAssistantMessage(string content, string? thoughtSignature, string? response = null)
         {
             var msg = new Message(ActorRole.Assistant, content);
             if (thoughtSignature != null)
@@ -197,6 +198,8 @@ namespace Mythosia.AI.Services.Google
                     [MessageMetadataKeys.ThoughtSignature] = thoughtSignature
                 };
             }
+            if (response != null)
+                PreserveNativeGeminiParts(msg, response);
             ActivateChat.Messages.Add(msg);
         }
 
@@ -213,7 +216,9 @@ namespace Mythosia.AI.Services.Google
                     (int)response.StatusCode, response.ReasonPhrase, errorContent, "Gemini API request failed");
             }
 
-            return await response.Content.ReadAsStringAsync();
+            var responseContent = await response.Content.ReadAsStringAsync();
+            RecordGeminiCitations(responseContent);
+            return responseContent;
         }
 
         private async Task<string> ProcessStatelessRequestAsync(

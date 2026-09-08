@@ -10,8 +10,8 @@
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
     <Authors>JJW</Authors>
-    <PackageTags>AI;LLM;Alibaba;Qwen;DashScope;vLLM;Ollama;Reasoning;Streaming;FunctionCalling;ParallelFunctionCalling</PackageTags>
-    <Description>Alibaba Qwen provider for Mythosia.AI. Adds QwenService for DashScope, vLLM, and Ollama chat-completion endpoints, with streaming token usage, reasoning controls, custom deployment names, and ordered multi-function calls. Chat only; image generation is not supported. Requires Mythosia.AI 7.0.0.</Description>
+    <PackageTags>AI;LLM;Alibaba;Qwen;DashScope;vLLM;Ollama;Reasoning;Streaming;FunctionCalling;ParallelFunctionCalling;Run</PackageTags>
+    <Description>Alibaba Qwen provider for Mythosia.AI. Adds QwenService for DashScope, vLLM, and Ollama chat-completion endpoints, with streaming token usage, provider-specific reasoning controls, custom deployment names, ordered multi-function calls, and inherited Run output and cancellation controls. Chat only; native steering, hosted search, and image generation are not supported by this adapter. Requires Mythosia.AI 7.1.0.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -20,8 +20,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v2.0.0 is a breaking release for Mythosia.AI 7.0.0. Qwen non-streaming and streaming paths now preserve ordered function-call/result batches and use the shared sequential or bounded-parallel handler dispatcher. Removes the unsupported legacy image-method overrides; Qwen remains chat only and does not implement IImageGenerationService. Full notes and migration guide: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200</PackageReleaseNotes>
-    <Version>2.0.0</Version>
+    <PackageReleaseNotes>v2.0.1 connects Qwen completions to the common request-feature scope so unsupported options are validated and consumed. Requires Mythosia.AI 7.1.0 and retains provider-specific settings, ordinary tool execution, and inherited Run controls. No existing public API is removed. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201</PackageReleaseNotes>
+    <Version>2.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

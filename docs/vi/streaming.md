@@ -1,5 +1,23 @@
 # Streaming
 
+Hiển thị từng phần văn bản ngay khi nhận được giúp người dùng không phải đợi câu trả lời dài hoàn thành mới đọc. Nếu cần cả nút Dừng và trạng thái công cụ, hãy bắt đầu bằng `StartRunAsync` rồi đọc `run.StreamAsync()`. [Hướng dẫn Run](execution-api-transition.md) có ví dụ về callback và hủy.
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "Tóm tắt tài liệu.",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+Các ví dụ bên dưới dùng `service.StreamAsync` cũ nhận đầu vào để tương thích với mã hiện có. Nó vẫn gọi được trong bản cập nhật nhỏ này và dự kiến rút khỏi API công khai ở bản chính tiếp theo. `run.StreamAsync()` là phương thức khác để theo dõi đầu ra của Run đã khởi chạy.
+
 ## Streaming cơ bản
 
 Dùng `StreamAsync` để nhận token khi chúng được sinh ra:

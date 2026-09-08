@@ -11,6 +11,8 @@ The default RAG pipeline works well out of the box, but real-world projects ofte
 
 This chapter covers the tools that give you that control.
 
+You can observe retrieval progress separately from answer generation. `ProgressAsync` below reports pipeline stages; the run returned by `StartRunAsync` provides subsequent output and execution control. See the [Run guide](execution-api-transition.md) for the boundary between these stages.
+
 ## Progress Tracking
 
 Track which RAG stage is executing via a per-query async callback:

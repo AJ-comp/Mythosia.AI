@@ -25,6 +25,21 @@ await using var mcp = await service.WithMcpServerAsync(
 var answer = await service.GetCompletionAsync("List all files in /workspace");
 ```
 
+## Use MCP tools in a run
+
+A task that reads several files or calls multiple MCP tools benefits from visible progress and a way to stop. Keep a run handle to connect those controls while using the tools registered above.
+
+```csharp
+// Keep the MCP connection alive for every run that uses its tools.
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
+    "List files in /workspace and explain the project layout.",
+    onText: text => Console.Write(text),
+    cancellationToken: cancellationToken);
+string answer = await run.Result;
+```
+
+Registered MCP tools use the common function loop; no separate agent mode is required. The library executes tool calls automatically. A run does not own or dispose a shared `McpConnection`; dispose the run before disposing its connection. See the [run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md).
+
 ## Features
 
 - **Automatic tool discovery** — `tools/list` is called on connect; each tool becomes a `FunctionDefinition`

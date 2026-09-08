@@ -310,6 +310,13 @@ namespace Mythosia.AI.Services.Base
                     $"Function-result batch '{functionResults.FunctionCallBatchId}' has no matching call batch in history.");
             }
 
+            if (expectedBatch.Metadata?.TryGetValue(AsyncFunctionCallIdsMetadataKey, out var deferredValue) == true &&
+                deferredValue is IEnumerable<string> deferredIds)
+            {
+                ValidatePartialFunctionResults(functionResults, expectedBatch, deferredIds);
+                return;
+            }
+
             if (ActivateChat.Messages.Any(message =>
                 message.FunctionCallResultBatch?.FunctionCallBatchId == functionResults.FunctionCallBatchId))
             {
@@ -341,6 +348,31 @@ namespace Mythosia.AI.Services.Base
                         $"Function result at index {index} does not match its ordered call batch.");
                 }
             }
+        }
+
+        private void ValidatePartialFunctionResults(
+            FunctionCallResultBatch results,
+            FunctionCallBatch expectedBatch,
+            IEnumerable<string> deferredIds)
+        {
+            var delivered = new HashSet<string>(ActivateChat.Messages
+                .Where(message => message.FunctionCallResultBatch?.FunctionCallBatchId == expectedBatch.Id)
+                .SelectMany(message => message.FunctionCallResultBatch!.Results)
+                .Select(result => result.Call.Id), StringComparer.Ordinal);
+            var expected = expectedBatch.Calls.ToDictionary(call => call.Id, StringComparer.Ordinal);
+            foreach (var result in results.Results)
+            {
+                var call = result?.Call;
+                if (call == null || !expected.TryGetValue(call.Id, out var original) ||
+                    original.Name != call.Name || original.Index != call.Index || original.Source != call.Source)
+                    throw new AIServiceException("A partial function result does not match its original call batch.");
+                if (!delivered.Add(call.Id))
+                    throw new AIServiceException($"Function-call result '{call.Id}' already exists in conversation history or this result batch.");
+            }
+
+            var deferred = new HashSet<string>(deferredIds, StringComparer.Ordinal);
+            if (expectedBatch.Calls.Any(call => !delivered.Contains(call.Id) && !deferred.Contains(call.Id)))
+                throw new AIServiceException("A partial function-result batch cannot omit a synchronous call's result.");
         }
 
         private static void PopulateFunctionCallMetadata(

@@ -7,12 +7,16 @@
   - name: เริ่มต้นอย่างรวดเร็ว
     href: getting-started.md
 
+  - name: ควบคุมงานที่กำลังทำด้วย Run
+    href: execution-api-transition.md
 - name: ฟีเจอร์หลัก
   items:
   - name: การสร้างข้อความ
     href: completions.md
   - name: พารามิเตอร์การสร้าง
     href: generation-params.md
+  - name: เลือกระดับการให้เหตุผลและแหล่งอ้างอิง
+    href: reasoning-and-search.md
   - name: Streaming
     href: streaming.md
   - name: การใช้ token

@@ -1,5 +1,7 @@
 # Basic Completions
 
+Use `GetCompletionAsync` when your application sends a question and processes the answer after work finishes. Typed and RAG overloads remain supported. If you also need progress or control while work is ongoing, use the selection advice in the [Run guide](execution-api-transition.md).
+
 ## Single Turn
 
 The simplest usage — send a message, get a response:

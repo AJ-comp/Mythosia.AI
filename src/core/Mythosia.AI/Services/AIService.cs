@@ -19,7 +19,7 @@ using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.Base
 {
-    public abstract partial class AIService : IAIService, IFunctionRegisterable
+    public abstract partial class AIService : IAIService, IAIRunService, IAIRequestFeatureService, IFunctionRegisterable
     {
         protected readonly string ApiKey;
         protected readonly HttpClient HttpClient;
@@ -211,7 +211,24 @@ namespace Mythosia.AI.Services.Base
             var requestMessageOverride = _currentRequestContext.Value?.RequestMessageOverride;
             if (requestMessageOverride != null && messages.Count > 0)
             {
-                messages[messages.Count - 1] = requestMessageOverride;
+                // A run keeps its original input override anchored while tool results and
+                // later steering instructions are appended. Legacy requests retain their contract.
+                var overrideIndex = _runRequestMessageId == null ? messages.Count - 1
+                    : messages.FindIndex(message => message.Id == _runRequestMessageId);
+                if (overrideIndex >= 0)
+                {
+                    // Retain protocol metadata anchored to the original user input, including
+                    // cache-preserving reasoning updates, without mutating the caller's override.
+                    var replacement = requestMessageOverride;
+                    if (messages[overrideIndex].Metadata?.Count > 0)
+                    {
+                        replacement = requestMessageOverride.Clone();
+                        replacement.Metadata ??= new Dictionary<string, object>();
+                        foreach (var entry in messages[overrideIndex].Metadata!)
+                            if (!replacement.Metadata.ContainsKey(entry.Key)) replacement.Metadata[entry.Key] = entry.Value;
+                    }
+                    messages[overrideIndex] = replacement;
+                }
             }
 
             var additionalMessages = _currentRequestContext.Value?.AdditionalMessages;
@@ -284,14 +301,19 @@ namespace Mythosia.AI.Services.Base
 
         public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null)
         {
+            var message = new Message(ActorRole.User, prompt);
+            using var featureScope = profile != null && profile.Purpose != AIRequestPurpose.Default
+                ? SuppressRequestFeatures(message) : BeginRequestFeaturesScope(message);
             await ApplySummaryPolicyIfNeededAsync();
-            return await GetCompletionAsync(new Message(ActorRole.User, prompt), profile, context);
+            return await GetCompletionAsync(message, profile, context);
         }
 
         public abstract Task<string> GetCompletionAsync(Message message);
 
         public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)
         {
+            using var featureScope = profile != null && profile.Purpose != AIRequestPurpose.Default
+                ? SuppressRequestFeatures(message) : BeginRequestFeaturesScope(message);
             var effectiveContext = await BuildEffectiveContextAsync(context, CancellationToken.None).ConfigureAwait(false);
             if (profile == null && effectiveContext == null)
                 return await SendWithContextRecoveryAsync(message);
@@ -347,10 +369,11 @@ namespace Mythosia.AI.Services.Base
                         throw;
                     }
 
-                    if (_isSummarizing || StatelessMode)
+                    var compactionBlock = GetConversationCompactionBlockReason();
+                    if (_isSummarizing || StatelessMode || compactionBlock != null)
                     {
                         ex.RecoveryAttempts = attempt;
-                        ex.RecoverySkipReason = _isSummarizing ? "summarizing" : "stateless";
+                        ex.RecoverySkipReason = _isSummarizing ? "summarizing" : StatelessMode ? "stateless" : compactionBlock;
                         throw;
                     }
 
@@ -432,8 +455,9 @@ namespace Mythosia.AI.Services.Base
         private protected Action SuppressRequestContext()
         {
             var backup = _currentRequestContext.Value;
+            var featureScope = SuppressRequestFeatures();
             _currentRequestContext.Value = null;
-            return () => _currentRequestContext.Value = backup;
+            return () => { _currentRequestContext.Value = backup; featureScope.Dispose(); };
         }
 
         #endregion
@@ -585,6 +609,7 @@ namespace Mythosia.AI.Services.Base
         {
             var backup = _currentRequestContext.Value;
             _currentRequestContext.Value = context;
+            if (_runRequestMessageId != null) _runEffectiveRequestContext = context;
             return () => _currentRequestContext.Value = backup;
         }
 

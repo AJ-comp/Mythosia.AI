@@ -6,6 +6,8 @@
     href: core-concepts.md
   - name: Primeiros passos
     href: getting-started.md
+  - name: Controlar tarefas em andamento com Run
+    href: execution-api-transition.md
 
 - name: Funcionalidades principais
   items:
@@ -13,6 +15,8 @@
     href: completions.md
   - name: Parâmetros de geração
     href: generation-params.md
+  - name: Raciocínio e respostas com fontes
+    href: reasoning-and-search.md
   - name: Streaming
     href: streaming.md
   - name: Uso de tokens

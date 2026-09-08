@@ -12,8 +12,12 @@ service.FrequencyPenalty = 0.0f;   // 반복 토큰 패널티
 service.PresencePenalty = 0.0f;    // 이미 등장한 토큰 패널티
 ```
 
+GPT-6 Astra는 `temperature`와 `top_p`를 지원하지 않습니다. 공통 속성이나 요청 프로파일에서 설정해도 Mythosia가 전송 시 두 필드를 생략합니다. 최대 출력은 128,000토큰입니다. 추론 수준과 응답 상세도는 [GPT-6 설정](providers.md#추론-수준)을 참고하세요.
+
 
 ## 플루언트 확장 메서드
+
+빠른 초안 다음에 깊은 검토가 필요하거나 최신 정보·문서를 근거로 답해야 한다면 [요청별 추론과 검색](reasoning-and-search.md)의 `WithReasoning`, `WithWebSearch`, `WithFileSearch`를 사용합니다. 다음 논리적 요청에 옵션을 복사해 적용하며, 아래의 서비스 기본 설정도 계속 사용할 수 있습니다.
 
 `this`를 반환하므로 체이닝이 가능합니다:
 

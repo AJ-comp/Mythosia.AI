@@ -11,6 +11,8 @@ Die Standard-RAG-Pipeline funktioniert gut von Anfang an, aber reale Projekte br
 
 Dieses Kapitel behandelt die Werkzeuge, die dir diese Kontrolle geben.
 
+Für Fortschrittsanzeige und Abbruch während der Antwort lässt sich die angepasste Pipeline mit einem Run verbinden. Wann die Suche stattfindet und was zusätzliche Anweisungen verändern, beschreibt die [Run-Anleitung](execution-api-transition.md).
+
 ## Fortschrittsüberwachung
 
 Verfolge, welche RAG-Stufe gerade ausgeführt wird, über einen asynchronen Callback pro Abfrage:

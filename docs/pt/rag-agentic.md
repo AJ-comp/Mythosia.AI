@@ -1,5 +1,7 @@
 # RAG Agêntico
 
+Uma pergunta com várias partes pode exigir outra busca ou uma fonte diferente. O [guia de Run](execution-api-transition.md) explica como observar e controlar esse trabalho durante a execução.
+
 ## Por que RAG Agêntico?
 
 No RAG padrão, cada mensagem do usuário dispara exatamente **uma** busca. O sistema pesquisa, monta o contexto e gera a resposta — sem exceções. Isso funciona bem para perguntas simples, mas deixa a desejar quando:
@@ -13,7 +15,7 @@ O RAG Agêntico resolve tudo isso. Em vez de um pipeline fixo de buscar-e-respon
 
 ## Início Rápido
 
-Registre o `RagStore` como ferramenta com `WithAgenticRag` e delegue ao `RunAgentAsync`:
+Registre o `RagStore` como ferramenta com `WithAgenticRag` e delegue ao `StartRunAsync(...)`:
 
 ```csharp
 // Construir o índice uma vez
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Resuma a política de reembolso.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Resuma a política de reembolso.");
+var answer = await run.Result;
 ```
 
 O agente chama `search_documents` automaticamente sempre que precisa de contexto documental e sintetiza a resposta final a partir dos trechos recuperados.
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // O agente busca a política nos documentos E chama a API para dados do pedido
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Pedido #12345 — tenho direito a reembolso com base na política atual?");
+var answer = await run.Result;
 ```
 
 Neste exemplo, o agente de forma autônoma:
@@ -75,7 +79,7 @@ Uma descrição vaga como "Pesquisar documentos" pode fazer o agente chamar o RA
 | Formulação da consulta | QueryRewriter | O próprio agente |
 | Número de buscas | Uma por turno | Uma ou mais conforme necessário |
 | Combinação de ferramentas | Não aplicável | Qualquer ferramenta registrada |
-| Configuração | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| Configuração | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **Nota:** O `QueryRewriter` é intencionalmente ignorado no RAG Agêntico. O agente formula sua própria consulta de busca autocontida, tornando uma etapa de reescrita separada redundante e potencialmente distorcida.
 

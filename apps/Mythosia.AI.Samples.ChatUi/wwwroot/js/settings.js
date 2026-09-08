@@ -44,7 +44,7 @@ async function applySettings() {
       } else {
         body.reasoningEnabled = null;
       }
-    } else if (info.type === 'claude_always' || info.type === 'gemini3') {
+    } else if (info.type === 'claude_always' || info.type === 'gemini3' || info.type === 'gpt6') {
       const sel = reasoningLvls.querySelector('input[name="reasoning-level"]:checked');
       body.reasoningEnabled = true;
       body.reasoningLevel = sel ? sel.value : info.levels[0];
@@ -88,7 +88,7 @@ export function updateReasoningUI() {
           reasoningLvls.appendChild(label);
         });
       }
-    } else if (info.type === 'claude_always' || info.type === 'gemini3') {
+    } else if (info.type === 'claude_always' || info.type === 'gemini3' || info.type === 'gpt6') {
       setReasoning.checked = true;
       setReasoning.disabled = true;
       reasoningOpts.classList.remove('hidden');

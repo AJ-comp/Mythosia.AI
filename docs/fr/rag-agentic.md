@@ -1,5 +1,7 @@
 # RAG agentique
 
+Une question à plusieurs volets peut nécessiter une nouvelle recherche ou une autre source. Le [guide Run](execution-api-transition.md) explique comment observer et piloter ce travail pendant son exécution.
+
 ## Pourquoi le RAG agentique ?
 
 Dans le RAG standard, chaque message utilisateur déclenche exactement **une** récupération. Le système cherche, construit le contexte et génère une réponse — quoi qu'il arrive. Ça fonctionne bien pour les questions simples, mais atteint ses limites quand :
@@ -13,7 +15,7 @@ Le RAG agentique résout tout cela. Au lieu d'un pipeline fixe récupérer-puis-
 
 ## Démarrage rapide
 
-Enregistrez le `RagStore` comme outil avec `WithAgenticRag`, puis lancez `RunAgentAsync` :
+Enregistrez le `RagStore` comme outil avec `WithAgenticRag`, puis lancez `StartRunAsync(...)` :
 
 ```csharp
 // Construire l'index une fois
@@ -26,7 +28,8 @@ var ragStore = await RagStore.BuildAsync(cfg => cfg
 var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
-var answer = await service.RunAgentAsync("Résume la politique de remboursement.");
+await using var run = await service.WithMaxRounds(10).StartRunAsync("Résume la politique de remboursement.");
+var answer = await run.Result;
 ```
 
 L'agent appelle `search_documents` automatiquement dès qu'il a besoin de contexte documentaire, puis synthétise la réponse finale à partir des extraits récupérés.
@@ -44,8 +47,9 @@ service.WithAgenticRag(ragStore)
            async id => await orderApi.GetStatusAsync(id));
 
 // L'agent cherche dans les documents la politique ET appelle l'API pour les données de commande en direct
-var answer = await service.RunAgentAsync(
+await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Commande #12345 — suis-je éligible à un remboursement selon la politique actuelle ?");
+var answer = await run.Result;
 ```
 
 Dans cet exemple, l'agent procède de façon autonome :
@@ -75,7 +79,7 @@ Une description vague comme « Rechercher des documents » peut amener l'agent �
 | Formulation de la requête | QueryRewriter | L'agent lui-même |
 | Nombre de recherches | Une par tour | Une ou plusieurs selon les besoins |
 | Combinaison d'outils | Non applicable | Tout outil enregistré |
-| Configuration | `.WithRag()` | `.WithAgenticRag()` + `RunAgentAsync` |
+| Configuration | `.WithRag()` | `.WithAgenticRag()` + `StartRunAsync(...)` |
 
 > **Note :** `QueryRewriter` est intentionnellement contourné dans le RAG agentique. L'agent formule lui-même sa requête de recherche autonome, donc une étape de réécriture séparée serait redondante et pourrait déformer l'intention de l'agent.
 

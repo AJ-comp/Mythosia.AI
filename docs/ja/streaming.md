@@ -1,5 +1,23 @@
 # ストリーミング
 
+長い回答を最後まで待たずに読み始められるよう、到着したテキストを順に表示します。停止ボタンやツール状況も同じ処理に結び付ける場合は、`StartRunAsync`で開始して`run.StreamAsync()`を読みます。[Runの利用ガイド](execution-api-transition.md)にコールバックとキャンセルの例があります。
+
+```csharp
+await using var run = await service.StartRunAsync(
+    "文書を要約してください。",
+    cancellationToken: cancellationToken);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+
+string answer = await run.Result;
+```
+
+以下は既存の入力付き`service.StreamAsync`を使う互換性のための例です。今回のマイナー版では利用でき、次のメジャー版で公開APIから外す予定です。`run.StreamAsync()`は開始済みRunの出力を観測する別のメソッドです。
+
 ## 基本ストリーミング
 
 `StreamAsync`を使用してトークンが生成されるたびに受信します:
