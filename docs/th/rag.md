@@ -1,5 +1,9 @@
 # RAG (Retrieval-Augmented Generation)
 
+หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
+
+สำหรับคำตอบที่เสริมด้วยข้อมูลค้นคืน ให้ส่ง `cancellationToken` ไปยัง `RagEnabledService.GetCompletionAsync` ด้วย โทเค็นเดียวกันส่งผ่านการค้นคืน `LlmQueryRewriter` `LlmReranker` และการเรียกภายใน การยกเลิกระหว่างค้นคืนจะป้องกันการเรียกโมเดลถัดไป `RagPipeline.QueryAndGenerateAsync` ก็ส่งโทเค็นด้วย แต่ละองค์ประกอบต้องรองรับการยกเลิก และไม่ย้อนคืนการค้นคืนหรือการทำงานเครื่องมือที่เสร็จแล้ว
+
 หลังค้นหาเอกสาร การเขียนคำตอบอาจใช้เวลา [Run](execution-api-transition.md) ช่วยแสดงความคืบหน้าและยกเลิกการทำงานได้ โดยยังคงการค้นหาและเสริมบริบทของ RAG
 
 RAG ช่วยให้ model ตอบคำถามจากเอกสารของคุณเองโดยดึงส่วนที่เกี่ยวข้องมาในเวลา query
@@ -108,3 +112,5 @@ var response = await service.GetCompletionAsync("คำถามของคุ�
 - [Agentic RAG](rag-agentic.md) — AI ตัดสินใจเองว่าเมื่อไหร่และค้นอะไร
 - [Vector Store](vectordb-overview.md) — ตั้งค่า storage แบบถาวร
 - [Text Splitter](text-splitters.md) — กำหนดวิธีแบ่งเอกสาร
+
+Perplexity: [ใช้เวกเตอร์กับดัชนีของคุณ / ค้นหาโดยไม่สร้างคำตอบ](perplexity.md).

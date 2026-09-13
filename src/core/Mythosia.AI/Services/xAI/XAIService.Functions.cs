@@ -17,8 +17,14 @@ namespace Mythosia.AI.Services.xAI
             var p = CreateRequestParams(messages);
             var body = (Dictionary<string, object>)_protocol.BuildFunctionRequestBody(
                 p,
-                Functions,
-                FunctionCallMode);
+                RequestFunctions,
+                RequestFunctionCallMode);
+
+            if (GetModelFamily() == GrokModelFamily.Grok4_6)
+            {
+                body["max_tokens"] = (int)p.MaxTokens;
+                body["top_p"] = p.TopP;
+            }
 
             var lastMessage = messages.LastOrDefault();
             var isFunctionContinuation =
@@ -28,15 +34,15 @@ namespace Mythosia.AI.Services.xAI
                     "function_result";
 
             if (!isFunctionContinuation &&
-                FunctionCallMode != FunctionCallMode.None &&
-                !string.IsNullOrWhiteSpace(ForceFunctionName))
+                RequestFunctionCallMode != FunctionCallMode.None &&
+                !string.IsNullOrWhiteSpace(RequestForceFunctionName))
             {
                 body["tool_choice"] = new Dictionary<string, object>
                 {
                     ["type"] = "function",
                     ["function"] = new Dictionary<string, object>
                     {
-                        ["name"] = ForceFunctionName
+                        ["name"] = RequestForceFunctionName
                     }
                 };
             }

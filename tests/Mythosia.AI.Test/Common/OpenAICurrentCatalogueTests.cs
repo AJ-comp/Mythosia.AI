@@ -10,7 +10,8 @@ namespace Mythosia.AI.Tests.Common;
 [TestCategory("Unit")]
 public class OpenAICurrentCatalogueTests
 {
-    private static readonly string[] RetiredModelIds =
+    // This exclusion policy includes both retired and scheduled-for-retirement IDs.
+    private static readonly string[] PreviouslyRemovedModelIds =
     {
         "gpt-4-vision-preview",
         "chatgpt-4o-latest",
@@ -23,7 +24,7 @@ public class OpenAICurrentCatalogueTests
     };
 
     [TestMethod]
-    public void OpenAiModelConstants_DoNotExposeRetiredModels()
+    public void OpenAiModelConstants_DoNotReintroducePreviouslyRemovedModels()
     {
         var fields = typeof(AIModels.OpenAI).GetFields(BindingFlags.Public | BindingFlags.Static);
         var names = fields.Select(field => field.Name).ToHashSet(StringComparer.Ordinal);
@@ -45,7 +46,7 @@ public class OpenAICurrentCatalogueTests
         })
             Assert.IsFalse(names.Contains(retiredName), $"Retired model constant {retiredName} must not be public.");
 
-        foreach (var retiredId in RetiredModelIds)
+        foreach (var retiredId in PreviouslyRemovedModelIds)
             Assert.IsFalse(values.Contains(retiredId), $"Retired model ID {retiredId} must not be public.");
     }
 
@@ -70,7 +71,7 @@ public class OpenAICurrentCatalogueTests
         Assert.IsTrue(names.Contains(nameof(AIModels.OpenAI.Gpt5_4Nano)));
         Assert.IsFalse(names.Contains(nameof(AIModels.OpenAI.GptImage2)));
         Assert.IsFalse(names.Contains(nameof(AIModels.OpenAI.GptImage2_260421)));
-        foreach (var retiredId in RetiredModelIds)
+        foreach (var retiredId in PreviouslyRemovedModelIds)
             Assert.IsFalse(ids.Contains(retiredId), $"Chat UI must not expose retired model ID {retiredId}.");
     }
 
@@ -93,8 +94,7 @@ public class OpenAICurrentCatalogueTests
         var method = typeof(AIService)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Single(candidate =>
-                candidate.Name == nameof(AIService.QuickAskWithImageAsync) &&
-                candidate.GetParameters().Length == 4);
+                candidate.Name == nameof(AIService.QuickAskWithImageAsync));
         var modelParameter = method.GetParameters().Single(parameter => parameter.Name == "model");
 
         Assert.AreEqual(AIModels.OpenAI.Gpt4_1, modelParameter.DefaultValue);
@@ -103,7 +103,7 @@ public class OpenAICurrentCatalogueTests
     [TestMethod]
     [DataRow(AIModels.OpenAI.Gpt5_6)]
     [DataRow(AIModels.OpenAI.Gpt5_6Sol)]
-    [DataRow(AIModels.OpenAI.O3)]
+    [DataRow("o3")]
     [DataRow(AIModels.OpenAI.Gpt4_1)]
     public void ResponsesModels_DoNotAdvertiseUnsupportedSamplingControls(string model)
     {
@@ -126,6 +126,6 @@ public class OpenAICurrentCatalogueTests
     [TestMethod]
     public void Gpt5Pro_AdvertisesIts272KOutputLimit()
     {
-        Assert.AreEqual(272000u, ChatUiModelHelpers.GetDefaultMaxOutputTokens(AIModels.OpenAI.Gpt5Pro));
+        Assert.AreEqual(272000u, ChatUiModelHelpers.GetDefaultMaxOutputTokens("gpt-5-pro"));
     }
 }

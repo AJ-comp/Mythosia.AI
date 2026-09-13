@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -25,7 +25,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         protected override uint GetModelMaxOutputTokens()
         {
-            var model = Model?.ToLower() ?? "";
+            var model = RequestModel?.ToLower() ?? "";
             if (model.StartsWith("o3")) return 100000;
             if (IsGpt6Model(model)) return 128000;
             if (model == "gpt-5-pro") return 272000;
@@ -64,14 +64,14 @@ namespace Mythosia.AI.Services.OpenAI
             const int ReasoningModelTimeout = 300;
             const int ProModelTimeout = 600;
             var seconds = policy?.TimeoutSeconds;
-            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            var model = RequestModel?.ToLowerInvariant() ?? string.Empty;
             if (seconds == DefaultTimeout)
             {
                 if (model.Contains("-pro") ||
                     (model.StartsWith("gpt-5.6", StringComparison.OrdinalIgnoreCase) &&
-                     Gpt5_6ReasoningMode == global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Pro) ||
+                     RequestGpt5_6ReasoningMode == global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Pro) ||
                     (IsGpt6Model(model) &&
-                     Gpt6ReasoningMode == global::Mythosia.AI.Models.Gpt6ReasoningMode.Pro))
+                     RequestGpt6ReasoningMode == global::Mythosia.AI.Models.Gpt6ReasoningMode.Pro))
                 {
                     return ProModelTimeout;
                 }
@@ -96,35 +96,39 @@ namespace Mythosia.AI.Services.OpenAI
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
             LastReasoningSummary = null;
 
-            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
-            CurrentPolicy = null;
+            var policy = GetExecutionPolicy();
 
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
             using var cts = CreateRequestTimeoutCts(policy);
 
             // Stateless mode handling
             ChatBlock? originalChat = null;
-            if (StatelessMode)
+            if (RequestStatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
+                ActivateChat = new ChatBlock { SystemMessage = RequestSystemMessage };
             }
 
             Func<Task>? cleanupAsyncFunctions = null;
             try
             {
                 cleanupAsyncFunctions = BeginAsyncFunctionScope(ShouldUseFunctions);
-                Stream = false;
+                SetExecutionSetting(nameof(Stream), false);
+                cts.Token.ThrowIfCancellationRequested();
                 ActivateChat.Messages.Add(message);
                 var firstResponseMessageIndex = ActivateChat.Messages.Count;
 
                 // Main loop for function calling
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    cts.Token.ThrowIfCancellationRequested();
                     var result = await ProcessSingleRoundAsync(round, policy, cts.Token);
+                    cts.Token.ThrowIfCancellationRequested();
                     if (result.IsComplete)
                     {
                         if (UsedAsyncFunctions)
@@ -140,11 +144,17 @@ namespace Mythosia.AI.Services.OpenAI
                     }
                 }
 
+                cts.Token.ThrowIfCancellationRequested();
                 throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
             }
-            catch (OperationCanceledException)
+            catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
             {
-                throw new AIServiceException($"Request timeout after {timeoutSeconds} seconds");
+                throw new AIServiceException("The HTTP request timed out.", exception);
+            }
+            catch (OperationCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
+            {
+                throw new AIServiceException($"Request timeout after {timeoutSeconds} seconds", exception);
             }
             finally
             {
@@ -174,11 +184,11 @@ namespace Mythosia.AI.Services.OpenAI
                 Console.WriteLine($"[Round {round + 1}/{policy.MaxRounds}]");
 
             // 1. Send API request
-            var response = await SendApiRequestAsync(cancellationToken);
+            var responseContent = await SendApiRequestAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             // 2. Process response
-            var responseContent = await response.Content.ReadAsStringAsync();
-            bool isResponsesApi = IsNewApiModel(Model);
+            bool isResponsesApi = IsNewApiModel(RequestModel);
 
             // A Responses API payload is not safe to consume until the top-level response has
             // completed successfully. Validate before extracting or executing any tool call.
@@ -206,23 +216,22 @@ namespace Mythosia.AI.Services.OpenAI
         /// <summary>
         /// Send API request
         /// </summary>
-        private async Task<HttpResponseMessage> SendApiRequestAsync(CancellationToken cancellationToken)
+        private async Task<string> SendApiRequestAsync(CancellationToken cancellationToken)
         {
             bool useFunctions = ShouldUseFunctions;
 
-            var request = useFunctions
+            cancellationToken.ThrowIfCancellationRequested();
+            using var request = useFunctions
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
-            var response = await HttpClient.SendAsync(request, cancellationToken);
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
-            }
+                throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, responseContent);
 
-            return response;
+            return responseContent;
         }
 
         /// <summary>
@@ -234,13 +243,14 @@ namespace Mythosia.AI.Services.OpenAI
             bool isResponsesApi,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var (content, functionCalls) = ExtractFunctionCalls(responseContent);
 
             if (functionCalls.Calls.Count > 0)
             {
                 var functionMessageMetadata = new Dictionary<string, object>
                 {
-                    ["model"] = Model
+                    ["model"] = RequestModel
                 };
                 if (functionCalls.Metadata?.TryGetValue(
                         "function_finish_reason_mismatch",
@@ -353,8 +363,8 @@ namespace Mythosia.AI.Services.OpenAI
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             // Determine endpoint based on model
-            string endpoint = IsNewApiModel(Model)
-                ? (Stream ? "responses?stream=true" : "responses")
+            string endpoint = IsNewApiModel(RequestModel)
+                ? (RequestStream ? "responses?stream=true" : "responses")
                 : "chat/completions";
 
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -376,9 +386,9 @@ namespace Mythosia.AI.Services.OpenAI
             var allMessagesBuilder = new StringBuilder();
 
             // Add system message
-            if (!string.IsNullOrEmpty(ActivateChat.SystemMessage))
+            if (!string.IsNullOrEmpty(RequestSystemMessage))
             {
-                allMessagesBuilder.Append(ActivateChat.SystemMessage).Append('\n');
+                allMessagesBuilder.Append(RequestSystemMessage).Append('\n');
             }
 
             // Add all messages
@@ -421,9 +431,11 @@ namespace Mythosia.AI.Services.OpenAI
 
         #region Vision Support
 
-        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
+        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath, CancellationToken cancellationToken = default)
         {
-            var currentModel = Model;
+            cancellationToken.ThrowIfCancellationRequested();
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            var currentModel = RequestModel;
 
             bool supportsVision = IsGpt6Model(currentModel) ||
                                  currentModel.StartsWith("gpt-5", StringComparison.OrdinalIgnoreCase) ||
@@ -436,10 +448,10 @@ namespace Mythosia.AI.Services.OpenAI
             if (!supportsVision)
             {
                 ChangeModel(AIModels.OpenAI.Gpt4_1);
-                Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {Model} for vision support");
+                Console.WriteLine($"[GetCompletionWithImageAsync] Switched from {currentModel} to {RequestModel} for vision support");
             }
 
-            return await base.GetCompletionWithImageAsync(prompt, imagePath);
+            return await base.GetCompletionWithImageAsync(prompt, imagePath, cancellationToken);
         }
 
         #endregion
@@ -758,71 +770,39 @@ namespace Mythosia.AI.Services.OpenAI
 
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
+            ApplyOpenAIProfileSettings(profile);
+            return () => { };
+        }
+
+        protected override void ApplyCapabilityRequestProfile(AIRequestProfile profile)
+            => ApplyOpenAIProfileSettings(profile);
+
+        // Shared native flags only; execution-specific output reservations remain outside this helper.
+        private void ApplyOpenAIProfileSettings(AIRequestProfile profile)
+        {
             if (profile.DisableReasoning != true)
-                return base.ApplyProviderSpecificRequestProfile(profile);
+                return;
 
-            var backupGpt5 = Gpt5ReasoningEffort;
-            var backupGpt5Summary = Gpt5ReasoningSummary;
-            var backupO3Summary = O3ReasoningSummary;
-            var backupGpt51 = Gpt5_1ReasoningEffort;
-            var backupGpt51Summary = Gpt5_1ReasoningSummary;
-            var backupGpt52 = Gpt5_2ReasoningEffort;
-            var backupGpt52Summary = Gpt5_2ReasoningSummary;
-            var backupGpt53 = Gpt5_3ReasoningEffort;
-            var backupGpt53Summary = Gpt5_3ReasoningSummary;
-            var backupGpt54 = Gpt5_4ReasoningEffort;
-            var backupGpt54Summary = Gpt5_4ReasoningSummary;
-            var backupGpt55 = Gpt5_5ReasoningEffort;
-            var backupGpt55Summary = Gpt5_5ReasoningSummary;
-            var backupGpt56 = Gpt5_6ReasoningEffort;
-            var backupGpt56Summary = Gpt5_6ReasoningSummary;
-            var backupGpt56Mode = Gpt5_6ReasoningMode;
-            var backupGpt6 = Gpt6ReasoningEffort;
-            var backupGpt6Summary = Gpt6ReasoningSummary;
-            var backupGpt6Mode = Gpt6ReasoningMode;
+            SetExecutionSetting(nameof(Gpt5ReasoningEffort), Gpt5Reasoning.Minimal);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5ReasoningSummary), null);
+            SetExecutionSetting<ReasoningSummary?>(nameof(O3ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_1ReasoningEffort), Gpt5_1Reasoning.None);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_1ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_2ReasoningEffort), Gpt5_2Reasoning.None);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_2ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_3ReasoningEffort), Gpt5_3Reasoning.None);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_3ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_4ReasoningEffort), Gpt5_4Reasoning.None);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_4ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_5ReasoningEffort), Gpt5_5Reasoning.None);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_5ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_6ReasoningEffort), Gpt5_6Reasoning.None);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_6ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt5_6ReasoningMode), global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Standard);
+            SetExecutionSetting(nameof(Gpt6ReasoningEffort), Gpt6Reasoning.Low);
+            SetExecutionSetting<ReasoningSummary?>(nameof(Gpt6ReasoningSummary), null);
+            SetExecutionSetting(nameof(Gpt6ReasoningMode), global::Mythosia.AI.Models.Gpt6ReasoningMode.Standard);
 
-            Gpt5ReasoningEffort = Gpt5Reasoning.Minimal;
-            Gpt5ReasoningSummary = null;
-            O3ReasoningSummary = null;
-            Gpt5_1ReasoningEffort = Gpt5_1Reasoning.None;
-            Gpt5_1ReasoningSummary = null;
-            Gpt5_2ReasoningEffort = Gpt5_2Reasoning.None;
-            Gpt5_2ReasoningSummary = null;
-            Gpt5_3ReasoningEffort = Gpt5_3Reasoning.None;
-            Gpt5_3ReasoningSummary = null;
-            Gpt5_4ReasoningEffort = Gpt5_4Reasoning.None;
-            Gpt5_4ReasoningSummary = null;
-            Gpt5_5ReasoningEffort = Gpt5_5Reasoning.None;
-            Gpt5_5ReasoningSummary = null;
-            Gpt5_6ReasoningEffort = Gpt5_6Reasoning.None;
-            Gpt5_6ReasoningSummary = null;
-            Gpt5_6ReasoningMode = global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Standard;
-            Gpt6ReasoningEffort = Gpt6Reasoning.Low;
-            Gpt6ReasoningSummary = null;
-            Gpt6ReasoningMode = global::Mythosia.AI.Models.Gpt6ReasoningMode.Standard;
-
-            return () =>
-            {
-                Gpt5ReasoningEffort = backupGpt5;
-                Gpt5ReasoningSummary = backupGpt5Summary;
-                O3ReasoningSummary = backupO3Summary;
-                Gpt5_1ReasoningEffort = backupGpt51;
-                Gpt5_1ReasoningSummary = backupGpt51Summary;
-                Gpt5_2ReasoningEffort = backupGpt52;
-                Gpt5_2ReasoningSummary = backupGpt52Summary;
-                Gpt5_3ReasoningEffort = backupGpt53;
-                Gpt5_3ReasoningSummary = backupGpt53Summary;
-                Gpt5_4ReasoningEffort = backupGpt54;
-                Gpt5_4ReasoningSummary = backupGpt54Summary;
-                Gpt5_5ReasoningEffort = backupGpt55;
-                Gpt5_5ReasoningSummary = backupGpt55Summary;
-                Gpt5_6ReasoningEffort = backupGpt56;
-                Gpt5_6ReasoningSummary = backupGpt56Summary;
-                Gpt5_6ReasoningMode = backupGpt56Mode;
-                Gpt6ReasoningEffort = backupGpt6;
-                Gpt6ReasoningSummary = backupGpt6Summary;
-                Gpt6ReasoningMode = backupGpt6Mode;
-            };
         }
 
         protected override Action ApplyRequestProfile(AIRequestProfile profile)
@@ -833,16 +813,16 @@ namespace Mythosia.AI.Services.OpenAI
                 (profile.Purpose == AIRequestPurpose.Summarization ||
                  profile.Purpose == AIRequestPurpose.QueryRewrite) &&
                 profile.MaxTokens.HasValue &&
-                (Model.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase) || IsGpt6Model(Model)))
+                (RequestModel.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase) || IsGpt6Model(RequestModel)))
             {
                 // gpt-5-pro and GPT-6 always reason. Library-owned profiles that try
                 // to disable reasoning (for example summarization and query rewriting)
                 // still count hidden reasoning against the same output budget and can
                 // finish as `incomplete` before producing text. Reserve enough room only
                 // for this internal request, then restore the caller's MaxTokens value.
-                MaxTokens = Math.Min(
+                SetExecutionSetting(nameof(MaxTokens), Math.Min(
                     GetModelMaxOutputTokens(),
-                    Math.Max(profile.MaxTokens.Value, MinimumReasoningInternalProfileOutputTokens));
+                    Math.Max(profile.MaxTokens.Value, MinimumReasoningInternalProfileOutputTokens)));
             }
 
             return restore;

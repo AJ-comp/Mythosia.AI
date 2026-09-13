@@ -1,5 +1,57 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v4.0.0
+
+> This coordinated major release changes public contracts. See the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) before upgrading the package family.
+
+### Added
+
+- `AIModelCapabilities`, `ImageModelCapabilities` and `CapabilitySupport` add immutable provider-neutral support snapshots in `Mythosia.AI.Models.Capabilities`. Supported, Unsupported and Unknown remain distinct. Read-only typed choice lists, nullable model identity and known limits describe available controls without asserting enabled options, account access or all valid combinations. `StructuredOutput` includes common prompt/repair fallback, not guaranteed native constrained decoding. No required `IAIService` members are added; query implementations live in the core service and request builder. See [capability inspection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/model-capabilities.md).
+
+- **Rich Run result (major migration):** `AIRun.Result` changes from `Task<string>` to `Task<AIRunResult>`. The immutable snapshot exposes `Text`, defensively copied `Usage` and `Citations`, `Provider`, nullable `RequestedModel` and actual `Model`, `RoundCount`, `FinishReason`, and `RawFinishReason`. `AIFinishReason` defines `Unknown`, `Stop`, `MaxTokens`, `ToolCalls`, `ContentFilter`, and `Other`. Custom `AIRun` implementations must update their override and construct the new result; consumers must rebuild. Ordinary completion and `StructuredStreamRun<T>.Result` keep their existing result types. See [migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result-migration). `RequestedModel` is nullable: it captures the explicit model sent, including Perplexity model overrides, and remains null when presets, profiles, or server routing send no single explicit model. It is independent from the actual final response `Model`.
+- **Completion cancellation contract:** the string and Message `IAIService.GetCompletionAsync` signatures append optional `CancellationToken cancellationToken = default`. Existing source callers retain their profile/context positions; custom implementations must update both signatures and propagate the token, and consumers must rebuild. This is an intentional major API change, not an optional capability with a wait-only fallback. The token cancels client execution without guaranteeing provider inference/billing cancellation. See [migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation-migration).
+
+- `FunctionDefinition.HandlerWithCancellation` adds `Func<Dictionary<string, object>, CancellationToken, Task<string>>` without removing `Handler`; setting either replaces the same underlying handler. `FunctionCallResult.IsCancelled` identifies cancellation alongside `IsError = true`, including result snapshots. Core execution and the RAG/MCP adapters propagate these semantics without adding required `IAIService` members.
+
+- `ImageQuality`, `ImageBackground`, `ImageOutputFormat`, `ImageResolution`, `ImageAspectRatio`, and `ImageSizeKind` provide named image choices. Immutable `ImageSize` factories distinguish automatic sizing, exact pixels, and resolution/ratio presets.
+
+- `AIModels.OpenAI.GptImage2_5Sunburst`, `GptImage2_5Flare`, `GptImage2_5Sunburst_260908`, and `GptImage2_5Flare_260908` identify the GPT Image 2.5 aliases and September 8, 2026 snapshots. Select them through the existing `ImageGenerationRequest.Model` / `ImageEditRequest.Model`; no new required interface members or image-model default changes are introduced. Provider-specific validation is implemented in `Mythosia.AI`. See the [image guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-image-25).
+
+- Perplexity Agent API configuration, hosted-tool, search, and response contracts for the replacement integration. Common messages, runs, citations, and function batches are reused without adding required `IAIService` members.
+
+- `AIModels.xAI.GrokImagineImage2_0` identifies `grok-imagine-image-2.0` for the existing optional `IImageGenerationService`. Image options and provider support are described below.
+
+- `AIModels.xAI.Grok4_6` identifies `grok-4.6`. `GrokReasoning.XHigh` is appended without changing earlier enum numeric values. Provider validation and common request-level reasoning for this model are implemented by `Mythosia.AI` v8.0.0; unsupported levels are rejected explicitly.
+
+- `AIModels.Google.Gemini3_7Flash` and `Gemini3_8Flash` identify the generally available `gemini-3.7-flash` and `gemini-3.8-flash` models. They reuse the existing `GeminiThinkingLevel` and common `ReasoningLevel` contracts; model-specific validation is provided by `Mythosia.AI` v8.0.0.
+- `AIModels.DeepSeek.Flash` identifies `deepseek-flash` (V4.1 Flash). `DeepSeekReasoning` defines native `Auto`, `Low`, `High`, and `Max` effort values; provider validation, thinking activation, user image input, reasoning events, and tool rounds are implemented by Mythosia.AI v8.0.0 through existing shared contracts.
+
+- `AIModels.Anthropic.ClaudeFable5_1` and `ClaudeMythos5_1` expose the new Claude model IDs. Mythos 5.1 requires limited-access approval.
+- `ClaudeThinkingDisplay.Updates` represents readable progress updates without reasoning summaries.
+- `ClaudeThinkingPrefixMismatchBehavior.Error` and `.DropBlock` describe the provider's invalid-prefix handling.
+- `ClaudeInputTransformation` carries the provider's transformation type, request-local path, reason, and optional response/model identity.
+
+### Changed
+
+- Snapshots preserve the exact standard `ReadOnlyCollection<T>` / `ReadOnlyDictionary<TKey, TValue>` wrapper type inside typed containers, including supported backing collections, cycles and shared references. Standard non-generic `Hashtable` and `SortedList` copies retain their key comparers. No JSON dependency or public signature change is added.
+
+- Request/message snapshots retain multidimensional and nonzero-bound array shape, shared references and cycles, and the comparers of standard `Dictionary<,>`, `SortedDictionary<,>` and `SortedList<,>` containers. `default(JsonElement)` / Undefined remains valid snapshot data; document-owned JSON values remain detached. Core usage aggregation reports Int32 overflow instead of returning wrapped counts.
+
+- Message and function-argument snapshots detach `System.Text.Json.JsonElement` and `JsonNode` values from caller-owned documents and mutable nodes without adding a JSON package dependency. Unknown custom reference types retain their existing immutability responsibility.
+- `TokenUsage.TotalTokens` documents preservation of an explicitly reported provider total; Run output sequences permit only one enumeration. Public member signatures remain unchanged by these audit fixes.
+
+- `AIModels.Perplexity.Sonar` now identifies `perplexity/sonar` for the Agent API. Legacy Sonar model selections and Sonar-specific response contracts are removed as an intentional breaking migration ahead of the provider's 2026-09-27 endpoint retirement. See the [migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md).
+
+- DeepSeek `V4Flash` / `Chat` / `Reasoner` and OpenAI `Gpt5`, `Gpt5Mini`, `Gpt5Nano`, `Gpt5Pro`, `O3`, and `O3Pro` constants carry warning-only `[Obsolete]` annotations. Their names and original wire values are preserved; no replacement ID is silently substituted by the library. The provider temporarily routes `deepseek-v4-flash` to V4.1 Flash; use `Flash` explicitly in new code.
+
+### Compatibility
+
+- **Breaking image-option migration:** string `Quality`, `Background`, and `OutputFormat` become enums; `Size` becomes `ImageSize`; the separate request `AspectRatio` property is removed. OutputFormat now defaults to `ImageOutputFormat.Auto`. Update generation and edit callers using the [migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#image-options-migration); method signatures, result types, and image-model defaults remain. Provider adapters validate enum values, sizing modes, and format selectors before HTTP. No string compatibility conversion, image codec, or provider SDK is added.
+- Existing common enum values are retained. The completion cancellation parameter changes the `IAIService` contract and requires custom implementation updates and consumer rebuilds. The Perplexity-specific removals and changed Sonar wire ID require migration. Other obsolete model references produce warnings, which callers treating warnings as errors may need to resolve.
+- These controls are implemented by `Mythosia.AI` v8.0.0; the contracts package remains independent of provider SDKs and the full core implementation.
+
+---
+
 ## v3.1.0
 
 ### Added

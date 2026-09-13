@@ -1,5 +1,9 @@
 # RAG (Retrieval-Augmented Generation)
 
+Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
+
+For a retrieval-augmented answer, pass `cancellationToken` to `RagEnabledService.GetCompletionAsync` too. The same token reaches retrieval, `LlmQueryRewriter`, `LlmReranker`, and the inner completion; cancellation during retrieval prevents the later model call. `RagPipeline.QueryAndGenerateAsync` also forwards its token. Each component must cooperate with cancellation, and already completed retrieval or tool actions are not rolled back.
+
 RAG lets the model answer questions based on your own documents by retrieving relevant chunks at query time.
 
 To display an answer while it is being written from retrieved material, or let the user stop it, use `RagEnabledService.StartRunAsync`. Retrieval runs once before execution; steering does not automatically retrieve again. See the [Run guide](execution-api-transition.md) for usage.
@@ -108,3 +112,5 @@ If your provider already manages the document index, compare [hosted file search
 - [Agentic RAG](rag-agentic.md) — AI decides when and what to search
 - [Vector Stores](vectordb-overview.md) — persistent storage setup
 - [Text Splitters](text-splitters.md) — customize how documents are chunked
+
+Perplexity: [Use Perplexity vectors in your document index / Search without generating an answer](perplexity.md).

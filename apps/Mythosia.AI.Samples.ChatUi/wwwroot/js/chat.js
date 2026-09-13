@@ -96,6 +96,11 @@ async function sendMessage() {
     let contentSpan = null;
     let gotText = false;
     let fcCardEl = null;
+    let sourcesEl = null;
+    let usageEl = null;
+    const sourceUrls = new Set();
+    let inputTokens = 0;
+    let outputTokens = 0;
     let ragInfo = null;
     let ragProgressEl = null;
 
@@ -162,6 +167,38 @@ async function sendMessage() {
             thinkingEl = null;
             thinkingContent = null;
             reasoningText = '';
+          }
+          else if (parsed.type === 'citation' && parsed.citation) {
+            const citation = parsed.citation;
+            const url = citation.Url || citation.url;
+            if (!url || sourceUrls.has(url)) continue;
+            const sourceUrl = new URL(url);
+            if (!['https:', 'http:'].includes(sourceUrl.protocol)) continue;
+            sourceUrls.add(url);
+            if (!sourcesEl) {
+              sourcesEl = document.createElement('details');
+              const title = document.createElement('summary');
+              title.textContent = 'Sources';
+              sourcesEl.appendChild(title);
+              responseContainer.appendChild(sourcesEl);
+            }
+            const link = document.createElement('a');
+            link.href = sourceUrl.href;
+            link.textContent = citation.Title || citation.title || sourceUrl.hostname;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            const row = document.createElement('div');
+            row.appendChild(link);
+            sourcesEl.appendChild(row);
+          }
+          else if (parsed.type === 'usage' && parsed.usage) {
+            inputTokens += parsed.usage.InputTokens ?? parsed.usage.inputTokens ?? 0;
+            outputTokens += parsed.usage.OutputTokens ?? parsed.usage.outputTokens ?? 0;
+            if (!usageEl) {
+              usageEl = document.createElement('small');
+              responseContainer.appendChild(usageEl);
+            }
+            usageEl.textContent = `Tokens: ${inputTokens} input · ${outputTokens} output`;
           }
           else if (parsed.type === 'reasoning' && parsed.content != null) {
             reasoningText += parsed.content;

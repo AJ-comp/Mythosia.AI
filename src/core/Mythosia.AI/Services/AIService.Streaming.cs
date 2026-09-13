@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models;
+using Mythosia.AI.Models;
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -89,7 +89,7 @@ namespace Mythosia.AI.Services.Base
         /// Core streaming implementation using Template Method pattern.
         /// Manages the round loop, StatelessMode, and conversation summary policy.
         /// Providers override <see cref="StreamRoundAsync"/> to handle a single round.
-        /// Providers that do not support function calling rounds (e.g., DeepSeek, Sonar)
+        /// Providers that do not support function calling rounds (e.g., Sonar)
         /// may override this method directly.
         /// </summary>
         /// <remarks>
@@ -103,10 +103,13 @@ namespace Mythosia.AI.Services.Base
             AIRequestContext? context = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
             var featureExecution = _requestFeatureExecution.Value!;
+            var requestExecution = _requestExecution.Value!;
             var effectiveContext = await BuildEffectiveContextAsync(context, cancellationToken).ConfigureAwait(false);
             Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
+            var executionContext = _currentRequestContext.Value;
             try
             {
                 // Context-overflow recovery is not here — it lives inside StreamCoreAsync's round
@@ -116,7 +119,7 @@ namespace Mythosia.AI.Services.Base
                 var enumerator = StreamCoreAsync(message, options, cancellationToken).GetAsyncEnumerator(cancellationToken);
                 try
                 {
-                    while (await MoveNextWithFeaturesAsync(enumerator, featureExecution).ConfigureAwait(false))
+                    while (await MoveNextWithFeaturesAsync(enumerator, featureExecution, executionContext, requestExecution).ConfigureAwait(false))
                     {
                         var content = enumerator.Current;
                         if (content.Citation != null) featureExecution.Add(content.Citation);
@@ -126,7 +129,11 @@ namespace Mythosia.AI.Services.Base
                 finally
                 {
                     using var disposeFeatures = UseRequestFeatureExecution(featureExecution);
-                    await enumerator.DisposeAsync().ConfigureAwait(false);
+                    using var disposeSettings = UseRequestExecution(requestExecution);
+                    var previousContext = _currentRequestContext.Value;
+                    _currentRequestContext.Value = executionContext;
+                    try { await enumerator.DisposeAsync().ConfigureAwait(false); }
+                    finally { _currentRequestContext.Value = previousContext; }
                 }
             }
             finally
@@ -136,12 +143,16 @@ namespace Mythosia.AI.Services.Base
         }
 
         private async ValueTask<bool> MoveNextWithFeaturesAsync(IAsyncEnumerator<StreamingContent> enumerator,
-            RequestFeatureExecution execution)
+            RequestFeatureExecution execution, AIRequestContext? context, RequestExecution requestExecution)
         {
             // AsyncLocal changes inside an iterator do not survive the caller's next MoveNext.
             // Reestablish the captured request for every provider advancement, including tool rounds.
             using var scope = UseRequestFeatureExecution(execution);
-            return await enumerator.MoveNextAsync().ConfigureAwait(false);
+            using var settings = UseRequestExecution(requestExecution);
+            var previousContext = _currentRequestContext.Value;
+            _currentRequestContext.Value = context;
+            try { return await enumerator.MoveNextAsync().ConfigureAwait(false); }
+            finally { _currentRequestContext.Value = previousContext; }
         }
 
         /// <summary>
@@ -164,40 +175,44 @@ namespace Mythosia.AI.Services.Base
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
-            CurrentPolicy = null;
+            var policy = GetExecutionPolicy();
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
             using var roundLoopCts = CreateRequestTimeoutCts(policy, cancellationToken);
             var roundLoopCancellationToken = roundLoopCts.Token;
 
             bool useFunctions = options.IncludeFunctionCalls &&
                                ShouldUseFunctions &&
-                               !FunctionsDisabled;
+                               !RequestFunctionsDisabled;
 
             ChatBlock? originalChat = null;
-            if (StatelessMode)
+            if (RequestStatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
+                ActivateChat = new ChatBlock { SystemMessage = RequestSystemMessage };
             }
 
             var finishAsyncFunctions = BeginAsyncFunctionScope(useFunctions);
             try
             {
-                Stream = true;
+                SetExecutionSetting(nameof(Stream), true);
                 ActivateChat.Messages.Add(message);
 
                 int accInputTokens = 0;
                 int accOutputTokens = 0;
+                int accTotalTokens = 0;
                 int accCachedInputTokens = 0;
                 int accCacheCreationTokens = 0;
                 int accReasoningTokens = 0;
+                bool hasReportedUsage = false;
 
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
                     bool hasFunctionResult = false;
                     bool roundFailed = false;
                     TokenUsage? roundUsage = null;
+                    string? roundModel = null;
+                    string? roundRawFinishReason = null;
+                    var roundFinishReason = AIFinishReason.Unknown;
 
                     // Context-overflow recovery lives here, per round, rather than around the whole
                     // turn. A round that overflows has emitted nothing yet — the rejection is a
@@ -209,6 +224,9 @@ namespace Mythosia.AI.Services.Base
                         hasFunctionResult = false;
                         roundFailed = false;
                         roundUsage = null;
+                        roundModel = null;
+                        roundRawFinishReason = null;
+                        roundFinishReason = AIFinishReason.Unknown;
 
                         bool roundEmittedAny = false;
                         StreamingContent? withheld = null;
@@ -226,7 +244,7 @@ namespace Mythosia.AI.Services.Base
                                 var content = enumerator.Current;
 
                                 if (!roundEmittedAny && attempt < ContextRecoveryMaxRetries &&
-                                    !_isSummarizing && !StatelessMode && !HasPendingAsyncFunctions &&
+                                    !_isSummarizing && !RequestStatelessMode && !HasPendingAsyncFunctions &&
                                     GetConversationCompactionBlockReason() == null && IsContextOverflowChunk(content))
                                 {
                                     withheld = content;
@@ -246,6 +264,14 @@ namespace Mythosia.AI.Services.Base
                                 if (content.Usage != null)
                                     roundUsage = CopyTokenUsage(content.Usage);
 
+                                if (content.ResponseModel != null)
+                                    roundModel = content.ResponseModel;
+                                if (content.RawFinishReason != null || content.FinishReason != AIFinishReason.Unknown)
+                                {
+                                    roundRawFinishReason = content.RawFinishReason;
+                                    roundFinishReason = content.FinishReason;
+                                }
+
                                 if (content.Type == StreamingContentType.Completion)
                                 {
                                     // Only yield Completion on the final round (no more function calls)
@@ -262,7 +288,11 @@ namespace Mythosia.AI.Services.Base
                         var compaction = SummaryCompactionResult.Skipped("compaction-threw");
                         try
                         {
-                            compaction = await ForceCompactAsync();
+                            compaction = await ForceCompactAsync(roundLoopCancellationToken);
+                        }
+                        catch (OperationCanceledException) when (roundLoopCancellationToken.IsCancellationRequested)
+                        {
+                            throw;
                         }
                         catch
                         {
@@ -291,11 +321,16 @@ namespace Mythosia.AI.Services.Base
 
                     if (roundUsage != null)
                     {
-                        accInputTokens += roundUsage.InputTokens;
-                        accOutputTokens += roundUsage.OutputTokens;
-                        accCachedInputTokens += roundUsage.CachedInputTokens;
-                        accCacheCreationTokens += roundUsage.CacheCreationTokens;
-                        accReasoningTokens += roundUsage.ReasoningTokens;
+                        hasReportedUsage = true;
+                        checked
+                        {
+                            accInputTokens += roundUsage.InputTokens;
+                            accOutputTokens += roundUsage.OutputTokens;
+                            accTotalTokens += roundUsage.TotalTokens;
+                            accCachedInputTokens += roundUsage.CachedInputTokens;
+                            accCacheCreationTokens += roundUsage.CacheCreationTokens;
+                            accReasoningTokens += roundUsage.ReasoningTokens;
+                        }
 
                         // Update last known input tokens for summary trigger.
                         // Each round's InputTokens represents the full conversation context,
@@ -318,23 +353,28 @@ namespace Mythosia.AI.Services.Base
                         {
                             var finalCompletion = new StreamingContent
                             {
-                                Type = StreamingContentType.Completion
+                                Type = StreamingContentType.Completion,
+                                RoundIndex = round + 1,
+                                IsFinalRound = true,
+                                ResponseModel = roundModel,
+                                FinishReason = roundFinishReason,
+                                RawFinishReason = roundRawFinishReason
                             };
                             if (options.IncludeMetadata)
                             {
                                 finalCompletion.Metadata = new Dictionary<string, object>
                                 {
-                                    ["model"] = Model,
+                                    ["model"] = RequestModel,
                                     ["total_rounds"] = round + 1
                                 };
                             }
-                            if (accInputTokens > 0 || accOutputTokens > 0)
+                            if (hasReportedUsage)
                             {
                                 finalCompletion.Usage = new TokenUsage
                                 {
                                     InputTokens = accInputTokens,
                                     OutputTokens = accOutputTokens,
-                                    TotalTokens = accInputTokens + accOutputTokens,
+                                    TotalTokens = accTotalTokens,
                                     CachedInputTokens = accCachedInputTokens,
                                     CacheCreationTokens = accCacheCreationTokens,
                                     ReasoningTokens = accReasoningTokens
@@ -344,7 +384,7 @@ namespace Mythosia.AI.Services.Base
                         }
 
                         // Apply summary after streaming completes (prepares context for next turn)
-                        await ApplySummaryPolicyIfNeededAsync();
+                        await ApplySummaryPolicyIfNeededAsync(roundLoopCancellationToken);
                         yield break;
                     }
                 }
@@ -359,7 +399,7 @@ namespace Mythosia.AI.Services.Base
                     {
                         ["status"] = "max_rounds_exceeded",
                         ["max_rounds"] = policy.MaxRounds,
-                        ["model"] = Model
+                        ["model"] = RequestModel
                     }
                 };
             }
@@ -433,11 +473,44 @@ namespace Mythosia.AI.Services.Base
             {
                 InputTokens = usage.InputTokens,
                 OutputTokens = usage.OutputTokens,
-                TotalTokens = usage.InputTokens + usage.OutputTokens,
+                TotalTokens = usage.TotalTokens,
                 CachedInputTokens = usage.CachedInputTokens,
                 CacheCreationTokens = usage.CacheCreationTokens,
                 ReasoningTokens = usage.ReasoningTokens
             };
+        }
+
+        /// <summary>Normalizes a reported provider reason without guessing when none was supplied.</summary>
+        protected static AIFinishReason MapFinishReason(string? reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason)) return AIFinishReason.Unknown;
+            switch (reason!.ToLowerInvariant())
+            {
+                case "stop":
+                case "end_turn":
+                case "stop_sequence":
+                case "completed":
+                    return AIFinishReason.Stop;
+                case "length":
+                case "max_tokens":
+                case "max_output_tokens":
+                    return AIFinishReason.MaxTokens;
+                case "tool_calls":
+                case "function_call":
+                case "tool_use":
+                    return AIFinishReason.ToolCalls;
+                case "content_filter":
+                case "refusal":
+                case "safety":
+                case "recitation":
+                case "blocklist":
+                case "prohibited_content":
+                case "spii":
+                case "image_safety":
+                    return AIFinishReason.ContentFilter;
+                default:
+                    return AIFinishReason.Other;
+            }
         }
 
         /// <summary>
@@ -526,20 +599,8 @@ namespace Mythosia.AI.Services.Base
             Message message,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var originalMode = StatelessMode;
-            StatelessMode = true;
-
-            try
-            {
-                await foreach (var chunk in StreamAsync(message, cancellationToken: cancellationToken))
-                {
-                    yield return chunk;
-                }
-            }
-            finally
-            {
-                StatelessMode = originalMode;
-            }
+            await foreach (var chunk in CreateRequest(message).WithStatelessMode().StreamAsync(cancellationToken))
+                yield return chunk;
         }
 
         #endregion

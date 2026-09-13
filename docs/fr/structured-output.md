@@ -1,5 +1,7 @@
 # Sortie structurée
 
+Pour un résultat final et un bouton Arrêter, passez `cancellationToken` à `GetCompletionAsync`. Utilisez Run pour les événements de progression ou les instructions supplémentaires prises en charge. Voir [l’annulation](completions.md#completion-cancellation).
+
 ## Pourquoi utiliser la sortie structurée ?
 
 Par défaut, les LLM retournent du texte libre. Si votre application doit **traiter la réponse par programme** — la stocker en base de données, la transmettre à une autre API ou l'afficher dans une UI typée — il faut parser ce texte manuellement. Cela mène à des regex ou des `string.Contains` fragiles qui cassent dès que le modèle change de formulation.
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry : retourner la première erreur de validation sans nouvelle tentative
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+Le nombre de réparations exclut la réponse initiale. `StructuredOutputMaxRetries` et `MaxRepairAttempts` traitent les valeurs négatives comme zéro et acceptent au maximum `int.MaxValue - 1`. La valeur `int.MaxValue` déclenche une `ArgumentOutOfRangeException` avant toute requête au fournisseur pour éviter un dépassement du nombre total de tentatives. Cela vaut pour les appels de complétion typés et `BeginStream(...).As<T>()`.

@@ -1,5 +1,10 @@
 # 스트리밍
 
+완성된 답변과 사용량·출처를 함께 받아야 한다면 `await run.Result`가 반환하는 `AIRunResult`를 사용하세요. 문자열은 `result.Text`에 있으며 스트림을 읽지 않아도 결과를 모읍니다. Mythosia.AI 8.0.0의 API 변경이며 `GetCompletionAsync`와 타입 지정 `StructuredStreamRun<T>.Result`의 반환형은 유지합니다. [Run 결과와 전환 안내](execution-api-transition.md#run-result).
+
+
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
 긴 답변이 완성될 때까지 기다리면 사용자는 작업이 진행 중인지 알기 어렵습니다. 스트리밍으로 도착한 텍스트부터 표시하고, `StartRunAsync`가 반환한 실행 객체로 누적 결과와 중지를 함께 관리할 수 있습니다. 도구 이벤트와 추가 지시까지 필요한 경우에는 [Run 사용 안내](execution-api-transition.md)를 참고하세요.
 
 ```csharp
@@ -13,12 +18,12 @@ await foreach (var item in run.StreamAsync())
         Console.Write(item.Content);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## 기존 입력형 스트리밍 API
 
-아래의 `service.StreamAsync(...)` 호출은 이번 마이너에서 유지하며 다음 메이저에서는 공개 API에서 제외할 예정입니다. 새 실행 제어는 위의 Run 예제를 참고하세요.
+입력을 받는 서비스·RAG StreamAsync는 v8에서도 공개로 유지합니다. 새 실행 제어에는 StartRunAsync를 사용하고 run.StreamAsync()는 이미 시작한 run의 출력만 관찰합니다.
 
 `StreamAsync`를 사용해 토큰이 생성되는 즉시 수신합니다:
 
@@ -42,7 +47,7 @@ await foreach (var content in service.StreamAsync("양자 컴퓨팅을 설명해
 
 ## 추론 스트리밍
 
-추론 기능이 있는 모든 프로바이더(OpenAI, Claude, Gemini, Grok, DeepSeek)는 동일한 패턴을 공유합니다. 추론을 활성화한 `StreamOptions`를 전달합니다:
+OpenAI, Claude, Gemini, Grok, DeepSeek Flash는 같은 스트리밍 패턴으로 제공자 추론을 반환합니다. 서비스 또는 요청에서 추론을 켠 뒤 `StreamOptions.WithReasoning()`으로 관찰하세요:
 
 ```csharp
 using Mythosia.AI.Models.Streaming;
@@ -56,7 +61,11 @@ await foreach (var content in service.StreamAsync("풀어 주세요: 2x + 5 = 13
 }
 ```
 
-`StreamingContentType.Reasoning`은 모델의 내부 추론 과정을 담고, `StreamingContentType.Text`는 최종 답변을 담습니다.
+Gemini 3.7/3.8 Flash도 기존 스트리밍과 Run 이벤트를 사용합니다. `StreamingContentType.Reasoning`에는 공급자가 반환한 요약이나 진행 안내가 담기며, 전체 내부 추론의 공개를 보장하지 않습니다. `StreamOptions.WithReasoning()`은 이 출력을 선택하고, 서비스의 `WithReasoning(ReasoningLevel...)`은 추론 강도를 설정합니다.
+
+Grok 4.6도 공급자가 선택적으로 제공하는 추론 요약을 같은 이벤트로 전달합니다. 스트림 옵션은 표시할 출력을 선택하고 `WithReasoning(ReasoningLevel...)`은 한 작업의 추론 수준을 정합니다. 요약이 없다고 추론이 꺼진 것은 아닙니다. [Grok 설정](providers.md#xai-xaiservice)을 참고하세요.
+
+DeepSeek Flash는 추론을 켠 뒤 같은 이벤트로 `reasoning_content`를 제공합니다. `StreamOptions.WithReasoning()`은 관찰 여부를, `WithDeepSeekReasoning(...)` 또는 서비스의 `WithReasoning(...)`은 추론 동작을 제어합니다. [DeepSeek 설정](providers.md#deepseek-deepseekservice)을 참고하세요.
 
 ## 구조화된 출력과 함께 스트리밍
 
@@ -141,6 +150,8 @@ var options = new StreamOptions()
     .WithMetadata()        // Completion에 모델 정보 포함
     .WithFunctionCalls();  // 스트림 중 함수 호출 활성화
 ```
+
+화면에 표시한 조각은 `run.Result`가 성공할 때까지 잠정적인 출력으로 취급하세요. 공통 OpenAI 호환 스트리밍 경로와 DeepSeek 스트리밍 경로에서는 명시적 종료 뒤에 새 텍스트·추론·도구 데이터가 오거나 종료 이유가 바뀌면 실패 처리합니다. 이때 `run.Result`는 예외를 던지고, 실패한 라운드는 대화 기록에 저장하지 않으며 해당 라운드의 도구도 실행하지 않습니다. 이 실패 처리는 이전 라운드나 이미 외부에서 실행된 동작을 되돌리지 않습니다. 첫 종료 이벤트에 마지막 조각이 함께 오거나 이후 사용량 정보만 오는 경우는 허용합니다.
 
 ## Stateless 스트리밍 (StreamOnceAsync)
 
@@ -252,3 +263,5 @@ vLLM, ollama 등 자체 호스팅 환경에서 "turn 1은 정상인데 turn 2부
 3. 서버 로그(200 OK인데 응답 끊김)와 클라이언트의 마지막 수신 라인을 비교
 
 이 정보가 있으면 "서버는 정상 송출을 마쳤는데 클라이언트가 라인 중간에 끊겼다"는 식으로 원인 위치를 빠르게 좁힐 수 있습니다.
+
+Perplexity: [오래 걸리는 작업 계속 실행하기 / 인용은 웹 검색 결과나 다른 제공자 출처를 나타낼 수 있습니다. 위치 값은 제공자 응답의 개별 콘텐츠 기준이며 Run 누적 결과의 위치가 아닙니다. 표시와 확인에 URL·제목을 사용하세요. 출처가 반환됐다는 사실만으로 생성된 모든 주장이 검증되는 것은 아닙니다.](perplexity.md).

@@ -1,5 +1,10 @@
 # 流式输出
 
+需要同时获取完整答案、用量和来源时，使用 `await run.Result` 返回的 `AIRunResult`，字符串位于 `result.Text`，无需读取流。这是Mythosia.AI 8.0.0 的 API 变更；`GetCompletionAsync` 与 `StructuredStreamRun<T>.Result` 的返回类型保持不变。 [Run 结果与迁移](execution-api-transition.md#run-result).
+
+
+如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
+
 逐段显示到达的文本，让用户不必等长答案全部生成后才能阅读。如果还需要停止按钮和工具状态，可通过 `StartRunAsync` 启动任务并读取 `run.StreamAsync()`。[Run 使用指南](execution-api-transition.md)提供回调和取消的示例。
 
 ```csharp
@@ -13,14 +18,14 @@ await foreach (var item in run.StreamAsync())
         Console.Write(item.Content);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
-以下示例使用接收输入的旧 `service.StreamAsync`，用于兼容现有代码。本次次版本更新中仍可调用，计划在下一个主版本移出公开 API。`run.StreamAsync()` 是观察已启动 Run 输出的另一种方法。
+接收输入的服务和 RAG StreamAsync 在 v8 中仍公开。新的执行控制使用 StartRunAsync；run.StreamAsync() 只观察已经启动的 run。
 
 ## 基本流式输出
 
-使用 `StreamAsync` 在 Token 生成时逐个接收：
+使用 `StreamAsync` 可在生成过程中逐步接收文本。
 
 ```csharp
 await foreach (var token in service.StreamAsync("讲个故事吧"))
@@ -42,7 +47,7 @@ await foreach (var content in service.StreamAsync("解释一下量子计算", St
 
 ## 推理过程流式输出
 
-所有支持推理的提供商（OpenAI、Claude、Gemini、Grok、DeepSeek）共用同一模式。传入启用了推理的 `StreamOptions`：
+OpenAI、Claude、Gemini、Grok 和 DeepSeek Flash 通过相同流式模式返回提供方推理。先在服务或请求中开启推理，再用 `StreamOptions.WithReasoning()` 观察：
 
 ```csharp
 using Mythosia.AI.Models.Streaming;
@@ -56,7 +61,11 @@ await foreach (var content in service.StreamAsync("求解：2x + 5 = 13", new St
 }
 ```
 
-`StreamingContentType.Reasoning` 携带模型内部的思维链，`StreamingContentType.Text` 携带最终回答。
+Gemini 3.7/3.8 Flash 沿用现有流式输出和 Run 事件。`StreamingContentType.Reasoning` 包含提供商返回的摘要或进度，不保证公开完整的内部推理。`StreamOptions.WithReasoning()` 选择此输出，服务的 `WithReasoning(ReasoningLevel...)` 则控制推理强度。
+
+Grok 4.6 也通过这些事件传递提供商可选的推理摘要。流选项选择可见输出，`WithReasoning(ReasoningLevel...)` 则选择一个任务的推理强度。没有摘要不代表推理已关闭。参阅 [Grok 配置](providers.md#xai-xaiservice)。
+
+DeepSeek Flash 开启推理后通过相同事件返回 `reasoning_content`。`StreamOptions.WithReasoning()` 控制观察；`WithDeepSeekReasoning(...)` 或服务级 `WithReasoning(...)` 控制推理。参阅 [DeepSeek 配置](providers.md#deepseek-deepseekservice)。
 
 ## 流式输出 + 结构化输出
 
@@ -142,6 +151,8 @@ var options = new StreamOptions()
     .WithFunctionCalls();  // 在流式输出中启用函数调用
 ```
 
+在 `run.Result` 成功之前，应将已显示的片段视为暂定输出。共用的 OpenAI 兼容流式处理路径和 DeepSeek 流式处理路径会拒绝明确结束后的新文本、推理或工具数据，以及发生变化的结束原因：`run.Result` 会抛出异常，失败轮次不会保存到对话历史，也不会执行该轮次的工具。这种失败处理不会撤销之前的轮次或已在外部执行的操作。 允许最后一个增量与首次结束事件一起到达，也允许随后仅包含用量信息的事件。
+
 ## 无状态流式输出（StreamOnceAsync）
 
 在不影响对话历史的情况下进行流式输出 — 相当于 `AskOnceAsync` 的流式版本：
@@ -170,3 +181,5 @@ await service.ApplySummaryPolicyIfNeededAsync();
 await foreach (var chunk in service.StreamAsync("继续我们的对话...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
+
+Perplexity: [让长任务继续运行 / 引用可以指向网页结果或其他提供方来源。偏移量属于单个提供方响应的内容部分，而不是 Run 累积结果。保留 URL 和标题用于显示和核对；返回来源本身并不证明每项生成的主张都正确。](perplexity.md).

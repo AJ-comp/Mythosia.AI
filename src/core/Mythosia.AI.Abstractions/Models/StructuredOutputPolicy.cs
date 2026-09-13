@@ -10,6 +10,8 @@ namespace Mythosia.AI.Models
         /// <summary>
         /// LLM이 잘못된 JSON을 반환했을 때 자동 수정 프롬프트로 재시도하는 최대 횟수.
         /// null이면 서비스 기본값(<c>AIService.StructuredOutputMaxRetries</c>)을 사용합니다.
+        /// 음수는 0회로 처리하며, 최초 시도까지 포함한 횟수의 오버플로를 막기 위해
+        /// Int32.MaxValue는 공급자 요청 전에 거부합니다.
         /// </summary>
         public int? MaxRepairAttempts { get; set; }
 

@@ -1,5 +1,7 @@
 - name: Get Started
   items:
+  - name: Migrating to Mythosia.AI 8
+    href: v8-migration.md
   - name: Introduction
     href: introduction.md
   - name: Core Concepts
@@ -17,6 +19,10 @@
     href: completions.md
   - name: Generation Parameters
     href: generation-params.md
+  - name: Keep each request’s settings independent
+    href: request-building.md
+  - name: Choose controls the selected model supports
+    href: model-capabilities.md
   - name: Reasoning and Search with Sources
     href: reasoning-and-search.md
   - name: Streaming
@@ -40,6 +46,10 @@
   items:
   - name: Provider-Specific Features
     href: providers.md
+  - name: Claude Fable 5.1
+    href: fable-5-1.md
+  - name: Perplexity Agent API, Search, and Embeddings
+    href: perplexity.md
 
 - name: RAG
   items:

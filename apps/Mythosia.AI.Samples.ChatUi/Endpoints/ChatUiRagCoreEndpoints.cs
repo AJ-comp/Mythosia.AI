@@ -80,7 +80,8 @@ internal static class ChatUiRagCoreEndpoints
                     ragState,
                     embeddingHttpClient,
                     buildResult.Store,
-                    req.OpenAiApiKey);
+                    req.OpenAiApiKey,
+                    req.PerplexityApiKey);
             }
             catch (Exception ex)
             {
@@ -311,6 +312,7 @@ internal static class ChatUiRagCoreEndpoints
             var openAiApiKey = form["openaiApiKey"].ToString();
             if (!string.IsNullOrWhiteSpace(openAiApiKey))
                 openAiApiKey = openAiApiKey.Trim();
+            var perplexityApiKey = NormalizeOptionalValue(form["perplexityApiKey"]);
             var rewriterApiKey = form["rewriterApiKey"].ToString();
             if (!string.IsNullOrWhiteSpace(rewriterApiKey))
                 state.RewriterApiKey = rewriterApiKey.Trim();
@@ -337,6 +339,17 @@ internal static class ChatUiRagCoreEndpoints
             var hybridSearchEnabledValue = hybridSearchEnabled.Value;
             var hybridSearchVectorWeightValue = hybridSearchVectorWeight.Value;
             var rerankEnabledValue = rerankEnabled.Value;
+
+            IEmbeddingProvider embeddingProvider;
+            try
+            {
+                embeddingProvider = BuildRagEmbeddingProvider(embeddingProviderKey, openAiApiKey, perplexityApiKey,
+                    embeddingHttpClient, embeddingModel, embeddingDimensionsValue, embeddingBaseUrl);
+            }
+            catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+            {
+                return Results.BadRequest(new { error = exception.Message });
+            }
 
             if (rerankEnabledValue && string.Equals(rerankProvider, "vllm", StringComparison.OrdinalIgnoreCase))
             {
@@ -400,19 +413,6 @@ internal static class ChatUiRagCoreEndpoints
             var records = new List<VectorRecord>();
 
             var splitter = new TrackingTextSplitter(BuildTextSplitter(chunkerKey, chunkSizeValue, chunkOverlapValue), chunks);
-            IEmbeddingProvider embeddingProvider = embeddingProviderKey?.Equals("ollama", StringComparison.OrdinalIgnoreCase) == true
-                ? new OllamaEmbeddingProvider(
-                    embeddingHttpClient,
-                    embeddingModel,
-                    embeddingDimensionsValue,
-                    embeddingBaseUrl)
-                : embeddingProviderKey?.Equals("vllm", StringComparison.OrdinalIgnoreCase) == true
-                    ? new VllmEmbeddingProvider(
-                        embeddingHttpClient,
-                        embeddingModel,
-                        embeddingDimensionsValue,
-                        embeddingBaseUrl)
-                    : BuildOpenAiEmbeddingProvider(openAiApiKey, embeddingHttpClient, embeddingModel, embeddingDimensionsValue);
             var trackingStore = new TrackingVectorStore(vectorStoreResult.Store, records);
 
             var tempRoot = Path.Combine(Path.GetTempPath(), "mythosia-rag", Guid.NewGuid().ToString("N"));
@@ -545,7 +545,8 @@ internal static class ChatUiRagCoreEndpoints
             ragState,
             embeddingHttpClient,
             buildResult.Store,
-            vectorStoreRequest.OpenAiApiKey);
+            vectorStoreRequest.OpenAiApiKey,
+            vectorStoreRequest.PerplexityApiKey);
 
         if (warning != null && buildResult.Store is IDisposable disposable)
             disposable.Dispose();
@@ -841,12 +842,10 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
         RagReferenceState ragState,
         HttpClient embeddingHttpClient,
         IVectorStore vectorStore,
-        string? openAiApiKey)
+        string? openAiApiKey,
+        string? perplexityApiKey)
     {
         var settings = ragState.GetSettings();
-        var embeddingKey = !string.IsNullOrWhiteSpace(openAiApiKey)
-            ? openAiApiKey.Trim()
-            : null;
         var epKey = NormalizeOptionalValue(settings.EmbeddingProvider)?.ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(epKey))
         {
@@ -864,13 +863,14 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
             return "Embedding model is required before connecting an external vector store.";
         }
 
-        if (epKey != "ollama" && epKey != "vllm" && embeddingKey == null)
+        var embeddingKey = epKey == "perplexity" ? perplexityApiKey : openAiApiKey;
+        if ((epKey == "openai" || epKey == "perplexity") && string.IsNullOrWhiteSpace(embeddingKey))
         {
             // No embedding key → can't query. Clear stale store so queries don't
             // silently use an old InMemory-backed RagStore.
             ragState.ClearStore();
             return "No API key provided for the embedding provider. "
-                + "RAG queries will not work until an OpenAI API key is configured in the Document Reference panel.";
+                + $"RAG queries will not work until a {(epKey == "perplexity" ? "Perplexity" : "OpenAI")} API key is configured in the Document Reference panel.";
         }
 
         try
@@ -883,29 +883,8 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
 
                 builder.WithRetrievalMultiplier(settings.RetrievalDerivation.TopKMultiplier);
 
-                if (epKey == "ollama")
-                {
-                    builder.UseEmbedding(new OllamaEmbeddingProvider(
-                        embeddingHttpClient,
-                        settings.EmbeddingModel,
-                        settings.EmbeddingDimensions,
-                        settings.EmbeddingBaseUrl));
-                }
-                else if (epKey == "vllm")
-                {
-                    builder.UseEmbedding(new VllmEmbeddingProvider(
-                        embeddingHttpClient,
-                        settings.EmbeddingModel,
-                        settings.EmbeddingDimensions,
-                        settings.EmbeddingBaseUrl));
-                }
-                else
-                {
-                    builder.UseEmbedding(new OpenAIEmbeddingProvider(
-                        embeddingKey!, embeddingHttpClient,
-                        settings.EmbeddingModel,
-                        settings.EmbeddingDimensions));
-                }
+                builder.UseEmbedding(BuildRagEmbeddingProvider(epKey, openAiApiKey, perplexityApiKey,
+                    embeddingHttpClient, settings.EmbeddingModel, settings.EmbeddingDimensions, settings.EmbeddingBaseUrl));
 
                 if (settings.FinalFilter.MinScore.HasValue)
                     builder.WithScoreThreshold(settings.FinalFilter.MinScore.Value);

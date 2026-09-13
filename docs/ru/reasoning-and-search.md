@@ -1,6 +1,12 @@
 # Выбирать уровень рассуждения и отвечать с указанием источников
 
+Для независимых настроек и повторного использования вариантов применяйте [билдер запросов](request-building.md). Вызывайте `CreateRequest(...)` перед `With...`. Свойства и fluent-методы сервиса сохраняют прежнее поведение.
+
 > Эти API требуют `Mythosia.AI` версии 7.1.0 или новее, включающей `Mythosia.AI.Abstractions` версии 3.1.0 или новее. Для примеров RAG нужен `Mythosia.AI.Rag` версии 7.6.0 или новее.
+
+> Примеры с `CreateRequest` требуют текущей рабочей версии. В прежней версии 7.1, добавившей Run и общие параметры, билдера нет. Старые пакеты могут использовать прежние перегрузки сервиса.
+
+[Claude Fable 5.1](fable-5-1.md) поддерживает сообщения о ходе работы, инструкции для одного хода и диагностику привязки thinking начиная с `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 доступен по приглашению. Оба отклоняют принудительный выбор инструмента.
 
 ## Зачем нужны эти параметры?
 
@@ -23,13 +29,17 @@
 
 ```csharp
 string outline = await service
+    .CreateRequest("Составь набросок плана миграции.")
     .WithReasoning(ReasoningLevel.Low)
-    .GetCompletionAsync("Составь набросок плана миграции.");
+    .GetCompletionAsync();
 
 string review = await service
+    .CreateRequest("Проверь план на сценарии сбоев и шаги восстановления.")
     .WithReasoning(ReasoningLevel.High)
-    .GetCompletionAsync("Проверь план на сценарии сбоев и шаги восстановления.");
+    .GetCompletionAsync();
 ```
+
+Gemini 3.7/3.8 Flash поддерживают `Low`, `Medium` и `High` через `WithReasoning`; `Minimal`, `None` и `CachePreservation.Required` недоступны. Completion, стриминг, Run, инструменты и встроенный поиск используют существующие пути и ограничения Google на сочетание функций. См. [пример настройки Google](providers.md#google-googleaiservice).
 
 `ReasoningLevel` задаёт запрашиваемый уровень, а не фиксированный бюджет токенов или гарантию качества ответа. Каждая модель принимает свой набор значений. `Auto` сохраняет настроенное или стандартное поведение провайдера; это не означает автоматическую замену неподдерживаемых уровней. Для моделей с бюджетом токенов вместо именованных уровней остаются доступны специфичные для провайдера свойства бюджета.
 
@@ -37,8 +47,9 @@ string review = await service
 
 ```csharp
 string review = await service
+    .CreateRequest("Перепроверь допущения предыдущего ответа.")
     .WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)
-    .GetCompletionAsync("Перепроверь допущения предыдущего ответа.");
+    .GetCompletionAsync();
 ```
 
 `Required` определяет способ отправки изменения. Он **не** гарантирует попадание в кэш, бесплатные токены или меньшую задержку: условия пригодности, хранения и тарификации кэша провайдера продолжают действовать. Неподдерживаемые модели вызывают `NotSupportedException` до отправки запроса. Используйте ту же отслеживаемую беседу, модель и конечную точку; не обрезайте и не переставляйте сообщения беседы, содержащей такие обновления. При изменении этих условий начните новую беседу. Автоматическое сжатие блокируется, пока необходимо сохранять префикс.
@@ -51,8 +62,9 @@ string review = await service
 
 ```csharp
 string answer = await service
+    .CreateRequest("Найди объявление о последнем выпуске и укажи источник.")
     .WithWebSearch()
-    .GetCompletionAsync("Найди объявление о последнем выпуске и укажи источник.");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.Url}");
@@ -70,8 +82,9 @@ OpenAI и Anthropic также принимают `WithWebSearch(new WebSearchOp
 var documents = new FileSearchStore("OpenAI", "vs_your_existing_store");
 
 string answer = await service
+    .CreateRequest("Найди в наших документах правил срок отмены.")
     .WithFileSearch(documents)
-    .GetCompletionAsync("Найди в наших документах правил срок отмены.");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.FileId ?? source.Url}");
@@ -79,7 +92,7 @@ foreach (AICitation source in service.GetLastCitations())
 
 Для Google используйте `new FileSearchStore("Google", "fileSearchStores/your-existing-store")` с сервисом Google. Хранилища принадлежат своему провайдеру, аккаунту и развёртыванию; идентификатор хранилища OpenAI нельзя передать Google. Сначала создайте хранилище и загрузите или проиндексируйте документы через API либо консоль провайдера. Этот API только ищет в существующих хранилищах и не загружает локальные файлы.
 
-Размещённый у провайдера файловый поиск и [конвейер RAG](rag.md) библиотеки подходят для разных исходных условий. Выбирайте размещённый поиск, если провайдер уже управляет вашим индексом. Выбирайте RAG, если приложение должно контролировать загрузчики, разбиение, эмбеддинги, поиск или векторное хранилище. `RagEnabledService` также передаёт `WithReasoning`, `WithWebSearch` и `WithFileSearch` в окончательный ответ; внутреннее переписывание запроса не наследует эти параметры. Ссылки на результаты поиска RAG остаются в `RagProcessedQuery`, отдельно от источников `AICitation`, предоставленных провайдером.
+`CreateRequest(...).With...` хранит параметры в независимом билдере. При повторном использовании они применяются к каждому выполнению и его раундам инструментов. Прежние `service.WithReasoning`, `service.WithWebSearch` и `service.WithFileSearch` возвращают конкретный тип сервиса и расходуют параметры в следующем логическом запросе. Они доступны для `IAIRequestFeatureService` и RAG-обёрток. Ни один вариант не гарантирует одновременное выполнение на одном сервисе.
 
 ## Показывать ход выполнения и сохранять источники
 
@@ -87,14 +100,14 @@ foreach (AICitation source in service.GetLastCitations())
 
 ```csharp
 await using var run = await service
+    .CreateRequest("Найди недавние объявления и сравни изменения.")
     .WithReasoning(ReasoningLevel.High)
     .WithWebSearch()
     .StartRunAsync(
-        "Найди недавние объявления и сравни изменения.",
         onText: text => Console.Write(text),
         cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 foreach (AICitation source in run.Citations)
     Console.WriteLine($"{source.Title}: {source.Url ?? source.FileId}");
 ```
@@ -104,8 +117,10 @@ foreach (AICitation source in run.Citations)
 Чтобы получать события источников по мере поступления, используйте одного читателя событий:
 
 ```csharp
-await using var run = await service.WithWebSearch().StartRunAsync(
-    "Найди и объясни последние изменения.", cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("Найди и объясни последние изменения.")
+    .WithWebSearch()
+    .StartRunAsync(cancellationToken: cancellationToken);
 
 await foreach (var item in run.StreamAsync())
 {
@@ -114,10 +129,10 @@ await foreach (var item in run.StreamAsync())
     else if (item.Type == StreamingContentType.Citation && item.Citation is AICitation source)
         Console.WriteLine($"\nИсточник: {source.Title} {source.Url ?? source.FileId}");
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
-Поля цитирования могут быть `null`, если провайдер не передал значение. `ResponseId`, `OutputIndex` и `ContentIndex` указывают исходный ответ и его часть содержимого. `StartIndex` и `EndIndex` сохраняют локальные смещения и правила индексации провайдера; это **не** позиции в объединённом `run.Result`. Не размещайте цитирования, без проверки используя эти значения как индексы полного ответа.
+Поля цитирования могут быть `null`, если провайдер не передал значение. `ResponseId`, `OutputIndex` и `ContentIndex` указывают исходный ответ и его часть содержимого. `StartIndex` и `EndIndex` сохраняют локальные смещения и правила индексации провайдера; это **не** позиции в объединённом `(await run.Result).Text`. Не размещайте цитирования, без проверки используя эти значения как индексы полного ответа.
 
 ## Проверять поддержку провайдера и область действия запроса
 
@@ -126,12 +141,19 @@ string answer = await run.Result;
 | OpenAI | Поддерживаемые модели рассуждения; уровни зависят от модели | GPT-6 Astra Standard, одноагентный режим | Поддерживаемые модели Responses | Поддерживаемые модели Responses, существующие векторные хранилища |
 | Anthropic | Модели с нативным управлением усилием | Поддерживаемые Opus 5 / Fable 5.1 / Mythos 5.1 с бета-функцией провайдера | Поддерживаемые модели Claude | Нативного адаптера хранилища нет; используйте RAG |
 | Google | Уровни Gemini 3; для Gemini 2.5 сохраняются бюджеты провайдера | Не поддерживается | Поддерживаемые текстовые модели Gemini | Поддерживаемые текстовые модели Gemini, существующие хранилища файлового поиска |
+| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Не поддерживается | Нет общего адаптера | Нет общего адаптера |
+| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; соответствия нативным Low/High/Max | Не поддерживается | Нет общего адаптера | Нет общего адаптера |
+| Perplexity | `Auto` или поддерживаемые моделью `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`; явный effort для Sonar недоступен | Не поддерживается | Agent `web_search` | Нет общего адаптера |
 | Другие сервисы | Имеющиеся настройки провайдера остаются доступны; общим параметрам нужен адаптер | Не поддерживается этим набором адаптеров | Общего адаптера нет | Общего адаптера нет |
 
-Модель, уровень, транспорт и сочетания проверяются до отправки запроса. В частности, **веб-поиск и файловый поиск Google нельзя объединять в одном запросе**. Библиотека не убирает функцию, не снижает усилие, не игнорирует ограничение доменов и не переключается на внешний поисковый сервис незаметно для пользователя. Нативные инструменты могут сочетаться с зарегистрированными клиентскими функциями там, где это поддерживается; раунды инструментов Run по-прежнему подчиняются политике функций и `WithMaxRounds`.
+Адаптер до отправки проверяет известные ему ограничения модели, уровня, транспорта и сочетаний; остальные правила конкретной модели проверяет провайдер. В частности, **веб-поиск и файловый поиск Google нельзя объединять в одном запросе**. Библиотека не убирает функцию, не снижает усилие, не игнорирует ограничение доменов и не переключается на внешний поисковый сервис незаметно для пользователя. Нативные инструменты могут сочетаться с зарегистрированными клиентскими функциями там, где это поддерживается; раунды инструментов Run по-прежнему подчиняются политике функций и `WithMaxRounds`.
 
-Fluent-методы сохраняют конкретный тип сервиса и копируют входные параметры. Ненулевые компоненты объединяются для следующего логического запроса, включая раунды инструментов и исправление структурированного вывода, после чего считаются использованными. Поиск не остаётся включённым для последующих независимых вызовов; при необходимости снова добавляйте `WithWebSearch` или `WithFileSearch`. Запущенный Run сохраняет зафиксированные настройки. Как и с другими изменяемыми настройками сервиса, не меняйте их и не запускайте пересекающиеся запросы на том же сервисе, пока запрос выполняется.
+`CreateRequest(...).With...` хранит параметры в независимом билдере. При повторном использовании они применяются к каждому выполнению и его раундам инструментов. Прежние `service.WithReasoning`, `service.WithWebSearch` и `service.WithFileSearch` возвращают конкретный тип сервиса и расходуют параметры в следующем логическом запросе. Они доступны для `IAIRequestFeatureService` и RAG-обёрток. Ни один вариант не гарантирует одновременное выполнение на одном сервисе.
 
 Собственные реализации `IAIService` сохраняют совместимость. Они подключают эти возможности через `IAIRequestFeatureService`; вызов вспомогательных методов на реализации без такой поддержки явно завершается ошибкой. Существующие API completion, streaming и настроек провайдера остаются доступны. Об отмене, наблюдении и steering см. [Управление Run](execution-api-transition.md).
 
 Протоколы провайдеров: [Изменения рассуждения OpenAI](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation), [Инструменты OpenAI](https://developers.openai.com/api/docs/guides/tools), [Изменения усилия Anthropic](https://platform.claude.com/docs/en/build-with-claude/effort#change-effort-mid-conversation), [Веб-поиск Anthropic](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool), [Источники Google Search](https://ai.google.dev/gemini-api/docs/google-search), [Файловый поиск Google](https://ai.google.dev/gemini-api/docs/file-search).
+
+У Perplexity поддержка effort зависит от фактически выбранной модели; сервер может отклонить несовместимые сочетания. `None` не поддерживается. Поиск по умолчанию и инструменты preset/profile — постоянные настройки провайдера; общие параметры запроса их не отключают.
+
+Perplexity: [Perplexity Agent API, поиск и эмбеддинги](perplexity.md).

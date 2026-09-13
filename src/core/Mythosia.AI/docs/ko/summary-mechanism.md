@@ -156,7 +156,7 @@ protected static void EnsureUserFirstMessage(List<Message> messages)
 ```
 
 - **적용 대상**: Gemini, Claude (요청 빌더 4곳)
-- **비적용**: OpenAI, Grok, DeepSeek, Sonar, Qwen (User-first 제약 없음)
+- **비적용**: OpenAI, Grok, DeepSeek, Perplexity, Qwen (User-first 제약 없음)
 - **원본 불변**: `GetLatestMessages().ToList()`로 복사본에만 적용
 
 ## 요약 타이밍이 라운드 완료 후인 이유
@@ -204,3 +204,7 @@ Round 2: [서버가 400 거절]
 > **비스트리밍은 다릅니다.** 재시도가 공급자의 라운드 루프를 0번부터 다시 돌리므로, 이미 실행된 도구가
 > 있으면 두 번 실행됩니다. 그래서 그 경우에는 복구하지 않고 `tool-side-effects` 사유로 멈춥니다.
 > 라운드 단위 재생은 스트리밍 경로에만 있습니다.
+
+완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](../../../../../docs/ko/completions.md#completion-cancellation)를 참고하세요.
+
+이 취소 계약은 Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0에 포함됩니다. 토큰을 생략한 앱 호출과 기존 profile/context 위치 인자 호출은 소스 수준에서 유지되지만, 사용하는 패키지는 다시 빌드해야 합니다. 사용자 정의 `IAIService` 구현은 두 완료 메서드의 마지막에 `CancellationToken cancellationToken = default`를 추가하고 전달해야 합니다. `AIService`를 상속한 사용자 제공자는 기존 `GetCompletionAsync(Message)` override를 유지하며 protected `RequestCancellationToken`을 통신에 전달해야 합니다. 빌더와 Run 자체에는 이 인터페이스 변경이 필요하지 않았습니다.

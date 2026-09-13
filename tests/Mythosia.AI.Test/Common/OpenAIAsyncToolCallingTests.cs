@@ -412,7 +412,7 @@ public class OpenAIAsyncToolCallingTests
         var gate = new GatedTool("weather");
         var handler = new ScriptedHandler(
             Reply(ToolResponse(Call("weather", true))),
-            Reply("{\"error\":{\"message\":\"provider rejected continuation\"}}", HttpStatusCode.BadRequest));
+            ReplyAfterStarted(gate, "{\"error\":{\"message\":\"provider rejected continuation\"}}", HttpStatusCode.BadRequest));
         var service = CreateService(handler, gate.Definition);
         var completion = service.GetCompletionAsync("Get the weather.");
 
@@ -437,8 +437,8 @@ public class OpenAIAsyncToolCallingTests
     {
         var gate = new GatedTool("weather");
         var handler = new ScriptedHandler(
-            ToolResponse(Call("weather", true)),
-            ToolResponse(Call("weather", true)));
+            Reply(ToolResponse(Call("weather", true))),
+            ReplyAfterStarted(gate, ToolResponse(Call("weather", true))));
         var service = CreateService(handler, gate.Definition);
         var completion = service.GetCompletionAsync("Get the weather.");
 
@@ -463,8 +463,17 @@ public class OpenAIAsyncToolCallingTests
     public async Task MaximumRounds_DrainsStartedHandlersAndKeepsHistoryConsistent()
     {
         var gate = new GatedTool("weather");
-        var handler = new ScriptedHandler(ToolResponse(Call("weather", true)));
-        var service = CreateService(handler, gate.Definition);
+        var waiting = new FunctionDefinition
+        {
+            Name = "wait_for_launch",
+            Handler = async _ =>
+            {
+                await gate.Started.Task.WaitAsync(TestTimeout);
+                return "launch-confirmed";
+            }
+        };
+        var handler = new ScriptedHandler(ToolResponse(Call("weather", true), Call("wait_for_launch", false)));
+        var service = CreateService(handler, gate.Definition, waiting);
         service.DefaultPolicy = new FunctionCallingPolicy { MaxRounds = 1 };
         var completion = service.GetCompletionAsync("Get the weather.");
 
@@ -475,8 +484,10 @@ public class OpenAIAsyncToolCallingTests
             gate.Complete("sunny");
             var exception = await Assert.ThrowsExactlyAsync<AIServiceException>(() => completion.WaitAsync(TestTimeout));
             StringAssert.Contains(exception.Message, "Maximum rounds");
+            Assert.AreEqual(1, gate.InvocationCount);
             Assert.AreEqual(1, handler.Requests.Count);
-            AssertHistoryResults(service, "call_weather");
+            AssertHistoryResults(service, "call_weather", "call_wait_for_launch");
+            Assert.AreEqual("sunny", HistoryResults(service).Single(result => result.Call.Id == "call_weather").Content);
         }
         finally
         {
@@ -600,6 +611,7 @@ public class OpenAIAsyncToolCallingTests
         try
         {
             await handler.RequestAt(1).WaitAsync(TestTimeout);
+            await gate.Started.Task.WaitAsync(TestTimeout);
             cancellation.Cancel();
             Assert.IsFalse(consumption.IsCompleted);
             gate.Complete("sunny");
@@ -625,8 +637,8 @@ public class OpenAIAsyncToolCallingTests
             Call("incomplete", true) + "}\n\n" +
             "data: {\"type\":\"response.incomplete\",\"response\":{\"id\":\"resp_incomplete\",\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"max_output_tokens\"}}}\n\n";
         var handler = new ScriptedHandler(
-            AsStream(ToolResponse(Call("weather", true))),
-            failedRound);
+            Reply(AsStream(ToolResponse(Call("weather", true)))),
+            ReplyAfterStarted(earlier, failedRound));
         var service = CreateService(handler, earlier.Definition, incomplete.Definition);
         var events = new ConcurrentQueue<StreamingContent>();
         var consumption = ConsumeAsync(service, events);
@@ -660,7 +672,7 @@ public class OpenAIAsyncToolCallingTests
         var gate = new GatedTool("weather");
         var handler = new ScriptedHandler(
             Reply(AsStream(ToolResponse(Call("weather", true)))),
-            Reply(overflow, HttpStatusCode.BadRequest));
+            ReplyAfterStarted(gate, overflow, HttpStatusCode.BadRequest));
         var service = CreateService(handler, gate.Definition);
         service.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 100, keepRecentCount: 2);
         service.ConversationPolicy.CurrentSummary = "Existing summary.";
@@ -793,6 +805,13 @@ public class OpenAIAsyncToolCallingTests
             service.Functions.Add(function);
         return service;
     }
+
+    private static Func<CancellationToken, Task<HttpResponseMessage>> ReplyAfterStarted(
+        GatedTool tool, string response, HttpStatusCode status = HttpStatusCode.OK) => async token =>
+    {
+        await tool.Started.Task.WaitAsync(TestTimeout, token);
+        return await Reply(response, status)(token);
+    };
 
     private static string Call(string name, bool isAsync) => JsonSerializer.Serialize(new
     {

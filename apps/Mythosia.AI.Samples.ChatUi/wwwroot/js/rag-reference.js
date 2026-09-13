@@ -26,6 +26,10 @@ import {
   ragOpenAiModel,
   ragOpenAiKeyInput,
   ragOpenAiKeySave,
+  ragPerplexityModel,
+  ragPerplexityDimensions,
+  ragPerplexityKeyInput,
+  ragPerplexityKeySave,
   ragRun,
   ragViewCode,
   ragTopK,
@@ -68,7 +72,7 @@ import {
   ragTracePanelClose
 } from './dom.js';
 import { ragState, markReferenceStale, setViewCodeEnabled } from './rag-shared.js';
-import { updateEmbeddingUI, testOllamaConnection, testVllmConnection, saveInlineOpenAiKey } from './rag-embedding.js';
+import { updateEmbeddingUI, testOllamaConnection, testVllmConnection, saveInlineOpenAiKey, saveInlinePerplexityKey } from './rag-embedding.js';
 import { updateFileList, runReference, refreshRagStatus, refreshReferenceHistory, openRagCodeModal, closeTracePanel } from './rag-run.js';
 import { loadPipelineSettings, savePipelineSettings, exportPipelineSettingsPdf, testVllmRerankConnection, updateRewriterUI, updateRewriterOverrideUI, updateHybridUI, updateHybridWeightDisplay, updateRerankUI, updateFinalSelectionUI, updateFinalSelectionWeightDisplay, updateRerankCandidateTopKDisplay, updateRerankDerivedMinScoreDisplay, updateRetrievalParamsDisplay } from './rag-pipeline.js';
 import { updateVectorStoreUI, loadVectorStoreConfig, updatePgConnectState, updateQdrantConnectState, connectPostgres, disconnectPostgres, connectQdrant, disconnectQdrant, updatePineconeConnectState, connectPinecone, disconnectPinecone } from './rag-vector-store.js';
@@ -125,6 +129,11 @@ export function initRagReference() {
     updateEmbeddingUI(true);
     markReferenceStale();
   });
+  ragPerplexityModel?.addEventListener('change', () => {
+    updateEmbeddingUI(true);
+    markReferenceStale();
+  });
+  ragPerplexityDimensions?.addEventListener('input', markReferenceStale);
   ragOllamaModel?.addEventListener('change', () => {
     updateEmbeddingUI(true);
     markReferenceStale();
@@ -174,6 +183,10 @@ export function initRagReference() {
     }
   });
   ragOpenAiKeySave?.addEventListener('click', saveInlineOpenAiKey);
+  ragPerplexityKeyInput?.addEventListener('input', () => {
+    if (ragPerplexityKeySave) ragPerplexityKeySave.disabled = !ragPerplexityKeyInput.value.trim();
+  });
+  ragPerplexityKeySave?.addEventListener('click', saveInlinePerplexityKey);
 
   // ── Vector Store controls ──────────────────────────────────
   ragVectorStoreProvider?.addEventListener('change', () => {

@@ -1,5 +1,35 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v3.0.0
+
+> This coordinated major release changes public contracts. See the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) before upgrading the package family.
+
+### Added
+
+- Inherits pure `GetCapabilities()` inspection on Qwen services and request builders. Definitions reflect endpoint mode, captured provider settings, model overrides and Ollama wire-ID mapping; custom deployment support stays Unknown when not known. UI controls and invocation validation use the shared capability definitions, with existing request validation retained. See [capability inspection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/model-capabilities.md).
+
+- Inherits the major `AIRun.Result` migration to `Task<AIRunResult>`, with accumulated `.Text`, reported usage/sources, captured provider/requested model, actual model when reported, library rounds, and finish details. Stream observation is optional; ordinary `GetCompletionAsync` remains a string API. Existing Run string callers must read `(await run.Result).Text` and rebuild. See [migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result).
+- `AIRunResult.RequestedModel` records the model ID actually sent: the captured `ModelIdOverride` when set, or the endpoint-specific model ID, including Ollama mapping such as `qwen3-32b` to `qwen3:32b`. A builder retains its captured override after service defaults change; `Model` remains the separate server-reported model.
+- **Ordinary completion cancellation:** Qwen forwards the caller token through DashScope, vLLM and Ollama HTTP requests, local tools and later rounds. The inherited completion, typed, builder and message-chain APIs accept the token. Caller cancellation is distinct from request-policy timeouts; remote generation or billing cancellation is not guaranteed. See [the common contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation).
+
+### Internal
+
+- Inherits the shared streaming terminal guard: later content or changed finish reasons fail the round before saving its response or executing tools. A final delta in the first terminal event and trailing usage-only events remain supported.
+
+- Qwen profile inspection shares only native mode flags with execution through the pure capability-profile hook; queries do not invoke execution preparation or serialize tool defaults.
+
+- Inherits common tool return normalization, cooperative cancellation, and error-result handling from the core service; Qwen uses the same execution contract without requiring provider-native async tool support.
+
+- Inherits `CreateRequest(...)` and immutable request builders from the core service. Common and Qwen provider defaults are captured per request; existing Qwen reasoning/search capability limits and shared-conversation rules remain. See the [request guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md).
+
+- Rebuilt against `Mythosia.AI` v8.0.0 and its provider request-option capture hooks, with `Mythosia.AI.Abstractions` v4.0.0 as an indirect dependency.
+
+### Compatibility
+
+- Existing source callers can omit the new completion token. Qwen endpoint behavior and Run controls remain; rebuild callers for the changed completion signatures. Claude-specific options are not added to Qwen.
+
+---
+
 ## v2.0.1
 
 ### Fixed

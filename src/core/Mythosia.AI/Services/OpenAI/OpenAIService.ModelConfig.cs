@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models;
+using Mythosia.AI.Models;
 using System;
 using System.Collections.Generic;
 
@@ -6,16 +6,14 @@ namespace Mythosia.AI.Services.OpenAI
 {
     public partial class OpenAIService
     {
-        protected override bool SupportsAsyncFunctionCalls =>
-            string.Equals(Model, AIModels.OpenAI.Gpt6Astra, StringComparison.OrdinalIgnoreCase) ||
-            Model.StartsWith(AIModels.OpenAI.Gpt6Astra + "-", StringComparison.OrdinalIgnoreCase);
+        protected override bool SupportsAsyncFunctionCalls => IsAstraNativeRunModel(RequestModel);
 
         /// <summary>
         /// Applies model-specific parameter configurations to the request body
         /// </summary>
         private void ApplyModelSpecificParameters(Dictionary<string, object> requestBody)
         {
-            var model = Model.ToLower();
+            var model = RequestModel.ToLower();
 
             // Token parameter configuration
             ConfigureTokenParameter(requestBody, model);
@@ -96,14 +94,14 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureO3Parameters(Dictionary<string, object> requestBody, string model)
         {
-            var resolvedEffort = Gpt5ReasoningEffort;
+            var resolvedEffort = RequestGpt5ReasoningEffort;
             if (resolvedEffort == Gpt5Reasoning.Auto)
                 resolvedEffort = model == "o3-pro" ? Gpt5Reasoning.High : Gpt5Reasoning.Medium;
             else if (resolvedEffort == Gpt5Reasoning.Minimal)
                 resolvedEffort = Gpt5Reasoning.Low;
 
             var effort = resolvedEffort.ToString().ToLowerInvariant();
-            var summary = O3ReasoningSummary?.ToString().ToLowerInvariant();
+            var summary = RequestO3ReasoningSummary?.ToString().ToLowerInvariant();
             requestBody["reasoning"] = summary != null
                 ? (object)new { effort = effort, summary = summary }
                 : new { effort = effort };
@@ -125,7 +123,7 @@ namespace Mythosia.AI.Services.OpenAI
         private void ConfigureGpt5Parameters(Dictionary<string, object> requestBody, string model)
         {
             // Use explicitly set reasoning effort, or default based on model variant
-            var resolvedEffort = Gpt5ReasoningEffort == Gpt5Reasoning.Auto ? Gpt5Reasoning.Medium : Gpt5ReasoningEffort;
+            var resolvedEffort = RequestGpt5ReasoningEffort == Gpt5Reasoning.Auto ? Gpt5Reasoning.Medium : RequestGpt5ReasoningEffort;
 
             // gpt-5-pro only supports reasoning effort "high" (other values return HTTP 400).
             if (model.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase))
@@ -135,7 +133,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
@@ -155,17 +153,17 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_1Parameters(Dictionary<string, object> requestBody, string model)
         {
-            var effort = (Gpt5_1ReasoningEffort == Gpt5_1Reasoning.Auto ? Gpt5_1Reasoning.None : Gpt5_1ReasoningEffort).ToString().ToLowerInvariant();
+            var effort = (RequestGpt5_1ReasoningEffort == Gpt5_1Reasoning.Auto ? Gpt5_1Reasoning.None : RequestGpt5_1ReasoningEffort).ToString().ToLowerInvariant();
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_1ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5_1ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
             }
 
-            SetTextVerbosity(requestBody, Gpt5_1Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt5_1Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -176,7 +174,7 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_2Parameters(Dictionary<string, object> requestBody, string model)
         {
-            var resolvedEffort = Gpt5_2ReasoningEffort;
+            var resolvedEffort = RequestGpt5_2ReasoningEffort;
             if (resolvedEffort == Gpt5_2Reasoning.Auto)
             {
                 if (model.StartsWith("gpt-5.2-pro", StringComparison.OrdinalIgnoreCase))
@@ -197,13 +195,13 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_2ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5_2ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
             }
 
-            SetTextVerbosity(requestBody, Gpt5_2Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt5_2Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -215,7 +213,7 @@ namespace Mythosia.AI.Services.OpenAI
         private void ConfigureGpt5_3Parameters(Dictionary<string, object> requestBody, string model)
         {
             bool isCodex = IsGpt5_3CodexModel(model);
-            var resolvedEffort = Gpt5_3ReasoningEffort;
+            var resolvedEffort = RequestGpt5_3ReasoningEffort;
             if (resolvedEffort == Gpt5_3Reasoning.Auto)
             {
                 if (isCodex)
@@ -234,13 +232,13 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_3ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5_3ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
             }
 
-            SetTextVerbosity(requestBody, Gpt5_3Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt5_3Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -251,7 +249,7 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_4Parameters(Dictionary<string, object> requestBody, string model)
         {
-            var resolvedEffort = Gpt5_4ReasoningEffort;
+            var resolvedEffort = RequestGpt5_4ReasoningEffort;
             if (resolvedEffort == Gpt5_4Reasoning.Auto)
             {
                 if (model.StartsWith("gpt-5.4-pro", StringComparison.OrdinalIgnoreCase))
@@ -272,13 +270,13 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_4ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5_4ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
             }
 
-            SetTextVerbosity(requestBody, Gpt5_4Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt5_4Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -289,7 +287,7 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_5Parameters(Dictionary<string, object> requestBody, string model)
         {
-            var resolvedEffort = Gpt5_5ReasoningEffort;
+            var resolvedEffort = RequestGpt5_5ReasoningEffort;
             if (resolvedEffort == Gpt5_5Reasoning.Auto)
             {
                 resolvedEffort = model.StartsWith("gpt-5.5-pro", StringComparison.OrdinalIgnoreCase)
@@ -309,13 +307,13 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (!requestBody.ContainsKey("reasoning"))
             {
-                var summary = Gpt5_5ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5_5ReasoningSummary?.ToString().ToLowerInvariant();
                 requestBody["reasoning"] = summary != null
                     ? (object)new { effort = effort, summary = summary }
                     : new { effort = effort };
             }
 
-            SetTextVerbosity(requestBody, Gpt5_5Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt5_5Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -326,9 +324,9 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt5_6Parameters(Dictionary<string, object> requestBody)
         {
-            var resolvedEffort = Gpt5_6ReasoningEffort == Gpt5_6Reasoning.Auto
+            var resolvedEffort = RequestGpt5_6ReasoningEffort == Gpt5_6Reasoning.Auto
                 ? Gpt5_6Reasoning.Medium
-                : Gpt5_6ReasoningEffort;
+                : RequestGpt5_6ReasoningEffort;
 
             if (!requestBody.ContainsKey("reasoning"))
             {
@@ -341,17 +339,17 @@ namespace Mythosia.AI.Services.OpenAI
                     ["context"] = "current_turn"
                 };
 
-                var summary = Gpt5_6ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt5_6ReasoningSummary?.ToString().ToLowerInvariant();
                 if (summary != null)
                     reasoning["summary"] = summary;
 
-                if (Gpt5_6ReasoningMode == global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Pro)
+                if (RequestGpt5_6ReasoningMode == global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Pro)
                     reasoning["mode"] = "pro";
 
                 requestBody["reasoning"] = reasoning;
             }
 
-            SetTextVerbosity(requestBody, Gpt5_6Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt5_6Verbosity ?? Verbosity.Medium);
         }
 
         /// <summary>
@@ -360,9 +358,9 @@ namespace Mythosia.AI.Services.OpenAI
         /// </summary>
         private void ConfigureGpt6Parameters(Dictionary<string, object> requestBody)
         {
-            var resolvedEffort = Gpt6ReasoningEffort == Gpt6Reasoning.Auto
+            var resolvedEffort = RequestGpt6ReasoningEffort == Gpt6Reasoning.Auto
                 ? Gpt6Reasoning.Medium
-                : Gpt6ReasoningEffort;
+                : RequestGpt6ReasoningEffort;
 
             if (!requestBody.ContainsKey("reasoning"))
             {
@@ -374,17 +372,17 @@ namespace Mythosia.AI.Services.OpenAI
                     ["context"] = "current_turn"
                 };
 
-                var summary = Gpt6ReasoningSummary?.ToString().ToLowerInvariant();
+                var summary = RequestGpt6ReasoningSummary?.ToString().ToLowerInvariant();
                 if (summary != null)
                     reasoning["summary"] = summary;
 
-                if (Gpt6ReasoningMode == global::Mythosia.AI.Models.Gpt6ReasoningMode.Pro)
+                if (RequestGpt6ReasoningMode == global::Mythosia.AI.Models.Gpt6ReasoningMode.Pro)
                     reasoning["mode"] = "pro";
 
                 requestBody["reasoning"] = reasoning;
             }
 
-            SetTextVerbosity(requestBody, Gpt6Verbosity ?? Verbosity.Medium);
+            SetTextVerbosity(requestBody, RequestGpt6Verbosity ?? Verbosity.Medium);
         }
 
         private static void SetTextVerbosity(Dictionary<string, object> requestBody, Verbosity verbosity)
@@ -466,7 +464,7 @@ namespace Mythosia.AI.Services.OpenAI
             return unsupported;
         }
 
-        #region Model Detection Helpers
+        #region RequestModel Detection Helpers
 
         /// <summary>
         /// Matches the entire GPT-5 family, including versioned variants through GPT-5.6.

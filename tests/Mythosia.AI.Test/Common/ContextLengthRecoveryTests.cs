@@ -30,7 +30,9 @@ public class ContextLengthRecoveryTests
         public int CallCount { get; private set; }
         public List<int> MessageCountAtCall { get; } = new();
         public List<bool> WasStatelessOnCall { get; } = new();
+        public List<bool> PublicStatelessOnCall { get; } = new();
         public List<uint> MaxRoundsAtCall { get; } = new();
+        public List<int> DefaultMaxRoundsAtCall { get; } = new();
 
         /// <summary>호출마다 실제로 전송됐을 메시지들. 요청 컨텍스트 적용 결과가 여기서 보인다.</summary>
         public List<List<string>> SentMessagesAtCall { get; } = new();
@@ -47,23 +49,25 @@ public class ContextLengthRecoveryTests
 
         public override Task<string> GetCompletionAsync(Message message)
         {
+            using var requestScope = BeginRequestSettingsScope();
             CallCount++;
             MessageCountAtCall.Add(ActivateChat.Messages.Count);
-            WasStatelessOnCall.Add(StatelessMode);
+            WasStatelessOnCall.Add(RequestStatelessMode);
+            PublicStatelessOnCall.Add(StatelessMode);
 
-            // 공급자는 진입 즉시 CurrentPolicy 를 소비한다. 재시도 때 재주입되는지 보려고 기록해 둔다.
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            // 실제 공급자와 같이 실행 스냅샷을 읽는다. 기본 정책은 요청 중에도 바뀌지 않는다.
+            var policy = GetExecutionPolicy();
             MaxRoundsAtCall.Add((uint)policy.MaxRounds);
-            CurrentPolicy = null;
+            DefaultMaxRoundsAtCall.Add(DefaultPolicy.MaxRounds);
 
             // StatelessMode 에서 공급자는 ChatBlock 을 통째로 갈아끼운다(OpenAIService.cs:88-93).
             // 요약 요청이 호출자 이력을 건드리지 않는 것도, 요약 요청에 실리는 메시지가 프롬프트 하나뿐인 것도
             // 이 교체 덕분이라 목도 똑같이 해야 한다.
             ChatBlock? callerChat = null;
-            if (StatelessMode)
+            if (RequestStatelessMode)
             {
                 callerChat = ActivateChat;
-                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
+                ActivateChat = new ChatBlock { SystemMessage = RequestSystemMessage };
             }
 
             try
@@ -173,6 +177,8 @@ public class ContextLengthRecoveryTests
         Assert.AreEqual("final answer", result);
         Assert.AreEqual(3, service.CallCount, "원요청 + 요약 + 재시도 = 3회여야 한다");
         Assert.IsTrue(service.WasStatelessOnCall[1], "요약 요청은 stateless 로 나가야 한다");
+        CollectionAssert.AreEqual(new[] { false, false, false }, service.PublicStatelessOnCall,
+            "요약 요청의 stateless 설정은 호출 도중에도 서비스 기본값을 변경하면 안 된다");
         Assert.IsTrue(
             service.MessageCountAtCall[2] < service.MessageCountAtCall[0],
             "재시도는 압축된(더 짧은) 대화로 나가야 한다");
@@ -327,12 +333,15 @@ public class ContextLengthRecoveryTests
         service.ConversationPolicy = SummaryConversationPolicy.ByMessage(triggerCount: 4, keepRecentCount: 2);
         SeedHistory(service, 5);
         service.CurrentPolicy = new FunctionCallingPolicy { MaxRounds = 7 };
+        var defaultMaxRounds = service.DefaultPolicy.MaxRounds;
 
         await service.GetCompletionAsync(new Message(ActorRole.User, "question"), null, null);
 
         Assert.AreEqual(7u, service.MaxRoundsAtCall[0], "원요청이 주입된 정책을 써야 한다");
         Assert.AreEqual(7u, service.MaxRoundsAtCall[2],
             "재시도도 같은 정책이어야 한다 — 재주입이 없으면 DefaultPolicy 로 조용히 바뀐다");
+        CollectionAssert.AreEqual(new[] { defaultMaxRounds, defaultMaxRounds, defaultMaxRounds },
+            service.DefaultMaxRoundsAtCall, "원요청·요약·재시도 모두 서비스의 기본 정책은 변경하지 않아야 한다");
     }
 
     #endregion

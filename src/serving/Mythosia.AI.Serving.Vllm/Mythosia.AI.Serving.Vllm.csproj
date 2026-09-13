@@ -15,20 +15,18 @@
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
     <Authors>JJW</Authors>
-    <PackageTags>AI; vLLM; LLM; Serving; Inference Server; Control Plane; Management; Model Card; Metrics; Prometheus; Health; Version;</PackageTags>
-    <Description>
-Control-plane (management/introspection) client for a running vLLM server: model cards (served aliases, the actually loaded model via the root field, max context length, LoRA adapters), health probe, server version, and Prometheus metrics.
-
-Family taxonomy: Mythosia.AI.Providers.* = chat data plane (concrete AI services); Mythosia.AI.Serving.* = model-server control plane. Chat/completions against vLLM stay on Mythosia.AI (e.g. QwenService with EndpointPlatform.Vllm) — this package does not chat and does not host a server.
-
-Documentation
-- GitHub: https://github.com/AJ-comp/Mythosia.AI
-- Release Notes: src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md
-    </Description>
+    <PackageTags>AI;LLM;vLLM;Serving;InferenceServer;ControlPlane;ModelCards;Health;Metrics;Prometheus</PackageTags>
+    <Description>Inspect a running vLLM server before choosing a model or diagnosing an inference problem. VllmServer reads served model cards, loaded-model metadata when available, health status, server version and label-preserving Prometheus metrics through a read-only management client. Chat requests remain with the separate provider adapters. Targets .NET Standard 2.1 with Newtonsoft.Json 13.0.4 as its only package dependency; no Mythosia.AI core dependency.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/serving/Mythosia.AI.Serving.Vllm</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0-preview: Initial preview — VllmServer control-plane client: GetModelsAsync/GetModelAsync (model cards incl. the stable-but-undocumented root/parent/max_model_len fields, DisplayModel fallback, LoRA detection), GetVersionAsync, IsHealthyAsync/GetHealthAsync (Healthy/EngineDead/Unauthorized/Unreachable/Unexpected), GetMetricsAsync (label-preserving Prometheus families + typed convenience getters), VllmException with OpenAI-style error-body parsing. Depends only on Newtonsoft.Json.</PackageReleaseNotes>
-    <Version>1.0.0-preview</Version>
+    <PackageReleaseNotes>v1.0.0 promotes the published 1.0.0-preview client to a stable release without changing its public API or runtime behavior. VllmServer retains model-card lookup, classified health checks, version discovery, Prometheus metrics and server-root or /v1 endpoint normalization. Package documentation, MIT license/repository metadata and symbol packaging are aligned for stable publication. Requires only Newtonsoft.Json 13.0.4 and targets .NET Standard 2.1; no Mythosia.AI core dependency or server hosting is added. Existing preview callers can upgrade without source changes. Server fields and metric availability still depend on the deployed vLLM version. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100</PackageReleaseNotes>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

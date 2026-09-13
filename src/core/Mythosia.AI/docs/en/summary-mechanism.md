@@ -156,7 +156,7 @@ protected static void EnsureUserFirstMessage(List<Message> messages)
 ```
 
 - **Applied to**: Gemini, Claude (4 request builder methods)
-- **Not applied to**: OpenAI, Grok, DeepSeek, Sonar, Qwen (no user-first constraint)
+- **Not applied to**: OpenAI, Grok, DeepSeek, Perplexity, Qwen (no user-first constraint)
 - **Original immutability**: Applied only to a copy created via `GetLatestMessages().ToList()`
 
 ## Why Summarization Fires After Round Completion
@@ -204,3 +204,7 @@ In both cases the original error propagates with **no summary call and no deleti
 > **Non-streaming differs.** A retry there re-enters the provider's round loop from zero, so a tool that
 > already ran would run again. Recovery therefore stops with the reason `tool-side-effects` in that case.
 > Per-round replay exists only on the streaming path.
+
+Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](../../../../../docs/completions.md#completion-cancellation).
+
+This cancellation contract is included in Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0. Application source calls that omit the token remain valid, including positional profile/context arguments, but consumers must rebuild. Custom `IAIService` implementations must append `CancellationToken cancellationToken = default` to both completion signatures and propagate it. Custom `AIService` providers retain their existing `GetCompletionAsync(Message)` override and must forward the protected `RequestCancellationToken` into their transport. Builder and Run capabilities alone did not require that interface change.

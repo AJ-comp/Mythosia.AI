@@ -1,5 +1,7 @@
 # Saída Estruturada
 
+Para uma resposta final com botão Parar, passe `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progresso ou instruções adicionais suportadas. Consulte [cancelamento](completions.md#completion-cancellation).
+
 ## Por que Saída Estruturada?
 
 LLMs retornam texto livre por padrão. Se sua aplicação precisa **processar a resposta programaticamente** — armazená-la em um banco de dados, passá-la para outra API ou renderizá-la em uma UI tipada — você tem que analisar esse texto por conta própria. Isso leva a verificações frágeis de regex ou `string.Contains` que quebram quando o modelo muda a formulação.
@@ -64,3 +66,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: retorna o primeiro erro de validação sem repetir o reparo
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+O limite de reparações não inclui a resposta inicial. `StructuredOutputMaxRetries` e `MaxRepairAttempts` tratam valores negativos como zero e aceitam até `int.MaxValue - 1`. O valor `int.MaxValue` lança `ArgumentOutOfRangeException` antes de enviar ao provedor, evitando o transbordamento do total de tentativas. Isso vale para chamadas de conclusão tipadas e `BeginStream(...).As<T>()`.

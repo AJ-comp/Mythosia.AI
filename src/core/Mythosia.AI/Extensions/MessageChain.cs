@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Builders;
+using Mythosia.AI.Builders;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Services.Base;
@@ -92,7 +92,7 @@ namespace Mythosia.AI.Extensions
         /// </summary>
         public MessageChain WithPolicy(FunctionCallingPolicy policy)
         {
-            _customPolicy = policy;
+            _customPolicy = policy.Clone();
             return this;
         }
 
@@ -105,170 +105,50 @@ namespace Mythosia.AI.Extensions
             return this;
         }
 
-        /// <summary>
-        /// Sends the message and maintains conversation history.
-        /// </summary>
-        public async Task<string> SendAsync()
+        private AIRequestBuilder CreateRequest()
         {
-            var message = _builder.Build();
-
-            // Apply custom policy if set
-            if (_customPolicy != null)
-            {
-                _service.CurrentPolicy = _customPolicy;
-            }
-
-            try
-            {
-                // The three-argument overload, explicitly: the one-argument abstract wins overload
-                // resolution otherwise, and it is the raw provider call — no context-overflow
-                // recovery. A history-keeping send is exactly the case that needs recovery.
-                return await _service.GetCompletionAsync(message, null, null);
-            }
-            finally
-            {
-                // Reset policy after use
-                _service.CurrentPolicy = null;
-            }
+            var request = _service.CreateRequest(_builder.Build());
+            return _customPolicy == null ? request : request.WithPolicy(_customPolicy);
         }
 
-        /// <summary>
-        /// Sends the message as a one-off query without affecting conversation history.
-        /// </summary>
-        public async Task<string> SendOnceAsync()
+        /// <summary>Sends the message using an independent request configuration.</summary>
+        public Task<string> SendAsync(CancellationToken cancellationToken = default)
         {
-            var message = _builder.Build();
-
-            // Apply custom policy if set
-            if (_customPolicy != null)
-            {
-                _service.CurrentPolicy = _customPolicy;
-            }
-
-            try
-            {
-                return await _service.AskOnceAsync(message);
-            }
-            finally
-            {
-                // Reset policy after use
-                _service.CurrentPolicy = null;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return CreateRequest().SendMessageAsync(cancellationToken);
         }
 
-        /// <summary>
-        /// Sends the message and streams the response (callback version)
-        /// </summary>
+        /// <summary>Sends a one-off request without changing the service default mode.</summary>
+        public Task<string> SendOnceAsync(CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return CreateRequest().WithStatelessMode().GetCompletionAsync(cancellationToken);
+        }
+
+        /// <summary>Observes streaming text using the captured request configuration.</summary>
         public async Task StreamAsync(Action<string> onContent)
         {
-            var message = _builder.Build();
-
-            // Apply custom policy if set
-            if (_customPolicy != null)
-            {
-                _service.CurrentPolicy = _customPolicy;
-            }
-
-            try
-            {
-                await _service.StreamCompletionAsync(message, content =>
-                {
-                    onContent(content);
-                    return Task.CompletedTask;
-                });
-            }
-            finally
-            {
-                // Reset policy after use
-                _service.CurrentPolicy = null;
-            }
+            await foreach (var chunk in CreateRequest().StreamAsync()) onContent(chunk);
         }
 
-        /// <summary>
-        /// Streams the message as a one-off query (callback version)
-        /// </summary>
+        /// <summary>Observes streaming text without maintaining conversation history.</summary>
         public async Task StreamOnceAsync(Action<string> onContent)
         {
-            var message = _builder.Build();
-
-            var originalMode = _service.StatelessMode;
-            _service.StatelessMode = true;
-
-            // Apply custom policy if set
-            if (_customPolicy != null)
-            {
-                _service.CurrentPolicy = _customPolicy;
-            }
-
-            try
-            {
-                await _service.StreamCompletionAsync(message, content =>
-                {
-                    onContent(content);
-                    return Task.CompletedTask;
-                });
-            }
-            finally
-            {
-                _service.StatelessMode = originalMode;
-                _service.CurrentPolicy = null;
-            }
+            await foreach (var chunk in CreateRequest().WithStatelessMode().StreamAsync()) onContent(chunk);
         }
 
-        /// <summary>
-        /// Streams the response as IAsyncEnumerable
-        /// </summary>
+        /// <summary>Streams the captured message request.</summary>
         public async IAsyncEnumerable<string> StreamAsync(
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var message = _builder.Build();
-
-            // Apply custom policy if set
-            if (_customPolicy != null)
-            {
-                _service.CurrentPolicy = _customPolicy;
-            }
-
-            try
-            {
-                await foreach (var chunk in _service.StreamAsync(message, cancellationToken: cancellationToken))
-                {
-                    yield return chunk;
-                }
-            }
-            finally
-            {
-                // Reset policy after use
-                _service.CurrentPolicy = null;
-            }
+            await foreach (var chunk in CreateRequest().StreamAsync(cancellationToken)) yield return chunk;
         }
 
-        /// <summary>
-        /// Streams as one-off query as IAsyncEnumerable
-        /// </summary>
+        /// <summary>Streams the captured message as a one-off request.</summary>
         public async IAsyncEnumerable<string> StreamOnceAsync(
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var message = _builder.Build();
-
-            // Apply custom policy if set
-            if (_customPolicy != null)
-            {
-                _service.CurrentPolicy = _customPolicy;
-            }
-
-            try
-            {
-                await foreach (var chunk in _service.StreamOnceAsync(message, cancellationToken))
-                {
-                    yield return chunk;
-                }
-            }
-            finally
-            {
-                // Reset policy after use
-                _service.CurrentPolicy = null;
-            }
+            await foreach (var chunk in CreateRequest().WithStatelessMode().StreamAsync(cancellationToken)) yield return chunk;
         }
     }
 }

@@ -237,18 +237,19 @@ public class OpenAIGpt5_6RequestShapeTests
         Assert.AreEqual(600, service.ResolveTimeout(new FunctionCallingPolicy { TimeoutSeconds = 100 }));
         Assert.AreEqual(45, service.ResolveTimeout(new FunctionCallingPolicy { TimeoutSeconds = 45 }));
 
-        service.ChangeModel(AIModels.OpenAI.Gpt5Pro);
+        // Preserve offline timeout compatibility for callers still supplying a legacy model ID.
+        service.ChangeModel("gpt-5-pro");
         Assert.AreEqual(600, service.ResolveTimeout(new FunctionCallingPolicy { TimeoutSeconds = 100 }));
         Assert.AreEqual(45, service.ResolveTimeout(new FunctionCallingPolicy { TimeoutSeconds = 45 }));
     }
 
     [TestMethod]
-    public void Gpt5_ExtendsOnlyTheDefaultRequestTimeout()
+    public void LegacyGpt5_ExtendsOnlyTheDefaultRequestTimeout()
     {
         var service = new TimeoutProbeService(
             "offline-test-key",
             new HttpClient(new CaptureHandler()));
-        service.ChangeModel(AIModels.OpenAI.Gpt5);
+        service.ChangeModel("gpt-5");
 
         Assert.AreEqual(300, service.ResolveTimeout(new FunctionCallingPolicy { TimeoutSeconds = 100 }));
         Assert.AreEqual(45, service.ResolveTimeout(new FunctionCallingPolicy { TimeoutSeconds = 45 }));

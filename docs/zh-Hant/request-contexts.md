@@ -1,5 +1,9 @@
 # AIRequestContext
 
+只需完整答案和停止按鈕時，將 `cancellationToken` 傳給 `GetCompletionAsync`。進度事件或支援的中途追加指令使用 Run。參閱[取消回答](completions.md#completion-cancellation)。
+
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
 ## 概述
 
 `AIRequestContext` 可以修改**模型在單次請求中看到的內容** — 注入額外指令、加入參考文件或完全替換使用者訊息 — 而不會永久改變服務的系統訊息或對話歷史。
@@ -38,7 +42,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"今天的日期: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## 可用屬性
@@ -199,7 +203,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync` 和舊 `RunAgentAsync` 不接收 `CancellationToken`，向內容 provider 傳入的是 `CancellationToken.None`。如需取消長時間的資料庫查詢，可以使用 `StartRunAsync(..., cancellationToken: token)`；即使不讀取輸出、只等待 `run.Result`，權杖也會傳遞給 provider。舊 `StreamAsync` 和 `RunAgentStreamAsync` 同樣傳遞呼叫端權杖。僅取消 `run.StreamAsync(token)` 會停止觀察，不會取消 provider 或整個執行。
+`GetCompletionAsync(..., cancellationToken: token)` 和舊 `RunAgentAsync` 現在會將呼叫端取消傳給 `SystemMessageProvider`，支援權杖的資料庫或 HTTP 查詢可在準備階段停止。`StartRunAsync` 和接收輸入的既有串流方法也傳遞執行權杖。僅取消 `run.StreamAsync(token)` 只停止觀察，不取消 provider 或整個執行。
 
 ### 與顯式 per-call 上下文合併
 

@@ -17,6 +17,14 @@
 
 ## 內建嵌入提供者
 
+依文件語言、部署環境及檢索需求選擇嵌入提供者。
+
+### Perplexity
+
+標準嵌入獨立處理各段落並實作 `IEmbeddingProvider`，因此可接入既有建構器。情境嵌入保留相鄰區塊順序與文件分組，並使用獨立 API，避免將無關文件攤平成單一輸入。
+
+[Perplexity Agent API、搜尋與嵌入](perplexity.md).
+
 ### OpenAI
 
 ```csharp
@@ -91,6 +99,8 @@ pipeline.Options = options;
 | 提供者 | 模型 | 預設維度 |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

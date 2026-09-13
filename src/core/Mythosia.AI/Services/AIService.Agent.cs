@@ -27,18 +27,21 @@ namespace Mythosia.AI.Services.Base
         /// <param name="goal">The goal or task for the agent to accomplish</param>
         /// <param name="maxSteps">Maximum number of agent steps (LLM round-trips) to prevent infinite loops. Default is 10.</param>
         /// <param name="context">Optional per-call request context (e.g. dynamic system message prefix/suffix).</param>
+        /// <param name="cancellationToken">Cancels the completion, local tools and subsequent rounds.</param>
         /// <returns>The final text response from the LLM after completing the goal</returns>
         /// <exception cref="AgentMaxStepsExceededException">
         /// Thrown when maxSteps is exceeded without a final answer.
         /// The exception contains a PartialResponse property with the last assistant message, if any.
         /// </exception>
-        [System.Obsolete("Use StartRunAsync with the desired function-calling round policy and await run.Result. This compatibility method remains supported.", false)]
-        public virtual async Task<string> RunAgentAsync(string goal, int maxSteps = 10, AIRequestContext? context = null)
+        [System.Obsolete("Use StartRunAsync with the desired function-calling round policy and read (await run.Result).Text. This compatibility method remains supported.", false)]
+        public virtual async Task<string> RunAgentAsync(string goal, int maxSteps = 10, AIRequestContext? context = null, CancellationToken cancellationToken = default)
         {
-            var agentPolicy = (DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
+            using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
+            using var requestScope = BeginRequestSettingsScope();
+            var agentPolicy = GetExecutionPolicy();
             agentPolicy.MaxRounds = maxSteps;
 
-            CurrentPolicy = agentPolicy;
+            SetExecutionSetting(nameof(DefaultPolicy), agentPolicy);
 
             try
             {
@@ -53,7 +56,7 @@ namespace Mythosia.AI.Services.Base
         /// <summary>
         /// Runs the ReAct agent loop using the streaming pipeline.
         /// <para>
-        /// This is the streaming counterpart to <see cref="RunAgentAsync(string, int, AIRequestContext?)"/>.
+        /// This is the streaming counterpart to <see cref="RunAgentAsync(string, int, AIRequestContext, CancellationToken)"/>.
         /// Function calling is forced on for this request so the agent can act, and
         /// <see cref="StreamOptions.TextOnly"/> is disabled so the stream can emit a
         /// final <see cref="StreamingContentType.Completion"/> event.
@@ -77,14 +80,15 @@ namespace Mythosia.AI.Services.Base
             AIRequestContext? context = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var agentPolicy = (DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
+            using var requestScope = BeginRequestSettingsScope();
+            var agentPolicy = GetExecutionPolicy();
             agentPolicy.MaxRounds = maxSteps;
 
             var agentOptions = (options ?? StreamOptions.WithFunctions).Clone();
             agentOptions.IncludeFunctionCalls = true;
             agentOptions.TextOnly = false;
 
-            CurrentPolicy = agentPolicy;
+            SetExecutionSetting(nameof(DefaultPolicy), agentPolicy);
 
             var completed = false;
             var sawError = false;

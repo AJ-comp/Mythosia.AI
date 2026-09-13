@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Pour un résultat final et un bouton Arrêter, passez `cancellationToken` à `GetCompletionAsync`. Utilisez Run pour les événements de progression ou les instructions supplémentaires prises en charge. Voir [l’annulation](completions.md#completion-cancellation).
+
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 La date, les informations utilisateur et les documents trouvés ne doivent souvent servir qu’à la tâche actuelle. Le contexte limite ces ajouts à la requête et peut aussi accompagner une tâche pilotable ; consultez le [guide Run](execution-api-transition.md).
 
 ## C'est quoi ?
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Date du jour : {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Propriétés disponibles
@@ -269,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync` et les anciennes surcharges de `RunAgentAsync` n’acceptent pas de `CancellationToken` ; le fournisseur de contexte y reçoit `CancellationToken.None`. Si ce fournisseur doit pouvoir être annulé, par exemple pendant une longue requête de base de données, utilisez `StartRunAsync(..., cancellationToken: token)`. Les anciens chemins de streaming (`StreamAsync`, `RunAgentStreamAsync`) transmettent également le jeton de l’appelant au rappel du fournisseur.
+`GetCompletionAsync(..., cancellationToken: token)` et l’ancien `RunAgentAsync` transmettent désormais l’annulation à `SystemMessageProvider` : une requête de base de données ou HTTP coopérative peut s’arrêter pendant la préparation. `StartRunAsync` et les méthodes de streaming avec entrée transmettent aussi leur jeton d’exécution. Annuler seulement `run.StreamAsync(token)` arrête l’observation, pas le fournisseur ni l’exécution.
 
 ### Fusion avec un contexte per-call explicite
 

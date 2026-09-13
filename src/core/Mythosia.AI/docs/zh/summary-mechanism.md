@@ -156,7 +156,7 @@ protected static void EnsureUserFirstMessage(List<Message> messages)
 ```
 
 - **适用对象**: Gemini、Claude（请求构建器4处）
-- **不适用**: OpenAI、Grok、DeepSeek、Sonar、Qwen（无User-first约束）
+- **不适用**: OpenAI、Grok、DeepSeek、Perplexity、Qwen（无User-first约束）
 - **原始数据不变**: 仅应用于通过`GetLatestMessages().ToList()`创建的副本
 
 ## 为什么摘要在轮次完成后执行
@@ -204,3 +204,7 @@ Round 2: [服务器以400拒绝]
 > **非流式不同。** 重试会让提供方的轮次循环从0重新开始，因此已经执行过的工具会被执行第二次。
 > 所以在这种情况下不进行恢复，而是以 `tool-side-effects` 为原因停止。
 > 按轮次重放仅存在于流式路径。
+
+只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](../../../../../docs/zh-Hans/completions.md#completion-cancellation)。
+
+此取消契约包含在 Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 中。不传令牌的调用和现有 profile/context 位置参数在源代码层面仍有效，但使用方需要重新构建。自定义 `IAIService` 实现必须在两个完成方法签名末尾添加并传递 `CancellationToken cancellationToken = default`。继承 `AIService` 的自定义供应商保留现有 `GetCompletionAsync(Message)` override，并将受保护的 `RequestCancellationToken` 传给传输层。构建器和 Run 本身不需要这次接口修改。

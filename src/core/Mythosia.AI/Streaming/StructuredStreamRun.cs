@@ -38,9 +38,8 @@ namespace Mythosia.AI.Models.Streaming
     /// <typeparam name="T">The POCO type to deserialize the LLM response into.</typeparam>
     public sealed class StructuredStreamRun<T> where T : class
     {
-        private readonly AIService _service;
-        private readonly string _prompt;
-        private readonly int _maxRepairAttempts;
+        private readonly Mythosia.AI.Builders.AIRequestBuilder _request;
+        private readonly int _maxAttempts;
         private readonly string _schemaJson;
         private readonly StringBuilder _buffer = new StringBuilder();
         private readonly Channel<string> _channel;
@@ -50,10 +49,14 @@ namespace Mythosia.AI.Models.Streaming
 
         internal StructuredStreamRun(AIService service, string prompt, StructuredOutputPolicy? policy)
         {
-            _service = service ?? throw new ArgumentNullException(nameof(service));
-            _prompt = prompt ?? throw new ArgumentNullException(nameof(prompt));
-            _maxRepairAttempts = policy?.MaxRepairAttempts ?? service.StructuredOutputMaxRetries;
+            if (service == null) throw new ArgumentNullException(nameof(service));
+            if (prompt == null) throw new ArgumentNullException(nameof(prompt));
+            var maxRepairAttempts = policy?.MaxRepairAttempts ?? service.StructuredOutputMaxRetries;
             _schemaJson = JsonSchemaGenerator.Generate(typeof(T));
+            _request = service.CreateRequest(prompt).WithStructuredOutputSchema(_schemaJson);
+            // Consume the request's one-call settings before rejecting its budget, while
+            // still validating before the eager producer starts any provider work.
+            _maxAttempts = AIService.ResolveStructuredOutputAttemptLimit(maxRepairAttempts);
 
             _channel = Channel.CreateUnbounded<string>(new UnboundedChannelOptions
             {
@@ -105,11 +108,9 @@ namespace Mythosia.AI.Models.Streaming
 
         private async Task ProduceStreamAsync()
         {
-            _service._structuredOutputSchemaJson = _schemaJson;
-
             try
             {
-                await foreach (var chunk in _service.StreamAsync(_prompt))
+                await foreach (var chunk in _request.StreamAsync())
                 {
                     _buffer.Append(chunk);
                     await _channel.Writer.WriteAsync(chunk);
@@ -123,10 +124,6 @@ namespace Mythosia.AI.Models.Streaming
                 _channel.Writer.Complete(ex);
                 _completionTcs.TrySetException(ex);
             }
-            finally
-            {
-                _service._structuredOutputSchemaJson = null;
-            }
         }
 
         private async Task<T> ResolveResultAsync()
@@ -137,16 +134,15 @@ namespace Mythosia.AI.Models.Streaming
 
         private async Task<T> ParseAndRepairAsync(string rawResponse)
         {
-            var maxAttempts = 1 + Math.Max(0, _maxRepairAttempts);
             string firstRawResponse = rawResponse;
             string lastRawResponse = rawResponse;
             string? lastParseError = null;
 
-            for (int attempt = 1; attempt <= maxAttempts; attempt++)
+            for (int attempt = 0; attempt < _maxAttempts; attempt++)
             {
                 string toProcess;
 
-                if (attempt == 1)
+                if (attempt == 0)
                 {
                     toProcess = rawResponse;
                 }
@@ -154,15 +150,7 @@ namespace Mythosia.AI.Models.Streaming
                 {
                     // Repair via non-streaming call
                     var correctionPrompt = BuildCorrectionPrompt(lastRawResponse, lastParseError!);
-                    _service._structuredOutputSchemaJson = _schemaJson;
-                    try
-                    {
-                        toProcess = await _service.GetCompletionAsync(correctionPrompt);
-                    }
-                    finally
-                    {
-                        _service._structuredOutputSchemaJson = null;
-                    }
+                    toProcess = await _request.WithInput(correctionPrompt).GetCompletionAsync();
                     lastRawResponse = toProcess;
                 }
 
@@ -189,7 +177,7 @@ namespace Mythosia.AI.Models.Streaming
                 firstRawResponse,
                 lastRawResponse,
                 lastParseError ?? "Unknown error",
-                maxAttempts,
+                _maxAttempts,
                 _schemaJson);
         }
 

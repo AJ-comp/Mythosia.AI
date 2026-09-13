@@ -1,4 +1,7 @@
-﻿using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Exceptions;
+using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Streaming;
+using System;
 using System.Collections.Generic;
 using System.Text.Json;
 
@@ -6,92 +9,85 @@ namespace Mythosia.AI.Services.DeepSeek
 {
     public partial class DeepSeekService
     {
-        #region Response Parsing
+        protected override string ExtractResponseContent(string responseContent) => _protocol.ExtractResponse(responseContent);
+        protected override string StreamParseJson(string jsonData) => _protocol.ParseStreamChunk(jsonData);
 
-        protected override string ExtractResponseContent(string responseContent)
-            => _protocol.ExtractResponse(responseContent);
-
-        protected override string StreamParseJson(string jsonData)
-            => _protocol.ParseStreamChunk(jsonData);
-
-        private StreamingContent? ParseDeepSeekStreamChunk(
-            string jsonData,
-            StreamOptions options,
-            ref string? currentModel)
+        private sealed class DeepSeekResponse
         {
-            using var doc = JsonDocument.Parse(jsonData);
-            var root = doc.RootElement;
-
-            // Extract model on first chunk
-            if (currentModel == null && root.TryGetProperty("model", out var modelElem))
-            {
-                currentModel = modelElem.GetString();
-            }
-
-            if (!root.TryGetProperty("choices", out var choices) ||
-                choices.GetArrayLength() == 0)
-                return null;
-
-            var choice = choices[0];
-            var content = new StreamingContent();
-
-            // Check for finish reason
-            if (choice.TryGetProperty("finish_reason", out var finishReason))
-            {
-                var reason = finishReason.GetString();
-                if (reason != null && options.IncludeMetadata)
-                {
-                    content.Type = StreamingContentType.Status;
-                    content.Metadata = new Dictionary<string, object>
-                    {
-                        ["finish_reason"] = reason
-                    };
-                    if (root.TryGetProperty("usage", out var usage))
-                        content.Usage = ParseOpenAICompatibleUsage(usage);
-                    return content;
-                }
-            }
-
-            // Check for delta content
-            if (choice.TryGetProperty("delta", out var delta))
-            {
-                if (delta.TryGetProperty("content", out var textContent))
-                {
-                    var text = textContent.GetString();
-                    if (!string.IsNullOrEmpty(text))
-                    {
-                        content.Type = StreamingContentType.Text;
-                        content.Content = text;
-
-                        if (options.IncludeMetadata)
-                        {
-                            content.Metadata = new Dictionary<string, object>();
-                            if (currentModel != null)
-                                content.Metadata["model"] = currentModel;
-                        }
-
-                        return content;
-                    }
-                }
-            }
-
-            return null;
+            public string Text { get; set; } = string.Empty;
+            public string? Reasoning { get; set; }
+            public FunctionCallBatch Calls { get; set; } = new FunctionCallBatch();
+            public TokenUsage? Usage { get; set; }
         }
 
-        private static TokenUsage ParseOpenAICompatibleUsage(JsonElement usage)
+        private DeepSeekResponse ParseDeepSeekResponse(string json)
         {
-            var tokenUsage = new TokenUsage();
-            if (usage.TryGetProperty("prompt_tokens", out var prompt))
-                tokenUsage.InputTokens = prompt.GetInt32();
-            if (usage.TryGetProperty("completion_tokens", out var completion))
-                tokenUsage.OutputTokens = completion.GetInt32();
-            if (usage.TryGetProperty("total_tokens", out var total))
-                tokenUsage.TotalTokens = total.GetInt32();
-            else
-                tokenUsage.TotalTokens = tokenUsage.InputTokens + tokenUsage.OutputTokens;
-            return tokenUsage;
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                var root = document.RootElement;
+                if (root.TryGetProperty("error", out var error))
+                    throw new AIServiceException("DeepSeek returned a provider error.", error.GetRawText());
+                if (!root.TryGetProperty("choices", out var choices) || choices.ValueKind != JsonValueKind.Array || choices.GetArrayLength() == 0)
+                    throw new AIServiceException("DeepSeek returned no completion choices.");
+                var choice = choices[0];
+                var finish = ReadDeepSeekString(choice, "finish_reason");
+                if (finish != "stop" && finish != "tool_calls")
+                    throw new AIServiceException($"DeepSeek ended the response with finish_reason={finish ?? "missing"}; the incomplete response was not saved.");
+                if (!choice.TryGetProperty("message", out var message) || message.ValueKind != JsonValueKind.Object)
+                    throw new AIServiceException("DeepSeek returned no assistant message.");
+                var extracted = ExtractFunctionCalls(json);
+                return new DeepSeekResponse
+                {
+                    Text = extracted.functionCalls.Calls.Count == 0 ? ExtractResponseContent(json) : extracted.content,
+                    Calls = extracted.functionCalls,
+                    Reasoning = ReadDeepSeekString(message, "reasoning_content"),
+                    Usage = root.TryGetProperty("usage", out var usage) ? ParseDeepSeekUsage(usage) : null
+                };
+            }
+            catch (Exception exception) when (exception is JsonException || exception is InvalidOperationException)
+            {
+                throw new AIServiceException("Failed to parse the DeepSeek response.", exception);
+            }
         }
 
-        #endregion
+        private static Dictionary<string, object>? CreateReasoningMetadata(string? reasoning)
+            => reasoning == null ? null : new Dictionary<string, object> { [ReasoningMetadataKey] = reasoning };
+
+        private static string? ReadDeepSeekString(JsonElement element, string name)
+        {
+            if (!element.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null) return null;
+            if (value.ValueKind != JsonValueKind.String) throw new JsonException($"DeepSeek {name} must be a string or null.");
+            return value.GetString();
+        }
+
+        private static TokenUsage? ParseDeepSeekUsage(JsonElement usage)
+        {
+            if (usage.ValueKind == JsonValueKind.Null) return null;
+            if (usage.ValueKind != JsonValueKind.Object) throw new JsonException("DeepSeek usage must be an object or null.");
+            var input = ReadDeepSeekTokenCount(usage, "prompt_tokens");
+            var output = ReadDeepSeekTokenCount(usage, "completion_tokens");
+            var total = ReadDeepSeekTokenCount(usage, "total_tokens");
+            if (!input.HasValue && !output.HasValue && !total.HasValue) return null;
+            var cached = ReadDeepSeekTokenCount(usage, "prompt_cache_hit_tokens");
+            if (!cached.HasValue && usage.TryGetProperty("prompt_tokens_details", out var inputDetails) && inputDetails.ValueKind == JsonValueKind.Object)
+                cached = ReadDeepSeekTokenCount(inputDetails, "cached_tokens");
+            var reasoning = usage.TryGetProperty("completion_tokens_details", out var outputDetails) && outputDetails.ValueKind == JsonValueKind.Object
+                ? ReadDeepSeekTokenCount(outputDetails, "reasoning_tokens") : null;
+            return new TokenUsage
+            {
+                InputTokens = input ?? 0, OutputTokens = output ?? 0,
+                TotalTokens = total ?? (input ?? 0) + (output ?? 0),
+                CachedInputTokens = cached ?? 0, ReasoningTokens = reasoning ?? 0
+            };
+        }
+
+        private static int? ReadDeepSeekTokenCount(JsonElement element, string name)
+        {
+            if (!element.TryGetProperty(name, out var value) || value.ValueKind == JsonValueKind.Null) return null;
+            if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var count) || count < 0)
+                throw new JsonException($"DeepSeek {name} must be a nonnegative integer.");
+            return count;
+        }
     }
 }

@@ -161,7 +161,7 @@ public class McpConnectionTests
     }
 
     [TestMethod]
-    public async Task CallToolAsync_ReturnsErrorStringOnToolError()
+    public async Task CallToolAsync_ThrowsOnToolError()
     {
         var transport = new MockTransport();
         transport.EnqueueResult(1, new
@@ -183,8 +183,9 @@ public class McpConnectionTests
             }
         });
 
-        var result = await connection.CallToolAsync("read_file", new Dictionary<string, object> { ["path"] = "/missing" });
-        Assert.IsTrue(result.Contains("File not found"));
+        var exception = await Assert.ThrowsExactlyAsync<McpException>(() =>
+            connection.CallToolAsync("read_file", new Dictionary<string, object> { ["path"] = "/missing" }));
+        StringAssert.Contains(exception.Message, "File not found");
     }
 
     [TestMethod]

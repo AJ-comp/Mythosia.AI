@@ -19,7 +19,8 @@ namespace Mythosia.AI.Models.Streaming
         public int OutputTokens { get; set; }
 
         /// <summary>
-        /// Total tokens used (input + output)
+        /// Provider-reported total tokens. Adapters may calculate input + output when the total
+        /// is omitted; snapshots and round aggregation preserve an explicitly reported total.
         /// </summary>
         public int TotalTokens { get; set; }
 

@@ -1,6 +1,8 @@
 # Generation Parameters
 
-## Common Properties
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
+## Service defaults and compatibility methods
 
 All AI service instances expose these properties:
 
@@ -115,3 +117,5 @@ Clone all settings from another service instance (without conversation history):
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [Control research and tools](perplexity.md).

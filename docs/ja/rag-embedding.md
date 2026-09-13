@@ -17,7 +17,13 @@ RAGパイプラインでは、埋め込みは2つの場面で使われます：
 
 ## 組み込みの埋め込みプロバイダー
 
-Mythosia.AI.Ragには4種類のプロバイダーが用意されています。用途に応じて選択してください。
+文書の言語、運用環境、検索要件に合う埋め込みプロバイダーを選択してください。
+
+### Perplexity
+
+標準埋め込みは段落を独立して扱い、`IEmbeddingProvider` を実装するため既存のビルダーに接続できます。文脈埋め込みは隣接チャンクの順序と文書ごとのまとまりを維持します。無関係な文書を一つに平坦化しないよう、別の API を使います。
+
+[Perplexity Agent API、検索と埋め込み](perplexity.md).
 
 ### OpenAI Embedding
 
@@ -107,6 +113,8 @@ pipeline.Options = options;
 | プロバイダー | モデル | デフォルト次元数 |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

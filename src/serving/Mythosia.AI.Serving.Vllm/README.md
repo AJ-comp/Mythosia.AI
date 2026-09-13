@@ -1,18 +1,20 @@
 # Mythosia.AI.Serving.Vllm
 
-Control-plane (management/introspection) client for a **running [vLLM](https://github.com/vllm-project/vllm) server** — model cards, health, server version, and Prometheus metrics.
-It talks **to** a server; it does not start or host one, and it does not chat.
+Find out which model a running vLLM server exposes, check whether it is healthy, and inspect request load before diagnosing an inference problem. `VllmServer` provides a read-only management client for model cards, server version, health and Prometheus metrics.
 
-> **Family taxonomy** — `Mythosia.AI.Providers.*` = chat **data plane** (concrete AI services); `Mythosia.AI.Serving.*` = model-server **control plane**.
-> Chat/completions against vLLM stay on [Mythosia.AI](https://github.com/AJ-comp/Mythosia.AI) (e.g. `QwenService` with `EndpointPlatform.Vllm`).
+Use this package for the server's management endpoints. For chat/completions, use `QwenService` with `EndpointPlatform.Vllm` in [Mythosia.AI.Providers.Alibaba](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba). The `Serving.*` family inspects running servers; `Providers.*` supplies AI conversation adapters.
+
+## Current release: 1.0.0
+
+Version 1.0.0 promotes the published 1.0.0-preview client to a stable release. The public API and runtime behavior remain unchanged, so existing preview callers can upgrade without source changes. Stable package metadata includes the MIT license, repository information, symbol package and packaged release notes. See the [v1.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+
+The package targets **.NET Standard 2.1** and depends only on **Newtonsoft.Json 13.0.4**. It has no dependency on the Mythosia.AI core and does not start or host a server. Field and metric availability still depends on the deployed vLLM version; the handling of optional fields is explained below.
 
 ## Installation
 
 ```bash
 dotnet add package Mythosia.AI.Serving.Vllm
 ```
-
-Depends only on `Newtonsoft.Json` — referencing this package pulls in no chat/AI dependencies.
 
 ## Quick Start
 

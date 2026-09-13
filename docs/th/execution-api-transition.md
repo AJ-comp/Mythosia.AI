@@ -1,6 +1,12 @@
 # ควบคุมงาน AI ที่กำลังทำงานด้วย Run
 
-> API เหล่านี้ต้องใช้ `Mythosia.AI` 7.1.0 ขึ้นไป ซึ่งรวม `Mythosia.AI.Abstractions` 3.1.0 ขึ้นไป ตัวอย่าง RAG ต้องใช้ `Mythosia.AI.Rag` 7.6.0 ขึ้นไป
+หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
+
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
+> หากต้องการคำตอบ การใช้โทเคน และแหล่งอ้างอิงพร้อมกัน ให้ใช้ `AIRunResult` ที่ได้จาก `await run.Result` สตริงอยู่ใน `result.Text` โดยไม่ต้องอ่านสตรีม นี่คือการเปลี่ยน API ในMythosia.AI 8.0.0 ชนิดผลลัพธ์ของ `GetCompletionAsync` และ `StructuredStreamRun<T>.Result` ยังคงเดิม [ผลลัพธ์ Run และการย้ายรุ่น](#run-result).
+
+> ตัวอย่าง `CreateRequest` ต้องใช้Mythosia.AI 8.0.0 / Abstractions 4.0.0 รุ่น 7.1 เดิมที่เพิ่ม Run และตัวเลือกคำขอทั่วไปยังไม่มี builder แพ็กเกจเดิมใช้ overload ของ service ต่อได้
 
 ## ทำไมต้องควบคุมงานระหว่างที่กำลังทำงาน?
 
@@ -10,7 +16,7 @@ Run ให้ออบเจ็กต์แทนงานซึ่งแอป�
 
 | สิ่งที่แอปต้องการ | วิธีที่ใช้ |
 | --- | --- |
-| รับคำตอบที่เสร็จแล้วโดยไม่ต้องควบคุมระหว่างทำงาน | ใช้ `GetCompletionAsync` ต่อได้ รวมทั้งโอเวอร์โหลดแบบกำหนดชนิดและ RAG |
+| รับคำตอบที่เสร็จแล้วและยกเลิกได้ตามต้องการ | `GetCompletionAsync(..., cancellationToken: token)` |
 | แสดงข้อความทันทีที่ได้รับและรวบรวมเมื่อทำงานเสร็จ | เริ่ม Run พร้อม `onText` แล้วรอ `run.Result` |
 | แสดงการใช้เครื่องมือหรือรอการส่งเอาต์พุตแบบอะซิงโครนัส | อ่านเหตุการณ์จาก `run.StreamAsync()` |
 | ให้ผู้ใช้หยุดงานที่กำลังทำ | เรียก `run.Cancel()` บนออบเจ็กต์ที่เก็บไว้ |
@@ -18,22 +24,89 @@ Run ให้ออบเจ็กต์แทนงานซึ่งแอป�
 
 `StartRunAsync` เริ่มงานของโมเดลหนึ่งงานและส่งคืน `AIRun` งานจะดำเนินต่อไม่ว่าคุณจะอ่านเอาต์พุตหรือไม่ ใช้ออบเจ็กต์เดียวกันเพื่ออ่านสตรีม รับผลที่รวบรวมไว้ ยกเลิก และส่งคำสั่งเพิ่มเติมระหว่างทำงานเมื่อรองรับ ส่วน `GetCompletionAsync` รวมทั้งโอเวอร์โหลดแบบกำหนดชนิดและ RAG ยังคงเป็น API สาธารณะที่สะดวกสำหรับผู้ที่ต้องการเพียงผลลัพธ์เมื่อเสร็จ
 
+<a id="run-result"></a>
+
+## รับคำตอบ การใช้โทเคน และแหล่งอ้างอิงพร้อมกัน
+
+แม้หน้าจอจะแสดงเฉพาะคำตอบที่เสร็จแล้ว แอปอาจต้องบันทึกโทเคนและแหล่งอ้างอิงด้วย เดิม `run.Result` คืนเพียงสตริง จึงต้องรวบรวมเหตุการณ์สตรีมเพื่อดูการใช้งานและอ่านแหล่งอ้างอิงแยกจาก Run ส่วน `AIRunResult` รวบรวมข้อมูลเหล่านี้ให้แม้ไม่อ่านสตรีม
+
+Before — สัญญา Run เดิม
+
+```csharp
+string answer = await run.Result;
+```
+
+After — Mythosia.AI 8.0.0
+
+```csharp
+using Mythosia.AI.Models.Runs;
+
+await using var run = await service
+    .CreateRequest("วิเคราะห์เอกสารเหล่านี้")
+    .StartRunAsync();
+
+AIRunResult result = await run.Result;
+string answer = result.Text;
+int? totalTokens = result.Usage?.TotalTokens;
+var citations = result.Citations;
+string? requestedModel = result.RequestedModel;
+string? actualModel = result.Model;
+var finishReason = result.FinishReason;
+```
+
+เมื่อแสดงข้อความทันทีที่มาถึงก็ยังรับผลลัพธ์เดียวกันได้ บทบาทของ callback, `run.StreamAsync()`, `SteerAsync` และการยกเลิกยังคงเดิม
+
+```csharp
+using Mythosia.AI.Models.Runs;
+
+await using var run = await service
+    .CreateRequest("วิเคราะห์เอกสารเหล่านี้")
+    .StartRunAsync(onText: text => Console.Write(text));
+
+AIRunResult result = await run.Result;
+Console.WriteLine($"\nTokens: {result.Usage?.TotalTokens}");
+```
+
+ผลลัพธ์ที่เสร็จแล้วเป็นภาพข้อมูล ณ เวลานั้น `Usage` และออบเจ็กต์อ้างอิงส่งกลับเป็นสำเนา การแก้สำเนาไม่เปลี่ยนผลที่เก็บไว้ และยังอ่านได้หลังปล่อย Run ตัวกรองสตรีม การหยุดอ่าน หรือบัฟเฟอร์สังเกตการณ์ล้นไม่ทำให้ข้อมูลผลลัพธ์หาย
+
+`Usage` รวมการใช้งานที่รายงานในแต่ละรอบโมเดลของไลบรารีครั้งเดียว ไม่รวมซ้ำระหว่างเหตุการณ์รายรอบกับยอดสุดท้าย หากไม่มีรายงานจะเป็น `null` และไม่ประมาณข้อมูลที่ขาด ไม่รวมคำขอสรุปเสริมที่แยกต่างหาก จึงไม่ใช่ยอดเรียกเก็บเงินหรือการใช้ทั้งบัญชี หากมีรายงานการใช้เพียงบางรอบ ยอดรวมจะครอบคลุมเฉพาะรอบเหล่านั้น ไม่รับประกันว่าได้รวมการใช้งานทุกรอบ
+
+ค่า `TotalTokens` ที่ผู้ให้บริการรายงานอย่างชัดเจนจะคงเดิมแม้ข้อมูลแยกโทเค็นขาเข้าและขาออกจะไม่ครบ โดยผลรวมข้ามรอบจะบวกยอดรวมที่รายงานเหล่านี้
+
+ตัวนับโทเค็นยังเป็น `Int32` หากผลรวมข้ามรอบเกิน `Int32.MaxValue` สตรีมหรือ Run จะล้มเหลวด้วย `OverflowException` แทนการคืนค่าที่ล้น การล้างทรัพยากรยังเสร็จสมบูรณ์ และ `run.Result` จะไม่ค้างรอแม้การรวมยอดขั้นสุดท้ายล้มเหลว
+
+ลำดับที่ `run.StreamAsync()` ส่งกลับอ่านวนได้เพียงครั้งเดียว การอ่านวนซ้ำหรือพร้อมกันบนลำดับเดิมจะเกิด `InvalidOperationException` โดยผู้อ่านเดิมและการทำงานยังแยกจากกัน
+
+`Provider` คือชื่ออะแดปเตอร์ `RequestedModel` คือโมเดลเดียวที่ระบุชัดเจนและส่งในคำขอ โดยบันทึกเมื่อเริ่ม รวมถึงการตั้งค่าโมเดลแทนของผู้ให้บริการ หากใช้ preset, profile หรือการเลือกโมเดลฝั่งเซิร์ฟเวอร์โดยไม่ส่งฟิลด์โมเดลเดียวที่ระบุชัดเจน ค่าจะเป็น `null` (เช่นรายการ `Models` ของ Perplexity) ค่านี้แยกจากโมเดลจริงในคำตอบที่อยู่ใน `Model` `Model` คือ ID โมเดลจริงที่ผู้ให้บริการรายงานในคำตอบของรอบสุดท้าย หรือ `null` โดยไม่แทนด้วย ID ที่ขอ `RoundCount` นับรอบ LLM ของไลบรารี ไม่ใช่จำนวนเครื่องมือหรือขั้นตอนภายในของเอเจนต์ที่โฮสต์ ผู้ให้บริการที่เขียนเองและไม่รายงานจำนวนรอบจะได้ `0`
+
+`FinishReason` ใช้ `AIFinishReason` (`Unknown`, `Stop`, `MaxTokens`, `ToolCalls`, `ContentFilter`, `Other`) และ `RawFinishReason` เก็บค่าจบต้นฉบับจากผู้ให้บริการ ถ้าไม่มีจะเป็น `Unknown`/`null` ฟิลด์เหล่านี้อธิบายผลสำเร็จเท่านั้น ข้อผิดพลาดเดิมรวมถึงเกินจำนวนรอบยังทำให้ `Result` ล้มเหลว การยกเลิกยังโยน `OperationCanceledException` ไม่เปลี่ยนเป็นผลสำเร็จทดแทน
+
+`Text` ยังคงต่อข้อความทั้งหมดตามลำดับ รวมข้อความระหว่างเรียกเครื่องมือและก่อนคำสั่งเพิ่มเติม ผลลัพธ์รอให้การทำงานและการเก็บกวาดเสร็จ `Citations` เป็นแหล่งอ้างอิงสุดท้าย และยังอ่าน `run.Citations` ระหว่างทำงานได้ ตำแหน่งอ้างอิงอยู่ในส่วนเนื้อหาต้นฉบับ ไม่ใช่ในข้อความที่นำมาต่อกัน
+
+<a id="run-result-migration"></a>
+
+**การย้ายรุ่นหลัก:** `AIRun.Result` เปลี่ยนจาก `Task<string>` เป็น `Task<AIRunResult>` หากต้องการสตริงให้อ่าน `(await run.Result).Text` ผู้เขียน `AIRun` เองต้องเปลี่ยน override และสร้าง `AIRunResult` ผู้ใช้งานต้องคอมไพล์ใหม่ ชนิดผลลัพธ์อยู่ใน `Mythosia.AI.Models.Runs` ส่วน `TokenUsage` และ `AIFinishReason` อยู่ใน `Mythosia.AI.Models.Streaming` โดย `GetCompletionAsync` ยังคง `Task<string>` และ `StructuredStreamRun<T>.Result` ยังคง `Task<T>` ตัวอย่างนี้ใช้Mythosia.AI 8.0.0 ไม่ใช่แพ็กเกจ Run 7.1/3.1 แรกเริ่ม
+
 ## แสดงข้อความด้วย callback
 
 สำหรับหน้าจอแชตหรือคอนโซล การแสดงข้อความส่วนแรกทันทีที่ได้รับช่วยให้ผู้ใช้ติดตามคำตอบยาว ๆ ได้ขณะที่โมเดลยังเขียนอยู่
 
 ```csharp
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "อ่านเอกสารแล้วเขียนรายงาน",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("อ่านเอกสารแล้วเขียนรายงาน")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
+
+เครื่องมือภายในคืนออบเจ็กต์ผ่าน `Task<T>` / `ValueTask<T>` และรับ `CancellationToken` ที่ไลบรารีฉีดให้ได้ `run.Cancel()` หรือโทเคนตอนเริ่มส่งการยกเลิกถึงเครื่องมือที่รองรับ แต่การหยุดอ่านสตรีมอย่างเดียวไม่ทำเช่นนั้น ข้อยกเว้นจะบันทึกเป็นความล้มเหลว เมื่อยกเลิกจะข้ามการเรียกที่รออยู่ และขั้นตอนเก็บกวาดยังรอเครื่องมือที่เริ่มแล้วแต่ไม่ใช้โทเคน ดู[ผลลัพธ์ ข้อผิดพลาด และการยกเลิก](function-calling.md#tool-execution-contract)
 
 `onText` เป็น `Action<string>` แบบเลือกใช้ ซึ่งลงทะเบียนก่อนเริ่มงาน โดยรับข้อความตามลำดับและไม่ได้เป็นผู้เรียกใช้เครื่องมือ หากต้องการเพียงผลลัพธ์ก็ไม่ต้องส่ง callback นี้ หาก callback เกิดข้อยกเว้น Run จะยกเลิกและ `Result` จะรายงานข้อผิดพลาดด้วย อย่าส่งแลมบ์ดา `async` ให้ `onText` เพราะจะกลายเป็น `async void` ทำให้ Run ไม่สามารถรอให้งานนั้นเสร็จหรือรับข้อผิดพลาดของมันได้ หากต้องส่งข้อมูลแบบอะซิงโครนัสให้ใช้สตรีมเหตุการณ์ และ callback ไม่ได้สลับไปทำงานบนเธรด UI โดยอัตโนมัติ
 
-`Result` คือข้อความจากเหตุการณ์ของ Run ที่นำมาต่อกัน รวมถึงข้อความระหว่างการเรียกเครื่องมือและข้อความที่สร้างก่อนคำสั่งเพิ่มเติม ไม่ใช่การส่งคำขอใหม่ไปยังโมเดลหรือการเขียนคำตอบใหม่ทั้งหมด หากต้องการความหมายของผลลัพธ์แบบเดิม ก็ยังใช้ `GetCompletionAsync` ได้
+`(await run.Result).Text` คือข้อความจากเหตุการณ์ของ Run ที่นำมาต่อกัน รวมถึงข้อความระหว่างการเรียกเครื่องมือและข้อความที่สร้างก่อนคำสั่งเพิ่มเติม ไม่ใช่การส่งคำขอใหม่ไปยังโมเดลหรือการเขียนคำตอบใหม่ทั้งหมด หากต้องการความหมายของผลลัพธ์แบบเดิม ก็ยังใช้ `GetCompletionAsync` ได้
 
 ## อ่านเหตุการณ์ข้อความ เครื่องมือ และการใช้โทเคน
 
@@ -63,7 +136,7 @@ await foreach (var item in run.StreamAsync())
     }
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 `run.StreamAsync()` รับได้เฉพาะโทเคนยกเลิกการสังเกตแบบเลือกใช้ ไม่รับพรอมป์ต์ใหม่ เพราะเป็นการอ่านงานที่เริ่มด้วย `StartRunAsync` แล้ว ไลบรารีเป็นผู้เรียก handler ของฟังก์ชันที่ลงทะเบียนไว้ จึงไม่ควรเรียกเครื่องมือซ้ำเมื่อได้รับเหตุการณ์เพื่อแสดงผล การตั้งค่าแสดงเฉพาะข้อความไม่ได้ปิดเครื่องมือของ Run
@@ -86,7 +159,7 @@ await foreach (var item in run.StreamAsync())
     if (item.Type == StreamingContentType.Text && item.Content is string text)
         await writer.WriteAsync(text);
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## ยกเลิกและคืนทรัพยากร
@@ -119,7 +192,7 @@ async Task SendUpdateAsync(string instruction)
     await run.SteerAsync(instruction, cancellationToken);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 GPT-6 Astra รองรับคำสั่งเพิ่มเติมระหว่างทำงานผ่านการเชื่อมต่อ WebSocket ของ Responses API ผู้ให้บริการอื่นและโมเดลที่ไม่รองรับยังใช้ Run ปกติได้ แต่ `CanSteer` จะเป็น false และการส่งคำสั่งเพิ่มเติมจะรายงานว่าไม่รองรับ แทนการเปลี่ยนเป็นคำถามรอบใหม่โดยไม่แจ้ง ค่า `CanSteer` ไม่ได้รับประกันว่างานจะยังทำอยู่เมื่อคุณเรียกใช้ในภายหลัง
@@ -137,11 +210,13 @@ Run ของ Astra เปิดซ็อกเก็ตเฉพาะขึ้
 `RunAgentAsync` และ `RunAgentStreamAsync` ยังเรียกได้ แต่จะแสดงคำเตือน `[Obsolete]` ระหว่างเปลี่ยนผ่านจะรักษาซิกเนเจอร์เดิม ค่าเริ่มต้น `maxSteps = 10` และพฤติกรรมข้อผิดพลาดเมื่อเกินขีดจำกัดแบบเดิมไว้ โค้ดเรียกใช้ใหม่ควรเขียนดังนี้:
 
 ```csharp
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "ค้นหานโยบาย ตรวจสอบคำสั่งซื้อ และอธิบายผลลัพธ์",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("ค้นหานโยบาย ตรวจสอบคำสั่งซื้อ และอธิบายผลลัพธ์")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
 
 ค่าเริ่มต้นของ `FunctionCallingPolicy.MaxRounds` ทั่วไปคือ 20 จึงควรกำหนดเป็น 10 หากต้องการคงขีดจำกัดเดิมของ agent โดย `WithMaxRounds` ตั้งนโยบายทับเฉพาะคำขอถัดไปหนึ่งครั้ง ไม่ได้เปลี่ยน `DefaultPolicy` ให้กำหนดก่อนเริ่มงาน ส่วนเมธอด agent เดิมจะคัดลอกนโยบายเริ่มต้นแล้วใช้ `maxSteps` ของการเรียกนั้น Run ใหม่ใช้รูปแบบข้อผิดพลาดร่วมของระบบ และไม่ได้รับประกันการแปลงเป็น `AgentMaxStepsExceededException` พร้อม `PartialResponse` แบบเดิม หากแอปพึ่งพาพฤติกรรมนี้ ให้คงการเรียกเดิมไว้จนกว่าจะปรับการจัดการข้อยกเว้นครบ
@@ -153,15 +228,19 @@ string answer = await run.Result;
 - `IAIRunService` เป็นความสามารถแบบเลือกใช้ใน `Mythosia.AI.Abstractions` จึงไม่มีสมาชิกบังคับใหม่ใน `IAIService` หากบริการที่ผู้ใช้สร้างเองต้องการเริ่ม RAG Run จะต้อง implement `IAIRunService` บริการที่ไม่รองรับจะถูกปฏิเสธก่อนเริ่มทำดัชนี RAG
 - RAG ยังคงอ้างอิง Abstractions ส่วนผู้ให้บริการที่อยู่คนละแพ็กเกจยังคงมี public override ของการสร้างคำตอบและจุดขยายที่เข้าถึงได้ การเปลี่ยนนี้ไม่ได้ทำให้ API ของฐานข้อมูลเวกเตอร์ ตัวโหลดเอกสาร หรือการจัดการเซิร์ฟเวอร์เป็น API ที่เลิกใช้
 
-## ความเข้ากันได้และเวอร์ชันหลักถัดไป
+## ย้ายไปใช้ Mythosia.AI 8
 
 | API | สถานะปัจจุบัน |
 | --- | --- |
 | `GetCompletionAsync` / `GetCompletionAsync<T>` | ยังคงเป็น API สาธารณะและรองรับ รวมรุ่นของอินเทอร์เฟซ ผู้ให้บริการ และ RAG |
 | `StartRunAsync` / `AIRun` | API ร่วมสำหรับเริ่มงานและควบคุมการทำงาน |
 | `RunAgentAsync` / `RunAgentStreamAsync` | มีคำเตือนเลิกใช้ แต่รักษาพฤติกรรมเดิมเพื่อความเข้ากันได้ |
-| `service.StreamAsync` และ RAG `StreamAsync` ที่รับอินพุต | ยังเรียกได้ในเวอร์ชันย่อยนี้ และมีแผนถอนจาก API สาธารณะในเวอร์ชันหลักถัดไป |
+| `service.StreamAsync` และ RAG `StreamAsync` ที่รับอินพุต | StreamAsync ของบริการ/RAG ที่รับอินพุตยังเป็นสาธารณะใน v8 ใช้ StartRunAsync สำหรับการควบคุมใหม่ ส่วน run.StreamAsync() ใช้สังเกต run ที่เริ่มแล้วเท่านั้น |
 | `run.StreamAsync()` | สังเกตเอาต์พุตของงานที่มีอยู่แล้ว โดยไม่รับอินพุตใหม่ |
 | `BeginStream(...).As<T>()` / `StructuredStreamRun<T>` | รักษา API สตรีมแบบกำหนดชนิดเดิมไว้ โดย `Stream()` ที่อ่านเอาต์พุตอย่างเดียวไม่ใช่เมธอดเริ่มคำขอของบริการแบบเดิม |
 
-เวอร์ชันหลักถัดไปจะเปลี่ยนจุดเริ่มคำขอสตรีมที่เป็น API สาธารณะ โดยคงการทำงานภายในและจุดขยายของผู้ให้บริการที่จำเป็นไว้ การเปลี่ยนเมธอด public เป็น private หรือ protected ยังคงทำให้โค้ดต้นฉบับและไบนารีของผู้เรียกเดิมใช้ร่วมกันไม่ได้ แม้จะเก็บตัวเมธอดไว้ก็ตาม ตัวช่วยอย่าง message chain การเรียกครั้งเดียว การสรุป การเขียนคำค้นใหม่ และการจัดอันดับใหม่ ไม่ได้กลายเป็น API ที่เลิกใช้เพียงเพราะใช้เมธอดการทำงานเดิม
+[ย้ายไปใช้ Mythosia.AI 8](v8-migration.md).
+
+Perplexity: [ให้งานที่ใช้เวลานานทำต่อ](perplexity.md).
+
+[สร้างตัวเลือกโมเดลจากคำนิยามการรองรับร่วมกัน](model-capabilities.md).

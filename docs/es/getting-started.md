@@ -1,5 +1,7 @@
 # Primeros Pasos
 
+Para ajustes independientes y variantes reutilizables, use el [builder de solicitudes](request-building.md). Llame a `CreateRequest(...)` antes de `With...`. Las propiedades y métodos fluent del servicio conservan su comportamiento.
+
 ## Instalación
 
 Instala el paquete principal:

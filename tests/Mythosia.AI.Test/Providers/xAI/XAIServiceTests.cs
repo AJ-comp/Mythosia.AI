@@ -238,13 +238,14 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
     }
 
     /// <summary>
-    /// Grok 이미지 생성 미지원 테스트
+    /// Grok 이미지 생성 인터페이스 지원 테스트
     /// </summary>
     [TestCategory("ServiceSpecific")]
     [TestMethod]
-    public void GrokImageGenerationNotSupportedTest()
+    public void GrokImageGenerationSupportedTest()
     {
-        Assert.IsFalse(AI is IImageGenerationService);
+        Assert.IsInstanceOfType<IImageGenerationService>(AI);
+        Assert.AreEqual(AIModels.xAI.GrokImagineImage2_0, ((IImageGenerationService)AI).DefaultImageModel);
     }
 
     /// <summary>

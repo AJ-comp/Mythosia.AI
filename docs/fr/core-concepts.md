@@ -1,5 +1,7 @@
 # Concepts fondamentaux
 
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 Cette page rassemble les concepts de base qui sont référencés dans tout le reste de la documentation. D'autres concepts seront ajoutés au fil du temps.
 
 ## Qu'est-ce qu'un round ?

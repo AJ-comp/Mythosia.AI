@@ -1,5 +1,6 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
 using System;
@@ -16,289 +17,184 @@ namespace Mythosia.AI.Services.Perplexity
 {
     public partial class PerplexityService
     {
-        #region Streaming Implementation
-
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
-            if (StatelessMode)
-            {
-                await ProcessStatelessStreamAsync(message, messageReceivedAsync);
-                return;
-            }
-
-            Stream = true;
-            ActivateChat.Messages.Add(message);
-
-            var request = CreateMessageRequest();
-            var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
-            }
-
-            var allContent = new StringBuilder();
-            var diagnostics = new StreamDiagnostics();
-            var options = StreamOptions.TextOnlyOptions;
-
-            await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
-            {
-                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                    continue;
-
-                var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]") break;
-
-                try
-                {
-                    var content = StreamParseJson(jsonData);
-                    if (!string.IsNullOrEmpty(content))
-                    {
-                        allContent.Append(content);
-                        diagnostics.AccumulatedTextLength += content.Length;
-                        diagnostics.DataLinesProcessed++;
-                        await messageReceivedAsync(content);
-                    }
-                }
-                catch (JsonException ex)
-                {
-                    diagnostics.ParseFailures++;
-                    ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
-                    throw new AIServiceException("Failed to parse streaming response", ex.Message);
-                }
-            }
-
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, allContent.ToString()));
+            if (messageReceivedAsync == null) throw new ArgumentNullException(nameof(messageReceivedAsync));
+            await foreach (var text in StreamAsync(message))
+                await messageReceivedAsync(text).ConfigureAwait(false);
         }
 
-        private async Task ProcessStatelessStreamAsync(Message message, Func<string, Task> messageReceivedAsync)
-        {
-            var tempChat = new ChatBlock
-            {
-                SystemMessage = ActivateChat.SystemMessage
-            };
-            tempChat.Messages.Add(message);
-
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
-            Stream = true;
-
-            try
-            {
-                var request = CreateMessageRequest();
-                var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
-                }
-
-                var diagnostics = new StreamDiagnostics();
-                var options = StreamOptions.TextOnlyOptions;
-
-                await foreach (var line in ReadSseLinesAsync(response, diagnostics, default))
-                {
-                    if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                        continue;
-
-                    var jsonData = line.Substring("data:".Length).Trim();
-                    if (jsonData == "[DONE]") break;
-
-                    try
-                    {
-                        var content = StreamParseJson(jsonData);
-                        if (!string.IsNullOrEmpty(content))
-                        {
-                            diagnostics.AccumulatedTextLength += content.Length;
-                            diagnostics.DataLinesProcessed++;
-                            await messageReceivedAsync(content);
-                        }
-                    }
-                    catch (JsonException)
-                    {
-                        diagnostics.ParseFailures++;
-                    }
-                }
-            }
-            finally
-            {
-                ActivateChat = backup;
-            }
-        }
-
-        /// <summary>
-        /// Replaces the base pipeline outright for the Sonar-specific implementation; Perplexity has
-        /// no function calling and so needs no round loop.
-        /// <para>
-        /// Consequence: context-overflow recovery, which lives in that loop, does not run here. An
-        /// overflow surfaces as an error chunk — flagged <c>context_length_exceeded</c> so the caller
-        /// can still identify it — but the conversation is not compacted and nothing is re-sent.
-        /// </para>
-        /// </summary>
         protected override async IAsyncEnumerable<StreamingContent> StreamCoreAsync(
-            Message message,
-            StreamOptions options,
+            Message message, StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            if (StatelessMode)
+            ValidateAgentClientToolSelection();
+            var previousAnchor = _agentRequestMessageId;
+            _agentRequestMessageId = message.Id;
+            try
             {
-                await foreach (var content in ProcessStatelessStreamAsync(message, options, cancellationToken))
-                {
-                    yield return content;
-                }
-                yield break;
+                await foreach (var item in base.StreamCoreAsync(message, options, cancellationToken)) yield return item;
             }
+            finally { _agentRequestMessageId = previousAnchor; }
+        }
 
-            Stream = true;
-            ActivateChat.Messages.Add(message);
-
-            var request = CreateMessageRequest();
-            var response = await HttpClient.SendAsync(
-                request,
-                HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken);
-
+        protected override async IAsyncEnumerable<StreamingContent> StreamRoundAsync(
+            StreamOptions options, bool useFunctions, FunctionCallingPolicy policy,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            useFunctions = useFunctions && RequestFunctionCallMode != FunctionCallMode.None;
+            using var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
+                var body = await ReadAgentBodyAsync(response, cancellationToken).ConfigureAwait(false);
                 yield return new StreamingContent
                 {
                     Type = StreamingContentType.Error,
-                    Content = $"API error ({(int)response.StatusCode}): {error}",
-                    Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, error)
+                    Content = $"Perplexity Agent API error ({(int)response.StatusCode}): {body}",
+                    Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, body)
                 };
                 yield break;
             }
 
-            await foreach (var content in ProcessSonarStream(response, options, cancellationToken))
-            {
-                yield return content;
-            }
-        }
-
-        private async IAsyncEnumerable<StreamingContent> ProcessStatelessStreamAsync(
-            Message message,
-            StreamOptions options,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            var tempChat = new ChatBlock
-            {
-                SystemMessage = ActivateChat.SystemMessage
-            };
-            tempChat.Messages.Add(message);
-
-            var backup = ActivateChat;
-            ActivateChat = tempChat;
-            Stream = true;
-
-            try
-            {
-                var request = CreateMessageRequest();
-                var response = await HttpClient.SendAsync(
-                    request,
-                    HttpCompletionOption.ResponseHeadersRead,
-                    cancellationToken);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var error = await response.Content.ReadAsStringAsync();
-                    yield return new StreamingContent
-                    {
-                        Type = StreamingContentType.Error,
-                        Content = $"API error ({(int)response.StatusCode}): {error}",
-                        Metadata = AIHttpErrorFactory.BuildErrorMetadata((int)response.StatusCode, error)
-                    };
-                    yield break;
-                }
-
-                await foreach (var content in ProcessSonarStream(response, options, cancellationToken))
-                {
-                    yield return content;
-                }
-            }
-            finally
-            {
-                ActivateChat = backup;
-            }
-        }
-
-        private async IAsyncEnumerable<StreamingContent> ProcessSonarStream(
-            HttpResponseMessage response,
-            StreamOptions options,
-            [EnumeratorCancellation] CancellationToken cancellationToken)
-        {
-            var textBuffer = new StringBuilder();
-            string? currentModel = null;
-            TokenUsage? lastUsage = null;
+            var text = new StringBuilder();
+            var reasoning = new StringBuilder();
+            ParsedAgentResponse? completed = null;
             var diagnostics = new StreamDiagnostics();
-
             await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
             {
-                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
-                    continue;
-
-                var jsonData = line.Substring("data:".Length).Trim();
-                if (jsonData == "[DONE]")
-                {
-                    if (!options.TextOnly)
-                    {
-                        if (lastUsage != null)
-                            yield return CreateRoundUsageContent(1, isFinalRound: true, lastUsage);
-
-                        var completionContent = new StreamingContent
-                        {
-                            Type = StreamingContentType.Completion
-                        };
-                        if (options.IncludeMetadata)
-                        {
-                            completionContent.Metadata = new Dictionary<string, object>
-                            {
-                                ["total_length"] = textBuffer.Length,
-                                ["model"] = currentModel ?? Model
-                            };
-                        }
-                        if (lastUsage != null)
-                            completionContent.Usage = lastUsage;
-                        yield return completionContent;
-                    }
-                    break;
-                }
-
-                StreamingContent? parsedContent = null;
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal)) continue;
+                var json = line.Substring(5).Trim();
+                if (json == "[DONE]") break;
+                StreamingContent? chunk = null;
+                Exception? failure = null;
                 try
                 {
-                    parsedContent = ParseSonarStreamChunk(jsonData, options, ref currentModel);
-                }
-                catch (JsonException)
-                {
-                    continue;
-                }
-
-                if (parsedContent != null)
-                {
-                    if (parsedContent.Usage != null)
-                        lastUsage = parsedContent.Usage;
-
-                    if (parsedContent.Type == StreamingContentType.Text)
+                    using var document = JsonDocument.Parse(json);
+                    var root = document.RootElement;
+                    var type = ReadAgentString(root, "type");
+                    diagnostics.DataLinesProcessed++;
+                    if (type == "response.completed")
                     {
-                        textBuffer.Append(parsedContent.Content);
+                        if (!root.TryGetProperty("response", out var terminal)) throw new AIServiceException("Agent completion event is missing the response.");
+                        completed = ParseAgentResponse(terminal.GetRawText());
+                        ValidateAgentFunctionBatch(completed.Calls, useFunctions);
+                        if (!completed.Text.StartsWith(text.ToString(), StringComparison.Ordinal))
+                            throw new AIServiceException("Agent terminal text does not match its streamed text.");
                     }
-
-                    if (!options.TextOnly || parsedContent.Content != null)
+                    else if (type == "error" || type == "response.failed" || type == "response.incomplete" || type == "response.cancelled")
+                        throw new AIServiceException($"Perplexity Agent stream ended with {type}.", json);
+                    else if (type == "response.output_text.delta")
                     {
-                        yield return parsedContent;
+                        var delta = ReadAgentString(root, "delta") ?? string.Empty;
+                        text.Append(delta);
+                        diagnostics.AccumulatedTextLength += delta.Length;
+                        if (delta.Length > 0) chunk = new StreamingContent { Type = StreamingContentType.Text, Content = delta };
+                    }
+                    else if (type == "response.reasoning_summary_text.delta" || type == "response.reasoning_text.delta")
+                    {
+                        var delta = ReadAgentString(root, "delta") ?? string.Empty;
+                        reasoning.Append(delta);
+                        if (options.IncludeReasoning && delta.Length > 0)
+                            chunk = new StreamingContent { Type = StreamingContentType.Reasoning, Content = delta };
+                    }
+                    else if (options.IncludeMetadata && (type == "response.created" || type == "response.in_progress" ||
+                        type == "response.output_item.added" || type == "response.output_item.done"))
+                    {
+                        chunk = new StreamingContent { Type = StreamingContentType.Status, Metadata = new Dictionary<string, object> { ["status"] = type! } };
+                        if (root.TryGetProperty("item", out var item) && item.ValueKind == JsonValueKind.Object)
+                        {
+                            var itemType = ReadAgentString(item, "type");
+                            if (itemType != null) chunk.Metadata["item_type"] = itemType;
+                        }
                     }
                 }
+                catch (Exception exception) when (exception is JsonException || exception is AIServiceException || exception is InvalidOperationException || exception is OverflowException)
+                {
+                    diagnostics.ParseFailures++;
+                    failure = exception;
+                }
+                if (failure != null)
+                {
+                    yield return AgentStreamError(failure.Message);
+                    yield break;
+                }
+                if (chunk != null) yield return chunk;
+                if (completed != null) break;
             }
-
-            if (textBuffer.Length > 0)
+            if (completed == null)
             {
-                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, textBuffer.ToString()));
+                yield return AgentStreamError("Perplexity Agent stream ended before response.completed. No incomplete assistant message or tool calls were saved.");
+                yield break;
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            if (completed.Text.Length > text.Length)
+                yield return new StreamingContent { Type = StreamingContentType.Text, Content = completed.Text.Substring(text.Length) };
+            if (options.IncludeReasoning && completed.Reasoning.StartsWith(reasoning.ToString(), StringComparison.Ordinal) &&
+                completed.Reasoning.Length > reasoning.Length)
+                yield return new StreamingContent { Type = StreamingContentType.Reasoning, Content = completed.Reasoning.Substring(reasoning.Length) };
+            foreach (var citation in completed.Citations)
+            {
+                RecordCitation(citation);
+                if (!options.TextOnly) yield return new StreamingContent { Type = StreamingContentType.Citation, Citation = citation.Clone() };
+            }
+            LastResponseId = completed.Id;
+            if (completed.Calls.Calls.Count > 0)
+            {
+                if (options.IncludeFunctionCalls)
+                    foreach (var call in completed.Calls.Calls)
+                        yield return new StreamingContent
+                        {
+                            Type = StreamingContentType.FunctionCall, FunctionCall = call.Clone(),
+                            FunctionCallBatchId = completed.Calls.Id,
+                            Metadata = options.IncludeMetadata ? new Dictionary<string, object> { ["function_name"] = call.Name, ["function_index"] = call.Index } : null
+                        };
+                var batches = await ProcessFunctionBatchForRoundAsync(completed.Text, completed.Calls,
+                    CreateAgentOutputMetadata(completed), policy, cancellationToken).ConfigureAwait(false);
+                foreach (var batch in batches)
+                    foreach (var result in batch.Results)
+                        yield return new StreamingContent
+                        {
+                            Type = StreamingContentType.FunctionResult, FunctionResult = result.Clone(),
+                            FunctionCallBatchId = batch.FunctionCallBatchId, Content = result.Content
+                        };
+            }
+            else
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, completed.Text) { Metadata = CreateAgentOutputMetadata(completed) });
+
+            // The shared round loop aggregates usage independently of metadata visibility.
+            yield return new StreamingContent
+            {
+                Type = StreamingContentType.Completion,
+                Usage = completed.Usage,
+                ResponseModel = completed.Model,
+                RawFinishReason = completed.Status,
+                FinishReason = MapFinishReason(completed.Status)
+            };
         }
 
-        #endregion
+        private static StreamingContent AgentStreamError(string message) => new StreamingContent
+        {
+            Type = StreamingContentType.Error, Content = message,
+            Metadata = new Dictionary<string, object> { ["status"] = "invalid_agent_response" }
+        };
+
+        internal static async Task<string> ReadAgentBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+        {
+            using var registration = cancellationToken.Register(response.Dispose);
+            try
+            {
+                using var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer, 81920, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                return Encoding.UTF8.GetString(buffer.ToArray());
+            }
+            catch (Exception exception) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException("Agent response reading was canceled.", exception, cancellationToken);
+            }
+        }
     }
 }

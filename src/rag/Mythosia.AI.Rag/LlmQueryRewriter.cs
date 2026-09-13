@@ -115,6 +115,7 @@ namespace Mythosia.AI.Rag
             IReadOnlyList<ConversationTurn>? conversationHistory,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var prompt = BuildPrompt(query, conversationHistory);
             var profile = new AIRequestProfile
             {
@@ -125,7 +126,8 @@ namespace Mythosia.AI.Rag
                 Temperature = 0.1f,
                 MaxTokens = _maxTokens
             };
-            var rewritten = await _aiService.GetCompletionAsync(prompt, profile);
+            var rewritten = await _aiService.GetCompletionAsync(prompt, profile, cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (string.IsNullOrWhiteSpace(rewritten))
                 return QueryRewriteResult.Search(query);

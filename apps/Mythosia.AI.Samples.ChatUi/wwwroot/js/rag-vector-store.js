@@ -41,10 +41,9 @@ import {
   ragEmbeddingBaseUrl,
   ragVllmBaseUrl
 } from './dom.js';
-import { providerKeys } from './state.js';
 import { ragState, setSelectValue, markReferenceStale, setStatusState, updateRunState } from './rag-shared.js';
 import { refreshRagStatus, updateVectorDbStatus } from './rag-run.js';
-import { getSelectedEmbeddingProvider, getEmbeddingDefaults, getSelectedEmbeddingDimensions } from './rag-embedding.js';
+import { getSelectedEmbeddingProvider, getEmbeddingDefaults, getSelectedEmbeddingDimensions, getEmbeddingCredentials } from './rag-embedding.js';
 
 // ── Embedding Snapshot Helper ────────────────────────────────
 function getEmbeddingSnapshot() {
@@ -54,7 +53,7 @@ function getEmbeddingSnapshot() {
     const dimensions = getSelectedEmbeddingDimensions();
     const baseUrl = provider === 'vllm'
       ? ragVllmBaseUrl?.value?.trim() || ''
-      : ragEmbeddingBaseUrl?.value?.trim() || '';
+      : provider === 'ollama' ? ragEmbeddingBaseUrl?.value?.trim() || '' : '';
     return { embeddingProvider: provider, embeddingModel: model, embeddingDimensions: dimensions, embeddingBaseUrl: baseUrl };
   } catch {
     return {};
@@ -232,7 +231,7 @@ export function getVectorStoreConfigForRequest() {
       schemaName,
       dimension,
       ensureSchema: !!ragPgEnsureSchema?.checked,
-      openAiApiKey: providerKeys?.OpenAI || null
+      ...getEmbeddingCredentials()
     };
   }
   if (provider === 'qdrant') {
@@ -263,7 +262,7 @@ export function getVectorStoreConfigForRequest() {
       qdrantUseTls: !!ragQdrantUseTls?.checked,
       dimension,
       qdrantCollectionName: collectionName,
-      openAiApiKey: providerKeys?.OpenAI || null
+      ...getEmbeddingCredentials()
     };
   }
   if (provider === 'pinecone') {
@@ -284,7 +283,7 @@ export function getVectorStoreConfigForRequest() {
       pineconeIndexHost: indexHost,
       pineconeApiKey: apiKey,
       pineconeNamespace,
-      openAiApiKey: providerKeys?.OpenAI || null
+      ...getEmbeddingCredentials()
     };
   }
   return { provider: 'inmemory' };
@@ -405,7 +404,7 @@ export async function connectPostgres() {
     schemaName,
     dimension,
     ensureSchema: !!ragPgEnsureSchema?.checked,
-    openAiApiKey: providerKeys?.OpenAI || null,
+    ...getEmbeddingCredentials(),
     ...getEmbeddingSnapshot()
   };
   const storagePayload = {
@@ -595,7 +594,7 @@ export async function connectQdrant() {
     qdrantUseTls: !!ragQdrantUseTls?.checked,
     dimension,
     qdrantCollectionName: collectionName,
-    openAiApiKey: providerKeys?.OpenAI || null,
+    ...getEmbeddingCredentials(),
     ...getEmbeddingSnapshot()
   };
   const storagePayload = {
@@ -750,7 +749,7 @@ export async function connectPinecone() {
     pineconeIndexHost,
     pineconeApiKey,
     pineconeNamespace,
-    openAiApiKey: providerKeys?.OpenAI || null,
+    ...getEmbeddingCredentials(),
     ...getEmbeddingSnapshot()
   };
   const storagePayload = {

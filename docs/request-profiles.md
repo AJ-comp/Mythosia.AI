@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 ## What Is It?
 
 `AIRequestProfile` lets you override generation parameters — temperature, max tokens, stateless mode, function calling — **for a single request only**. The service's global settings remain untouched.
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("Rewrite this query: ...",
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-The service's global settings are never touched. No cleanup needed. Thread-safe.
+A profile defines overrides for one call; it does not make a shared conversation safe for concurrent use. Prefer `service.CreateRequest(prompt).WithProfile(profile)` to capture it in an independent request. Existing profile overloads remain supported.
 
 ## Available Properties
 

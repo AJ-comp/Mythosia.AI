@@ -1,5 +1,7 @@
 # 구조화된 출력
 
+완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
+
 ## 구조화된 출력이 필요한 이유
 
 LLM은 기본적으로 자유 형식 텍스트를 반환합니다. 애플리케이션이 응답을 **프로그래밍적으로 처리**해야 하는 경우 — 데이터베이스에 저장, 다른 API에 전달, 또는 타입이 지정된 UI에 렌더링 — 텍스트를 직접 파싱해야 합니다. 이는 모델이 표현을 바꾸면 깨지는 취약한 정규식이나 `string.Contains` 체크로 이어집니다.
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: 복구 재시도 없이 첫 검증 오류를 반환
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+복구 횟수에는 최초 응답 1회가 포함되지 않습니다. `StructuredOutputMaxRetries`와 `MaxRepairAttempts`는 음수를 0회로 처리하고 `int.MaxValue - 1`까지 허용합니다. 총 시도 횟수가 정수 범위를 넘지 않도록 `int.MaxValue`는 공급자 요청 전에 `ArgumentOutOfRangeException`으로 거부합니다. 타입 지정 완료 호출과 `BeginStream(...).As<T>()`에 동일하게 적용됩니다.

@@ -10,11 +10,11 @@ namespace Mythosia.AI.Models.Runs
     public abstract class AIRun : IAsyncDisposable
     {
         /// <summary>
-        /// Completes after execution and cleanup, with the concatenated text emitted by this run.
+        /// Completes after execution and cleanup, with a snapshot of text, usage and provider information.
         /// Intermediate text, including text emitted before steering, is not rolled back.
         /// This task does not depend on consuming the output stream.
         /// </summary>
-        public abstract Task<string> Result { get; }
+        public abstract Task<AIRunResult> Result { get; }
 
         /// <summary>Provider-supplied source references, retained independently of output observation.</summary>
         public virtual IReadOnlyList<AICitation> Citations => Array.Empty<AICitation>();
@@ -24,7 +24,8 @@ namespace Mythosia.AI.Models.Runs
 
         /// <summary>Observes output without starting another request.</summary>
         /// <remarks>
-        /// Only one stream reader is supported. A startup text callback may also observe the same run.
+        /// Only one stream reader is supported, including enumeration of the same returned sequence.
+        /// A startup text callback may also observe the same run.
         /// The core implementation buffers at most 1,024 unread events. Exceeding that limit faults
         /// observation explicitly while execution and Result continue. Read promptly or use a callback
         /// for long streams. Stopping or cancelling observation does not cancel execution.

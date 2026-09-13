@@ -11,6 +11,7 @@ import {
   ragEmbeddingBaseUrl,
   ragVllmBaseUrl,
   ragOpenAiModel,
+  ragPerplexityModel,
   ragVllmModel,
   ragOllamaModel,
   ragTopK,
@@ -91,6 +92,8 @@ export function applyPipelineSettings(settings) {
   if (ragEmbeddingProvider && settings.embeddingProvider) setSelectValue(ragEmbeddingProvider, settings.embeddingProvider);
   if (settings.embeddingProvider === 'openai') {
     if (ragOpenAiModel && settings.embeddingModel) setSelectValue(ragOpenAiModel, settings.embeddingModel);
+  } else if (settings.embeddingProvider === 'perplexity') {
+    if (ragPerplexityModel && settings.embeddingModel) setSelectValue(ragPerplexityModel, settings.embeddingModel);
   } else if (settings.embeddingProvider === 'vllm') {
     if (ragVllmModel && settings.embeddingModel) setSelectValue(ragVllmModel, settings.embeddingModel);
     if (ragVllmBaseUrl && settings.embeddingBaseUrl) ragVllmBaseUrl.value = settings.embeddingBaseUrl;
@@ -147,7 +150,7 @@ export function buildPipelineSettingsPayload() {
   const embeddingDimensions = getSelectedEmbeddingDimensions();
   const embeddingBaseUrl = provider === 'vllm'
     ? ragVllmBaseUrl?.value?.trim()
-    : ragEmbeddingBaseUrl?.value?.trim();
+    : provider === 'ollama' ? ragEmbeddingBaseUrl?.value?.trim() : '';
   const rerankProvider = ragRerankProvider?.value?.trim();
   if (!rerankProvider) {
     throw new Error('Rerank provider is required.');
@@ -235,10 +238,9 @@ export async function savePipelineSettings() {
     setStatusState(ragSettingsStatus, null);
   }
 
-  const payload = buildPipelineSettingsPayload();
-  const dimensionWarning = getDimensionMismatchWarning(payload);
-
   try {
+    const payload = buildPipelineSettingsPayload();
+    const dimensionWarning = getDimensionMismatchWarning(payload);
     saveCachedPipelineSettings(payload);
     if (dimensionWarning) {
       showSettingsAlert(dimensionWarning, 'warning');

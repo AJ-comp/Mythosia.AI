@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
@@ -18,9 +18,9 @@
     <PackageId>Mythosia.AI</PackageId>
     <IsPackable>true</IsPackable>
     <Company>Mythosia</Company>
-    <PackageTags>AI;LLM;OpenAI;Anthropic;Claude;Google;Gemini;xAI;Grok;DeepSeek;Perplexity;ImageGeneration;ImageEditing;Multimodal;Reasoning;FunctionCalling;AsyncFunctionCalling;ParallelFunctionCalling;StructuredOutput;Streaming;Run;Steering;WebSearch;FileSearch;Citations</PackageTags>
+    <PackageTags>AI;LLM;OpenAI;GPT6;GPT-6;Astra;Anthropic;Claude;Fable5.1;Google;Gemini;xAI;Grok4.6;DeepSeek;Perplexity;ImageGeneration;ImageEditing;GPTImage2.5;GrokImagine;Multimodal;Reasoning;FunctionCalling;StructuredOutput;Streaming;Run;Steering;WebSearch;FileSearch;Citations;RequestBuilder;Capabilities;Cancellation</PackageTags>
     <Authors>JJW</Authors>
-    <Description>Provider-neutral .NET library for OpenAI, Anthropic Claude, Google Gemini, xAI Grok, DeepSeek, and Perplexity. Provides text and multimodal completions, controllable runs with streaming and cancellation, GPT-6 Astra steering and opt-in asynchronous tools, common reasoning and hosted search with citations, structured output, token usage, context recovery, ordered function-call batches, and optional OpenAI/Gemini image generation and editing. Feature support is validated per provider and model. Requires Mythosia.AI.Abstractions 3.1.0. Targets .NET Standard 2.1.</Description>
+    <Description>Build .NET applications that use multiple AI providers through consistent completion, streaming and tool workflows. Supports OpenAI, Anthropic, Google, xAI, DeepSeek and Perplexity with immutable request configuration, controllable runs, structured output, cancellable local tools, reasoning, search and citations. Optional image generation/editing uses typed options; local capability inspection helps applications choose model controls. Requires Mythosia.AI.Abstractions 4.0.0 and targets .NET Standard 2.1.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -29,8 +29,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v7.1.0 adds GPT-6 Astra, StartRunAsync with result/stream/cancellation and supported steering, opt-in native asynchronous tools, and common reasoning, hosted search, and citations. Preserves accepted cache-aware reasoning changes and rolls back failed changes. Legacy Agent methods now warn; existing completion and streaming APIs remain supported. Requires Mythosia.AI.Abstractions 3.1.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710</PackageReleaseNotes>
-    <Version>7.1.0</Version>
+    <PackageReleaseNotes>v8.0.0 is a coordinated major release with Mythosia.AI.Abstractions 4.0.0. Adds typed image quality/background/format and Pixels/Preset sizing, immutable CreateRequest builders, asynchronous tool object returns and cancellation, ordinary completion cancellation, AIRunResult snapshots, and local model-capability inspection. Update image option callers, read (await run.Result).Text, and rebuild completion consumers/custom implementations. GetCompletionAsync remains a string API. Adds Fable/Mythos 5.1, Gemini 3.7/3.8 Flash, Grok 4.6, DeepSeek Flash, Grok Imagine Image 2.0 and GPT Image 2.5 selections; Perplexity moves to Agent/Search/background APIs with an explicit Sonar migration. Reliability fixes cover request snapshots, tool cleanup, token totals/overflow, stream terminal validation, image payloads and structured retry limits. Cancellation stops cooperative client work without guaranteeing remote inference/billing cancellation. Migration: https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v800</PackageReleaseNotes>
+    <Version>8.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

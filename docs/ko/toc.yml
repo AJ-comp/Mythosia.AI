@@ -1,5 +1,7 @@
 - name: 시작하기
   items:
+  - name: Mythosia.AI 8로 업그레이드하기
+    href: v8-migration.md
   - name: 소개
     href: introduction.md
   - name: 핵심 개념
@@ -15,6 +17,10 @@
     href: completions.md
   - name: 생성 파라미터
     href: generation-params.md
+  - name: 요청마다 설정을 독립적으로 관리하기
+    href: request-building.md
+  - name: 선택한 모델에 맞는 기능 선택지 보여주기
+    href: model-capabilities.md
   - name: 추론 깊이와 검색 출처 활용
     href: reasoning-and-search.md
   - name: 스트리밍
@@ -38,6 +44,10 @@
   items:
   - name: 프로바이더별 기능
     href: providers.md
+  - name: Claude Fable 5.1
+    href: fable-5-1.md
+  - name: Perplexity Agent API, 검색과 임베딩
+    href: perplexity.md
 
 - name: RAG
   items:

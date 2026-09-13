@@ -1,5 +1,7 @@
 # 对话管理
 
+如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
+
 ## 对话历史的工作方式
 
 每次调用 `GetCompletionAsync` 或 `StreamAsync` 都会追加到服务的内部消息列表。这意味着模型拥有所有前序轮次的上下文。

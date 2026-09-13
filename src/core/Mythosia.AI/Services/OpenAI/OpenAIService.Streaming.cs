@@ -38,7 +38,7 @@ namespace Mythosia.AI.Services.OpenAI
             StreamDiagnostics diagnostics)
         {
             return CreateResponsesStreamError(
-                IsNewApiModel(Model)
+                IsNewApiModel(RequestModel)
                     ? "OpenAI Responses API emitted malformed streaming JSON; the partial response was not saved and no tools were executed."
                     : "OpenAI Chat Completions emitted malformed streaming JSON; the partial response was not saved and no tools were executed.",
                 "malformed",
@@ -50,7 +50,7 @@ namespace Mythosia.AI.Services.OpenAI
             bool completionEventReceived,
             StreamDiagnostics diagnostics)
         {
-            if (!IsNewApiModel(Model))
+            if (!IsNewApiModel(RequestModel))
             {
                 if (doneMarkerReceived)
                     return null;
@@ -124,16 +124,16 @@ namespace Mythosia.AI.Services.OpenAI
                 return chunk;
             }
 
+            // Execution results retain the server model even when metadata observation is disabled.
+            if (root.TryGetProperty("model", out var model))
+                chunk.Model = model.GetString();
+
             // Extract metadata if needed
             if (options.IncludeMetadata)
             {
                 chunk.Metadata = new Dictionary<string, object>();
-                if (root.TryGetProperty("model", out var m))
-                {
-                    chunk.Model = m.GetString();
-                    if (chunk.Model != null)
-                        chunk.Metadata["model"] = chunk.Model;
-                }
+                if (chunk.Model != null)
+                    chunk.Metadata["model"] = chunk.Model;
                 if (root.TryGetProperty("id", out var id))
                 {
                     var responseId = id.GetString();
@@ -524,6 +524,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             chunk.IsCompletion = true;
+            chunk.RawFinishReason = status;
             AcceptPreservedReasoning();
             chunk.Metadata ??= new Dictionary<string, object>();
             chunk.Metadata["finish_reason"] = "stop";
@@ -649,7 +650,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var metadata = new Dictionary<string, object>
             {
-                ["model"] = Model,
+                ["model"] = RequestModel,
                 ["status"] = status
             };
             if (!string.IsNullOrEmpty(reason))

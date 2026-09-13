@@ -11,6 +11,11 @@ namespace Mythosia.AI.Tests.Common;
 [TestCategory("Unit")]
 public class OpenAICurrentModelContractTests
 {
+    // Raw legacy IDs exercise offline compatibility, not the recommended model catalogue.
+    private const string LegacyGpt5 = "gpt-5";
+    private const string LegacyGpt5Pro = "gpt-5-pro";
+    private const string LegacyO3 = "o3";
+
     private const string CompletedResponse = """
         {
           "status": "completed",
@@ -26,7 +31,7 @@ public class OpenAICurrentModelContractTests
         """;
 
     [TestMethod]
-    [DataRow(AIModels.OpenAI.Gpt5, "medium")]
+    [DataRow(LegacyGpt5, "medium")]
     [DataRow(AIModels.OpenAI.Gpt5_1, "high")]
     [DataRow(AIModels.OpenAI.Gpt5_2, "high")]
     [DataRow(AIModels.OpenAI.Gpt5_3Codex, "high")]
@@ -71,14 +76,14 @@ public class OpenAICurrentModelContractTests
         using var document = JsonDocument.Parse(handler.SingleBody);
         var text = document.RootElement.GetProperty("text");
         Assert.AreEqual("json_schema", text.GetProperty("format").GetProperty("type").GetString());
-        if (model == AIModels.OpenAI.Gpt5)
+        if (model == LegacyGpt5)
             Assert.IsFalse(text.TryGetProperty("verbosity", out _));
         else
             Assert.AreEqual(expectedVerbosity, text.GetProperty("verbosity").GetString());
     }
 
     [TestMethod]
-    [DataRow(AIModels.OpenAI.Gpt5, 128)]
+    [DataRow(LegacyGpt5, 128)]
     [DataRow(AIModels.OpenAI.Gpt5_1, 128)]
     [DataRow(AIModels.OpenAI.Gpt5_2, 128)]
     [DataRow(AIModels.OpenAI.Gpt5_3Codex, 128)]
@@ -116,7 +121,7 @@ public class OpenAICurrentModelContractTests
     public async Task Gpt5Pro_UsesIts272KOutputCeiling()
     {
         var handler = new CaptureHandler();
-        var service = CreateService(handler, AIModels.OpenAI.Gpt5Pro);
+        var service = CreateService(handler, LegacyGpt5Pro);
         service.MaxTokens = 300000;
 
         await service.GetCompletionAsync("reason");
@@ -129,7 +134,7 @@ public class OpenAICurrentModelContractTests
     public async Task Gpt5Pro_SummarizationProfile_ReservesReasoningBudgetAndRestoresCallerSetting()
     {
         var handler = new CaptureHandler();
-        var service = CreateService(handler, AIModels.OpenAI.Gpt5Pro);
+        var service = CreateService(handler, LegacyGpt5Pro);
         service.MaxTokens = 16000;
 
         await service.GetCompletionAsync("Summarize this conversation.", RequestProfiles.Summarization);
@@ -152,7 +157,7 @@ public class OpenAICurrentModelContractTests
     public async Task Gpt5Pro_QueryRewriteProfile_ReservesReasoningBudgetAndRestoresCallerSetting()
     {
         var handler = new CaptureHandler();
-        var service = CreateService(handler, AIModels.OpenAI.Gpt5Pro);
+        var service = CreateService(handler, LegacyGpt5Pro);
         service.MaxTokens = 16000;
 
         await service.GetCompletionAsync("Rewrite this query.", RequestProfiles.QueryRewrite);
@@ -177,7 +182,7 @@ public class OpenAICurrentModelContractTests
         var service = new OpenAIService(
             "offline-test-key",
             new HttpClient(new FailingHandler()));
-        service.ChangeModel(AIModels.OpenAI.Gpt5Pro);
+        service.ChangeModel(LegacyGpt5Pro);
         service.MaxTokens = 16000;
 
         await Assert.ThrowsExactlyAsync<AIServiceException>(() =>
@@ -193,7 +198,7 @@ public class OpenAICurrentModelContractTests
     public async Task Gpt5Pro_CustomProfile_PreservesExplicitOutputBudget()
     {
         var handler = new CaptureHandler();
-        var service = CreateService(handler, AIModels.OpenAI.Gpt5Pro);
+        var service = CreateService(handler, LegacyGpt5Pro);
 
         await service.GetCompletionAsync(
             "Custom bounded request.",
@@ -211,7 +216,7 @@ public class OpenAICurrentModelContractTests
     public async Task O3_UsesExplicitReasoningSelection()
     {
         var handler = new CaptureHandler();
-        var service = CreateService(handler, AIModels.OpenAI.O3);
+        var service = CreateService(handler, LegacyO3);
         service.Gpt5ReasoningEffort = Gpt5Reasoning.High;
 
         await service.GetCompletionAsync("reason");
@@ -229,7 +234,7 @@ public class OpenAICurrentModelContractTests
     public async Task O3_ExplicitReasoningSummary_IsSerialized()
     {
         var handler = new CaptureHandler();
-        var service = CreateService(handler, AIModels.OpenAI.O3);
+        var service = CreateService(handler, LegacyO3);
         service.WithO3Parameters(Gpt5Reasoning.Low, ReasoningSummary.Detailed);
 
         await service.GetCompletionAsync("reason");
@@ -242,7 +247,7 @@ public class OpenAICurrentModelContractTests
 
     [TestMethod]
     [DataRow(AIModels.OpenAI.Gpt4_1)]
-    [DataRow(AIModels.OpenAI.O3)]
+    [DataRow(LegacyO3)]
     public async Task VisionCapableModel_ImageCompletion_DoesNotSwitchModels(string model)
     {
         var handler = new CaptureHandler();

@@ -13,6 +13,8 @@ Beim Standard-RAG löst jede Nutzernachricht genau **eine** Retrieval-Anfrage au
 
 Agentisches RAG löst all das. Statt einer festen Retrieve-dann-Antwort-Pipeline **entscheidet der Agent autonom** — wann er sucht, wonach er sucht, ob er nochmal sucht und wann er andere Tools aufruft — alles innerhalb eines ReAct-Loops.
 
+`WithAgenticRag` reicht das Abbruchtoken an `RagStore.QueryAsync` weiter, damit unterstützende Suchkomponenten stoppen können. Suchausnahmen werden nach der Diagnoseaufzeichnung als fehlgeschlagene Tool-Ergebnisse erfasst, nicht als erfolgreicher Fehlertext. Ein abgebrochener Run startet keine weitere Modellrunde. Siehe [gemeinsamen Tool-Vertrag](function-calling.md#tool-execution-contract).
+
 ## Schnellstart
 
 Den `RagStore` mit `WithAgenticRag` als Tool registrieren, dann `StartRunAsync(...)` aufrufen:
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Fasse die Rückgaberichtlinie zusammen.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 Der Agent ruft `search_documents` automatisch auf, wenn er Dokumentenkontext benötigt, und synthetisiert dann die endgültige Antwort aus den abgerufenen Ausschnitten.
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // Der Agent sucht in Dokumenten nach der Richtlinie UND ruft die API für Live-Bestelldaten auf
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Bestellung #12345 — habe ich gemäß der aktuellen Richtlinie Anspruch auf Erstattung?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 In diesem Beispiel geht der Agent autonom vor:

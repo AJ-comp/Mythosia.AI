@@ -55,12 +55,22 @@ Assert-True ($null -ne $releaseSetAssignment -and $null -ne $consumerIdsAssignme
     "Both publication and consumer validation must declare their explicit release set."
 $releaseDefinitions = @(Invoke-Expression $releaseSetAssignment.Right.Extent.Text)
 $consumerIds = @(Invoke-Expression $consumerIdsAssignment.Right.Extent.Text)
-$expectedReleaseIds = @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba", "Mythosia.AI.Rag")
+$expectedReleaseIds = @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba", "Mythosia.AI.Rag", "Mythosia.AI.Mcp", "Mythosia.AI.Serving.Vllm")
 $releaseIds = @($releaseDefinitions | ForEach-Object { [string]$_.Id })
 Assert-True (($releaseIds -join '|') -ceq ($expectedReleaseIds -join '|')) `
-    "Publication must include exactly the four dependency-ordered release packages, including RAG."
+    "Publication must include exactly the six dependency-ordered release packages, including RAG, MCP and vLLM serving."
 Assert-True (($consumerIds -join '|') -ceq ($releaseIds -join '|')) `
     "Package consumers must validate the same explicit release set that publication packs."
+$mcpRelease = @($releaseDefinitions | Where-Object { $_.Id -eq 'Mythosia.AI.Mcp' })
+Assert-True ($mcpRelease.Count -eq 1 -and $mcpRelease[0].Dependencies.Count -eq 1 -and
+    $mcpRelease[0].Dependencies['Mythosia.AI'] -eq 'Mythosia.AI' -and
+    $mcpRelease[0].FixedDependencies.Count -eq 0) `
+    "The MCP package must validate its minimum dependency against the core built in the same release."
+$vllmRelease = @($releaseDefinitions | Where-Object { $_.Id -eq 'Mythosia.AI.Serving.Vllm' })
+Assert-True ($vllmRelease.Count -eq 1 -and $vllmRelease[0].Dependencies.Count -eq 0 -and
+    $vllmRelease[0].FixedDependencies.Count -eq 1 -and
+    $vllmRelease[0].FixedDependencies['Newtonsoft.Json'] -eq '13.0.4') `
+    "The vLLM serving client must depend only on Newtonsoft.Json and remain independent of the core AI packages."
 
 $mappingFunction = $consumerAst.Find({
     param($node)
@@ -90,6 +100,22 @@ foreach ($consumerName in @('RagConsumer', 'RagNetStandardConsumer')) {
         $ragConsumers[0].Extent.Text.Contains('"Mythosia.AI.Abstractions/$($versions[''Mythosia.AI.Abstractions''])"') -and
         $ragConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")')) `
         "$consumerName must consume the RAG package with the released abstractions and without the core implementation."
+}
+foreach ($consumerName in @('McpConsumer', 'McpNetStandardConsumer')) {
+    $mcpConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
+    Assert-True ($mcpConsumers.Count -eq 1 -and
+        $mcpConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Mcp"') -and
+        $mcpConsumers[0].Extent.Text.Contains('"Mythosia.AI/$($versions[''Mythosia.AI''])"') -and
+        $mcpConsumers[0].Extent.Text.Contains('"Mythosia.AI.Abstractions/$($versions[''Mythosia.AI.Abstractions''])"')) `
+        "$consumerName must consume the MCP package with the core and abstractions from the same release."
+}
+foreach ($consumerName in @('VllmConsumer', 'VllmNetStandardConsumer')) {
+    $vllmConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
+    Assert-True ($vllmConsumers.Count -eq 1 -and
+        $vllmConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Serving.Vllm"') -and
+        $vllmConsumers[0].Extent.Text.Contains('"Newtonsoft.Json/13.0.4"') -and
+        $vllmConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*")')) `
+        "$consumerName must consume the standalone vLLM serving package without pulling in chat, RAG or MCP packages."
 }
 Assert-True ($publishText.Contains('Add-Type -AssemblyName System.Net.Http')) `
     "Windows PowerShell publication paths must load System.Net.Http before creating HttpClient."
@@ -307,7 +333,7 @@ $workflowText = ($workflowPaths | ForEach-Object {
 }) -join [Environment]::NewLine
 foreach ($workflowPath in $workflowPaths | Select-Object -First 2) {
     Assert-True ([System.IO.File]::ReadAllText($workflowPath).Contains('./build/test-nuget-packages.ps1 -ArtifactsDirectory ./artifacts')) `
-        "CI and NuGet publication must run the shared four-package consumer validation."
+        "CI and NuGet publication must run the shared six-package consumer validation."
 }
 
 $actionReferences = [regex]::Matches(

@@ -1,5 +1,7 @@
 # Strukturierte Ausgabe
 
+Für eine fertige Antwort mit Stoppschaltfläche übergeben Sie `cancellationToken` an `GetCompletionAsync`. Run dient Fortschrittsereignissen oder unterstützten zusätzlichen Anweisungen. Siehe [Completion-Abbruch](completions.md#completion-cancellation).
+
 ## Warum strukturierte Ausgabe?
 
 LLMs geben standardmäßig Freitext zurück. Wenn deine Anwendung die Antwort **programmatisch verarbeiten** muss — sie in einer Datenbank speichern, an eine andere API weitergeben oder in einer typisierten UI anzeigen — musst du diesen Text selbst parsen. Das führt zu fragilen Regex- oder `string.Contains`-Prüfungen, die brechen, sobald das Modell die Formulierung ändert.
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: den ersten Validierungsfehler ohne Reparaturversuch zurückgeben
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+Das Reparaturbudget zählt die erste Antwort nicht mit. `StructuredOutputMaxRetries` und `MaxRepairAttempts` behandeln negative Werte als null und erlauben höchstens `int.MaxValue - 1`. Bei `int.MaxValue` wird vor der Provider-Anfrage eine `ArgumentOutOfRangeException` ausgelöst, damit die Gesamtzahl der Versuche nicht überläuft. Dies gilt für typisierte Completion-Aufrufe und `BeginStream(...).As<T>()`.

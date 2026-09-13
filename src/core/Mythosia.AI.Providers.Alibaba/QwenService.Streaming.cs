@@ -26,14 +26,14 @@ namespace Mythosia.AI.Providers.Alibaba
                 return chunk;
             }
 
+            if (root.TryGetProperty("model", out var model))
+                chunk.Model = model.GetString();
+
             if (options.IncludeMetadata)
             {
                 chunk.Metadata = new Dictionary<string, object>();
-                if (root.TryGetProperty("model", out var m))
-                {
-                    chunk.Model = m.GetString();
-                    chunk.Metadata["model"] = chunk.Model!;
-                }
+                if (chunk.Model != null)
+                    chunk.Metadata["model"] = chunk.Model;
             }
 
             if (root.TryGetProperty("usage", out var usage))

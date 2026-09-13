@@ -1,6 +1,8 @@
 # Tham số tạo nội dung
 
-## Thuộc tính chung
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
+## Giá trị mặc định và phương thức tương thích
 
 Tất cả AI service instance đều có các thuộc tính sau:
 
@@ -115,3 +117,5 @@ Sao chép toàn bộ cài đặt từ service instance khác (không kèm lịch
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [Điều khiển nghiên cứu và công cụ](perplexity.md).

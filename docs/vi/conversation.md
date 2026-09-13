@@ -1,5 +1,7 @@
 # Quản lý hội thoại
 
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
 ## Cách lịch sử hội thoại hoạt động
 
 Mỗi lần gọi `GetCompletionAsync` hoặc `StreamAsync` đều thêm vào danh sách tin nhắn nội bộ của service. Điều này có nghĩa là model có context từ tất cả các lượt trước.

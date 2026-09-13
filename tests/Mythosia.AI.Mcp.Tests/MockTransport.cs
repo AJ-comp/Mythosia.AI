@@ -22,6 +22,8 @@ internal sealed class MockTransport : IMcpTransport
     /// All JSON messages sent by McpConnection (requests + notifications).
     /// </summary>
     public ConcurrentQueue<string> SentMessages => _outgoing;
+    public ConcurrentQueue<CancellationToken> SentTokens { get; } = new();
+    public Func<CancellationToken, Task>? BeforeSendAsync { get; set; }
 
     /// <summary>
     /// Enqueue a raw JSON response that will be delivered when the next request is sent.
@@ -41,6 +43,9 @@ internal sealed class MockTransport : IMcpTransport
         });
         _scheduledResponses.Enqueue(json);
     }
+
+    public void DeliverResult(int id, object result)
+        => _incoming.Add(JsonSerializer.Serialize(new { jsonrpc = "2.0", id, result }));
 
     /// <summary>
     /// Enqueue a JSON-RPC error response. Delivered when the next request is sent.
@@ -70,10 +75,14 @@ internal sealed class MockTransport : IMcpTransport
         _incoming.Add(json);
     }
 
-    public Task SendAsync(string json, CancellationToken cancellationToken = default)
+    public async Task SendAsync(string json, CancellationToken cancellationToken = default)
     {
         if (_disposed) throw new ObjectDisposedException(nameof(MockTransport));
+        cancellationToken.ThrowIfCancellationRequested();
         _outgoing.Enqueue(json);
+        SentTokens.Enqueue(cancellationToken);
+        if (BeforeSendAsync != null)
+            await BeforeSendAsync(cancellationToken);
 
         // Only deliver a response when a request (with id) is sent.
         // Notifications (no id, e.g. "initialized") should not trigger a response.
@@ -83,8 +92,6 @@ internal sealed class MockTransport : IMcpTransport
             if (_scheduledResponses.TryDequeue(out var response))
                 _incoming.Add(response);
         }
-
-        return Task.CompletedTask;
     }
 
     public Task<string?> ReceiveAsync(CancellationToken cancellationToken = default)

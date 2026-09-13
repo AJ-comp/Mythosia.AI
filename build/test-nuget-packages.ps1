@@ -89,7 +89,9 @@ $expectedIds = @(
     "Mythosia.AI.Abstractions",
     "Mythosia.AI",
     "Mythosia.AI.Providers.Alibaba",
-    "Mythosia.AI.Rag"
+    "Mythosia.AI.Rag",
+    "Mythosia.AI.Mcp",
+    "Mythosia.AI.Serving.Vllm"
 )
 if ($packages.Count -ne $expectedIds.Count) {
     throw "Unexpected release manifest package count."
@@ -282,6 +284,8 @@ $releasePackageSourceMapping
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Images;
+using Mythosia.AI.Models.Capabilities;
+using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Services;
 using System.Threading;
 using System.Threading.Tasks;
@@ -311,7 +315,7 @@ namespace PackageSmoke
 
     public static class PublicApiProbe
     {
-        public static bool CompileRepresentativeV7Surface()
+        public static bool CompileRepresentativeV8Surface()
         {
             IImageGenerationService imageService = new ImageGenerationServiceStub();
             var policy = new FunctionCallingPolicy
@@ -328,16 +332,32 @@ namespace PackageSmoke
                 AIModels.OpenAI.Gpt5_6Luna
             };
 
+            var pixels = ImageSize.Pixels(1536, 1024);
+            var preset = ImageSize.Preset(ImageResolution.TwoK, ImageAspectRatio.ThreeByTwo);
+            var runResult = new AIRunResult("package result");
+            var capabilities = AIModelCapabilities.Unknown;
             Task<ImageGenerationResult> generation = imageService.GenerateImagesAsync(
-                new ImageGenerationRequest { Prompt = "package smoke test" });
+                new ImageGenerationRequest
+                {
+                    Prompt = "package smoke test", Size = pixels,
+                    Quality = ImageQuality.High, Background = ImageBackground.Transparent,
+                    OutputFormat = ImageOutputFormat.Png
+                });
             Task<ImageGenerationResult> edit = imageService.EditImagesAsync(
                 new ImageEditRequest { Prompt = "package smoke test edit" });
 
             return clonedPolicy.ExecutionMode == FunctionExecutionMode.Parallel &&
                 gpt56Models.Length == 4 &&
+                preset.Kind == ImageSizeKind.Preset && runResult.Text == "package result" &&
+                capabilities.Streaming == CapabilitySupport.Unknown &&
                 generation != null &&
                 edit != null;
         }
+
+        public static Task<string> CompileCompletionCancellation(IAIService service, CancellationToken token)
+            => service.GetCompletionAsync("package smoke", cancellationToken: token);
+
+        public static Task<AIRunResult> CompileRunResult(AIRun run) => run.Result;
     }
 }
 '@
@@ -354,8 +374,11 @@ namespace PackageSmoke
         -BuildOnly
 
     $coreProgram = @'
+using Mythosia.AI.Builders;
 using Mythosia.AI.Models.Functions;
+using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services.OpenAI;
 
 var policy = new FunctionCallingPolicy
 {
@@ -373,7 +396,35 @@ if (policy.ExecutionMode != FunctionExecutionMode.Parallel || calls.Calls.Count 
 if (typeof(AIService).Assembly.GetName().Name != "Mythosia.AI")
     throw new InvalidOperationException("The packaged core assembly did not load.");
 
+using var http = new HttpClient(new RejectHttpHandler());
+var service = new OpenAIService("package-smoke-no-key", http);
+var basis = service.CreateRequest("package smoke");
+var summary = basis.WithTemperature(0.2f);
+var creative = basis.WithTemperature(0.8f);
+if (ReferenceEquals(summary, creative) || ReferenceEquals(summary, basis))
+    throw new InvalidOperationException("Request configuration branches must be independent.");
+if (summary.GetCapabilities().Provider != "OpenAI")
+    throw new InvalidOperationException("The packaged request capability API did not resolve the provider.");
+using var cancellation = new CancellationTokenSource();
+cancellation.Cancel();
+try
+{
+    await summary.GetCompletionAsync(cancellation.Token);
+    throw new InvalidOperationException("An already-cancelled completion must not succeed.");
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+Func<AIRequestBuilder, CancellationToken, Task<AIRun>> start = (request, token)
+    => request.StartRunAsync(cancellationToken: token);
+Func<AIRun, Task<AIRunResult>> result = run => run.Result;
+GC.KeepAlive(new Delegate[] { start, result });
+
 Console.WriteLine("Core-only consumer smoke test passed.");
+
+sealed class RejectHttpHandler : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+        => throw new InvalidOperationException("A local package smoke test must not send provider HTTP requests.");
+}
 '@
     Invoke-PackageConsumer `
         -Name "CoreConsumer" `
@@ -392,7 +443,7 @@ namespace PackageSmoke
 {
     public static class CorePublicApiProbe
     {
-        public static bool CompileRepresentativeV7Surface()
+        public static bool CompileRepresentativeV8Surface()
         {
             var policy = new FunctionCallingPolicy
             {
@@ -449,7 +500,7 @@ namespace PackageSmoke
 {
     public static class AlibabaPublicApiProbe
     {
-        public static bool CompileRepresentativeV2Surface()
+        public static bool CompileRepresentativeV3Surface()
             => typeof(OpenAICompatibleService).IsAssignableFrom(typeof(QwenService));
     }
 }
@@ -534,6 +585,245 @@ namespace PackageSmoke
             "Mythosia.AI.Rag/$($versions['Mythosia.AI.Rag'])",
             "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*") `
+        -TargetFramework "netstandard2.1" `
+        -BuildOnly
+
+    $mcpProgram = @'
+using Mythosia.AI.Mcp;
+using Mythosia.AI.Mcp.Transports;
+using System.Text.Json;
+using System.Threading.Channels;
+
+using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+var transport = new LocalMcpTransport();
+await using var connection = new McpConnection(transport);
+await connection.InitializeAsync(deadline.Token);
+var tools = McpToolAdapter.ToFunctionDefinitions(connection);
+if (tools.Count != 1 || tools[0].HandlerWithCancellation is null)
+    throw new InvalidOperationException("The packaged MCP adapter must expose a cancellable function handler.");
+var text = await tools[0].HandlerWithCancellation!(new Dictionary<string, object>(), deadline.Token);
+if (text != "package-mcp-ok")
+    throw new InvalidOperationException("The packaged MCP tool did not preserve its response text.");
+try
+{
+    await connection.CallToolAsync("fail", cancellationToken: deadline.Token);
+    throw new InvalidOperationException("MCP tool errors must raise McpException.");
+}
+catch (McpException) { }
+await connection.DisposeAsync();
+if (transport.IsConnected)
+    throw new InvalidOperationException("MCP disposal did not close its owned transport.");
+try
+{
+    await connection.CallToolAsync("echo", cancellationToken: deadline.Token);
+    throw new InvalidOperationException("A disposed MCP connection must reject new calls.");
+}
+catch (ObjectDisposedException) { }
+Console.WriteLine("MCP-only consumer tool, error and lifecycle smoke test passed.");
+
+sealed class LocalMcpTransport : IMcpTransport
+{
+    private readonly Channel<string> _responses = Channel.CreateUnbounded<string>();
+    public bool IsConnected { get; private set; } = true;
+
+    public Task SendAsync(string json, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var document = JsonDocument.Parse(json);
+        var root = document.RootElement;
+        if (!root.TryGetProperty("id", out var requestId)) return Task.CompletedTask;
+        var method = root.GetProperty("method").GetString();
+        object result = method switch
+        {
+            "initialize" => new { protocolVersion = "2024-11-05", capabilities = new { }, serverInfo = new { name = "local-package-smoke", version = "1.0" } },
+            "tools/list" => new { tools = new[] { new { name = "echo", description = "Local test", inputSchema = new { type = "object", properties = new { } } } } },
+            "tools/call" => new { isError = root.GetProperty("params").GetProperty("name").GetString() == "fail", content = new[] { new { type = "text", text = "package-mcp-ok" } } },
+            _ => throw new InvalidOperationException("Unexpected local MCP method: " + method)
+        };
+        if (!_responses.Writer.TryWrite(JsonSerializer.Serialize(new { jsonrpc = "2.0", id = requestId.GetInt32(), result })))
+            throw new InvalidOperationException("Local MCP transport was closed.");
+        return Task.CompletedTask;
+    }
+
+    public async Task<string?> ReceiveAsync(CancellationToken cancellationToken = default)
+    {
+        if (!await _responses.Reader.WaitToReadAsync(cancellationToken)) return null;
+        return await _responses.Reader.ReadAsync(cancellationToken);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        IsConnected = false;
+        _responses.Writer.TryComplete();
+        return default;
+    }
+}
+'@
+    Invoke-PackageConsumer `
+        -Name "McpConsumer" `
+        -PackageId "Mythosia.AI.Mcp" `
+        -Version $versions["Mythosia.AI.Mcp"] `
+        -Program $mcpProgram `
+        -ExpectedLibraries @(
+            "Mythosia.AI.Mcp/$($versions['Mythosia.AI.Mcp'])",
+            "Mythosia.AI/$($versions['Mythosia.AI'])",
+            "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
+        -UnexpectedLibraries @("Mythosia.AI.Rag/*", "Mythosia.AI.Providers.Alibaba/*")
+
+    $mcpNetStandardProgram = @'
+using Mythosia.AI.Mcp;
+using Mythosia.AI.Models.Functions;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PackageSmoke
+{
+    public static class McpPublicApiProbe
+    {
+        public static List<FunctionDefinition> CompileToolRegistration(McpConnection connection)
+            => McpToolAdapter.ToFunctionDefinitions(connection, namePrefix: "package_");
+
+        public static Task<string> CompileToolCancellation(McpConnection connection, CancellationToken token)
+            => connection.CallToolAsync("echo", cancellationToken: token);
+
+        public static ValueTask CompileCleanup(McpConnection connection) => connection.DisposeAsync();
+    }
+}
+'@
+    Invoke-PackageConsumer `
+        -Name "McpNetStandardConsumer" `
+        -PackageId "Mythosia.AI.Mcp" `
+        -Version $versions["Mythosia.AI.Mcp"] `
+        -Program $mcpNetStandardProgram `
+        -ExpectedLibraries @(
+            "Mythosia.AI.Mcp/$($versions['Mythosia.AI.Mcp'])",
+            "Mythosia.AI/$($versions['Mythosia.AI'])",
+            "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
+        -UnexpectedLibraries @("Mythosia.AI.Rag/*", "Mythosia.AI.Providers.Alibaba/*") `
+        -TargetFramework "netstandard2.1" `
+        -BuildOnly
+
+    $vllmProgram = @'
+using Mythosia.AI.Serving.Vllm;
+using System.Net;
+
+using var handler = new LocalVllmHandler();
+using var http = new HttpClient(handler);
+var server = new VllmServer("https://vllm.invalid/v1", http, apiKey: "package-smoke-token");
+using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+if (server.Endpoint.AbsoluteUri != "https://vllm.invalid/")
+    throw new InvalidOperationException("The packaged vLLM client did not normalize its endpoint.");
+var models = await server.GetModelsAsync(deadline.Token);
+var model = await server.GetModelAsync("package-model", deadline.Token);
+if (models.Count != 1 || model is null || model.DisplayModel != "example/package-model" || model.MaxModelLen != 8192)
+    throw new InvalidOperationException("The packaged vLLM client did not parse model cards.");
+if (await server.GetVersionAsync(deadline.Token) != "package-test-version")
+    throw new InvalidOperationException("The packaged vLLM client did not parse the server version.");
+if (!await server.IsHealthyAsync(deadline.Token))
+    throw new InvalidOperationException("The packaged vLLM client did not recognize a healthy server.");
+handler.HealthStatus = HttpStatusCode.ServiceUnavailable;
+if ((await server.GetHealthAsync(deadline.Token)).Status != VllmHealthStatus.EngineDead)
+    throw new InvalidOperationException("The packaged vLLM client did not classify an unavailable engine.");
+handler.HealthStatus = HttpStatusCode.Unauthorized;
+if ((await server.GetHealthAsync(deadline.Token)).Status != VllmHealthStatus.Unauthorized)
+    throw new InvalidOperationException("The packaged vLLM client did not classify an authentication failure.");
+var metrics = await server.GetMetricsAsync(deadline.Token);
+if (metrics.RunningRequests != 2 || metrics.KvCacheUsage != 0.25 ||
+    metrics.Families["vllm:num_requests_running"][0].Labels["model_name"] != "package-model")
+    throw new InvalidOperationException("The packaged vLLM client did not preserve parsed metrics and labels.");
+if (http.DefaultRequestHeaders.Authorization is not null)
+    throw new InvalidOperationException("The vLLM client must not mutate shared HTTP default authentication headers.");
+using var cancelled = new CancellationTokenSource();
+cancelled.Cancel();
+try
+{
+    await server.GetHealthAsync(cancelled.Token);
+    throw new InvalidOperationException("Caller cancellation must not become a health verdict.");
+}
+catch (OperationCanceledException) when (cancelled.IsCancellationRequested) { }
+Console.WriteLine("Standalone vLLM consumer model, health, metrics and cancellation smoke test passed.");
+
+sealed class LocalVllmHandler : HttpMessageHandler
+{
+    public HttpStatusCode HealthStatus { get; set; } = HttpStatusCode.OK;
+
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        if (request.RequestUri?.Host != "vllm.invalid" || request.Method != HttpMethod.Get ||
+            request.Headers.Authorization?.Scheme != "Bearer" ||
+            request.Headers.Authorization?.Parameter != "package-smoke-token")
+            throw new InvalidOperationException("The local vLLM request did not preserve routing or authentication.");
+        var path = request.RequestUri.AbsolutePath;
+        var body = path switch
+        {
+            "/v1/models" => "{\"data\":[{\"id\":\"package-model\",\"root\":\"example/package-model\",\"max_model_len\":8192}]}",
+            "/version" => "{\"version\":\"package-test-version\"}",
+            "/health" => "",
+            "/metrics" => "vllm:num_requests_running{model_name=\"package-model\"} 2\nvllm:kv_cache_usage_perc{model_name=\"package-model\"} 0.25\n",
+            _ => throw new InvalidOperationException("Unexpected local vLLM route: " + path)
+        };
+        return Task.FromResult(new HttpResponseMessage(path == "/health" ? HealthStatus : HttpStatusCode.OK)
+        {
+            Content = new StringContent(body)
+        });
+    }
+}
+'@
+    Invoke-PackageConsumer `
+        -Name "VllmConsumer" `
+        -PackageId "Mythosia.AI.Serving.Vllm" `
+        -Version $versions["Mythosia.AI.Serving.Vllm"] `
+        -Program $vllmProgram `
+        -ExpectedLibraries @(
+            "Mythosia.AI.Serving.Vllm/$($versions['Mythosia.AI.Serving.Vllm'])",
+            "Newtonsoft.Json/13.0.4") `
+        -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*")
+
+    $vllmNetStandardProgram = @'
+using Mythosia.AI.Serving.Vllm;
+using System.Collections.Generic;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PackageSmoke
+{
+    public static class VllmPublicApiProbe
+    {
+        public static VllmServer Create(HttpClient httpClient)
+            => new VllmServer("https://vllm.invalid/v1", httpClient);
+
+        public static Task<IReadOnlyList<VllmModelCard>> Models(VllmServer server, CancellationToken token)
+            => server.GetModelsAsync(token);
+
+        public static Task<VllmModelCard?> Model(VllmServer server, CancellationToken token)
+            => server.GetModelAsync("package-model", token);
+
+        public static Task<string?> Version(VllmServer server, CancellationToken token)
+            => server.GetVersionAsync(token);
+
+        public static Task<bool> IsHealthy(VllmServer server, CancellationToken token)
+            => server.IsHealthyAsync(token);
+
+        public static Task<VllmHealthReport> Health(VllmServer server, CancellationToken token)
+            => server.GetHealthAsync(token);
+
+        public static Task<VllmMetrics> Metrics(VllmServer server, CancellationToken token)
+            => server.GetMetricsAsync(token);
+    }
+}
+'@
+    Invoke-PackageConsumer `
+        -Name "VllmNetStandardConsumer" `
+        -PackageId "Mythosia.AI.Serving.Vllm" `
+        -Version $versions["Mythosia.AI.Serving.Vllm"] `
+        -Program $vllmNetStandardProgram `
+        -ExpectedLibraries @(
+            "Mythosia.AI.Serving.Vllm/$($versions['Mythosia.AI.Serving.Vllm'])",
+            "Newtonsoft.Json/13.0.4") `
+        -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*") `
         -TargetFramework "netstandard2.1" `
         -BuildOnly
 }

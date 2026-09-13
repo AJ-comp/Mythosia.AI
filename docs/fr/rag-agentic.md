@@ -13,6 +13,8 @@ Dans le RAG standard, chaque message utilisateur déclenche exactement **une** r
 
 Le RAG agentique résout tout cela. Au lieu d'un pipeline fixe récupérer-puis-répondre, **l'agent décide de façon autonome** — quand chercher, quoi chercher, s'il faut chercher à nouveau, et quand appeler d'autres outils — le tout dans une boucle ReAct.
 
+`WithAgenticRag` transmet le jeton d’annulation à `RagStore.QueryAsync`, pour arrêter les composants de recherche qui l’utilisent. Les exceptions de recherche deviennent des résultats d’outil en échec après la trace de diagnostic, et non du texte d’erreur considéré comme un succès. Un run annulé ne lance pas de nouveau tour du modèle. Voir [le contrat commun des outils](function-calling.md#tool-execution-contract).
+
 ## Démarrage rapide
 
 Enregistrez le `RagStore` comme outil avec `WithAgenticRag`, puis lancez `StartRunAsync(...)` :
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Résume la politique de remboursement.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 L'agent appelle `search_documents` automatiquement dès qu'il a besoin de contexte documentaire, puis synthétise la réponse finale à partir des extraits récupérés.
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // L'agent cherche dans les documents la politique ET appelle l'API pour les données de commande en direct
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Commande #12345 — suis-je éligible à un remboursement selon la politique actuelle ?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 Dans cet exemple, l'agent procède de façon autonome :

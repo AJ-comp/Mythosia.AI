@@ -1,6 +1,8 @@
 # พารามิเตอร์การสร้าง
 
-## Properties ทั่วไป
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
+## ค่าเริ่มต้นของ service และเมธอดเพื่อความเข้ากันได้
 
 AI service instance ทุกตัวมี property เหล่านี้:
 
@@ -115,3 +117,5 @@ string info = service.GetConversationSummary();
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [ควบคุมการวิจัยและเครื่องมือ](perplexity.md).

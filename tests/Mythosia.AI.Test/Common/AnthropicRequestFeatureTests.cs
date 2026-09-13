@@ -280,7 +280,7 @@ public class AnthropicRequestFeatureTests
             NativeStream("final-turn", "end_turn", false)
         });
         await using var run = await service.WithWebSearch().StartRunAsync("test");
-        Assert.AreEqual("answeranswer", await run.Result);
+        Assert.AreEqual("answeranswer", (await run.Result).Text);
         Assert.AreEqual(2, handler.Bodies.Count);
         Assert.AreEqual(1, service.LastCitations.Count);
         Assert.AreEqual("opaque-result", Body(handler, 1).GetProperty("messages")[1].GetProperty("content")[1].GetProperty("content")[0].GetProperty("encrypted_content").GetString());

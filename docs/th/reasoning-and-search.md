@@ -1,6 +1,12 @@
 # เลือกระดับการให้เหตุผลและตอบพร้อมแหล่งอ้างอิง
 
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 > API เหล่านี้ต้องใช้ `Mythosia.AI` 7.1.0 ขึ้นไป ซึ่งรวม `Mythosia.AI.Abstractions` 3.1.0 ขึ้นไป ตัวอย่าง RAG ต้องใช้ `Mythosia.AI.Rag` 7.6.0 ขึ้นไป
+
+> ตัวอย่าง `CreateRequest` ต้องใช้รุ่นที่กำลังพัฒนาอยู่ รุ่น 7.1 เดิมที่เพิ่ม Run และตัวเลือกคำขอทั่วไปยังไม่มี builder แพ็กเกจเดิมใช้ overload ของ service ต่อได้
+
+[Claude Fable 5.1](fable-5-1.md) เพิ่มข้อความความคืบหน้า คำสั่งเฉพาะเทิร์น และการวินิจฉัย thinking binding ตั้งแต่ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 ส่วน Mythos 5.1 ต้องได้รับเชิญ และทั้งสองรุ่นไม่รองรับการบังคับเลือกเครื่องมือ
 
 ## ทำไมจึงต้องใช้ตัวเลือกเหล่านี้?
 
@@ -23,13 +29,17 @@
 
 ```csharp
 string outline = await service
+    .CreateRequest("ร่างโครงของแผนการย้ายระบบ")
     .WithReasoning(ReasoningLevel.Low)
-    .GetCompletionAsync("ร่างโครงของแผนการย้ายระบบ");
+    .GetCompletionAsync();
 
 string review = await service
+    .CreateRequest("ตรวจทานแผนนั้นเพื่อหาสถานการณ์ที่อาจล้มเหลวและขั้นตอนการกู้คืน")
     .WithReasoning(ReasoningLevel.High)
-    .GetCompletionAsync("ตรวจทานแผนนั้นเพื่อหาสถานการณ์ที่อาจล้มเหลวและขั้นตอนการกู้คืน");
+    .GetCompletionAsync();
 ```
+
+Gemini 3.7/3.8 Flash รองรับ `Low`, `Medium`, `High` ผ่าน `WithReasoning` แต่ไม่รองรับ `Minimal`, `None`, `CachePreservation.Required` โดยใช้เส้นทาง completion, streaming, Run, เครื่องมือ และการค้นหาเดิม พร้อมข้อจำกัดการใช้งานร่วมกันของ Google ดู[ตัวอย่างการตั้งค่า Google](providers.md#google-googleaiservice)
 
 `ReasoningLevel` ระบุระดับที่ต้องการ ไม่ใช่งบประมาณโทเคนคงที่หรือการรับประกันคุณภาพคำตอบ แต่ละโมเดลรองรับชุดระดับต่างกัน `Auto` คงพฤติกรรมที่ตั้งค่าไว้หรือค่าเริ่มต้นของผู้ให้บริการ ไม่ได้หมายความว่าจะเปลี่ยนระดับที่ไม่รองรับเป็นระดับอื่นโดยอัตโนมัติ โมเดลที่เปิดให้ตั้งงบประมาณโทเคนแทนระดับที่มีชื่อยังใช้พร็อพเพอร์ตีงบประมาณเฉพาะของผู้ให้บริการได้ตามเดิม
 
@@ -37,8 +47,9 @@ string review = await service
 
 ```csharp
 string review = await service
+    .CreateRequest("ตรวจสอบสมมติฐานในคำตอบก่อนหน้าอีกครั้ง")
     .WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)
-    .GetCompletionAsync("ตรวจสอบสมมติฐานในคำตอบก่อนหน้าอีกครั้ง");
+    .GetCompletionAsync();
 ```
 
 `Required` เป็นข้อตกลงเกี่ยวกับวิธีส่งการเปลี่ยนแปลง โดย**ไม่รับประกัน**ว่าจะพบแคช ใช้โทเคนฟรี หรือมีความหน่วงต่ำลง เงื่อนไขการใช้แคช ระยะเวลาเก็บ และราคาของผู้ให้บริการยังมีผล โมเดลที่ไม่รองรับจะโยน `NotSupportedException` ก่อนส่งคำขอ ให้ใช้บทสนทนาที่ระบบติดตามอยู่ โมเดล และเอนด์พอยต์เดิม ห้ามตัดทอนหรือเรียงลำดับประวัติที่มีการอัปเดตเหล่านี้ใหม่ หากต้องการเปลี่ยนเงื่อนไขดังกล่าว ให้เริ่มบทสนทนาใหม่ ระบบจะระงับการย่อประวัติโดยอัตโนมัติขณะที่ต้องรักษาส่วนต้นนี้ไว้
@@ -51,8 +62,9 @@ string review = await service
 
 ```csharp
 string answer = await service
+    .CreateRequest("ค้นหาประกาศออกรุ่นล่าสุดและระบุแหล่งอ้างอิง")
     .WithWebSearch()
-    .GetCompletionAsync("ค้นหาประกาศออกรุ่นล่าสุดและระบุแหล่งอ้างอิง");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.Url}");
@@ -70,8 +82,9 @@ OpenAI และ Anthropic รองรับ `WithWebSearch(new WebSearchOption
 var documents = new FileSearchStore("OpenAI", "vs_your_existing_store");
 
 string answer = await service
+    .CreateRequest("ค้นหาเอกสารนโยบายของเรา ระยะเวลาที่ยกเลิกบริการได้คือเท่าใด?")
     .WithFileSearch(documents)
-    .GetCompletionAsync("ค้นหาเอกสารนโยบายของเรา ระยะเวลาที่ยกเลิกบริการได้คือเท่าใด?");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.FileId ?? source.Url}");
@@ -79,7 +92,7 @@ foreach (AICitation source in service.GetLastCitations())
 
 สำหรับ Google ให้ใช้ `new FileSearchStore("Google", "fileSearchStores/your-existing-store")` กับบริการ Google ที่เก็บเป็นของผู้ให้บริการ บัญชี และสภาพแวดล้อมการปรับใช้ที่ระบุ จึงนำ ID ที่เก็บของ OpenAI ไปให้ Google ไม่ได้ ก่อนใช้ที่นี่ ให้สร้างที่เก็บ อัปโหลดเอกสาร และจัดทำดัชนีผ่าน API หรือคอนโซลของผู้ให้บริการ API นี้ค้นหาเฉพาะที่เก็บที่มีอยู่แล้ว และไม่อัปโหลดไฟล์ภายในเครื่อง
 
-การค้นหาไฟล์ที่ผู้ให้บริการโฮสต์กับ [ไปป์ไลน์ RAG](rag.md) ของไลบรารีตอบโจทย์การจัดระบบที่ต่างกัน เลือกการค้นหาที่โฮสต์ไว้เมื่อผู้ให้บริการจัดการดัชนีอยู่แล้ว เลือก RAG เมื่อแอปต้องควบคุมตัวโหลด การแบ่งข้อความ เอ็มเบดดิง การค้นคืน หรือที่เก็บเวกเตอร์ `RagEnabledService` ส่งต่อ `WithReasoning`, `WithWebSearch` และ `WithFileSearch` ไปยังคำตอบสุดท้ายด้วย แต่การเขียนคำค้นใหม่ภายในจะไม่รับตัวเลือกเหล่านี้ แหล่งอ้างอิงจากการค้นคืน RAG ยังคงอยู่ใน `RagProcessedQuery` แยกจากแหล่งข้อมูล `AICitation` ที่ผู้ให้บริการส่งมา
+`CreateRequest(...).With...` เก็บตัวเลือกใน builder อิสระ การใช้ซ้ำจะนำตัวเลือกไปใช้กับแต่ละการทำงานและรอบเครื่องมือ ส่วน `service.WithReasoning`, `service.WithWebSearch` และ `service.WithFileSearch` เดิมยังคืนชนิด service เดิมและใช้ตัวเลือกกับคำขอเชิงตรรกะถัดไป ใช้ต่อได้กับ `IAIRequestFeatureService` และ RAG wrapper ทั้งสองรูปแบบไม่รับประกันการทำงานพร้อมกันบน service เดียว
 
 ## แสดงความคืบหน้าและเก็บแหล่งอ้างอิง
 
@@ -87,14 +100,14 @@ foreach (AICitation source in service.GetLastCitations())
 
 ```csharp
 await using var run = await service
+    .CreateRequest("ค้นหาประกาศล่าสุดแล้วเปรียบเทียบการเปลี่ยนแปลง")
     .WithReasoning(ReasoningLevel.High)
     .WithWebSearch()
     .StartRunAsync(
-        "ค้นหาประกาศล่าสุดแล้วเปรียบเทียบการเปลี่ยนแปลง",
         onText: text => Console.Write(text),
         cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 foreach (AICitation source in run.Citations)
     Console.WriteLine($"{source.Title}: {source.Url ?? source.FileId}");
 ```
@@ -104,8 +117,10 @@ foreach (AICitation source in run.Citations)
 หากต้องการรับเหตุการณ์แหล่งอ้างอิงทันทีที่มาถึง ให้ใช้ตัวอ่านเหตุการณ์เพียงตัวเดียว:
 
 ```csharp
-await using var run = await service.WithWebSearch().StartRunAsync(
-    "ค้นหาและอธิบายการเปลี่ยนแปลงล่าสุด", cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("ค้นหาและอธิบายการเปลี่ยนแปลงล่าสุด")
+    .WithWebSearch()
+    .StartRunAsync(cancellationToken: cancellationToken);
 
 await foreach (var item in run.StreamAsync())
 {
@@ -114,10 +129,10 @@ await foreach (var item in run.StreamAsync())
     else if (item.Type == StreamingContentType.Citation && item.Citation is AICitation source)
         Console.WriteLine($"\nแหล่งอ้างอิง: {source.Title} {source.Url ?? source.FileId}");
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
-ฟิลด์แหล่งอ้างอิงเป็น null ได้หากผู้ให้บริการไม่ได้ส่งค่า `ResponseId`, `OutputIndex` และ `ContentIndex` ระบุคำตอบและส่วนเนื้อหาต้นทาง `StartIndex` และ `EndIndex` รักษาตำแหน่งภายในส่วนเนื้อหาและรูปแบบการนับดัชนีของผู้ให้บริการ โดย**ไม่ใช่**ตำแหน่งใน `run.Result` ที่นำข้อความมาต่อกัน อย่านำค่าเหล่านี้ไปใช้เป็นดัชนีของคำตอบทั้งหมดเพื่อวางแหล่งอ้างอิงโดยตรง
+ฟิลด์แหล่งอ้างอิงเป็น null ได้หากผู้ให้บริการไม่ได้ส่งค่า `ResponseId`, `OutputIndex` และ `ContentIndex` ระบุคำตอบและส่วนเนื้อหาต้นทาง `StartIndex` และ `EndIndex` รักษาตำแหน่งภายในส่วนเนื้อหาและรูปแบบการนับดัชนีของผู้ให้บริการ โดย**ไม่ใช่**ตำแหน่งใน `(await run.Result).Text` ที่นำข้อความมาต่อกัน อย่านำค่าเหล่านี้ไปใช้เป็นดัชนีของคำตอบทั้งหมดเพื่อวางแหล่งอ้างอิงโดยตรง
 
 ## ตรวจสอบการรองรับของผู้ให้บริการและขอบเขตคำขอ
 
@@ -126,12 +141,19 @@ string answer = await run.Result;
 | OpenAI | โมเดลการให้เหตุผลที่รองรับ โดยระดับขึ้นอยู่กับโมเดล | GPT-6 Astra Standard ในโหมดเอเจนต์เดียว | โมเดล Responses ที่รองรับ | โมเดล Responses ที่รองรับและที่เก็บเวกเตอร์ที่มีอยู่แล้ว |
 | Anthropic | โมเดลที่มีการควบคุม effort โดยตรง | Opus 5 / Fable 5.1 / Mythos 5.1 ที่รองรับ พร้อมฟีเจอร์เบตาของผู้ให้บริการ | โมเดล Claude ที่รองรับ | ไม่มีอะแดปเตอร์ที่เก็บแบบเนทีฟ ให้ใช้ RAG |
 | Google | ระดับของ Gemini 3; Gemini 2.5 ยังคงใช้งบประมาณเฉพาะผู้ให้บริการ | ไม่รองรับ | โมเดลข้อความ Gemini ที่รองรับ | โมเดลข้อความ Gemini ที่รองรับและที่เก็บค้นหาไฟล์ที่มีอยู่แล้ว |
+| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | ไม่รองรับ | ไม่มีอะแดปเตอร์ร่วม | ไม่มีอะแดปเตอร์ร่วม |
+| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; จับคู่กับ Low/High/Max เนทีฟ | ไม่รองรับ | ไม่มีอะแดปเตอร์ร่วม | ไม่มีอะแดปเตอร์ร่วม |
+| Perplexity | `Auto` หรือ `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max` ที่โมเดลรองรับ; Sonar ไม่รองรับ effort แบบระบุชัด | ไม่รองรับ | Agent `web_search` | ไม่มีอะแดปเตอร์ร่วม |
 | บริการอื่น | ยังใช้การตั้งค่าเฉพาะผู้ให้บริการเดิมได้ ตัวเลือกร่วมเหล่านี้ต้องมีอะแดปเตอร์ | อะแดปเตอร์ชุดนี้ไม่รองรับ | ไม่มีอะแดปเตอร์ร่วม | ไม่มีอะแดปเตอร์ร่วม |
 
-ระบบตรวจสอบโมเดล ระดับ ช่องทางสื่อสาร และการใช้ตัวเลือกร่วมกันก่อนส่งคำขอ โดยเฉพาะ **Google ไม่สามารถใช้การค้นหาเว็บและการค้นหาไฟล์ร่วมกันในคำขอเดียว** ไลบรารีจะไม่ลบฟีเจอร์ ลดระดับการให้เหตุผล ละเลยข้อจำกัดโดเมน หรือเปลี่ยนไปใช้บริการค้นหาภายนอกโดยไม่แจ้ง เมื่อรองรับ เครื่องมือของผู้ให้บริการใช้ร่วมกับฟังก์ชันฝั่งไคลเอนต์ที่ลงทะเบียนไว้ได้ รอบเครื่องมือของ Run ยังเป็นไปตามนโยบายฟังก์ชันและ `WithMaxRounds`
+อะแดปเตอร์ตรวจสอบข้อจำกัดของโมเดล ระดับ ช่องทาง และชุดตัวเลือกที่ทราบก่อนส่ง ส่วนกฎเฉพาะโมเดลที่ตรวจสอบในเครื่องไม่ได้จะให้ผู้ให้บริการตรวจสอบ โดยเฉพาะ **Google ไม่สามารถใช้การค้นหาเว็บและการค้นหาไฟล์ร่วมกันในคำขอเดียว** ไลบรารีจะไม่ลบฟีเจอร์ ลดระดับการให้เหตุผล ละเลยข้อจำกัดโดเมน หรือเปลี่ยนไปใช้บริการค้นหาภายนอกโดยไม่แจ้ง เมื่อรองรับ เครื่องมือของผู้ให้บริการใช้ร่วมกับฟังก์ชันฝั่งไคลเอนต์ที่ลงทะเบียนไว้ได้ รอบเครื่องมือของ Run ยังเป็นไปตามนโยบายฟังก์ชันและ `WithMaxRounds`
 
-เมธอด Fluent คงชนิดที่แท้จริงของบริการและคัดลอกตัวเลือกขาเข้า ส่วนที่ไม่ใช่ null จะถูกรวมสำหรับคำขอเชิงตรรกะถัดไป ครอบคลุมรอบเครื่องมือและการเรียกแก้ไขผลลัพธ์แบบมีโครงสร้าง แล้วจึงถูกใช้หมด การค้นหาจะไม่เปิดให้การเรียกที่ไม่เกี่ยวข้องในภายหลัง ให้เพิ่ม `WithWebSearch` หรือ `WithFileSearch` อีกครั้งเมื่อต้องการ Run ที่เริ่มแล้วจะคงการตั้งค่าที่จับไว้ เช่นเดียวกับการตั้งค่าบริการที่แก้ไขได้อื่น ๆ อย่าเปลี่ยนการตั้งค่าหรือเริ่มคำขอซ้อนกันบนบริการเดียวกันขณะที่คำขอยังทำงานอยู่
+`CreateRequest(...).With...` เก็บตัวเลือกใน builder อิสระ การใช้ซ้ำจะนำตัวเลือกไปใช้กับแต่ละการทำงานและรอบเครื่องมือ ส่วน `service.WithReasoning`, `service.WithWebSearch` และ `service.WithFileSearch` เดิมยังคืนชนิด service เดิมและใช้ตัวเลือกกับคำขอเชิงตรรกะถัดไป ใช้ต่อได้กับ `IAIRequestFeatureService` และ RAG wrapper ทั้งสองรูปแบบไม่รับประกันการทำงานพร้อมกันบน service เดียว
 
 การติดตั้งใช้งาน `IAIService` แบบกำหนดเองยังเข้ากันได้ โดยเลือกเปิดความสามารถนี้ผ่าน `IAIRequestFeatureService` หากเรียกเมธอดช่วยเหล่านี้กับการติดตั้งใช้งานที่ไม่มีความสามารถดังกล่าว ระบบจะโยนข้อยกเว้นอย่างชัดเจน API สำหรับคำตอบสมบูรณ์ สตรีม และการตั้งค่าเฉพาะผู้ให้บริการเดิมยังใช้ได้ ดูเรื่องการยกเลิก การสังเกตผลลัพธ์ และการส่งคำสั่งเพิ่มเติมใน [การควบคุม Run](execution-api-transition.md)
 
 โปรโตคอลผู้ให้บริการ: [การเปลี่ยนการให้เหตุผลของ OpenAI](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation), [เครื่องมือ OpenAI](https://developers.openai.com/api/docs/guides/tools), [การเปลี่ยน effort ของ Anthropic](https://platform.claude.com/docs/en/build-with-claude/effort#change-effort-mid-conversation), [ค้นหาเว็บของ Anthropic](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool), [อ้างอิงข้อมูลด้วย Google Search](https://ai.google.dev/gemini-api/docs/google-search), [Google File Search](https://ai.google.dev/gemini-api/docs/file-search)
+
+ระดับ effort ของ Perplexity ขึ้นอยู่กับโมเดลที่เลือกจริง และเซิร์ฟเวอร์อาจปฏิเสธชุดตัวเลือกที่ไม่เข้ากัน ไม่รองรับ `None` การค้นหาเริ่มต้นและเครื่องมือ preset/profile เป็นการตั้งค่าถาวรของผู้ให้บริการ ตัวเลือกคำขอร่วมไม่ได้ปิดค่าเริ่มต้นเหล่านี้
+
+Perplexity: [Perplexity Agent API การค้นหา และ embedding](perplexity.md).

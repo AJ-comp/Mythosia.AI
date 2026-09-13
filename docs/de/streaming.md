@@ -1,5 +1,10 @@
 # Streaming
 
+Für die fertige Antwort mit Verbrauch und Quellen liefert `await run.Result` eine `AIRunResult`-Momentaufnahme. Die Zeichenfolge steht in `result.Text`; ein Stream-Leser ist unnötig. Diese API-Änderung gehört zu Mythosia.AI 8.0.0. Die Rückgabetypen von `GetCompletionAsync` und `StructuredStreamRun<T>.Result` bleiben erhalten. [Run-Ergebnis und Migration](execution-api-transition.md#run-result).
+
+
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 Text sofort anzuzeigen macht längere Antworten schon während ihrer Entstehung lesbar. Mit `StartRunAsync` kannst du denselben Auftrag zusätzlich abbrechen und bei unterstützten Modellen neue Anweisungen senden; siehe [Run-Anleitung](execution-api-transition.md).
 
 ```csharp
@@ -13,12 +18,12 @@ await foreach (var item in run.StreamAsync())
         Console.Write(item.Content);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Beispiele für die bisherigen Kompatibilitätsmethoden
 
-Die folgenden Beispiele zeigen die weiterhin verfügbaren, Eingaben annehmenden Service-Methoden. Ihr öffentlicher Rückzug ist für die nächste Hauptversion geplant; die Ausführung bleibt intern erhalten. Für neue steuerbare Aufgaben verwende `StartRunAsync` und beobachte die Ausgabe mit `run.StreamAsync()`.
+Eingabeannehmende Service-/RAG-StreamAsync-Methoden bleiben in v8 öffentlich. Für neue Ausführungssteuerung StartRunAsync nutzen; run.StreamAsync() beobachtet nur einen vorhandenen Run.
 
 ## Einfaches Streaming
 
@@ -44,7 +49,7 @@ await foreach (var content in service.StreamAsync("Erkläre Quantencomputing", S
 
 ## Reasoning-Streaming
 
-Alle reasoning-fähigen Anbieter (OpenAI, Claude, Gemini, Grok, DeepSeek) nutzen dasselbe Muster. Übergib `StreamOptions` mit aktiviertem Reasoning:
+OpenAI, Claude, Gemini, Grok und DeepSeek Flash liefern Reasoning-Inhalte des Anbieters im selben Streaming-Muster. Aktiviere Reasoning am Service oder für die Anfrage und beobachte es mit `StreamOptions.WithReasoning()`:
 
 ```csharp
 using Mythosia.AI.Models.Streaming;
@@ -58,7 +63,11 @@ await foreach (var content in service.StreamAsync("Löse: 2x + 5 = 13", new Stre
 }
 ```
 
-`StreamingContentType.Reasoning` enthält den internen Gedankengang des Modells, `StreamingContentType.Text` die endgültige Antwort.
+Gemini 3.7/3.8 Flash nutzen die bestehenden Streaming- und Run-Ereignisse. `StreamingContentType.Reasoning` enthält vom Anbieter bereitgestellte Zusammenfassungen oder Fortschrittsmeldungen, sofern vorhanden, nicht garantiert den gesamten internen Gedankengang. `StreamOptions.WithReasoning()` wählt diese Ausgabe; `WithReasoning(ReasoningLevel...)` am Service steuert den Aufwand.
+
+Grok 4.6 kann über diese Ereignisse ebenfalls optionale Reasoning-Zusammenfassungen des Anbieters liefern. Die Streamoption wählt die sichtbare Ausgabe; `WithReasoning(ReasoningLevel...)` bestimmt den Aufwand einer Aufgabe. Fehlende Zusammenfassungen bedeuten nicht, dass Reasoning deaktiviert ist. Siehe [Grok-Konfiguration](providers.md#xai-xaiservice).
+
+DeepSeek Flash gibt nach Aktivierung von Reasoning `reasoning_content` über dieselben Ereignisse aus. `StreamOptions.WithReasoning()` steuert die Beobachtung; `WithDeepSeekReasoning(...)` oder `WithReasoning(...)` am Service steuert Reasoning. Siehe [DeepSeek](providers.md#deepseek-deepseekservice).
 
 ## Streaming mit strukturierter Ausgabe
 
@@ -144,6 +153,8 @@ var options = new StreamOptions()
     .WithFunctionCalls();  // Funktionsaufruf während des Streams aktivieren
 ```
 
+Behandeln Sie angezeigte Chunks als vorläufig, bis `run.Result` erfolgreich abgeschlossen ist. Der gemeinsame OpenAI-kompatible Streaming-Pfad und der DeepSeek-Streaming-Pfad weisen neue Text-, Reasoning- oder Tool-Daten nach einem expliziten Abschluss sowie einen geänderten Abschlussgrund zurück: `run.Result` löst eine Ausnahme aus, die fehlgeschlagene Runde wird nicht im Gesprächsverlauf gespeichert und ihre Tools werden nicht ausgeführt. Diese Fehlerbehandlung macht frühere Runden oder bereits extern ausgeführte Aktionen nicht rückgängig. Das letzte Delta darf im ersten Abschlussereignis enthalten sein; ein nachfolgendes Ereignis ausschließlich mit Nutzungsdaten bleibt zulässig.
+
 ## Statusloses Streaming (StreamOnceAsync)
 
 Eine Antwort streamen, ohne den Gesprächsverlauf zu beeinflussen — das Streaming-Äquivalent von `AskOnceAsync`:
@@ -172,3 +183,5 @@ await service.ApplySummaryPolicyIfNeededAsync();
 await foreach (var chunk in service.StreamAsync("Lass uns unser Gespräch fortsetzen...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
+
+Perplexity: [Längere Aufgaben weiterlaufen lassen / Zitate können Webtreffer oder andere Anbieterquellen bezeichnen. Positionen beziehen sich auf einen einzelnen Antwort-/Inhaltsteil, nicht auf das zusammengesetzte Run-Ergebnis. Behalten Sie URL und Titel zur Anzeige und Prüfung; eine Quelle bestätigt nicht automatisch jede erzeugte Aussage.](perplexity.md).

@@ -139,7 +139,7 @@ public class GoogleRequestFeatureTests
     {
         var (service, _) = Create(responses: new[] { "data: " + Grounded.Replace("\r", "").Replace("\n", "") + "\n\n" });
         await using var run = await service.WithWebSearch().StartRunAsync("test");
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
         Assert.AreEqual(1, service.LastCitations.Count);
     }
 
@@ -151,7 +151,7 @@ public class GoogleRequestFeatureTests
         var citations = new List<AICitation>();
         await foreach (var item in run.StreamAsync())
             if (item.Type == StreamingContentType.Citation) citations.Add(item.Citation!);
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
         Assert.AreEqual(1, citations.Count);
     }
 

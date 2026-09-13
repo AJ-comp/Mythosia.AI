@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Collections;
+using System.Reflection;
 using Mythosia.AI.Models.Functions;
 
 namespace Mythosia.AI.Mcp.Tests;
@@ -95,7 +97,7 @@ public class McpToolAdapterTests
     }
 
     [TestMethod]
-    public async Task ToFunctionDefinitions_HandlerReturnsErrorOnFailure()
+    public async Task ToFunctionDefinitions_HandlerPropagatesErrorOnFailure()
     {
         var transport = new MockTransport();
         await using var connection = await CreateInitializedConnectionAsync(transport,
@@ -106,8 +108,114 @@ public class McpToolAdapterTests
 
         transport.EnqueueError(3, -32000, "Internal error");
 
-        var result = await functions[0].Handler!(new Dictionary<string, object>());
-        Assert.IsTrue(result.StartsWith("Error:"));
+        var exception = await Assert.ThrowsExactlyAsync<McpException>(() =>
+            functions[0].Handler!(new Dictionary<string, object>()));
+        StringAssert.Contains(exception.Message, "Internal error");
+    }
+
+    [TestMethod]
+    public async Task ToFunctionDefinitions_PropagatesServerToolErrorsThroughTheCancellationHandler()
+    {
+        var transport = new MockTransport();
+        await using var connection = await CreateInitializedConnectionAsync(transport,
+            new { name = "fail_tool", description = "Always fails" });
+        var definition = McpToolAdapter.ToFunctionDefinitions(connection).Single();
+        transport.EnqueueResult(3, new
+        {
+            isError = true, content = new[] { new { type = "text", text = "tool execution failed" } }
+        });
+        using var cancellation = new CancellationTokenSource();
+
+        var exception = await Assert.ThrowsExactlyAsync<McpException>(() =>
+            definition.HandlerWithCancellation!(new(), cancellation.Token));
+
+        StringAssert.Contains(exception.Message, "tool execution failed");
+        Assert.AreEqual(cancellation.Token, transport.SentTokens.Last());
+        Assert.AreEqual(0, PendingCount(connection));
+    }
+
+    [TestMethod]
+    public async Task ToFunctionDefinitions_RunningCancellationReleasesPendingRequestAndAllowsTheNextCall()
+    {
+        var transport = new MockTransport();
+        await using var connection = await CreateInitializedConnectionAsync(transport,
+            new { name = "lookup", description = "Lookup" });
+        var definition = McpToolAdapter.ToFunctionDefinitions(connection).Single();
+        using var cancellation = new CancellationTokenSource();
+        var execution = definition.HandlerWithCancellation!(new(), cancellation.Token);
+
+        Assert.IsFalse(execution.IsCompleted);
+        Assert.AreEqual(cancellation.Token, transport.SentTokens.Last());
+        Assert.AreEqual(1, PendingCount(connection));
+        cancellation.Cancel();
+
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            execution.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.AreEqual(0, PendingCount(connection));
+
+        // The late result of the cancelled request must not satisfy the next request.
+        transport.DeliverResult(3, new { content = new[] { new { type = "text", text = "late result" } } });
+        transport.EnqueueResult(4, new { content = new[] { new { type = "text", text = "next result" } } });
+
+        Assert.AreEqual("next result", await definition.Handler!(new()).WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual(0, PendingCount(connection));
+    }
+
+    [TestMethod]
+    public async Task ToFunctionDefinitions_PreCancelledCallDoesNotSendOrReserveARequest()
+    {
+        var transport = new MockTransport();
+        await using var connection = await CreateInitializedConnectionAsync(transport,
+            new { name = "lookup", description = "Lookup" });
+        var definition = McpToolAdapter.ToFunctionDefinitions(connection).Single();
+        var sentBefore = transport.SentMessages.Count;
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            definition.HandlerWithCancellation!(new(), cancellation.Token));
+
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.AreEqual(sentBefore, transport.SentMessages.Count);
+        Assert.AreEqual(0, PendingCount(connection));
+        transport.EnqueueResult(3, new { content = new[] { new { type = "text", text = "next result" } } });
+        Assert.AreEqual("next result", await definition.Handler!(new()).WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    [TestMethod]
+    public async Task ToFunctionDefinitions_CancellationDuringTransportSendReleasesPendingRequest()
+    {
+        var transport = new MockTransport();
+        await using var connection = await CreateInitializedConnectionAsync(transport,
+            new { name = "lookup", description = "Lookup" });
+        var definition = McpToolAdapter.ToFunctionDefinitions(connection).Single();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        transport.BeforeSendAsync = async token =>
+        {
+            started.TrySetResult();
+            await Task.Delay(Timeout.Infinite, token);
+        };
+        using var cancellation = new CancellationTokenSource();
+        var execution = definition.HandlerWithCancellation!(new(), cancellation.Token);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        cancellation.Cancel();
+
+        var exception = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            execution.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual(cancellation.Token, exception.CancellationToken);
+        Assert.AreEqual(0, PendingCount(connection));
+        transport.BeforeSendAsync = null;
+        transport.EnqueueResult(4, new { content = new[] { new { type = "text", text = "next result" } } });
+        Assert.AreEqual("next result", await definition.Handler!(new()).WaitAsync(TimeSpan.FromSeconds(5)));
+    }
+
+    private static int PendingCount(McpConnection connection)
+    {
+        var pending = typeof(McpConnection).GetField("_pending", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(connection);
+        return ((ICollection)pending!).Count;
     }
 
     [TestMethod]

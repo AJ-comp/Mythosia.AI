@@ -1,5 +1,9 @@
 # AIRequestContext
 
+완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
+
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
 ## 개요
 
 `AIRequestContext`는 **모델이 보는 내용을 단일 요청에 대해서만 변경**합니다 — 추가 지시사항 주입, 참고 문서 추가, 또는 사용자 메시지의 완전한 교체 — 서비스의 시스템 메시지나 대화 기록을 영구적으로 변경하지 않으면서.
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"오늘 날짜: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## 사용 가능한 속성
@@ -269,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-기존 `GetCompletionAsync`와 `RunAgentAsync` 시그니처는 취소 토큰을 받지 않아 문맥 provider에 `CancellationToken.None`을 전달합니다. 오래 걸리는 DB 조회처럼 문맥 생성에도 취소가 필요하면 `StartRunAsync(..., cancellationToken: token)`을 사용하세요. 출력 관찰 없이 `run.Result`만 기다리는 경우에도 토큰이 provider 콜백까지 전달됩니다. 기존 `StreamAsync`와 `RunAgentStreamAsync`도 호출자의 취소 토큰을 전달합니다.
+`GetCompletionAsync(..., cancellationToken: token)`과 기존 `RunAgentAsync`도 호출자 취소를 `SystemMessageProvider`에 전달합니다. 문맥을 준비하는 DB·HTTP 조회가 토큰을 사용하면 함께 취소할 수 있습니다. `StartRunAsync`와 입력을 받는 기존 스트리밍 메서드도 실행 토큰을 전달합니다. `run.StreamAsync(token)`만 취소하면 출력 관찰만 중단하며 provider나 실행을 취소하지 않습니다.
 
 ### 명시적 per-call 컨텍스트와의 병합
 

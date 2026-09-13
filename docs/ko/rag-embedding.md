@@ -17,7 +17,13 @@ RAG 파이프라인에서 임베딩은 두 곳에서 사용됩니다:
 
 ## 내장 임베딩 프로바이더
 
-Mythosia.AI.Rag에는 4가지 프로바이더가 포함되어 있습니다. 용도에 맞게 골라 쓰세요.
+문서 언어, 운영 환경, 검색 요구에 맞는 임베딩 프로바이더를 선택하세요.
+
+### Perplexity
+
+표준 임베딩은 문단을 독립적으로 다루고 `IEmbeddingProvider`를 구현하므로 기존 빌더에 연결됩니다. 문맥 임베딩은 이웃 청크의 순서와 문서별 묶음을 유지합니다. 관련 없는 문서가 하나의 입력으로 합쳐지는 것을 막기 위해 별도 API를 사용합니다.
+
+[Perplexity Agent API, 검색과 임베딩](perplexity.md).
 
 ### OpenAI Embedding
 
@@ -107,6 +113,8 @@ pipeline.Options = options;
 | 프로바이더 | 모델 | 기본 차원 수 |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

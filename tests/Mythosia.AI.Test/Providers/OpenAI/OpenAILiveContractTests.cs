@@ -76,10 +76,10 @@ public class OpenAILiveContractTests
             Model = AIModels.OpenAI.GptImage2,
             Prompt = "A centered blue circle and a small green square on a plain white background.",
             Count = 1,
-            Size = "1024x1024",
-            Quality = "low",
-            OutputFormat = "png",
-            Background = "opaque"
+            Size = ImageSize.Pixels(1024, 1024),
+            Quality = ImageQuality.Low,
+            OutputFormat = ImageOutputFormat.Png,
+            Background = ImageBackground.Opaque
         });
 
         AssertPngResult(result);
@@ -102,10 +102,10 @@ public class OpenAILiveContractTests
                 new ImageInput(source, "image/png", "test_image.png")
             },
             Count = 1,
-            Size = "1024x1024",
-            Quality = "low",
-            OutputFormat = "png",
-            Background = "opaque"
+            Size = ImageSize.Pixels(1024, 1024),
+            Quality = ImageQuality.Low,
+            OutputFormat = ImageOutputFormat.Png,
+            Background = ImageBackground.Opaque
         });
 
         AssertPngResult(result);

@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
 ## 개요
 
 `AIRequestProfile`은 생성 파라미터 — Temperature, MaxTokens, Stateless 모드, 함수 호출 — 를 **단일 요청에 대해서만** 오버라이드합니다. 서비스의 전역 설정은 그대로 유지됩니다.
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("이 쿼리를 재작성해 주
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-서비스의 전역 설정은 전혀 건드리지 않습니다. 정리도 필요 없습니다. 스레드 안전합니다.
+프로파일은 한 호출의 설정을 지정하는 도구이며 공유 대화의 동시 실행 안전성을 보장하지 않습니다. `service.CreateRequest(prompt).WithProfile(profile)`로 독립적인 요청에 보관하는 방식을 권장합니다. 기존 프로파일 오버로드도 계속 지원합니다.
 
 ## 사용 가능한 속성
 

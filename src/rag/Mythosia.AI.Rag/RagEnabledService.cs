@@ -120,9 +120,9 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Processes the query through RAG pipeline, then sends the request message content to the LLM.
         /// </summary>
-        public async Task<string> GetCompletionAsync(string query)
+        public async Task<string> GetCompletionAsync(string query, CancellationToken cancellationToken = default)
         {
-            return await GetCompletionAsync(query, options: null);
+            return await GetCompletionAsync(query, options: null, cancellationToken);
         }
 
         /// <summary>
@@ -134,20 +134,23 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var message = new Message(ActorRole.User, query);
             using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             return await _innerService.GetCompletionAsync(
                 message,
-                context: BuildRequestContext(processed));
+                context: BuildRequestContext(processed),
+                cancellationToken: cancellationToken);
         }
 
         /// <summary>
         /// Processes a Message through RAG pipeline (extracts text content for retrieval).
         /// </summary>
-        public async Task<string> GetCompletionAsync(Message message)
+        public async Task<string> GetCompletionAsync(Message message, CancellationToken cancellationToken = default)
         {
-            return await GetCompletionAsync(message, options: null);
+            return await GetCompletionAsync(message, options: null, cancellationToken);
         }
 
         /// <summary>
@@ -159,10 +162,13 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var features = (_innerService as IAIRequestFeatureService)?.BeginRequestFeaturesScope(message);
             var query = message.Content ?? message.GetDisplayText();
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
-            return await _innerService.GetCompletionAsync(message, context: BuildRequestContext(processed));
+            cancellationToken.ThrowIfCancellationRequested();
+            return await _innerService.GetCompletionAsync(message, context: BuildRequestContext(processed),
+                cancellationToken: cancellationToken);
         }
 
         /// <summary>
@@ -288,7 +294,9 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var store = await EnsureInitializedAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             string searchQuery = query;
             string? rewrittenQuery = null;
@@ -299,6 +307,7 @@ namespace Mythosia.AI.Rag
             {
                 var history = GetConversationHistory();
                 var result = await _queryRewriter.RewriteAsync(query, history, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 rewriteResult = result;
 
                 if (!result.NeedsSearch)

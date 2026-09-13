@@ -1,5 +1,7 @@
 - name: Bắt đầu
   items:
+  - name: Chuyển sang Mythosia.AI 8
+    href: v8-migration.md
   - name: Giới thiệu
     href: introduction.md
   - name: Khái niệm cốt lõi
@@ -15,6 +17,10 @@
     href: completions.md
   - name: Tham số tạo văn bản
     href: generation-params.md
+  - name: Giữ cấu hình của từng yêu cầu độc lập
+    href: request-building.md
+  - name: Hiển thị tùy chọn được mô hình đã chọn hỗ trợ
+    href: model-capabilities.md
   - name: Chọn mức suy luận và nguồn
     href: reasoning-and-search.md
   - name: Streaming
@@ -38,6 +44,10 @@
   items:
   - name: Khả năng nhà cung cấp
     href: providers.md
+  - name: Claude Fable 5.1
+    href: fable-5-1.md
+  - name: Perplexity Agent API, tìm kiếm và embedding
+    href: perplexity.md
 
 - name: RAG
   items:

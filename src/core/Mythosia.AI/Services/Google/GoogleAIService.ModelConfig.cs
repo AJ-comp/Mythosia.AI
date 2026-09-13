@@ -10,15 +10,28 @@ namespace Mythosia.AI.Services.Google
     public partial class GoogleAIService
     {
         /// <summary>
-        /// Gemini 3.6 Flash and Gemini 3.5 Flash-Lite ignore legacy sampling controls.
-        /// Google has also announced that later models may reject these fields outright.
+        /// Gemini 3.6 Flash and Gemini 3.5 Flash-Lite ignore legacy sampling controls;
+        /// migration guidance for Gemini 3.7 and 3.8 Flash requires omitting them.
         /// </summary>
         private bool UsesLatestSamplingContract()
         {
-            return Model != null &&
-                   (Model.StartsWith(AIModels.Google.Gemini3_6Flash, StringComparison.OrdinalIgnoreCase) ||
-                    Model.StartsWith(AIModels.Google.Gemini3_5FlashLite, StringComparison.OrdinalIgnoreCase));
+            return RequestModel != null &&
+                   (RequestModel.StartsWith(AIModels.Google.Gemini3_6Flash, StringComparison.OrdinalIgnoreCase) ||
+                    RequestModel.StartsWith(AIModels.Google.Gemini3_5FlashLite, StringComparison.OrdinalIgnoreCase) ||
+                    IsGemini37Or38FlashModel());
         }
+
+        private bool IsGemini37Or38FlashModel() =>
+            IsModelOrSnapshot(AIModels.Google.Gemini3_7Flash) ||
+            IsModelOrSnapshot(AIModels.Google.Gemini3_8Flash);
+
+        private bool IsModelOrSnapshot(string model) =>
+            string.Equals(RequestModel, model, StringComparison.OrdinalIgnoreCase) ||
+            (RequestModel?.StartsWith(model + "-", StringComparison.OrdinalIgnoreCase) ?? false);
+
+        private bool HasLowThinkingFloor() =>
+            IsGemini3Model() &&
+            (RequestModel.Contains("-pro", StringComparison.OrdinalIgnoreCase) || IsGemini37Or38FlashModel());
 
         private void ApplyTextGenerationConfig(
             Dictionary<string, object> generationConfig,
@@ -29,8 +42,8 @@ namespace Mythosia.AI.Services.Google
 
             if (!UsesLatestSamplingContract())
             {
-                generationConfig["temperature"] = Temperature;
-                generationConfig["topP"] = TopP;
+                generationConfig["temperature"] = RequestTemperature;
+                generationConfig["topP"] = RequestTopP;
                 generationConfig["topK"] = DefaultTopK;
             }
 
@@ -44,12 +57,12 @@ namespace Mythosia.AI.Services.Google
 
         private void ApplyStructuredOutputConfig(Dictionary<string, object> generationConfig)
         {
-            if (_structuredOutputSchemaJson == null)
+            if (RequestStructuredOutputSchemaJson == null)
                 return;
 
             try
             {
-                using var schemaDocument = JsonDocument.Parse(_structuredOutputSchemaJson);
+                using var schemaDocument = JsonDocument.Parse(RequestStructuredOutputSchemaJson);
                 generationConfig["responseFormat"] = new Dictionary<string, object>
                 {
                     ["text"] = new Dictionary<string, object>

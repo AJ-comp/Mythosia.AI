@@ -1,5 +1,12 @@
 # Agent (boucle ReAct)
 
+Pour obtenir réponse, jetons et sources ensemble, `await run.Result` renvoie un instantané `AIRunResult`. La chaîne est dans `result.Text`, sans lecture du flux. Ce changement appartient à Mythosia.AI 8.0.0 ; les types de retour de `GetCompletionAsync` et `StructuredStreamRun<T>.Result` restent identiques. [Résultat Run et migration](execution-api-transition.md#run-result).
+
+
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
+> Les exemples `CreateRequest` nécessitent Mythosia.AI 8.0.0 / Abstractions 4.0.0. Le builder n’existe pas dans l’ancienne version 7.1 qui a introduit Run et les options communes. Les anciens packages peuvent conserver les surcharges du service.
+
 Rechercher une politique et vérifier une commande peut demander plusieurs appels d’outils. Le [guide Run](execution-api-transition.md) montre comment suivre ce travail, l’annuler et ajouter des instructions lorsque le modèle le permet.
 
 ## Pourquoi une boucle agentique ?
@@ -16,12 +23,16 @@ Certaines questions demandent plusieurs sources : le modèle choisit un outil, e
 
 ```csharp
 // Enregistrer les fonctions sur le service avant de démarrer la tâche.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Trouve la politique, vérifie la commande et explique le résultat.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Trouve la politique, vérifie la commande et explique le résultat.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Les outils locaux peuvent renvoyer des objets via `Task<T>` / `ValueTask<T>` et recevoir un `CancellationToken` injecté. `run.Cancel()` ou le jeton de démarrage atteint les outils coopératifs ; arrêter seulement le lecteur du flux ne suffit pas. Les exceptions sont des échecs. L’annulation ignore les appels en attente, et le nettoyage attend les outils démarrés qui ignorent le jeton. Voir [résultats, erreurs et annulation](function-calling.md#tool-execution-contract).
 
 ## Ancienne API d’agent : exemples de compatibilité
 

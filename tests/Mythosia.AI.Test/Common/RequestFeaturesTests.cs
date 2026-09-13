@@ -99,7 +99,7 @@ public class RequestFeaturesTests
         Assert.AreEqual(0, service.SessionStarts);
         Assert.AreEqual(history, service.ActivateChat.Messages.Count);
         await using var next = await service.StartRunAsync("next");
-        Assert.AreEqual("answer", await next.Result);
+        Assert.AreEqual("answer", (await next.Result).Text);
         Assert.IsTrue(service.Snapshots.Single().IsEmpty);
     }
 
@@ -159,7 +159,7 @@ public class RequestFeaturesTests
         await service.StreamStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         domains[0] = "changed.example";
         release.SetResult();
-        Assert.AreEqual("answer", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("answer", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual("original.example", service.Snapshots.Single().WebSearch!.AllowedDomains!.Single());
         Assert.IsTrue(service.StreamFeatureChecks.All(f => f.WebSearch?.AllowedDomains?.Single() == "original.example"));
         await service.GetCompletionAsync("next");
@@ -339,9 +339,9 @@ public class RequestFeaturesTests
         public string SystemMessage { get; set; } = string.Empty;
         public bool StatelessMode { get; set; }
         public ChatBlock ActivateChat { get; } = new();
-        public Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null)
+        public Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default)
         { Calls++; return Task.FromResult("legacy"); }
-        public Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)
+        public Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default)
         { Calls++; return Task.FromResult("legacy"); }
         public IAsyncEnumerable<string> StreamAsync(string prompt, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public IAsyncEnumerable<string> StreamAsync(Message message, AIRequestContext? context = null, CancellationToken cancellationToken = default) => throw new NotSupportedException();

@@ -1,20 +1,18 @@
 # Mythosia.AI.Providers.Alibaba
 
-> **Upgrading to v2?** Version 2.0.0 moved to `Mythosia.AI` v7 and removed the unsupported legacy image methods. See the [v2.0 release notes and migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v200).
+Call Qwen-compatible chat endpoints on DashScope, vLLM or Ollama while keeping the shared `AIService` conversation, streaming and tool workflows. `QwenService` adds provider-specific thinking controls and custom deployment names.
 
-## Current release: 2.0.1
+## Current release: 3.0.0
 
-This patch connects Qwen completions to the core request-feature scope so unsupported common options are validated and consumed. It requires **Mythosia.AI 7.1.0 or later**, including the inherited Run controls, and retains existing Qwen settings and APIs. See the [v2.0.1 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201).
+Requires **Mythosia.AI 8.0.0**, which brings **Mythosia.AI.Abstractions 4.0.0** transitively. Review the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) and rebuild callers for the inherited completion and Run contract changes.
 
-## Package Summary
+Prepare different settings with an immutable `CreateRequest(...)` builder, pass cancellation to stop cooperative client work, and read `(await run.Result).Text` for a Run answer. The completed `AIRunResult` also retains reported usage, sources, requested/actual model, rounds and finish details without requiring a stream reader. Ordinary `GetCompletionAsync` still returns a string. [Request settings](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md) · [Run migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result) · [Completion cancellation](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation).
 
-`Mythosia.AI.Providers.Alibaba` adds Alibaba Cloud / Qwen provider support for `Mythosia.AI` through `QwenService`.
+Qwen uses the shared local tool executor: asynchronous methods can return objects, cancellation-aware handlers receive the execution token, and failures become failed tool results. Cleanup can wait for tools that ignore cancellation; remote inference or billing cancellation is not guaranteed. See the [tool contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract).
 
-It is intended for projects that want to keep using the common `AIService` abstraction while calling Qwen-compatible chat completion endpoints through `DashScope`, `vLLM`, or `Ollama`.
+Inspect `service.GetCapabilities()` or `request.GetCapabilities()` before showing model controls. Snapshots use captured Qwen settings and the endpoint's actual model ID; unknown custom deployments remain `Unknown`. Inspection does not send requests or consume pending settings. This adapter retains provider-specific `ThinkingMode` controls; native steering, hosted search and image generation are not integrated. See [capability inspection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/model-capabilities.md).
 
-Version 2.0.1 requires `Mythosia.AI` 7.1.0 or later, which brings `Mythosia.AI.Abstractions` 3.1.0 or later transitively. `QwenService` is a chat-completion provider and does not implement the optional `IImageGenerationService` capability; the unsupported legacy image-method stubs were removed in v2.0.0.
-
-To show Qwen output while a task is running and allow cancellation, use `StartRunAsync`, inherited from `Mythosia.AI` 7.1.0 or later. Qwen runs expose `CanSteer = false`; their normal execution and registered tools remain available. This adapter does not support the common native reasoning/search options or native asynchronous tools; continue using its provider-specific `ThinkingMode` controls. See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for control and compatibility details.
+Shared stream validation rejects content or changed finish reasons after an explicit terminal event before saving history or executing tools. The final delta in the first terminal event and trailing usage-only events remain valid. See the [v3.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300).
 
 ## Features
 
@@ -214,4 +212,4 @@ var result = await service.GetCompletionAsync("What's the weather in Seoul?");
 
 - Main package: [GitHub Repository](https://github.com/AJ-comp/Mythosia.AI)
 - Core documentation: [Mythosia.AI Provider Guide](https://aj-comp.github.io/Mythosia.AI/docs/providers.html)
-- Release notes: [Mythosia.AI.Providers.Alibaba v2.0.1 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201)
+- Release notes: [Mythosia.AI.Providers.Alibaba v3.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300)

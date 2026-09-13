@@ -1,7 +1,5 @@
 ﻿using Mythosia.AI.Extensions;
-using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
-using Mythosia.AI.Models.Streaming;
 using Mythosia.AI.Services.Base;
 using Mythosia.AI.Services.OpenAI;
 using Mythosia.AI.Tests;
@@ -155,78 +153,6 @@ public class Gpt4o241120 : OpenAIServiceTestsBase
 }
 
 [TestClass]
-public class Gpt5 : OpenAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.OpenAI.Gpt5;
-    protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Low);
-
-    [TestCategory("ServiceSpecific")]
-    [TestMethod]
-    public async Task Gpt5_ReasoningEffort_CanBeConfigured()
-    {
-        try
-        {
-            var gptService = (OpenAIService)AI;
-
-            gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Minimal);
-            var quickResponse = await gptService.GetCompletionAsync("What is 2+2?");
-            Assert.IsNotNull(quickResponse);
-            Console.WriteLine($"[Minimal Effort] {quickResponse}");
-
-            gptService.WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.High);
-            var detailedResponse = await gptService.GetCompletionAsync(
-                "Explain briefly why the sky is blue in one sentence."
-            );
-            Assert.IsNotNull(detailedResponse);
-            Console.WriteLine($"[High Effort] {detailedResponse}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[GPT-5 Reasoning Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-
-    [TestCategory("ServiceSpecific")]
-    [TestMethod]
-    public async Task Gpt5_ChainingParameters_WorksCorrectly()
-    {
-        try
-        {
-            var gptService = (OpenAIService)AI;
-            gptService
-                .WithGpt5Parameters(reasoningEffort: Gpt5Reasoning.Low)
-                .WithSystemMessage("You are a concise assistant. Answer in one word if possible.")
-                .WithMaxTokens(100);
-
-            var response = await gptService.GetCompletionAsync(
-                "What color is the sun? Answer in one word."
-            );
-            Assert.IsNotNull(response);
-            Assert.IsTrue(response.Length < 200, "Response should be concise");
-            Console.WriteLine($"[Chained GPT-5 Response] {response}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[GPT-5 Chaining Error] {ex.Message}");
-            Assert.Fail(ex.Message);
-        }
-    }
-}
-
-[TestClass]
-public class Gpt5Mini : OpenAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.OpenAI.Gpt5Mini;
-}
-
-[TestClass]
-public class Gpt5Nano : OpenAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.OpenAI.Gpt5Nano;
-}
-
-[TestClass]
 public class Gpt5_1 : OpenAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.OpenAI.Gpt5_1;
@@ -290,78 +216,6 @@ public class Gpt5_4Pro : OpenAIServiceTestsBase
 {
     protected override string ModelToTest => AIModels.OpenAI.Gpt5_4Pro;
     protected override void SetupReasoningEffort() => ((OpenAIService)AI).WithGpt5_4Parameters(reasoningEffort: Gpt5_4Reasoning.Medium);
-}
-
-[TestClass]
-public class O3 : OpenAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.OpenAI.O3;
-
-    [TestCategory("ServiceSpecific")]
-    [TestMethod]
-    public async Task O3ReasoningSummaryIsReturnedTest()
-    {
-        var service = (OpenAIService)AI;
-        service.WithO3Parameters(Gpt5Reasoning.Low, ReasoningSummary.Detailed);
-
-        var reasoningChunks = new List<string>();
-        var textChunks = new List<string>();
-        var options = new StreamOptions().WithReasoning().WithMetadata();
-
-        try
-        {
-            await foreach (var content in service.StreamAsync(
-                "What is 15 * 17? Provide the answer and a reasoning summary.",
-                options))
-            {
-                if (content.Type == StreamingContentType.Reasoning &&
-                    !string.IsNullOrWhiteSpace(content.Content))
-                {
-                    reasoningChunks.Add(content.Content);
-                }
-                else if (content.Type == StreamingContentType.Text &&
-                         !string.IsNullOrWhiteSpace(content.Content))
-                {
-                    textChunks.Add(content.Content);
-                }
-                else if (content.Type == StreamingContentType.Error)
-                {
-                    var errorText = $"{content.Content}\n" +
-                        string.Join(
-                            "\n",
-                            content.Metadata?.Values.Cast<object>() ?? Enumerable.Empty<object>());
-                    if (errorText.Contains(
-                            "organization must be verified to generate reasoning summaries",
-                            StringComparison.OrdinalIgnoreCase))
-                    {
-                        Assert.Inconclusive(
-                            "The o3 reasoning.summary request reached OpenAI, but this API organization is not verified for summary generation.");
-                    }
-
-                    Assert.Fail($"Unexpected o3 reasoning-summary stream error: {errorText}");
-                }
-            }
-        }
-        catch (AIServiceException ex) when (
-            $"{ex.Message}\n{ex.ErrorDetails}".Contains(
-                "organization must be verified to generate reasoning summaries",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            Assert.Inconclusive(
-                "The o3 reasoning.summary request reached OpenAI, but this API organization is not verified for summary generation.");
-        }
-
-        Assert.IsTrue(textChunks.Count > 0, "o3 should return answer text.");
-        Assert.IsTrue(
-            reasoningChunks.Count > 0,
-            "o3 was explicitly configured with reasoning.summary=detailed but returned no reasoning summary events.");
-    }
-}
-
-[TestClass]
-public class Gpt5Pro : OpenAIServiceTestsBase
-{
-    protected override string ModelToTest => AIModels.OpenAI.Gpt5Pro;
 }
 
 [TestClass]

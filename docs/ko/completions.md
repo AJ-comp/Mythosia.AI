@@ -1,6 +1,73 @@
 # 기본 텍스트 생성
 
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
 질문을 보내고 작업이 끝난 뒤 답변을 받아 처리하려면 `GetCompletionAsync`를 사용합니다. 제네릭·RAG 오버로드도 계속 지원합니다. 진행 상황 표시나 작업 중 제어가 필요해지면 [Run 사용 안내](execution-api-transition.md)에서 사용 방식을 선택하세요.
+
+<a id="completion-cancellation"></a>
+
+## 더 이상 필요하지 않은 답변 취소하기
+
+사용자가 화면을 닫거나 중지 버튼을 누르면, 또는 앱이 정한 대기 시간이 지나면 답변이 더 이상 필요하지 않을 수 있습니다. `CancellationToken`을 전달하면 우리 쪽 통신과 작업을 중단하고 불필요한 도구 호출과 다음 모델 호출을 막을 수 있습니다. 완성된 답변은 계속 `GetCompletionAsync`로 받으며, 취소만 필요하다면 Run을 만들 필요가 없습니다.
+
+### Before: 호출자가 취소 신호를 전달하지 않음
+
+```csharp
+string answer = await service.CreateRequest("이 문서를 요약해줘.")
+    .GetCompletionAsync();
+```
+
+### After: 사용자 요청 또는 30초 뒤 취소
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("이 문서를 요약해줘.")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("취소되었습니다.");
+}
+```
+
+호출이 진행되는 동안 토큰 소스를 보관하고, 중지 버튼이나 화면 닫기 이벤트에서 `cancellation.Cancel()`을 호출하세요. 예제는 30초 뒤 취소도 예약합니다. 호출자 취소는 정리가 끝난 뒤 `OperationCanceledException`으로 전달됩니다. `CancellationTokenSource`로 정한 대기 시간도 호출자 취소에 해당하며, 기존 `FunctionCallingPolicy.TimeoutSeconds` 정책은 기존 시간 초과 오류 동작을 유지합니다.
+
+서비스의 문자열·`Message` 오버로드, 제네릭 완료 호출, 요청 빌더, `MessageChain.SendAsync` / `SendOnceAsync`에서 토큰을 받을 수 있습니다. 토큰을 생략한 기존 호출도 유지됩니다. 다음은 같은 기능을 쓰는 다른 진입점입니다.
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "이 문서를 요약해줘.", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "제목과 저자를 JSON으로 반환해줘.", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("이 문서를 요약해줘.")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("이 문장을 번역해줘.")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+토큰은 요청 준비, HTTP 전송·응답 읽기, 취소에 협조하는 로컬 도구와 다음 모델 호출까지 전달됩니다. 취소를 확인하면 대기 중인 도구와 다음 라운드를 건너뜁니다. 기록한 도구 호출과 결과가 짝을 이루도록 정리하므로, 토큰을 무시한 채 이미 실행 중인 도구는 정리를 지연시킬 수 있습니다. 완료한 행동을 되돌리거나 대화 기록을 지우지는 않습니다. [도구 실행 계약](function-calling.md#tool-execution-contract)을 참고하세요.
+
+공급자 서버의 생성이나 과금 중단까지 보장하지는 않습니다. OpenAI는 일반 Responses 요청의 연결 종료를 취소 방법으로 안내하고, Google은 클라이언트 취소가 서버 요청을 취소하지 않으며 해당 사용량은 과금된다고 명시합니다. [OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal). 백그라운드 작업 자체는 명시적으로 `CancelAsync()`로 취소합니다. `WaitForCompletionAsync(cancellationToken: ...)`의 취소는 대기만 중단합니다. 일반 완료 요청을 백그라운드 실행으로 바꾸지는 않습니다. [Perplexity 백그라운드 작업](perplexity.md)을 참고하세요.
+
+<a id="completion-cancellation-migration"></a>
+
+이 취소 기능은 Mythosia.AI 8.0.0에 포함됩니다. 토큰을 생략한 앱 호출과 기존 profile/context 위치 인자 호출은 소스 수준에서 유지되지만, 사용하는 패키지는 다시 빌드해야 합니다. 사용자 정의 `IAIService` 구현은 두 완료 메서드의 마지막에 `CancellationToken cancellationToken = default`를 추가하고 전달해야 합니다. `AIService`를 상속한 사용자 제공자는 기존 `GetCompletionAsync(Message)` override를 유지하며 protected `RequestCancellationToken`을 통신에 전달해야 합니다. 빌더와 Run 자체에는 이 인터페이스 변경이 필요하지 않았습니다. 문자열·profile/context 완료 호출, 이미지 편의 메서드, `RunAgentAsync` 등 변경된 public virtual 오버로드를 재정의한 하위 클래스도 새 `CancellationToken` 매개변수를 추가하고 전달해야 합니다. 기존 시그니처를 유지하는 것은 `Message` 하나를 받는 제공자 override입니다. 변경된 메서드를 델리게이트에 직접 대입한 코드는 토큰을 전달하거나 생략하는 명시적 람다로 바꿔야 할 수 있습니다.
 
 ## 단발 질문
 
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("이 다이어그램은 무엇을 
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+차트·스크린샷 분석, 로컬 함수 호출, 빠른 답변 뒤의 깊은 검토에는 [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash)를 사용할 수 있습니다. 추론은 기본적으로 꺼져 있으며 `WithDeepSeekReasoning(...)` 또는 요청별 `WithReasoning(...)`으로 켭니다.
 
 ## 빠른 질문 (정적 API)
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("이야기를 해주�
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // 낮을수록 결정론적
 ```
+
+Perplexity: [Agent 프리셋으로 답변하기 / 출처, 이미지와 구조화된 답변](perplexity.md).

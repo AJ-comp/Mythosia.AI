@@ -1,6 +1,73 @@
 # Генерація тексту
 
+Для незалежних налаштувань і повторного використання варіантів застосовуйте [білдер запитів](request-building.md). Викликайте `CreateRequest(...)` перед `With...`. Властивості та fluent-методи сервісу зберігають попередню поведінку.
+
 `GetCompletionAsync` залишається зручним способом отримати готову відповідь. Якщо потрібно бачити перебіг або керувати ще не завершеним завданням, використовуйте [Run](execution-api-transition.md).
+
+<a id="completion-cancellation"></a>
+
+## Скасування відповіді, яка вже не потрібна
+
+Якщо користувач закрив екран, натиснув Стоп або минув час очікування застосунку, відповідь може вже не знадобитися. Передайте `CancellationToken`, щоб зупинити зв’язок і роботу клієнта та уникнути зайвих викликів інструментів і моделі. Для готової відповіді й надалі підходить `GetCompletionAsync`; лише для скасування Run не потрібен.
+
+### Before: викликач не передає сигнал скасування
+
+```csharp
+string answer = await service.CreateRequest("Підсумуй цей документ.")
+    .GetCompletionAsync();
+```
+
+### After: скасування користувачем або через 30 секунд
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("Підсумуй цей документ.")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("Скасовано.");
+}
+```
+
+Зберігайте джерело токена під час виклику й пов’яжіть Стоп або закриття екрана з `cancellation.Cancel()`. Приклад також планує скасування через 30 секунд. Після очищення викликач отримує `OperationCanceledException`. Строк через `CancellationTokenSource` також є скасуванням викликача; `FunctionCallingPolicy.TimeoutSeconds` зберігає попередню поведінку помилки тайм-ауту.
+
+Токен приймають перевантаження сервісу з рядком і `Message`, типізована відповідь, builder та `MessageChain.SendAsync` / `SendOnceAsync`. Попередні виклики без токена залишаються доступними. Інші точки входу:
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "Підсумуй цей документ.", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "Поверни назву й автора в JSON.", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("Підсумуй цей документ.")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("Переклади це речення.")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+Токен надходить до підготовки, надсилання й читання HTTP, локальних інструментів із підтримкою скасування та наступних раундів. Після виявлення скасування інструменти в черзі та майбутні раунди пропускаються. Очищення зберігає пари записаних викликів і результатів; запущений інструмент, що ігнорує токен, може його затримати. Завершені дії та історія не скасовуються. Див. [контракт інструментів](function-calling.md#tool-execution-contract).
+
+Зупинка обчислень чи оплати в провайдера не гарантується. OpenAI описує закриття з’єднання для звичайних Responses; Google прямо вказує на скасування лише клієнта з оплатою відповідного використання. [OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal). Фонове завдання потребує явного `CancelAsync()`; скасування `WaitForCompletionAsync(cancellationToken: ...)` зупиняє лише очікування. Звичайний запит не стає фоновим. Див. [Perplexity](perplexity.md).
+
+<a id="completion-cancellation-migration"></a>
+
+Це доповнення входить до Mythosia.AI 8.0.0. Виклики без токена та попередні позиційні аргументи profile/context сумісні на рівні коду, але споживачів потрібно перебудувати. Власні реалізації `IAIService` мають додати `CancellationToken cancellationToken = default` останнім параметром обох сигнатур і передавати його далі. Провайдери на основі `AIService` зберігають override `GetCompletionAsync(Message)` і передають захищений `RequestCancellationToken` транспорту. Самі builder та Run не потребували цієї зміни інтерфейсу. Підкласи, що перевизначають змінені public virtual перевантаження для відповідей string/profile/context, методів зображень або `RunAgentAsync`, також мають додати й передавати новий `CancellationToken`; попередню сигнатуру зберігає лише override провайдера з одним `Message`. Делегати, що прямо посилаються на змінену сигнатуру, можуть потребувати явної лямбди з передаванням або пропуском токена.
 
 ## Одиночний запит
 
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("Що зображено на ці
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+Для аналізу графіків і знімків екрана, локальних функцій або поглибленої перевірки відповіді використовуйте [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Міркування типово вимкнене; вмикайте через `WithDeepSeekReasoning(...)` або `WithReasoning(...)` для запиту.
 
 ## Швидке запитання (статичний API)
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("Розкажіть �
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // що нижче, то детермінованіше
 ```
+
+Perplexity: [Відповідь із пресетом Agent / Джерела, зображення та структуровані відповіді](perplexity.md).

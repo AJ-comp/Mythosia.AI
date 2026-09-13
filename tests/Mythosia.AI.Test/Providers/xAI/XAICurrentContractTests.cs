@@ -63,27 +63,27 @@ public class XAICurrentContractTests
         AssertReasoningLevels(
             AIModels.xAI.Grok4_5,
             "grok_always",
-            "Low", "Medium", "High");
+            "Auto", "Low", "Medium", "High");
         AssertReasoningLevels(
             AIModels.xAI.Grok4_5Latest,
             "grok_always",
-            "Low", "Medium", "High");
+            "Auto", "Low", "Medium", "High");
         AssertReasoningLevels(
             AIModels.xAI.GrokBuildLatest,
             "grok_always",
-            "Low", "Medium", "High");
+            "Auto", "Low", "Medium", "High");
         AssertReasoningLevels(
             AIModels.xAI.Grok4_3,
             "grok",
-            "None", "Low", "Medium", "High");
+            "Auto", "None", "Low", "Medium", "High");
         AssertReasoningLevels(
             AIModels.xAI.Grok4_3Latest,
             "grok",
-            "None", "Low", "Medium", "High");
+            "Auto", "None", "Low", "Medium", "High");
         AssertReasoningLevels(
             AIModels.xAI.GrokLatest,
             "grok",
-            "None", "Low", "Medium", "High");
+            "Auto", "None", "Low", "Medium", "High");
         Assert.IsNull(ChatUiModelHelpers.GetReasoningLevels(AIModels.xAI.Grok4_20NonReasoning));
     }
 

@@ -17,6 +17,14 @@ Diese Seite konzentriert sich auf das Query-Zeit-Embedding (Schritt 2).
 
 ## Integrierte Anbieter
 
+Wählen Sie einen Embedding-Anbieter passend zu Dokumentensprache, Betriebsumgebung und Suchanforderungen.
+
+### Perplexity
+
+Standard-Embeddings behandeln Abschnitte unabhängig und implementieren `IEmbeddingProvider` für den bestehenden RAG-Builder. Kontextuelle Embeddings behalten Reihenfolge und Dokumentgruppen benachbarter Abschnitte bei. Ihre getrennte API verhindert, dass unabhängige Dokumente zu einer flachen Eingabe werden.
+
+[Perplexity Agent API, Suche und Embeddings](perplexity.md).
+
 ### OpenAI
 
 ```csharp
@@ -91,6 +99,8 @@ pipeline.Options = options;
 | Anbieter | Modell | Standard-Dimensionen |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

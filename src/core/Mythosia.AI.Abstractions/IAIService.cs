@@ -40,8 +40,12 @@ namespace Mythosia.AI.Services
 
         #region Completion
 
-        Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null);
-        Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null);
+        /// <summary>Returns the final response, canceling transport and cooperative local work when requested.</summary>
+        /// <remarks>Cancellation does not guarantee remote generation or billing stops.</remarks>
+        Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default);
+        /// <summary>Returns the final response, canceling transport and cooperative local work when requested.</summary>
+        /// <remarks>Cancellation does not guarantee remote generation or billing stops.</remarks>
+        Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default);
 
         #endregion
 

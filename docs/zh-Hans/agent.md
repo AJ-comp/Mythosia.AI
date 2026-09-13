@@ -1,5 +1,12 @@
 # Agent（ReAct 循环）
 
+需要同时获取完整答案、用量和来源时，使用 `await run.Result` 返回的 `AIRunResult`，字符串位于 `result.Text`，无需读取流。这是Mythosia.AI 8.0.0 的 API 变更；`GetCompletionAsync` 与 `StructuredStreamRun<T>.Result` 的返回类型保持不变。 [Run 结果与迁移](execution-api-transition.md#run-result).
+
+
+如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
+
+> `CreateRequest`示例需要Mythosia.AI 8.0.0 / Abstractions 4.0.0。最初引入Run和公共请求功能的旧7.1版本不包含构建器；旧包可继续使用原有服务重载。
+
 ## 为什么需要 Agent 循环？
 
 常规函数调用也可以把模型一次响应中的**多个函数按有序批次执行**，并继续后续工具轮次。Agent API 将这一机制封装成带有明确**步骤上限**的目标导向 ReAct 循环，把每个批次的结果返回给模型，直到模型生成最终答案：
@@ -16,12 +23,16 @@
 
 ```csharp
 // 在任务开始前向 service 注册函数。
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "查找政策、检查订单并说明结果。",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("查找政策、检查订单并说明结果。")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+本地工具可以通过`Task<T>` / `ValueTask<T>`返回对象，并接收库注入的`CancellationToken`。`run.Cancel()`或启动令牌的取消会传递给配合取消的工具，仅停止流读取则不会。异常会记录为失败；取消时跳过排队调用，清理仍会等待已启动且忽略令牌的工具。参见[结果、错误与取消](function-calling.md#tool-execution-contract)。
 
 ## 旧API兼容示例
 

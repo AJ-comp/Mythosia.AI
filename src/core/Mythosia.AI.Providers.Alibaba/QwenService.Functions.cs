@@ -8,7 +8,7 @@ namespace Mythosia.AI.Providers.Alibaba
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
             var p = CreateRequestParams(GetLatestMessages(), forFunctionCalling: true);
-            var body = _protocol.BuildFunctionRequestBody(p, Functions, FunctionCallMode);
+            var body = _protocol.BuildFunctionRequestBody(p, RequestFunctions, RequestFunctionCallMode);
             return _protocol.CreateFunctionRequest(ApiKey, body);
         }
 

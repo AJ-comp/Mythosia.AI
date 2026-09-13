@@ -9,7 +9,11 @@ using Mythosia.AI.Rag.Embeddings;
 using Mythosia.AI.Rag.Loaders;
 using Mythosia.AI.Rag.Splitters;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services.DeepSeek;
+using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
+using Mythosia.AI.Services.Perplexity;
+using Mythosia.AI.Services.xAI;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -44,6 +48,9 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine("using Mythosia.AI.Services.xAI;");
             sb.AppendLine("using Mythosia.AI.Services.Perplexity;");
             sb.AppendLine("using Mythosia.AI.Models;");
+            if (svc is PerplexityService) sb.AppendLine("using Mythosia.AI.Models.Perplexity;");
+            if (svc is GoogleAIService)
+                sb.AppendLine("using Mythosia.AI.Models.Enums;");
             sb.AppendLine("using Mythosia.AI.Models.Messages;");
             sb.AppendLine("using Mythosia.AI.Models.Streaming;");
             sb.AppendLine("using System.Net.Http;");
@@ -52,6 +59,21 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine($"var service = new {serviceClass}(\"{escapedApiKey}\", httpClient);");
             var modelValue = ChatUiModelHelpers.FindModelValueByName(modelEnum) ?? modelEnum;
             sb.AppendLine($"service.ChangeModel(\"{EscapeSnippetString(modelValue)}\");");
+            if (svc is PerplexityService perplexity)
+            {
+                if (perplexity.AgentOptions.Preset.HasValue)
+                    sb.AppendLine($"service.UsePreset(PerplexityPreset.{perplexity.AgentOptions.Preset.Value});");
+                sb.AppendLine($"service.AgentOptions.MaxSteps = {perplexity.AgentOptions.MaxSteps};");
+                sb.AppendLine($"service.AgentOptions.DisableWebSearch = {perplexity.AgentOptions.DisableWebSearch.ToString().ToLowerInvariant()};");
+                sb.AppendLine($"service.AgentOptions.ReasoningEffort = ReasoningLevel.{perplexity.AgentOptions.ReasoningEffort};");
+            }
+            if (svc is DeepSeekService deepSeek)
+            {
+                sb.AppendLine($"service.ThinkingEnabled = {deepSeek.ThinkingEnabled.ToString().ToLowerInvariant()};");
+                sb.AppendLine($"service.ReasoningEffort = DeepSeekReasoning.{deepSeek.ReasoningEffort};");
+            }
+            if (svc is XAIService grok)
+                sb.AppendLine($"service.ReasoningEffort = GrokReasoning.{grok.ReasoningEffort};");
 
             if (!string.IsNullOrWhiteSpace(escapedSystem))
                 sb.AppendLine($"service.SystemMessage = \"{escapedSystem}\";");
@@ -77,11 +99,15 @@ namespace Mythosia.AI.Samples.ChatUi
                 sb.AppendLine($"service.Gpt6ReasoningMode = Gpt6ReasoningMode.{gpt.Gpt6ReasoningMode};");
                 sb.AppendLine($"service.Gpt6Verbosity = {(gpt.Gpt6Verbosity.HasValue ? $"Verbosity.{gpt.Gpt6Verbosity}" : "null")};");
             }
-            else
+            else if (svc is GoogleAIService gemini && modelValue.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase))
             {
-                sb.AppendLine($"service.Temperature = {svc.Temperature}f;");
-                sb.AppendLine($"service.TopP = {svc.TopP}f;");
+                sb.AppendLine($"service.ThinkingLevel = GeminiThinkingLevel.{gemini.ThinkingLevel};");
             }
+            var capabilities = svc.GetCapabilities();
+            if (capabilities.Temperature == Mythosia.AI.Models.Capabilities.CapabilitySupport.Supported)
+                sb.AppendLine($"service.Temperature = {svc.Temperature}f;");
+            if (capabilities.TopP == Mythosia.AI.Models.Capabilities.CapabilitySupport.Supported)
+                sb.AppendLine($"service.TopP = {svc.TopP}f;");
             sb.AppendLine($"service.MaxTokens = {svc.MaxTokens};");
             sb.AppendLine($"service.StatelessMode = {svc.StatelessMode.ToString().ToLower()};");
             sb.AppendLine();
@@ -162,6 +188,9 @@ namespace Mythosia.AI.Samples.ChatUi
                 case "vllm":
                     sb.AppendLine($"        .UseEmbedding(new VllmEmbeddingProvider(new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
                     break;
+                case "perplexity":
+                    sb.AppendLine($"        .UsePerplexityEmbedding(\"YOUR_PERPLEXITY_API_KEY\", new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions})");
+                    break;
                 case "openai":
                     sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions})");
                     break;
@@ -218,6 +247,22 @@ namespace Mythosia.AI.Samples.ChatUi
                 throw new InvalidOperationException("OpenAI API key is required.");
 
             return new OpenAIEmbeddingProvider(apiKey, httpClient, model, dimensions);
+        }
+
+        public static IEmbeddingProvider BuildRagEmbeddingProvider(string provider, string? openAiApiKey,
+            string? perplexityApiKey, HttpClient httpClient, string model, int dimensions, string baseUrl)
+        {
+            return provider.Trim().ToLowerInvariant() switch
+            {
+                "ollama" => new OllamaEmbeddingProvider(httpClient, model, dimensions, baseUrl),
+                "vllm" => new VllmEmbeddingProvider(httpClient, model, dimensions, baseUrl),
+                "openai" => BuildOpenAiEmbeddingProvider(openAiApiKey, httpClient, model, dimensions),
+                "perplexity" => new PerplexityEmbeddingProvider(
+                    string.IsNullOrWhiteSpace(perplexityApiKey)
+                        ? throw new InvalidOperationException("Perplexity API key is required.") : perplexityApiKey.Trim(),
+                    httpClient, model, dimensions),
+                _ => throw new ArgumentException("Unsupported embedding provider: " + provider, nameof(provider))
+            };
         }
 
         public static double? ParseOptionalDouble(string? value)

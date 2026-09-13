@@ -1,5 +1,9 @@
 # RAG (Retrieval-Augmented Generation)
 
+Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
+
+Với câu trả lời có ngữ cảnh truy xuất, cũng truyền `cancellationToken` vào `RagEnabledService.GetCompletionAsync`. Token đi qua truy xuất, `LlmQueryRewriter`, `LlmReranker` và lệnh gọi nội bộ; hủy lúc truy xuất sẽ chặn lần gọi mô hình sau đó. `RagPipeline.QueryAndGenerateAsync` cũng truyền token. Các thành phần phải hỗ trợ hủy; không hoàn tác truy xuất hoặc hành động công cụ đã xong.
+
 RAG cho phép model trả lời câu hỏi dựa trên tài liệu của riêng bạn bằng cách truy xuất các đoạn liên quan tại thời điểm truy vấn.
 
 Để hiển thị dần câu trả lời dựa trên tài liệu truy xuất và cho phép dừng tạo nội dung, có thể dùng `RagEnabledService.StartRunAsync`. Truy xuất diễn ra trước Run; chỉ dẫn bổ sung không tự kích hoạt truy xuất lại. Xem ví dụ và phạm vi trong [hướng dẫn Run](execution-api-transition.md).
@@ -108,3 +112,5 @@ var response = await service.GetCompletionAsync("Câu hỏi của bạn", option
 - [Agentic RAG](rag-agentic.md) — AI tự quyết định khi nào và tìm kiếm gì
 - [Vector Store](vectordb-overview.md) — thiết lập lưu trữ bền vững
 - [Text Splitter](text-splitters.md) — tùy chỉnh cách chia nhỏ tài liệu
+
+Perplexity: [Dùng vector trong chỉ mục riêng / Tìm kiếm mà không tạo câu trả lời](perplexity.md).

@@ -1,5 +1,7 @@
 # Grundkonzepte
 
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 Diese Seite sammelt grundlegende Konzepte, auf die in der restlichen Dokumentation immer wieder verwiesen wird. Weitere Konzepte werden mit der Zeit hier ergänzt.
 
 ## Was ist ein Round?

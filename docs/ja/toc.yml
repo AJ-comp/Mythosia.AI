@@ -1,5 +1,7 @@
 - name: はじめに
   items:
+  - name: Mythosia.AI 8への移行
+    href: v8-migration.md
   - name: 概要
     href: introduction.md
   - name: 基本概念
@@ -15,6 +17,10 @@
     href: completions.md
   - name: 生成パラメータ
     href: generation-params.md
+  - name: リクエストごとに設定を独立させる
+    href: request-building.md
+  - name: 選択したモデルに合う機能を表示する
+    href: model-capabilities.md
   - name: 推論の選択と出典付きの回答
     href: reasoning-and-search.md
   - name: ストリーミング
@@ -38,6 +44,10 @@
   items:
   - name: プロバイダー固有機能
     href: providers.md
+  - name: Claude Fable 5.1
+    href: fable-5-1.md
+  - name: Perplexity Agent API、検索と埋め込み
+    href: perplexity.md
 
 - name: RAG
   items:

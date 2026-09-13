@@ -1,5 +1,9 @@
 # Function Calling
 
+หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
+
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 ## ทำไมต้องใช้ Function Calling?
 
 LLM สร้างได้แค่ข้อความ — ไม่สามารถตรวจสอบสภาพอากาศ query database หรือเรียก API เองได้ **หากไม่มี** function calling คุณต้องแปลความหมายของ model เอง:
@@ -95,6 +99,8 @@ service.ForceFunctionName = "search_products";
 service.FunctionCallMode = FunctionCallMode.None;
 ```
 
+[Claude Fable 5.1](fable-5-1.md) เพิ่มข้อความความคืบหน้า คำสั่งเฉพาะเทิร์น และการวินิจฉัย thinking binding ตั้งแต่ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 ส่วน Mythos 5.1 ต้องได้รับเชิญ และทั้งสองรุ่นไม่รองรับการบังคับเลือกเครื่องมือ
+
 ## Register แบบกลุ่มจาก Class
 
 Register method ที่มี `[AiFunction]` ทั้งหมดจาก object เดียว:
@@ -159,6 +165,98 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+<a id="tool-execution-contract"></a>
+
+## คืนออบเจ็กต์จากเครื่องมืออะซิงโครนัสและยกเลิกงาน
+
+เครื่องมืออ่านไฟล์หรือฐานข้อมูลมักคืนออบเจ็กต์หลังทำ I/O แบบอะซิงโครนัส ปุ่มหยุดควรส่งการยกเลิกไปถึงงานที่กำลังทำอยู่ด้วย ฟังก์ชันแบบซิงโครนัสคืนออบเจ็กต์ได้อยู่แล้ว การปรับปรุงนี้ทำให้ผลลัพธ์อะซิงโครนัสทำงานเหมือนกัน และบันทึกข้อยกเว้นเป็นความล้มเหลว
+
+Before: ฟังก์ชันอะซิงโครนัสต้องแปลงผลลัพธ์เป็น JSON เอง หากคืน `Task<FileResult>` ค่าจะหายไปและส่งเพียง `"Success"`
+
+```csharp
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed class FileToolsBefore
+{
+    [AiFunction("read_file", "อ่านไฟล์ข้อความ")]
+    public async Task<string> ReadFileAsync(string path)
+    {
+        string text = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Serialize(new { Path = path, Text = text });
+    }
+}
+```
+
+After: คืนออบเจ็กต์โดยตรงและส่งโทเคนยกเลิกที่ไลบรารีฉีดให้ไปยังงาน I/O แอปไม่ต้องสร้างตัวห่อผลลัพธ์หรืออะแดปเตอร์ใหม่
+
+```csharp
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed record FileResult(string Path, string Text);
+
+public sealed class FileTools
+{
+    [AiFunction("read_file", "อ่านไฟล์ข้อความ")]
+    public async Task<FileResult> ReadFileAsync(
+        string path, CancellationToken cancellationToken)
+    {
+        string text = await File.ReadAllTextAsync(path, cancellationToken);
+        return new FileResult(path, text);
+    }
+}
+```
+
+การลงทะเบียนด้วย `[AiFunction]` รองรับออบเจ็กต์ทั่วไป, `Task<T>` และ `ValueTask<T>` ค่าที่ไม่ใช่สตริงจะแปลงเป็น JSON ส่วน `string`, `Task<string>` และ `ValueTask<string>` คงข้อความเดิมโดยไม่เพิ่มเครื่องหมายคำพูด JSON และจะรอ `Task` กับ `ValueTask` ที่ไม่มีผลลัพธ์ด้วย การคืนออบเจ็กต์แบบซิงโครนัสยังใช้ได้ตามเดิม ค่าที่คืนเป็น null จะเป็น `"Done"` ส่วน `Task` / `ValueTask` ที่เสร็จโดยไม่มีผลลัพธ์จะเป็น `"Success"`
+
+ไลบรารียังตรวจชนิดค่าขณะทำงานด้วย: จะรอ `Task<T>` ที่คืนในรูป `Task` หรือ `object` และ `ValueTask<T>` ที่คืนในรูป `object` แล้วแปลงผลลัพธ์ตามกฎเดียวกัน โดยใช้ผลของแต่ละ `ValueTask` เพียงครั้งเดียว
+
+ไลบรารีส่งพารามิเตอร์ `CancellationToken` ให้เองและไม่นำไปใส่ในสคีมาอาร์กิวเมนต์ที่แสดงแก่โมเดล ลงทะเบียนด้วย `WithFunctions(...)` หรือ `WithStaticFunctions<T>()` บน service หรือ request builder ได้เหมือนกัน
+
+เมธอดเครื่องมือแบบ `async void` จะถูกปฏิเสธตอนลงทะเบียน ให้คืน `Task` หรือ `ValueTask` เพื่อให้รอจนเสร็จ ตรวจพบข้อผิดพลาด และเก็บกวาดหลังยกเลิกได้
+
+```csharp
+using Mythosia.AI.Extensions;
+
+await using var run = await service
+    .CreateRequest("อ่าน report.txt และสรุปให้หน่อย")
+    .WithFunctions(new FileTools())
+    .StartRunAsync(cancellationToken: cancellationToken);
+
+string answer = (await run.Result).Text;
+```
+
+`run.Cancel()` การยกเลิกโทเคนที่ส่งให้ `StartRunAsync` หรือการคืนทรัพยากรของ run ที่ทำงานอยู่ จะส่งไปถึงเครื่องมือภายในที่รองรับการยกเลิก ฟังก์ชันต้องใช้โทเคน ไม่สามารถบังคับหยุดโค้ดที่ไม่สนใจโทเคนได้ การเรียกที่ยังไม่เริ่มจะถูกข้ามและบันทึกผลยกเลิก ส่วนฟังก์ชันที่เริ่มแล้วจะยังรอให้จบเพื่อรักษาคู่การเรียกกับผลลัพธ์ในประวัติ run ที่ถูกยกเลิกจะไม่เริ่มรอบโมเดลถัดไป
+
+หาก callback การยกเลิกโยนข้อยกเว้นเมื่อเริ่ม run ไม่สำเร็จหรือเมื่อคืนทรัพยากรการเชื่อมต่อ MCP ระบบยังพยายามเก็บกวาดเซสชันหรือช่องทางรับส่งข้อมูล ข้อผิดพลาดเดิมและข้อผิดพลาดระหว่างเก็บกวาดจะยังคงอยู่ โดยรวมไว้ใน `AggregateException` เมื่อจำเป็น การเรียก `McpConnection.DisposeAsync()` แบบอะซิงโครนัสพร้อมกันจะรอการเก็บกวาดชุดเดียวกัน ระบบปิดช่องทางรับส่งข้อมูลก่อนรอให้ลูปอ่านสิ้นสุด เพื่อให้การอ่านที่ต้องอาศัยการปิดการเชื่อมต่อจบลงได้
+
+เพื่อไม่ให้การเรียกเครื่องมือที่เข้ามาภายหลังรอค้างระหว่างปิดการเชื่อมต่อ เมื่อเริ่มคืนทรัพยากรของการเชื่อมต่อแล้ว ระบบจะปฏิเสธการเรียก `InitializeAsync`, `RefreshToolsAsync` และ `CallToolAsync` ใหม่ด้วย `ObjectDisposedException` หากคำตอบมี ID ตรงกับคำขอแต่เนื้อหาผิดรูปแบบ ระบบจะข้ามคำตอบนั้นโดยยังเก็บคำขอไว้ในรายการรอ คำตอบที่ถูกต้องในภายหลัง การยกเลิกจากผู้เรียก หรือการเก็บกวาดการเชื่อมต่อจึงยังสามารถทำให้การเรียกนั้นสิ้นสุดได้ หากการอ่านสิ้นสุดแล้วเพราะเซิร์ฟเวอร์ปิดสตรีมหรือการอ่านจากช่องทางรับส่งข้อมูลล้มเหลว การทำงานใหม่จะล้มเหลวด้วย `McpException` แทนที่จะรอคำตอบที่ไม่อาจมาถึงได้ ให้สร้างการเชื่อมต่อใหม่เพื่อทำงานต่อ
+
+เมื่อเกิดความล้มเหลวจริงให้โยนข้อยกเว้น ตัวทำงานจะบันทึก `FunctionCallResult.IsError = true` แทนการมองสตริง `"Error: ..."` เป็นผลสำเร็จ สตริงที่ฟังก์ชันตั้งใจคืนยังเป็นผลลัพธ์ปกติ ผลเครื่องมือที่ถูกยกเลิกมีทั้ง `IsCancelled = true` และ `IsError = true`
+
+หากลงทะเบียนด้วยโค้ด ให้ใช้ overload ของ `WithHandler` ที่รับสองอาร์กิวเมนต์:
+
+```csharp
+using System.IO;
+using Mythosia.AI.Builders;
+
+var readText = FunctionBuilder.Create("read_text")
+    .WithDescription("อ่านไฟล์ข้อความ")
+    .AddParameter("path", "string", "พาธไฟล์", required: true)
+    .WithHandler(async (args, token) =>
+        await File.ReadAllTextAsync(args["path"].ToString()!, token))
+    .Build();
+```
+
+handler ที่รับอาร์กิวเมนต์เดียวและคืนสตริงยังใช้ได้ หากสร้าง definition โดยตรง ให้กำหนด `Func<Dictionary<string, object>, CancellationToken, Task<string>>` ที่ `HandlerWithCancellation` การกำหนด `Handler` หรือ `HandlerWithCancellation` จะแทนที่ handler เดียวกัน ไม่ได้ลงทะเบียนให้ทำงานสองครั้ง API ระดับนี้ยังคืนสตริง ส่วนการแปลงออบเจ็กต์เป็น JSON อัตโนมัติเป็นหน้าที่ของการลงทะเบียนเมธอด
+
+นี่คือการจัดการผลลัพธ์และการยกเลิกฟังก์ชัน .NET ภายใน ไม่ต้องอาศัยความสามารถ `AllowAsync` ของ provider การหยุดอ่าน `run.StreamAsync(token)` เพียงอย่างเดียวหยุดเฉพาะการสังเกต แต่ run ยังทำงานต่อ ดู[คู่มือ Run](execution-api-transition.md)และ[โปรโตคอล provider](https://developers.openai.com/api/docs/guides/async-tool-calling)
+
 ## การเรียกเครื่องมือแบบอะซิงโครนัสของโมเดล
 
 การค้นฐานข้อมูลหรือเรียก API ภายนอกที่ช้าไม่จำเป็นต้องหยุดทุกส่วนของงาน เช่น ระหว่างรอข้อมูลอากาศ โมเดลอาจให้คำแนะนำทั่วไปสำหรับการเดินทางซึ่งไม่ขึ้นกับผลนั้นก่อนได้ การเรียกเครื่องมือแบบอะซิงโครนัสช่วยให้ทำส่วนที่เป็นอิสระต่อ แล้วนำผลเฉพาะมาใช้เมื่อได้รับ
@@ -196,8 +294,10 @@ Mythosia ส่ง `async: true` สำหรับ GPT-6 Astra ผ่าน Res
 
 งานที่ยังไม่เสร็จอยู่ภายในคำขอ `GetCompletionAsync`, `service.StreamAsync` เดิม หรือ `AIRun` ที่สร้างด้วย `StartRunAsync` ผลของเครื่องมือแต่ละรายการส่งกลับด้วย ID การเรียกเดิม และการจบงานสำเร็จจะรอประมวลผลที่ค้างอยู่ทั้งหมด นี่ไม่ใช่บริการงานเบื้องหลังแยกต่างหาก การหยุดอ่าน `run.StreamAsync()` หยุดเฉพาะการสังเกต ไม่ได้ยกเลิก Run
 
-เมื่อใช้เครื่องมืออะซิงโครนัส `GetCompletionAsync` จะคืนข้อความอิสระระหว่างทางและข้อความสุดท้ายที่สะสมตามลำดับหลังคำขอเสร็จ ส่วน `service.StreamAsync` เดิมและ `run.StreamAsync()` ส่งข้อความทันทีที่ได้รับ และ `AIRun.Result` รวมเหตุการณ์ข้อความของ Run ไม่ว่าจะมีการอ่านสตรีมหรือไม่
+เมื่อใช้เครื่องมืออะซิงโครนัส `GetCompletionAsync` จะคืนข้อความอิสระระหว่างทางและข้อความสุดท้ายที่สะสมตามลำดับหลังคำขอเสร็จ ส่วน `service.StreamAsync` เดิมและ `run.StreamAsync()` ส่งข้อความทันทีที่ได้รับ และ `AIRunResult.Text` รวมเหตุการณ์ข้อความของ Run ไม่ว่าจะมีการอ่านสตรีมหรือไม่
 
-handler ไม่ได้รับโทเคนยกเลิก เมื่อยกเลิกการทำงาน หมดเวลา เกิดข้อผิดพลาด หรือปิดสตรีมคำขอแบบเดิม การเก็บกวาดจะรอ handler ที่เริ่มแล้วให้เสร็จ สำหรับ Run การหยุดสังเกตไม่ได้ทำเช่นนั้น ให้ยกเลิกตัว Run ด้วย `Cancel()` โทเคนตอนเริ่ม หรือ `DisposeAsync()` การเชื่อมต่อนี้ครอบคลุม handler ที่ลงทะเบียนไว้ ดู[คู่มือ API อย่างเป็นทางการ](https://developers.openai.com/api/docs/guides/async-tool-calling)
+เครื่องมือภายในคืนออบเจ็กต์ผ่าน `Task<T>` / `ValueTask<T>` และรับ `CancellationToken` ที่ไลบรารีฉีดให้ได้ `run.Cancel()` หรือโทเคนตอนเริ่มส่งการยกเลิกถึงเครื่องมือที่รองรับ แต่การหยุดอ่านสตรีมอย่างเดียวไม่ทำเช่นนั้น ข้อยกเว้นจะบันทึกเป็นความล้มเหลว เมื่อยกเลิกจะข้ามการเรียกที่รออยู่ และขั้นตอนเก็บกวาดยังรอเครื่องมือที่เริ่มแล้วแต่ไม่ใช้โทเคน ดู[ผลลัพธ์ ข้อผิดพลาด และการยกเลิก](function-calling.md#tool-execution-contract)
 
 การประมวลผลสตรีมเริ่ม handler หลังได้รับการเรียกฟังก์ชันครบถ้วนและตรวจสอบจุดแบ่งคำตอบที่ถูกต้องแล้ว การเรียกฟังก์ชันที่ยังไม่ครบจะไม่ถูกนำไปทำงาน จากนั้นโมเดลสามารถดำเนินรอบถัดไปขณะที่งานอะซิงโครนัสยังทำอยู่ หากไม่มีการเรียกใหม่แต่ยังมีงานค้าง Mythosia จะรอผลก่อนดำเนินต่อ ระหว่างมีการเรียกค้างอยู่จะปิดการสรุปและลองใหม่อัตโนมัติเมื่อบริบทเกินขีดจำกัด เพื่อไม่ให้การเรียกที่ยังไม่เสร็จหายไปจากประวัติ
+
+Perplexity: [ควบคุมการวิจัยและเครื่องมือ](perplexity.md).

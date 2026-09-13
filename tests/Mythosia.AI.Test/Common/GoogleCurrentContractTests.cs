@@ -29,7 +29,9 @@ public class GoogleCurrentContractTests
                 "gemini-3.1-flash-lite",
                 "gemini-3.5-flash",
                 "gemini-3.5-flash-lite",
-                "gemini-3.6-flash"
+                "gemini-3.6-flash",
+                "gemini-3.7-flash",
+                "gemini-3.8-flash"
             },
             new[]
             {
@@ -41,7 +43,9 @@ public class GoogleCurrentContractTests
                 AIModels.Google.Gemini3_1FlashLite,
                 AIModels.Google.Gemini3_5Flash,
                 AIModels.Google.Gemini3_5FlashLite,
-                AIModels.Google.Gemini3_6Flash
+                AIModels.Google.Gemini3_6Flash,
+                AIModels.Google.Gemini3_7Flash,
+                AIModels.Google.Gemini3_8Flash
             });
 
         CollectionAssert.AreEqual(
@@ -69,6 +73,8 @@ public class GoogleCurrentContractTests
     [TestMethod]
     [DataRow(AIModels.Google.Gemini3_6Flash)]
     [DataRow(AIModels.Google.Gemini3_5FlashLite)]
+    [DataRow(AIModels.Google.Gemini3_7Flash)]
+    [DataRow(AIModels.Google.Gemini3_8Flash)]
     public async Task LatestModels_OmitLegacySamplingAndCandidateCount(string model)
     {
         var handler = new CaptureHandler();

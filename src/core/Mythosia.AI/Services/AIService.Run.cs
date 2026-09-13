@@ -50,8 +50,9 @@ namespace Mythosia.AI.Services.Base
 
             try
             {
+                using var requestScope = BeginRequestSettingsScope();
                 // Capture pending per-call configuration before returning control or starting a worker.
-                var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
+                var policy = GetExecutionPolicy();
                 if (policy.MaxRounds <= 0)
                     throw new ArgumentOutOfRangeException(nameof(policy.MaxRounds), "A run requires at least one LLM round.");
                 var capturedMessage = CaptureRunMessage(message);
@@ -64,7 +65,6 @@ namespace Mythosia.AI.Services.Base
                     AdditionalMessages = context.AdditionalMessages?.Select(CaptureRunMessage).ToArray()
                 };
                 var observationOptions = (options ?? StreamOptions.WithFunctions).Clone();
-                CurrentPolicy = null;
                 return StartCapturedRunAsync(capturedMessage, policy, onText, observationOptions,
                     capturedContext, capturedFeatures, cancellationToken);
             }
@@ -144,12 +144,19 @@ namespace Mythosia.AI.Services.Base
                 run.Start();
                 return run;
             }
-            catch
+            catch (Exception startupException)
             {
+                var failures = new List<Exception> { startupException };
                 try
                 {
-                    runCancellation.Cancel();
-                    if (session != null) await session.DisposeAsync().ConfigureAwait(false);
+                    try { runCancellation.Cancel(); }
+                    catch (Exception cancellationException) { failures.Add(cancellationException); }
+
+                    if (session != null)
+                    {
+                        try { await session.DisposeAsync().ConfigureAwait(false); }
+                        catch (Exception disposalException) { failures.Add(disposalException); }
+                    }
                 }
                 finally
                 {
@@ -157,6 +164,8 @@ namespace Mythosia.AI.Services.Base
                     runCancellation.Dispose();
                     Volatile.Write(ref _activeRun, 0);
                 }
+                if (failures.Count > 1)
+                    throw new AggregateException("Run startup failed and cleanup also failed.", failures);
                 throw;
             }
         }
@@ -166,10 +175,20 @@ namespace Mythosia.AI.Services.Base
             StreamOptions executionOptions, AIRequestContext? context, CancellationToken cancellationToken)
             => Task.FromResult<RunSession>(new LegacyRunSession(this, message, executionOptions, context));
 
+        /// <summary>Resolves the explicit model ID sent for the captured run request.</summary>
+        /// <remarks>Override when provider options replace the configured model or translate it to a wire ID.
+        /// Return null when the request delegates model selection without a single model ID.
+        /// Called within the captured request settings and provider-feature scope.</remarks>
+        protected virtual string? GetRunRequestedModel() => RequestModel;
+
         /// <summary>Provider extension point for run output, additional input, and transport cleanup.</summary>
         protected abstract class RunSession : IAsyncDisposable
         {
             public virtual bool CanSteer => false;
+            /// <summary>Produces execution events including a final Completion before successful cleanup.</summary>
+            /// <remarks>Custom sessions should attach aggregate usage, final response model and reason,
+            /// and a one-based final RoundIndex to Completion. Missing data remains unavailable in Result.
+            /// If aggregate usage is absent, indexed RoundUsage snapshots are accumulated once per index.</remarks>
             public abstract IAsyncEnumerable<StreamingContent> StreamAsync(CancellationToken cancellationToken);
             public virtual Task SteerAsync(string instruction, CancellationToken cancellationToken)
                 => throw new NotSupportedException("This model/provider does not support steering a running request.");
@@ -207,7 +226,9 @@ namespace Mythosia.AI.Services.Base
             private readonly CancellationTokenSource _sessionCancellation;
             private readonly string _requestMessageId;
             private readonly int? _timeoutSeconds;
-            private readonly TaskCompletionSource<string> _result = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly string _provider;
+            private readonly string? _requestedModel;
+            private readonly TaskCompletionSource<AIRunResult> _result = new TaskCompletionSource<AIRunResult>(TaskCreationOptions.RunContinuationsAsynchronously);
             private readonly Channel<StreamingContent> _output = Channel.CreateBounded<StreamingContent>(new BoundedChannelOptions(ObservationCapacity)
             {
                 FullMode = BoundedChannelFullMode.Wait,
@@ -218,6 +239,7 @@ namespace Mythosia.AI.Services.Base
             private readonly SemaphoreSlim _steerGate = new SemaphoreSlim(1, 1);
             private Task _producer = Task.CompletedTask;
             private int _readerClaimed;
+            private int _readerStarted;
             private int _observationStopped;
             private int _disposed;
             private int _finished;
@@ -238,9 +260,11 @@ namespace Mythosia.AI.Services.Base
                 _requestMessageId = requestMessageId;
                 _timeoutSeconds = timeoutSeconds;
                 _features = features;
+                _provider = service.Provider;
+                _requestedModel = service.GetRunRequestedModel();
             }
 
-            public override Task<string> Result => _result.Task;
+            public override Task<AIRunResult> Result => _result.Task;
             public override IReadOnlyList<AICitation> Citations => _features.Snapshot();
             public override bool CanSteer => _session.CanSteer;
 
@@ -257,6 +281,10 @@ namespace Mythosia.AI.Services.Base
             private async IAsyncEnumerable<StreamingContent> ReadOutputAsync(
                 [EnumeratorCancellation] CancellationToken cancellationToken)
             {
+                // An IAsyncEnumerable can create multiple enumerators even when StreamAsync
+                // was called once. Reject those before they can consume or stop the first reader.
+                if (Interlocked.CompareExchange(ref _readerStarted, 1, 0) != 0)
+                    throw new InvalidOperationException("A run supports only one output reader.");
                 try
                 {
                     await foreach (var item in _output.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
@@ -304,9 +332,15 @@ namespace Mythosia.AI.Services.Base
             {
                 if (Interlocked.Exchange(ref _disposed, 1) == 0)
                 {
-                    if (Volatile.Read(ref _finished) == 0) _cancellation.Cancel();
-                    await _producer.ConfigureAwait(false);
-                    _cancellation.Dispose();
+                    try
+                    {
+                        if (Volatile.Read(ref _finished) == 0) _cancellation.Cancel();
+                    }
+                    finally
+                    {
+                        try { await _producer.ConfigureAwait(false); }
+                        finally { _cancellation.Dispose(); }
+                    }
                 }
                 else
                 {
@@ -318,9 +352,15 @@ namespace Mythosia.AI.Services.Base
             {
                 using var featureScope = _service.UseRequestFeatureExecution(_features);
                 var text = new StringBuilder();
+                TokenUsage? usage = null;
+                var roundUsages = new Dictionary<int, TokenUsage>();
+                var roundCount = 0;
+                string? responseModel = null;
+                string? rawFinishReason = null;
+                var finishReason = AIFinishReason.Unknown;
                 Exception? failure = null;
                 var completed = false;
-                _service.CurrentPolicy = _policy;
+                _service.SetExecutionSetting(nameof(DefaultPolicy), _policy.Clone());
                 _service._runRequestMessageId = _requestMessageId;
                 try
                 {
@@ -338,7 +378,20 @@ namespace Mythosia.AI.Services.Base
                                 _onText?.Invoke(item.Content);
                             }
                             if (item.Citation != null) _features.Add(item.Citation);
-                            if (item.Type == StreamingContentType.Completion) completed = true;
+                            if (item.RoundIndex.HasValue)
+                                roundCount = Math.Max(roundCount, item.RoundIndex.Value);
+                            if (item.Type == StreamingContentType.RoundUsage && item.RoundIndex.HasValue && item.Usage != null)
+                                roundUsages[item.RoundIndex.Value] = CopyTokenUsage(item.Usage);
+                            if (item.Type == StreamingContentType.Completion)
+                            {
+                                completed = true;
+                                // Completion usage is already aggregated by the round loop. Never
+                                // add it to the per-round events (or to repeated completion snapshots).
+                                if (item.Usage != null) usage = CopyTokenUsage(item.Usage);
+                                responseModel = item.ResponseModel;
+                                finishReason = item.FinishReason;
+                                rawFinishReason = item.RawFinishReason;
+                            }
                             Publish(item);
                             if (item.Type == StreamingContentType.Error)
                                 throw new AIServiceException(item.Content ?? "The run failed.",
@@ -358,7 +411,11 @@ namespace Mythosia.AI.Services.Base
                         !_cancellation.IsCancellationRequested && _sessionCancellation.IsCancellationRequested && _timeoutSeconds.HasValue
                         ? new AIServiceException($"Request timeout after {_timeoutSeconds} seconds", exception)
                         : exception;
-                    _cancellation.Cancel();
+                    try { _cancellation.Cancel(); }
+                    catch (Exception cancellationException)
+                    {
+                        failure = new AggregateException(failure, cancellationException);
+                    }
                 }
                 finally
                 {
@@ -374,10 +431,25 @@ namespace Mythosia.AI.Services.Base
                     finally
                     {
                         _sessionCancellation.Dispose();
-                        _service.CurrentPolicy = null;
                         _service._runRequestMessageId = null;
                         _service._runEffectiveRequestContext = null;
                         Volatile.Write(ref _service._activeRun, 0);
+                    }
+                    AIRunResult? result = null;
+                    if (failure == null)
+                    {
+                        try
+                        {
+                            result = new AIRunResult(text.ToString(),
+                                usage ?? SumRunRoundUsage(roundUsages.Values), _features.Snapshot(),
+                                _provider, _requestedModel, responseModel, roundCount, finishReason, rawFinishReason);
+                        }
+                        catch (Exception resultException)
+                        {
+                            // Result assembly can fail too, for example when a custom stream's
+                            // indexed usage overflows. Always settle Result after cleanup.
+                            failure = resultException;
+                        }
                     }
                     _output.Writer.TryComplete(failure);
                     if (failure is OperationCanceledException cancelled)
@@ -385,7 +457,7 @@ namespace Mythosia.AI.Services.Base
                     else if (failure != null)
                         _result.TrySetException(failure);
                     else
-                        _result.TrySetResult(text.ToString());
+                        _result.TrySetResult(result!);
                 }
             }
 
@@ -421,6 +493,9 @@ namespace Mythosia.AI.Services.Base
                     Content = item.Content,
                     Metadata = _options.IncludeMetadata && item.Metadata != null ? new Dictionary<string, object>(item.Metadata) : null,
                     Usage = item.Usage == null ? null : CopyTokenUsage(item.Usage),
+                    ResponseModel = item.ResponseModel,
+                    FinishReason = item.FinishReason,
+                    RawFinishReason = item.RawFinishReason,
                     RoundIndex = item.RoundIndex,
                     IsFinalRound = item.IsFinalRound,
                     FunctionCall = item.FunctionCall?.Clone(),
@@ -434,6 +509,25 @@ namespace Mythosia.AI.Services.Base
                     _output.Writer.TryComplete(new InvalidOperationException(
                         "The run output buffer exceeded 1,024 unread events. Observe output promptly or use a startup callback. Execution and Result remain available."));
                 }
+            }
+
+            private static TokenUsage? SumRunRoundUsage(IEnumerable<TokenUsage> rounds)
+            {
+                TokenUsage? total = null;
+                foreach (var round in rounds)
+                {
+                    total ??= new TokenUsage();
+                    checked
+                    {
+                        total.InputTokens += round.InputTokens;
+                        total.OutputTokens += round.OutputTokens;
+                        total.TotalTokens += round.TotalTokens;
+                        total.CachedInputTokens += round.CachedInputTokens;
+                        total.CacheCreationTokens += round.CacheCreationTokens;
+                        total.ReasoningTokens += round.ReasoningTokens;
+                    }
+                }
+                return total;
             }
         }
     }

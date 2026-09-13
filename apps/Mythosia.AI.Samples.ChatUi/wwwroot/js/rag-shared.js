@@ -60,8 +60,8 @@ export function markReferenceStale() {
 export function updateRunState(files) {
   const fileCount = files ? files.length : (ragFiles.files ? ragFiles.files.length : 0);
   const provider = ragEmbeddingProvider?.value?.trim();
-  const needsKey = provider === 'openai';
-  const hasKey = !needsKey || !!providerKeys?.OpenAI;
+  const hasKey = provider === 'openai' ? !!providerKeys?.OpenAI
+    : provider === 'perplexity' ? !!providerKeys?.Perplexity : true;
   const vsProvider = ragVectorStoreProvider?.value?.trim();
   const vsReady = vsProvider === 'inmemory'
     || (vsProvider === 'postgres' && ragState.pgConnected)

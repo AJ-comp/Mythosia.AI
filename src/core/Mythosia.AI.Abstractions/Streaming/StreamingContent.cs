@@ -22,9 +22,20 @@ namespace Mythosia.AI.Models.Streaming
         public Dictionary<string, object>? Metadata { get; set; }
 
         /// <summary>
-        /// Token usage information (always populated when the provider returns usage data)
+        /// Token usage information (always populated when the provider returns usage data).
+        /// RoundUsage describes one round; the final Completion contains the aggregate for the run.
+        /// Do not add the final aggregate to the per-round usage again.
         /// </summary>
         public TokenUsage? Usage { get; set; }
+
+        /// <summary>Actual response model reported by the provider, independent of optional metadata.</summary>
+        public string? ResponseModel { get; set; }
+
+        /// <summary>Normalized provider termination reason, when this event reports one.</summary>
+        public AIFinishReason FinishReason { get; set; }
+
+        /// <summary>Original provider termination reason or status; null if unavailable.</summary>
+        public string? RawFinishReason { get; set; }
 
         /// <summary>
         /// One-based LLM round index for round-scoped events.

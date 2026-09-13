@@ -1,5 +1,7 @@
 # Đầu ra có cấu trúc
 
+Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
+
 ## Tại sao cần Structured Output?
 
 LLM mặc định trả về văn bản tự do. Nếu ứng dụng của bạn cần **xử lý response theo chương trình** — lưu vào database, truyền cho API khác hay hiển thị trong UI có kiểu — bạn phải tự parse văn bản đó. Điều này dẫn đến regex hoặc `string.Contains` dễ gãy khi model thay đổi cách diễn đạt.
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: trả về lỗi xác thực đầu tiên mà không thử sửa lại
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+Số lần sửa không bao gồm phản hồi đầu tiên. `StructuredOutputMaxRetries` và `MaxRepairAttempts` coi giá trị âm là 0 và chấp nhận tối đa `int.MaxValue - 1`. Giá trị `int.MaxValue` gây ra `ArgumentOutOfRangeException` trước khi gửi yêu cầu đến nhà cung cấp để tránh tràn tổng số lần thử. Quy tắc này áp dụng cho lời gọi hoàn thành có kiểu và `BeginStream(...).As<T>()`.

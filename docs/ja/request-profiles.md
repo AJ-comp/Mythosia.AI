@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
+
 ## 概要
 
 `AIRequestProfile`は、生成パラメーター — Temperature、MaxTokens、ステートレスモード、関数呼び出し — を**単一リクエストに対してのみ**オーバーライドします。サービスのグローバル設定はそのまま維持されます。
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("このクエリを書き換え
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-サービスのグローバル設定は一切触れません。クリーンアップも不要。スレッドセーフです。
+プロファイルは1回の呼び出しの設定であり、共有会話の並列利用を安全にするものではありません。`service.CreateRequest(prompt).WithProfile(profile)`で独立したリクエストに取り込む方法を推奨します。既存のプロファイルオーバーロードも利用できます。
 
 ## 利用可能なプロパティ
 

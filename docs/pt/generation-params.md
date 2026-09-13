@@ -1,6 +1,8 @@
 # Parâmetros de Geração
 
-## Propriedades Comuns
+Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
+
+## Padrões do serviço e métodos de compatibilidade
 
 Todas as instâncias de serviço de IA expõem estas propriedades:
 
@@ -115,3 +117,5 @@ Clone todas as configurações de outra instância de serviço (sem o histórico
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [Controlar a pesquisa e as ferramentas](perplexity.md).

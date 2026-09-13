@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
 ## Là gì?
 
 `AIRequestProfile` cho phép bạn ghi đè các tham số tạo nội dung — temperature, max token, stateless mode, function calling — **chỉ cho một request duy nhất**. Cài đặt toàn cục của service không bị ảnh hưởng.
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("Viết lại query này: ...",
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-Cài đặt toàn cục của service không bao giờ bị đụng đến. Không cần dọn dẹp. Thread-safe.
+Profile định nghĩa cấu hình cho một lần gọi, không bảo đảm sử dụng hội thoại chung đồng thời một cách an toàn. Nên dùng `service.CreateRequest(prompt).WithProfile(profile)`. Các overload hiện có vẫn được hỗ trợ.
 
 ## Các thuộc tính
 

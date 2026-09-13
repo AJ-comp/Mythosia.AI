@@ -1,5 +1,12 @@
 # Agent (Loop ReAct)
 
+Para receber resposta, uso e fontes juntos, `await run.Result` retorna um `AIRunResult` com o estado final. A string fica em `result.Text`, sem ler o fluxo. É uma mudança de Mythosia.AI 8.0.0; `GetCompletionAsync` e `StructuredStreamRun<T>.Result` mantêm seus tipos de retorno. [Resultado Run e migração](execution-api-transition.md#run-result).
+
+
+Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
+
+> Os exemplos com `CreateRequest` exigem Mythosia.AI 8.0.0 / Abstractions 4.0.0. A versão 7.1 que introduziu Run e as opções comuns não inclui o builder. Pacotes anteriores podem usar as sobrecargas do serviço.
+
 Buscar uma política e conferir um pedido pode exigir várias chamadas de ferramentas. O [guia de Run](execution-api-transition.md) mostra como acompanhar esse trabalho, cancelá-lo e acrescentar instruções quando o modelo oferece suporte.
 
 ## Por que um Loop de Agent?
@@ -16,12 +23,16 @@ Algumas perguntas exigem várias fontes: o modelo escolhe uma ferramenta, examin
 
 ```csharp
 // Registre as funções no serviço antes de iniciar a tarefa.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Encontre a política, confira o pedido e explique o resultado.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Encontre a política, confira o pedido e explique o resultado.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Ferramentas locais podem retornar objetos por `Task<T>` / `ValueTask<T>` e receber um `CancellationToken` injetado. `run.Cancel()` ou o token inicial alcança ferramentas cooperativas; parar apenas o leitor não. Exceções são falhas. O cancelamento ignora chamadas pendentes, e a limpeza aguarda ferramentas iniciadas que ignoram o token. Veja [resultados, erros e cancelamento](function-calling.md#tool-execution-contract).
 
 ## API anterior de agente: exemplos de compatibilidade
 

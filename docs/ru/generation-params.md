@@ -1,6 +1,8 @@
 # Параметры генерации
 
-## Общие свойства
+Для независимых настроек и повторного использования вариантов применяйте [билдер запросов](request-building.md). Вызывайте `CreateRequest(...)` перед `With...`. Свойства и fluent-методы сервиса сохраняют прежнее поведение.
+
+## Значения сервиса по умолчанию и совместимые методы
 
 Каждый экземпляр AI-сервиса предоставляет следующие свойства:
 
@@ -115,3 +117,5 @@ string info = service.GetConversationSummary();
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [Управление исследованием и инструментами](perplexity.md).

@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 
 🌐 [English](README.md) · [한국어](docs/ko/README.md) · [日本語](docs/ja/README.md) · [Français](docs/fr/README.md) · [Deutsch](docs/de/README.md) · [Русский](docs/ru/README.md) · [Українська](docs/uk/README.md) · [简体中文](docs/zh-Hans/README.md) · [繁體中文](docs/zh-Hant/README.md) · [Tiếng Việt](docs/vi/README.md) · [ภาษาไทย](docs/th/README.md) · [Português](docs/pt/README.md) · [Español](docs/es/README.md)
 
@@ -26,13 +26,11 @@
 
 </div>
 
-> Package versions documented here: [Mythosia.AI 7.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v710), [Abstractions 3.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310), [Alibaba 2.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201), [RAG 7.6.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
 
-> To show progress, stop ongoing work, or send an additional requirement to a supported model, see the [Run guide](docs/execution-api-transition.md). Keep using `GetCompletionAsync` when only the completed result is needed.
+> Package versions documented here: [Mythosia.AI 8.0.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 ---
-
-> **Upgrading to Mythosia.AI 7.0.0?** This is a breaking release. Read the [v7 migration guide](docs/v7-migration.md) before updating `Mythosia.AI`, `Mythosia.AI.Abstractions`, or `Mythosia.AI.Providers.Alibaba`.
 
 ### What do I need to install?
 
@@ -48,25 +46,27 @@ dotnet add package Mythosia.VectorDb.Postgres     # optional: when you need a pr
 | **2** | **`Mythosia.AI.Rag`** | When you need RAG — text splitters, embeddings, hybrid search, reranking, InMemory vector store, and document loaders (Word / Excel / PowerPoint / PDF) |
 | **3** | **`Mythosia.VectorDb.Postgres`** / **`Qdrant`** / **`Pinecone`** | When you need a production vector store instead of InMemory — pick one |
 
+Prepare different settings without changing another request: `CreateRequest(...).WithTemperature(...).GetCompletionAsync()` uses an independent, reusable request builder. See the [request settings guide](docs/request-building.md) for Before/After examples, runs, profiles, and shared-conversation limits.
+
 ## Architecture
 
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.6.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.1.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.1.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v8.0.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v4.0.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.1</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v3.0.0</i>"]
     end
 
     subgraph "🛰️ Serving — Control Plane"
-        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0-preview</i>"]
+        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
     subgraph "📄 Document Loaders"
@@ -150,12 +150,12 @@ var response = await service.GetCompletionAsync("Hello!");
 await using var run = await service.StartRunAsync(
     "Tell me a story",
     onText: text => Console.Write(text));
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ### Reasoning Streaming
 
-All reasoning-capable providers (OpenAI, Claude, Gemini, Grok, DeepSeek) share the same streaming pattern:
+OpenAI, Claude, Gemini, Grok, and DeepSeek Flash expose provider-returned reasoning through the same streaming pattern. Observe it with `StreamOptions.WithReasoning()` after enabling reasoning in the service or request settings:
 
 ```csharp
 await using var run = await service.StartRunAsync(
@@ -200,8 +200,8 @@ service.DefaultPolicy = new FunctionCallingPolicy
 ```
 
 Ordinary batch results are sent back to the model in the provider's original call order.
-Once a validated batch begins, its handlers run to completion so call/result history
-cannot be left partial; registered handlers do not currently receive cancellation tokens.
+Cancellation skips calls that have not started and supplies matching cancellation results.
+Started tools receive the token when supported and are awaited so call/result history stays paired.
 `FunctionCallingPolicy.TimeoutSeconds` covers the complete streaming round loop,
 including response headers and the SSE body, without resetting between tool rounds.
 Policy expiry raises `AIServiceException`; caller cancellation remains an
@@ -219,7 +219,7 @@ and request-lifetime behavior.
 
 ### Image Generation and Editing
 
-OpenAI and Google expose image generation as an optional capability, separate from the selected chat model:
+Create visual drafts from text or revise existing images through an optional capability shared by OpenAI, Google, and xAI. The image model is independent from the selected chat model:
 
 ```csharp
 using Mythosia.AI.Models.Images;
@@ -230,14 +230,14 @@ IImageGenerationService images = new OpenAIService(apiKey, httpClient);
 var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
 {
     Prompt = "A glass pavilion at sunrise",
-    Size = "1024x1024",
-    OutputFormat = "png"
+    Size = ImageSize.Pixels(1024, 1024),
+    OutputFormat = ImageOutputFormat.Png
 });
 
 await File.WriteAllBytesAsync("pavilion.png", generated.Images[0].Data);
 ```
 
-See the [provider guide](docs/providers.md#image-generation) for OpenAI and Gemini-specific controls and editing behavior.
+See the [provider guide](docs/providers.md#image-generation) for generation and editing, or [typed image options and migration](docs/providers.md#image-options-migration) for the major API change. xAI uses `ImageOutputFormat.Auto`; choose the output extension from `GeneratedImage.MediaType`.
 
 ### Structured Output (Basic)
 
@@ -320,13 +320,25 @@ For agent-controlled retrieval, register the store with `WithAgenticRag(...)` an
 
 | Provider | Package | Models |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
-| **Google** | `Mythosia.AI` | Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Chat, Reasoner |
-| **Perplexity** | `Mythosia.AI` | Sonar, Sonar Pro, Sonar Reasoning Pro |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
+| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **Perplexity** | `Mythosia.AI` | Agent API presets and `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
+
+Use Perplexity when an answer must reflect recent information and readers need sources they can check. `PerplexityService` calls the Agent API, while independent search and embeddings let you build retrieval around your own answer model. [Perplexity Agent API, Search, and Embeddings](docs/perplexity.md).
+
+For long document reviews and tasks with repeated tool calls, select Gemini 3.7 Flash or 3.8 Flash through the existing Google adapter. Support starts with `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0; the service default remains Gemini 3.6 Flash.
+
+For a quick draft followed by a demanding review, explicitly select Grok 4.6 and choose `Low` through `XHigh` effort. Support starts with `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0; `XAIService` keeps Grok 4.5 as its default. See [Grok configuration](docs/providers.md#xai-xaiservice).
+
+For visual drafts or combining references, use [Grok Imagine Image 2.0](docs/providers.md#grok-imagine-image-20) through `IImageGenerationService`. Keep `OutputFormat = ImageOutputFormat.Auto` and choose the extension from `MediaType`; xAI cannot select an output codec. See [typed image options and migration](docs/providers.md#image-options-migration). The chat model stays unchanged.
+
+For quick visual drafts, choose Flare; for precise revisions, choose Sunburst. [GPT Image 2.5 generation and editing](docs/providers.md#gpt-image-25) uses the existing image API with explicit per-request model selection; the OpenAI default remains GPT Image 2.
+
+For chart and screenshot analysis, local tool calls, or a quick answer followed by deeper review, use [DeepSeek Flash](docs/providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Thinking stays off by default; enable it with `WithDeepSeekReasoning(...)` or per-request `WithReasoning(...)`.
 
 > Claude Fable 5 and Claude Mythos 5 require 30-day data retention and are not eligible for zero-data-retention arrangements. Their adaptive thinking is always on; Mythosia uses low effort with summarized reasoning omitted when callers request reasoning off. Mythos 5 is limited to approved Project Glasswing customers.
 
@@ -432,3 +444,5 @@ This project is licensed under the [MIT License](https://github.com/AJ-comp/Myth
 ## Originally
 
 This project was originally part of [Mythosia](https://github.com/AJ-comp/Mythosia).
+
+[Choose model controls using shared capability definitions](docs/model-capabilities.md).

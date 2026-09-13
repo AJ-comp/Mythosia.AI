@@ -6,40 +6,6 @@ using Mythosia.AI.Tests.Modules;
 
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-// ── GPT-5 Mini ──
-namespace Mythosia.AI.Tests.OpenAI.Gpt5Mini
-{
-    [TestClass] public class Core : CoreTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); protected override string? GetAlternativeModel() => AIModels.OpenAI.Gpt4oMini; protected override bool SupportsReasoning() => true; }
-    [TestClass] public class Streaming : StreamingTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class Reasoning : ReasoningTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); protected override bool SupportsReasoning() => true; }
-    [TestClass] public class FunctionCalling : FunctionCallingTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class Vision : VisionTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class Audio : AudioTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class ImageGeneration : ImageGenerationTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class StructuredOutput : StructuredOutputTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class StreamingMetadata : StreamingMetadataTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class Performance : PerformanceTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class CrossProvider : CrossProviderTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-    [TestClass] public class ServiceSpecific : ServiceSpecificTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Mini); }
-}
-
-// ── GPT-5 Nano ──
-namespace Mythosia.AI.Tests.OpenAI.Gpt5Nano
-{
-    [TestClass] public class Core : CoreTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); protected override string? GetAlternativeModel() => AIModels.OpenAI.Gpt4oMini; protected override bool SupportsReasoning() => true; }
-    [TestClass] public class Streaming : StreamingTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class Reasoning : ReasoningTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); protected override bool SupportsReasoning() => true; }
-    [TestClass] public class FunctionCalling : FunctionCallingTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class Vision : VisionTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class Audio : AudioTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class ImageGeneration : ImageGenerationTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class StructuredOutput : StructuredOutputTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class StreamingMetadata : StreamingMetadataTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class Performance : PerformanceTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class CrossProvider : CrossProviderTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-    [TestClass] public class ServiceSpecific : ServiceSpecificTestModule { protected override AIService CreateAIService() => OpenAIServiceFactory.Create(AIModels.OpenAI.Gpt5Nano); }
-}
-
 // ── GPT-5.1 ──
 namespace Mythosia.AI.Tests.OpenAI.Gpt5_1
 {

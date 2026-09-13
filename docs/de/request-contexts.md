@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Für eine fertige Antwort mit Stoppschaltfläche übergeben Sie `cancellationToken` an `GetCompletionAsync`. Run dient Fortschrittsereignissen oder unterstützten zusätzlichen Anweisungen. Siehe [Completion-Abbruch](completions.md#completion-cancellation).
+
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 Datum, Benutzerinformationen oder gefundene Dokumente sollen oft nur für die aktuelle Aufgabe gelten. Der Anfragekontext begrenzt diese Ergänzungen auf den Aufruf und kann auch beim Start eines steuerbaren Auftrags verwendet werden; siehe [Run-Anleitung](execution-api-transition.md).
 
 ## Was ist das?
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Heutiges Datum: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Verfügbare Eigenschaften
@@ -269,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync` und die bisherigen `RunAgentAsync`-Überladungen akzeptieren kein `CancellationToken`; der Kontext-Provider erhält dort `CancellationToken.None`. Benötigt der Provider Abbruchunterstützung, etwa für eine lange Datenbankabfrage, verwende `StartRunAsync(..., cancellationToken: token)`. Auch die bisherigen Streaming-Pfade (`StreamAsync`, `RunAgentStreamAsync`) reichen das Token des Aufrufers an den Provider-Callback weiter.
+`GetCompletionAsync(..., cancellationToken: token)` und das bisherige `RunAgentAsync` reichen den Aufruferabbruch jetzt an `SystemMessageProvider` weiter. Eine kooperative Datenbank- oder HTTP-Abfrage kann schon während der Vorbereitung abbrechen. `StartRunAsync` und bestehende Streaming-Methoden mit Eingabe reichen ebenfalls ihr Ausführungstoken weiter. Nur `run.StreamAsync(token)` abzubrechen stoppt die Beobachtung, nicht Provider oder Ausführung.
 
 ### Merging mit einem expliziten per-call-Context
 

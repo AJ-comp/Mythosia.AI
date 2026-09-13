@@ -1,5 +1,9 @@
 # RAG (генерация с извлечением)
 
+Для готового ответа и кнопки Стоп передайте `cancellationToken` в `GetCompletionAsync`. Run нужен для событий прогресса или поддерживаемых дополнительных указаний. См. [отмену ответа](completions.md#completion-cancellation).
+
+Для ответа с найденным контекстом также передавайте `cancellationToken` в `RagEnabledService.GetCompletionAsync`. Он проходит через поиск, `LlmQueryRewriter`, `LlmReranker` и внутренний запрос; отмена при поиске предотвращает следующий вызов модели. `RagPipeline.QueryAndGenerateAsync` также передаёт токен. Компоненты должны поддерживать отмену; завершённые поиски и действия инструментов не откатываются.
+
 После поиска документов подготовка ответа может занять время. [Run](execution-api-transition.md) позволяет показывать её ход и отменять выполнение, сохраняя RAG-поиск и дополнение контекста.
 
 ## Что такое RAG
@@ -128,3 +132,5 @@ var response = await service.GetCompletionAsync("Вопрос", options: options
 - [Агентный RAG](rag-agentic.md) — AI сам решает, когда и что искать
 - [Векторные хранилища](../vectordb-overview.md) — постоянные хранилища
 - [Разделители текста](text-splitters.md) — способы разбиения документов
+
+Perplexity: [Векторы для собственного индекса / Поиск без генерации ответа](perplexity.md).

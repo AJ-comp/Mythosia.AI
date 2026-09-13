@@ -1,6 +1,8 @@
 # 생성 파라미터
 
-## 공통 속성
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
+## 서비스 기본값과 기존 호환 메서드
 
 모든 AI 서비스 인스턴스는 다음 속성을 제공합니다:
 
@@ -115,3 +117,5 @@ string info = service.GetConversationSummary();
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [조사 범위와 도구 제어하기](perplexity.md).

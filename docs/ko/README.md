@@ -27,9 +27,9 @@
 
 </div>
 
-> 이 문서의 패키지 기준 버전: [Mythosia.AI 7.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v710), [Abstractions 3.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310), [Alibaba 2.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201), [RAG 7.6.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+요청별 설정을 독립적으로 관리하고, 작업을 중지하며, 답변과 사용량·출처를 함께 받으세요. [v8 업그레이드 안내](v8-migration.md)에 여섯 가지 구조 변경, 전환 예제와 검증 범위를 정리했습니다.
 
-> 긴 작업의 진행 상황을 표시하고, 중지하거나, 지원 모델에 추가 조건을 보내려면 [Run 사용 안내](execution-api-transition.md)를 참고하세요. 결과만 필요하면 기존 `GetCompletionAsync`를 그대로 사용합니다.
+> 이 문서의 패키지 기준 버전: [Mythosia.AI 8.0.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 ---
 
@@ -47,25 +47,27 @@ dotnet add package Mythosia.VectorDb.Postgres     # 선택: 프로덕션 벡터 
 | **2** | **`Mythosia.AI.Rag`** | RAG가 필요할 때 — 텍스트 분할, 임베딩, 하이브리드 검색, 리랭킹, InMemory 벡터 저장소, 문서 로더 (Word / Excel / PowerPoint / PDF) |
 | **3** | **`Mythosia.VectorDb.Postgres`** / **`Qdrant`** / **`Pinecone`** | InMemory 대신 프로덕션 벡터 저장소가 필요할 때 — 하나 선택 |
 
+다른 요청의 설정을 바꾸지 않고 호출을 준비하려면 `CreateRequest(...).WithTemperature(...).GetCompletionAsync()`를 사용하세요. 독립적인 요청 빌더의 Before/After, Run, 프로파일, 공유 대화의 범위는 [요청 설정 가이드](request-building.md)에서 설명합니다.
+
 ## 아키텍처
 
 ```mermaid
 graph TD
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v7.6.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
 
     subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v7.1.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v3.1.0</i>"]
+        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v8.0.0</i>"]
+        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v4.0.0</i>"]
     end
 
     subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v2.0.1</i>"]
+        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v3.0.0</i>"]
     end
 
     subgraph "🛰️ Serving — 컨트롤 플레인"
-        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0-preview</i>"]
+        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
     subgraph "📄 Document Loaders"
@@ -154,7 +156,7 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 
 ### 추론(Reasoning) 스트리밍
 
-추론을 지원하는 모든 프로바이더(OpenAI, Claude, Gemini, Grok, DeepSeek)가 동일한 스트리밍 패턴을 사용합니다:
+OpenAI, Claude, Gemini, Grok, DeepSeek Flash는 같은 스트리밍 패턴으로 제공자 추론을 반환합니다. 서비스 또는 요청에서 추론을 켠 뒤 `StreamOptions.WithReasoning()`으로 관찰하세요:
 
 ```csharp
 await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
@@ -260,13 +262,25 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 | 프로바이더 | 패키지 | 모델 |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1 / 5 / 5 Pro / 5 Mini / 5 Nano, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini, o3 / o3 Pro |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5, Mythos 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
-| **Google** | `Mythosia.AI` | Gemini 3.1 Pro Preview, Gemini 3.5 Flash, Gemini 3 Flash Preview, Gemini 3.1 Flash-Lite, Gemini 2.5 Pro/Flash/Flash-Lite |
-| **xAI** | `Mythosia.AI` | Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Chat, Reasoner |
-| **Perplexity** | `Mythosia.AI` | Sonar, Sonar Pro, Sonar Reasoning Pro |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
+| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (기본값), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **Perplexity** | `Mythosia.AI` | Agent API 프리셋 및 `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
+
+최신 정보를 바탕으로 답하고 사용자가 출처를 확인해야 할 때 Perplexity를 사용합니다. `PerplexityService`는 Agent API를 호출하며, 독립 검색과 임베딩은 직접 선택한 답변 모델의 검색 기반을 구성할 때 사용합니다. [Perplexity Agent API, 검색과 임베딩](perplexity.md).
+
+긴 문서를 검토하거나 도구를 여러 차례 호출하는 작업에 Gemini 3.7 Flash 또는 3.8 Flash를 선택할 수 있습니다. `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0부터 기존 Google 어댑터로 제공하며, 서비스 기본 모델은 Gemini 3.6 Flash로 유지합니다.
+
+빠른 초안 뒤에 깊이 있는 검토가 필요하면 Grok 4.6을 명시적으로 선택하고 `Low`부터 `XHigh`까지 추론 수준을 지정할 수 있습니다. `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0부터 지원하며 `XAIService` 기본 모델은 Grok 4.5로 유지합니다. [Grok 설정](providers.md#xai-xaiservice)을 참고하세요.
+
+이미지 시안을 만들거나 참조 사진을 합칠 때는 `IImageGenerationService`로 [Grok Imagine Image 2.0](providers.md#grok-imagine-image-20)을 사용하세요. `OutputFormat = ImageOutputFormat.Auto`로 두고 `MediaType`에 맞는 확장자를 선택합니다. xAI는 출력 코덱을 선택할 수 없습니다. [이미지 옵션 타입 전환](providers.md#image-options-migration)을 참고하세요. 채팅 모델은 바뀌지 않습니다.
+
+빠른 이미지 시안에는 Flare, 정밀한 수정에는 Sunburst를 선택하세요. [GPT Image 2.5 생성·편집](providers.md#gpt-image-25)은 기존 이미지 API에서 요청별 모델을 명시해 사용하며, OpenAI 기본 모델은 GPT Image 2를 유지합니다.
+
+차트·스크린샷 분석, 로컬 함수 호출, 빠른 답변 뒤의 깊은 검토에는 [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash)를 사용할 수 있습니다. 추론은 기본적으로 꺼져 있으며 `WithDeepSeekReasoning(...)` 또는 요청별 `WithReasoning(...)`으로 켭니다.
 
 ## 패키지 구성
 
@@ -369,3 +383,5 @@ dotnet add package System.Linq.Async
 ## 원래 프로젝트
 
 이 프로젝트는 원래 [Mythosia](https://github.com/AJ-comp/Mythosia)의 일부였습니다.
+
+[공통 지원 정의로 모델별 기능 선택지 구성하기](model-capabilities.md).

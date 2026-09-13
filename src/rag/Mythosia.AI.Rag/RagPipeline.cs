@@ -454,8 +454,10 @@ namespace Mythosia.AI.Rag
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var result = await QueryAsync(query, topK, filter, cancellationToken);
-            return await aiService.GetCompletionAsync(result.Context);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await aiService.GetCompletionAsync(result.Context, cancellationToken: cancellationToken);
         }
 
         /// <summary>
@@ -468,8 +470,10 @@ namespace Mythosia.AI.Rag
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var result = await QueryAsync(query, queryOptions, filter, cancellationToken);
-            return await aiService.GetCompletionAsync(result.Context);
+            cancellationToken.ThrowIfCancellationRequested();
+            return await aiService.GetCompletionAsync(result.Context, cancellationToken: cancellationToken);
         }
 
         #endregion

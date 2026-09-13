@@ -17,7 +17,13 @@ Embedding คือการแปลงข้อความเป็น vector
 
 ## Embedding Provider ที่มาพร้อม
 
-Mythosia.AI.Rag มี embedding provider สี่ตัว เลือกตามความต้องการ:
+เลือกผู้ให้บริการ embedding ให้เหมาะกับภาษาของเอกสาร สภาพแวดล้อมโฮสต์ และความต้องการค้นคืน
+
+### Perplexity
+
+Embedding มาตรฐานประมวลผลข้อความแยกและใช้ `IEmbeddingProvider` จึงต่อกับตัวสร้าง RAG ได้ แบบ contextual เก็บลำดับส่วนข้างเคียงและกลุ่มเอกสาร ใช้ API แยกเพื่อไม่แผ่เอกสารที่ไม่เกี่ยวข้องรวมกัน
+
+[Perplexity Agent API การค้นหา และ embedding](perplexity.md).
 
 ### OpenAI Embedding
 
@@ -107,6 +113,8 @@ Property `Dimensions` ควบคุมขนาดของแต่ละ emb
 | Provider | Model | Dimensions เริ่มต้น |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

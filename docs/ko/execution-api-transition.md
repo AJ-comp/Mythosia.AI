@@ -1,6 +1,12 @@
 # 진행 중인 AI 작업 제어하기
 
-> 이 API는 `Mythosia.AI` 7.1.0 이상에서 사용할 수 있으며, `Mythosia.AI.Abstractions` 3.1.0 이상이 함께 포함됩니다. RAG 예제는 `Mythosia.AI.Rag` 7.6.0 이상이 필요합니다.
+완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
+
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
+> 완성된 답변과 사용량·출처를 함께 받아야 한다면 `await run.Result`가 반환하는 `AIRunResult`를 사용하세요. 문자열은 `result.Text`에 있으며 스트림을 읽지 않아도 결과를 모읍니다. Mythosia.AI 8.0.0의 API 변경이며 `GetCompletionAsync`와 타입 지정 `StructuredStreamRun<T>.Result`의 반환형은 유지합니다. [Run 결과와 전환 안내](#run-result).
+
+> `CreateRequest` 예제는 Mythosia.AI 8.0.0 / Abstractions 4.0.0의 기능입니다. Run과 공통 요청 기능이 처음 추가된 이전 7.1 버전에는 빌더가 없습니다. 이전 패키지에서는 기존 서비스 오버로드를 사용하세요.
 
 ## 작업이 끝나기 전에 제어가 필요한 이유
 
@@ -10,7 +16,7 @@ Run은 앱에서 보관하며 제어할 수 있는 실행 객체를 제공합니
 
 | 앱에서 필요한 동작 | 사용할 API |
 | --- | --- |
-| 진행 중인 작업을 제어하지 않고 완성된 답변 받기 | 제네릭·RAG 오버로드를 포함한 `GetCompletionAsync`를 사용합니다. |
+| 완성된 답변 받기와 선택적인 취소 | `GetCompletionAsync(..., cancellationToken: token)` |
 | 텍스트를 바로 표시하고 완료 후 누적 결과 받기 | `onText`와 함께 run을 시작하고 `run.Result`를 기다립니다. |
 | 도구 사용 상태 표시 또는 비동기 출력 처리 | `run.StreamAsync()`에서 이벤트를 읽습니다. |
 | 사용자 요청으로 진행 중인 작업 중지 | 보관한 실행 객체의 `run.Cancel()`을 호출합니다. |
@@ -18,22 +24,89 @@ Run은 앱에서 보관하며 제어할 수 있는 실행 객체를 제공합니
 
 `StartRunAsync`는 모델 작업을 시작하고 `AIRun`을 반환합니다. 출력을 읽지 않아도 작업은 계속 진행됩니다. 같은 객체에서 스트리밍, 누적 결과, 취소, 지원되는 모델의 작업 중 추가 지시를 제어합니다. 제네릭·RAG 오버로드를 포함한 `GetCompletionAsync`는 최종 결과만 필요한 사용자를 위한 공개 편의 API로 유지합니다.
 
+<a id="run-result"></a>
+
+## 답변·사용량·출처를 한 번에 받기
+
+화면에는 완성된 답변만 보여주더라도 사용한 토큰과 출처를 함께 저장해야 할 수 있습니다. 이전 `run.Result`는 문자열만 반환하므로 사용량은 스트림 이벤트에서 직접 모으고 출처는 run에서 따로 가져와야 했습니다. `AIRunResult`는 스트림을 읽지 않아도 이 정보를 함께 모아 줍니다.
+
+Before — 이전 Run 계약
+
+```csharp
+string answer = await run.Result;
+```
+
+After — Mythosia.AI 8.0.0
+
+```csharp
+using Mythosia.AI.Models.Runs;
+
+await using var run = await service
+    .CreateRequest("문서를 분석해줘.")
+    .StartRunAsync();
+
+AIRunResult result = await run.Result;
+string answer = result.Text;
+int? totalTokens = result.Usage?.TotalTokens;
+var citations = result.Citations;
+string? requestedModel = result.RequestedModel;
+string? actualModel = result.Model;
+var finishReason = result.FinishReason;
+```
+
+텍스트를 도착하는 대로 표시할 때도 같은 결과를 받습니다. 콜백, `run.StreamAsync()`, `SteerAsync`, 취소 제어의 역할은 그대로입니다.
+
+```csharp
+using Mythosia.AI.Models.Runs;
+
+await using var run = await service
+    .CreateRequest("문서를 분석해줘.")
+    .StartRunAsync(onText: text => Console.Write(text));
+
+AIRunResult result = await run.Result;
+Console.WriteLine($"\nTokens: {result.Usage?.TotalTokens}");
+```
+
+완료된 결과는 스냅샷입니다. `Usage`와 인용 객체를 복사해서 제공하므로 받은 객체를 수정해도 보관된 결과는 바뀌지 않으며, run 해제 후에도 읽을 수 있습니다. 스트림 필터, 관찰 중단, 관찰 버퍼 초과로 결과 정보가 사라지지 않습니다.
+
+`Usage`는 라이브러리의 각 모델 라운드에서 보고된 사용량을 한 번씩 합산합니다. 라운드 이벤트와 최종 합계를 중복해서 더하지 않습니다. 사용량이 전혀 보고되지 않으면 `null`이며, 제공자가 보내지 않은 정보는 추정하지 않습니다. 별도 보조 요약 요청의 사용량은 포함하지 않으므로 전체 청구량이나 계정 사용량으로 해석하면 안 됩니다. 일부 라운드만 사용량을 보고하면 그 라운드만 합산하며, 모든 라운드의 사용량이 포함되었다는 보장은 없습니다.
+
+제공자가 명시한 `TotalTokens`는 입력·출력별 수치가 일부 빠져 있어도 그대로 보존하며, 라운드별 합산에서도 보고된 총합을 더합니다.
+
+토큰 카운터는 `Int32`입니다. 라운드 합산이 `Int32.MaxValue`를 넘으면 잘못된 값으로 되돌아가는 대신 스트림 또는 Run이 `OverflowException`으로 실패합니다. 정리는 끝까지 수행하며, 최종 합산에서 실패해도 `run.Result`가 대기 상태로 남지 않습니다.
+
+`run.StreamAsync()`가 반환한 시퀀스는 한 번만 열거할 수 있습니다. 같은 시퀀스를 다시 읽거나 동시에 열거하면 `InvalidOperationException`이 발생하며, 원래 독자와 실행은 서로 독립적으로 유지됩니다.
+
+`Provider`는 어댑터 이름, `RequestedModel`은 제공자별 모델 재정의를 포함해 실제 요청에 넣는 단일 명시 모델을 시작 시 캡처한 값입니다. 프리셋·프로필이나 서버 모델 라우팅으로 선택하여 단일 모델 필드를 보내지 않으면 `null`입니다(예: Perplexity `Models` 목록). 이는 실제 응답 모델인 `Model`과 별개입니다. `Model`은 제공자가 마지막 라운드의 실제 응답에 보고한 모델 ID이며 없으면 `null`입니다. 요청 모델로 대신 채우지 않습니다. `RoundCount`는 개별 도구 호출 수나 제공자 내부 에이전트 단계가 아니라 라이브러리의 LLM 라운드 수입니다. 라운드 수를 알리지 않는 사용자 정의 제공자는 `0`이 됩니다.
+
+`FinishReason`은 `AIFinishReason` enum(`Unknown`, `Stop`, `MaxTokens`, `ToolCalls`, `ContentFilter`, `Other`)이고, `RawFinishReason`은 제공자가 보낸 원래 종료 값입니다. 정보가 없으면 `Unknown`/`null`입니다. 이는 성공한 결과의 정보입니다. 라운드 한도 초과 등 기존 실패는 계속 `Result`에서 예외가 발생하며, 사용자 취소도 계속 `OperationCanceledException`으로 전달합니다. 취소를 성공한 결과 객체로 바꾸지 않습니다.
+
+`Text`는 기존처럼 발생한 모든 텍스트를 순서대로 연결합니다. 도구 호출 사이의 중간 출력과 추가 지시 이전 출력도 포함합니다. 결과는 실행과 정리가 끝난 뒤 완료됩니다. `Citations`는 완료된 출처 스냅샷이고 실행 중에는 기존 `run.Citations`를 읽을 수 있습니다. 인용 위치는 제공자의 원래 콘텐츠 부분 기준이며, 연결된 전체 텍스트의 위치가 아닙니다.
+
+<a id="run-result-migration"></a>
+
+**메이저 버전 전환:** `AIRun.Result`가 `Task<string>`에서 `Task<AIRunResult>`로 바뀝니다. 문자열만 필요하면 `(await run.Result).Text`를 읽으세요. 사용자 정의 `AIRun`은 재정의 반환형을 변경하고 `AIRunResult`를 구성해야 하며, 소비자는 다시 빌드해야 합니다. 결과 타입은 `Mythosia.AI.Models.Runs`, `TokenUsage`와 `AIFinishReason`은 `Mythosia.AI.Models.Streaming`에 있습니다. `GetCompletionAsync`는 `Task<string>`, `StructuredStreamRun<T>.Result`는 `Task<T>`를 유지합니다. 이 예제는 Mythosia.AI 8.0.0용이며 최초 Run을 제공한 7.1/3.1 패키지에는 적용되지 않습니다.
+
 ## 콜백으로 간단하게 출력하기
 
 채팅 화면이나 콘솔에서 텍스트가 도착하는 대로 표시하면 사용자는 긴 답변이 작성되는 동안 내용을 읽을 수 있습니다.
 
 ```csharp
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "문서를 참고해서 보고서를 작성해줘.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("문서를 참고해서 보고서를 작성해줘.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
+
+로컬 도구는 `Task<T>` / `ValueTask<T>`로 객체를 반환하고 라이브러리가 주입하는 `CancellationToken`을 받을 수 있습니다. `run.Cancel()`이나 시작 토큰의 취소는 이를 사용하는 도구에도 전달되며, 스트림 읽기만 멈추는 것은 실행 취소가 아닙니다. 예외는 실패로 기록합니다. 취소 시 대기 중인 호출은 건너뛰고, 토큰을 무시한 채 이미 실행 중인 도구는 정리 과정에서 완료를 기다립니다. [도구 반환값·오류·취소 안내](function-calling.md#tool-execution-contract)를 참고하세요.
 
 `onText`는 작업 시작 전에 등록되는 선택적 `Action<string>` 콜백입니다. 텍스트가 순서대로 도착하며 도구 실행은 라이브러리가 처리합니다. 결과만 필요하면 콜백을 생략합니다. 콜백에서 예외가 발생하면 실행을 취소하고 `Result`에도 예외를 전달합니다. `onText`에 `async` 람다를 전달하면 run이 작업 완료와 오류를 기다릴 수 없는 `async void`가 되므로 사용하지 마세요. 비동기 출력 처리는 이벤트 스트림에서 수행합니다. 콜백을 UI 스레드로 자동 전환하지는 않습니다.
 
-`Result`는 실행 중 전달된 텍스트 이벤트를 연결한 결과입니다. 도구 호출 사이의 중간 출력과 추가 지시 이전의 출력도 포함하며, 답변을 새로 생성하는 두 번째 요청이 아닙니다. 기존 완료 API의 결과 의미가 필요한 경우에는 계속 `GetCompletionAsync`를 사용할 수 있습니다.
+`(await run.Result).Text`는 실행 중 전달된 텍스트 이벤트를 연결한 결과입니다. 도구 호출 사이의 중간 출력과 추가 지시 이전의 출력도 포함하며, 답변을 새로 생성하는 두 번째 요청이 아닙니다. 기존 완료 API의 결과 의미가 필요한 경우에는 계속 `GetCompletionAsync`를 사용할 수 있습니다.
 
 ## 텍스트·도구·사용량 이벤트 읽기
 
@@ -65,7 +138,7 @@ await foreach (var item in run.StreamAsync())
     }
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 `run.StreamAsync()`는 선택적인 관찰 취소 토큰만 받고 새 질문은 받지 않습니다. 이미 `StartRunAsync`로 시작한 작업의 출력을 읽습니다. 등록한 함수는 라이브러리가 실행하므로 도구 호출 이벤트를 받았다고 다시 실행하면 안 됩니다. 텍스트만 표시하도록 선택해도 run의 도구 실행은 꺼지지 않습니다.
@@ -86,7 +159,7 @@ await foreach (var item in run.StreamAsync())
     if (item.Type == StreamingContentType.Text && item.Content is string text)
         await writer.WriteAsync(text);
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## 취소와 해제
@@ -119,7 +192,7 @@ async Task SendUpdateAsync(string instruction)
     await run.SteerAsync(instruction, cancellationToken);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 작업 중 추가 지시는 Responses WebSocket 연결을 사용하는 GPT-6 Astra에서 지원합니다. 다른 provider와 미지원 모델도 일반 run은 사용할 수 있지만 `CanSteer`는 false이고, 추가 지시를 일반적인 다음 대화로 바꾸어 보내지 않고 지원 불가를 알립니다. `CanSteer`가 true라고 나중에 호출하는 시점까지 작업이 실행 중이라는 보장은 없습니다.
@@ -137,11 +210,13 @@ Astra run은 전용 소켓을 엽니다. 전달한 `HttpClient`와 메시지 핸
 `RunAgentAsync`와 `RunAgentStreamAsync`는 계속 호출할 수 있지만 `[Obsolete]` 경고를 표시합니다. 전환 기간에는 기존 시그니처, 기본 `maxSteps = 10`, 기존 한도 초과 오류 동작을 보존합니다. 새 호출부는 다음과 같이 작성합니다.
 
 ```csharp
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "정책을 찾고 주문 상태를 확인해서 결과를 설명해줘.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("정책을 찾고 주문 상태를 확인해서 결과를 설명해줘.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
 
 일반 `FunctionCallingPolicy.MaxRounds` 기본값은 20이므로 기존 에이전트의 기본 한도를 유지하려면 10을 지정합니다. `WithMaxRounds`는 다음 호출 한 번에 적용할 정책을 설정하며 `DefaultPolicy`는 바꾸지 않습니다. 실행 전에 구성하세요. 기존 에이전트 메서드는 기본 정책을 복제하여 호출별 `maxSteps`를 적용합니다. 새 run은 공통 실행 오류 계약을 사용하며 기존 `AgentMaxStepsExceededException`과 `PartialResponse` 변환을 보장하지 않습니다. 해당 계약에 의존한다면 오류 처리까지 이관한 후 기존 호출을 교체하세요.
@@ -153,15 +228,19 @@ string answer = await run.Result;
 - `IAIRunService`는 `Mythosia.AI.Abstractions`의 선택적 기능 계약입니다. `IAIService`에 새 필수 멤버를 추가하지 않습니다. 사용자 서비스가 RAG run 시작을 지원하려면 `IAIRunService`를 구현해야 하며, 미지원 서비스는 RAG 인덱싱 전에 거부합니다.
 - RAG의 Abstractions 의존성과 별도 provider 패키지의 공개 생성 재정의·접근 가능한 확장 지점은 유지합니다. 벡터 저장소·문서 로더·서버 관리 API는 이번 변경의 폐기 대상이 아닙니다.
 
-## 호환성과 다음 메이저 전환
+## Mythosia.AI 8로 업그레이드하기
 
 | API | 현재 상태 |
 | --- | --- |
 | `GetCompletionAsync` / `GetCompletionAsync<T>` | 인터페이스·provider·RAG 버전을 포함해 공개로 유지합니다. |
 | `StartRunAsync` / `AIRun` | 공통 실행과 제어 API입니다. |
 | `RunAgentAsync` / `RunAgentStreamAsync` | 경고를 표시하며 기존 동작은 호환용으로 유지합니다. |
-| 입력을 받는 `service.StreamAsync`와 RAG `StreamAsync` | 이번 마이너에서 유지하고 다음 메이저에서 공개 API에서 제외할 예정입니다. |
+| 입력을 받는 `service.StreamAsync`와 RAG `StreamAsync` | 입력을 받는 서비스·RAG StreamAsync는 v8에서도 공개로 유지합니다. 새 실행 제어에는 StartRunAsync를 사용하고 run.StreamAsync()는 이미 시작한 run의 출력만 관찰합니다. |
 | `run.StreamAsync()` | 새 입력 없이 이미 시작한 작업의 출력을 읽습니다. |
 | `BeginStream(...).As<T>()` / `StructuredStreamRun<T>` | 기존 타입 지정 스트리밍 API를 유지합니다. 출력 전용 `Stream()`은 기존 서비스 요청 메서드와 다릅니다. |
 
-다음 메이저에서 공개 스트리밍 진입점을 바꾸어도 실행 구현과 필요한 provider 확장 지점은 보존합니다. public 메서드를 private이나 protected로 바꾸면 구현을 남겨도 외부 소스·바이너리 호출자에게는 호환성이 깨지는 변경입니다. 메시지 체인, 일회성 호출, 요약, 질의 재작성, 재순위화는 기존 실행 메서드를 사용한다는 이유만으로 폐기하지 않습니다.
+[Mythosia.AI 8로 업그레이드하기](v8-migration.md).
+
+Perplexity: [오래 걸리는 작업 계속 실행하기](perplexity.md).
+
+[공통 지원 정의로 모델별 기능 선택지 구성하기](model-capabilities.md).

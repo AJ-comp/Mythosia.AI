@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
@@ -171,10 +171,10 @@ namespace Mythosia.AI.Services.Google
         private void ApplySafetySettings(Dictionary<string, object> requestBody)
         {
             var settings = new List<object>();
-            AddSafetySetting(settings, "HARM_CATEGORY_HARASSMENT", HarassmentSafetyThreshold);
-            AddSafetySetting(settings, "HARM_CATEGORY_HATE_SPEECH", HateSpeechSafetyThreshold);
-            AddSafetySetting(settings, "HARM_CATEGORY_SEXUALLY_EXPLICIT", SexuallyExplicitSafetyThreshold);
-            AddSafetySetting(settings, "HARM_CATEGORY_DANGEROUS_CONTENT", DangerousContentSafetyThreshold);
+            AddSafetySetting(settings, "HARM_CATEGORY_HARASSMENT", RequestHarassmentSafetyThreshold);
+            AddSafetySetting(settings, "HARM_CATEGORY_HATE_SPEECH", RequestHateSpeechSafetyThreshold);
+            AddSafetySetting(settings, "HARM_CATEGORY_SEXUALLY_EXPLICIT", RequestSexuallyExplicitSafetyThreshold);
+            AddSafetySetting(settings, "HARM_CATEGORY_DANGEROUS_CONTENT", RequestDangerousContentSafetyThreshold);
 
             if (settings.Count > 0)
                 requestBody["safetySettings"] = settings;
@@ -218,21 +218,20 @@ namespace Mythosia.AI.Services.Google
                 return;
             if (IsGemini3Model())
             {
-                if (ThinkingLevel == GeminiThinkingLevel.Minimal &&
-                    Model != null &&
-                    Model.Contains("-pro", StringComparison.OrdinalIgnoreCase))
+                if (!Enum.IsDefined(typeof(GeminiThinkingLevel), RequestThinkingLevel) ||
+                    (RequestThinkingLevel == GeminiThinkingLevel.Minimal && HasLowThinkingFloor()))
                 {
                     throw new ArgumentOutOfRangeException(
                         nameof(ThinkingLevel),
-                        ThinkingLevel,
-                        "Gemini 3 Pro models support Low, Medium, and High thinking levels.");
+                        RequestThinkingLevel,
+                        $"Gemini model '{RequestModel}' does not support thinking level {RequestThinkingLevel}.");
                 }
 
-                if (ThinkingLevel != GeminiThinkingLevel.Auto)
+                if (RequestThinkingLevel != GeminiThinkingLevel.Auto)
                 {
                     generationConfig["thinkingConfig"] = new Dictionary<string, object>
                     {
-                        ["thinkingLevel"] = ThinkingLevel.ToString().ToUpperInvariant()
+                        ["thinkingLevel"] = RequestThinkingLevel.ToString().ToUpperInvariant()
                     };
                 }
                 return;
@@ -242,48 +241,48 @@ namespace Mythosia.AI.Services.Google
 
             generationConfig["thinkingConfig"] = new Dictionary<string, object>
             {
-                ["thinkingBudget"] = ThinkingBudget
+                ["thinkingBudget"] = RequestThinkingBudget
             };
         }
 
         private void ValidateThinkingBudget()
         {
-            if (ThinkingBudget < -1)
+            if (RequestThinkingBudget < -1)
                 throw new ArgumentOutOfRangeException(
                     nameof(ThinkingBudget),
-                    ThinkingBudget,
+                    RequestThinkingBudget,
                     "Gemini thinking budget must be -1, zero where supported, or a model-supported positive budget.");
 
-            if (Model == null || !Model.StartsWith("gemini-2.5", StringComparison.OrdinalIgnoreCase))
+            if (RequestModel == null || !RequestModel.StartsWith("gemini-2.5", StringComparison.OrdinalIgnoreCase))
                 return;
 
-            if (Model.Contains("-pro", StringComparison.OrdinalIgnoreCase))
+            if (RequestModel.Contains("-pro", StringComparison.OrdinalIgnoreCase))
             {
-                if (ThinkingBudget != -1 && (ThinkingBudget < 128 || ThinkingBudget > 32768))
+                if (RequestThinkingBudget != -1 && (RequestThinkingBudget < 128 || RequestThinkingBudget > 32768))
                     throw new ArgumentOutOfRangeException(
                         nameof(ThinkingBudget),
-                        ThinkingBudget,
+                        RequestThinkingBudget,
                         "Gemini 2.5 Pro accepts -1 or a budget from 128 through 32768.");
                 return;
             }
 
-            if (Model.Contains("flash-lite", StringComparison.OrdinalIgnoreCase))
+            if (RequestModel.Contains("flash-lite", StringComparison.OrdinalIgnoreCase))
             {
-                if (ThinkingBudget != -1 && ThinkingBudget != 0 &&
-                    (ThinkingBudget < 512 || ThinkingBudget > 24576))
+                if (RequestThinkingBudget != -1 && RequestThinkingBudget != 0 &&
+                    (RequestThinkingBudget < 512 || RequestThinkingBudget > 24576))
                 {
                     throw new ArgumentOutOfRangeException(
                         nameof(ThinkingBudget),
-                        ThinkingBudget,
+                        RequestThinkingBudget,
                         "Gemini 2.5 Flash-Lite accepts -1, 0, or a budget from 512 through 24576.");
                 }
                 return;
             }
 
-            if (ThinkingBudget > 24576)
+            if (RequestThinkingBudget > 24576)
                 throw new ArgumentOutOfRangeException(
                     nameof(ThinkingBudget),
-                    ThinkingBudget,
+                    RequestThinkingBudget,
                     "Gemini 2.5 Flash accepts a budget no greater than 24576.");
         }
 

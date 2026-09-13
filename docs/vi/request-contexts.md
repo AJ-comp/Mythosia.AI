@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
+
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
 ## Là gì?
 
 `AIRequestContext` cho phép bạn thay đổi **những gì model nhìn thấy** cho một request duy nhất — inject thêm hướng dẫn, thêm tài liệu tham khảo, hoặc thay thế hoàn toàn tin nhắn của user — mà không thay đổi vĩnh viễn system message hay lịch sử hội thoại của service.
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Ngày hôm nay: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Các thuộc tính
@@ -269,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync` và `RunAgentAsync` cũ không nhận `CancellationToken`, nên truyền `CancellationToken.None` cho context provider. Nếu cần hủy truy vấn cơ sở dữ liệu lâu, có thể dùng `StartRunAsync(..., cancellationToken: token)`; token vẫn được truyền tới provider khi bạn chỉ chờ `run.Result` mà không đọc đầu ra. `StreamAsync` và `RunAgentStreamAsync` cũ cũng truyền token của bên gọi. Chỉ hủy `run.StreamAsync(token)` sẽ dừng theo dõi, không hủy provider hoặc toàn bộ tác vụ.
+`GetCompletionAsync(..., cancellationToken: token)` và `RunAgentAsync` cũ nay truyền hủy đến `SystemMessageProvider`, nên truy vấn cơ sở dữ liệu hoặc HTTP có hỗ trợ token có thể dừng khi chuẩn bị. `StartRunAsync` và các phương thức streaming nhận đầu vào cũng truyền token thực thi. Chỉ hủy `run.StreamAsync(token)` sẽ dừng theo dõi, không hủy provider hay toàn bộ tác vụ.
 
 ### Gộp với context per-call tường minh
 

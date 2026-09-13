@@ -2,6 +2,10 @@
 
 Sử dụng token cho biết một request tới model đã tiêu tốn bao nhiêu token cho input, output, cache và reasoning. Trong Mythosia.AI, thông tin này được trả về qua `TokenUsage` trên các sự kiện streaming.
 
+Giá trị `TotalTokens` được nhà cung cấp báo cáo rõ ràng vẫn được giữ nguyên dù số liệu đầu vào và đầu ra chưa đầy đủ; tổng qua các vòng cộng chính những giá trị đã báo cáo này.
+
+Bộ đếm token vẫn dùng `Int32`. Nếu tổng qua các vòng vượt `Int32.MaxValue`, luồng hoặc Run thất bại với `OverflowException` thay vì trả về số bị tràn. Việc dọn dẹp vẫn hoàn tất và `run.Result` không bị treo chờ ngay cả khi bước cộng tổng cuối cùng thất bại.
+
 Điều này đặc biệt quan trọng khi câu trả lời không chỉ có một lần gọi LLM. Một câu trả lời đơn giản thường chỉ có một round. Agent hoặc luồng function calling có thể gọi model, chạy tool, rồi gọi model lần nữa với kết quả của tool. Vì vậy có hai con số cần phân biệt.
 
 - `RoundUsage` là usage của một round LLM vừa kết thúc.

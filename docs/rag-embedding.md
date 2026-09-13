@@ -17,7 +17,13 @@ This page focuses on the query-time embedding (step 2), which converts the user'
 
 ## Built-in Embedding Providers
 
-Mythosia.AI.Rag ships with four embedding providers. Choose one based on your needs:
+Choose an embedding provider according to your document language, hosting requirements, and retrieval needs.
+
+### Perplexity
+
+Standard embeddings treat passages independently and implement `IEmbeddingProvider`, so they fit the existing builder. Contextualized embeddings preserve the order and grouping of neighbouring chunks; they use a separate API to prevent unrelated documents being flattened into one input.
+
+[Perplexity Agent API, Search, and Embeddings](perplexity.md).
 
 ### OpenAI Embedding
 
@@ -107,6 +113,8 @@ Common dimension sizes:
 | Provider | Model | Default Dimensions |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

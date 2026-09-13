@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Mythosia.AI.Models.Functions;
 
@@ -108,6 +109,28 @@ namespace Mythosia.AI.Builders
         public FunctionBuilder WithHandler(Func<Dictionary<string, object>, string> handler)
         {
             _function.Handler = args => Task.FromResult(handler(args));
+            return this;
+        }
+
+        /// <summary>
+        /// Sets an asynchronous function handler that receives execution cancellation.
+        /// Use the token in cancellable operations to stop work when the run is cancelled.
+        /// </summary>
+        public FunctionBuilder WithHandler(
+            Func<Dictionary<string, object>, CancellationToken, Task<string>> handler)
+        {
+            _function.HandlerWithCancellation = handler;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets a synchronous function handler that receives execution cancellation.
+        /// </summary>
+        public FunctionBuilder WithHandler(
+            Func<Dictionary<string, object>, CancellationToken, string> handler)
+        {
+            _function.HandlerWithCancellation = (args, cancellationToken) =>
+                Task.FromResult(handler(args, cancellationToken));
             return this;
         }
 

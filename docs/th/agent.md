@@ -1,5 +1,12 @@
 # Agent (ReAct Loop)
 
+หากต้องการคำตอบ การใช้โทเคน และแหล่งอ้างอิงพร้อมกัน ให้ใช้ `AIRunResult` ที่ได้จาก `await run.Result` สตริงอยู่ใน `result.Text` โดยไม่ต้องอ่านสตรีม นี่คือการเปลี่ยน API ในMythosia.AI 8.0.0 ชนิดผลลัพธ์ของ `GetCompletionAsync` และ `StructuredStreamRun<T>.Result` ยังคงเดิม [ผลลัพธ์ Run และการย้ายรุ่น](execution-api-transition.md#run-result).
+
+
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
+> ตัวอย่าง `CreateRequest` ต้องใช้Mythosia.AI 8.0.0 / Abstractions 4.0.0 รุ่น 7.1 เดิมที่เพิ่ม Run และตัวเลือกคำขอทั่วไปยังไม่มี builder แพ็กเกจเดิมใช้ overload ของ service ต่อได้
+
 งานที่ใช้หลายเครื่องมือต้องมีขีดจำกัดจำนวนรอบและวิธีควบคุมงานที่กำลังทำ วงรอบร่วมของไลบรารีรองรับอยู่แล้ว ดู[วิธีควบคุมด้วย Run](execution-api-transition.md)
 
 ## ทำไมต้องใช้ Agent Loop?
@@ -16,12 +23,16 @@ function calling ปกติสามารถรัน **หลายฟัง
 
 ```csharp
 // ลงทะเบียนเครื่องมือบนบริการก่อนเริ่มงาน
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "ค้นหานโยบาย ตรวจสอบคำสั่งซื้อ และอธิบายผลลัพธ์",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("ค้นหานโยบาย ตรวจสอบคำสั่งซื้อ และอธิบายผลลัพธ์")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+เครื่องมือภายในคืนออบเจ็กต์ผ่าน `Task<T>` / `ValueTask<T>` และรับ `CancellationToken` ที่ไลบรารีฉีดให้ได้ `run.Cancel()` หรือโทเคนตอนเริ่มส่งการยกเลิกถึงเครื่องมือที่รองรับ แต่การหยุดอ่านสตรีมอย่างเดียวไม่ทำเช่นนั้น ข้อยกเว้นจะบันทึกเป็นความล้มเหลว เมื่อยกเลิกจะข้ามการเรียกที่รออยู่ และขั้นตอนเก็บกวาดยังรอเครื่องมือที่เริ่มแล้วแต่ไม่ใช้โทเคน ดู[ผลลัพธ์ ข้อผิดพลาด และการยกเลิก](function-calling.md#tool-execution-contract)
 
 ## ตัวอย่างสำหรับ API agent เดิม
 

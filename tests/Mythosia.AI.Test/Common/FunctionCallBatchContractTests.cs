@@ -686,7 +686,7 @@ public class FunctionCallBatchContractTests
     }
 
     [TestMethod]
-    public async Task BatchExecutor_CancellationAfterStartFinishesValidatedBatch()
+    public async Task BatchExecutor_CancellationAfterStartSkipsQueuedCallsAndFinishesResultBatch()
     {
         var service = new BatchProbeService();
         var cancellation = new CancellationTokenSource();
@@ -710,8 +710,13 @@ public class FunctionCallBatchContractTests
 
         var results = await service.ExecuteAsync(calls, cancellation.Token);
 
-        CollectionAssert.AreEqual(new[] { "first", "second" }, executionOrder);
+        CollectionAssert.AreEqual(new[] { "first" }, executionOrder);
         Assert.AreEqual(2, results.Results.Count);
+        Assert.AreEqual("first-result", results.Results[0].Content);
+        Assert.IsFalse(results.Results[0].IsCancelled);
+        Assert.IsTrue(results.Results[1].IsCancelled);
+        Assert.IsTrue(results.Results[1].IsError);
+        Assert.AreEqual("call-b", results.Results[1].Call.Id);
     }
 
     [TestMethod]

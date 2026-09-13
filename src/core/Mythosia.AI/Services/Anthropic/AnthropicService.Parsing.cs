@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models;
 using System;
@@ -17,10 +17,10 @@ namespace Mythosia.AI.Services.Anthropic
         private object BuildRequestBody()
         {
             PrepareClaudeFeatureMessage();
-            var messagesList = new List<object>();
+            var messagesList = UsesClaudeWireHistory ? BuildPreservedClaudeMessages() : new List<object>();
 
             // Convert messages to Claude format
-            var messages = GetLatestMessagesWithFunctionFallback().ToList();
+            var messages = UsesClaudeWireHistory ? new List<Message>() : GetLatestMessagesWithFunctionFallback().ToList();
             EnsureUserFirstMessage(messages);
             foreach (var message in messages)
             {
@@ -31,16 +31,17 @@ namespace Mythosia.AI.Services.Anthropic
             // Dictionary 사용으로 null/empty 체크 가능
             var requestBody = new Dictionary<string, object>
             {
-                ["model"] = Model,
+                ["model"] = RequestModel,
                 ["messages"] = messagesList,
-                ["temperature"] = Temperature,
-                ["stream"] = Stream,
+                ["temperature"] = RequestTemperature,
+                ["stream"] = RequestStream,
                 ["max_tokens"] = GetEffectiveMaxTokens()
             };
 
             ApplySystemMessage(requestBody);
             ApplyThinkingConfig(requestBody);
             ApplyCommonClaudeReasoning(requestBody);
+            ApplyClaudeRequestOptions(requestBody);
             ApplyTemperaturePolicy(requestBody);
             ApplyNativeClaudeTools(requestBody);
 
@@ -154,24 +155,17 @@ namespace Mythosia.AI.Services.Anthropic
                     return string.Empty;
 
                 var textParts = new StringBuilder();
-                var thinkingParts = new StringBuilder();
 
                 foreach (var block in content.EnumerateArray())
                 {
                     if (!block.TryGetProperty("type", out var typeElem)) continue;
                     var blockType = typeElem.GetString();
 
-                    if (blockType == "thinking" && block.TryGetProperty("thinking", out var thinkingElem))
-                    {
-                        thinkingParts.Append(thinkingElem.GetString());
-                    }
-                    else if (blockType == "text" && block.TryGetProperty("text", out var textElem))
+                    if (blockType == "text" && block.TryGetProperty("text", out var textElem))
                     {
                         textParts.Append(textElem.GetString());
                     }
                 }
-
-                LastThinkingContent = thinkingParts.Length > 0 ? thinkingParts.ToString() : null;
 
                 return textParts.ToString();
             }

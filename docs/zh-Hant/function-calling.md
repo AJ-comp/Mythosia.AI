@@ -1,5 +1,9 @@
 # 函式呼叫
 
+只需完整答案和停止按鈕時，將 `cancellationToken` 傳給 `GetCompletionAsync`。進度事件或支援的中途追加指令使用 Run。參閱[取消回答](completions.md#completion-cancellation)。
+
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
 ## 為什麼需要函式呼叫？
 
 LLM 只能生成文字 — 它無法自行查看天氣、查詢資料庫或呼叫 API。**沒有**函式呼叫時，你需要手動解析模型的意圖：
@@ -91,6 +95,8 @@ service.ForceFunctionName = "search_products";
 service.FunctionCallMode = FunctionCallMode.None;
 ```
 
+[Claude Fable 5.1](fable-5-1.md) 的進度更新、單回合指令與 thinking 綁定診斷從 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 開始提供。Mythos 5.1 需要邀請存取，兩個模型都拒絕強制工具選擇。
+
 ## 批次註冊類別中的函式
 
 一次性註冊物件中所有標注了 `[AiFunction]` 的方法：
@@ -153,6 +159,98 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+<a id="tool-execution-contract"></a>
+
+## 非同步工具直接回傳物件，並回應取消
+
+讀取檔案或資料庫的工具通常在非同步I/O完成後回傳物件。使用者按下停止時，取消也應傳遞到仍在執行的操作。同步函式早已支援直接回傳物件；這次更新讓非同步回傳保持一致，並將例外正確記錄為失敗。
+
+Before：非同步函式以前需要自行序列化結果。直接回傳`Task<FileResult>`會遺失物件，只傳回`"Success"`。
+
+```csharp
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed class FileToolsBefore
+{
+    [AiFunction("read_file", "讀取文字檔案")]
+    public async Task<string> ReadFileAsync(string path)
+    {
+        string text = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Serialize(new { Path = path, Text = text });
+    }
+}
+```
+
+After：直接回傳物件，並把程式庫注入的取消權杖傳給I/O操作。應用程式不必實作新的結果包裝型別或介接器。
+
+```csharp
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed record FileResult(string Path, string Text);
+
+public sealed class FileTools
+{
+    [AiFunction("read_file", "讀取文字檔案")]
+    public async Task<FileResult> ReadFileAsync(
+        string path, CancellationToken cancellationToken)
+    {
+        string text = await File.ReadAllTextAsync(path, cancellationToken);
+        return new FileResult(path, text);
+    }
+}
+```
+
+`[AiFunction]`註冊支援一般物件、`Task<T>`和`ValueTask<T>`，非字串值會轉換成JSON。`string`、`Task<string>`和`ValueTask<string>`保持原始文字，不額外加上JSON引號。沒有回傳值的`Task`和`ValueTask`也會等待完成。原有同步物件回傳繼續適用。 null回傳值會變為`"Done"`；沒有回傳值的`Task` / `ValueTask`完成後傳遞`"Success"`。
+
+即使回傳型別宣告為`Task`或`object`，實際回傳的`Task<T>`也會等待完成並按相同規則轉換。以`object`回傳的`ValueTask<T>`和沒有回傳值的`ValueTask`也會等待完成，每個`ValueTask`只取用一次。
+
+`CancellationToken`參數由程式庫注入，不會出現在提供給模型的參數結構中。透過服務或請求建構器的`WithFunctions(...)`、`WithStaticFunctions<T>()`註冊即可。
+
+註冊時會拒絕`async void`工具方法。請回傳`Task`或`ValueTask`，以便執行器等待完成、觀察錯誤並完成取消後的清理。
+
+```csharp
+using Mythosia.AI.Extensions;
+
+await using var run = await service
+    .CreateRequest("讀取report.txt並摘要。")
+    .WithFunctions(new FileTools())
+    .StartRunAsync(cancellationToken: cancellationToken);
+
+string answer = (await run.Result).Text;
+```
+
+`run.Cancel()`、取消傳給`StartRunAsync`的權杖，或釋放作用中的run，都會傳遞給支援取消的本機工具。函式必須使用該權杖；無法強制終止忽略權杖的程式碼。尚未開始的呼叫會略過並記錄取消結果，已經開始的函式仍會等待，以保持呼叫與結果成對。執行取消後run保持取消狀態，不會再啟動下一輪模型請求。
+
+Run啟動失敗或釋放MCP連線時，即使取消回呼擲回例外，也會繼續嘗試清理工作階段或傳輸連線。原始錯誤與清理錯誤都會保留，必要時透過`AggregateException`一起傳遞。 並行非同步等待`McpConnection.DisposeAsync()`的呼叫會等待同一次清理完成。先關閉傳輸連線，讓依賴連線關閉的讀取結束，再等待讀取迴圈退出。
+
+為避免關閉期間較晚送入的工具呼叫持續等待，連線開始釋放後，新的 `InitializeAsync`、`RefreshToolsAsync` 和 `CallToolAsync` 操作會以 `ObjectDisposedException` 被拒絕。如果回應的請求 ID 相符但本文格式無效，則略過該回應並保留請求的等待登記；後續有效回應、呼叫端取消或連線清理仍可結束該呼叫。 如果伺服器關閉串流或傳輸讀取失敗導致讀取已結束，新操作會以 `McpException` 失敗，而不是等待無法到達的回應；請建立新連線後繼續。
+
+實際失敗時直接擲回例外。執行器將其記錄為`FunctionCallResult.IsError = true`，不會誤當成正常的`"Error: ..."`字串。函式刻意回傳的字串仍是正常結果。取消的工具結果同時設定`IsCancelled = true`和`IsError = true`。
+
+以程式碼註冊時，使用接收兩個參數的`WithHandler`多載：
+
+```csharp
+using System.IO;
+using Mythosia.AI.Builders;
+
+var readText = FunctionBuilder.Create("read_text")
+    .WithDescription("讀取文字檔案")
+    .AddParameter("path", "string", "檔案路徑", required: true)
+    .WithHandler(async (args, token) =>
+        await File.ReadAllTextAsync(args["path"].ToString()!, token))
+    .Build();
+```
+
+既有單參數字串處理常式繼續支援。直接建立定義時，可將`Func<Dictionary<string, object>, CancellationToken, Task<string>>`指定給`HandlerWithCancellation`。設定`Handler`或`HandlerWithCancellation`都會取代同一個處理常式，不會註冊兩次執行。此低階API仍回傳字串；物件自動序列化由方法註冊負責。
+
+這是本機.NET函式的回傳值與取消處理，不依賴提供者原生的`AllowAsync`功能。僅停止`run.StreamAsync(token)`讀取只會停止觀察，run繼續執行。請參閱[Run指南](execution-api-transition.md)與[提供者通訊協定](https://developers.openai.com/api/docs/guides/async-tool-calling)。
+
 ## 模型非同步工具呼叫
 
 天氣查詢較慢時，模型仍可先介紹不依賴天氣結果的一般旅行用品。模型原生非同步工具呼叫用於在這種等待期間繼續獨立工作；依賴查詢結果的判斷仍應等結果傳回後再進行。
@@ -190,8 +288,10 @@ Mythosia 在 GPT-6 Astra 的 Responses API 中傳送 `async: true`。對於不�
 
 執行中的工具工作由 `GetCompletionAsync`、接收輸入的舊 `StreamAsync`，或 `StartRunAsync` 傳回的 `AIRun` 管理；完成後使用原始呼叫 ID 傳送結果。成功的最終傳回或 Run 完成會等待待處理結果完成處理。Run 獨立於輸出觀察繼續執行，但工具工作並不是脫離 Run 存續的公開背景工作階段。
 
-使用非同步工具時，`GetCompletionAsync` 在要求結束後依序彙整中間的獨立說明與最終文字。舊 `StreamAsync` 和 `run.StreamAsync()` 都在各回合文字抵達時通知讀取者；`run.Result` 同樣是 Run 中所有文字的串接結果。
+使用非同步工具時，`GetCompletionAsync` 在要求結束後依序彙整中間的獨立說明與最終文字。舊 `StreamAsync` 和 `run.StreamAsync()` 都在各回合文字抵達時通知讀取者；`(await run.Result).Text` 同樣是 Run 中所有文字的串接結果。
 
-處理常式不接收取消權杖。因此，在取消、逾時、錯誤或提前結束接收輸入的舊串流時，清理仍會等待已啟動的處理常式完成。僅停止讀取 `run.StreamAsync()` 不會停止執行；取消 Run 應使用 `run.Cancel()`、啟動時的權杖或釋放 Run。此整合適用於已註冊的函式處理常式。底層通訊協定見[官方 API 指南](https://developers.openai.com/api/docs/guides/async-tool-calling)。
+本機工具可透過`Task<T>` / `ValueTask<T>`回傳物件，並接收程式庫注入的`CancellationToken`。`run.Cancel()`或啟動權杖的取消會傳遞給配合取消的工具，僅停止串流讀取則不會。例外會記錄為失敗；取消時略過排隊呼叫，清理仍會等待已啟動且忽略權杖的工具。請參閱[結果、錯誤與取消](function-calling.md#tool-execution-contract)。
 
 串流呼叫在確認函式呼叫完整且到達有效回應邊界後才啟動處理常式，接著可在非同步工作執行期間繼續下一回合模型要求。未完成的呼叫事件不會觸發執行。如果模型沒有發起新呼叫但仍有工作未完成，Mythosia 會等待結果後再繼續。為避免未完成的呼叫從歷程記錄中遺失，有待處理呼叫時會停用內容超限後的自動摘要與重試。
+
+Perplexity: [控制研究與工具](perplexity.md).

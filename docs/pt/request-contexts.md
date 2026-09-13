@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Para uma resposta final com botão Parar, passe `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progresso ou instruções adicionais suportadas. Consulte [cancelamento](completions.md#completion-cancellation).
+
+Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
+
 A data, as informações do usuário e os documentos encontrados muitas vezes devem valer apenas para a tarefa atual. O contexto restringe esses acréscimos à requisição e também pode acompanhar uma tarefa controlável; consulte o [guia de Run](execution-api-transition.md).
 
 ## O que É?
@@ -31,7 +35,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Data de hoje: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Propriedades Disponíveis
@@ -196,7 +200,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync` e as sobrecargas anteriores de `RunAgentAsync` não aceitam `CancellationToken`; o provedor de contexto recebe `CancellationToken.None`. Se o provedor precisar de cancelamento, por exemplo durante uma consulta longa ao banco de dados, use `StartRunAsync(..., cancellationToken: token)`. Os caminhos anteriores de streaming (`StreamAsync`, `RunAgentStreamAsync`) também repassam o token do chamador ao callback do provedor.
+`GetCompletionAsync(..., cancellationToken: token)` e o anterior `RunAgentAsync` agora transmitem o cancelamento a `SystemMessageProvider`, permitindo parar consultas cooperativas à base de dados ou HTTP durante a preparação. `StartRunAsync` e os métodos de streaming com entrada também transmitem o token de execução. Cancelar apenas `run.StreamAsync(token)` para a observação, não o fornecedor nem a execução.
 
 ### Fusão com um contexto per-call explícito
 

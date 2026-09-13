@@ -21,15 +21,15 @@ Install only the packages your application uses. `Mythosia.AI` already brings in
 | `AIService.ExtractFunctionCall(...)` | Override `ExtractFunctionCalls(...)` and return `FunctionCallBatch` |
 | `CompletionProtocol.ExtractFunctionCall(...)` | Override `ExtractFunctionCalls(...)` and return `FunctionCallBatch` |
 | `ProcessFunctionCallAsync(string, Dictionary<string, object>)` | Override `ProcessFunctionCallAsync(FunctionCall)`; the base service schedules complete batches |
-| `GrokReasoning.Off` | Use `Auto` to omit the parameter or `None` for Grok 4.3; Grok 4.5 cannot disable reasoning |
+| `GrokReasoning.Off` | Use `Auto` to omit the parameter or `None` for Grok 4.3; Grok 4.5 and 4.6 cannot disable reasoning |
 
 The unsupported Qwen image-method overrides were removed as part of the same image API migration. `QwenService` remains a chat-completion provider.
 
 ## Image generation
 
-Image generation is an optional provider capability and its model is independent from the service's chat model:
+Image generation is an optional provider capability and its model is independent from the service's chat model. The following historical v7.0 example uses the former string options. For the next major release, use the [typed image-option migration](providers.md#image-options-migration); generation and editing methods remain the same.
 
-```csharp
+```text
 using Mythosia.AI.Models.Images;
 using Mythosia.AI.Services;
 using Mythosia.AI.Services.OpenAI;
@@ -47,6 +47,8 @@ await File.WriteAllBytesAsync("facade.png", image.Data);
 ```
 
 OpenAI supports generation plus reference/mask editing. Gemini supports generation and reference-image editing, requires `Count = 1`, and does not accept a separate mask.
+
+The current working release also provides `XAIService` image generation and editing with the independent `AIModels.xAI.GrokImagineImage2_0` default, 1–10 outputs, and up to five reference images. It requires the next major release because image options now use enums and `ImageSize`. xAI accepts only `ImageOutputFormat.Auto`; save according to `MediaType`. See [Grok Imagine Image 2.0](providers.md#grok-imagine-image-20) and [typed image-option migration](providers.md#image-options-migration).
 
 ## Multiple function calls
 

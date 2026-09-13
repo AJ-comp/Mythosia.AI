@@ -9,6 +9,8 @@
 - **「今までの会話を要約してください」** → ドキュメント検索がまったく不要な質問なのに検索を実行してしまいます
 - **ドキュメント＋リアルタイムデータが同時に必要なとき** → 標準RAGはドキュメント検索しかできず、API呼び出しなどは対応できません
 
+`WithAgenticRag`は実行のキャンセルトークンを`RagStore.QueryAsync`へ渡すため、トークンを使う検索処理も停止できます。検索の例外は診断記録の後にツールの失敗として扱い、正常なエラー文字列として返しません。キャンセルされたrunは次のモデルラウンドへ進みません。[共通ツール契約](function-calling.md#tool-execution-contract)を参照してください。
+
 ## エージェンティックRAGとは？
 
 エージェンティックRAGはこれらの限界を解決します。固定された「検索 → 回答」パイプラインの代わりに、**AIエージェントが自ら判断**します：
@@ -38,7 +40,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("返金ポリシーを要約してください。");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 エージェントはドキュメントが必要だと判断すると自動的に`search_documents`を呼び出し、検索された内容をもとに最終的な回答を生成します。
@@ -58,7 +60,7 @@ service.WithAgenticRag(ragStore)
 // エージェントがポリシーはドキュメントから検索し、注文状況はAPIから取得
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "注文 #12345 — 現在のポリシーで返金対象ですか？");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 上記の例では、エージェントが自律的に以下のプロセスを実行します：

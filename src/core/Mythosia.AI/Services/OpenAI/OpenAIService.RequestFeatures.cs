@@ -1,4 +1,5 @@
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
@@ -20,7 +21,7 @@ namespace Mythosia.AI.Services.OpenAI
         private string? _nativeStreamResponseId;
         private PreservedReasoningAttempt? _pendingReasoningAttempt;
 
-        private bool ShouldPreserveResponseItems => IsGpt6Model(Model) ||
+        private bool ShouldPreserveResponseItems => IsGpt6Model(RequestModel) ||
             CurrentRequestFeatures.WebSearch != null || CurrentRequestFeatures.FileSearch != null ||
             ActivateChat.Messages.Any(message => message.Metadata?.ContainsKey(ResponsesOutputItemsMetadataKey) == true);
 
@@ -35,9 +36,12 @@ namespace Mythosia.AI.Services.OpenAI
                 ValidateCommonReasoningLevel(features.Reasoning.Level);
                 if (features.Reasoning.Cache == CachePreservation.Required)
                 {
-                    if (!SupportsAsyncFunctionCalls || Gpt6ReasoningMode != Gpt6ReasoningMode.Standard)
+                    var preservation = ResolveRequestCapabilities().ReasoningCachePreservation;
+                    if (preservation == CapabilitySupport.Unsupported ||
+                        (preservation == CapabilitySupport.Unknown &&
+                         (!SupportsAsyncFunctionCalls || RequestGpt6ReasoningMode != Gpt6ReasoningMode.Standard)))
                         throw new NotSupportedException("Cache-preserving reasoning changes require GPT-6 Astra in Standard mode.");
-                    if (StatelessMode)
+                    if (RequestStatelessMode)
                         throw new NotSupportedException("Cache-preserving reasoning changes require conversation history.");
                     if (!_preservedReasoning.TryGetValue(ActivateChat, out _) &&
                         ActivateChat.Messages.Any(message => message.Role == ActorRole.Assistant))
@@ -47,8 +51,12 @@ namespace Mythosia.AI.Services.OpenAI
 
             if (features.WebSearch != null || features.FileSearch != null)
             {
-                var model = Model.ToLowerInvariant();
-                if (!IsNewApiModel(model) || model.Contains("nano") || model.StartsWith("o3-mini", StringComparison.Ordinal))
+                var capabilities = ResolveRequestCapabilities();
+                var unknownSearch = (features.WebSearch != null && capabilities.WebSearch == CapabilitySupport.Unknown) ||
+                    (features.FileSearch != null && capabilities.FileSearch == CapabilitySupport.Unknown);
+                if ((features.WebSearch != null && capabilities.WebSearch == CapabilitySupport.Unsupported) ||
+                    (features.FileSearch != null && capabilities.FileSearch == CapabilitySupport.Unsupported) ||
+                    (unknownSearch && !IsHostedSearchSupportedByAdapter(RequestModel)))
                     throw new NotSupportedException("This OpenAI model does not support the requested hosted search integration.");
             }
 
@@ -82,7 +90,15 @@ namespace Mythosia.AI.Services.OpenAI
         {
             if (!Enum.IsDefined(typeof(ReasoningLevel), level))
                 throw new ArgumentOutOfRangeException(nameof(level));
-            var model = Model.ToLowerInvariant();
+            var support = ResolveRequestCapabilities().GetReasoningSupport(level);
+            if (support == CapabilitySupport.Unsupported ||
+                (support == CapabilitySupport.Unknown && !IsOpenAIReasoningLevelSupportedByAdapter(level)))
+                throw new NotSupportedException($"Reasoning level {level} is not supported by OpenAI model {RequestModel}.");
+        }
+
+        private bool IsOpenAIReasoningLevelSupportedByAdapter(ReasoningLevel level)
+        {
+            var model = RequestModel.ToLowerInvariant();
             bool supported;
             if (IsGpt6Model(model))
                 supported = Enum.TryParse(level.ToString(), out Gpt6Reasoning effort) && Enum.IsDefined(typeof(Gpt6Reasoning), effort);
@@ -107,8 +123,7 @@ namespace Mythosia.AI.Services.OpenAI
                     level == ReasoningLevel.Low || level == ReasoningLevel.Medium || level == ReasoningLevel.High;
             else
                 supported = false;
-            if (!supported)
-                throw new NotSupportedException($"Reasoning level {level} is not supported by OpenAI model {Model}.");
+            return supported;
         }
 
         private void ApplyNativeRequestFeatures(Dictionary<string, object> request)
@@ -147,8 +162,8 @@ namespace Mythosia.AI.Services.OpenAI
             if (!request.ContainsKey("tool_choice")) request["tool_choice"] = "auto";
         }
 
-        private string ConfiguredAstraEffort => (Gpt6ReasoningEffort == Gpt6Reasoning.Auto
-            ? Gpt6Reasoning.Medium : Gpt6ReasoningEffort).ToString().ToLowerInvariant();
+        private string ConfiguredAstraEffort => (RequestGpt6ReasoningEffort == Gpt6Reasoning.Auto
+            ? Gpt6Reasoning.Medium : RequestGpt6ReasoningEffort).ToString().ToLowerInvariant();
 
         private void PreparePreservedReasoning()
         {
@@ -174,7 +189,7 @@ namespace Mythosia.AI.Services.OpenAI
                     throw new NotSupportedException("Imported conversation history has no verified reasoning baseline. Start a new conversation before requiring cache preservation.");
                 state = new PreservedReasoningState
                 {
-                    Model = Model, Endpoint = HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty,
+                    Model = RequestModel, Endpoint = HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty,
                     BaseEffort = desired, PersistentEffort = desired, EffectiveEffort = desired,
                     ConfiguredEffort = configured
                 };
@@ -188,7 +203,7 @@ namespace Mythosia.AI.Services.OpenAI
                     state.PersistentEffort = desired;
                     state.EffectiveEffort = desired;
                     state.ConfiguredEffort = configured;
-                    state.Model = Model;
+                    state.Model = RequestModel;
                     state.Endpoint = HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty;
                     return;
                 }
@@ -214,9 +229,9 @@ namespace Mythosia.AI.Services.OpenAI
 
         private void ValidatePreservedHistory(PreservedReasoningState state)
         {
-            if (!string.Equals(state.Model, Model, StringComparison.OrdinalIgnoreCase) ||
+            if (!string.Equals(state.Model, RequestModel, StringComparison.OrdinalIgnoreCase) ||
                 state.Endpoint != (HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty) ||
-                Gpt6ReasoningMode != Gpt6ReasoningMode.Standard)
+                RequestGpt6ReasoningMode != Gpt6ReasoningMode.Standard)
                 throw new NotSupportedException("A conversation with cache-preserving reasoning updates cannot change its model, endpoint, or reasoning mode. Start a new conversation.");
             if (state.MessageIds.Length > ActivateChat.Messages.Count ||
                 state.MessageIds.Where((id, index) => ActivateChat.Messages[index].Id != id).Any())

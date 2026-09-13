@@ -132,11 +132,11 @@ public class OpenAIImageRequestShapeTests
         {
             Prompt = "Create two window photographs",
             Count = 2,
-            Size = "1536x1024",
-            Quality = "high",
-            OutputFormat = "webp",
+            Size = ImageSize.Pixels(1536, 1024),
+            Quality = ImageQuality.High,
+            OutputFormat = ImageOutputFormat.WebP,
             OutputCompression = 65,
-            Background = "opaque"
+            Background = ImageBackground.Opaque
         });
 
         var captured = AssertSingleRequest(handler);
@@ -177,11 +177,11 @@ public class OpenAIImageRequestShapeTests
             InputImages = new[] { first, second },
             Mask = mask,
             Count = 3,
-            Size = "1024x1024",
-            Quality = "medium",
-            OutputFormat = "jpeg",
+            Size = ImageSize.Pixels(1024, 1024),
+            Quality = ImageQuality.Medium,
+            OutputFormat = ImageOutputFormat.Jpeg,
             OutputCompression = 72,
-            Background = "auto"
+            Background = ImageBackground.Auto
         });
 
         var captured = AssertSingleRequest(handler);
@@ -245,7 +245,7 @@ public class OpenAIImageRequestShapeTests
             Prompt = "Create images",
             Model = "custom-image-model",
             Count = 2,
-            OutputFormat = "webp"
+            OutputFormat = ImageOutputFormat.WebP
         });
 
         Assert.AreEqual("OpenAI", result.Provider);
@@ -275,7 +275,7 @@ public class OpenAIImageRequestShapeTests
         var result = await service.GenerateImagesAsync(new ImageGenerationRequest
         {
             Prompt = "Create an image",
-            OutputFormat = "jpeg"
+            OutputFormat = ImageOutputFormat.Jpeg
         });
 
         var image = result.Images.Single();
@@ -283,6 +283,44 @@ public class OpenAIImageRequestShapeTests
         Assert.AreEqual("https://images.example.test/generated.jpg", image.Url);
         Assert.AreEqual("image/jpeg", image.MediaType);
         Assert.AreEqual("revised", image.RevisedPrompt);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task AutomaticOutputFormat_FallsBackToPngWhenResponseOmitsFormat(bool editing)
+    {
+        const string responseBody = "{\"data\":[{\"b64_json\":\"AQID\"}]}";
+        var handler = new CaptureHttpMessageHandler(
+            _ => Task.FromResult(CreateResponse(HttpStatusCode.OK, responseBody)));
+        IImageGenerationService service = CreateService(handler);
+
+        var result = editing
+            ? await service.EditImagesAsync(new ImageEditRequest
+            {
+                Prompt = "Edit an image using the automatic output format",
+                InputImages = new[] { new ImageInput(new byte[] { 4, 5 }, "image/png", "source.png") }
+            })
+            : await service.GenerateImagesAsync(new ImageGenerationRequest
+            {
+                Prompt = "Generate an image using the automatic output format"
+            });
+
+        var captured = AssertSingleRequest(handler);
+        if (editing)
+        {
+            Assert.AreEqual("png", GetFormValue(captured, "output_format"));
+        }
+        else
+        {
+            using var sent = JsonDocument.Parse(captured.JsonBody!);
+            Assert.AreEqual("png", sent.RootElement.GetProperty("output_format").GetString());
+        }
+
+        var image = result.Images.Single();
+        Assert.AreEqual("image/png", image.MediaType,
+            "The missing response format must fall back to OpenAI's resolved PNG encoding, not the public Auto enum name.");
+        CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, image.Data);
     }
 
     [TestMethod]
@@ -436,6 +474,31 @@ public class OpenAIImageRequestShapeTests
 
         StringAssert.Contains(exception.Message, "Image request timeout after 1 seconds");
         Assert.IsInstanceOfType<OperationCanceledException>(exception.InnerException);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ResolutionPreset_IsRejectedBeforeHttpForGenerationAndEditing(bool edit)
+    {
+        var handler = new CaptureHttpMessageHandler();
+        IImageGenerationService service = CreateService(handler);
+
+        var exception = await Assert.ThrowsExactlyAsync<NotSupportedException>(() => edit
+            ? service.EditImagesAsync(new ImageEditRequest
+            {
+                Prompt = "test",
+                Size = ImageSize.Preset(ImageResolution.TwoK, ImageAspectRatio.ThreeByTwo),
+                InputImages = new[] { new ImageInput(new byte[] { 1 }, "image/png") }
+            })
+            : service.GenerateImagesAsync(new ImageGenerationRequest
+            {
+                Prompt = "test",
+                Size = ImageSize.Preset(ImageResolution.TwoK, ImageAspectRatio.ThreeByTwo)
+            }));
+
+        StringAssert.Contains(exception.Message, "Pixels");
+        Assert.AreEqual(0, handler.Requests.Count);
     }
 
     private static OpenAIService CreateService(CaptureHttpMessageHandler handler)

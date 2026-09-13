@@ -1,5 +1,10 @@
 # Streaming
 
+Để nhận câu trả lời, mức sử dụng và nguồn cùng lúc, dùng bản chụp `AIRunResult` do `await run.Result` trả về. Chuỗi ở `result.Text`; không cần đọc luồng. Đây là thay đổi của Mythosia.AI 8.0.0; kiểu trả về của `GetCompletionAsync` và `StructuredStreamRun<T>.Result` giữ nguyên. [Kết quả Run và chuyển đổi](execution-api-transition.md#run-result).
+
+
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
 Hiển thị từng phần văn bản ngay khi nhận được giúp người dùng không phải đợi câu trả lời dài hoàn thành mới đọc. Nếu cần cả nút Dừng và trạng thái công cụ, hãy bắt đầu bằng `StartRunAsync` rồi đọc `run.StreamAsync()`. [Hướng dẫn Run](execution-api-transition.md) có ví dụ về callback và hủy.
 
 ```csharp
@@ -13,14 +18,14 @@ await foreach (var item in run.StreamAsync())
         Console.Write(item.Content);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
-Các ví dụ bên dưới dùng `service.StreamAsync` cũ nhận đầu vào để tương thích với mã hiện có. Nó vẫn gọi được trong bản cập nhật nhỏ này và dự kiến rút khỏi API công khai ở bản chính tiếp theo. `run.StreamAsync()` là phương thức khác để theo dõi đầu ra của Run đã khởi chạy.
+StreamAsync nhận đầu vào của dịch vụ/RAG vẫn công khai trong v8. Dùng StartRunAsync cho điều khiển mới; run.StreamAsync() chỉ quan sát run đã tồn tại.
 
 ## Streaming cơ bản
 
-Dùng `StreamAsync` để nhận token khi chúng được sinh ra:
+Dùng `StreamAsync` để nhận văn bản khi được tạo ra.
 
 ```csharp
 await foreach (var token in service.StreamAsync("Kể cho tôi một câu chuyện"))
@@ -42,7 +47,7 @@ await foreach (var content in service.StreamAsync("Giải thích điện toán l
 
 ## Streaming suy luận
 
-Tất cả provider hỗ trợ suy luận (OpenAI, Claude, Gemini, Grok, DeepSeek) dùng cùng một pattern. Truyền `StreamOptions` với reasoning được bật:
+OpenAI, Claude, Gemini, Grok và DeepSeek Flash trả suy luận của nhà cung cấp qua cùng mẫu streaming. Bật suy luận ở dịch vụ hoặc yêu cầu rồi quan sát bằng `StreamOptions.WithReasoning()`:
 
 ```csharp
 using Mythosia.AI.Models.Streaming;
@@ -56,7 +61,11 @@ await foreach (var content in service.StreamAsync("Giải: 2x + 5 = 13", new Str
 }
 ```
 
-`StreamingContentType.Reasoning` mang chuỗi suy luận nội bộ của model, còn `StreamingContentType.Text` mang câu trả lời cuối cùng.
+Gemini 3.7/3.8 Flash dùng các sự kiện streaming và Run hiện có. `StreamingContentType.Reasoning` chứa bản tóm tắt hoặc tiến độ mà nhà cung cấp trả về, không bảo đảm cung cấp toàn bộ suy luận nội bộ. `StreamOptions.WithReasoning()` chọn đầu ra này, còn `WithReasoning(ReasoningLevel...)` của dịch vụ điều chỉnh mức suy luận.
+
+Grok 4.6 cũng có thể cung cấp tóm tắt suy luận tùy chọn qua các sự kiện này. Tùy chọn luồng chọn nội dung hiển thị; `WithReasoning(ReasoningLevel...)` chọn mức suy luận của một tác vụ. Không có tóm tắt không có nghĩa là suy luận đã tắt. Xem [cấu hình Grok](providers.md#xai-xaiservice).
+
+DeepSeek Flash trả `reasoning_content` qua cùng các sự kiện sau khi bật suy luận. `StreamOptions.WithReasoning()` điều khiển quan sát; `WithDeepSeekReasoning(...)` hoặc `WithReasoning(...)` của dịch vụ điều khiển suy luận. Xem [DeepSeek](providers.md#deepseek-deepseekservice).
 
 ## Streaming kết hợp Structured Output
 
@@ -142,6 +151,8 @@ var options = new StreamOptions()
     .WithFunctionCalls();  // bật function calling trong stream
 ```
 
+Hãy coi các đoạn đã hiển thị là đầu ra tạm thời cho đến khi `run.Result` thành công. Luồng xử lý streaming dùng chung tương thích với OpenAI và luồng xử lý streaming của DeepSeek từ chối văn bản, suy luận hoặc dữ liệu công cụ mới sau tín hiệu kết thúc rõ ràng, cũng như việc thay đổi lý do kết thúc: `run.Result` ném ngoại lệ, lượt bị lỗi không được lưu vào lịch sử và các công cụ của lượt đó không được thực thi. Cách xử lý lỗi này không hoàn tác các lượt trước hoặc những hành động đã được thực thi bên ngoài. Delta cuối cùng có thể đi kèm sự kiện kết thúc đầu tiên; sự kiện tiếp theo chỉ chứa dữ liệu sử dụng vẫn được chấp nhận.
+
 ## Stateless Streaming (StreamOnceAsync)
 
 Stream response mà không ảnh hưởng lịch sử hội thoại — tương đương streaming của `AskOnceAsync`:
@@ -170,3 +181,5 @@ await service.ApplySummaryPolicyIfNeededAsync();
 await foreach (var chunk in service.StreamAsync("Tiếp tục câu chuyện của chúng ta...", StreamOptions.Default))
     Console.Write(chunk.Content);
 ```
+
+Perplexity: [Giữ tác vụ dài tiếp tục chạy / Trích dẫn có thể chỉ đến web hoặc nguồn khác của nhà cung cấp. Vị trí thuộc từng phản hồi/phần nội dung, không phải kết quả Run đã nối. Giữ URL và tiêu đề để hiển thị, kiểm chứng; nguồn trả về không tự xác thực mọi khẳng định.](perplexity.md).

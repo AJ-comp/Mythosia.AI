@@ -1,5 +1,12 @@
 # 에이전트 (ReAct 루프)
 
+완성된 답변과 사용량·출처를 함께 받아야 한다면 `await run.Result`가 반환하는 `AIRunResult`를 사용하세요. 문자열은 `result.Text`에 있으며 스트림을 읽지 않아도 결과를 모읍니다. Mythosia.AI 8.0.0의 API 변경이며 `GetCompletionAsync`와 타입 지정 `StructuredStreamRun<T>.Result`의 반환형은 유지합니다. [Run 결과와 전환 안내](execution-api-transition.md#run-result).
+
+
+요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
+
+> `CreateRequest` 예제는 Mythosia.AI 8.0.0 / Abstractions 4.0.0의 기능입니다. Run과 공통 요청 기능이 처음 추가된 이전 7.1 버전에는 빌더가 없습니다. 이전 패키지에서는 기존 서비스 오버로드를 사용하세요.
+
 ## 에이전트 루프가 필요한 이유
 
 일반 함수 호출도 모델의 한 응답에서 요청된 **여러 함수를 순서가 보장된 배치로** 실행하고 다음 도구 라운드로 이어갈 수 있습니다. Agent API는 이 메커니즘을 명시적인 **단계 제한**이 있는 목표 지향 ReAct 루프로 묶어, 최종 답변이 나올 때까지 각 배치 결과를 모델에 다시 전달합니다:
@@ -16,12 +23,16 @@
 
 ```csharp
 // 작업을 시작하기 전에 service에 함수를 등록합니다.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "정책을 찾고 주문 상태를 확인해서 결과를 설명해줘.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("정책을 찾고 주문 상태를 확인해서 결과를 설명해줘.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+로컬 도구는 `Task<T>` / `ValueTask<T>`로 객체를 반환하고 라이브러리가 주입하는 `CancellationToken`을 받을 수 있습니다. `run.Cancel()`이나 시작 토큰의 취소는 이를 사용하는 도구에도 전달되며, 스트림 읽기만 멈추는 것은 실행 취소가 아닙니다. 예외는 실패로 기록합니다. 취소 시 대기 중인 호출은 건너뛰고, 토큰을 무시한 채 이미 실행 중인 도구는 정리 과정에서 완료를 기다립니다. [도구 반환값·오류·취소 안내](function-calling.md#tool-execution-contract)를 참고하세요.
 
 ## 기존 에이전트 API 호환
 

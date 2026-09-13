@@ -121,6 +121,9 @@ export async function runReference() {
     if (provider === 'openai' && !providerKeys?.OpenAI) {
       throw new Error('OpenAI API key is required.');
     }
+    if (provider === 'perplexity' && !providerKeys?.Perplexity) {
+      throw new Error('Perplexity API key is required.');
+    }
   } catch (err) {
     const message = err.message || 'Invalid RAG pipeline settings.';
     ragStatus.textContent = message;
@@ -176,6 +179,9 @@ export async function runReference() {
   if (provider === 'openai' && providerKeys?.OpenAI) {
     formData.append('openaiApiKey', providerKeys.OpenAI);
   }
+  if (provider === 'perplexity' && providerKeys?.Perplexity) {
+    formData.append('perplexityApiKey', providerKeys.Perplexity);
+  }
 
   ragTrace.innerHTML = renderLoadingDetails({
     files: files.map((file) => file.name),
@@ -185,7 +191,7 @@ export async function runReference() {
     vectorStore: vectorStore.provider
   });
   Object.entries(vectorStore).forEach(([key, value]) => {
-    if (key === 'openAiApiKey') return;
+    if (key === 'openAiApiKey' || key === 'perplexityApiKey') return;
     if (value === undefined || value === null) return;
     formData.append(key, String(value));
   });

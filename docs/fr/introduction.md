@@ -22,12 +22,12 @@ Tous les fournisseurs sont inclus dans le package principal `Mythosia.AI` (sauf 
 
 | Fournisseur | Modèles |
 |----------|--------|
-| **OpenAI** | GPT-6 Astra, GPT-5.x, GPT-4.1, GPT-4o, série o3 |
-| **Anthropic** | Claude Fable 5, Mythos 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
-| **Google** | Gemini 2.5 / série 3 |
-| **xAI** | série Grok 4, Grok Build |
-| **DeepSeek** | Chat, Reasoner |
-| **Perplexity** | Sonar, Sonar Pro, Sonar Reasoning Pro |
+| **OpenAI** | GPT-6 Astra, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
+| **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
+| **xAI** | Grok 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
+| **DeepSeek** | Flash (V4.1 Flash) |
+| **Perplexity** | Préréglages Agent API et `perplexity/sonar` |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 
 ## Vue d'ensemble de l'architecture

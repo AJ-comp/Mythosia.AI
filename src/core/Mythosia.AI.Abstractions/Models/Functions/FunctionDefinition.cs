@@ -1,8 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Mythosia.AI.Models;
 
@@ -16,7 +20,39 @@ namespace Mythosia.AI.Models.Functions
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public FunctionParameters Parameters { get; set; }
-        public Func<Dictionary<string, object>, Task<string>>? Handler { get; set; }
+        private Func<Dictionary<string, object>, Task<string>>? _handler;
+        private Func<Dictionary<string, object>, CancellationToken, Task<string>>? _handlerWithCancellation;
+
+        /// <summary>
+        /// Gets or replaces the tool handler. This compatibility view invokes a cancellation-aware
+        /// handler with CancellationToken.None when called directly. Setting either handler property
+        /// replaces the same callable; handlers registered here do not receive execution cancellation.
+        /// </summary>
+        public Func<Dictionary<string, object>, Task<string>>? Handler
+        {
+            get => _handler;
+            set
+            {
+                _handler = value;
+                if (value == null) _handlerWithCancellation = null;
+                else _handlerWithCancellation = (arguments, token) => value(arguments);
+            }
+        }
+
+        /// <summary>
+        /// Gets or replaces the tool handler that receives execution cancellation. Pass the token
+        /// to cancellable operations to stop cooperatively. Setting this also updates Handler.
+        /// </summary>
+        public Func<Dictionary<string, object>, CancellationToken, Task<string>>? HandlerWithCancellation
+        {
+            get => _handlerWithCancellation;
+            set
+            {
+                _handlerWithCancellation = value;
+                if (value == null) _handler = null;
+                else _handler = arguments => value(arguments, CancellationToken.None);
+            }
+        }
 
         /// <summary>
         /// Allows a supporting model and API to continue working while this function executes.
@@ -174,13 +210,20 @@ namespace Mythosia.AI.Models.Functions
         public string Content { get; set; } = string.Empty;
         public bool IsError { get; set; }
 
+        /// <summary>
+        /// Whether execution was cancelled or skipped because cancellation was requested.
+        /// The executor also sets IsError so providers cannot interpret cancellation as success.
+        /// </summary>
+        public bool IsCancelled { get; set; }
+
         internal FunctionCallResult Clone()
         {
             return new FunctionCallResult
             {
                 Call = Call.Clone(),
                 Content = Content,
-                IsError = IsError
+                IsError = IsError,
+                IsCancelled = IsCancelled
             };
         }
     }
@@ -216,9 +259,9 @@ namespace Mythosia.AI.Models.Functions
     }
 
     /// <summary>
-    /// Copies mutable JSON-like data carried by function calls. Provider values such as
-    /// JsonElement are value types and remain unchanged, while dictionaries, lists, and arrays
-    /// are detached so handlers and stream consumers cannot rewrite stored call history.
+    /// Copies mutable JSON-like data carried by function calls. JSON elements are detached from
+    /// their owning document, and JSON nodes, dictionaries, lists and arrays are copied so handlers
+    /// and stream consumers cannot rewrite stored call history.
     /// </summary>
     internal static class ObjectGraphSnapshot
     {
@@ -241,38 +284,86 @@ namespace Mythosia.AI.Models.Functions
 
         private static object? CloneValue(
             object? value,
-            Dictionary<object, object> visited)
+            Dictionary<object, object> visited,
+            Action<object>? onCloneCreated = null)
         {
-            if (value == null || value is string || value.GetType().IsValueType)
+            if (value == null || value is string)
+            {
+                if (value != null) onCloneCreated?.Invoke(value);
                 return value;
+            }
 
             if (visited.TryGetValue(value, out var existing))
+            {
+                onCloneCreated?.Invoke(existing);
                 return existing;
+            }
+
+            if (TryCloneJsonValue(value, out var jsonClone))
+            {
+                visited[value] = jsonClone!;
+                onCloneCreated?.Invoke(jsonClone!);
+                return jsonClone;
+            }
+
+            if (value.GetType().IsValueType)
+            {
+                onCloneCreated?.Invoke(value);
+                return value;
+            }
 
             if (value is Dictionary<string, object> stringDictionary)
             {
                 var clone = new Dictionary<string, object>(stringDictionary.Comparer);
                 visited[value] = clone;
+                onCloneCreated?.Invoke(clone);
                 foreach (var item in stringDictionary)
                     clone[item.Key] = CloneValue(item.Value, visited)!;
                 return clone;
             }
 
-            if (value is Array array && array.Rank == 1)
+            if (TryGetReadOnlyBacking(value, out var backing))
             {
-                var clone = Array.CreateInstance(
-                    value.GetType().GetElementType() ?? typeof(object),
-                    array.Length);
+                object? clone = null;
+                CloneValue(backing, visited, clonedBacking =>
+                {
+                    clone = Activator.CreateInstance(value.GetType(), clonedBacking)!;
+                    // A read-only view can occur inside its own backing collection. Publish
+                    // the view when the backing copy is created, before copying its contents.
+                    visited[value] = clone;
+                    onCloneCreated?.Invoke(clone);
+                });
+                return clone;
+            }
+
+            if (value is Array array)
+            {
+                // Preserve the CLR array type, rank and lower bounds before detaching elements.
+                var clone = (Array)array.Clone();
                 visited[value] = clone;
-                for (var index = 0; index < array.Length; index++)
-                    clone.SetValue(CloneValue(array.GetValue(index), visited), index);
+                onCloneCreated?.Invoke(clone);
+                if (array.LongLength == 0) return clone;
+                var indices = Enumerable.Range(0, array.Rank).Select(array.GetLowerBound).ToArray();
+                while (true)
+                {
+                    clone.SetValue(CloneValue(array.GetValue(indices), visited), indices);
+                    var dimension = array.Rank - 1;
+                    while (dimension >= 0 && indices[dimension] == array.GetUpperBound(dimension))
+                    {
+                        indices[dimension] = array.GetLowerBound(dimension);
+                        dimension--;
+                    }
+                    if (dimension < 0) break;
+                    indices[dimension]++;
+                }
                 return clone;
             }
 
             if (value is IDictionary dictionary)
             {
-                var clone = TryCreate<IDictionary>(value.GetType()) ?? new Hashtable();
+                var clone = CreateDictionaryWithComparer(dictionary) ?? new Hashtable();
                 visited[value] = clone;
+                onCloneCreated?.Invoke(clone);
                 foreach (DictionaryEntry item in dictionary)
                     clone[CloneValue(item.Key, visited)!] = CloneValue(item.Value, visited);
                 return clone;
@@ -282,14 +373,102 @@ namespace Mythosia.AI.Models.Functions
             {
                 var clone = TryCreate<IList>(value.GetType()) ?? new ArrayList();
                 visited[value] = clone;
+                onCloneCreated?.Invoke(clone);
                 foreach (var item in list)
                     clone.Add(CloneValue(item, visited));
                 return clone;
             }
 
-            // Supported providers deserialize arguments to JSON primitives or JsonElement.
             // Unknown provider-specific reference types are treated as immutable.
+            onCloneCreated?.Invoke(value);
             return value;
+        }
+
+        private static bool TryGetReadOnlyBacking(object value, out object? backing)
+        {
+            backing = null;
+            var type = value.GetType();
+            if (!type.IsGenericType) return false;
+            var definition = type.GetGenericTypeDefinition();
+            var propertyName = definition == typeof(ReadOnlyCollection<>) ? "Items"
+                : definition == typeof(ReadOnlyDictionary<,>) ? "Dictionary"
+                : null;
+            if (propertyName == null) return false;
+
+            // Only these exact BCL wrappers are inspected. Their protected accessors expose
+            // the backing collection without invoking user-defined cloning or getter code.
+            backing = type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.NonPublic)!
+                .GetValue(value);
+            return true;
+        }
+
+        private static bool TryCloneJsonValue(object value, out object? clone)
+        {
+            clone = null;
+            var type = value.GetType();
+            // Abstractions does not require a JSON package. Bridge only the known System.Text.Json
+            // types when present; never discover arbitrary caller-defined cloning methods.
+            if (type.Assembly.GetName().Name != "System.Text.Json")
+                return false;
+
+            try
+            {
+                MethodInfo? method = null;
+                if (type.FullName == "System.Text.Json.JsonElement")
+                {
+                    // Undefined is the default struct value and has no owner to detach.
+                    // Calling JsonElement.Clone on it throws on supported JSON runtimes.
+                    if (Convert.ToInt32(type.GetProperty("ValueKind")!.GetValue(value)) == 0)
+                    {
+                        clone = value;
+                        return true;
+                    }
+                    method = type.GetMethod("Clone", Type.EmptyTypes);
+                }
+                else
+                {
+                    for (var current = type; current != null; current = current.BaseType)
+                    {
+                        if (current.FullName != "System.Text.Json.Nodes.JsonNode") continue;
+                        method = current.GetMethod("DeepClone", Type.EmptyTypes)
+                            ?? throw new NotSupportedException("Snapshotting JSON nodes requires System.Text.Json with JsonNode.DeepClone support.");
+                        break;
+                    }
+                }
+                if (method == null) return false;
+                clone = method.Invoke(value, null);
+            }
+            catch (TargetInvocationException exception) when (exception.InnerException != null)
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
+            }
+            return true;
+        }
+
+        private static IDictionary? CreateDictionaryWithComparer(IDictionary source)
+        {
+            var type = source.GetType();
+            if (type == typeof(Hashtable) || type == typeof(SortedList))
+            {
+                // The BCL clone preserves comparer settings that have no public getter.
+                var clone = (IDictionary)((ICloneable)source).Clone();
+                clone.Clear();
+                return clone;
+            }
+            if (type.IsGenericType)
+            {
+                var definition = type.GetGenericTypeDefinition();
+                // These exact BCL types expose comparer constructors. Keep custom container
+                // behavior on the existing fallback path rather than inspecting arbitrary properties.
+                if (definition == typeof(Dictionary<,>) || definition == typeof(SortedDictionary<,>) ||
+                    definition == typeof(SortedList<,>))
+                {
+                    var comparer = type.GetProperty("Comparer")!.GetValue(source);
+                    return (IDictionary)Activator.CreateInstance(type, comparer)!;
+                }
+            }
+            return TryCreate<IDictionary>(type);
         }
 
         private static T? TryCreate<T>(Type type)

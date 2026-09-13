@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 ## C'est quoi ?
 
 `AIRequestProfile` vous permet de remplacer les paramètres de génération — température, tokens maximum, mode sans état, appel de fonctions — **pour une seule requête**. Les paramètres globaux du service restent intacts.
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("Réécris cette requête : ...
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-Les paramètres globaux du service ne sont jamais touchés. Aucun nettoyage nécessaire. Thread-safe.
+Un profil définit les paramètres d’un appel ; il ne garantit pas l’utilisation concurrente d’une conversation partagée. Préférez `service.CreateRequest(prompt).WithProfile(profile)` pour le capturer dans une requête indépendante. Les surcharges existantes restent disponibles.
 
 ## Propriétés disponibles
 

@@ -16,6 +16,8 @@
 
 여러 번 검색하는 동안 도구 활동을 표시하거나 조건을 추가하고 싶다면 `StartRunAsync`의 실행 객체를 보관합니다. 지원되는 추가 지시와 실행 제어는 [Run 사용 안내](execution-api-transition.md)를 참고하세요. `WithAgenticRag`는 검색 도구를 등록하는 API로 계속 유지합니다.
 
+`WithAgenticRag`는 실행 취소 토큰을 `RagStore.QueryAsync`까지 전달하므로 토큰을 사용하는 검색 구성요소도 중단할 수 있습니다. 검색 예외는 진단 기록을 남긴 뒤 실패한 도구 결과로 처리하며, 정상 반환된 오류 문자열로 처리하지 않습니다. 취소된 run은 다음 모델 라운드를 진행하지 않습니다. [공통 도구 계약](function-calling.md#tool-execution-contract)을 참고하세요.
+
 ## 빠른 시작
 
 `RagStore`를 한 번 빌드한 뒤 `WithAgenticRag(...)`로 등록하고 에이전트를 실행합니다.
@@ -30,7 +32,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("환불 정책을 요약해 줘.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 기본적으로 `WithAgenticRag(...)`는 `search_documents`라는 도구를 등록합니다. 에이전트는 문서 컨텍스트가 필요하다고 판단하면 이 도구를 자동으로 호출하고, 검색된 발췌문을 바탕으로 최종 답변을 생성합니다.
@@ -73,7 +75,7 @@ service.WithAgenticRag(ragStore)
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "주문 #12345는 현재 정책 기준으로 환불 대상인가요?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 이 예제에서 에이전트는 환불 규칙을 문서에서 검색하고, 주문 API로 실시간 주문 상태를 조회한 뒤, 두 정보를 합쳐 최종 답변을 생성할 수 있습니다.

@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -103,7 +103,7 @@ namespace Mythosia.AI.Services.Anthropic
                         Content = "Claude emitted a malformed streaming response; no tools were executed and the partial response was not saved.",
                         Metadata = new Dictionary<string, object>
                         {
-                            ["model"] = currentModel ?? Model,
+                            ["model"] = currentModel ?? RequestModel,
                             ["error_type"] = "malformed_stream"
                         }
                     };
@@ -131,7 +131,7 @@ namespace Mythosia.AI.Services.Anthropic
 
                         var metadata = new Dictionary<string, object>
                         {
-                            ["model"] = currentModel ?? Model
+                            ["model"] = currentModel ?? RequestModel
                         };
                         if (!string.IsNullOrWhiteSpace(parseResult.StreamErrorType))
                             metadata["error_type"] = parseResult.StreamErrorType;
@@ -166,7 +166,7 @@ namespace Mythosia.AI.Services.Anthropic
                             Metadata = new Dictionary<string, object>
                             {
                                 ["stop_reason"] = parseResult.StopReason!,
-                                ["model"] = currentModel ?? Model
+                                ["model"] = currentModel ?? RequestModel
                             }
                         };
                         if (accInputTokens.HasValue || accOutputTokens.HasValue)
@@ -195,7 +195,7 @@ namespace Mythosia.AI.Services.Anthropic
                         var metadata = new Dictionary<string, object>
                         {
                             ["stop_reason"] = "refusal",
-                            ["model"] = currentModel ?? Model
+                            ["model"] = currentModel ?? RequestModel
                         };
                         if (!string.IsNullOrWhiteSpace(parseResult.RefusalCategory))
                             metadata["category"] = parseResult.RefusalCategory;
@@ -271,7 +271,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 Content = parseResult.ThinkingContent,
                                 Metadata = options.IncludeMetadata ? new Dictionary<string, object>
                                 {
-                                    ["model"] = currentModel ?? Model
+                                    ["model"] = currentModel ?? RequestModel
                                 } : null
                             };
                         }
@@ -287,7 +287,7 @@ namespace Mythosia.AI.Services.Anthropic
                             Content = parseResult.TextContent,
                             Metadata = options.IncludeMetadata ? new Dictionary<string, object>
                             {
-                                ["model"] = currentModel ?? Model
+                                ["model"] = currentModel ?? RequestModel
                             } : null
                         };
                     }
@@ -307,7 +307,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 Content = argumentError,
                                 Metadata = new Dictionary<string, object>
                                 {
-                                    ["model"] = currentModel ?? Model,
+                                    ["model"] = currentModel ?? RequestModel,
                                     ["error_type"] = "invalid_tool_arguments",
                                     ["function_name"] = completedToolUseData.Name ?? "unknown",
                                     ["tool_use_id"] = completedToolUseData.Id ?? string.Empty
@@ -336,7 +336,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 Content = "Claude completed the stream with an unfinished tool-use block; no tools were executed.",
                                 Metadata = new Dictionary<string, object>
                                 {
-                                    ["model"] = currentModel ?? Model,
+                                    ["model"] = currentModel ?? RequestModel,
                                     ["error_type"] = "incomplete_tool_use"
                                 }
                             };
@@ -354,7 +354,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 Content = "Claude completed a stream containing tool calls without stop_reason=tool_use; no tools were executed.",
                                 Metadata = new Dictionary<string, object>
                                 {
-                                    ["model"] = currentModel ?? Model,
+                                    ["model"] = currentModel ?? RequestModel,
                                     ["stop_reason"] = finalStopReason ?? "missing"
                                 }
                             };
@@ -371,29 +371,33 @@ namespace Mythosia.AI.Services.Anthropic
                                 Content = "Claude reported stop_reason=tool_use without a usable tool call; no tool was executed.",
                                 Metadata = new Dictionary<string, object>
                                 {
-                                    ["model"] = currentModel ?? Model,
+                                    ["model"] = currentModel ?? RequestModel,
                                     ["stop_reason"] = finalStopReason!
                                 }
                             };
                             break;
                         }
 
+                        RecordClaudeThinkingContent(thinkingBuffer.Length == 0 ? null : thinkingBuffer.ToString());
                         reasoningAttempt.Accept();
                         foreach (var citation in ExtractClaudeCitations(assistantContent.Serialize(), responseId))
                             yield return new StreamingContent { Type = StreamingContentType.Citation, Citation = citation };
 
-                        if (!options.TextOnly)
+                        // Terminal data is consumed by the shared loop regardless of observation options.
                         {
                             var completionContent = new StreamingContent
                             {
-                                Type = StreamingContentType.Completion
+                                Type = StreamingContentType.Completion,
+                                ResponseModel = currentModel,
+                                RawFinishReason = finalStopReason,
+                                FinishReason = MapFinishReason(finalStopReason)
                             };
                             if (options.IncludeMetadata)
                             {
                                 completionContent.Metadata = new Dictionary<string, object>
                                 {
                                     ["total_length"] = textBuffer.Length,
-                                    ["model"] = currentModel ?? Model,
+                                    ["model"] = currentModel ?? RequestModel,
                                     ["stop_reason"] = finalStopReason ?? "missing"
                                 };
                             }
@@ -432,7 +436,7 @@ namespace Mythosia.AI.Services.Anthropic
                     Content = "Claude stream ended before message_stop; no tools were executed and the partial response was not saved.",
                     Metadata = new Dictionary<string, object>
                     {
-                        ["model"] = currentModel ?? Model,
+                        ["model"] = currentModel ?? RequestModel,
                         ["stop_reason"] = finalStopReason ?? "missing"
                     }
                 };
@@ -492,7 +496,7 @@ namespace Mythosia.AI.Services.Anthropic
                         Content = "Claude emitted an invalid tool-use batch; no tools were executed.",
                         Metadata = new Dictionary<string, object>
                         {
-                            ["model"] = currentModel ?? Model,
+                            ["model"] = currentModel ?? RequestModel,
                             ["error_type"] = "invalid_tool_batch",
                             ["error_details"] = batchException.Message
                         }
@@ -523,9 +527,9 @@ namespace Mythosia.AI.Services.Anthropic
                     };
                 }
             }
-            else if (textBuffer.Length > 0 || CurrentRequestFeatures.WebSearch != null)
+            else if (textBuffer.Length > 0 || PreserveClaudeAssistantContent)
             {
-                ActivateChat.Messages.Add(CurrentRequestFeatures.WebSearch != null
+                ActivateChat.Messages.Add(PreserveClaudeAssistantContent
                     ? CreateNativeClaudeAssistantMessage(textBuffer.ToString(), assistantContent.Serialize())
                     : new Message(ActorRole.Assistant, textBuffer.ToString()));
             }
@@ -740,6 +744,7 @@ namespace Mythosia.AI.Services.Anthropic
                             if (root.TryGetProperty("message", out var msgStart))
                             {
                                 result.ResponseId = ReadClaudeString(msgStart, "id");
+                                RecordClaudeInputTransformations(msgStart, result.ResponseId, ReadClaudeString(msgStart, "model"));
                                 if (msgStart.TryGetProperty("model", out var msgModel))
                                 {
                                     result.Model = msgModel.GetString();
@@ -872,6 +877,9 @@ namespace Mythosia.AI.Services.Anthropic
                             break;
 
                         case "message_delta":
+                            RecordClaudeInputTransformations(root, model: ReadClaudeString(root, "model"));
+                            if (root.TryGetProperty("delta", out var transformationDelta) && transformationDelta.ValueKind == JsonValueKind.Object)
+                                RecordClaudeInputTransformations(transformationDelta, model: ReadClaudeString(transformationDelta, "model"));
                             // Message delta (usage info - output_tokens)
                             if (root.TryGetProperty("delta", out var messageDelta))
                             {

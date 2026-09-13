@@ -27,6 +27,13 @@ import {
   ragOpenAiKeyInput,
   ragOpenAiKeySave,
   ragOpenAiKeyStatus,
+  ragPerplexityModelRow,
+  ragPerplexityModel,
+  ragPerplexityDimensions,
+  ragPerplexityKey,
+  ragPerplexityKeyInput,
+  ragPerplexityKeySave,
+  ragPerplexityKeyStatus,
   ragPgDimension,
   ragQdrantDimension
 } from './dom.js';
@@ -44,6 +51,12 @@ export function getSelectedEmbeddingProvider() {
 
 export function getEmbeddingDefaults(provider) {
   const p = provider || getSelectedEmbeddingProvider();
+  if (p === 'perplexity') {
+    const model = ragPerplexityModel?.value?.trim();
+    const dimsMap = { 'pplx-embed-v1-0.6b': 1024, 'pplx-embed-v1-4b': 2560 };
+    if (!model || !dimsMap[model]) throw new Error('A valid Perplexity standard embedding model must be selected.');
+    return { model, dims: dimsMap[model] };
+  }
   if (p === 'ollama') {
     const model = ragOllamaModel?.value?.trim();
     const dimsMap = {
@@ -89,6 +102,15 @@ export function getSelectedEmbeddingDimensions() {
   if (provider === 'ollama') input = ragOllamaDimensions;
   else if (provider === 'vllm') input = ragVllmDimensions;
   else if (provider === 'openai') input = ragOpenAiDimensions;
+  else if (provider === 'perplexity') input = ragPerplexityDimensions;
+  if (provider === 'perplexity') {
+    const value = Number(input?.value);
+    const maximum = getEmbeddingDefaults(provider).dims;
+    if (!Number.isInteger(value) || value < 128 || value > maximum) {
+      throw new Error(`Perplexity dimensions must be an integer between 128 and ${maximum}.`);
+    }
+    return value;
+  }
   const val = parseInt(input?.value, 10);
   return Number.isFinite(val) && val > 0 ? val : getEmbeddingDefaults(provider).dims;
 }
@@ -97,11 +119,20 @@ export function setEmbeddingDimensions(provider, dims) {
   if (provider === 'ollama' && ragOllamaDimensions) ragOllamaDimensions.value = dims;
   else if (provider === 'vllm' && ragVllmDimensions) ragVllmDimensions.value = dims;
   else if (provider === 'openai' && ragOpenAiDimensions) ragOpenAiDimensions.value = dims;
+  else if (provider === 'perplexity' && ragPerplexityDimensions) ragPerplexityDimensions.value = dims;
+}
+
+export function getEmbeddingCredentials() {
+  const provider = getSelectedEmbeddingProvider();
+  if (provider === 'openai') return { openAiApiKey: providerKeys?.OpenAI || null };
+  if (provider === 'perplexity') return { perplexityApiKey: providerKeys?.Perplexity || null };
+  return {};
 }
 
 export function updateEmbeddingUI(resetDimensions = false) {
   const provider = getSelectedEmbeddingProvider();
   const hasOpenAiKey = !!providerKeys?.OpenAI;
+  const hasPerplexityKey = !!providerKeys?.Perplexity;
   const providerLabel = provider ? provider.toUpperCase() : 'N/A';
   const openAiModel = ragOpenAiModel?.value?.trim() || '';
   const ollamaModel = ragOllamaModel?.value?.trim() || '';
@@ -110,7 +141,19 @@ export function updateEmbeddingUI(resetDimensions = false) {
     ? ollamaModel
     : provider === 'vllm'
       ? vllmModel
-      : openAiModel;
+      : provider === 'perplexity' ? ragPerplexityModel?.value?.trim() || '' : openAiModel;
+
+  ragPerplexityModelRow?.classList.toggle('hidden', provider !== 'perplexity');
+  ragPerplexityKey?.classList.toggle('hidden', provider !== 'perplexity' || hasPerplexityKey);
+  if (ragPerplexityKeyInput && provider !== 'perplexity') ragPerplexityKeyInput.value = '';
+  if (ragPerplexityKeyStatus) {
+    ragPerplexityKeyStatus.textContent = hasPerplexityKey
+      ? 'Perplexity key already saved in localStorage.' : 'Stored in localStorage for this browser.';
+    setStatusState(ragPerplexityKeyStatus, hasPerplexityKey ? 'success' : null);
+  }
+  if (ragPerplexityDimensions) {
+    try { ragPerplexityDimensions.max = String(getEmbeddingDefaults('perplexity').dims); } catch { /* no selection */ }
+  }
 
   if (ragOpenAiKey) {
     ragOpenAiKey.classList.toggle('hidden', provider !== 'openai' || hasOpenAiKey);
@@ -156,11 +199,15 @@ export function updateEmbeddingUI(resetDimensions = false) {
       ragEmbeddingHint.textContent = hasOpenAiKey
         ? `Using stored OpenAI API key (${openAiModel}).`
         : 'OpenAI API key required. Enter it below.';
+    } else if (provider === 'perplexity') {
+      ragEmbeddingHint.textContent = hasPerplexityKey
+        ? `Using stored Perplexity API key (${embeddingModel}).`
+        : 'Perplexity API key required. Enter it below.';
     }
   }
 
   if (ragEmbeddingStatus) {
-    if (provider === 'openai' || provider === 'ollama' || provider === 'vllm') {
+    if (provider === 'openai' || provider === 'ollama' || provider === 'vllm' || provider === 'perplexity') {
       ragEmbeddingStatus.textContent = `Embedding: ${providerLabel} · ${embeddingModel}`;
     } else {
       ragEmbeddingStatus.textContent = `Embedding: ${providerLabel}`;
@@ -177,6 +224,7 @@ export function updateEmbeddingUI(resetDimensions = false) {
       if (provider === 'openai' && ragOpenAiDimensions) ragOpenAiDimensions.value = defaults.dims;
       if (provider === 'ollama' && ragOllamaDimensions) ragOllamaDimensions.value = defaults.dims;
       if (provider === 'vllm' && ragVllmDimensions) ragVllmDimensions.value = defaults.dims;
+      if (provider === 'perplexity' && ragPerplexityDimensions) ragPerplexityDimensions.value = defaults.dims;
     } catch { /* model not yet selected */ }
   }
   try {
@@ -187,6 +235,9 @@ export function updateEmbeddingUI(resetDimensions = false) {
   } catch { /* ignore */ }
   try {
     if (ragVllmDimensions && !ragVllmDimensions.value?.trim()) ragVllmDimensions.value = getEmbeddingDefaults('vllm').dims;
+  } catch { /* ignore */ }
+  try {
+    if (ragPerplexityDimensions && !ragPerplexityDimensions.value?.trim()) ragPerplexityDimensions.value = getEmbeddingDefaults('perplexity').dims;
   } catch { /* ignore */ }
 
   // Set vector store dimension defaults (only if empty)
@@ -320,5 +371,16 @@ export function saveInlineOpenAiKey() {
     ragOpenAiKeySave.disabled = true;
   }
 
+  updateEmbeddingUI();
+}
+
+export function saveInlinePerplexityKey() {
+  const key = ragPerplexityKeyInput?.value?.trim();
+  if (!key) return;
+  providerKeys.Perplexity = key;
+  saveKeysToStorage();
+  refreshProviderGroup('Perplexity');
+  ragPerplexityKeyInput.value = '';
+  if (ragPerplexityKeySave) ragPerplexityKeySave.disabled = true;
   updateEmbeddingUI();
 }

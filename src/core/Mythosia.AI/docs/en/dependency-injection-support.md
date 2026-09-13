@@ -1,5 +1,7 @@
 # [To-Be] Consumer API Improvement
 
+For independent settings and reusable variations, use [the request builder](../../../../../docs/request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 > **Core goal**: The external API must be clean and elegant. Model switching must be a single line.
 
 ## As-Is — Current friction

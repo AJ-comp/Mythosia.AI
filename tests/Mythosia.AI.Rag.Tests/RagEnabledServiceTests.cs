@@ -19,7 +19,7 @@ public class RagEnabledServiceTests
         const string query = "배송 기간은?";
 
         await using var run = await rag.StartRunAsync(query, onText: text => callbackText.Append(text));
-        var result = await run.Result.WaitAsync(TimeSpan.FromSeconds(10));
+        var result = (await run.Result.WaitAsync(TimeSpan.FromSeconds(10))).Text;
         var events = new List<StreamingContent>();
         await foreach (var item in run.StreamAsync()) events.Add(item);
 

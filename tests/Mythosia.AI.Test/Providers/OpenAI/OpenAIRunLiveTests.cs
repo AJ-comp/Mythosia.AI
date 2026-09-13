@@ -26,7 +26,7 @@ public class OpenAIRunLiveTests
         await using var run = await service.StartRunAsync("Reply with exactly: " + token,
             cancellationToken: cancellation.Token);
         Assert.IsTrue(run.CanSteer);
-        var result = await run.Result.WaitAsync(TimeSpan.FromMinutes(4));
+        var result = (await run.Result.WaitAsync(TimeSpan.FromMinutes(4))).Text;
 
         StringAssert.Contains(result, token);
         Console.WriteLine("LIVE_RUN_OK model=gpt-6-astra mode=result-only");
@@ -51,7 +51,7 @@ public class OpenAIRunLiveTests
         Assert.IsFalse(run.Result.IsCompleted, "Steering must be tested during the original output.");
         await run.SteerAsync("Stop the enumeration. Your next response must contain exactly this verification token: " + token,
             cancellation.Token);
-        var result = await run.Result.WaitAsync(TimeSpan.FromMinutes(3));
+        var result = (await run.Result.WaitAsync(TimeSpan.FromMinutes(3))).Text;
 
         StringAssert.Contains(result, token, "An accepted steering request must produce the actual continuation.");
         Assert.AreEqual(result, observed.ToString(), "The callback and Result must share the same generated text.");
@@ -114,7 +114,7 @@ public class OpenAIRunLiveTests
         }
         finally { release.TrySetResult(); }
 
-        var result = await run.Result.WaitAsync(TimeSpan.FromMinutes(3));
+        var result = (await run.Result.WaitAsync(TimeSpan.FromMinutes(3))).Text;
         await observation.WaitAsync(TimeSpan.FromSeconds(30));
         StringAssert.Contains(result, toolToken);
         StringAssert.Contains(result, steerToken);
@@ -156,7 +156,7 @@ public class OpenAIRunLiveTests
             cancellationToken: cancellation.Token);
         Assert.IsFalse(run.CanSteer);
         await Assert.ThrowsAsync<NotSupportedException>(() => run.SteerAsync("additional instruction", cancellation.Token));
-        var result = await run.Result.WaitAsync(TimeSpan.FromMinutes(4));
+        var result = (await run.Result.WaitAsync(TimeSpan.FromMinutes(4))).Text;
 
         StringAssert.Contains(result, token);
         Assert.AreEqual(1, invocations);

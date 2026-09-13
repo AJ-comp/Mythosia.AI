@@ -20,32 +20,15 @@ namespace Mythosia.AI.Services.Google
                 if (reasoning.Cache == CachePreservation.Required)
                     throw new NotSupportedException("Gemini does not support cache-preserving per-message reasoning changes.");
                 var level = reasoning.Level;
-                if (level != ReasoningLevel.Auto)
-                {
-                    if (IsGemini3Model())
-                    {
-                        if (level == ReasoningLevel.None || level == ReasoningLevel.XHigh || level == ReasoningLevel.Max ||
-                            (level == ReasoningLevel.Minimal &&
-                             (Model.Contains("-pro", StringComparison.OrdinalIgnoreCase) ||
-                              Model.StartsWith("gemini-3.7", StringComparison.OrdinalIgnoreCase) ||
-                              Model.StartsWith("gemini-3.8", StringComparison.OrdinalIgnoreCase))))
-                            throw new NotSupportedException($"Gemini model '{Model}' does not support reasoning level {level}.");
-                    }
-                    else if (level != ReasoningLevel.None ||
-                             !Model.StartsWith("gemini-2.5-flash", StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw new NotSupportedException(
-                            $"Gemini model '{Model}' has no native reasoning level {level}. Use its provider-specific ThinkingBudget where supported.");
-                    }
-                }
+                if (!GetCommonGeminiReasoningLevels().Contains(level))
+                    throw new NotSupportedException(
+                        $"Gemini model '{RequestModel}' does not support reasoning level {level}. Use its provider-specific ThinkingBudget where supported.");
             }
 
             if (features.WebSearch == null && features.FileSearch == null)
                 return;
-            if (!IsGemini3Model() && !Model.StartsWith("gemini-2.5", StringComparison.OrdinalIgnoreCase))
-                throw new NotSupportedException($"Gemini model '{Model}' is not supported by the native search adapter.");
-            if (Model.Contains("image", StringComparison.OrdinalIgnoreCase))
-                throw new NotSupportedException("The common native search adapter supports Gemini text generation models.");
+            if (!IsGeminiSearchAdapterModel())
+                throw new NotSupportedException($"Gemini model '{RequestModel}' is not supported by the native search adapter.");
             if (features.WebSearch?.AllowedDomains?.Count > 0)
                 throw new NotSupportedException("Gemini Google Search does not expose an allowed-domain filter.");
             if (features.WebSearch != null && features.FileSearch != null)
@@ -64,7 +47,7 @@ namespace Mythosia.AI.Services.Google
                         store.Id.Length == "fileSearchStores/".Length)
                         throw new ArgumentException("Google file search store IDs must use fileSearchStores/{id}.");
                 }
-                if (!IsGemini3Model() && _structuredOutputSchemaJson != null)
+                if (!IsGemini3Model() && RequestStructuredOutputSchemaJson != null)
                     throw new NotSupportedException("Gemini File Search with structured output requires a Gemini 3 model.");
             }
         }

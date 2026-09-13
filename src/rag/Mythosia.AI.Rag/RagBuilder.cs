@@ -421,6 +421,15 @@ namespace Mythosia.AI.Rag
             return this;
         }
 
+        /// <summary>Uses standard Perplexity embeddings, normalized for cosine retrieval.</summary>
+        /// <remarks>The caller owns HttpClient. Contextualized document groups use PerplexityContextualizedEmbeddingProvider separately.</remarks>
+        public RagBuilder UsePerplexityEmbedding(string apiKey, HttpClient httpClient,
+            string model = PerplexityEmbeddingModels.Standard0_6B, int? dimensions = null)
+        {
+            _embeddingProvider = new PerplexityEmbeddingProvider(apiKey, httpClient, model, dimensions);
+            return this;
+        }
+
         /// <summary>
         /// Uses a custom embedding provider.
         /// </summary>

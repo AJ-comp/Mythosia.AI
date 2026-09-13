@@ -1,5 +1,7 @@
 # Gerenciamento de Conversas
 
+Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
+
 ## Como Funciona o Histórico de Conversas
 
 Cada chamada a `GetCompletionAsync` ou `StreamAsync` adiciona à lista de mensagens interna do serviço. Isso significa que o modelo tem contexto de todos os turnos anteriores.

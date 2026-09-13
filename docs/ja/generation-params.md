@@ -1,6 +1,8 @@
 # 生成パラメータ
 
-## 共通プロパティ
+設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
+
+## サービスの既定値と互換メソッド
 
 すべてのAIサービスインスタンスはこれらのプロパティを提供します:
 
@@ -115,3 +117,5 @@ string info = service.GetConversationSummary();
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [調査範囲とツールを制御する](perplexity.md).

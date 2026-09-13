@@ -1,5 +1,30 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v8.0.0
+
+> This coordinated major release changes public contracts. See the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) before upgrading the package family.
+
+### Added
+
+- Forwards the major `AIRun.Result` change to `Task<AIRunResult>` through the existing RAG Run wrapper. Callers read `.Text` for the answer or inspect the inner execution's reported usage, citations, model, rounds, and finish details without a stream reader. Retrieval/embedding usage is not added to model token usage. RAG completion remains `Task<string>` and the package remains independent of the full core implementation. See [migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result).
+- **Ordinary completion cancellation:** RAG completion overloads propagate the caller token through retrieval, query rewriting and the inner completion call. Cancellation skips the subsequent model request when retrieval is cancelled. The wrapper implements the updated `IAIService` signatures without depending on the full core implementation. Cooperative retrieval and tool cleanup retain the common cancellation limits. See [the common contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation).
+
+- `WithAgenticRag` forwards the execution cancellation token into `RagStore.QueryAsync`. Search failures remain available in diagnostic traces and propagate to the common executor as failed tool results; they no longer return successful error strings. Cancellation remains cooperative in retrieval components.
+
+- Perplexity standard 0.6B/4B embedding providers for ordinary RAG retrieval, with a `UsePerplexityEmbedding` builder extension. Signed int8 vectors are decoded and normalized for the existing float-vector interface.
+- Separate contextualized 0.6B/4B embedding APIs retain each document's ordered chunks instead of flattening unrelated documents. Packed binary embeddings use an explicit result type and Hamming distance; they are not silently converted into float embeddings. See the [Perplexity guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md).
+
+### Internal
+
+- Rebuilt against `Mythosia.AI.Abstractions` v4.0.0 for the coordinated major release, including updated completion cancellation and rich Run-result contracts. RAG request-feature scopes let a supporting inner service retain captured provider options while retrieval and query rewriting run.
+
+### Compatibility
+
+- Existing retrieval APIs remain available; the Perplexity embedding APIs are additions. Contextualized embeddings do not implement the flat `IEmbeddingProvider` contract. Requires `Mythosia.AI.Abstractions` v4.0.0+ and `Mythosia.AI.Rag.Abstractions` v6.2.0+.
+- RAG still depends on the lightweight contracts and does not acquire a dependency on the full core implementation.
+
+---
+
 ## v7.6.0
 
 ### Added

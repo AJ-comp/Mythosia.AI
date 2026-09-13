@@ -298,7 +298,7 @@ public async Task ToGpt4o()
     /// </summary>
     [TestCategory("CrossProvider")]
     [TestMethod]
-    public async Task ToOpenAIo3()
+    public async Task ToOpenAIGpt5_6Sol()
     {
         await RunIfSupported(
             () => SupportsFunctionCalling(),
@@ -358,11 +358,11 @@ public async Task ToGpt4o()
 
                 var messageCountBefore = AI.ActivateChat.Messages.Count;
 
-                // OpenAI 모델로 변경 (Legacy API)
+                // OpenAI GPT-5.6 Sol로 변경 (Responses API)
                 string openAiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
 
                 var chatGptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
-                chatGptService.ChangeModel(AIModels.OpenAI.O3);
+                chatGptService.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
 
                 var messageCountAfter = chatGptService.ActivateChat.Messages.Count;
                 Assert.AreEqual(messageCountBefore, messageCountAfter,
@@ -606,10 +606,10 @@ public async Task ToGpt4o()
                     failures.Add($"ChatGPT Legacy (gpt-4o-mini): {ex.Message}");
                 }
 
-                // Phase 4: Function OFF로 ChatGPT New API (gpt-5-mini) 전환
-                Console.WriteLine($"\n========== [Phase 4] Switch to ChatGPT New API (gpt-5-mini) with Functions DISABLED ==========");
+                // Phase 4: Function OFF로 ChatGPT New API (gpt-5.6-terra) 전환
+                Console.WriteLine($"\n========== [Phase 4] Switch to ChatGPT New API (gpt-5.6-terra) with Functions DISABLED ==========");
                 var gptNewService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
-                gptNewService.ChangeModel(AIModels.OpenAI.Gpt5Mini);
+                gptNewService.ChangeModel(AIModels.OpenAI.Gpt5_6Terra);
                 gptNewService.FunctionsDisabled = true;
 
                 try
@@ -625,7 +625,7 @@ public async Task ToGpt4o()
                     Console.WriteLine($"   {ex.Message}");
                     if (ex is AIServiceException aiEx && aiEx.ErrorDetails != null)
                         Console.WriteLine($"   ErrorDetails: {aiEx.ErrorDetails}");
-                    failures.Add($"ChatGPT New API (gpt-5-mini): {ex.Message}");
+                    failures.Add($"ChatGPT New API (gpt-5.6-terra): {ex.Message}");
                 }
 
                 // Phase 5: Function OFF로 Gemini 전환

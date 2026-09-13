@@ -1,5 +1,7 @@
 # Hướng dẫn nhanh
 
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
 ## Cài đặt
 
 Cài package cốt lõi:

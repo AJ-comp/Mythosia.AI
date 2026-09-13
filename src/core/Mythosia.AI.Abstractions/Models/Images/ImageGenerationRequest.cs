@@ -21,19 +21,23 @@ namespace Mythosia.AI.Models.Images
         public int Count { get; set; } = 1;
 
         /// <summary>
-        /// Requested output dimensions or a provider-supported automatic value.
+        /// Requested sizing mode. Use ImageSize.Pixels for exact dimensions or ImageSize.Preset
+        /// for a resolution grade and optional aspect ratio. Unsupported modes are rejected.
         /// </summary>
-        public string Size { get; set; } = "auto";
+        public ImageSize Size { get; set; } = ImageSize.Auto;
 
         /// <summary>
-        /// Requested output quality or a provider-supported automatic value.
+        /// Requested output quality. OpenAI GPT Image 2.5 also supports XHigh and Max;
+        /// other providers and models validate their own supported levels.
         /// </summary>
-        public string Quality { get; set; } = "auto";
+        public ImageQuality Quality { get; set; } = ImageQuality.Auto;
 
         /// <summary>
-        /// Requested output format, such as png, jpeg, or webp.
+        /// Requested encoding. Auto selects the provider default; inspect GeneratedImage.MediaType
+        /// when saving. Providers without a matching encoding control reject explicit formats
+        /// before making an API call. The library does not transcode returned images.
         /// </summary>
-        public string OutputFormat { get; set; } = "png";
+        public ImageOutputFormat OutputFormat { get; set; } = ImageOutputFormat.Auto;
 
         /// <summary>
         /// Optional compression level for formats that support compression.
@@ -43,6 +47,6 @@ namespace Mythosia.AI.Models.Images
         /// <summary>
         /// Requested background behavior or a provider-supported automatic value.
         /// </summary>
-        public string Background { get; set; } = "auto";
+        public ImageBackground Background { get; set; } = ImageBackground.Auto;
     }
 }

@@ -7,6 +7,7 @@ using Mythosia.AI.Services.Perplexity;
 using Mythosia.AI.Services.xAI;
 using System;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.Base
@@ -15,24 +16,27 @@ namespace Mythosia.AI.Services.Base
     {
         #region Static Quick Methods
 
-        public static async Task<string> QuickAskAsync(string apiKey, string prompt, string model = AIModels.OpenAI.Gpt4oMini)
+        public static async Task<string> QuickAskAsync(string apiKey, string prompt, string model = AIModels.OpenAI.Gpt4oMini, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var httpClient = new HttpClient();
             var service = CreateService(model, apiKey, httpClient);
             service.StatelessMode = true;
-            return await service.GetCompletionAsync(prompt);
+            return await service.GetCompletionAsync(prompt, cancellationToken: cancellationToken);
         }
 
         public static async Task<string> QuickAskWithImageAsync(
             string apiKey,
             string prompt,
             string imagePath,
-            string model = AIModels.OpenAI.Gpt4_1)
+            string model = AIModels.OpenAI.Gpt4_1,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using var httpClient = new HttpClient();
             var service = CreateService(model, apiKey, httpClient);
             service.StatelessMode = true;
-            return await service.GetCompletionWithImageAsync(prompt, imagePath);
+            return await service.GetCompletionWithImageAsync(prompt, imagePath, cancellationToken);
         }
 
         internal static AIService CreateService(string model, string apiKey, HttpClient httpClient)
@@ -55,6 +59,12 @@ namespace Mythosia.AI.Services.Base
         internal static string GetProviderFromModel(string model)
         {
             var modelName = model.ToString();
+            // Provider/model slugs are explicitly routed through Perplexity's Agent API.
+            if (modelName.StartsWith("perplexity/", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("openai/", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("anthropic/", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("google/", StringComparison.OrdinalIgnoreCase) ||
+                modelName.StartsWith("xai/", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Perplexity);
             if (modelName.StartsWith("claude", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Anthropic);
             if (modelName.StartsWith("gpt", StringComparison.OrdinalIgnoreCase) ||
                 modelName.StartsWith("chatgpt", StringComparison.OrdinalIgnoreCase) ||
@@ -62,9 +72,6 @@ namespace Mythosia.AI.Services.Base
             if (modelName.StartsWith("grok", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.xAI);
             if (modelName.StartsWith("gemini", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Google);
             if (modelName.StartsWith("deepseek", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.DeepSeek);
-            if (modelName.StartsWith("sonar", StringComparison.OrdinalIgnoreCase) ||
-                modelName.StartsWith("perplexity", StringComparison.OrdinalIgnoreCase)) return nameof(AIProvider.Perplexity);
-
             throw new ArgumentException($"Cannot determine provider for model {model}");
         }
 

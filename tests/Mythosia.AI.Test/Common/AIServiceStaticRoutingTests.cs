@@ -75,7 +75,7 @@ public class AIServiceStaticRoutingTests
     [DataRow("gemini-2.5-flash", nameof(AIProvider.Google))]
     [DataRow("gemini-3.6-flash", nameof(AIProvider.Google))]
     [DataRow("deepseek-chat", nameof(AIProvider.DeepSeek))]
-    [DataRow("sonar-pro", nameof(AIProvider.Perplexity))]
+    [DataRow("perplexity/sonar", nameof(AIProvider.Perplexity))]
     public void LowercaseModelIds_RouteCorrectly(string model, string expectedProvider)
     {
         Assert.AreEqual(expectedProvider, AIService.GetProviderFromModel(model));
@@ -95,16 +95,18 @@ public class AIServiceStaticRoutingTests
     /// 회귀 테스트: CreateService는 올바른 서비스 타입을 만들고
     /// 요청된 모델을 실제로 적용해야 한다 (기존 버그: provider 기본 모델로 무시).
     /// </summary>
+    // Legacy IDs remain routable for existing callers; this test never sends an API request.
     [TestMethod]
     [DataRow(AIModels.Anthropic.ClaudeFable5, typeof(AnthropicService))]
     [DataRow(AIModels.Anthropic.ClaudeMythos5, typeof(AnthropicService))]
     [DataRow(AIModels.Anthropic.ClaudeOpus4_8, typeof(AnthropicService))]
     [DataRow(AIModels.OpenAI.Gpt4oMini, typeof(OpenAIService))]
-    [DataRow(AIModels.OpenAI.O3, typeof(OpenAIService))]
+    [DataRow("o3", typeof(OpenAIService))]
     [DataRow(AIModels.Google.Gemini2_5Flash, typeof(GoogleAIService))]
     [DataRow(AIModels.Google.Gemini3_6Flash, typeof(GoogleAIService))]
+    [DataRow(AIModels.xAI.Grok4_6, typeof(XAIService))]
     [DataRow(AIModels.xAI.Grok4_5, typeof(XAIService))]
-    [DataRow(AIModels.DeepSeek.Chat, typeof(DeepSeekService))]
+    [DataRow(AIModels.DeepSeek.Flash, typeof(DeepSeekService))]
     [DataRow(AIModels.Perplexity.Sonar, typeof(PerplexityService))]
     public void CreateService_AppliesRequestedModel(string model, Type expectedServiceType)
     {

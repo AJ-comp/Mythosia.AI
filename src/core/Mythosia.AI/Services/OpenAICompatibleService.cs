@@ -87,6 +87,7 @@ namespace Mythosia.AI.Services.Base
             bool doneMarkerReceived = false;
             bool completionEventReceived = false;
             string? finishReason = null;
+            string? rawFinishReason = null;
             StreamingContent? streamFailure = null;
 
             await foreach (var line in ReadStreamingResponseLinesAsync(response, diagnostics, cancellationToken))
@@ -123,6 +124,29 @@ namespace Mythosia.AI.Services.Base
                     break;
                 }
 
+                // The first terminal chunk can contain its final delta. Later events may
+                // report usage, but cannot extend the completed response or change its reason.
+                if ((!string.IsNullOrEmpty(finishReason) || completionEventReceived) &&
+                    (!string.IsNullOrEmpty(chunk.Text) ||
+                     !string.IsNullOrEmpty(chunk.Reasoning) ||
+                     chunk.FunctionCalls.Count > 0 ||
+                     chunk.ReplaceFunctionCalls ||
+                     (!string.IsNullOrEmpty(chunk.FinishReason) &&
+                      !string.Equals(finishReason, chunk.FinishReason, StringComparison.Ordinal))))
+                {
+                    streamFailure = new StreamingContent
+                    {
+                        Type = StreamingContentType.Error,
+                        Content = "The provider sent content or changed its finish reason after stream completion; the response was not saved and no tools were executed.",
+                        Metadata = new Dictionary<string, object>
+                        {
+                            ["status"] = "data_after_terminal",
+                            ["finish_reason"] = rawFinishReason ?? finishReason ?? "completed"
+                        }
+                    };
+                    break;
+                }
+
                 if (chunk.Usage != null)
                     lastUsage = chunk.Usage;
 
@@ -130,6 +154,8 @@ namespace Mythosia.AI.Services.Base
                     streamData.Model = chunk.Model;
                 if (!string.IsNullOrEmpty(chunk.FinishReason))
                     finishReason = chunk.FinishReason;
+                if (!string.IsNullOrEmpty(chunk.RawFinishReason ?? chunk.FinishReason))
+                    rawFinishReason = chunk.RawFinishReason ?? chunk.FinishReason;
 
                 // Provider-specific terminal event. Capture metadata/usage and emit only after validation.
                 if (chunk.IsCompletion)
@@ -243,7 +269,7 @@ namespace Mythosia.AI.Services.Base
                     Content = "The provider completed a function call with malformed JSON arguments; no tools were executed.",
                     Metadata = new Dictionary<string, object>
                     {
-                        ["model"] = streamData.Model ?? Model,
+                        ["model"] = streamData.Model ?? RequestModel,
                         ["status"] = "malformed_function_arguments",
                         ["function_name"] = invalidCall?.Name ?? string.Empty,
                         ["reason"] = argumentError
@@ -269,19 +295,21 @@ namespace Mythosia.AI.Services.Base
 
             StreamingContent? completionContent = null;
             // Emit one provider-level completion after the terminal contract has been validated.
-            if (!options.TextOnly &&
-                (doneMarkerReceived || completionEventReceived ||
-                 completionMetadata != null || lastUsage != null))
+            if (doneMarkerReceived || completionEventReceived ||
+                completionMetadata != null || lastUsage != null)
             {
                 completionContent = new StreamingContent
                 {
-                    Type = StreamingContentType.Completion
+                    Type = StreamingContentType.Completion,
+                    ResponseModel = streamData.Model,
+                    RawFinishReason = rawFinishReason,
+                    FinishReason = MapFinishReason(rawFinishReason)
                 };
                 if (options.IncludeMetadata)
                 {
                     var meta = completionMetadata ?? new Dictionary<string, object>();
                     meta["total_length"] = streamData.TextBuffer.Length;
-                    meta["model"] = streamData.Model ?? Model;
+                    meta["model"] = streamData.Model ?? RequestModel;
                     if (acceptedStopTerminatedFunctionPayload)
                         meta["function_finish_reason_mismatch"] = "stop";
                     completionContent.Metadata = meta;
@@ -522,6 +550,8 @@ namespace Mythosia.AI.Services.Base
             public string? Reasoning { get; set; }
             public bool IsCompletion { get; set; }
             public string? FinishReason { get; set; }
+            // Responses lifecycle status is independent of Chat Completions tool-terminal validation.
+            public string? RawFinishReason { get; set; }
             public StreamingContent? Error { get; set; }
             public StreamingContent? Status { get; set; }
             public bool ReplaceFunctionCalls { get; set; }

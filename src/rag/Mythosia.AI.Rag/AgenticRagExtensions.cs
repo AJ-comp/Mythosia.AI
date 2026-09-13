@@ -119,7 +119,7 @@ namespace Mythosia.AI.Rag
                     },
                     Required = new List<string> { "query" }
                 },
-                Handler = async args =>
+                HandlerWithCancellation = async (args, cancellationToken) =>
                 {
                     string? query = null;
 
@@ -127,7 +127,7 @@ namespace Mythosia.AI.Rag
                         query = raw is JsonElement je ? je.GetString() : raw?.ToString();
 
                     if (string.IsNullOrWhiteSpace(query))
-                        return "Search failed: no query was provided. Please specify what to search for.";
+                        throw new ArgumentException("No query was provided. Please specify what to search for.");
 
                     RagQueryOptions? resolvedQueryOptions = null;
 
@@ -140,8 +140,8 @@ namespace Mythosia.AI.Rag
                         }
 
                         var result = resolvedQueryOptions != null
-                            ? await ragStore.QueryAsync(query, resolvedQueryOptions)
-                            : await ragStore.QueryAsync(query);
+                            ? await ragStore.QueryAsync(query, resolvedQueryOptions, cancellationToken)
+                            : await ragStore.QueryAsync(query, cancellationToken: cancellationToken);
 
                         AgenticRagTraceRegistry.Notify(
                             service,
@@ -160,7 +160,7 @@ namespace Mythosia.AI.Rag
                             toolName,
                             new AgenticRagSearchTrace(toolName, query, resolvedQueryOptions, result: null, exception: ex));
 
-                        return $"Search failed: {ex.Message}";
+                        throw;
                     }
                 }
             };

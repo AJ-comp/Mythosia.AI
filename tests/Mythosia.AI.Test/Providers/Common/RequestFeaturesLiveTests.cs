@@ -137,7 +137,7 @@ public class RequestFeaturesLiveTests
         int completed = 0;
         await foreach (var item in run.StreamAsync(cancellation.Token))
             if (item.Type == StreamingContentType.Completion) completed++;
-        string result = await run.Result;
+        string result = (await run.Result).Text;
         Assert.AreEqual(result, observed.ToString(), "The callback and result must observe the same response.");
         Assert.AreEqual(1, completed, "A run must emit exactly one final completion.");
         return (result, run.Citations.ToArray());

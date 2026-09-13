@@ -58,6 +58,29 @@
           <label class="reasoning-options-label">Reasoning Level</label>
           <div id="reasoning-levels" class="reasoning-levels"></div>
         </div>
+        <div id="perplexity-options" class="hidden">
+          <div class="setting-row">
+            <label for="set-perplexity-preset">Research depth</label>
+            <select id="set-perplexity-preset">
+              <option value="Model">Use selected model</option>
+              <option value="Fast">Fast — quick lookup</option>
+              <option value="Low">Low — everyday research</option>
+              <option value="Medium">Medium — combine sources</option>
+              <option value="High">High — deep research</option>
+              <option value="XHigh">XHigh — extensive research</option>
+              <option value="WideResearch">Wide research — research many items</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label for="set-perplexity-steps">Research step limit (0 = default)</label>
+            <input id="set-perplexity-steps" type="number" min="0" max="100" value="0" />
+          </div>
+          <div class="setting-row chk-row">
+            <label><input id="set-perplexity-search" type="checkbox" checked /> Search the web</label>
+          </div>
+          <p id="perplexity-settings-help">Presets choose the model and research tools. Their built-in search stays enabled.</p>
+          <p id="perplexity-settings-error" role="alert"></p>
+        </div>
       </div>
 
       <!-- Summary Policy -->
@@ -472,11 +495,15 @@
                       <span class="rag-select-option-label">OpenAI</span>
                       <span class="rag-badge">Recommended</span>
                     </button>
+                    <button class="rag-select-option" type="button" data-value="perplexity" role="option">
+                      <span class="rag-select-option-label">Perplexity</span>
+                    </button>
                   </div>
                   <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
                     <option value="ollama">Ollama</option>
                     <option value="vllm">vLLM</option>
                     <option value="openai" selected>OpenAI</option>
+                    <option value="perplexity">Perplexity</option>
                   </select>
                 </div>
                 <div id="rag-embedding-hint" class="rag-hint">OpenAI embeddings. Select a model below.</div>
@@ -513,6 +540,27 @@
                     <input id="rag-openai-dimensions" type="number" value="1536" min="1" />
                   </div>
                 </div>
+              </div>
+              <div id="rag-perplexity-model-row" class="rag-field rag-field-wide hidden">
+                <label>Perplexity model</label>
+                <div class="rag-model-row">
+                  <div class="rag-select rag-model-row-select" id="rag-perplexity-model-select">
+                    <button class="rag-select-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                      <span class="rag-select-label">pplx-embed-v1-0.6b</span>
+                      <svg class="rag-select-caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="rag-select-menu hidden" role="listbox" aria-label="Perplexity embedding model">
+                      <button class="rag-select-option" type="button" data-value="pplx-embed-v1-0.6b" role="option"><span class="rag-select-option-label">pplx-embed-v1-0.6b</span></button>
+                      <button class="rag-select-option" type="button" data-value="pplx-embed-v1-4b" role="option"><span class="rag-select-option-label">pplx-embed-v1-4b</span></button>
+                    </div>
+                    <select id="rag-perplexity-model" class="rag-select-native" aria-hidden="true">
+                      <option value="pplx-embed-v1-0.6b" selected>pplx-embed-v1-0.6b</option>
+                      <option value="pplx-embed-v1-4b">pplx-embed-v1-4b</option>
+                    </select>
+                  </div>
+                  <div class="rag-model-dimensions"><input id="rag-perplexity-dimensions" aria-label="Perplexity embedding dimensions" type="number" value="1024" min="128" max="1024" step="1" /></div>
+                </div>
+                <div class="rag-hint">0.6B: 128–1024 dimensions · 4B: 128–2560. Keep the same model and dimensions for indexing and queries.</div>
               </div>
               <div id="rag-ollama-model-row" class="rag-field rag-field-wide hidden">
                 <label>Ollama model</label>
@@ -601,6 +649,14 @@
                   <button id="rag-openai-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
                 </div>
                 <div id="rag-openai-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
+              </div>
+              <div id="rag-perplexity-key" class="rag-field rag-field-wide hidden">
+                <label>Perplexity API key</label>
+                <div class="rag-inline-input">
+                  <input id="rag-perplexity-key-input" type="password" placeholder="pplx-..." autocomplete="off" />
+                  <button id="rag-perplexity-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
+                </div>
+                <div id="rag-perplexity-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
               </div>
               <div class="rag-hint">Applies to query embedding and indexing. Re-run Reference after changes.</div>
             </div>

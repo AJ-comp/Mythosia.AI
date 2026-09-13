@@ -23,10 +23,18 @@ namespace Mythosia.AI.Providers.Alibaba
         public string? ModelIdOverride { get; set; }
 
         private readonly EndpointPlatform _endpointPlatform;
+        private readonly bool _usesDefaultDashScopeEndpoint;
+
+        protected override void CaptureRequestSettings(IDictionary<string, object?> settings)
+        {
+            base.CaptureRequestSettings(settings);
+            settings[nameof(ThinkingMode)] = ThinkingMode;
+            settings[nameof(ModelIdOverride)] = ModelIdOverride;
+        }
 
         protected override uint GetModelMaxOutputTokens()
         {
-            var model = Model?.ToLower() ?? "";
+            var model = RequestModel?.ToLower() ?? "";
             if (model.Contains("qwen3")) return 8192;
             if (model.Contains("qwen-max")) return 8192;
             if (model.Contains("qwen-plus")) return 8192;
@@ -37,6 +45,7 @@ namespace Mythosia.AI.Providers.Alibaba
         public QwenService(string apiKey, HttpClient httpClient)
             : base(apiKey, "https://dashscope.aliyuncs.com/compatible-mode/v1/", httpClient)
         {
+            _usesDefaultDashScopeEndpoint = true;
             Model = AlibabaModels.QwenMax;
             MaxTokens = 8000;
         }
@@ -76,16 +85,15 @@ namespace Mythosia.AI.Providers.Alibaba
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            using var settingsScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
-            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
-            CurrentPolicy = null;
+            var policy = GetExecutionPolicy();
 
-            using var cts = policy.TimeoutSeconds.HasValue
-                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
-                : new CancellationTokenSource();
+            using var cts = CreateRequestTimeoutCts(policy);
 
             ChatBlock? originalChat = null;
-            if (StatelessMode)
+            if (RequestStatelessMode)
             {
                 originalChat = ActivateChat;
                 ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
@@ -93,21 +101,30 @@ namespace Mythosia.AI.Providers.Alibaba
 
             try
             {
-                Stream = false;
+                SetExecutionSetting(nameof(Stream), false);
+                cts.Token.ThrowIfCancellationRequested();
                 ActivateChat.Messages.Add(message);
 
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    cts.Token.ThrowIfCancellationRequested();
                     var result = await ProcessSingleRoundAsync(round, policy, cts.Token);
+                    cts.Token.ThrowIfCancellationRequested();
                     if (result.IsComplete)
                         return result.Content;
                 }
 
+                cts.Token.ThrowIfCancellationRequested();
                 throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
             }
-            catch (OperationCanceledException)
+            catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
             {
-                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
+                throw new AIServiceException("The HTTP request timed out.", exception);
+            }
+            catch (OperationCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
+            {
+                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds", exception);
             }
             finally
             {
@@ -124,16 +141,18 @@ namespace Mythosia.AI.Providers.Alibaba
             if (policy.EnableLogging)
                 Console.WriteLine($"[Qwen Round {round + 1}/{policy.MaxRounds}]");
 
+            cancellationToken.ThrowIfCancellationRequested();
             bool useFunctions = ShouldUseFunctions;
-            var request = useFunctions
+            using var request = useFunctions
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
-            var response = await HttpClient.SendAsync(request, cancellationToken);
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
+                var errorContent = responseContent;
 
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 {
@@ -147,7 +166,7 @@ namespace Mythosia.AI.Providers.Alibaba
                 throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
             }
 
-            var responseContent = await response.Content.ReadAsStringAsync();
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (useFunctions)
                 return await ProcessFunctionResponseAsync(responseContent, policy, cancellationToken);
@@ -171,10 +190,10 @@ namespace Mythosia.AI.Providers.Alibaba
                 AddFunctionCallBatchToHistory(
                     content,
                     functionCalls,
-                    new Dictionary<string, object> { ["model"] = Model });
+                    new Dictionary<string, object> { ["model"] = RequestModel });
                 AddFunctionResultBatchToHistory(
                     results,
-                    new Dictionary<string, object> { ["model"] = Model });
+                    new Dictionary<string, object> { ["model"] = RequestModel });
                 return RoundResult.Continue();
             }
 
@@ -229,9 +248,9 @@ namespace Mythosia.AI.Providers.Alibaba
 
             var allMessagesBuilder = new StringBuilder();
 
-            if (!string.IsNullOrEmpty(SystemMessage))
+            if (!string.IsNullOrEmpty(RequestSystemMessage))
             {
-                allMessagesBuilder.Append(SystemMessage).Append('\n');
+                allMessagesBuilder.Append(RequestSystemMessage).Append('\n');
             }
 
             foreach (var message in GetLatestMessages())
@@ -289,25 +308,32 @@ namespace Mythosia.AI.Providers.Alibaba
 
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
-            if (profile.DisableReasoning != true)
-                return base.ApplyProviderSpecificRequestProfile(profile);
-
-            var backupThinkingMode = ThinkingMode;
-            ThinkingMode = Mythosia.AI.Providers.Alibaba.QwenThinking.Off;
-
-            return () =>
-            {
-                ThinkingMode = backupThinkingMode;
-            };
+            ApplyQwenProfileSettings(profile);
+            return () => { };
         }
+
+        protected override void ApplyCapabilityRequestProfile(AIRequestProfile profile)
+            => ApplyQwenProfileSettings(profile);
+
+        // Shared native flags only; execution-specific output reservations remain outside this helper.
+        private void ApplyQwenProfileSettings(AIRequestProfile profile)
+        {
+            if (profile.DisableReasoning != true)
+                return;
+
+            SetExecutionSetting(nameof(ThinkingMode), QwenThinking.Off);
+        }
+
+        protected override string GetRunRequestedModel() => GetEffectiveModelId();
 
         internal string GetEffectiveModelId()
         {
-            if (!string.IsNullOrWhiteSpace(ModelIdOverride))
-                return ModelIdOverride;
+            var modelIdOverride = RequestSetting(nameof(ModelIdOverride), ModelIdOverride);
+            if (!string.IsNullOrWhiteSpace(modelIdOverride))
+                return modelIdOverride;
             if (_endpointPlatform == Mythosia.AI.Providers.Alibaba.EndpointPlatform.Ollama)
-                return ConvertToOllamaId(Model);
-            return Model;
+                return ConvertToOllamaId(RequestModel);
+            return RequestModel;
         }
 
         private static string ConvertToOllamaId(string model)

@@ -109,6 +109,7 @@ public class AgentRunTests
         public List<string> ReceivedStreamMessages { get; } = new();
         public StreamOptions? LastStreamOptions { get; private set; }
         public int? LastObservedMaxRounds { get; private set; }
+        public int? DefaultMaxRoundsDuringStream { get; private set; }
         public string? CapturedEffectiveSystemMessage { get; private set; }
 
         public MockStreamingAgentService(string response)
@@ -131,8 +132,10 @@ public class AgentRunTests
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
+            using var requestScope = BeginRequestSettingsScope();
             LastStreamOptions = options.Clone();
-            LastObservedMaxRounds = (CurrentPolicy ?? DefaultPolicy).MaxRounds;
+            LastObservedMaxRounds = GetExecutionPolicy().MaxRounds;
+            DefaultMaxRoundsDuringStream = DefaultPolicy.MaxRounds;
             CapturedEffectiveSystemMessage = GetEffectiveSystemMessage();
 
             await foreach (var content in base.StreamCoreAsync(message, options, cancellationToken)
@@ -205,9 +208,9 @@ public class AgentRunTests
             StreamOptions options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            var policy = CurrentPolicy ?? DefaultPolicy;
+            using var requestScope = BeginRequestSettingsScope();
+            var policy = GetExecutionPolicy();
             LastObservedMaxRounds = policy.MaxRounds;
-            CurrentPolicy = null;
 
             ActivateChat.Messages.Add(message);
             ActivateChat.Messages.Add(new Message(ActorRole.Assistant, "Partial streamed answer..."));
@@ -778,6 +781,7 @@ public class AgentRunTests
     public async Task RunAgentStreamAsync_EnablesFunctionCallingAndDisablesTextOnly()
     {
         var mock = new MockStreamingAgentService("Done.");
+        var defaultMaxRounds = mock.DefaultPolicy.MaxRounds;
 
         await foreach (var _ in mock.RunAgentStreamAsync(
             "goal",
@@ -787,6 +791,9 @@ public class AgentRunTests
         }
 
         Assert.AreEqual(5, mock.LastObservedMaxRounds);
+        Assert.AreEqual(defaultMaxRounds, mock.DefaultMaxRoundsDuringStream,
+            "Agent maxSteps must apply to the request without changing the service default during streaming.");
+        Assert.AreEqual(defaultMaxRounds, mock.DefaultPolicy.MaxRounds);
         Assert.IsNotNull(mock.LastStreamOptions);
         Assert.IsTrue(mock.LastStreamOptions!.IncludeFunctionCalls,
             "RunAgentStreamAsync should force function calling on");
@@ -901,8 +908,8 @@ public class AgentRunTests
     /// <summary>
     /// Tests the base agent streaming loop with deterministic mock round usage values.
     /// Guarantees that one RoundUsage event is emitted for each LLM round, RoundUsage is
-    /// per-round rather than cumulative, TotalTokens is normalized to InputTokens +
-    /// OutputTokens, and the final Completion usage remains the cumulative sum for the
+    /// per-round rather than cumulative, provider-reported TotalTokens is preserved,
+    /// and the final Completion usage remains the cumulative sum for the
     /// whole agent run.
     /// </summary>
     [TestCategory("Unit")]
@@ -929,8 +936,8 @@ public class AgentRunTests
         var firstRoundUsage = roundUsageEvents[0].Usage!;
         Assert.AreEqual(10000, firstRoundUsage.InputTokens);
         Assert.AreEqual(100, firstRoundUsage.OutputTokens);
-        Assert.AreEqual(10100, firstRoundUsage.TotalTokens,
-            "RoundUsage should normalize TotalTokens to InputTokens + OutputTokens.");
+        Assert.AreEqual(999999, firstRoundUsage.TotalTokens,
+            "RoundUsage should preserve an explicit total even when component counts differ.");
 
         Assert.AreEqual(2, roundUsageEvents[1].RoundIndex);
         Assert.IsTrue(roundUsageEvents[1].IsFinalRound);
@@ -938,14 +945,14 @@ public class AgentRunTests
         var secondRoundUsage = roundUsageEvents[1].Usage!;
         Assert.AreEqual(13000, secondRoundUsage.InputTokens);
         Assert.AreEqual(1000, secondRoundUsage.OutputTokens);
-        Assert.AreEqual(14000, secondRoundUsage.TotalTokens);
+        Assert.AreEqual(888888, secondRoundUsage.TotalTokens);
 
         var completion = events.Last(e => e.Type == StreamingContentType.Completion);
         Assert.IsNotNull(completion.Usage);
         var completionUsage = completion.Usage!;
         Assert.AreEqual(23000, completionUsage.InputTokens);
         Assert.AreEqual(1100, completionUsage.OutputTokens);
-        Assert.AreEqual(24100, completionUsage.TotalTokens,
+        Assert.AreEqual(1888887, completionUsage.TotalTokens,
             "Completion usage should remain cumulative across the full agent run.");
         Assert.AreEqual(50, completionUsage.CachedInputTokens);
         Assert.AreEqual(70, completionUsage.CacheCreationTokens);

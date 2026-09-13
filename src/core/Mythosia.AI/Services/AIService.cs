@@ -33,7 +33,7 @@ namespace Mythosia.AI.Services.Base
         /// <summary>
         /// Optional async provider that supplies a baseline <see cref="AIRequestContext"/>
         /// for every outbound request. Invoked automatically right before each call
-        /// to <see cref="GetCompletionAsync(Message, AIRequestProfile, AIRequestContext)"/>
+        /// to <see cref="GetCompletionAsync(Message, AIRequestProfile, AIRequestContext, CancellationToken)"/>
         /// or <see cref="StreamAsync(Message, StreamOptions, AIRequestContext, CancellationToken)"/>
         /// (including agent-path calls) so callers no longer need to build and pass
         /// an <see cref="AIRequestContext"/> at every entry point.
@@ -122,7 +122,7 @@ namespace Mythosia.AI.Services.Base
         /// Returns the effective max tokens, capped by the current model's limit.
         /// Use this instead of MaxTokens when building request bodies.
         /// </summary>
-        protected uint GetEffectiveMaxTokens() => Math.Min(MaxTokens, GetModelMaxOutputTokens());
+        protected uint GetEffectiveMaxTokens() => Math.Min(RequestMaxTokens, GetModelMaxOutputTokens());
 
         #endregion
 
@@ -132,7 +132,7 @@ namespace Mythosia.AI.Services.Base
         public bool EnableFunctions { get; set; } = true;
         public FunctionCallMode FunctionCallMode { get; set; } = FunctionCallMode.Auto;
         public string? ForceFunctionName { get; set; }
-        public bool ShouldUseFunctions => Functions.Count > 0 && EnableFunctions && !FunctionsDisabled;
+        public bool ShouldUseFunctions => RequestFunctions.Count > 0 && RequestEnableFunctions && !RequestFunctionsDisabled;
 
         /// <inheritdoc/>
         void IFunctionRegisterable.AddFunction(FunctionDefinition function) => Functions.Add(function);
@@ -166,7 +166,7 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         protected CancellationTokenSource CreateRequestTimeoutCts(FunctionCallingPolicy policy, CancellationToken external = default)
         {
-            var cts = CancellationTokenSource.CreateLinkedTokenSource(external);
+            var cts = CancellationTokenSource.CreateLinkedTokenSource(external, RequestCancellationToken);
             var seconds = ResolveRequestTimeoutSeconds(policy);
             if (seconds.HasValue)
                 cts.CancelAfter(TimeSpan.FromSeconds(seconds.Value));
@@ -213,8 +213,9 @@ namespace Mythosia.AI.Services.Base
             {
                 // A run keeps its original input override anchored while tool results and
                 // later steering instructions are appended. Legacy requests retain their contract.
-                var overrideIndex = _runRequestMessageId == null ? messages.Count - 1
-                    : messages.FindIndex(message => message.Id == _runRequestMessageId);
+                var overrideTargetId = GetRequestMessageOverrideTargetId();
+                var overrideIndex = overrideTargetId == null ? messages.Count - 1
+                    : messages.FindIndex(message => message.Id == overrideTargetId);
                 if (overrideIndex >= 0)
                 {
                     // Retain protocol metadata anchored to the original user input, including
@@ -237,6 +238,9 @@ namespace Mythosia.AI.Services.Base
 
             return messages;
         }
+
+        /// <summary>Identifies the user input replaced by request context while tool rounds append messages.</summary>
+        protected virtual string? GetRequestMessageOverrideTargetId() => _runRequestMessageId;
 
         /// <summary>
         /// Ensures the message list starts with a User message.
@@ -299,22 +303,31 @@ namespace Mythosia.AI.Services.Base
 
         #region Core Completion Methods
 
-        public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null)
+        /// <summary>Returns the final text. Cancellation stops transport and cooperative local work, with cleanup.</summary>
+        /// <remarks>Server generation and billing cancellation depend on the provider.</remarks>
+        public virtual async Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default)
         {
+            using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
+            using var requestScope = BeginRequestSettingsScope();
             var message = new Message(ActorRole.User, prompt);
             using var featureScope = profile != null && profile.Purpose != AIRequestPurpose.Default
                 ? SuppressRequestFeatures(message) : BeginRequestFeaturesScope(message);
             await ApplySummaryPolicyIfNeededAsync();
-            return await GetCompletionAsync(message, profile, context);
+            return await GetCompletionAsync(message, profile, context, RequestCancellationToken);
         }
 
         public abstract Task<string> GetCompletionAsync(Message message);
 
-        public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)
+        /// <summary>Returns the final text. Cancellation stops transport and cooperative local work, with cleanup.</summary>
+        /// <remarks>Custom provider overrides use RequestCancellationToken in their existing Message execution hook.</remarks>
+        public virtual async Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default)
         {
+            using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
+            using var requestScope = BeginRequestSettingsScope();
             using var featureScope = profile != null && profile.Purpose != AIRequestPurpose.Default
                 ? SuppressRequestFeatures(message) : BeginRequestFeaturesScope(message);
-            var effectiveContext = await BuildEffectiveContextAsync(context, CancellationToken.None).ConfigureAwait(false);
+            var effectiveContext = await BuildEffectiveContextAsync(context, RequestCancellationToken).ConfigureAwait(false);
+            RequestCancellationToken.ThrowIfCancellationRequested();
             if (profile == null && effectiveContext == null)
                 return await SendWithContextRecoveryAsync(message);
 
@@ -347,10 +360,11 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         private async Task<string> SendWithContextRecoveryAsync(Message message)
         {
-            var capturedPolicy = CurrentPolicy;
+            var capturedPolicy = GetExecutionPolicy();
 
             for (int attempt = 0; ; attempt++)
             {
+                RequestCancellationToken.ThrowIfCancellationRequested();
                 // Per attempt, not per turn: compaction shortens the history between attempts, so a
                 // baseline captured once would sit above the message count forever after and rewind
                 // nothing.
@@ -358,11 +372,18 @@ namespace Mythosia.AI.Services.Base
 
                 try
                 {
-                    return await GetCompletionAsync(message);
+                    var result = await GetCompletionAsync(message);
+                    RequestCancellationToken.ThrowIfCancellationRequested();
+                    return result;
+                }
+                catch (OperationCanceledException exception) when (RequestCancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException("The completion was canceled.", exception, RequestCancellationToken);
                 }
                 catch (ContextLengthExceededException ex)
                 {
-                    if (attempt >= ContextRecoveryMaxRetries)
+                    RequestCancellationToken.ThrowIfCancellationRequested();
+                    if (attempt >= RequestSetting(nameof(ContextRecoveryMaxRetries), ContextRecoveryMaxRetries))
                     {
                         ex.RecoveryAttempts = attempt;
                         ex.RecoverySkipReason = attempt == 0 ? "recovery-disabled" : "retries-exhausted";
@@ -370,10 +391,10 @@ namespace Mythosia.AI.Services.Base
                     }
 
                     var compactionBlock = GetConversationCompactionBlockReason();
-                    if (_isSummarizing || StatelessMode || compactionBlock != null)
+                    if (_isSummarizing || RequestStatelessMode || compactionBlock != null)
                     {
                         ex.RecoveryAttempts = attempt;
-                        ex.RecoverySkipReason = _isSummarizing ? "summarizing" : StatelessMode ? "stateless" : compactionBlock;
+                        ex.RecoverySkipReason = _isSummarizing ? "summarizing" : RequestStatelessMode ? "stateless" : compactionBlock;
                         throw;
                     }
 
@@ -398,6 +419,10 @@ namespace Mythosia.AI.Services.Base
                     {
                         compaction = await ForceCompactAsync();
                     }
+                    catch (OperationCanceledException) when (RequestCancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
                     catch
                     {
                         // A failure while summarizing must not replace the diagnosis the caller
@@ -420,7 +445,7 @@ namespace Mythosia.AI.Services.Base
                     // it out, and the summarization request is itself a provider call — restoring
                     // before it would let the summary eat the policy and leave the retry running on
                     // DefaultPolicy (a different MaxRounds) without a word.
-                    CurrentPolicy = capturedPolicy;
+                    SetExecutionSetting(nameof(DefaultPolicy), capturedPolicy);
                 }
             }
         }
@@ -464,9 +489,10 @@ namespace Mythosia.AI.Services.Base
 
         #region Convenience Methods
 
-        public virtual async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
+        public virtual async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath, CancellationToken cancellationToken = default)
         {
-            var imageBytes = await File.ReadAllBytesAsync(imagePath);
+            using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
+            var imageBytes = await File.ReadAllBytesAsync(imagePath, RequestCancellationToken);
             var mimeType = MimeTypes.GetFromPath(imagePath);
 
             var message = new Message(ActorRole.User, new List<MessageContent>
@@ -482,8 +508,9 @@ namespace Mythosia.AI.Services.Base
             return await GetCompletionAsync(message, null, null);
         }
 
-        public virtual async Task<string> GetCompletionWithImageUrlAsync(string prompt, string imageUrl)
+        public virtual async Task<string> GetCompletionWithImageUrlAsync(string prompt, string imageUrl, CancellationToken cancellationToken = default)
         {
+            using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             var message = new Message(ActorRole.User, new List<MessageContent>
             {
                 new TextContent(prompt),
@@ -569,35 +596,18 @@ namespace Mythosia.AI.Services.Base
         {
             if (profile == null)
                 return delegate { };
-
-            var backupStream = Stream;
-            var backupStatelessMode = StatelessMode;
-            var backupFunctionsDisabled = FunctionsDisabled;
-            var backupTemperature = Temperature;
-            var backupMaxTokens = MaxTokens;
-            var restoreProvider = ApplyProviderSpecificRequestProfile(profile);
-
-            if (profile.Stateless.HasValue)
-                StatelessMode = profile.Stateless.Value;
-
-            if (profile.DisableFunctions.HasValue)
-                FunctionsDisabled = profile.DisableFunctions.Value;
-
-            if (profile.Temperature.HasValue)
-                Temperature = profile.Temperature.Value;
-
-            if (profile.MaxTokens.HasValue)
-                MaxTokens = profile.MaxTokens.Value;
-
-            return () =>
+            // Internal profiles are nested execution frames, never temporary service mutations.
+            var scope = UseRequestSettings(_requestExecution.Value?.Settings ?? SnapshotRequestSettings());
+            try
             {
-                restoreProvider();
-                Stream = backupStream;
-                StatelessMode = backupStatelessMode;
-                FunctionsDisabled = backupFunctionsDisabled;
-                Temperature = backupTemperature;
-                MaxTokens = backupMaxTokens;
-            };
+                if (profile.Stateless.HasValue) SetExecutionSetting(nameof(StatelessMode), profile.Stateless.Value);
+                if (profile.DisableFunctions.HasValue) SetExecutionSetting(nameof(FunctionsDisabled), profile.DisableFunctions.Value);
+                if (profile.Temperature.HasValue) SetExecutionSetting(nameof(Temperature), profile.Temperature.Value);
+                if (profile.MaxTokens.HasValue) SetExecutionSetting(nameof(MaxTokens), profile.MaxTokens.Value);
+                var restoreProvider = ApplyProviderSpecificRequestProfile(profile);
+                return () => { try { restoreProvider(); } finally { scope.Dispose(); } };
+            }
+            catch { scope.Dispose(); throw; }
         }
 
         protected virtual Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
@@ -621,7 +631,7 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         internal async ValueTask<AIRequestContext?> BuildEffectiveContextAsync(AIRequestContext? explicitContext, CancellationToken cancellationToken)
         {
-            var provider = SystemMessageProvider;
+            var provider = RequestSetting(nameof(SystemMessageProvider), SystemMessageProvider);
             if (provider == null) return explicitContext;
 
             var providerContext = await provider(cancellationToken).ConfigureAwait(false);

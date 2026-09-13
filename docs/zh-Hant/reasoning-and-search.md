@@ -1,6 +1,12 @@
 # 選擇推理強度，並取得附有來源的回答
 
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
 > 這些 API 需要 `Mythosia.AI` 7.1.0 或更新版本，其中包含 `Mythosia.AI.Abstractions` 3.1.0 或更新版本。RAG 範例需要 `Mythosia.AI.Rag` 7.6.0 或更新版本。
+
+> `CreateRequest`範例需要目前開發中的版本。最初引入Run和共通請求功能的舊7.1版本不包含建構器；舊套件可繼續使用原有服務多載。
+
+[Claude Fable 5.1](fable-5-1.md) 的進度更新、單回合指令與 thinking 綁定診斷從 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 開始提供。Mythos 5.1 需要邀請存取，兩個模型都拒絕強制工具選擇。
 
 ## 為什麼需要這些設定？
 
@@ -23,13 +29,17 @@
 
 ```csharp
 string outline = await service
+    .CreateRequest("擬定移轉計畫的大綱。")
     .WithReasoning(ReasoningLevel.Low)
-    .GetCompletionAsync("擬定移轉計畫的大綱。");
+    .GetCompletionAsync();
 
 string review = await service
+    .CreateRequest("審查該計畫中的故障情境與復原步驟。")
     .WithReasoning(ReasoningLevel.High)
-    .GetCompletionAsync("審查該計畫中的故障情境與復原步驟。");
+    .GetCompletionAsync();
 ```
+
+Gemini 3.7/3.8 Flash 透過 `WithReasoning` 支援 `Low`、`Medium`、`High`，不支援 `Minimal`、`None` 或 `CachePreservation.Required`。補全、串流、Run、工具呼叫和原生搜尋沿用現有路徑及 Google 的組合限制。請參閱 [Google 設定範例](providers.md#google-googleaiservice)。
 
 `ReasoningLevel` 表達所要求的等級，並非固定的權杖預算，也不保證回答品質。每個模型接受的等級範圍不同。`Auto` 保留供應商已設定的行為或預設行為，不表示自動替換不支援的等級。對於提供權杖預算而非具名等級的模型，原有的供應商專用預算屬性仍然可用。
 
@@ -37,8 +47,9 @@ string review = await service
 
 ```csharp
 string review = await service
+    .CreateRequest("重新檢查上一個回答中的假設。")
     .WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)
-    .GetCompletionAsync("重新檢查上一個回答中的假設。");
+    .GetCompletionAsync();
 ```
 
 `Required` 約定的是變更的傳送方式。它**不保證**快取命中、免費權杖或更低延遲；供應商的快取資格、保留時間及計費規則仍然適用。不支援的模型會在傳送請求前擲回 `NotSupportedException`。請使用同一段受追蹤的對話、同一模型和同一端點，不要截斷或重新排列包含這些更新的歷程記錄。要改變這些條件，請開始新對話。在要求保留前綴期間，系統會阻止自動壓縮。
@@ -51,8 +62,9 @@ string review = await service
 
 ```csharp
 string answer = await service
+    .CreateRequest("搜尋最新的版本發行公告，並註明來源。")
     .WithWebSearch()
-    .GetCompletionAsync("搜尋最新的版本發行公告，並註明來源。");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.Url}");
@@ -70,8 +82,9 @@ OpenAI 和 Anthropic 也接受 `WithWebSearch(new WebSearchOptions { AllowedDoma
 var documents = new FileSearchStore("OpenAI", "vs_your_existing_store");
 
 string answer = await service
+    .CreateRequest("搜尋我們的政策文件。取消服務的期限是多久？")
     .WithFileSearch(documents)
-    .GetCompletionAsync("搜尋我們的政策文件。取消服務的期限是多久？");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.FileId ?? source.Url}");
@@ -79,7 +92,7 @@ foreach (AICitation source in service.GetLastCitations())
 
 對於 Google，請將 `new FileSearchStore("Google", "fileSearchStores/your-existing-store")` 與 Google 服務一起使用。儲存區屬於特定的供應商、帳戶和部署環境，不能將 OpenAI 的儲存區 ID 傳給 Google。使用前，請透過供應商 API 或主控台建立儲存區、上傳文件並建立索引。本 API 僅搜尋現有儲存區，不會上傳本機檔案。
 
-託管檔案搜尋與程式庫的 [RAG 管線](rag.md) 滿足不同的部署需求。索引已由供應商管理時，可以選擇託管搜尋；應用程式需要控制載入器、分割、嵌入、檢索或向量儲存時，應選擇 RAG。`RagEnabledService` 也會將 `WithReasoning`、`WithWebSearch` 和 `WithFileSearch` 轉送至最終回答，其內部查詢改寫不會繼承這些選項。RAG 檢索引用仍在 `RagProcessedQuery` 上，與供應商傳回的 `AICitation` 來源分開儲存。
+`CreateRequest(...).With...`在獨立建構器中保存選項。重用同一建構器時，每次執行及其工具回合都會使用這些設定。原有`service.WithReasoning`、`service.WithWebSearch`和`service.WithFileSearch`仍傳回具體服務型別，並在下一個邏輯請求中消耗選項。使用`IAIRequestFeatureService`或RAG包裝器的既有程式碼可以繼續使用這些方法。兩種方式均不保證同一服務的平行執行。
 
 ## 顯示進度並保留來源
 
@@ -87,14 +100,14 @@ foreach (AICitation source in service.GetLastCitations())
 
 ```csharp
 await using var run = await service
+    .CreateRequest("搜尋近期公告，並比較其中的變更。")
     .WithReasoning(ReasoningLevel.High)
     .WithWebSearch()
     .StartRunAsync(
-        "搜尋近期公告，並比較其中的變更。",
         onText: text => Console.Write(text),
         cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 foreach (AICitation source in run.Citations)
     Console.WriteLine($"{source.Title}: {source.Url ?? source.FileId}");
 ```
@@ -104,8 +117,10 @@ foreach (AICitation source in run.Citations)
 如需在來源事件抵達時處理它們，請只使用一個事件讀取器：
 
 ```csharp
-await using var run = await service.WithWebSearch().StartRunAsync(
-    "搜尋並解釋最新變更。", cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("搜尋並解釋最新變更。")
+    .WithWebSearch()
+    .StartRunAsync(cancellationToken: cancellationToken);
 
 await foreach (var item in run.StreamAsync())
 {
@@ -114,10 +129,10 @@ await foreach (var item in run.StreamAsync())
     else if (item.Type == StreamingContentType.Citation && item.Citation is AICitation source)
         Console.WriteLine($"\n來源: {source.Title} {source.Url ?? source.FileId}");
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
-供應商未傳回值的引用欄位可以是 null。`ResponseId`、`OutputIndex` 和 `ContentIndex` 識別原始回應及內容片段。`StartIndex` 和 `EndIndex` 保留供應商在局部內容中的位移及索引規則，**不是**串接後的 `run.Result` 中的位置。不要直接把它們當作完整答案的索引來放置引用。
+供應商未傳回值的引用欄位可以是 null。`ResponseId`、`OutputIndex` 和 `ContentIndex` 識別原始回應及內容片段。`StartIndex` 和 `EndIndex` 保留供應商在局部內容中的位移及索引規則，**不是**串接後的 `(await run.Result).Text` 中的位置。不要直接把它們當作完整答案的索引來放置引用。
 
 ## 檢查供應商支援範圍與請求作用範圍
 
@@ -126,12 +141,19 @@ string answer = await run.Result;
 | OpenAI | 支援的推理模型；等級因模型而異 | GPT-6 Astra Standard，單一代理模式 | 支援的 Responses 模型 | 支援的 Responses 模型及現有向量儲存區 |
 | Anthropic | 具備原生 effort 控制的模型 | 支援的 Opus 5 / Fable 5.1 / Mythos 5.1，使用供應商測試版功能 | 支援的 Claude 模型 | 沒有原生儲存區轉接器；請使用 RAG |
 | Google | Gemini 3 的等級；Gemini 2.5 保留供應商專用預算 | 不支援 | 支援的 Gemini 文字模型 | 支援的 Gemini 文字模型及現有檔案搜尋儲存區 |
+| xAI | Grok 4.6：`Auto`、`Low`、`Medium`、`High`、`XHigh` | 不支援 | 沒有共用轉接器 | 沒有共用轉接器 |
+| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`；對應原生 Low/High/Max | 不支援 | 無共用配接器 | 無共用配接器 |
+| Perplexity | `Auto` 或模型支援的 `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`；Sonar 不支援明確 effort | 不支援 | Agent `web_search` | 無共用配接器 |
 | 其他服務 | 原有供應商專用設定仍然可用；這些共用選項需要轉接器 | 本組轉接器不支援 | 沒有共用轉接器 | 沒有共用轉接器 |
 
-模型、等級、傳輸方式及組合檢查均在傳送請求之前進行。尤其要注意，**Google 網頁搜尋與檔案搜尋不能在同一個請求中合併使用**。程式庫不會悄悄移除功能、降低推理等級、忽略網域限制，或切換至外部搜尋服務。在供應商支援時，原生工具可與註冊的用戶端函式共存；Run 的工具輪次仍遵循函式原則與 `WithMaxRounds`。
+配接器在傳送前檢查本機已知的模型、等級、傳輸及組合限制；無法在本機判斷的模型規則由供應商驗證。尤其要注意，**Google 網頁搜尋與檔案搜尋不能在同一個請求中合併使用**。程式庫不會悄悄移除功能、降低推理等級、忽略網域限制，或切換至外部搜尋服務。在供應商支援時，原生工具可與註冊的用戶端函式共存；Run 的工具輪次仍遵循函式原則與 `WithMaxRounds`。
 
-Fluent 方法保留服務的具體型別，並複製輸入選項。非 null 的元件會合併至下一次邏輯請求中，涵蓋其工具輪次及結構化輸出修復呼叫，隨後被消耗。搜尋不會自動用於後續無關呼叫；需要時，請再次加入 `WithWebSearch` 或 `WithFileSearch`。已啟動的 Run 會保留擷取的設定。與其他可變服務設定一樣，請勿在請求執行時修改同一服務的設定，或在該服務上啟動重疊請求。
+`CreateRequest(...).With...`在獨立建構器中保存選項。重用同一建構器時，每次執行及其工具回合都會使用這些設定。原有`service.WithReasoning`、`service.WithWebSearch`和`service.WithFileSearch`仍傳回具體服務型別，並在下一個邏輯請求中消耗選項。使用`IAIRequestFeatureService`或RAG包裝器的既有程式碼可以繼續使用這些方法。兩種方式均不保證同一服務的平行執行。
 
 自訂 `IAIService` 實作仍然相容。實作可以透過 `IAIRequestFeatureService` 選擇提供這些功能；在沒有這項能力的實作上呼叫相關輔助方法，會明確擲回例外。現有完成、串流及供應商專用設定 API 仍然可用。取消、觀察和補充指令的用法請參閱 [Run 控制](execution-api-transition.md)。
 
 供應商協定：[OpenAI 推理變更](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation)、[OpenAI 工具](https://developers.openai.com/api/docs/guides/tools)、[Anthropic effort 變更](https://platform.claude.com/docs/en/build-with-claude/effort#change-effort-mid-conversation)、[Anthropic 網頁搜尋](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool)、[Google Search 資訊依據](https://ai.google.dev/gemini-api/docs/google-search)、[Google File Search](https://ai.google.dev/gemini-api/docs/file-search)。
+
+Perplexity 的 effort 支援取決於實際選取的模型，不相容的組合可能由伺服器拒絕。不支援 `None`。預設網頁搜尋和 preset/profile 工具屬於持續的供應商設定，共用請求選項不會將其關閉。
+
+Perplexity: [Perplexity Agent API、搜尋與嵌入](perplexity.md).

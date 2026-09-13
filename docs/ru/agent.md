@@ -1,5 +1,12 @@
 # Агент (цикл ReAct)
 
+Чтобы получить ответ, расход и источники вместе, используйте снимок `AIRunResult`, возвращаемый `await run.Result`. Строка находится в `result.Text`; читать поток не требуется. Изменение входит в Mythosia.AI 8.0.0. Типы возврата `GetCompletionAsync` и `StructuredStreamRun<T>.Result` сохраняются. [Результат Run и миграция](execution-api-transition.md#run-result).
+
+
+Для независимых настроек и повторного использования вариантов применяйте [билдер запросов](request-building.md). Вызывайте `CreateRequest(...)` перед `With...`. Свойства и fluent-методы сервиса сохраняют прежнее поведение.
+
+> Примеры с `CreateRequest` требуют Mythosia.AI 8.0.0 / Abstractions 4.0.0. В прежней версии 7.1, добавившей Run и общие параметры, билдера нет. Старые пакеты могут использовать прежние перегрузки сервиса.
+
 Для задач с несколькими инструментами полезны лимит раундов и управление текущей работой. Общий цикл уже предоставляет эти возможности; см. [управление задачей через Run](execution-api-transition.md).
 
 ## Зачем нужен агентный цикл
@@ -15,12 +22,16 @@
 
 ```csharp
 // Сначала зарегистрируйте инструменты на сервисе.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Найдите политику, проверьте заказ и объясните результат.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Найдите политику, проверьте заказ и объясните результат.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Локальные инструменты могут возвращать объекты через `Task<T>` / `ValueTask<T>` и получать внедрённый `CancellationToken`. `run.Cancel()` или исходный токен передаёт отмену поддерживающим её инструментам; остановка только чтения потока — нет. Исключения записываются как ошибки. При отмене ожидающие вызовы пропускаются, а очистка ждёт начатые инструменты, игнорирующие токен. См. [результаты, ошибки и отмена](function-calling.md#tool-execution-contract).
 
 ## Примеры для прежнего агентного API
 

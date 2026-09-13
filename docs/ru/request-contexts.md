@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Для готового ответа и кнопки Стоп передайте `cancellationToken` в `GetCompletionAsync`. Run нужен для событий прогресса или поддерживаемых дополнительных указаний. См. [отмену ответа](completions.md#completion-cancellation).
+
+Для независимых настроек и повторного использования вариантов применяйте [билдер запросов](request-building.md). Вызывайте `CreateRequest(...)` перед `With...`. Свойства и fluent-методы сервиса сохраняют прежнее поведение.
+
 Контекст запроса позволяет добавить актуальные сведения только к нужной задаче. Его можно передать и при [запуске Run](execution-api-transition.md), сохранив возможность наблюдения и отмены.
 
 ## Обзор
@@ -35,7 +39,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Сегодня: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Доступные свойства
@@ -273,7 +277,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`StartRunAsync` передаёт токен отмены в асинхронный поставщик контекста независимо от того, читает ли приложение поток. Прежние `StreamAsync` и `RunAgentStreamAsync` также передают токен вызывающего. Сигнатуры `GetCompletionAsync` и `RunAgentAsync` не принимают `CancellationToken`; если нужен отменяемый запрос к базе данных или другой источник контекста, используйте Run.
+`GetCompletionAsync(..., cancellationToken: token)` и прежний `RunAgentAsync` теперь передают отмену в `SystemMessageProvider`: запрос к БД или HTTP с поддержкой токена можно остановить при подготовке. `StartRunAsync` и существующие потоковые методы с входным сообщением также передают токен выполнения. Отмена только `run.StreamAsync(token)` останавливает наблюдение, а не провайдер или выполнение.
 
 ### Слияние с явным per-call контекстом
 

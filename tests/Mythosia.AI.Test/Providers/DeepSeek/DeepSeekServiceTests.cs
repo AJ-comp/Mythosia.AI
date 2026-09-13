@@ -21,16 +21,17 @@ public class DeepSeekServiceTests : AIServiceTestBase
 
     protected override bool SupportsMultimodal()
     {
-        return false; // DeepSeek은 현재 텍스트만 지원
+        return true; // DeepSeek Flash는 이미지 입력을 지원합니다.
     }
 
     protected override string? GetAlternativeModel()
     {
-        return AIModels.DeepSeek.Reasoner;
+        // Restart the conversation with the supported model; thinking is a separate setting.
+        return AIModels.DeepSeek.Flash;
     }
 
     /// <summary>
-    /// DeepSeek Reasoner 모델 테스트
+    /// Flash 추론 모드 테스트
     /// </summary>
     [TestMethod]
     public async Task DeepSeekReasonerTest()
@@ -39,7 +40,7 @@ public class DeepSeekServiceTests : AIServiceTestBase
         {
             var deepSeekService = (DeepSeekService)AI;
 
-            // Reasoner 모델로 전환
+            // 호환 helper로 Flash 추론 모드 활성화
             deepSeekService.UseReasonerModel();
 
             // 복잡한 추론 문제
@@ -132,10 +133,10 @@ public class DeepSeekServiceTests : AIServiceTestBase
     }
 
     /// <summary>
-    /// DeepSeek 멀티모달 미지원 테스트
+    /// DeepSeek Flash 이미지 입력 테스트
     /// </summary>
     [TestMethod]
-    public async Task DeepSeekMultimodalNotSupportedTest()
+    public async Task DeepSeekMultimodalInputTest()
     {
         try
         {
@@ -145,13 +146,13 @@ public class DeepSeekServiceTests : AIServiceTestBase
                 TestImagePath
             );
 
-            // DeepSeek은 이미지를 무시하고 텍스트만 처리
-            Assert.IsNotNull(response);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(response));
             Console.WriteLine($"[Image Attempt] {response}");
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[Multimodal Error] {ex.Message}");
+            Assert.Fail(ex.Message);
         }
     }
 

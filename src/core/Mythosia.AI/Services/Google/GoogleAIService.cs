@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Models.Functions;
@@ -8,6 +8,7 @@ using Mythosia.AI.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -40,7 +41,7 @@ namespace Mythosia.AI.Services.Google
 
         /// <summary>
         /// Controls the thinking level for Gemini 3 models.
-        /// Auto uses the selected model's provider default. Gemini 3.6/3.5 Flash default
+        /// Auto uses the selected model's provider default. Gemini 3.8/3.6/3.5 Flash default
         /// to Medium, Flash-Lite defaults to Minimal, while 3 Flash Preview and Pro Preview default to High.
         /// Note: Do not set both ThinkingLevel and ThinkingBudget.
         /// </summary>
@@ -87,14 +88,14 @@ namespace Mythosia.AI.Services.Google
             ChangeModel(model);
         }
 
-        #region Model Detection Helpers
+        #region RequestModel Detection Helpers
 
         /// <summary>
         /// Returns true if the current model is a Gemini 3 series model.
         /// </summary>
         private bool IsGemini3Model()
         {
-            return Model != null && Model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase);
+            return RequestModel != null && RequestModel.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -103,8 +104,8 @@ namespace Mythosia.AI.Services.Google
         /// </summary>
         private bool IsThinkingRequiredModel()
         {
-            return Model != null &&
-                   Model.Contains("-pro", StringComparison.OrdinalIgnoreCase) &&
+            return RequestModel != null &&
+                   RequestModel.Contains("-pro", StringComparison.OrdinalIgnoreCase) &&
                    !IsGemini3Model();
         }
 
@@ -114,20 +115,22 @@ namespace Mythosia.AI.Services.Google
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
             LastThinkingContent = null;
-            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
-            CurrentPolicy = null;
+            var policy = GetExecutionPolicy();
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
             using var cts = CreateRequestTimeoutCts(policy);
             bool useFunctions = ShouldUseFunctions;
-            Stream = false;
+            SetExecutionSetting(nameof(Stream), false);
 
             try
             {
-                if (StatelessMode)
+                if (RequestStatelessMode)
                     return await ProcessStatelessRequestAsync(message, useFunctions, policy, cts.Token);
 
+                cts.Token.ThrowIfCancellationRequested();
                 ActivateChat.Messages.Add(message);
 
                 var request = useFunctions
@@ -139,11 +142,17 @@ namespace Mythosia.AI.Services.Google
                 if (useFunctions)
                     return await ProcessFunctionCallLoopAsync(responseContent, policy, cts.Token);
 
+                cts.Token.ThrowIfCancellationRequested();
                 return AddAssistantResponseWithSignature(responseContent);
             }
-            catch (OperationCanceledException)
+            catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
             {
-                throw new AIServiceException($"Request timeout after {timeoutSeconds} seconds");
+                throw new AIServiceException("The HTTP request timed out.", exception);
+            }
+            catch (OperationCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
+            {
+                throw new AIServiceException($"Request timeout after {timeoutSeconds} seconds", exception);
             }
         }
 
@@ -154,6 +163,7 @@ namespace Mythosia.AI.Services.Google
         {
             for (int round = 0; round < policy.MaxRounds; round++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 var (content, thinking, functionCalls, thoughtSignature) = ExtractFunctionCallsWithSignature(responseContent);
                 LastThinkingContent = thinking;
 
@@ -169,6 +179,7 @@ namespace Mythosia.AI.Services.Google
                     cancellationToken);
                 AddFunctionCallBatchToHistory(content, functionCalls);
                 AddFunctionResultBatchToHistory(results);
+                cancellationToken.ThrowIfCancellationRequested();
 
                 if (round + 1 >= policy.MaxRounds)
                     break;
@@ -207,16 +218,19 @@ namespace Mythosia.AI.Services.Google
             HttpRequestMessage request,
             CancellationToken cancellationToken = default)
         {
-            var response = await HttpClient.SendAsync(request, cancellationToken);
+            using var ownedRequest = request;
+            cancellationToken.ThrowIfCancellationRequested();
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
+                var errorContent = responseContent;
                 throw AIHttpErrorFactory.FromHttp(
                     (int)response.StatusCode, response.ReasonPhrase, errorContent, "Gemini API request failed");
             }
 
-            var responseContent = await response.Content.ReadAsStringAsync();
+            cancellationToken.ThrowIfCancellationRequested();
             RecordGeminiCitations(responseContent);
             return responseContent;
         }
@@ -227,9 +241,10 @@ namespace Mythosia.AI.Services.Google
             FunctionCallingPolicy policy,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var tempChat = new ChatBlock
             {
-                SystemMessage = ActivateChat.SystemMessage
+                SystemMessage = RequestSystemMessage
             };
             tempChat.Messages.Add(message);
 
@@ -266,9 +281,9 @@ namespace Mythosia.AI.Services.Google
 
         internal HttpRequestMessage CreateMessageRequest(bool includeThoughts)
         {
-            var endpoint = Stream
-                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse"
-                : $"v1beta/models/{Model}:generateContent";
+            var endpoint = RequestStream
+                ? $"v1beta/models/{RequestModel}:streamGenerateContent?alt=sse"
+                : $"v1beta/models/{RequestModel}:generateContent";
 
             var requestBody = BuildRequestBody(includeThoughts);
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -280,15 +295,18 @@ namespace Mythosia.AI.Services.Google
 
         #region Vision Support
 
-        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
+        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath, CancellationToken cancellationToken = default)
         {
-            return await base.GetCompletionWithImageAsync(prompt, imagePath);
+            cancellationToken.ThrowIfCancellationRequested();
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            return await base.GetCompletionWithImageAsync(prompt, imagePath, cancellationToken);
         }
 
-        public override async Task<string> GetCompletionWithImageUrlAsync(string prompt, string imageUrl)
+        public override async Task<string> GetCompletionWithImageUrlAsync(string prompt, string imageUrl, CancellationToken cancellationToken = default)
         {
-            var message = await CreateMessageWithImageUrl(prompt, imageUrl);
-            return await GetCompletionAsync(message, null, null);
+            cancellationToken.ThrowIfCancellationRequested();
+            var message = await CreateMessageWithImageUrl(prompt, imageUrl, cancellationToken);
+            return await GetCompletionAsync(message, null, null, cancellationToken);
         }
 
         #endregion
@@ -298,52 +316,72 @@ namespace Mythosia.AI.Services.Google
         /// <summary>
         /// Downloads an image from URL for Gemini processing
         /// </summary>
-        public async Task<Message> CreateMessageWithImageUrl(string prompt, string imageUrl)
+        public async Task<Message> CreateMessageWithImageUrl(string prompt, string imageUrl, CancellationToken cancellationToken = default)
         {
-            using var imageResponse = await HttpClient.GetAsync(imageUrl);
-            if (!imageResponse.IsSuccessStatusCode)
-                throw new AIServiceException($"Failed to download image from {imageUrl}");
-
-            var imageData = await imageResponse.Content.ReadAsByteArrayAsync();
-            var contentType = imageResponse.Content.Headers.ContentType?.MediaType ?? DefaultImageMimeType;
-
-            return new Message(ActorRole.User, new List<MessageContent>
+            using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, RequestCancellationToken);
+            var token = cancellation.Token;
+            try
             {
-                new TextContent(prompt),
-                new ImageContent(imageData, contentType)
-            });
+                token.ThrowIfCancellationRequested();
+                using var imageResponse = await HttpClient.GetAsync(imageUrl, HttpCompletionOption.ResponseHeadersRead, token);
+                if (!imageResponse.IsSuccessStatusCode)
+                    throw new AIServiceException($"Failed to download image from {imageUrl}");
+
+                byte[] imageData;
+                using (token.Register(imageResponse.Dispose))
+                {
+                    using var source = await imageResponse.Content.ReadAsStreamAsync().ConfigureAwait(false);
+                    using var buffer = new MemoryStream();
+                    await source.CopyToAsync(buffer, 81920, token).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
+                    imageData = buffer.ToArray();
+                }
+                var contentType = imageResponse.Content.Headers.ContentType?.MediaType ?? DefaultImageMimeType;
+
+                return new Message(ActorRole.User, new List<MessageContent>
+                {
+                    new TextContent(prompt),
+                    new ImageContent(imageData, contentType)
+                });
+            }
+            catch (Exception exception) when (token.IsCancellationRequested &&
+                (exception is OperationCanceledException || exception is IOException ||
+                 exception is ObjectDisposedException || exception is HttpRequestException))
+            {
+                throw new OperationCanceledException("The image download was canceled.", exception,
+                    cancellationToken.IsCancellationRequested ? cancellationToken : RequestCancellationToken);
+            }
         }
 
         /// <summary>
         /// Lowest thinking level the current model supports (used when reasoning is disabled).
-        /// Gemini 3 "pro" models do NOT support MINIMAL (their floor is Low); Flash/Lite and others do.
+        /// Gemini 3 Pro and Gemini 3.7/3.8 Flash require at least Low.
         /// </summary>
         private GeminiThinkingLevel LowestThinkingLevel()
         {
-            var model = Model?.ToLowerInvariant() ?? string.Empty;
-            if (model.Contains("gemini-3") && model.Contains("-pro"))
+            if (HasLowThinkingFloor())
                 return GeminiThinkingLevel.Low;
             return GeminiThinkingLevel.Minimal;
         }
 
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
+            ApplyGoogleProfileSettings(profile);
+            return () => { };
+        }
+
+        protected override void ApplyCapabilityRequestProfile(AIRequestProfile profile)
+            => ApplyGoogleProfileSettings(profile);
+
+        // Shared native flags only; execution-specific output reservations remain outside this helper.
+        private void ApplyGoogleProfileSettings(AIRequestProfile profile)
+        {
             if (profile.DisableReasoning != true)
-                return base.ApplyProviderSpecificRequestProfile(profile);
+                return;
 
-            var backupThinkingBudget = ThinkingBudget;
-            var backupThinkingLevel = ThinkingLevel;
-
-            // Gemini 2.5 Pro requires thinking mode (minimum budget 128).
-            // Flash/Lite models can disable thinking with budget 0.
-            ThinkingBudget = IsThinkingRequiredModel() ? 128 : 0;
-            ThinkingLevel = LowestThinkingLevel();
-
-            return () =>
-            {
-                ThinkingBudget = backupThinkingBudget;
-                ThinkingLevel = backupThinkingLevel;
-            };
+            // Gemini 2.5 Pro cannot disable thinking; other models use their supported floor.
+            SetExecutionSetting(nameof(ThinkingBudget), IsThinkingRequiredModel() ? 128 : 0);
+            SetExecutionSetting(nameof(ThinkingLevel), LowestThinkingLevel());
         }
 
         protected override Action ApplyRequestProfile(AIRequestProfile profile)
@@ -357,15 +395,15 @@ namespace Mythosia.AI.Services.Google
                 // reasoning setting on models where thinking cannot be fully disabled.
                 if (IsThinkingRequiredModel())
                 {
-                    MaxTokens = Math.Min(
+                    SetExecutionSetting(nameof(MaxTokens), Math.Min(
                         GetModelMaxOutputTokens(),
-                        checked(profile.MaxTokens.Value + MinimumGemini25ProThinkingTokens));
+                        checked(profile.MaxTokens.Value + MinimumGemini25ProThinkingTokens)));
                 }
                 else if (IsGemini3Model())
                 {
-                    MaxTokens = Math.Min(
+                    SetExecutionSetting(nameof(MaxTokens), Math.Min(
                         GetModelMaxOutputTokens(),
-                        Math.Max(profile.MaxTokens.Value, MinimumGemini3InternalProfileTokens));
+                        Math.Max(profile.MaxTokens.Value, MinimumGemini3InternalProfileTokens)));
                 }
             }
 

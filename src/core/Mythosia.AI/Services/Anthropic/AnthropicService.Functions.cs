@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Exceptions;
@@ -34,8 +34,8 @@ namespace Mythosia.AI.Services.Anthropic
         private object BuildRequestBodyWithFunctions()
         {
             PrepareClaudeFeatureMessage();
-            var messagesList = new List<object>();
-            var messages = GetLatestMessages().ToList();
+            var messagesList = UsesClaudeWireHistory ? BuildPreservedClaudeMessages() : new List<object>();
+            var messages = UsesClaudeWireHistory ? new List<Message>() : GetLatestMessages().ToList();
             EnsureUserFirstMessage(messages);
 
             for (int i = 0; i < messages.Count; i++)
@@ -97,16 +97,17 @@ namespace Mythosia.AI.Services.Anthropic
 
             var requestBody = new Dictionary<string, object>
             {
-                ["model"] = Model,
+                ["model"] = RequestModel,
                 ["messages"] = messagesList,
-                ["temperature"] = Temperature,
+                ["temperature"] = RequestTemperature,
                 ["max_tokens"] = GetEffectiveMaxTokens(),
-                ["stream"] = Stream
+                ["stream"] = RequestStream
             };
 
             ApplySystemMessage(requestBody);
             ApplyThinkingConfig(requestBody);
             ApplyCommonClaudeReasoning(requestBody);
+            ApplyClaudeRequestOptions(requestBody);
             ApplyTemperaturePolicy(requestBody);
             ApplyToolsConfig(requestBody);
             ApplyNativeClaudeTools(requestBody);
@@ -289,7 +290,7 @@ namespace Mythosia.AI.Services.Anthropic
         {
             if (!ShouldUseFunctions) return;
 
-            requestBody["tools"] = Functions.Select(f => new
+            requestBody["tools"] = RequestFunctions.Select(f => new
             {
                 name = f.Name,
                 description = f.Description,
@@ -301,13 +302,13 @@ namespace Mythosia.AI.Services.Anthropic
                 }
             }).ToList();
 
-            if (FunctionCallMode == FunctionCallMode.None)
+            if (RequestFunctionCallMode == FunctionCallMode.None)
             {
                 requestBody["tool_choice"] = new { type = "none" };
             }
             else if (!IsFunctionContinuation() &&
                      !UsesManualExtendedThinkingForRequest() &&
-                     !string.IsNullOrWhiteSpace(ForceFunctionName))
+                     !string.IsNullOrWhiteSpace(RequestForceFunctionName))
             {
                 // Anthropic's specific-tool form is valid for ordinary and adaptive-thinking
                 // requests. Apply it only to the first round: forcing it after tool_result would
@@ -315,7 +316,7 @@ namespace Mythosia.AI.Services.Anthropic
                 requestBody["tool_choice"] = new
                 {
                     type = "tool",
-                    name = ForceFunctionName
+                    name = RequestForceFunctionName
                 };
             }
             else

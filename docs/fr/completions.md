@@ -1,6 +1,73 @@
 # Générer du texte
 
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 Si l’application a seulement besoin de la réponse terminée, `GetCompletionAsync` reste adapté. Pour afficher la progression, annuler ou ajouter des instructions pendant le travail lorsque le modèle le permet, consultez le [guide Run](execution-api-transition.md).
+
+<a id="completion-cancellation"></a>
+
+## Annuler une réponse devenue inutile
+
+Si une personne ferme un écran, appuie sur Arrêter ou dépasse le délai prévu par l’application, la réponse peut devenir inutile. Transmettez un `CancellationToken` pour arrêter la communication et le travail côté client, puis éviter les outils et appels de modèle suivants. `GetCompletionAsync` reste adapté au résultat final ; une simple annulation ne nécessite pas de Run.
+
+### Before : aucun signal transmis par l’appelant
+
+```csharp
+string answer = await service.CreateRequest("Résume ce document.")
+    .GetCompletionAsync();
+```
+
+### After : annulation utilisateur ou après 30 secondes
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("Résume ce document.")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("Annulé.");
+}
+```
+
+Conservez la source pendant l’appel et reliez le bouton Arrêter ou la fermeture à `cancellation.Cancel()`. Cet exemple prévoit aussi une annulation après 30 secondes. L’appelant reçoit une `OperationCanceledException` après nettoyage. Un délai fixé avec `CancellationTokenSource` est aussi une annulation de l’appelant ; `FunctionCallingPolicy.TimeoutSeconds` conserve son comportement d’erreur de délai existant.
+
+Les surcharges du service pour chaîne et `Message`, la réponse typée, le builder et `MessageChain.SendAsync` / `SendOnceAsync` acceptent le jeton. Les appels qui l’omettent restent utilisables. Autres points d’entrée :
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "Résume ce document.", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "Renvoie le titre et l’auteur en JSON.", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("Résume ce document.")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("Traduis cette phrase.")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+Le jeton atteint la préparation, l’envoi et la lecture HTTP, les outils locaux coopératifs et les tours suivants. Dès que l’annulation est constatée, les outils en attente et les tours futurs sont ignorés. Le nettoyage conserve les paires appel/résultat enregistrées ; un outil démarré qui ignore le jeton peut le retarder. Les actions terminées et l’historique ne sont pas effacés. Voir le [contrat des outils](function-calling.md#tool-execution-contract).
+
+L’arrêt du calcul ou de la facturation du fournisseur n’est pas garanti. OpenAI décrit la fermeture de connexion pour les Responses ordinaires ; Google précise que l’arrêt est côté client et que l’usage applicable reste facturé. [OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal). Un travail en arrière-plan demande son `CancelAsync()` explicite ; annuler `WaitForCompletionAsync(cancellationToken: ...)` arrête seulement l’attente. Une complétion ordinaire ne devient pas un travail en arrière-plan. Voir [Perplexity](perplexity.md).
+
+<a id="completion-cancellation-migration"></a>
+
+Cet ajout appartient à Mythosia.AI 8.0.0. Les appels sans jeton et les arguments positionnels profile/context restent valides au niveau source, mais les consommateurs doivent être recompilés. Les implémentations personnalisées de `IAIService` doivent ajouter `CancellationToken cancellationToken = default` à la fin des deux signatures et le transmettre. Les fournisseurs dérivés de `AIService` gardent leur override `GetCompletionAsync(Message)` et transmettent le `RequestCancellationToken` protégé au transport. Le builder et Run seuls ne nécessitaient pas ce changement d’interface. Les sous-classes qui redéfinissent les surcharges public virtual modifiées pour les complétions chaîne/profile/context, les helpers d’image ou `RunAgentAsync` doivent aussi ajouter et transmettre le nouveau `CancellationToken` ; seul l’override fournisseur à un seul `Message` garde sa signature. Les délégués liés directement à une signature modifiée peuvent nécessiter une lambda explicite qui transmet ou omet le jeton.
 
 ## Requête simple
 
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("Que montre ce diagramme ?")
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+Pour analyser graphiques et captures, appeler vos fonctions ou approfondir une première réponse, utilisez [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Le raisonnement reste désactivé par défaut ; activez-le avec `WithDeepSeekReasoning(...)` ou `WithReasoning(...)` par requête.
 
 ## Requête rapide (API statique)
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("Raconte-moi une hist
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // Plus bas = plus déterministe
 ```
+
+Perplexity: [Répondre avec un préréglage Agent / Sources, images et réponses structurées](perplexity.md).

@@ -1,5 +1,7 @@
 # Conceptos básicos
 
+Para ajustes independientes y variantes reutilizables, use el [builder de solicitudes](request-building.md). Llame a `CreateRequest(...)` antes de `With...`. Las propiedades y métodos fluent del servicio conservan su comportamiento.
+
 Esta página reúne los conceptos fundamentales que aparecen referenciados en el resto de la documentación. Se irán añadiendo más conceptos con el tiempo.
 
 ## ¿Qué es un round?

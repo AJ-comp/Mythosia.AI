@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -62,7 +62,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         protected override uint GetModelMaxOutputTokens()
         {
-            var model = Model?.ToLower() ?? "";
+            var model = RequestModel?.ToLower() ?? "";
             if (model.Contains("fable-5")) return 128000;
             if (model.Contains("mythos-5")) return 128000;
             if (model.Contains("opus-5")) return 128000;
@@ -101,54 +101,56 @@ namespace Mythosia.AI.Services.Anthropic
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
             _nativeServerContinuation = false;
             // Get policy (current or default)
-            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
-            CurrentPolicy = null;
+            var policy = GetExecutionPolicy();
 
-            using var cts = policy.TimeoutSeconds.HasValue
-                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
-                : new CancellationTokenSource();
+            using var cts = CreateRequestTimeoutCts(policy);
 
             // Stateless 모드 처리 (ChatGpt 방식)
             ChatBlock? originalChat = null;
-            if (StatelessMode)
+            if (RequestStatelessMode)
             {
                 originalChat = ActivateChat;
-                ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
+                ActivateChat = new ChatBlock { SystemMessage = RequestSystemMessage };
             }
 
             try
             {
-                LastThinkingContent = null;
                 bool useFunctions = ShouldUseFunctions;
 
-                Stream = false;
+                SetExecutionSetting(nameof(Stream), false);
+                cts.Token.ThrowIfCancellationRequested();
                 ActivateChat.Messages.Add(message);
 
                 // Function calling loop - use policy.MaxRounds
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    cts.Token.ThrowIfCancellationRequested();
                     using var reasoningAttempt = new ClaudeReasoningAttempt(this);
                     if (policy.EnableLogging)
                     {
                         Console.WriteLine($"[Claude Round {round + 1}/{policy.MaxRounds}]");
                     }
 
-                    var request = useFunctions
+                    using var request = useFunctions
                         ? CreateFunctionMessageRequest()
                         : CreateMessageRequest();
 
-                    var response = await HttpClient.SendAsync(request, cts.Token);
+                    using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                    var responseContent = await ReadCompletionResponseBodyAsync(response, cts.Token);
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        var errorContent = await response.Content.ReadAsStringAsync();
+                        var errorContent = responseContent;
                         throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, errorContent);
                     }
 
-                    var responseContent = await response.Content.ReadAsStringAsync();
+                    cts.Token.ThrowIfCancellationRequested();
+                    RecordClaudeInputTransformations(responseContent);
 
                     if (TryCreateRefusalException(responseContent, out var refusalException))
                     {
@@ -162,6 +164,8 @@ namespace Mythosia.AI.Services.Anthropic
                             stopReason!,
                             "Claude stopped before completing the response; the partial response was not saved.");
                     }
+
+                    RecordClaudeThinkingContent(ExtractThinkingContent(responseContent));
 
                     if (string.Equals(stopReason, "pause_turn", StringComparison.Ordinal))
                     {
@@ -182,7 +186,6 @@ namespace Mythosia.AI.Services.Anthropic
                     if (useFunctions)
                     {
                         var (textContent, functionCalls) = ExtractFunctionCalls(responseContent);
-                        LastThinkingContent = ExtractThinkingContent(responseContent);
 
                         if (functionCalls.Calls.Count > 0)
                         {
@@ -221,11 +224,12 @@ namespace Mythosia.AI.Services.Anthropic
                                 "Claude reported stop_reason=tool_use without a usable tool call; no tool was executed.");
                         }
 
+                        cts.Token.ThrowIfCancellationRequested();
                         // No more function calls: end the request even when Claude intentionally
                         // returns content:[] with end_turn. Retrying that empty terminal response
                         // would repeat billing and can never manufacture a missing tool call.
-                        if (!string.IsNullOrEmpty(textContent) || CurrentRequestFeatures.WebSearch != null)
-                            ActivateChat.Messages.Add(CurrentRequestFeatures.WebSearch != null
+                        if (!string.IsNullOrEmpty(textContent) || PreserveClaudeAssistantContent)
+                            ActivateChat.Messages.Add(PreserveClaudeAssistantContent
                                 ? CreateNativeClaudeAssistantMessage(textContent, ExtractClaudeRawContent(responseContent))
                                 : new Message(ActorRole.Assistant, textContent));
                         reasoningAttempt.Accept();
@@ -233,8 +237,9 @@ namespace Mythosia.AI.Services.Anthropic
                     }
                     else
                     {
+                        cts.Token.ThrowIfCancellationRequested();
                         var result = ExtractResponseContent(responseContent);
-                        ActivateChat.Messages.Add(CurrentRequestFeatures.WebSearch != null
+                        ActivateChat.Messages.Add(PreserveClaudeAssistantContent
                             ? CreateNativeClaudeAssistantMessage(result, ExtractClaudeRawContent(responseContent))
                             : new Message(ActorRole.Assistant, result));
                         reasoningAttempt.Accept();
@@ -242,11 +247,17 @@ namespace Mythosia.AI.Services.Anthropic
                     }
                 }
 
+                cts.Token.ThrowIfCancellationRequested();
                 throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
             }
-            catch (OperationCanceledException)
+            catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
             {
-                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
+                throw new AIServiceException("The HTTP request timed out.", exception);
+            }
+            catch (OperationCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
+            {
+                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds", exception);
             }
             finally
             {
@@ -363,6 +374,7 @@ namespace Mythosia.AI.Services.Anthropic
         {
             request.Headers.Add("x-api-key", ApiKey);
             request.Headers.Add("anthropic-version", AnthropicApiVersion);
+            AddClaudePreservedThinkingHeaders(request);
             if (SupportsPerMessageClaudeEffort() &&
                 ActivateChat.Messages.Any(message => message.Metadata?.ContainsKey(ClaudeEffortMessageKey) == true))
                 request.Headers.TryAddWithoutValidation("anthropic-beta", ClaudeEffortBeta);
@@ -378,6 +390,16 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private void ApplySystemMessage(Dictionary<string, object> requestBody)
         {
+            if (UsesClaudeWireHistory)
+            {
+                var baseMessage = RequestSystemMessage ?? string.Empty;
+                var summary = ConversationPolicy?.CurrentSummary;
+                if (!string.IsNullOrEmpty(summary))
+                    baseMessage = string.IsNullOrEmpty(baseMessage) ? $"[Previous conversation summary]\n{summary}" :
+                        $"[Previous conversation summary]\n{summary}\n\n{baseMessage}";
+                if (!string.IsNullOrEmpty(baseMessage)) requestBody["system"] = baseMessage;
+                return;
+            }
             var systemMsg = GetEffectiveSystemMessageWithRequestContext();
 
             if (!string.IsNullOrEmpty(systemMsg))
@@ -397,7 +419,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private bool IsExtendedThinkingModel()
         {
-            var model = Model?.ToLower() ?? "";
+            var model = RequestModel?.ToLower() ?? "";
             if (model.Contains("fable-5")) return true;
             if (model.Contains("mythos-5")) return true;
             if (model.Contains("sonnet-5")) return true;
@@ -412,7 +434,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// Returns true if a supported manual or adaptive thinking mode is enabled.
         /// </summary>
         private bool IsThinkingEnabled => IsExtendedThinkingModel() &&
-            (ThinkingBudget >= 1024 ||
+            (RequestThinkingBudget >= 1024 ||
              (ModelSupportsAdaptiveThinking() && IsAdaptiveThinkingExplicitlyRequested()));
 
         /// <summary>
@@ -431,7 +453,7 @@ namespace Mythosia.AI.Services.Anthropic
             if (IsAdaptiveThinkingExplicitlyRequested() && !ModelSupportsAdaptiveThinking())
             {
                 throw new NotSupportedException(
-                    $"Claude model '{Model}' does not support adaptive thinking. " +
+                    $"Claude model '{RequestModel}' does not support adaptive thinking. " +
                     $"Use {nameof(WithThinkingParameters)} with a manual token budget instead.");
             }
 
@@ -460,7 +482,7 @@ namespace Mythosia.AI.Services.Anthropic
                 var thinking = new Dictionary<string, object>
                 {
                     ["type"] = "adaptive",
-                    ["display"] = AdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized
+                    ["display"] = RequestAdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized
                         ? "summarized"
                         : "omitted"
                 };
@@ -476,19 +498,19 @@ namespace Mythosia.AI.Services.Anthropic
             // Manual thinking (Opus 4.6 / Sonnet 4.x / Haiku 4.5 and earlier).
             // Claude requires budget_tokens < max_tokens
             var effectiveMaxTokens = GetEffectiveMaxTokens();
-            if ((uint)ThinkingBudget >= effectiveMaxTokens)
+            if ((uint)RequestThinkingBudget >= effectiveMaxTokens)
             {
                 var modelMax = GetModelMaxOutputTokens();
-                if ((uint)ThinkingBudget >= modelMax)
+                if ((uint)RequestThinkingBudget >= modelMax)
                 {
                     throw new ArgumentOutOfRangeException(
                         nameof(ThinkingBudget),
-                        ThinkingBudget,
+                        RequestThinkingBudget,
                         $"Claude manual thinking requires ThinkingBudget to be lower than the " +
                         $"model's maximum output tokens ({modelMax}) so max_tokens can remain larger.");
                 }
 
-                var required = (uint)ThinkingBudget + 1024;
+                var required = (uint)RequestThinkingBudget + 1024;
                 requestBody["max_tokens"] = Math.Min(required, modelMax);
             }
 
@@ -496,7 +518,7 @@ namespace Mythosia.AI.Services.Anthropic
             requestBody["thinking"] = new Dictionary<string, object>
             {
                 ["type"] = "enabled",
-                ["budget_tokens"] = ThinkingBudget
+                ["budget_tokens"] = RequestThinkingBudget
             };
         }
 
@@ -509,7 +531,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private bool ModelRequiresAdaptiveThinking()
         {
-            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            var model = RequestModel?.ToLowerInvariant() ?? string.Empty;
             return model.Contains("fable-5") ||
                    model.Contains("mythos-5") ||
                    model.Contains("opus-5") ||
@@ -525,7 +547,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private bool ModelSupportsOptionalAdaptiveThinking()
         {
-            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            var model = RequestModel?.ToLowerInvariant() ?? string.Empty;
             return model.Contains("opus-4-6") || model.Contains("sonnet-4-6");
         }
 
@@ -536,8 +558,8 @@ namespace Mythosia.AI.Services.Anthropic
 
         private bool IsAdaptiveThinkingExplicitlyRequested()
         {
-            return _adaptiveThinkingExplicitlyRequested ||
-                   AdaptiveThinkingEffort != ClaudeReasoningEffort.Auto;
+            return RequestAdaptiveThinkingExplicitlyRequested ||
+                   RequestAdaptiveThinkingEffort != ClaudeReasoningEffort.Auto;
         }
 
         private bool UsesAdaptiveThinkingForRequest()
@@ -552,13 +574,13 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private bool ModelRequiresExplicitThinkingDisabled()
         {
-            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            var model = RequestModel?.ToLowerInvariant() ?? string.Empty;
             return model.Contains("opus-5") || model.Contains("sonnet-5");
         }
 
         private bool IsAlwaysOnAdaptiveThinkingModel()
         {
-            var model = Model ?? string.Empty;
+            var model = RequestModel ?? string.Empty;
             return model.Contains("fable-5", StringComparison.OrdinalIgnoreCase) ||
                    model.Contains("mythos-5", StringComparison.OrdinalIgnoreCase);
         }
@@ -571,16 +593,16 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private string ResolveAdaptiveThinkingEffort()
         {
-            if (AdaptiveThinkingEffort == ClaudeReasoningEffort.XHigh &&
+            if (RequestAdaptiveThinkingEffort == ClaudeReasoningEffort.XHigh &&
                 ModelSupportsOptionalAdaptiveThinking())
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(AdaptiveThinkingEffort),
-                    AdaptiveThinkingEffort,
-                    $"Claude model '{Model}' does not support xhigh effort. Use low, medium, high, or max.");
+                    RequestAdaptiveThinkingEffort,
+                    $"Claude model '{RequestModel}' does not support xhigh effort. Use low, medium, high, or max.");
             }
 
-            switch (AdaptiveThinkingEffort)
+            switch (RequestAdaptiveThinkingEffort)
             {
                 case ClaudeReasoningEffort.Low: return "low";
                 case ClaudeReasoningEffort.Medium: return "medium";
@@ -589,8 +611,8 @@ namespace Mythosia.AI.Services.Anthropic
                 case ClaudeReasoningEffort.Max: return "max";
             }
 
-            if (ThinkingBudget >= 100_000) return "max";
-            if (ThinkingBudget >= 32_768 && !ModelSupportsOptionalAdaptiveThinking()) return "xhigh";
+            if (RequestThinkingBudget >= 100_000) return "max";
+            if (RequestThinkingBudget >= 32_768 && !ModelSupportsOptionalAdaptiveThinking()) return "xhigh";
             return "high";
         }
 
@@ -602,7 +624,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         private bool ModelRejectsCustomTemperature()
         {
-            var model = Model?.ToLowerInvariant() ?? string.Empty;
+            var model = RequestModel?.ToLowerInvariant() ?? string.Empty;
             return model.Contains("fable-5") ||
                    model.Contains("mythos-5") ||
                    model.Contains("opus-5") ||
@@ -621,7 +643,7 @@ namespace Mythosia.AI.Services.Anthropic
             // Manual mode writes 1 explicitly above; adaptive mode omits temperature so callers'
             // sampling settings cannot accidentally make an otherwise valid request fail.
             if (!ModelRejectsCustomTemperature() &&
-                !(IsThinkingEnabled && UsesAdaptiveThinkingForRequest()))
+                !RequiresAdaptiveThinkingTemperaturePolicy())
             {
                 return;
             }
@@ -629,7 +651,7 @@ namespace Mythosia.AI.Services.Anthropic
             if (requestBody.TryGetValue("temperature", out var current) &&
                 current is float t && Math.Abs(t - 1.0f) > 0.0001f)
             {
-                Console.WriteLine($"[Claude] Model '{Model}' does not support a custom temperature; ignoring temperature={t}.");
+                Console.WriteLine($"[Claude] Model '{RequestModel}' does not support a custom temperature; ignoring temperature={t}.");
             }
 
             requestBody.Remove("temperature");
@@ -668,28 +690,25 @@ namespace Mythosia.AI.Services.Anthropic
 
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
+            ApplyClaudeProfileSettings(profile);
+            return () => { };
+        }
+
+        protected override void ApplyCapabilityRequestProfile(AIRequestProfile profile)
+            => ApplyClaudeProfileSettings(profile);
+
+        // Shared native flags only; execution-specific output reservations remain outside this helper.
+        private void ApplyClaudeProfileSettings(AIRequestProfile profile)
+        {
             if (profile.DisableReasoning != true)
-                return base.ApplyProviderSpecificRequestProfile(profile);
+                return;
 
-            var backupThinkingBudget = ThinkingBudget;
-            var backupAdaptiveThinkingEffort = AdaptiveThinkingEffort;
-            var backupAdaptiveThinkingDisplay = AdaptiveThinkingDisplay;
-            var backupAdaptiveThinkingExplicitlyRequested = _adaptiveThinkingExplicitlyRequested;
-
-            ThinkingBudget = -1;
-            _adaptiveThinkingExplicitlyRequested = false;
-            AdaptiveThinkingEffort = IsAlwaysOnAdaptiveThinkingModel()
+            SetExecutionSetting(nameof(ThinkingBudget), -1);
+            SetExecutionSetting(nameof(_adaptiveThinkingExplicitlyRequested), false);
+            SetExecutionSetting(nameof(AdaptiveThinkingEffort), IsAlwaysOnAdaptiveThinkingModel()
                 ? ClaudeReasoningEffort.Low
-                : ClaudeReasoningEffort.Auto;
-            AdaptiveThinkingDisplay = ClaudeThinkingDisplay.Omitted;
-
-            return () =>
-            {
-                ThinkingBudget = backupThinkingBudget;
-                AdaptiveThinkingEffort = backupAdaptiveThinkingEffort;
-                AdaptiveThinkingDisplay = backupAdaptiveThinkingDisplay;
-                _adaptiveThinkingExplicitlyRequested = backupAdaptiveThinkingExplicitlyRequested;
-            };
+                : ClaudeReasoningEffort.Auto);
+            SetExecutionSetting(nameof(AdaptiveThinkingDisplay), ClaudeThinkingDisplay.Omitted);
         }
 
         protected override Action ApplyRequestProfile(AIRequestProfile profile)
@@ -701,9 +720,9 @@ namespace Mythosia.AI.Services.Anthropic
                 // The common 256-token summary profile is routinely exhausted by Claude before it
                 // can close a concise summary. Keep the caller-facing profile unchanged and reserve
                 // a provider-specific completion budget for this library-owned request only.
-                MaxTokens = Math.Min(
+                SetExecutionSetting(nameof(MaxTokens), Math.Min(
                     GetModelMaxOutputTokens(),
-                    Math.Max(profile.MaxTokens.Value, MinimumAnthropicSummaryOutputTokens));
+                    Math.Max(profile.MaxTokens.Value, MinimumAnthropicSummaryOutputTokens)));
             }
 
             return restore;
@@ -713,23 +732,25 @@ namespace Mythosia.AI.Services.Anthropic
 
         #region Vision Support
 
-        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
+        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            RequestCancellationToken.ThrowIfCancellationRequested();
             // Ensure we're using a vision-capable Claude model
-            if (!Model.Contains("claude-3") &&
-                !Model.Contains("claude-4") &&
-                !Model.Contains("opus-4") &&
-                !Model.Contains("sonnet-4") &&
-                !Model.Contains("haiku-4") &&
-                !Model.Contains("fable-5") &&
-                !Model.Contains("mythos-5") &&
-                !Model.Contains("opus-5") &&
-                !Model.Contains("sonnet-5"))
+            if (!RequestModel.Contains("claude-3") &&
+                !RequestModel.Contains("claude-4") &&
+                !RequestModel.Contains("opus-4") &&
+                !RequestModel.Contains("sonnet-4") &&
+                !RequestModel.Contains("haiku-4") &&
+                !RequestModel.Contains("fable-5") &&
+                !RequestModel.Contains("mythos-5") &&
+                !RequestModel.Contains("opus-5") &&
+                !RequestModel.Contains("sonnet-5"))
             {
                 ChangeModel(AIModels.Anthropic.ClaudeSonnet4_6);
             }
 
-            return await base.GetCompletionWithImageAsync(prompt, imagePath);
+            return await base.GetCompletionWithImageAsync(prompt, imagePath, cancellationToken);
         }
 
         /// <summary>

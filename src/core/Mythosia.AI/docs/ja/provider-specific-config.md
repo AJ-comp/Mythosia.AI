@@ -1,5 +1,12 @@
 # プロバイダー固有設定アーキテクチャ
 
+回答・使用量・出典をまとめて取得するには、`await run.Result` が返す `AIRunResult` を使用します。文字列は `result.Text` で取得でき、ストリームを読む必要はありません。Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 の API 変更です。`GetCompletionAsync` と `StructuredStreamRun<T>.Result` の戻り値型は維持します。 [Run の結果と移行](../../../../../docs/ja/execution-api-transition.md#run-result).
+
+
+設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](../../../../../docs/ja/request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
+
+> [Claude Fable 5.1](../../../../../docs/ja/fable-5-1.md) は `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から進捗更新、ターン限定指示、thinking binding 診断を利用できます。Mythos 5.1 は招待制です。両モデルともツール選択の強制を拒否します。
+
 > GPT-6 Astra、`AllowAsync`、`StartRunAsync`、共通の推論・検索 API は `Mythosia.AI` 7.1.0 から利用でき、共通型は `Mythosia.AI.Abstractions` 3.1.0 に含まれます。
 
 ## 原則
@@ -9,7 +16,7 @@
 | 設定タイプ | 配置場所 | 例 |
 |------------|----------|-----|
 | **共通設定** | `ChatBlock` | Temperature, TopP, MaxTokens, FrequencyPenalty 等 |
-| **プロバイダー固有** | 各サービスクラス | ThinkingBudget (Gemini), ReasoningEffort (GPT) 等 |
+| **プロバイダー固有** | 各サービスクラス | ThinkingLevel/ThinkingBudget (Gemini), ReasoningEffort (GPT) 等 |
 | **関数ごとの実行許可** | `FunctionDefinition` | `AllowAsync`（既定値 `false`） |
 
 `AllowAsync` は呼び出し側が選ぶ許可であり、モデルと API の対応状況はサービスが内部で判断します。`FunctionBuilder.WithAsync()` と `[AiFunction("lookup", "データを取得", AllowAsync = true)]` でも同じ許可を有効にできます。GPT-6 Astra では Responses で使用し、未対応のモデルでは API オプションを省略して同じハンドラーの結果を待ちます。設定した許可の値は変更しません。
@@ -19,13 +26,146 @@
 プロバイダー固有設定は各サービスクラスのプロパティとして管理します。
 
 ```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Enums;
+
+geminiService.ChangeModel(AIModels.Google.Gemini3_8Flash);
+
 // 共通設定 → ChatBlock
-geminiService.ActivateChat.Temperature = 0.7f;
 geminiService.ActivateChat.MaxTokens = 4096;
 
 // プロバイダー固有設定 → サービス
-geminiService.ThinkingBudget = 1024;
+geminiService.ThinkingLevel = GeminiThinkingLevel.Low;
 ```
+
+軽い初回検討には `Low`、難しいレビューには `High` を使えます。推論を増やすと遅延やトークン使用量が増える場合があります。両モデルは `Low`、`Medium`、`High` に対応し、`Minimal` と `None` は非対応です。`GeminiThinkingLevel.Auto` は上書きを省略し、3.8 のプロバイダー既定値は `Medium` です。`ThinkingLevel` はサービスの基本設定、`WithReasoning(...)` は論理リクエスト単位の上書きです。両モデルでは `temperature`、`topP`、`topK` を送信しません。プロバイダーの上限は入力 1,048,576、出力 65,536 トークンです。
+
+### Grok 4.6
+
+素早い下書きには低いレベルを使い、応答速度より回答の質を重視する難しい検証には推論を増やせます。追加の `XHigh` レベルを使う場合は Grok 4.6 を明示的に選択します。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.xAI;
+
+var grok = new XAIService(apiKey, httpClient);
+grok.ChangeModel(AIModels.xAI.Grok4_6);
+grok.WithGrokReasoning(GrokReasoning.Low);
+
+string review = await grok
+    .CreateRequest("ローリング更新とブルーグリーンデプロイを、障害時の復旧手順も含めて比較してください。")
+    .WithReasoning(ReasoningLevel.XHigh)
+    .GetCompletionAsync();
+```
+
+Grok 4.6 は `Low`、`Medium`、`High`、`XHigh` (`GrokReasoning.XHigh`) に対応します。`Auto` は `reasoning_effort` を省略し、プロバイダーの既定値 `High` を使います。`None` で推論を無効にはできません。推論を増やすと待ち時間やトークン使用量が増える場合があります。互換性のため `XAIService` の既定モデルは Grok 4.5 のままです。4.5 は `Low` から `High`、4.3 は `None` から `High` に対応し、これらの旧モデルでの `XHigh` は送信前に拒否されます。
+
+`WithGrokReasoning(...)` と従来の `WithGrokParameters(...)` はサービスの基本設定を変更します。Grok 4.6 の共通 `WithReasoning(...)` はツールラウンドと構造化出力の修正を含む一つの論理リクエストにだけ適用され、その後は基本設定に戻ります。常に推論するこのモデルでは、内部の `DisableReasoning` プロファイルは `Low` を使います。共通設定による xAI のキャッシュ保持更新とホスト型 Web・ファイル検索は未統合です。
+
+
+### Grok Imagine Image 2.0
+
+商品説明からビジュアル案を作ったり、別々の写真の被写体と背景を組み合わせたりするときに使います。`XAIService` は OpenAI・Google と同じ `IImageGenerationService` で生成と編集を提供します。`Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から利用できます。
+
+独立した既定の画像モデルは `AIModels.xAI.GrokImagineImage2_0` (`grok-imagine-image-2.0`) です。画像リクエストはチャットモデルを変更せず、チャット履歴にも追加されません。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Images;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.xAI;
+
+IImageGenerationService images = new XAIService(apiKey, httpClient);
+var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Model = AIModels.xAI.GrokImagineImage2_0,
+    Prompt = "日の出のガラス製パビリオン、横に広い構図",
+    Size = ImageSize.Preset(ImageResolution.OneK, ImageAspectRatio.SixteenByNine),
+    OutputFormat = ImageOutputFormat.Auto
+});
+
+var image = generated.Images[0];
+var extension = image.MediaType switch
+{
+    "image/jpeg" => ".jpg",
+    "image/png" => ".png",
+    "image/webp" => ".webp",
+    _ => throw new NotSupportedException(image.MediaType)
+};
+await File.WriteAllBytesAsync("pavilion" + extension, image.Data);
+```
+
+各 `GeneratedImage.Data` にデコード済みの画像バイト列が入ります。拡張子は `MediaType` に合わせて選んでください。アダプターはインライン base64 応答を要求し、提供元の画像 URL はダウンロードしません。`Count` は出力1～10枚、編集は JPEG・PNG・WebP の参照画像1～5枚に対応します。
+
+xAIは新しい共通既定値`ImageOutputFormat.Auto`のみサポートします。出力コーデックを選択できないため、明示的な`Jpeg`、`Png`、`WebP`は送信前に拒否されます。拡張子は`GeneratedImage.MediaType`で決めてください。ライブラリは画像変換を行いません。品質は`ImageQuality.Auto`、`Low`、`Medium`、背景は`ImageBackground.Auto`のみ。圧縮指定と独立した`Mask`は非対応です。
+
+Googleでは`ImageSize.Auto`またはモデルが対応する`ImageResolution.Auto`、`FiveTwelve`、`OneK`、`TwoK`、`FourK`の`Preset`を使用します。出力は`ImageOutputFormat.Auto`または`Jpeg`で、`Png`/`WebP`は拒否されます。GoogleとxAIは`Pixels`を拒否し、OpenAIは`Auto`/`Pixels`を受け付けて`Preset`を拒否します。[移行例](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#image-options-migration)を参照してください。
+
+### DeepSeek Flash
+
+素早い回答の後に詳しく検証したり、グラフやスクリーンショットを説明したりする場合に DeepSeek Flash を使えます。`AIModels.DeepSeek.Flash` (`deepseek-flash`) は、2026年9月10日公開の視覚理解対応 V4.1 Flash を選択します。既存の補完・ストリーミング・Run・関数呼び出し・RAG API を使用し、`Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から利用できます。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.DeepSeek;
+
+var deepseek = new DeepSeekService(apiKey, httpClient);
+deepseek.ChangeModel(AIModels.DeepSeek.Flash);
+deepseek.WithDeepSeekReasoning(DeepSeekReasoning.Low);
+
+string draft = await deepseek.GetCompletionAsync("ローリングデプロイとブルーグリーンデプロイを、ロールバックのリスクも含めて比較してください。");
+
+await using var run = await deepseek
+    .CreateRequest("その比較で使った前提を検証してください。")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(
+        options: new StreamOptions().WithReasoning());
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.Write(item.Content);
+}
+string review = (await run.Result).Text;
+```
+
+ライブラリの `ThinkingEnabled` は既定で `false` です。`WithDeepSeekReasoning(...)` は推論を有効にし、継続的な `ReasoningEffort` (`Auto`, `Low`, `High`, `Max`) を設定します。ネイティブの `Auto` は effort を省略し、提供元の既定値 `High` を使います。共通 `WithReasoning(...)` はツールラウンドを含む一つの論理リクエストだけを変更します。`None` は無効化、`Minimal`/`Low` は `Low`、`Medium`/`High`/`XHigh` は `High`、`Max` は `Max` に対応します。共通の `Auto` は設定済みの基本動作を保ちます。推論量を増やすと待ち時間やトークン使用量が増える場合があります。 `ReasoningEffort` プロパティの変更だけでは推論は有効になりません。
+
+`WithFunction(...)` でローカル関数を登録し、アプリのコードからデータ取得や処理を行えます。ツールは推論の有無にかかわらず使えますが、推論中は強制・必須のツール選択を拒否するため自動選択を使ってください。後続ラウンドに備え、ネイティブの `reasoning_content` と呼び出し ID を保持します。Run と既存ストリーミングでは `StreamOptions.WithReasoning()` により `StreamingContentType.Reasoning` を観察できます。この観察設定自体は推論を有効にしません。使用量には提供元が報告したキャッシュ・推論トークンも含まれます。 自動コンテキスト復旧は共通ストリーミングループを使います。ツールに過去のネイティブ推論履歴が必要な場合は、その履歴を保つため自動圧縮を禁止し、超過エラーを返します。
+
+提供元の上限はコンテキスト1M、出力384K (`393216`)トークンで、ライブラリの既定予算は8,000です。推論中は temperature・penalty を省略し、`top_p` は0.95以上、非推論では `top_p` を省略します。通信は Chat Completions を使用します。Responses、ホスト型検索、`CachePreservation.Required`、ネイティブ非同期ツール、`SteerAsync` は未対応です。ローカル RAG と通常のツールラウンドは使えます。
+
+### Perplexity Agent API
+
+最新情報に基づく回答と、読者が確認できる出典が必要なときに Perplexity を使います。`PerplexityService` は Agent API を呼び出し、独立した検索と埋め込みは、自分で選んだ回答モデルに検索の仕組みを組み合わせるために使います。
+
+```csharp
+using Mythosia.AI.Models.Perplexity;
+using Mythosia.AI.Services.Perplexity;
+
+var service = new PerplexityService(apiKey, httpClient)
+    .WithPerplexityOptions(new PerplexityAgentOptions
+    {
+        Preset = PerplexityPreset.Low,
+        MaxSteps = 8
+    });
+string answer = await service.GetCompletionAsync("最新のバッテリーリサイクル手法を比較し、出典を示してください。");
+```
+
+`WithPerplexityOptions(...)` はサービスに保持され、論理リクエストごとにコピーされます。共通の `WithReasoning(...)` と `WithWebSearch(...)` は、クライアントツールのラウンドや型付き出力の修復を含む次の論理リクエストに適用されます。内部の RAG クエリ書き換えには最終回答の検索設定が渡りません。
+
+`UsePreset(...)` でプリセットを選べます。プリセット/プロファイルは独自のモデルを選び、`ModelOverride` で明示的に変更します。`DisableWebSearch` はアダプターの既定ツールだけを除き、プリセット内蔵の検索停止を保証しません。モデルに応じて `Minimal`、`Low`、`Medium`、`High`、`XHigh`、`Max` を使用できます。`None` と直接 Sonar への明示的な推論指定は拒否されます。内部の `DisableReasoning` は低い対応レベルか省略を使い、完全な無効化を保証しません。
+
+`PerplexityHostedTools.WebSearch`、`FetchUrl`、`Sandbox`、`FinanceSearch`、`PeopleSearch`、`Mcp`、`Connector` でツール設定を作れます。MCP は承認待ちなしで実行されるため、必要に応じて `allowedTools` を制限します。Connector は提供元のプレビュー機能で、接続済みの統合を参照します。
+
+`StartBackgroundAsync` は履歴を追加せず入力を取得し、有効なローカル関数や `Store = false` を拒否します。`GetResponseAsync` は一度取得し、`WaitForCompletionAsync` は終了状態までポーリングします。`Id` と `LastSequenceNumber` を保存し、`ResumeBackgroundRun(id).StreamAsync(startingAfter: cursor)` で再接続します。遠隔ジョブの停止は `CancelAsync` です。取得・読み取りトークンのキャンセルはそのクライアント操作だけを止めます。`LastResponse` のテキスト、状態、使用量、引用、`OutputJson` を参照し、回答利用前に終了状態を確認してください。
+
+ツール、推論、画像、スキーマの互換性はモデルによります。共通の `WithFileSearch` は Perplexity のベクトルストア用アダプターではありません。サンドボックスの生成ファイル、アップロードされた添付ファイル、外部 MCP データは別のリソースであり、共通のファイル検索ストアにはなりません。
+
+[Perplexity Agent API、検索と埋め込み](../../../../../docs/ja/perplexity.md).
+
 
 ### メリット
 - ChatBlockがプロバイダーに対して完全に無関心（クリーンな分離）
@@ -62,3 +202,17 @@ chatBlock.Gemini.ThinkingBudget = 1024;
 ## 実行の制御が必要になる場面
 
 時間のかかる処理では、進行状況を表示したり、ユーザーが途中で条件を変更できるようにしたりする必要があります。`StartRunAsync` が返す `AIRun` でその処理を制御し、実行中の追加指示に対応するかどうかはプロバイダーが決定します。モデル設定はサービスで開始前に構成し、追加指示の前に `run.CanSteer` を確認します。利用場面、例、キャンセル、互換性は [Run の利用ガイド](../../../../../docs/ja/execution-api-transition.md)を参照してください。
+
+## 独自プロバイダーの実装
+
+公開サービスプロパティは実行中も既定値を表します。独自の`AIService`派生クラスは送信データの構築に`RequestTemperature`、`RequestTopP`、`RequestMaxTokens`、`RequestSystemMessage`、`RequestModel`、`RequestFunctions`などのprotectedアクセサーを使ってください。`Temperature`を直接読むとビルダーの変更を反映できません。独自の既定値は`CaptureRequestSettings`でbase実装を呼んでから保存し、変更可能なコレクションをコピーします。値は`RequestSetting<T>`で読みます。別のオプションオブジェクトをキャプチャする場合は`CloneProviderRequestOptions`でコピーします。base実行を経由しない既存overrideは`BeginRequestSettingsScope()`に入り、従来の機能スコープも保持します。これは実装の拡張契約であり、`IAIService`に必須メンバーを追加しません。
+
+独自のツール実行部は既存のprotected virtual `ProcessFunctionCallAsync(FunctionCall)`を引き続きオーバーライドできます。protected `FunctionCancellationToken`をI/Oや`HandlerWithCancellation`に渡すと実行のキャンセルが伝わります。従来の`Handler`デリゲートを直接呼ぶ場合は`CancellationToken.None`を使用します。標準の実行部はすでにキャンセル対応の経路を選びます。[ツール契約](../../../../../docs/ja/function-calling.md#tool-execution-contract)を参照してください。
+
+完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](../../../../../docs/ja/completions.md#completion-cancellation)を参照してください。
+
+このキャンセル契約は Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 に含まれます。トークン省略や従来のprofile/context位置引数はソース上で有効ですが、利用側は再ビルドが必要です。独自の`IAIService`実装では両完了メソッドの末尾に`CancellationToken cancellationToken = default`を追加して伝播します。`AIService`派生プロバイダーは既存の`GetCompletionAsync(Message)` overrideを維持し、protectedの`RequestCancellationToken`を通信に渡します。ビルダーとRun自体にはこのインターフェース変更は不要でした。 文字列・profile/contextの完了、画像ヘルパー、`RunAgentAsync`など変更されたpublic virtualオーバーロードを再定義する派生クラスも、新しい`CancellationToken`を末尾に追加して伝播します。従来のシグネチャを維持するのは単一の`Message`を受け取るprovider overrideです。変更されたメソッドをデリゲートに直接渡すコードは、トークンを渡すか省略する明示的なラムダへの変更が必要な場合があります。
+
+[共通の対応定義でモデルの機能選択を構成する](../../../../../docs/ja/model-capabilities.md).
+
+独自プロバイダーのプロファイルがネイティブモードのフラグを変更する場合は、`ApplyCapabilityRequestProfile(AIRequestProfile)` をオーバーライドし、リゾルバーに必要なフラグだけを `SetExecutionSetting(...)` で適用します。既定のフックは何もしません。共通プロファイル設定はビルダーが取得済みであり、照会は `ApplyRequestProfile` や `ApplyProviderSpecificRequestProfile` を呼び出しません。このフックで検証、コールバック、シリアライズ、予算予約、サービスや呼び出し元の状態変更を行わないでください。一時設定は照会終了時に復元され、オーバーライドが例外を送出した場合も同様です。

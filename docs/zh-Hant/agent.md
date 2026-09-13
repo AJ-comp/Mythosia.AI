@@ -1,5 +1,12 @@
 # Agent（ReAct 迴圈）
 
+需要同時取得完整答案、用量與來源時，使用 `await run.Result` 傳回的 `AIRunResult`；字串位於 `result.Text`，不必讀取串流。這是Mythosia.AI 8.0.0 的 API 變更；`GetCompletionAsync` 與 `StructuredStreamRun<T>.Result` 的傳回型別保持不變。 [Run 結果與移轉](execution-api-transition.md#run-result).
+
+
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
+> `CreateRequest`範例需要Mythosia.AI 8.0.0 / Abstractions 4.0.0。最初引入Run和共通請求功能的舊7.1版本不包含建構器；舊套件可繼續使用原有服務多載。
+
 ## 為什麼需要 Agent 迴圈？
 
 一般函式呼叫也能將模型單次回應中的**多個函式依序組成批次執行**，並繼續後續工具回合。Agent API 將此機制封裝為具有明確**步驟上限**的目標導向 ReAct 迴圈，把每個批次的結果傳回模型，直到模型產生最終答案：
@@ -15,12 +22,16 @@
 
 ```csharp
 // 在工作開始前向 service 註冊函式。
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "查找政策、檢查訂單並說明結果。",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("查找政策、檢查訂單並說明結果。")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+本機工具可透過`Task<T>` / `ValueTask<T>`回傳物件，並接收程式庫注入的`CancellationToken`。`run.Cancel()`或啟動權杖的取消會傳遞給配合取消的工具，僅停止串流讀取則不會。例外會記錄為失敗；取消時略過排隊呼叫，清理仍會等待已啟動且忽略權杖的工具。請參閱[結果、錯誤與取消](function-calling.md#tool-execution-contract)。
 
 ## 舊API相容範例
 

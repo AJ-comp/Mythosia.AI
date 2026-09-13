@@ -1,5 +1,10 @@
 # Streaming
 
+Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](execution-api-transition.md#run-result).
+
+
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 While a long answer is being written, users need feedback that work is progressing. Streaming displays text as it arrives, and the handle from `StartRunAsync` also provides the collected result and cancellation. See the [Run guide](execution-api-transition.md) for tool events and supported mid-turn instructions.
 
 ```csharp
@@ -13,12 +18,12 @@ await foreach (var item in run.StreamAsync())
         Console.Write(item.Content);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Existing input-taking streaming API
 
-The `service.StreamAsync(...)` calls below remain available in this minor update and are planned to leave the public API in the next major release. Use the Run example above for new execution control.
+Input-taking service and RAG StreamAsync methods remain public in v8. Use StartRunAsync for new execution control; run.StreamAsync() only observes an existing run.
 
 Use `StreamAsync` to receive tokens as they are generated:
 
@@ -42,7 +47,7 @@ await foreach (var content in service.StreamAsync("Explain quantum computing", S
 
 ## Reasoning Streaming
 
-All reasoning-capable providers (OpenAI, Claude, Gemini, Grok, DeepSeek) share the same pattern. Pass `StreamOptions` with reasoning enabled:
+OpenAI, Claude, Gemini, Grok, and DeepSeek Flash expose provider-returned reasoning through the same streaming pattern. Observe it with `StreamOptions.WithReasoning()` after enabling reasoning in the service or request settings:
 
 ```csharp
 using Mythosia.AI.Models.Streaming;
@@ -56,7 +61,11 @@ await foreach (var content in service.StreamAsync("Solve: 2x + 5 = 13", new Stre
 }
 ```
 
-`StreamingContentType.Reasoning` carries the model's internal chain-of-thought, while `StreamingContentType.Text` carries the final answer.
+Gemini 3.7/3.8 Flash use the existing streaming and Run events. `StreamingContentType.Reasoning` contains provider-exposed summaries or progress when returned; it is not a promise of complete internal reasoning. `StreamOptions.WithReasoning()` selects that output, while service-level `WithReasoning(ReasoningLevel...)` controls effort.
+
+Grok 4.6 can also expose optional provider reasoning summaries through these events. The stream option selects visible output; `WithReasoning(ReasoningLevel...)` selects the effort for one task. Missing summaries do not mean reasoning was disabled. See [Grok configuration](providers.md#xai-xaiservice).
+
+DeepSeek Flash exposes `reasoning_content` through the same reasoning events after thinking is enabled. `StreamOptions.WithReasoning()` controls observation; `WithDeepSeekReasoning(...)` or service-level `WithReasoning(...)` controls reasoning. See [DeepSeek configuration](providers.md#deepseek-deepseekservice).
 
 ## Streaming with Structured Output
 
@@ -143,6 +152,8 @@ var options = new StreamOptions()
 ```
 
 For OpenAI Responses streams, a `Completion` event is emitted only after `response.completed` carries a completed response. Provider failure, incomplete, error, refusal, malformed JSON, or an early end-of-stream produces an `Error` event and never executes a function collected from that failed round. The simple text streaming overload throws when it encounters that error instead of yielding the provider error as normal text.
+
+Treat displayed chunks as provisional until `run.Result` succeeds. The shared OpenAI-compatible streaming path and the DeepSeek streaming path reject new text, reasoning or tool data after an explicit completion, or a changed finish reason: `run.Result` throws, the failed round is not saved to history, and its tools are not executed. This failure handling does not undo earlier rounds or actions already executed externally. The final delta can arrive in the first terminal event, and a later usage-only event is accepted.
 
 ## Stateless Streaming (StreamOnceAsync)
 
@@ -254,3 +265,5 @@ If you see "turn 1 works, turn 2 fails intermittently" against vLLM, ollama, or 
 3. Cross-reference the server log (200 OK but truncated response) with the client's last received line
 
 This narrows the issue down to "server finished normally but the client lost the connection mid-line" vs other failure modes very quickly.
+
+Perplexity: [Keep a long task running / Citations may identify web results or other provider sources. Offsets belong to an individual provider response/content part, not the concatenated Run result. Keep the URL and title for display and verification; a returned source does not itself verify every generated claim.](perplexity.md).

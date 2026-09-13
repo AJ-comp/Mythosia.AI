@@ -1,5 +1,9 @@
 # Function Calling
 
+Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
+
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 ## Why Function Calling?
 
 LLMs can only generate text — they cannot check the weather, query a database, or call an API on their own. **Without** function calling, you'd have to parse the model's intent manually:
@@ -96,6 +100,8 @@ service.ForceFunctionName = "search_products";
 service.FunctionCallMode = FunctionCallMode.None;
 ```
 
+[Claude Fable 5.1](fable-5-1.md) adds progress updates, turn-scoped instructions, and thinking-binding diagnostics from `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requires invitation access. Both reject forced tool choice.
+
 `FunctionCallingPolicy` controls the multi-round loop and local handler scheduling; it does not select whether the provider may call a function. Calls from one assistant response execute sequentially by default. Opt in to bounded parallel execution only for independent, thread-safe handlers:
 
 ```csharp
@@ -108,7 +114,7 @@ service.DefaultPolicy = new FunctionCallingPolicy
 };
 ```
 
-For ordinary calls, parallel handlers may finish out of order, but Mythosia preserves the provider's original call order in the `FunctionCallResultBatch`. Once a validated batch starts, its handlers run to completion so conversation history cannot contain calls without matching results; registered handlers do not currently receive a `CancellationToken`.
+For ordinary calls, parallel handlers may finish out of order, but Mythosia preserves the provider's original call order in the `FunctionCallResultBatch`. Cancellation skips calls that have not started and supplies matching cancellation results. Already-started handlers receive cancellation when supported and are awaited so conversation history cannot contain calls without matching results. See [tool results and cancellation](#tool-execution-contract).
 
 ## Bulk Registration from a Class
 
@@ -174,6 +180,98 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+<a id="tool-execution-contract"></a>
+
+## Return objects from async tools and stop work when cancelled
+
+A file or database tool often returns an object after asynchronous I/O. You should be able to return that object directly, and a Stop button should reach the operation that is still running. Synchronous object returns were already supported; this update makes asynchronous returns consistent and records exceptions as failures.
+
+Before: an async tool had to serialize its result itself. Returning `Task<FileResult>` lost the value and produced `"Success"` instead.
+
+```csharp
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed class FileToolsBefore
+{
+    [AiFunction("read_file", "Read a text file")]
+    public async Task<string> ReadFileAsync(string path)
+    {
+        string text = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Serialize(new { Path = path, Text = text });
+    }
+}
+```
+
+After: return the object and pass the injected cancellation token to the I/O operation. No new result wrapper or adapter is required in application code.
+
+```csharp
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed record FileResult(string Path, string Text);
+
+public sealed class FileTools
+{
+    [AiFunction("read_file", "Read a text file")]
+    public async Task<FileResult> ReadFileAsync(
+        string path, CancellationToken cancellationToken)
+    {
+        string text = await File.ReadAllTextAsync(path, cancellationToken);
+        return new FileResult(path, text);
+    }
+}
+```
+
+`[AiFunction]` registration supports ordinary objects, `Task<T>`, and `ValueTask<T>`: non-string values are serialized to JSON. `string`, `Task<string>`, and `ValueTask<string>` remain plain text, without extra JSON quotes. `Task` and `ValueTask` with no result are awaited. Existing synchronous object returns keep working. A null return becomes `"Done"`; completed `Task` / `ValueTask` methods with no result become `"Success"`.
+
+The library also recognizes awaitables at runtime: `Task<T>` returned as `Task` or `object`, and `ValueTask<T>` returned as `object`, are awaited and serialized using the same rules. Each `ValueTask` is consumed only once.
+
+The library supplies a `CancellationToken` parameter; it is excluded from the model-facing argument schema. Register these methods with `WithFunctions(...)` or `WithStaticFunctions<T>()`. The same registration works on the service and request builder.
+
+`async void` tool methods are rejected at registration. Return `Task` or `ValueTask` instead so execution can await completion, observe errors, and finish cancellation cleanup.
+
+```csharp
+using Mythosia.AI.Extensions;
+
+await using var run = await service
+    .CreateRequest("Read report.txt and summarize it.")
+    .WithFunctions(new FileTools())
+    .StartRunAsync(cancellationToken: cancellationToken);
+
+string answer = (await run.Result).Text;
+```
+
+`run.Cancel()`, cancellation of the token passed to `StartRunAsync`, or run disposal reaches cancellation-aware local tools. Functions must use the token: cancellation cannot forcibly interrupt code that ignores it. Calls still waiting to start are skipped and receive cancellation results; already-started functions are awaited so call/result history stays paired. Cancelling the execution leaves the run cancelled and does not start another model round.
+
+If a cancellation callback throws during failed run startup or MCP connection disposal, cleanup still attempts to dispose the session or transport. The original failure and any cleanup failures are preserved, together in an `AggregateException` when necessary. Concurrent asynchronous calls to `McpConnection.DisposeAsync()` wait for the same cleanup. The transport is closed before waiting for the read loop to exit, allowing reads that need connection closure to finish.
+
+To avoid leaving late tool calls waiting during shutdown, once connection disposal starts, new `InitializeAsync`, `RefreshToolsAsync` and `CallToolAsync` operations are rejected with `ObjectDisposedException`. If a response has the matching request ID but a malformed body, it is skipped while the request remains pending: a later valid response, caller cancellation or connection cleanup can still settle the call. If the reader has already stopped because the server closed the stream or a transport read failed, new operations fail with `McpException` instead of waiting for a reply that cannot arrive; create a new connection to continue.
+
+Let actual failures throw an exception. The executor records them as `FunctionCallResult.IsError = true` instead of a successful `"Error: ..."` string. A string deliberately returned by your function remains a normal result. Cancellation is recorded with both `IsCancelled = true` and `IsError = true`.
+
+For programmatic registration, use the two-argument `WithHandler` overload:
+
+```csharp
+using System.IO;
+using Mythosia.AI.Builders;
+
+var readText = FunctionBuilder.Create("read_text")
+    .WithDescription("Read a text file")
+    .AddParameter("path", "string", "File path", required: true)
+    .WithHandler(async (args, token) =>
+        await File.ReadAllTextAsync(args["path"].ToString()!, token))
+    .Build();
+```
+
+The existing one-argument string handlers remain supported. Direct definitions can set `HandlerWithCancellation` (`Func<Dictionary<string, object>, CancellationToken, Task<string>>`). Setting `Handler` or `HandlerWithCancellation` replaces the same handler; they do not register two executions. Low-level handlers still return strings; automatic object serialization belongs to method registration.
+
+This is cancellation and return handling for your local .NET functions. It does not require the provider-native `AllowAsync` feature. Stopping only the `run.StreamAsync(token)` reader stops observation, not the run. See the [Run guide](execution-api-transition.md) and the [provider protocol](https://developers.openai.com/api/docs/guides/async-tool-calling).
+
 ## Async Tool Calling
 
 A slow external lookup does not always prevent useful work. While checking the weather, for example, the model can explain general packing advice that does not depend on the forecast. Async tool calling allows that independent work to continue and incorporates the lookup result when it is ready. Decisions that depend on the result still need the actual tool output.
@@ -213,6 +311,8 @@ Pending tool jobs belong to the `GetCompletionAsync`, existing `service.StreamAs
 
 When async tools are used, `GetCompletionAsync` returns the intermediate independent text and the final text accumulated in order, after the request finishes. `StreamAsync` emits text as it arrives across those rounds.
 
-Handlers do not receive cancellation tokens, so cancellation, timeout, or execution errors wait for already-started handlers during cleanup. Early disposal of the existing input-taking `service.StreamAsync` also cleans up execution; ending a `run.StreamAsync()` reader only stops observation. Call `run.Cancel()` or dispose the run to stop its execution. See the [official API guide](https://developers.openai.com/api/docs/guides/async-tool-calling) for the protocol.
+Local tools can return objects from `Task<T>` / `ValueTask<T>` and accept an injected `CancellationToken`. `run.Cancel()` or the startup token reaches cooperative tools; stopping only a stream reader does not. Exceptions are failures; queued calls are skipped on cancellation, and cleanup still awaits started tools that ignore it. See [tool results, errors, and cancellation](function-calling.md#tool-execution-contract).
 
 Streaming starts handlers after complete function calls and a valid response boundary have been received, then can continue another model round while async jobs run. Incomplete call events do not trigger execution. If the model returns no new calls while jobs remain pending, Mythosia waits for results before resuming. Automatic context-overflow summarization retries are disabled while calls are pending to avoid dropping unfinished calls from history.
+
+Perplexity: [Control research and tools](perplexity.md).

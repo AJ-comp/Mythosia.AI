@@ -1,5 +1,7 @@
 # Khái niệm cốt lõi
 
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
 Trang này tập hợp các khái niệm nền tảng được tham chiếu xuyên suốt phần còn lại của tài liệu. Các khái niệm khác sẽ được thêm vào theo thời gian.
 
 ## Round là gì?

@@ -13,6 +13,8 @@
 
 Агентный RAG решает все эти задачи. Вместо фиксированного пайплайна «извлечь → ответить» **агент решает самостоятельно** — когда искать, что именно искать, стоит ли искать повторно и когда вызывать другие инструменты — всё это внутри цикла ReAct.
 
+`WithAgenticRag` передаёт токен отмены в `RagStore.QueryAsync`, поэтому использующие его компоненты поиска могут остановиться. Исключения поиска после диагностической записи становятся ошибками инструмента, а не успешным текстом ошибки. Отменённый run не запускает новый раунд модели. См. [общий контракт инструментов](function-calling.md#tool-execution-contract).
+
 ## Быстрый старт
 
 Зарегистрируйте `RagStore` как инструмент через `WithAgenticRag`, затем запустите `StartRunAsync(...)`:
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Summarise the refund policy.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 Агент автоматически вызывает `search_documents`, когда ему нужен контекст из документов, а затем синтезирует финальный ответ из полученных фрагментов.
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // Агент ищет в документах политику И вызывает API для получения данных заказа
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Order #12345 — am I eligible for a refund based on the current policy?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 В этом примере агент автоматически:

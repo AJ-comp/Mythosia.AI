@@ -1,4 +1,5 @@
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
 using Mythosia.AI.Models.Messages;
 using System;
 using System.Collections.Generic;
@@ -36,6 +37,7 @@ namespace Mythosia.AI.Services.Anthropic
             private readonly AnthropicService _service;
             private readonly ChatBlock _chat;
             private readonly ClaudeReasoningBaseline? _previous;
+            private readonly ClaudeWireHistory? _previousWire;
             private readonly Message? _input;
             private readonly bool _hadMetadata;
             private readonly bool _hadEffort;
@@ -48,6 +50,8 @@ namespace Mythosia.AI.Services.Anthropic
                 _chat = service.ActivateChat;
                 _previous = service._claudeReasoningBaselines.TryGetValue(_chat, out var previous)
                     ? previous.Copy() : null;
+                _previousWire = service._claudeWireHistories.TryGetValue(_chat, out var previousWire)
+                    ? previousWire.Copy() : null;
                 _input = service.CurrentFeatureRequestMessage;
                 _hadMetadata = _input?.Metadata != null;
                 if (_input?.Metadata?.TryGetValue(ClaudeEffortMessageKey, out var effort) == true)
@@ -72,6 +76,9 @@ namespace Mythosia.AI.Services.Anthropic
                 _service._claudeReasoningBaselines.Remove(_chat);
                 if (_previous != null)
                     _service._claudeReasoningBaselines.Add(_chat, _previous);
+                _service._claudeWireHistories.Remove(_chat);
+                if (_previousWire != null)
+                    _service._claudeWireHistories.Add(_chat, _previousWire);
                 if (_input == null) return;
                 if (_hadEffort)
                 {
@@ -95,67 +102,59 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         private bool IsClaudeNameOrSnapshot(string name) =>
-            Model.Equals(name, StringComparison.OrdinalIgnoreCase) ||
-            (Model.StartsWith(name + "-", StringComparison.OrdinalIgnoreCase) &&
-             Model.Length == name.Length + 9 && Model.Substring(name.Length + 1).All(char.IsDigit));
+            RequestModel.Equals(name, StringComparison.OrdinalIgnoreCase) ||
+            (RequestModel.StartsWith(name + "-", StringComparison.OrdinalIgnoreCase) &&
+             RequestModel.Length == name.Length + 9 && RequestModel.Substring(name.Length + 1).All(char.IsDigit));
 
         protected override void ValidateRequestFeatures(AIRequestFeatures features)
         {
             if (ActivateChat.Messages.Count == 0)
+            {
                 _claudeReasoningBaselines.Remove(ActivateChat);
+                _claudeWireHistories.Remove(ActivateChat);
+            }
             if (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var preserved) && preserved.PersistentEffort != null)
             {
                 ValidateClaudePreservedHistory(preserved);
-                if (StatelessMode)
+                if (RequestStatelessMode)
                     throw new NotSupportedException("A cache-preserving Claude conversation cannot use stateless requests.");
                 if (features.Reasoning?.Level == ReasoningLevel.None)
                     throw new NotSupportedException("Thinking cannot be disabled inside a cache-preserving Claude conversation. Start a new conversation.");
             }
             if (features.FileSearch != null)
                 throw new NotSupportedException("Anthropic Messages has no supported native file-search-store adapter. Use the RAG pipeline.");
-            if (features.WebSearch != null && !SupportsExtendedThinking)
-                throw new NotSupportedException($"Claude model '{Model}' is not supported by the native web search adapter.");
-            if (features.WebSearch != null && Functions.Any(function => function.Name == "web_search"))
+            if (features.WebSearch != null &&
+                (ResolveRequestCapabilities().WebSearch == CapabilitySupport.Unsupported || !SupportsExtendedThinking))
+                throw new NotSupportedException($"Claude model '{RequestModel}' is not supported by the native web search adapter.");
+            if (features.WebSearch != null && RequestFunctions.Any(function => function.Name == "web_search"))
                 throw new NotSupportedException("A client function named web_search conflicts with Claude's native web search tool.");
             var reasoning = features.Reasoning;
             if (reasoning == null) return;
             if (reasoning.Cache == CachePreservation.Required)
             {
-                if (StatelessMode)
+                if (RequestStatelessMode)
                     throw new NotSupportedException("Cache-preserving Claude effort requires conversation history.");
                 if (!_claudeReasoningBaselines.TryGetValue(ActivateChat, out _) &&
                     ActivateChat.Messages.Any(message => message.Role == ActorRole.Assistant))
                     throw new NotSupportedException("Imported Claude history has no verified reasoning baseline. Start a new conversation.");
-                if (!SupportsPerMessageClaudeEffort())
-                    throw new NotSupportedException($"Claude model '{Model}' does not support cache-preserving per-message effort.");
+                if (ResolveRequestCapabilities().ReasoningCachePreservation == CapabilitySupport.Unsupported ||
+                    !SupportsPerMessageClaudeEffort())
+                    throw new NotSupportedException($"Claude model '{RequestModel}' does not support cache-preserving per-message effort.");
                 if (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var previous) &&
-                    (previous.Model != Model || previous.Endpoint != (HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty)))
+                    (previous.Model != RequestModel || previous.Endpoint != (HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty)))
                     throw new NotSupportedException("Cache preservation requires the model and endpoint of the previous Claude request.");
                 if (reasoning.Level == ReasoningLevel.None)
                     throw new NotSupportedException("Cache-preserving Claude effort cannot change the thinking mode.");
                 if (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var baseline) &&
-                    baseline.Model == Model && baseline.Disabled)
+                    baseline.Model == RequestModel && baseline.Disabled)
                     throw new NotSupportedException(
                         "The previous Claude request disabled thinking. Enable adaptive thinking before starting cache-preserving effort changes.");
             }
             var level = reasoning.Level;
-            if (level == ReasoningLevel.Auto) return;
-            if (level == ReasoningLevel.Minimal ||
-                (level == ReasoningLevel.None && IsAlwaysOnAdaptiveThinkingModel()))
-                throw new NotSupportedException($"Claude model '{Model}' does not support reasoning level {level}.");
-            if (level == ReasoningLevel.None)
-            {
-                if (!SupportsExtendedThinking)
-                    throw new NotSupportedException($"Claude model '{Model}' has no supported thinking control.");
-                return;
-            }
-            var opus45 = Model.Contains("opus-4-5", StringComparison.OrdinalIgnoreCase);
-            if (!ModelSupportsAdaptiveThinking() && !opus45)
-                throw new NotSupportedException(
-                    $"Claude model '{Model}' has no native effort level. Use its provider-specific ThinkingBudget where supported.");
-            if ((level == ReasoningLevel.XHigh && (ModelSupportsOptionalAdaptiveThinking() || opus45)) ||
-                (level == ReasoningLevel.Max && opus45))
-                throw new NotSupportedException($"Claude model '{Model}' does not support reasoning level {level}.");
+            var support = ResolveRequestCapabilities().GetReasoningSupport(level);
+            var error = GetClaudeCommonReasoningError(level);
+            if (support == CapabilitySupport.Unsupported || (support == CapabilitySupport.Unknown && error != null))
+                throw new NotSupportedException(error ?? $"Claude model '{RequestModel}' does not support reasoning level {level}.");
         }
 
         protected override string? GetConversationCompactionBlockReason()
@@ -164,6 +163,9 @@ namespace Mythosia.AI.Services.Anthropic
                 (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var state) &&
                  state.PersistentEffort != null && ActivateChat.Messages.Count > 0))
                 return "Conversation compaction would invalidate the prefix required by cache-preserving Claude effort.";
+            if (IsClaudeNameOrSnapshot("claude-fable-5-1") &&
+                ClaudeOptions.Binding != ClaudeThinkingPrefixMismatchBehavior.DropBlock && HasClaudeThinkingHistory())
+                return "Conversation compaction would invalidate preserved Claude thinking. Start a new conversation or explicitly select DropBlock.";
             return base.GetConversationCompactionBlockReason();
         }
 
@@ -188,7 +190,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private void ValidateClaudePreservedHistory(ClaudeReasoningBaseline baseline)
         {
-            if (!string.Equals(baseline.Model, Model, StringComparison.OrdinalIgnoreCase) ||
+            if (!string.Equals(baseline.Model, RequestModel, StringComparison.OrdinalIgnoreCase) ||
                 baseline.Endpoint != (HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty))
                 throw new NotSupportedException("A cache-preserving Claude conversation cannot change model or endpoint. Start a new conversation.");
             if (baseline.MessageIds.Length > ActivateChat.Messages.Count ||
@@ -231,7 +233,7 @@ namespace Mythosia.AI.Services.Anthropic
                         requestBody["thinking"] = new Dictionary<string, object>
                         {
                             ["type"] = "adaptive",
-                            ["display"] = AdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized ? "summarized" : "omitted"
+                            ["display"] = RequestAdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized ? "summarized" : "omitted"
                         };
                         requestBody.Remove("temperature");
                     }
@@ -242,7 +244,7 @@ namespace Mythosia.AI.Services.Anthropic
                 }
             }
             var baseline = _claudeReasoningBaselines.GetValue(ActivateChat, _ => new ClaudeReasoningBaseline());
-            if (baseline.PersistentEffort != null && baseline.Model == Model)
+            if (baseline.PersistentEffort != null && baseline.Model == RequestModel)
             {
                 SetOrRemoveClaudeField(requestBody, "thinking", baseline.Thinking);
                 SetOrRemoveClaudeField(requestBody, "output_config", baseline.OutputConfig);
@@ -250,7 +252,7 @@ namespace Mythosia.AI.Services.Anthropic
             }
             if (reasoning?.Cache == CachePreservation.Required && reasoning.Level == ReasoningLevel.Auto)
                 requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
-            baseline.Model = Model;
+            baseline.Model = RequestModel;
             baseline.Endpoint = HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty;
             baseline.Thinking = requestBody.TryGetValue("thinking", out var thinking) ? thinking : null;
             baseline.OutputConfig = requestBody.TryGetValue("output_config", out var output) ? output : null;

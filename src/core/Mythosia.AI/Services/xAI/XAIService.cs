@@ -15,19 +15,29 @@ using TiktokenSharp;
 
 namespace Mythosia.AI.Services.xAI
 {
-    public partial class XAIService : OpenAICompatibleService
+    public partial class XAIService : OpenAICompatibleService, IImageGenerationService
     {
         public override string Provider => nameof(AIProvider.xAI);
 
         /// <summary>
         /// Reasoning effort for configurable Grok models. Auto leaves the provider default intact.
         /// Grok 4.3 accepts None, Low, Medium, and High; Grok 4.5 accepts Low, Medium, and High.
+        /// Grok 4.6 also accepts XHigh and defaults to High when Auto is selected.
         /// </summary>
         public GrokReasoning ReasoningEffort { get; set; } = GrokReasoning.Auto;
 
+        protected override void CaptureRequestSettings(IDictionary<string, object?> settings)
+        {
+            base.CaptureRequestSettings(settings);
+            settings[nameof(ReasoningEffort)] = ReasoningEffort;
+        }
+
         protected override uint GetModelMaxOutputTokens()
         {
-            var model = Model?.ToLower() ?? "";
+            // Grok 4.6 shares its 500,000-token context between input and output.
+            // The server validates the remaining budget for each actual request.
+            if (GetModelFamily() == GrokModelFamily.Grok4_6) return 500000;
+            var model = RequestModel?.ToLower() ?? "";
             if (model.Contains("grok-4")) return 131072;
             if (model.Contains("grok-3")) return 131072;
             return 131072;
@@ -53,16 +63,15 @@ namespace Mythosia.AI.Services.xAI
 
         public override async Task<string> GetCompletionAsync(Message message)
         {
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            using var settingsScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
-            var policy = (CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default).Clone();
-            CurrentPolicy = null;
+            var policy = GetExecutionPolicy();
 
-            using var cts = policy.TimeoutSeconds.HasValue
-                ? new CancellationTokenSource(TimeSpan.FromSeconds(policy.TimeoutSeconds.Value))
-                : new CancellationTokenSource();
+            using var cts = CreateRequestTimeoutCts(policy);
 
             ChatBlock? originalChat = null;
-            if (StatelessMode)
+            if (RequestStatelessMode)
             {
                 originalChat = ActivateChat;
                 ActivateChat = new ChatBlock { SystemMessage = ActivateChat.SystemMessage };
@@ -70,21 +79,30 @@ namespace Mythosia.AI.Services.xAI
 
             try
             {
-                Stream = false;
+                SetExecutionSetting(nameof(Stream), false);
+                cts.Token.ThrowIfCancellationRequested();
                 ActivateChat.Messages.Add(message);
 
                 for (int round = 0; round < policy.MaxRounds; round++)
                 {
+                    cts.Token.ThrowIfCancellationRequested();
                     var result = await ProcessSingleRoundAsync(round, policy, cts.Token);
+                    cts.Token.ThrowIfCancellationRequested();
                     if (result.IsComplete)
                         return result.Content;
                 }
 
+                cts.Token.ThrowIfCancellationRequested();
                 throw new AIServiceException($"Maximum rounds ({policy.MaxRounds}) exceeded");
             }
-            catch (OperationCanceledException)
+            catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
             {
-                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds");
+                throw new AIServiceException("The HTTP request timed out.", exception);
+            }
+            catch (OperationCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested && cts.IsCancellationRequested)
+            {
+                throw new AIServiceException($"Request timeout after {policy.TimeoutSeconds} seconds", exception);
             }
             finally
             {
@@ -101,16 +119,18 @@ namespace Mythosia.AI.Services.xAI
             if (policy.EnableLogging)
                 Console.WriteLine($"[Grok Round {round + 1}/{policy.MaxRounds}]");
 
+            cancellationToken.ThrowIfCancellationRequested();
             bool useFunctions = ShouldUseFunctions;
-            var request = useFunctions
+            using var request = useFunctions
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
-            var response = await HttpClient.SendAsync(request, cancellationToken);
+            using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
+                var errorContent = responseContent;
 
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                 {
@@ -127,7 +147,7 @@ namespace Mythosia.AI.Services.xAI
                     includeErrorBodyInMessage: true);
             }
 
-            var responseContent = await response.Content.ReadAsStringAsync();
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (useFunctions)
                 return await ProcessFunctionResponseAsync(responseContent, policy, cancellationToken);
@@ -151,10 +171,10 @@ namespace Mythosia.AI.Services.xAI
                 AddFunctionCallBatchToHistory(
                     content,
                     functionCalls,
-                    new Dictionary<string, object> { ["model"] = Model });
+                    new Dictionary<string, object> { ["model"] = RequestModel });
                 AddFunctionResultBatchToHistory(
                     results,
-                    new Dictionary<string, object> { ["model"] = Model });
+                    new Dictionary<string, object> { ["model"] = RequestModel });
                 return RoundResult.Continue();
             }
 
@@ -213,9 +233,9 @@ namespace Mythosia.AI.Services.xAI
 
             var allMessagesBuilder = new StringBuilder();
 
-            if (!string.IsNullOrEmpty(SystemMessage))
+            if (!string.IsNullOrEmpty(RequestSystemMessage))
             {
-                allMessagesBuilder.Append(SystemMessage).Append('\n');
+                allMessagesBuilder.Append(RequestSystemMessage).Append('\n');
             }
 
             foreach (var message in GetLatestMessages())
@@ -242,13 +262,15 @@ namespace Mythosia.AI.Services.xAI
         /// <summary>
         /// xAI Grok supports vision (image inputs)
         /// </summary>
-        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath)
+        public override async Task<string> GetCompletionWithImageAsync(string prompt, string imagePath, CancellationToken cancellationToken = default)
         {
-            return await base.GetCompletionWithImageAsync(prompt, imagePath);
+            cancellationToken.ThrowIfCancellationRequested();
+            RequestCancellationToken.ThrowIfCancellationRequested();
+            return await base.GetCompletionWithImageAsync(prompt, imagePath, cancellationToken);
         }
 
         /// <summary>
-        /// Switches to the current Grok flagship reasoning model (grok-4.5).
+        /// Switches to Grok 4.5 for compatibility. To use Grok 4.6, select AIModels.xAI.Grok4_6.
         /// </summary>
         public XAIService UseGrok4Model()
         {
@@ -274,6 +296,10 @@ namespace Mythosia.AI.Services.xAI
             return this;
         }
 
+        /// <summary>Sets the model-specific Grok reasoning effort and returns this service.</summary>
+        public XAIService WithGrokReasoning(GrokReasoning reasoningEffort = GrokReasoning.High)
+            => WithGrokParameters(reasoningEffort);
+
         /// <summary>
         /// Sets Grok-specific parameters for code generation
         /// </summary>
@@ -287,25 +313,30 @@ namespace Mythosia.AI.Services.xAI
 
         protected override Action ApplyProviderSpecificRequestProfile(AIRequestProfile profile)
         {
+            ApplyXAIProfileSettings(profile);
+            return () => { };
+        }
+
+        protected override void ApplyCapabilityRequestProfile(AIRequestProfile profile)
+            => ApplyXAIProfileSettings(profile);
+
+        // Shared native flags only; execution-specific output reservations remain outside this helper.
+        private void ApplyXAIProfileSettings(AIRequestProfile profile)
+        {
             if (profile.DisableReasoning != true)
-                return base.ApplyProviderSpecificRequestProfile(profile);
+                return;
 
-            var backupReasoningEffort = ReasoningEffort;
-            ReasoningEffort = GetMinimumReasoningEffortForModel();
-
-            return () =>
-            {
-                ReasoningEffort = backupReasoningEffort;
-            };
+            SetExecutionSetting(nameof(ReasoningEffort), GetMinimumReasoningEffortForModel());
         }
 
         /// <summary>
         /// Gets completion with Chain of Thought prompting
         /// </summary>
-        public async Task<string> GetCompletionWithCoTAsync(string prompt)
+        public async Task<string> GetCompletionWithCoTAsync(string prompt, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var cotPrompt = $"{prompt}\n\nPlease think step by step and show your reasoning process.";
-            return await GetCompletionAsync(cotPrompt);
+            return await GetCompletionAsync(cotPrompt, cancellationToken: cancellationToken);
         }
 
         #endregion

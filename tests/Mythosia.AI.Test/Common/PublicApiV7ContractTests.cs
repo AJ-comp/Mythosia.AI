@@ -46,7 +46,7 @@ public class PublicApiV7ContractTests
             new[] { "Auto", "Low", "Medium", "High", "XHigh", "Max" },
             Enum.GetNames<ClaudeReasoningEffort>());
         CollectionAssert.AreEqual(
-            new[] { "Omitted", "Summarized" },
+            new[] { "Omitted", "Summarized", "Updates" },
             Enum.GetNames<ClaudeThinkingDisplay>());
     }
 
@@ -102,6 +102,19 @@ public class PublicApiV7ContractTests
     {
         Assert.AreSame(typeof(IAIService).Assembly, typeof(IImageGenerationService).Assembly);
         Assert.IsTrue(typeof(IImageGenerationService).IsAssignableFrom(typeof(OpenAIService)));
+        Assert.AreSame(typeof(IAIService).Assembly, typeof(ImageSize).Assembly);
+        Assert.AreSame(typeof(IAIService).Assembly, typeof(ImageQuality).Assembly);
+        Assert.AreSame(typeof(IAIService).Assembly, typeof(ImageBackground).Assembly);
+        Assert.AreSame(typeof(IAIService).Assembly, typeof(ImageOutputFormat).Assembly);
+
+        foreach (var requestType in new[] { typeof(ImageGenerationRequest), typeof(ImageEditRequest) })
+        {
+            Assert.AreEqual(typeof(ImageQuality), requestType.GetProperty(nameof(ImageGenerationRequest.Quality))?.PropertyType);
+            Assert.AreEqual(typeof(ImageBackground), requestType.GetProperty(nameof(ImageGenerationRequest.Background))?.PropertyType);
+            Assert.AreEqual(typeof(ImageOutputFormat), requestType.GetProperty(nameof(ImageGenerationRequest.OutputFormat))?.PropertyType);
+            Assert.AreEqual(typeof(ImageSize), requestType.GetProperty(nameof(ImageGenerationRequest.Size))?.PropertyType);
+            Assert.IsNull(requestType.GetProperty("AspectRatio"), "The aspect ratio belongs to a preset size, never a competing request option.");
+        }
 
         AssertMethod(
             nameof(IImageGenerationService.GenerateImagesAsync),

@@ -13,6 +13,8 @@ Agent 式 RAG 解决了所有这些问题。它不是固定的检索-回答管�
 
 当回答需要多次检索或外部工具时，可以从注册了检索工具的服务启动 Run，为用户提供进度显示和停止操作。[Run 使用指南](execution-api-transition.md)说明执行中控制和追加指令的边界。
 
+`WithAgenticRag`将执行取消令牌传给`RagStore.QueryAsync`，使用该令牌的检索组件也能停止。搜索异常会在记录诊断后变成失败的工具结果，不再作为正常错误文本返回。取消的run不会继续下一轮模型请求。参见[通用工具约定](function-calling.md#tool-execution-contract)。
+
 ## 快速上手
 
 通过 `WithAgenticRag` 将 `RagStore` 注册为工具，然后使用 `StartRunAsync(...)`：
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("总结退款政策。");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 当 Agent 需要文档上下文时，会自动调用 `search_documents`，然后从检索到的片段中综合生成最终回答。
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // Agent 搜索文档获取政策，同时调用 API 获取实时订单数据
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "订单 #12345 — 根据当前政策，我是否有资格退款？");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 在这个例子中，Agent 自主完成：

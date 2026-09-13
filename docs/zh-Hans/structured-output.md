@@ -1,5 +1,7 @@
 # 结构化输出
 
+只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](completions.md#completion-cancellation)。
+
 ## 为什么需要结构化输出？
 
 LLM 默认返回自由格式文本。如果你的应用需要**以编程方式处理响应** — 存入数据库、传递给另一个 API 或在类型化 UI 中渲染 — 你必须自己解析文本。这会导致脆弱的正则或 `string.Contains` 检查，一旦模型措辞改变就会失效。
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry：不重试修复，直接返回首次验证错误
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+修复次数不包含首次响应。`StructuredOutputMaxRetries` 和 `MaxRepairAttempts` 将负数视为 0，最大允许值为 `int.MaxValue - 1`。为避免总尝试次数溢出，`int.MaxValue` 会在请求提供商之前触发 `ArgumentOutOfRangeException`。此规则同时适用于类型化完成调用和 `BeginStream(...).As<T>()`。

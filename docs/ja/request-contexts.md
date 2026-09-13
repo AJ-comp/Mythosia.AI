@@ -1,5 +1,9 @@
 # AIRequestContext
 
+完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
+
+設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
+
 ## 概要
 
 `AIRequestContext`は、**モデルが見る内容を単一リクエストに対してのみ変更**します — 追加の指示の注入、参考文書の追加、またはユーザーメッセージの完全な置き換え — サービスのシステムメッセージや会話履歴を永続的に変更せずに。
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"今日の日付: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## 利用可能なプロパティ
@@ -269,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync`と旧`RunAgentAsync`は`CancellationToken`を受け取らず、コンテキストproviderには`CancellationToken.None`を渡します。長いDB照会などをキャンセルしたい場合は、`StartRunAsync(..., cancellationToken: token)`を使えます。出力を読み取らず`run.Result`だけを待つ場合でも、トークンはproviderへ伝播します。既存の`StreamAsync`と`RunAgentStreamAsync`も呼び出し元のトークンを渡します。`run.StreamAsync(token)`だけのキャンセルは観測を止めるもので、providerや実行全体はキャンセルしません。
+`GetCompletionAsync(..., cancellationToken: token)`と従来の`RunAgentAsync`も呼び出し元のキャンセルを`SystemMessageProvider`に渡します。トークンを使用するDB・HTTP照会は準備中にも中断できます。`StartRunAsync`と入力を受け取る既存のストリーミングメソッドも実行トークンを渡します。`run.StreamAsync(token)`だけのキャンセルは観測のみを止め、providerや実行は止めません。
 
 ### 明示的な per-call コンテキストとのマージ
 

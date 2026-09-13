@@ -1,5 +1,7 @@
 # Structured Output
 
+หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
+
 ## ทำไมต้องใช้ Structured Output?
 
 LLM ตอบกลับเป็นข้อความอิสระโดยค่าเริ่มต้น หากแอปของคุณต้องการ **ประมวลผล response แบบโปรแกรม** — บันทึกลง database ส่งให้ API อื่น หรือแสดงใน UI แบบมี type — คุณต้องแปลงข้อความนั้นเอง ซึ่งนำไปสู่ regex หรือ `string.Contains` ที่เปราะบางและพังเมื่อ model เปลี่ยนการพูด
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: คืนข้อผิดพลาดการตรวจสอบครั้งแรกโดยไม่ลองซ่อมแซมซ้ำ
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+จำนวนครั้งที่แก้ไขไม่รวมคำตอบแรก `StructuredOutputMaxRetries` และ `MaxRepairAttempts` จะถือว่าค่าติดลบเป็นศูนย์ และยอมรับค่าสูงสุด `int.MaxValue - 1` ส่วน `int.MaxValue` จะทำให้เกิด `ArgumentOutOfRangeException` ก่อนส่งคำขอไปยังผู้ให้บริการ เพื่อป้องกันจำนวนครั้งทั้งหมดล้นช่วงจำนวนเต็ม กฎนี้ใช้ทั้งกับการเรียก completion แบบระบุชนิดและ `BeginStream(...).As<T>()`

@@ -2,8 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Mythosia.AI.Attributes;
 using Mythosia.AI.Builders;
@@ -18,6 +21,27 @@ namespace Mythosia.AI.Extensions
     public static class FunctionExtensions
     {
         #region Function Registration Methods
+
+        /// <summary>Registers attributed handlers on a new request builder without modifying service defaults.</summary>
+        public static AIRequestBuilder WithFunctions<T>(this AIRequestBuilder request, T instance) where T : class
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            if (instance == null) throw new ArgumentNullException(nameof(instance));
+            var definitions = typeof(T).GetMethods(BindingFlags.Public | BindingFlags.Instance)
+                .Where(method => method.GetCustomAttribute<AiFunctionAttribute>() != null)
+                .Select(method => BuildFunctionDefinition(method, instance, null)).ToArray();
+            return request.WithFunctions(definitions);
+        }
+
+        /// <summary>Registers attributed static handlers on a new request builder.</summary>
+        public static AIRequestBuilder WithStaticFunctions<T>(this AIRequestBuilder request) where T : class
+        {
+            if (request == null) throw new ArgumentNullException(nameof(request));
+            var definitions = typeof(T).GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .Where(method => method.GetCustomAttribute<AiFunctionAttribute>() != null)
+                .Select(method => BuildFunctionDefinition(method, null, null)).ToArray();
+            return request.WithFunctions(definitions);
+        }
 
         /// <summary>
         /// Registers all AI functions from an object
@@ -390,18 +414,10 @@ namespace Mythosia.AI.Extensions
         /// <summary>
         /// Execute with functions temporarily disabled
         /// </summary>
-        public static async Task<string> AskWithoutFunctionsAsync(this AIService service, string prompt)
+        public static async Task<string> AskWithoutFunctionsAsync(this AIService service, string prompt, CancellationToken cancellationToken = default)
         {
-            var backup = service.FunctionsDisabled;
-            service.FunctionsDisabled = true;
-            try
-            {
-                return await service.GetCompletionAsync(prompt);
-            }
-            finally
-            {
-                service.FunctionsDisabled = backup;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return await service.CreateRequest(prompt).WithFunctionsDisabled().GetCompletionAsync(cancellationToken);
         }
 
         #endregion
@@ -414,6 +430,14 @@ namespace Mythosia.AI.Extensions
             Delegate? existingDelegate)
         {
             var attr = method.GetCustomAttribute<AiFunctionAttribute>();
+            if (method.ReturnType == typeof(void) &&
+                method.GetCustomAttribute<AsyncStateMachineAttribute>() != null)
+            {
+                throw new ArgumentException(
+                    $"Function '{method.Name}' is async void. Return Task or ValueTask so completion, errors, and cancellation can be observed.",
+                    nameof(method));
+            }
+            var normalizeResult = CreateFunctionResultAdapter(method.ReturnType);
 
             // Auto-generate function name if not specified
             var functionName = attr?.Name ?? ConvertToSnakeCase(method.Name);
@@ -429,6 +453,10 @@ namespace Mythosia.AI.Extensions
             var parameters = method.GetParameters();
             foreach (var param in parameters)
             {
+                // Execution control belongs to the caller, not to the model's JSON arguments.
+                if (param.ParameterType == typeof(CancellationToken))
+                    continue;
+
                 var paramAttr = param.GetCustomAttribute<AiParameterAttribute>();
 
                 var paramName = paramAttr?.Name ?? param.Name
@@ -446,7 +474,7 @@ namespace Mythosia.AI.Extensions
             }
 
             // Create handler
-            builder.WithHandler(async (args) =>
+            builder.WithHandler(async (args, cancellationToken) =>
             {
                 try
                 {
@@ -455,6 +483,11 @@ namespace Mythosia.AI.Extensions
                     for (int i = 0; i < parameters.Length; i++)
                     {
                         var param = parameters[i];
+                        if (param.ParameterType == typeof(CancellationToken))
+                        {
+                            paramValues[i] = cancellationToken;
+                            continue;
+                        }
                         var paramName = param.GetCustomAttribute<AiParameterAttribute>()?.Name ?? param.Name
                             ?? throw new InvalidOperationException("A reflected function parameter has no name.");
 
@@ -488,37 +521,125 @@ namespace Mythosia.AI.Extensions
                         result = method.Invoke(instance, paramValues);
                     }
 
-                    // Handle async results
-                    if (result is Task<string> taskString)
-                    {
-                        return await taskString;
-                    }
-                    else if (result is Task task)
-                    {
-                        await task;
-                        return "Success";
-                    }
-                    else if (result is string stringResult)
-                    {
-                        return stringResult;
-                    }
-                    else if (result == null)
-                    {
-                        return "Done";
-                    }
-                    else
-                    {
-                        return JsonSerializer.Serialize(result);
-                    }
+                    return await normalizeResult(result).ConfigureAwait(false);
                 }
-                catch (Exception ex)
+                catch (TargetInvocationException ex) when (ex.InnerException != null)
                 {
-                    return $"Error: {ex.Message}";
+                    // Let the common executor record the real exception as a failed call.
+                    ExceptionDispatchInfo.Capture(ex.InnerException).Throw();
+                    throw;
                 }
             });
 
             return builder.Build();
         }
+
+        private static Func<object?, Task<string>> CreateFunctionResultAdapter(Type returnType)
+        {
+            // Inspect the declared type once at registration. Runtime Task implementations
+            // can have additional generic arguments unrelated to the function's result.
+            for (var taskType = returnType; taskType != null; taskType = taskType.BaseType)
+            {
+                if (taskType.IsGenericType && taskType.GetGenericTypeDefinition() == typeof(Task<>))
+                    return CreateGenericResultAdapter(nameof(AwaitTaskResultAsync), taskType.GenericTypeArguments[0]);
+            }
+
+            if (typeof(Task).IsAssignableFrom(returnType))
+            {
+                return result =>
+                {
+                    if (result == null)
+                        throw new InvalidOperationException("An asynchronous function returned a null task.");
+                    return AwaitErasedTaskResultAsync((Task)result);
+                };
+            }
+
+            if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+                return CreateGenericResultAdapter(nameof(AwaitValueTaskResultAsync), returnType.GenericTypeArguments[0]);
+
+            if (returnType == typeof(ValueTask))
+            {
+                return async result =>
+                {
+                    await ((ValueTask)result!).ConfigureAwait(false);
+                    return "Success";
+                };
+            }
+
+            // A method declared as object can still return an awaitable. Normalize its
+            // completed value instead of serializing the awaitable's implementation.
+            return AwaitErasedFunctionResultAsync;
+        }
+
+        private static Task<string> AwaitErasedFunctionResultAsync(object? result)
+        {
+            if (result is Task task)
+                return AwaitErasedTaskResultAsync(task);
+
+            if (result is ValueTask valueTask)
+                return AwaitValueTaskWithoutResultAsync(valueTask);
+
+            var resultType = result?.GetType();
+            if (resultType != null && resultType.IsGenericType &&
+                resultType.GetGenericTypeDefinition() == typeof(ValueTask<>))
+            {
+                return CreateGenericResultAdapter(nameof(AwaitValueTaskResultAsync),
+                    resultType.GenericTypeArguments[0])(result);
+            }
+
+            return Task.FromResult(SerializeFunctionResult(result));
+        }
+
+        private static async Task<string> AwaitValueTaskWithoutResultAsync(ValueTask task)
+        {
+            await task.ConfigureAwait(false);
+            return "Success";
+        }
+
+        private static async Task<string> AwaitErasedTaskResultAsync(Task task)
+        {
+            for (var taskType = task.GetType(); taskType != null; taskType = taskType.BaseType)
+            {
+                if (!taskType.IsGenericType || taskType.GetGenericTypeDefinition() != typeof(Task<>))
+                    continue;
+
+                var resultType = taskType.GenericTypeArguments[0];
+                // The runtime implements an async Task without a public result using
+                // Task<VoidTaskResult>. That internal marker is not a tool return value.
+                if (resultType.Assembly == typeof(Task).Assembly &&
+                    resultType.FullName == "System.Threading.Tasks.VoidTaskResult")
+                    break;
+
+                return await CreateGenericResultAdapter(nameof(AwaitTaskResultAsync), resultType)(task)
+                    .ConfigureAwait(false);
+            }
+
+            await task.ConfigureAwait(false);
+            return "Success";
+        }
+
+        private static Func<object?, Task<string>> CreateGenericResultAdapter(string methodName, Type resultType)
+        {
+            var adapter = typeof(FunctionExtensions)
+                .GetMethod(methodName, BindingFlags.NonPublic | BindingFlags.Static)!
+                .MakeGenericMethod(resultType);
+            return (Func<object?, Task<string>>)adapter.CreateDelegate(typeof(Func<object?, Task<string>>));
+        }
+
+        private static async Task<string> AwaitTaskResultAsync<T>(object? result)
+        {
+            if (result == null)
+                throw new InvalidOperationException("An asynchronous function returned a null task.");
+            return SerializeFunctionResult(await ((Task<T>)result).ConfigureAwait(false));
+        }
+
+        private static async Task<string> AwaitValueTaskResultAsync<T>(object? result)
+        {
+            return SerializeFunctionResult(await ((ValueTask<T>)result!).ConfigureAwait(false));
+        }
+
+        private static string SerializeFunctionResult(object? result)
+            => result is string text ? text : result == null ? "Done" : JsonSerializer.Serialize(result);
 
         private static string ConvertToSnakeCase(string name)
         {

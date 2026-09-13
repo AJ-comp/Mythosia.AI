@@ -26,6 +26,7 @@ public class SummaryConversationPolicyTests
         public int CallCount { get; private set; }
         public List<string> ReceivedPrompts { get; } = new();
         public List<bool> WasStatelessOnCall { get; } = new();
+        public List<bool> PublicStatelessOnCall { get; } = new();
 
         public MockAIService(params string[] responses)
             : base("fake-key", "https://localhost/", new HttpClient())
@@ -39,16 +40,21 @@ public class SummaryConversationPolicyTests
 
         public override Task<string> GetCompletionAsync(Message message)
         {
+            using var requestScope = BeginRequestSettingsScope();
             CallCount++;
             ReceivedPrompts.Add(message.Content);
-            WasStatelessOnCall.Add(StatelessMode);
+            WasStatelessOnCall.Add(RequestStatelessMode);
+            PublicStatelessOnCall.Add(StatelessMode);
 
             if (_responses.Count == 0)
                 throw new AIServiceException("No more mock responses");
 
             var response = _responses.Dequeue();
-            ActivateChat.Messages.Add(message);
-            ActivateChat.Messages.Add(new Message(ActorRole.Assistant, response));
+            if (!RequestStatelessMode)
+            {
+                ActivateChat.Messages.Add(message);
+                ActivateChat.Messages.Add(new Message(ActorRole.Assistant, response));
+            }
             return Task.FromResult(response);
         }
 
@@ -71,9 +77,10 @@ public class SummaryConversationPolicyTests
 
         public override async Task StreamCompletionAsync(Message message, Func<string, Task> messageReceivedAsync)
         {
+            using var requestScope = BeginRequestSettingsScope();
             StreamCallCount++;
 
-            if (!StatelessMode)
+            if (!RequestStatelessMode)
             {
                 ActivateChat.Messages.Add(message);
             }
@@ -89,7 +96,7 @@ public class SummaryConversationPolicyTests
                 await messageReceivedAsync(word + " ");
             }
 
-            if (!StatelessMode)
+            if (!RequestStatelessMode)
             {
                 ActivateChat.Messages.Add(new Message(ActorRole.Assistant, response));
             }
@@ -534,6 +541,8 @@ public class SummaryConversationPolicyTests
         Assert.IsTrue(mock.WasStatelessOnCall[0], "Summary call must use StatelessMode=true");
         // Second call (actual) should NOT be in StatelessMode
         Assert.IsFalse(mock.WasStatelessOnCall[1], "Actual call must restore StatelessMode=false");
+        CollectionAssert.AreEqual(new[] { false, false }, mock.PublicStatelessOnCall,
+            "Neither the summary nor actual request may temporarily change the service default.");
     }
 
     [TestCategory("Unit")]

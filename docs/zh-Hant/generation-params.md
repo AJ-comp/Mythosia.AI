@@ -1,6 +1,8 @@
 # 生成參數
 
-## 通用屬性
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
+## 服務預設值與相容方法
 
 所有 AI 服務實體都暴露以下屬性：
 
@@ -115,3 +117,5 @@ string info = service.GetConversationSummary();
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [控制研究與工具](perplexity.md).

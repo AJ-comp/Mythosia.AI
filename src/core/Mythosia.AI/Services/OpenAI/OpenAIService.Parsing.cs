@@ -1,4 +1,4 @@
-﻿// OpenAIService.Parsing.cs 전체 코드
+// OpenAIService.Parsing.cs 전체 코드
 
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
@@ -21,7 +21,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var requestBody = new Dictionary<string, object>();
 
-            if (IsNewApiModel(Model))
+            if (IsNewApiModel(RequestModel))
             {
                 BuildNewApiBody(requestBody);
             }
@@ -94,7 +94,7 @@ namespace Mythosia.AI.Services.OpenAI
                 });
             }
 
-            requestBody["model"] = Model;
+            requestBody["model"] = RequestModel;
             requestBody["input"] = inputList;
 
             var instructions = GetEffectiveSystemMessageWithRequestContext();
@@ -104,9 +104,9 @@ namespace Mythosia.AI.Services.OpenAI
                 requestBody["instructions"] = instructions;
             }
 
-            if (_structuredOutputSchemaJson != null)
+            if (RequestStructuredOutputSchemaJson != null)
             {
-                var schemaElement = JsonDocument.Parse(_structuredOutputSchemaJson).RootElement.Clone();
+                var schemaElement = JsonDocument.Parse(RequestStructuredOutputSchemaJson).RootElement.Clone();
                 requestBody["text"] = new Dictionary<string, object>
                 {
                     ["format"] = new Dictionary<string, object>
@@ -119,10 +119,10 @@ namespace Mythosia.AI.Services.OpenAI
                 };
             }
 
-            if (Stream)
+            if (RequestStream)
             {
                 requestBody["stream"] = true;
-                if (!IsNewApiModel(Model))
+                if (!IsNewApiModel(RequestModel))
                 {
                     requestBody["stream_options"] = new Dictionary<string, object>
                     {
@@ -148,15 +148,15 @@ namespace Mythosia.AI.Services.OpenAI
                 messagesList.Add(ConvertMessageForOpenAI(message));
             }
 
-            requestBody["model"] = Model;
+            requestBody["model"] = RequestModel;
             requestBody["messages"] = messagesList;
-            requestBody["temperature"] = Temperature;
-            requestBody["top_p"] = TopP;
-            requestBody["frequency_penalty"] = FrequencyPenalty;
-            requestBody["presence_penalty"] = PresencePenalty;
-            requestBody["stream"] = Stream;
+            requestBody["temperature"] = RequestTemperature;
+            requestBody["top_p"] = RequestTopP;
+            requestBody["frequency_penalty"] = RequestFrequencyPenalty;
+            requestBody["presence_penalty"] = RequestPresencePenalty;
+            requestBody["stream"] = RequestStream;
 
-            if (Stream)
+            if (RequestStream)
             {
                 requestBody["stream_options"] = new Dictionary<string, object>
                 {
@@ -164,7 +164,7 @@ namespace Mythosia.AI.Services.OpenAI
                 };
             }
 
-            if (_structuredOutputSchemaJson != null)
+            if (RequestStructuredOutputSchemaJson != null)
             {
                 requestBody["response_format"] = new Dictionary<string, object> { ["type"] = "json_object" };
             }
@@ -497,7 +497,7 @@ namespace Mythosia.AI.Services.OpenAI
                 using var doc = JsonDocument.Parse(jsonData);
                 var root = doc.RootElement;
 
-                return IsNewApiModel(Model)
+                return IsNewApiModel(RequestModel)
                     ? ParseNewApiStream(root, includeMetadata)
                     : ParseLegacyApiStream(root, includeMetadata);
             }

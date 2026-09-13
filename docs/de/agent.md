@@ -1,5 +1,12 @@
 # Agent (ReAct-Loop)
 
+Für die fertige Antwort mit Verbrauch und Quellen liefert `await run.Result` eine `AIRunResult`-Momentaufnahme. Die Zeichenfolge steht in `result.Text`; ein Stream-Leser ist unnötig. Diese API-Änderung gehört zu Mythosia.AI 8.0.0. Die Rückgabetypen von `GetCompletionAsync` und `StructuredStreamRun<T>.Result` bleiben erhalten. [Run-Ergebnis und Migration](execution-api-transition.md#run-result).
+
+
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
+> Die `CreateRequest`-Beispiele benötigen Mythosia.AI 8.0.0 / Abstractions 4.0.0. Die frühere Version 7.1 mit Run und gemeinsamen Anfrageoptionen enthält den Builder noch nicht. Ältere Pakete können ihre bisherigen Service-Überladungen verwenden.
+
 Die Suche in Dokumenten und das Prüfen einer Bestellung können mehrere Werkzeugaufrufe erfordern. Wie du dabei Fortschritt, Abbruch und unterstützte zusätzliche Anweisungen anbietest, zeigt die [Run-Anleitung](execution-api-transition.md).
 
 ## Warum ein Agent-Loop?
@@ -16,12 +23,16 @@ Manche Fragen brauchen mehrere Informationsquellen: Das Modell muss ein Werkzeug
 
 ```csharp
 // Registriere die Funktionen vor dem Start auf dem Service.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Finde die Richtlinie, prüfe die Bestellung und erkläre das Ergebnis.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Finde die Richtlinie, prüfe die Bestellung und erkläre das Ergebnis.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Lokale Tools können Objekte über `Task<T>` / `ValueTask<T>` zurückgeben und ein injiziertes `CancellationToken` erhalten. `run.Cancel()` oder das Starttoken erreicht kooperative Tools; das Beenden des Stream-Lesers allein nicht. Ausnahmen gelten als Fehler. Bei Abbruch werden wartende Aufrufe übersprungen, und die Bereinigung wartet weiterhin auf gestartete Tools, die das Token ignorieren. Siehe [Ergebnisse, Fehler und Abbruch](function-calling.md#tool-execution-contract).
 
 ## Bisherige Agent-API: Kompatibilitätsbeispiele
 

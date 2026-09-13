@@ -13,6 +13,8 @@
 
 Agentic RAG แก้ทั้งหมดนี้ แทนที่จะเป็น pipeline retrieve-then-answer แบบตายตัว **agent ตัดสินใจเอง** — เมื่อไหร่จะค้นหา ค้นหาอะไร จะค้นซ้ำหรือไม่ และเมื่อไหร่จะเรียกเครื่องมืออื่น — ทั้งหมดภายใน ReAct loop
 
+`WithAgenticRag` ส่งโทเคนยกเลิกไปยัง `RagStore.QueryAsync` ทำให้ส่วนค้นหาที่ใช้โทเคนหยุดได้ ข้อยกเว้นจากการค้นหาจะเป็นผลเครื่องมือที่ล้มเหลวหลังบันทึกการวินิจฉัย ไม่ใช่ข้อความข้อผิดพลาดที่นับเป็นผลสำเร็จ run ที่ถูกยกเลิกจะไม่เริ่มรอบโมเดลถัดไป ดู[สัญญาร่วมของเครื่องมือ](function-calling.md#tool-execution-contract)
+
 ## เริ่มต้นใช้งาน
 
 Register `RagStore` เป็นเครื่องมือด้วย `WithAgenticRag` แล้วส่งต่อให้ `StartRunAsync(...)`:
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("สรุปนโยบายการคืนสินค้า");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 Agent จะเรียก `search_documents` อัตโนมัติเมื่อต้องการ context จากเอกสาร จากนั้นสังเคราะห์คำตอบสุดท้ายจาก excerpt ที่ดึงมา
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // Agent ค้นเอกสารเรื่องนโยบาย และเรียก API สำหรับข้อมูลคำสั่งซื้อสด
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "คำสั่งซื้อ #12345 — ฉันมีสิทธิ์คืนสินค้าตามนโยบายปัจจุบันหรือไม่?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 ในตัวอย่างนี้ agent ดำเนินการเองโดยอัตโนมัติ:

@@ -18,6 +18,14 @@ namespace Mythosia.AI.Services.Base
         protected AIRequestFeatures CurrentRequestFeatures => _requestFeatureExecution.Value?.Features ?? new AIRequestFeatures();
         /// <summary>The user message anchoring the current logical request in conversation history.</summary>
         protected Message? CurrentFeatureRequestMessage => _requestFeatureExecution.Value?.Message;
+        /// <summary>Provider-specific options captured for this logical request, or null for internal work.</summary>
+        protected object? CurrentProviderRequestOptions => _requestFeatureExecution.Value?.ProviderOptions;
+        /// <summary>The effective context of the active request, including resolved dynamic system instructions.</summary>
+        protected AIRequestContext? CurrentRequestContext => _currentRequestContext.Value;
+        /// <summary>Captures and consumes provider-specific per-request options before execution starts.</summary>
+        /// <remarks>Nested calls and Run reuse the returned snapshot. Internal summary and rewrite work
+        /// do not call this hook and do not inherit these options.</remarks>
+        protected virtual object? CaptureProviderRequestOptions(Message message) => null;
         public IReadOnlyList<AICitation> LastCitations => _lastFeatureExecution?.Snapshot() ?? Array.Empty<AICitation>();
 
         public void ConfigureRequestFeatures(AIRequestFeatures features)
@@ -54,8 +62,14 @@ namespace Mythosia.AI.Services.Base
         protected IDisposable BeginRequestFeaturesScope(Message message)
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
-            if (_requestFeatureExecution.Value != null) return new FeatureScope(() => { });
-            return UseRequestFeatureExecution(CaptureRequestFeatures(message));
+            var settings = BeginRequestSettingsScope();
+            try
+            {
+                var features = _requestFeatureExecution.Value != null
+                    ? new FeatureScope(() => { }) : UseRequestFeatureExecution(CaptureRequestFeatures(message));
+                return new FeatureScope(() => { try { features.Dispose(); } finally { settings.Dispose(); } });
+            }
+            catch { settings.Dispose(); throw; }
         }
 
         IDisposable Services.IAIRequestFeatureService.BeginRequestFeaturesScope(Message message)
@@ -63,9 +77,10 @@ namespace Mythosia.AI.Services.Base
 
         private RequestFeatureExecution CaptureRequestFeatures(Message message)
         {
+            var previous = _requestFeatureExecution.Value;
             AIRequestFeatures features;
-            if (_requestFeatureExecution.Value != null)
-                features = _requestFeatureExecution.Value.Features.Clone();
+            if (previous != null)
+                features = previous.Features.Clone();
             else lock (_featureGate)
             {
                 features = _pendingRequestFeatures.Clone();
@@ -74,6 +89,8 @@ namespace Mythosia.AI.Services.Base
             }
             var execution = new RequestFeatureExecution(features, message);
             _lastFeatureExecution = execution;
+            execution.ProviderOptions = previous != null ? previous.ProviderOptions : CaptureProviderRequestOptions(message);
+            ValidateProviderRequestOptions(execution.ProviderOptions, message);
             ValidateRequestFeatures(features);
             return execution;
         }
@@ -118,8 +135,14 @@ namespace Mythosia.AI.Services.Base
         {
             internal AIRequestFeatures Features { get; }
             internal Message? Message { get; }
+            internal object? ProviderOptions { get; set; }
             private readonly List<AICitation> _citations = new List<AICitation>();
-            internal RequestFeatureExecution(AIRequestFeatures features, Message? message) { Features = features; Message = message; }
+            internal RequestFeatureExecution(AIRequestFeatures features, Message? message, object? providerOptions = null)
+            {
+                Features = features;
+                Message = message;
+                ProviderOptions = providerOptions;
+            }
             internal void Add(AICitation citation)
             {
                 lock (_citations)

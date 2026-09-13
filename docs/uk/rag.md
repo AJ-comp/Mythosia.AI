@@ -1,5 +1,9 @@
 # RAG (генерація з витягуванням)
 
+Для готової відповіді й кнопки Стоп передайте `cancellationToken` у `GetCompletionAsync`. Run потрібен для подій прогресу або підтримуваних додаткових вказівок. Див. [скасування відповіді](completions.md#completion-cancellation).
+
+Для відповіді зі знайденим контекстом також передавайте `cancellationToken` у `RagEnabledService.GetCompletionAsync`. Він проходить через пошук, `LlmQueryRewriter`, `LlmReranker` і внутрішній запит; скасування під час пошуку запобігає наступному виклику моделі. `RagPipeline.QueryAndGenerateAsync` також передає токен. Компоненти мають підтримувати скасування; завершені пошуки й дії інструментів не відкочуються.
+
 ## Що таке RAG
 
 RAG (Retrieval-Augmented Generation) — технологія, при якій AI-модель спочатку **знаходить релевантну інформацію у ваших документах**, а потім формує відповідь на її основі.
@@ -136,3 +140,5 @@ var response = await service.GetCompletionAsync("Your question", options: option
 - [Агентний RAG](rag-agentic.md) — AI сам вирішує, коли і що шукати
 - [Векторні сховища](vectordb-overview.md) — налаштування персистентного сховища
 - [Розділювачі тексту](text-splitters.md) — налаштування розбиття документів
+
+Perplexity: [Вектори для власного індексу / Пошук без генерації відповіді](perplexity.md).

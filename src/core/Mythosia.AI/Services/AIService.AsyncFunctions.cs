@@ -28,7 +28,7 @@ namespace Mythosia.AI.Services.Base
         protected Func<Task> BeginAsyncFunctionScope(bool useFunctions = true)
         {
             var previous = _asyncFunctionScope;
-            var scope = useFunctions && SupportsAsyncFunctionCalls && Functions.Any(function => function.AllowAsync)
+            var scope = useFunctions && SupportsAsyncFunctionCalls && RequestFunctions.Any(function => function.AllowAsync)
                 ? new AsyncFunctionScope()
                 : null;
             _asyncFunctionScope = scope;
@@ -38,13 +38,24 @@ namespace Mythosia.AI.Services.Base
                 {
                     if (scope != null)
                     {
-                        await Task.WhenAll(scope.Work.Select(work => work.Task)).ConfigureAwait(false);
-                        await CollectAsyncFunctionResultsAsync(false, CancellationToken.None).ConfigureAwait(false);
+                        // Failure or disposal can end the request while tools are still running.
+                        // Cancel cooperative work before draining and pairing every recorded call.
+                        try
+                        {
+                            scope.Cancellation.Cancel();
+                        }
+                        finally
+                        {
+                            // Even a throwing user cancellation callback must not strand history.
+                            await Task.WhenAll(scope.Work.Select(work => work.Task)).ConfigureAwait(false);
+                            await CollectAsyncFunctionResultsAsync(false, CancellationToken.None).ConfigureAwait(false);
+                        }
                     }
                 }
                 finally
                 {
                     scope?.ConcurrencyGate?.Dispose();
+                    scope?.Cancellation.Dispose();
                     _asyncFunctionScope = previous;
                 }
             };
@@ -66,14 +77,14 @@ namespace Mythosia.AI.Services.Base
             var deferredCalls = scope == null
                 ? Array.Empty<FunctionCall>()
                 : calls.Calls.Where(call => call.IsAsync &&
-                    Functions.Any(function => function.Name == call.Name && function.AllowAsync)).ToArray();
+                    RequestFunctions.Any(function => function.Name == call.Name && function.AllowAsync)).ToArray();
 
             // Keep the existing batch extension points and execution semantics for ordinary tools.
             if (deferredCalls.Length == 0 && !UsedAsyncFunctions)
             {
                 var results = await ProcessFunctionCallsAsync(calls, policy, cancellationToken).ConfigureAwait(false);
                 AddFunctionCallBatchToHistory(content, calls, metadata);
-                AddFunctionResultBatchToHistory(results, new Dictionary<string, object> { ["model"] = Model });
+                AddFunctionResultBatchToHistory(results, new Dictionary<string, object> { ["model"] = RequestModel });
                 return new[] { results };
             }
 
@@ -109,7 +120,7 @@ namespace Mythosia.AI.Services.Base
             // required call awaits work appearing later in this same provider response.
             foreach (var call in executionBatch.Calls.Where(call => deferredIds.Contains(call.Id)))
             {
-                var task = Task.Run(() => ExecuteScopedFunctionAsync(call, policy, scope!.ConcurrencyGate));
+                var task = Task.Run(() => ExecuteScopedFunctionAsync(call, policy, scope!, cancellationToken));
                 scope!.Work.Add(new AsyncFunctionWork(executionBatch.Id, task));
             }
 
@@ -117,9 +128,9 @@ namespace Mythosia.AI.Services.Base
             if (requiredCalls.Length > 0)
             {
                 // Required calls retain their normal sequential/parallel policy and extension hook.
-                // Once a batch starts, handlers have no cancellation token and must finish.
+                // Cancellation produces a result for every required call, including queued calls.
                 var requiredBatch = new FunctionCallBatch(requiredCalls) { Id = executionBatch.Id };
-                var requiredTask = ProcessRequiredScopedFunctionsAsync(requiredBatch, policy);
+                var requiredTask = ProcessRequiredScopedFunctionsAsync(requiredBatch, policy, scope!, cancellationToken);
                 var requiredWork = new List<Task<FunctionCallResult>>();
                 foreach (var call in requiredCalls)
                 {
@@ -163,7 +174,7 @@ namespace Mythosia.AI.Services.Base
                 var ready = group.ToArray();
                 var results = await Task.WhenAll(ready.Select(work => work.Task)).ConfigureAwait(false);
                 var batch = new FunctionCallResultBatch(group.Key, results);
-                AddFunctionResultBatchToHistory(batch, new Dictionary<string, object> { ["model"] = Model });
+                AddFunctionResultBatchToHistory(batch, new Dictionary<string, object> { ["model"] = RequestModel });
                 foreach (var work in ready)
                     work.Delivered = true;
                 batches.Add(batch);
@@ -172,15 +183,26 @@ namespace Mythosia.AI.Services.Base
         }
 
         private async Task<FunctionCallResult> ExecuteScopedFunctionAsync(
-            FunctionCall call, FunctionCallingPolicy policy, SemaphoreSlim? gate)
+            FunctionCall call, FunctionCallingPolicy policy, AsyncFunctionScope scope,
+            CancellationToken cancellationToken)
         {
-            if (gate != null)
-                await gate.WaitAsync().ConfigureAwait(false);
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, scope.Cancellation.Token);
+            var gate = scope.ConcurrencyGate;
+            var entered = false;
             try
             {
+                if (gate != null)
+                {
+                    await gate.WaitAsync(linked.Token).ConfigureAwait(false);
+                    entered = true;
+                }
                 if (policy.EnableLogging)
                     Console.WriteLine($"  Executing asynchronous function: {call.Name}");
-                return await ProcessFunctionCallAsync(call).ConfigureAwait(false);
+                return await ExecuteFunctionCallAsync(call, linked.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return CancelledFunction(call);
             }
             catch (Exception exception)
             {
@@ -188,16 +210,18 @@ namespace Mythosia.AI.Services.Base
             }
             finally
             {
-                gate?.Release();
+                if (entered) gate!.Release();
             }
         }
 
         private async Task<FunctionCallResultBatch> ProcessRequiredScopedFunctionsAsync(
-            FunctionCallBatch calls, FunctionCallingPolicy policy)
+            FunctionCallBatch calls, FunctionCallingPolicy policy, AsyncFunctionScope scope,
+            CancellationToken cancellationToken)
         {
+            using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, scope.Cancellation.Token);
             try
             {
-                return await ProcessFunctionCallsAsync(calls, policy, CancellationToken.None).ConfigureAwait(false);
+                return await ProcessFunctionCallsAsync(calls, policy, linked.Token).ConfigureAwait(false);
             }
             catch (Exception exception)
             {
@@ -214,7 +238,7 @@ namespace Mythosia.AI.Services.Base
         }
 
         private static FunctionCallResult FailedScopedFunction(FunctionCall call, Exception exception) =>
-            new FunctionCallResult
+            exception is OperationCanceledException cancelled ? CancelledFunction(call, cancelled) : new FunctionCallResult
             {
                 Call = call.Clone(),
                 Content = $"Error executing function: {exception.Message}",
@@ -223,6 +247,7 @@ namespace Mythosia.AI.Services.Base
 
         private sealed class AsyncFunctionScope
         {
+            public CancellationTokenSource Cancellation { get; } = new CancellationTokenSource();
             public bool UsedAsync { get; set; }
             public List<AsyncFunctionWork> Work { get; } = new List<AsyncFunctionWork>();
             public SemaphoreSlim? ConcurrencyGate { get; set; }

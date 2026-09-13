@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System;
 using System.Net.Http;
 using System.Text;
@@ -47,7 +47,7 @@ namespace Mythosia.AI.Services.Google
 
             var generateContentRequest = new Dictionary<string, object>
             {
-                ["model"] = $"models/{Model}",
+                ["model"] = $"models/{RequestModel}",
                 ["contents"] = contentsList
             };
 
@@ -61,14 +61,14 @@ namespace Mythosia.AI.Services.Google
 
         private async Task<uint> GetTokenCountFromAPI(object requestBody)
         {
-            var endpoint = $"v1beta/models/{Model}:countTokens";
+            var endpoint = $"v1beta/models/{RequestModel}:countTokens";
 
             using var content = new StringContent(
                 JsonSerializer.Serialize(requestBody),
                 Encoding.UTF8,
                 "application/json");
             using var request = CreateGoogleRequest(HttpMethod.Post, endpoint, content);
-            var policy = CurrentPolicy ?? DefaultPolicy ?? FunctionCallingPolicy.Default;
+            var policy = GetExecutionPolicy();
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);
             using var timeoutSource = CreateRequestTimeoutCts(policy);
 
@@ -77,7 +77,12 @@ namespace Mythosia.AI.Services.Google
             {
                 responseString = await SendAndReadAsync(request, timeoutSource.Token);
             }
-            catch (OperationCanceledException exception)
+            catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
+            {
+                throw new AIServiceException("The HTTP token-count request timed out.", exception);
+            }
+            catch (OperationCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested && timeoutSource.IsCancellationRequested)
             {
                 throw new AIServiceException(
                     $"Gemini token-count request timeout after {timeoutSeconds} seconds",

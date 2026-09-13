@@ -1,5 +1,12 @@
 # Агент (цикл ReAct)
 
+Для відповіді, витрат і джерел разом використовуйте знімок `AIRunResult`, який повертає `await run.Result`. Рядок міститься в `result.Text`; читати потік не потрібно. Це зміна Mythosia.AI 8.0.0; типи повернення `GetCompletionAsync` і `StructuredStreamRun<T>.Result` збережено. [Результат Run і міграція](execution-api-transition.md#run-result).
+
+
+Для незалежних налаштувань і повторного використання варіантів застосовуйте [білдер запитів](request-building.md). Викликайте `CreateRequest(...)` перед `With...`. Властивості та fluent-методи сервісу зберігають попередню поведінку.
+
+> Приклади з `CreateRequest` потребують Mythosia.AI 8.0.0 / Abstractions 4.0.0. У попередній версії 7.1, що додала Run і спільні параметри, білдера немає. Старі пакети можуть використовувати попередні перевантаження сервісу.
+
 Для завдань із кількома інструментами корисні ліміт раундів і керування поточною роботою. Спільний цикл уже надає ці можливості; див. [керування завданням через Run](execution-api-transition.md).
 
 ## Навіщо потрібен агентний цикл
@@ -15,12 +22,16 @@
 
 ```csharp
 // Спочатку зареєструйте інструменти на сервісі.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Знайдіть політику, перевірте замовлення й поясніть результат.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Знайдіть політику, перевірте замовлення й поясніть результат.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Локальні інструменти можуть повертати об’єкти через `Task<T>` / `ValueTask<T>` та отримувати впроваджений `CancellationToken`. `run.Cancel()` або початковий токен передає скасування інструментам, що його підтримують; зупинка лише читання потоку — ні. Винятки записуються як помилки. Скасування пропускає виклики в черзі, а очищення очікує запущені інструменти, які ігнорують токен. Див. [результати, помилки та скасування](function-calling.md#tool-execution-contract).
 
 ## Приклади для попереднього агентного API
 

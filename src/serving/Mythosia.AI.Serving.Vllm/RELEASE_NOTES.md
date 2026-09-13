@@ -1,5 +1,21 @@
 # Release Notes
 
+## v1.0.0
+
+### Changed
+
+- Promotes the published `1.0.0-preview` package to the first stable release. The existing public API and runtime behavior are unchanged.
+- Updates the package description and README to explain model discovery, health checks and metrics inspection before API details; current release links use absolute URLs suitable for NuGet.
+- Adds MIT license, repository and `.snupkg` symbol metadata. The README and release notes remain included at the package root.
+
+### Compatibility
+
+- Existing preview callers can upgrade to `1.0.0` without source changes.
+- Retains .NET Standard 2.1 and the sole package dependency `Newtonsoft.Json` 13.0.4.
+- Optional model fields and metric names continue to depend on the deployed server version.
+
+---
+
 ## v1.0.0-preview
 
 ### vLLM Control-Plane Client (Initial Preview)

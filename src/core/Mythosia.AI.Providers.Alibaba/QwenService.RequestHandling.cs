@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Protocols;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -37,7 +37,7 @@ namespace Mythosia.AI.Providers.Alibaba
         /// </summary>
         private void ApplyThinkingParameters(ProtocolRequestParams p)
         {
-            var enableThinking = ThinkingMode == QwenThinking.On;
+            var enableThinking = RequestSetting(nameof(ThinkingMode), ThinkingMode) == QwenThinking.On;
 
             if (_endpointPlatform == EndpointPlatform.Ollama)
             {
@@ -79,13 +79,13 @@ namespace Mythosia.AI.Providers.Alibaba
                 Model = modelId,
                 Messages = messages,
                 SystemMessage = systemMsg,
-                Temperature = Temperature,
-                TopP = TopP,
-                FrequencyPenalty = FrequencyPenalty,
-                PresencePenalty = PresencePenalty,
+                Temperature = RequestTemperature,
+                TopP = RequestTopP,
+                FrequencyPenalty = RequestFrequencyPenalty,
+                PresencePenalty = RequestPresencePenalty,
                 MaxTokens = GetEffectiveMaxTokens(),
-                Stream = Stream,
-                StructuredOutputSchemaJson = _structuredOutputSchemaJson
+                Stream = RequestStream,
+                StructuredOutputSchemaJson = RequestStructuredOutputSchemaJson
             };
         }
 

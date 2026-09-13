@@ -3,6 +3,7 @@ using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Protocols;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 
 namespace Mythosia.AI.Services.xAI
@@ -24,20 +25,20 @@ namespace Mythosia.AI.Services.xAI
         {
             var systemMsg = GetEffectiveSystemMessageWithRequestContext();
             var modelFamily = GetModelFamily();
-            var reasoningEffort = GetReasoningEffortParameter(modelFamily);
+            var reasoningEffort = GetReasoningEffortParameter(modelFamily, GetEffectiveReasoningEffort());
 
             var p = new ProtocolRequestParams
             {
-                Model = Model,
+                Model = RequestModel,
                 Messages = messages,
                 SystemMessage = systemMsg,
-                Temperature = Temperature,
-                TopP = TopP,
-                FrequencyPenalty = FrequencyPenalty,
-                PresencePenalty = PresencePenalty,
+                Temperature = RequestTemperature,
+                TopP = RequestTopP,
+                FrequencyPenalty = RequestFrequencyPenalty,
+                PresencePenalty = RequestPresencePenalty,
                 MaxTokens = GetEffectiveMaxTokens(),
-                Stream = Stream,
-                StructuredOutputSchemaJson = _structuredOutputSchemaJson
+                Stream = RequestStream,
+                StructuredOutputSchemaJson = RequestStructuredOutputSchemaJson
             };
 
             if (RejectsPenaltyParameters(modelFamily))
@@ -65,6 +66,7 @@ namespace Mythosia.AI.Services.xAI
         {
             return modelFamily switch
             {
+                GrokModelFamily.Grok4_6 => true,
                 GrokModelFamily.Grok4_5 => true,
                 GrokModelFamily.Grok4_3 => true,
                 GrokModelFamily.Grok4_20Reasoning => true,
@@ -74,53 +76,32 @@ namespace Mythosia.AI.Services.xAI
             };
         }
 
-        private string? GetReasoningEffortParameter(GrokModelFamily modelFamily)
+        private string? GetReasoningEffortParameter(GrokModelFamily modelFamily, GrokReasoning effort)
         {
-            if (ReasoningEffort == GrokReasoning.Auto)
+            if (effort == GrokReasoning.Auto)
                 return null;
 
-            switch (modelFamily)
+            if (effort == GrokReasoning.None &&
+                (modelFamily == GrokModelFamily.Grok4_6 || modelFamily == GrokModelFamily.Grok4_5))
+                throw new NotSupportedException($"{RequestModel} cannot disable reasoning. Select a supported reasoning effort or Auto.");
+            var supportedLevels = GetNativeGrokReasoningLevels(modelFamily);
+            if (supportedLevels.Length == 0)
             {
-                case GrokModelFamily.Grok4_5:
-                    if (ReasoningEffort == GrokReasoning.None)
-                    {
-                        throw new NotSupportedException(
-                            $"{Model} cannot disable reasoning. Use Low, Medium, High, or Auto.");
-                    }
-
-                    return SerializeReasoningEffort(
-                        GrokReasoning.Low,
-                        GrokReasoning.Medium,
-                        GrokReasoning.High);
-
-                case GrokModelFamily.Grok4_3:
-                    return SerializeReasoningEffort(
-                        GrokReasoning.None,
-                        GrokReasoning.Low,
-                        GrokReasoning.Medium,
-                        GrokReasoning.High);
-
-                default:
-                    return null;
+                // Keep the legacy adapter behavior: these families have no configurable effort field.
+                if (effort == GrokReasoning.XHigh)
+                    throw new NotSupportedException($"{RequestModel} does not support reasoning effort '{effort}'.");
+                return null;
             }
-        }
-
-        private string SerializeReasoningEffort(params GrokReasoning[] supportedValues)
-        {
-            foreach (var supportedValue in supportedValues)
-            {
-                if (ReasoningEffort == supportedValue)
-                    return ReasoningEffort.ToString().ToLowerInvariant();
-            }
-
-            throw new NotSupportedException(
-                $"{Model} does not support reasoning effort '{ReasoningEffort}'.");
+            if (Enum.TryParse<ReasoningLevel>(effort.ToString(), out var level) && supportedLevels.Contains(level))
+                return effort.ToString().ToLowerInvariant();
+            throw new NotSupportedException($"{RequestModel} does not support reasoning effort '{effort}'.");
         }
 
         private GrokReasoning GetMinimumReasoningEffortForModel()
         {
             return GetModelFamily() switch
             {
+                GrokModelFamily.Grok4_6 => GrokReasoning.Low,
                 GrokModelFamily.Grok4_5 => GrokReasoning.Low,
                 GrokModelFamily.Grok4_3 => GrokReasoning.None,
                 _ => GrokReasoning.Auto
@@ -129,7 +110,10 @@ namespace Mythosia.AI.Services.xAI
 
         private GrokModelFamily GetModelFamily()
         {
-            var model = (Model ?? string.Empty).Trim();
+            var model = (RequestModel ?? string.Empty).Trim();
+
+            if (model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase))
+                return GrokModelFamily.Grok4_6;
 
             if (model.Equals(AIModels.xAI.Grok4_5, StringComparison.OrdinalIgnoreCase) ||
                 model.Equals(AIModels.xAI.Grok4_5Latest, StringComparison.OrdinalIgnoreCase) ||
@@ -164,6 +148,7 @@ namespace Mythosia.AI.Services.xAI
         private enum GrokModelFamily
         {
             Unknown,
+            Grok4_6,
             Grok4_5,
             Grok4_3,
             Grok4_20Reasoning,

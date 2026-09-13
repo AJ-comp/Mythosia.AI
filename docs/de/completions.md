@@ -1,6 +1,73 @@
 # Textvervollständigung
 
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 Wenn die Anwendung nur die fertige Antwort benötigt, ist `GetCompletionAsync` weiterhin passend. Für Fortschrittsanzeige, Abbruch und unterstützte zusätzliche Anweisungen während der Arbeit hilft die [Run-Anleitung](execution-api-transition.md).
+
+<a id="completion-cancellation"></a>
+
+## Eine nicht mehr benötigte Antwort abbrechen
+
+Wenn Benutzer ein Fenster schließen, auf Stopp klicken oder die Wartezeit der Anwendung abläuft, wird die Antwort möglicherweise nicht mehr benötigt. Mit einem `CancellationToken` beenden Sie die Kommunikation und Arbeit auf Clientseite und vermeiden weitere Tool- und Modellaufrufe. Für die fertige Antwort bleibt `GetCompletionAsync` geeignet; ein Abbruch allein erfordert keinen Run.
+
+### Before: kein Abbruchsignal des Aufrufers
+
+```csharp
+string answer = await service.CreateRequest("Fasse dieses Dokument zusammen.")
+    .GetCompletionAsync();
+```
+
+### After: Benutzerabbruch oder Abbruch nach 30 Sekunden
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("Fasse dieses Dokument zusammen.")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("Abgebrochen.");
+}
+```
+
+Bewahren Sie die Tokenquelle während des Aufrufs auf und verbinden Sie Stopp oder das Schließen mit `cancellation.Cancel()`. Das Beispiel plant zusätzlich einen Abbruch nach 30 Sekunden. Nach der Bereinigung erhält der Aufrufer eine `OperationCanceledException`. Eine Frist mit `CancellationTokenSource` zählt ebenfalls als Aufruferabbruch; `FunctionCallingPolicy.TimeoutSeconds` behält das bisherige Timeout-Fehlerverhalten.
+
+String- und `Message`-Überladungen des Dienstes, typisierte Antworten, Request-Builder und `MessageChain.SendAsync` / `SendOnceAsync` akzeptieren das Token. Bisherige Aufrufe ohne Token funktionieren weiter. Alternative Einstiegspunkte:
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "Fasse dieses Dokument zusammen.", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "Gib Titel und Autor als JSON zurück.", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("Fasse dieses Dokument zusammen.")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("Übersetze diesen Satz.")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+Das Token erreicht Vorbereitung, HTTP-Senden und -Lesen, kooperative lokale Tools und spätere Modellrunden. Nach erkanntem Abbruch werden wartende Tools und weitere Runden übersprungen. Die Bereinigung erhält die Zuordnung protokollierter Toolaufrufe und Ergebnisse; gestartete Tools, die das Token ignorieren, können sie verzögern. Abgeschlossene Aktionen und der Gesprächsverlauf werden nicht zurückgesetzt. Siehe [Toolvertrag](function-calling.md#tool-execution-contract).
+
+Der Abbruch von Berechnung oder Abrechnung beim Anbieter ist nicht garantiert. OpenAI beschreibt das Trennen der Verbindung für gewöhnliche Responses; Google nennt ausdrücklich einen reinen Clientabbruch mit weiterhin berechnetem Verbrauch. [OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal). Ein Hintergrundauftrag braucht ein ausdrückliches `CancelAsync()`; ein Abbruch von `WaitForCompletionAsync(cancellationToken: ...)` beendet nur das Warten. Gewöhnliche Completion wird nicht in Hintergrundausführung umgewandelt. Siehe [Perplexity](perplexity.md).
+
+<a id="completion-cancellation-migration"></a>
+
+Diese Ergänzung gehört zu Mythosia.AI 8.0.0. Aufrufe ohne Token und bisherige positionelle profile/context-Argumente bleiben auf Quelltextebene gültig; Verbraucher müssen neu gebaut werden. Eigene `IAIService`-Implementierungen müssen beiden Completion-Signaturen abschließend `CancellationToken cancellationToken = default` hinzufügen und weiterreichen. Eigene `AIService`-Provider behalten das Override `GetCompletionAsync(Message)` und reichen das geschützte `RequestCancellationToken` an den Transport weiter. Builder und Run allein benötigten diese Schnittstellenänderung nicht. Unterklassen mit Overrides geänderter public-virtual-Überladungen für String/profile/context-Completion, Bildhelfer oder `RunAgentAsync` müssen ebenfalls das neue `CancellationToken` anhängen und weiterreichen; nur das Provider-Override mit einem einzelnen `Message` behält seine Signatur. Methodengruppen-Delegates für geänderte Signaturen benötigen gegebenenfalls ein explizites Lambda, das das Token übergibt oder weglässt.
 
 ## Einfache Abfrage
 
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("Was zeigt dieses Diagramm?")
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+Für Diagramme, Screenshots, lokale Tool-Aufrufe oder gründliche Prüfung nach einer schnellen Antwort nutze [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Reasoning bleibt standardmäßig aus; aktiviere es mit `WithDeepSeekReasoning(...)` oder `WithReasoning(...)` je Anfrage.
 
 ## Schnellabfrage (Statische API)
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("Erzähl mir eine Ges
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // Niedriger = deterministischer
 ```
+
+Perplexity: [Mit einem Agent-Preset antworten / Quellen, Bilder und strukturierte Antworten](perplexity.md).

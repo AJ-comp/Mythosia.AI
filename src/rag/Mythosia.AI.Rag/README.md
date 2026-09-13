@@ -1,17 +1,20 @@
 # Mythosia.AI.Rag
 
-## Package Summary
+Ground answers in documents your application manages. `Mythosia.AI.Rag` adds `.WithRag()` to an `IAIService` and handles document loading, splitting, embeddings, retrieval and context assembly. Use Agentic RAG tools when the model should decide when to search again.
 
-`Mythosia.AI.Rag` provides **RAG (Retrieval-Augmented Generation)** as an optional extension for `Mythosia.AI`.  
-Install this package to add `.WithRag()` to any `IAIService` — no changes to the AI core required.
+The package depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.0.0** and **Mythosia.AI.Rag.Abstractions 6.2.0**.
 
-> **Abstractions Compatibility:** Implements **`Mythosia.AI.Rag.Abstractions v6.x`**
+## Current release: 8.0.0
 
-## What's new in v7.6.0
+Upgrade RAG together with the other packages listed in the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md), and rebuild callers for the updated completion and Run contracts.
 
-Control a RAG answer through `StartRunAsync`, configure its reasoning and hosted search, and retain provider citations. Duplicate file/directory registrations now correctly skip every already-processed document. Existing completion and streaming APIs remain available.
+Pass `cancellationToken` to stop cooperative retrieval, query rewriting and the inner completion call when a user stops waiting. `WithAgenticRag` forwards tool cancellation into `RagStore.QueryAsync`; search exceptions become failed tool results. Cancellation avoids later model rounds, but cleanup can wait for components that ignore the token and does not guarantee that a provider stops inference or billing. See the [completion contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation) and [tool contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract).
 
-Run and common request features require `Mythosia.AI.Abstractions` v3.1.0+ and a supporting inner service, such as `Mythosia.AI` v7.1.0+. See the [full v7.6.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760).
+Keep an `AIRunResult` when the answer needs usage, sources and execution details: `await run.Result` provides that snapshot without a stream reader, and `(await run.Result).Text` provides the string. Usage describes the inner model execution; retrieval and embedding usage are separate. `GetCompletionAsync` remains a string API. See the [Run result migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result).
+
+Perplexity standard 0.6B/4B embeddings plug into the existing RAG builder. Separate contextualized APIs preserve each document's ordered chunks, and packed binary results use an explicit vector type. See the [Perplexity guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md) and [v8.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800).
+
+RAG Run controls, request-scoped reasoning/search forwarding and duplicate-registration filtering were introduced in [v7.6.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760). Use a supporting inner service, such as Mythosia.AI 8.0.0, for the current provider integrations.
 
 ## Installation
 
@@ -35,6 +38,8 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 That's it. Documents are automatically loaded, chunked, embedded, and indexed on the first query (lazy initialization).
 
+To choose model controls before starting RAG, inspect the concrete inner `AIService` or its request builder. Model capabilities describe the model connection; they do not describe retrieval-store features or add capability methods to the RAG wrapper. [Capability guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/model-capabilities.md).
+
 ## Start a RAG run
 
 After finding relevant documents, a long answer may still take time to write. Use a run to display that answer as it arrives and let the user stop execution. See the [Run guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md) for additional controls and supported steering.
@@ -45,7 +50,7 @@ await using var run = await ragService.StartRunAsync(
     "What is the refund policy?",
     onText: text => Console.Write(text),
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 The wrapper retrieves and augments context once before the model run. `options:` accepts per-query `RagQueryOptions`; `streamOptions:` controls displayed event detail. The returned run supports the inner provider's controls, but steering does not automatically repeat retrieval. Use `WithAgenticRag` when the model should request further searches as a tool. Custom inner services must implement optional `IAIRunService`; unsupported services fail before indexing.
@@ -222,6 +227,16 @@ By default, the pipeline trusts the reranker's scores for final result selection
 
 ## Embedding Providers
 
+Use Perplexity standard embeddings to index independent passages with the same RAG pipeline. Select `PerplexityEmbeddingModels.Standard0_6B` (1024 dimensions) or `Standard4B` (2560 dimensions); supply a Perplexity key and your application's `HttpClient`.
+
+```csharp
+var rag = service.WithRag(builder => builder
+    .AddText("Returns are accepted within 30 days.", id: "returns")
+    .UsePerplexityEmbedding(perplexityApiKey, httpClient));
+```
+
+For context-sensitive chunks, `PerplexityContextualizedEmbeddingProvider` preserves document groups and their order through `GetDocumentEmbeddingsAsync`; embed queries with its `GetQueryEmbeddingAsync` using the same contextual model. This separate API does not implement the flat `IEmbeddingProvider`. Float methods decode signed-int8 and normalize vectors, while explicit binary methods return packed bits for Hamming distance. See the [Perplexity embedding guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md) for all four models, dimensions, limits, and binary methods.
+
 ```csharp
 // Local feature-hashing (default, no API key required)
 .UseLocalEmbedding(dimensions: 1024)
@@ -365,7 +380,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Summarise the refund policy.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 ### Streaming Agentic RAG
@@ -409,7 +424,7 @@ service.WithAgenticRag(ragStore)
 // The agent searches documents for policy AND calls the API for live order data
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Order #12345 — am I eligible for a refund based on the current policy?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 ### Custom Tool Description

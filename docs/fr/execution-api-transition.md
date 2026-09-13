@@ -1,6 +1,12 @@
 # Piloter les tâches d’IA en cours avec Run
 
-> Ces API nécessitent `Mythosia.AI` 7.1.0 ou ultérieur, qui inclut `Mythosia.AI.Abstractions` 3.1.0 ou ultérieur. Les exemples RAG nécessitent `Mythosia.AI.Rag` 7.6.0 ou ultérieur.
+Pour un résultat final et un bouton Arrêter, passez `cancellationToken` à `GetCompletionAsync`. Utilisez Run pour les événements de progression ou les instructions supplémentaires prises en charge. Voir [l’annulation](completions.md#completion-cancellation).
+
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
+> Pour obtenir réponse, jetons et sources ensemble, `await run.Result` renvoie un instantané `AIRunResult`. La chaîne est dans `result.Text`, sans lecture du flux. Ce changement appartient à Mythosia.AI 8.0.0 ; les types de retour de `GetCompletionAsync` et `StructuredStreamRun<T>.Result` restent identiques. [Résultat Run et migration](#run-result).
+
+> Les exemples `CreateRequest` nécessitent Mythosia.AI 8.0.0 / Abstractions 4.0.0. Le builder n’existe pas dans l’ancienne version 7.1 qui a introduit Run et les options communes. Les anciens packages peuvent conserver les surcharges du service.
 
 ## Pourquoi piloter une tâche pendant son exécution ?
 
@@ -10,7 +16,7 @@ Run fournit un objet que l’application peut conserver pour cette tâche. Un é
 
 | Besoin de l’application | Utilisation conseillée |
 | --- | --- |
-| Recevoir une réponse terminée sans piloter le travail en cours | Conserver `GetCompletionAsync`, y compris ses surcharges typées et RAG. |
+| Recevoir la réponse finale avec annulation facultative | `GetCompletionAsync(..., cancellationToken: token)` |
 | Afficher le texte dès son arrivée et le récupérer à la fin | Démarrer un run avec `onText`, puis attendre `run.Result`. |
 | Afficher l’activité des outils ou attendre un traitement de sortie asynchrone | Lire les événements de `run.StreamAsync()`. |
 | Permettre à l’utilisateur d’arrêter le travail | Appeler `run.Cancel()` sur l’objet conservé. |
@@ -18,22 +24,89 @@ Run fournit un objet que l’application peut conserver pour cette tâche. Un é
 
 `StartRunAsync` démarre une tâche du modèle et renvoie un `AIRun`. La tâche continue que sa sortie soit observée ou non. Le même objet permet de suivre le flux, récupérer le résultat cumulé, annuler et, sur les modèles compatibles, transmettre des instructions en cours de réponse. `GetCompletionAsync`, y compris ses surcharges typées et RAG, reste une API publique pratique pour obtenir le résultat une fois le travail terminé.
 
+<a id="run-result"></a>
+
+## Recevoir ensemble la réponse, les jetons et les sources
+
+Même si un écran affiche uniquement la réponse terminée, il peut devoir enregistrer les jetons utilisés et les sources. Auparavant, `run.Result` renvoyait seulement une chaîne : il fallait collecter les événements du flux pour les jetons et lire les sources séparément. `AIRunResult` rassemble ces informations sans lecture du flux.
+
+Before — ancien contrat Run
+
+```csharp
+string answer = await run.Result;
+```
+
+After — Mythosia.AI 8.0.0
+
+```csharp
+using Mythosia.AI.Models.Runs;
+
+await using var run = await service
+    .CreateRequest("Analysez les documents.")
+    .StartRunAsync();
+
+AIRunResult result = await run.Result;
+string answer = result.Text;
+int? totalTokens = result.Usage?.TotalTokens;
+var citations = result.Citations;
+string? requestedModel = result.RequestedModel;
+string? actualModel = result.Model;
+var finishReason = result.FinishReason;
+```
+
+L’affichage immédiat du texte utilise le même résultat. Les rôles du callback, de `run.StreamAsync()`, de `SteerAsync` et de l’annulation restent identiques.
+
+```csharp
+using Mythosia.AI.Models.Runs;
+
+await using var run = await service
+    .CreateRequest("Analysez les documents.")
+    .StartRunAsync(onText: text => Console.Write(text));
+
+AIRunResult result = await run.Result;
+Console.WriteLine($"\nTokens: {result.Usage?.TotalTokens}");
+```
+
+Le résultat terminé est un instantané. `Usage` et les objets de citation sont copiés : les modifier ne change pas le résultat conservé, disponible même après libération du Run. Les filtres, l’arrêt du lecteur ou le dépassement du tampon d’observation ne suppriment aucune donnée du résultat.
+
+`Usage` additionne une seule fois les valeurs rapportées par chaque ronde du modèle. Les événements de ronde et le total final ne sont pas comptés deux fois. Sans valeur rapportée, il vaut `null` ; les données absentes ne sont pas estimées. Les requêtes de résumé auxiliaires distinctes sont exclues : ce n’est pas le total de facturation ni celui du compte. Si certaines rondes seulement rapportent leur usage, la somme couvre uniquement ces rondes ; elle ne garantit pas un relevé complet.
+
+Un `TotalTokens` explicitement fourni est conservé même si le détail des tokens d’entrée et de sortie est incomplet ; le cumul des tours additionne ces totaux déclarés.
+
+Les compteurs de tokens restent de type `Int32`. Si leur somme entre les tours dépasse `Int32.MaxValue`, le flux ou Run échoue avec `OverflowException` au lieu de renvoyer des valeurs débordées. Le nettoyage se termine et `run.Result` ne reste pas en attente même si le cumul final échoue.
+
+La séquence renvoyée par `run.StreamAsync()` ne peut être parcourue qu’une fois. La parcourir de nouveau, même en parallèle, déclenche `InvalidOperationException` ; le lecteur initial et l’exécution restent indépendants.
+
+`Provider` identifie l’adaptateur et `RequestedModel` est le modèle unique explicitement envoyé dans la requête, capturé au départ, y compris une surcharge de modèle du fournisseur. Il vaut `null` si un preset, un profil ou le routage côté serveur choisit le modèle sans champ de modèle unique explicite (par exemple, une liste Perplexity `Models`). Cette valeur est indépendante du modèle réel de réponse dans `Model`. `Model` est l’identifiant réel rapporté dans la réponse de la dernière ronde, ou `null` ; le modèle demandé ne le remplace pas. `RoundCount` compte les rondes LLM de la bibliothèque, pas les outils individuels ni les étapes internes d’un agent hébergé. Un fournisseur personnalisé sans compteur donne `0`.
+
+`FinishReason` utilise `AIFinishReason` (`Unknown`, `Stop`, `MaxTokens`, `ToolCalls`, `ContentFilter`, `Other`) ; `RawFinishReason` conserve la valeur terminale du fournisseur. Sans information : `Unknown`/`null`. Ces champs concernent les résultats réussis. Les erreurs existantes, notamment la limite de rondes, continuent de faire échouer `Result`. Une annulation lève toujours `OperationCanceledException`, sans résultat réussi de remplacement.
+
+`Text` conserve tous les textes émis dans l’ordre, y compris les sorties intermédiaires et antérieures à une instruction supplémentaire. Le résultat attend l’exécution et le nettoyage. `Citations` est l’instantané final ; `run.Citations` reste lisible pendant l’exécution. Les positions des citations restent locales aux parties de contenu originales, pas au texte concaténé.
+
+<a id="run-result-migration"></a>
+
+**Migration majeure :** `AIRun.Result` passe de `Task<string>` à `Task<AIRunResult>`. Pour la chaîne, lire `(await run.Result).Text`. Les implémentations personnalisées de `AIRun` doivent adapter leur surcharge et construire `AIRunResult` ; les consommateurs doivent recompiler. Le résultat est dans `Mythosia.AI.Models.Runs` ; `TokenUsage` et `AIFinishReason` dans `Mythosia.AI.Models.Streaming`. `GetCompletionAsync` conserve `Task<string>` et `StructuredStreamRun<T>.Result` conserve `Task<T>`. Ces exemples visent Mythosia.AI 8.0.0, pas les premiers packages Run 7.1/3.1.
+
 ## Afficher le texte avec un rappel
 
 Dans une interface de discussion ou une console, afficher le texte dès son arrivée permet à l’utilisateur de suivre une réponse longue pendant sa rédaction.
 
 ```csharp
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Lis les documents et rédige un rapport.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("Lis les documents et rédige un rapport.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
+
+Les outils locaux peuvent renvoyer des objets via `Task<T>` / `ValueTask<T>` et recevoir un `CancellationToken` injecté. `run.Cancel()` ou le jeton de démarrage atteint les outils coopératifs ; arrêter seulement le lecteur du flux ne suffit pas. Les exceptions sont des échecs. L’annulation ignore les appels en attente, et le nettoyage attend les outils démarrés qui ignorent le jeton. Voir [résultats, erreurs et annulation](function-calling.md#tool-execution-contract).
 
 `onText` est un rappel `Action<string>` facultatif, enregistré avant le démarrage. Il reçoit le texte dans l’ordre et n’exécute pas les outils. Omettez-le si seul le résultat vous intéresse. Une exception dans le rappel annule le run et fait échouer `Result`. Ne transmettez pas de lambda `async` à `onText` : elle deviendrait `async void`, dont le run ne pourrait attendre ni le travail ni les erreurs. Utilisez le flux d’événements pour une sortie asynchrone. Les rappels ne sont pas automatiquement exécutés sur le thread de l’interface.
 
-`Result` concatène les événements textuels du run, y compris le texte intermédiaire entre les appels d’outils et celui produit avant une instruction supplémentaire. Il ne déclenche pas une seconde requête au modèle et ne reformule pas la réponse. Les applications qui souhaitent seulement attendre le résultat peuvent conserver `GetCompletionAsync` si elles préfèrent sa sémantique de réponse existante.
+`(await run.Result).Text` concatène les événements textuels du run, y compris le texte intermédiaire entre les appels d’outils et celui produit avant une instruction supplémentaire. Il ne déclenche pas une seconde requête au modèle et ne reformule pas la réponse. Les applications qui souhaitent seulement attendre le résultat peuvent conserver `GetCompletionAsync` si elles préfèrent sa sémantique de réponse existante.
 
 ## Lire les événements de texte, d’outils et d’utilisation
 
@@ -63,7 +136,7 @@ await foreach (var item in run.StreamAsync())
     }
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 `run.StreamAsync()` accepte un jeton d’annulation facultatif pour l’observation, sans prompt. Il observe la tâche déjà démarrée par `StartRunAsync`. La bibliothèque exécute les gestionnaires de fonctions enregistrés ; ne relancez jamais un outil en réaction à son événement d’affichage. Les options d’affichage du texte ne désactivent pas les outils enregistrés du run.
@@ -84,7 +157,7 @@ await foreach (var item in run.StreamAsync())
     if (item.Type == StreamingContentType.Text && item.Content is string text)
         await writer.WriteAsync(text);
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Annuler et libérer les ressources
@@ -117,7 +190,7 @@ async Task SendUpdateAsync(string instruction)
     await run.SteerAsync(instruction, cancellationToken);
 }
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 Les instructions en cours de réponse sont prises en charge par GPT-6 Astra sur une connexion WebSocket Responses. Les autres fournisseurs et les modèles non compatibles peuvent exécuter des runs ordinaires, mais `CanSteer` vaut false et le pilotage signale l’absence de prise en charge au lieu de créer silencieusement un tour de conversation ordinaire. `CanSteer` ne garantit pas que le run sera encore actif au moment d’un appel ultérieur.
@@ -135,11 +208,13 @@ Les appels de fonctions ordinaires permettent déjà plusieurs tours entre le mo
 `RunAgentAsync` et `RunAgentStreamAsync` restent appelables, mais portent désormais des avertissements `[Obsolete]`. Leurs signatures, la valeur par défaut `maxSteps = 10` et le comportement d’erreur historique à la limite des étapes sont conservés pendant la migration. Pour les nouveaux appels, utilisez :
 
 ```csharp
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Trouve la politique, vérifie la commande et explique le résultat.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Trouve la politique, vérifie la commande et explique le résultat.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
 
 La valeur générale par défaut de `FunctionCallingPolicy.MaxRounds` est 20 ; précisez donc 10 pour conserver la limite de l’ancien agent. `WithMaxRounds` configure une politique pour une seule requête et ne modifie pas `DefaultPolicy`. Configurez-la avant de commencer. Les anciennes méthodes d’agent copient plutôt la politique par défaut actuelle et lui appliquent le `maxSteps` de l’appel. Un nouveau run utilise le contrat commun des erreurs d’exécution et ne garantit pas la conversion historique en `AgentMaxStepsExceededException`/`PartialResponse`. Si ce contrat est nécessaire, conservez l’ancien appel jusqu’à avoir migré sa gestion des exceptions.
@@ -153,15 +228,19 @@ La valeur générale par défaut de `FunctionCallingPolicy.MaxRounds` est 20 ; p
 
 Pour configurer le raisonnement, la recherche Web ou documentaire avant de démarrer le Run et afficher ses sources, consultez [Raisonnement et réponses avec sources](reasoning-and-search.md).
 
-## Compatibilité et prochaine version majeure
+## Migrer vers Mythosia.AI 8
 
 | API | Statut actuel |
 | --- | --- |
 | `GetCompletionAsync` / `GetCompletionAsync<T>` | Publique et prise en charge, y compris les variantes d’interface, de fournisseur et RAG. |
 | `StartRunAsync` / `AIRun` | API commune d’exécution et de pilotage. |
 | `RunAgentAsync` / `RunAgentStreamAsync` | Avertissements Obsolete ; comportement existant conservé pour la compatibilité. |
-| `service.StreamAsync` et `StreamAsync` RAG recevant une entrée | Toujours appelables dans cette version mineure ; retrait public prévu à la prochaine version majeure. |
+| `service.StreamAsync` et `StreamAsync` RAG recevant une entrée | Les StreamAsync de service/RAG avec entrée restent publics en v8. Utilisez StartRunAsync pour les nouveaux contrôles ; run.StreamAsync() observe uniquement un run existant. |
 | `run.StreamAsync()` | Observation de la sortie d’une tâche existante, sans nouvelle entrée de requête. |
 | `BeginStream(...).As<T>()` / `StructuredStreamRun<T>` | API de streaming typé conservée ; son `Stream()` de sortie seule n’est pas une ancienne méthode de requête du service. |
 
-La prochaine transition majeure modifie les points d’entrée publics du streaming tout en conservant l’exécution et les points d’extension nécessaires aux fournisseurs. Rendre une méthode publique privée ou protégée rompt toujours la compatibilité source et binaire, même si son corps est conservé. Les assistants de chaînage de messages, d’appels ponctuels, de résumé, de reformulation de requêtes et de reclassement ne sont pas dépréciés au seul motif qu’ils utilisent les méthodes d’exécution existantes.
+[Migrer vers Mythosia.AI 8](v8-migration.md).
+
+Perplexity: [Poursuivre une tâche longue](perplexity.md).
+
+[Construire les options du modèle avec des définitions partagées](model-capabilities.md).

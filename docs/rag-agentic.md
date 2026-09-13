@@ -16,6 +16,8 @@ Agentic RAG handles those cases by letting `StartRunAsync(...)` use RAG as one t
 
 Keep the handle from `StartRunAsync` when your application needs to display search activity or add a requirement during a longer task. See the [Run guide](execution-api-transition.md) for execution control and supported steering. `WithAgenticRag` remains the API for registering the search tool.
 
+`WithAgenticRag` passes the execution cancellation token into `RagStore.QueryAsync`, so retrieval components that use it can stop. Search exceptions become failed tool results after diagnostic tracing; they are no longer successful error text. A cancelled run does not continue with another model round. See [the common tool contract](function-calling.md#tool-execution-contract).
+
 ## Quick Start
 
 Build the `RagStore` once, register it with `WithAgenticRag(...)`, then run the agent:
@@ -30,7 +32,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Summarise the refund policy.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 By default, `WithAgenticRag(...)` registers a tool named `search_documents`. The agent calls that tool automatically whenever it needs document context, then uses the returned excerpts to produce the final answer.
@@ -73,7 +75,7 @@ service.WithAgenticRag(ragStore)
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Order #12345: am I eligible for a refund based on the current policy?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 In this example, the agent can search documents for the refund rules, call the order API for live order data, and combine both pieces of context in the final answer.

@@ -1,5 +1,7 @@
-﻿- name: Начало работы
+- name: Начало работы
   items:
+  - name: Переход на Mythosia.AI 8
+    href: v8-migration.md
   - name: Введение
     href: introduction.md
   - name: Основные понятия
@@ -15,6 +17,10 @@
     href: completions.md
   - name: Параметры генерации
     href: generation-params.md
+  - name: Независимые настройки каждого запроса
+    href: request-building.md
+  - name: Показывать функции, поддерживаемые выбранной моделью
+    href: model-capabilities.md
   - name: Рассуждение и ответы с источниками
     href: reasoning-and-search.md
   - name: Потоковая передача
@@ -38,6 +44,10 @@
   items:
   - name: Возможности провайдеров
     href: providers.md
+  - name: Claude Fable 5.1
+    href: fable-5-1.md
+  - name: Perplexity Agent API, поиск и эмбеддинги
+    href: perplexity.md
 
 - name: RAG
   items:

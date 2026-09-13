@@ -1,5 +1,9 @@
 # Appel de fonctions
 
+Pour un résultat final et un bouton Arrêter, passez `cancellationToken` à `GetCompletionAsync`. Utilisez Run pour les événements de progression ou les instructions supplémentaires prises en charge. Voir [l’annulation](completions.md#completion-cancellation).
+
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 ## À quoi sert l'appel de fonctions ?
 
 Les LLM ne génèrent que du texte — ils ne peuvent pas consulter la météo, interroger une base de données ou appeler une API par eux-mêmes. **Sans** appel de fonctions, il faudrait parser manuellement l'intention du modèle :
@@ -95,6 +99,8 @@ service.ForceFunctionName = "search_products";
 service.FunctionCallMode = FunctionCallMode.None;
 ```
 
+[Claude Fable 5.1](fable-5-1.md) ajoute le suivi de progression, les instructions limitées à un tour et le diagnostic des liens du raisonnement à partir de `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 nécessite une invitation. Les deux refusent la sélection forcée d’outils.
+
 ## Enregistrement en masse depuis une classe
 
 Enregistrez toutes les méthodes annotées `[AiFunction]` d'un objet en une seule fois :
@@ -159,6 +165,98 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+<a id="tool-execution-contract"></a>
+
+## Renvoyer des objets depuis les outils asynchrones et annuler le travail
+
+Un outil de fichier ou de base de données renvoie souvent un objet après une entrée/sortie asynchrone. Un bouton Arrêter doit aussi atteindre cette opération encore active. Le retour synchrone d’objets était déjà pris en charge ; cette mise à jour aligne les retours asynchrones et enregistre les exceptions comme des échecs.
+
+Before : un outil asynchrone devait sérialiser lui-même son résultat. Renvoyer `Task<FileResult>` perdait la valeur et produisait seulement `"Success"`.
+
+```csharp
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed class FileToolsBefore
+{
+    [AiFunction("read_file", "Lire un fichier texte")]
+    public async Task<string> ReadFileAsync(string path)
+    {
+        string text = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Serialize(new { Path = path, Text = text });
+    }
+}
+```
+
+After : renvoyez directement l’objet et transmettez le jeton d’annulation injecté à l’opération d’entrée/sortie. Aucun nouveau type enveloppant le résultat ni adaptateur n’est nécessaire dans l’application.
+
+```csharp
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed record FileResult(string Path, string Text);
+
+public sealed class FileTools
+{
+    [AiFunction("read_file", "Lire un fichier texte")]
+    public async Task<FileResult> ReadFileAsync(
+        string path, CancellationToken cancellationToken)
+    {
+        string text = await File.ReadAllTextAsync(path, cancellationToken);
+        return new FileResult(path, text);
+    }
+}
+```
+
+L’enregistrement `[AiFunction]` accepte les objets, `Task<T>` et `ValueTask<T>` ; les valeurs autres que des chaînes sont converties en JSON. `string`, `Task<string>` et `ValueTask<string>` restent du texte brut sans guillemets JSON supplémentaires. Les `Task` et `ValueTask` sans résultat sont également attendus. Les retours synchrones d’objets restent disponibles. Un retour null devient `"Done"` ; un `Task` / `ValueTask` terminé sans résultat devient `"Success"`.
+
+La bibliothèque reconnaît aussi les valeurs asynchrones à l’exécution : un `Task<T>` renvoyé comme `Task` ou `object`, ou un `ValueTask<T>` renvoyé comme `object`, est attendu puis sérialisé selon les mêmes règles. Chaque `ValueTask` n’est consommé qu’une fois.
+
+La bibliothèque fournit le paramètre `CancellationToken` et l’exclut du schéma d’arguments présenté au modèle. Enregistrez les méthodes avec `WithFunctions(...)` ou `WithStaticFunctions<T>()` sur le service ou le constructeur de requête.
+
+Les méthodes d’outil `async void` sont refusées à l’enregistrement. Renvoyez `Task` ou `ValueTask` pour permettre d’attendre la fin, d’observer les erreurs et de terminer le nettoyage après annulation.
+
+```csharp
+using Mythosia.AI.Extensions;
+
+await using var run = await service
+    .CreateRequest("Lis report.txt et résume-le.")
+    .WithFunctions(new FileTools())
+    .StartRunAsync(cancellationToken: cancellationToken);
+
+string answer = (await run.Result).Text;
+```
+
+`run.Cancel()`, l’annulation du jeton transmis à `StartRunAsync` ou la libération d’un run actif atteint les outils locaux qui coopèrent. La fonction doit utiliser le jeton : le code qui l’ignore ne peut pas être arrêté de force. Les appels non démarrés sont ignorés avec un résultat d’annulation ; les fonctions déjà démarrées sont attendues pour préserver les paires appel/résultat dans l’historique. Une exécution annulée reste annulée et ne lance pas de nouveau tour du modèle.
+
+Si un callback d’annulation lève une exception lors d’un démarrage de run échoué ou de la libération d’une connexion MCP, le nettoyage de la session ou du transport est tout de même tenté. L’erreur initiale et les erreurs de nettoyage sont conservées, ensemble dans une `AggregateException` si nécessaire. Les appels asynchrones simultanés à `McpConnection.DisposeAsync()` attendent le même nettoyage. Le transport est fermé avant d’attendre la fin de la boucle de lecture, ce qui libère les lectures qui nécessitent la fermeture de la connexion.
+
+Pour éviter qu’un appel d’outil tardif reste en attente pendant la fermeture, dès que la libération de la connexion commence, les nouvelles opérations `InitializeAsync`, `RefreshToolsAsync` et `CallToolAsync` sont rejetées avec `ObjectDisposedException`. Une réponse dont l’ID correspond mais dont le corps est mal formé est ignorée sans supprimer la requête en attente : une réponse valide ultérieure, l’annulation par l’appelant ou le nettoyage de la connexion peuvent toujours terminer l’appel. Si la lecture est déjà terminée parce que le serveur a fermé le flux ou qu’une lecture du transport a échoué, les nouvelles opérations échouent avec `McpException` au lieu d’attendre une réponse qui ne peut plus arriver ; créez une nouvelle connexion pour continuer.
+
+Laissez les véritables échecs lever une exception. L’exécution les enregistre avec `FunctionCallResult.IsError = true` au lieu d’une chaîne `"Error: ..."` considérée comme un succès. Une chaîne volontairement renvoyée reste un résultat normal. Les résultats annulés portent `IsCancelled = true` et `IsError = true`.
+
+Pour un enregistrement programmatique, utilisez la surcharge de `WithHandler` à deux arguments :
+
+```csharp
+using System.IO;
+using Mythosia.AI.Builders;
+
+var readText = FunctionBuilder.Create("read_text")
+    .WithDescription("Lire un fichier texte")
+    .AddParameter("path", "string", "Chemin du fichier", required: true)
+    .WithHandler(async (args, token) =>
+        await File.ReadAllTextAsync(args["path"].ToString()!, token))
+    .Build();
+```
+
+Les gestionnaires de chaînes à un argument restent pris en charge. Une définition directe peut définir `HandlerWithCancellation` avec `Func<Dictionary<string, object>, CancellationToken, Task<string>>`. Définir `Handler` ou `HandlerWithCancellation` remplace le même gestionnaire, sans enregistrer deux exécutions. Cette API de bas niveau renvoie toujours des chaînes ; la sérialisation automatique d’objets appartient à l’enregistrement des méthodes.
+
+Il s’agit des retours et de l’annulation de fonctions .NET locales, sans dépendance envers le `AllowAsync` natif du fournisseur. Arrêter seulement le lecteur `run.StreamAsync(token)` arrête l’observation, pas le run. Consultez le [guide Run](execution-api-transition.md) et le [protocole du fournisseur](https://developers.openai.com/api/docs/guides/async-tool-calling).
+
 ## Appels d’outils asynchrones
 
 Une consultation lente ne doit pas forcément suspendre toute la réponse. Pendant le chargement de la météo, par exemple, le modèle peut déjà formuler des conseils de voyage généraux qui ne dépendent pas du résultat. Les appels d’outils asynchrones permettent ce travail indépendant ; les affirmations qui nécessitent le résultat doivent toujours l’attendre.
@@ -196,8 +294,10 @@ Mythosia envoie `async: true` pour GPT-6 Astra via Responses. Avec les modèles 
 
 Les tâches en attente appartiennent à la requête active : `GetCompletionAsync`, l’ancien `service.StreamAsync` ou un `AIRun` démarré avec `StartRunAsync`. Chaque résultat est associé plus tard à son identifiant d’appel d’origine. La réussite de la requête ou de `run.Result` attend le traitement des résultats en attente. Aucune session publique de tâches d’arrière-plan ne subsiste indépendamment de la requête.
 
-Avec les outils asynchrones, `GetCompletionAsync` renvoie à la fin de la requête les explications intermédiaires indépendantes et le texte final, cumulés dans l’ordre. `StreamAsync` émet le texte de chaque ronde au fur et à mesure de son arrivée. `run.StreamAsync()` transmet également le texte à son arrivée ; `run.Result` concatène tous les événements textuels du run.
+Avec les outils asynchrones, `GetCompletionAsync` renvoie à la fin de la requête les explications intermédiaires indépendantes et le texte final, cumulés dans l’ordre. `StreamAsync` émet le texte de chaque ronde au fur et à mesure de son arrivée. `run.StreamAsync()` transmet également le texte à son arrivée ; `(await run.Result).Text` concatène tous les événements textuels du run.
 
-Les gestionnaires ne reçoivent pas de jeton d’annulation. Après une annulation, une expiration ou une erreur, le nettoyage attend donc les gestionnaires déjà démarrés. Arrêter prématurément l’ancien flux de service termine son exécution ; arrêter `run.StreamAsync()` termine seulement l’observation. Pour annuler le run, appelez `run.Cancel()` ou libérez-le. L’intégration concerne les gestionnaires enregistrés ; consultez le [protocole de l’API](https://developers.openai.com/api/docs/guides/async-tool-calling) et le [guide Run](execution-api-transition.md).
+Les outils locaux peuvent renvoyer des objets via `Task<T>` / `ValueTask<T>` et recevoir un `CancellationToken` injecté. `run.Cancel()` ou le jeton de démarrage atteint les outils coopératifs ; arrêter seulement le lecteur du flux ne suffit pas. Les exceptions sont des échecs. L’annulation ignore les appels en attente, et le nettoyage attend les outils démarrés qui ignorent le jeton. Voir [résultats, erreurs et annulation](function-calling.md#tool-execution-contract).
 
 En streaming, les gestionnaires démarrent après confirmation d’appels de fonctions complets et d’une fin valide de réponse du fournisseur. Le tour suivant du modèle peut alors avancer pendant les tâches asynchrones ; les appels incomplets ne déclenchent aucune exécution. Si aucun nouvel appel n’est renvoyé alors que des tâches restent en attente, Mythosia attend leurs résultats. Les résumés et nouvelles tentatives automatiques en cas de dépassement du contexte restent désactivés pendant les appels en attente pour préserver les appels inachevés dans l’historique.
+
+Perplexity: [Configurer la recherche et les outils](perplexity.md).

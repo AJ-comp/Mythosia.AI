@@ -1,5 +1,9 @@
 # 函数调用
 
+只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](completions.md#completion-cancellation)。
+
+如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
+
 ## 为什么需要函数调用？
 
 LLM 只能生成文本 — 它无法自行查看天气、查询数据库或调用 API。**没有**函数调用时，你需要手动解析模型的意图：
@@ -95,6 +99,8 @@ service.ForceFunctionName = "search_products";
 service.FunctionCallMode = FunctionCallMode.None;
 ```
 
+[Claude Fable 5.1](fable-5-1.md) 的进度更新、单轮指令和 thinking 绑定诊断从 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 开始提供。Mythos 5.1 需要邀请访问，两个模型都拒绝强制工具选择。
+
 ## 批量注册类中的函数
 
 一次性注册对象中所有标注了 `[AiFunction]` 的方法：
@@ -159,6 +165,98 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+<a id="tool-execution-contract"></a>
+
+## 异步工具直接返回对象，并响应取消
+
+读取文件或数据库的工具通常在异步I/O结束后返回对象。用户点击停止时，取消也应传递给仍在执行的操作。同步函数早已支持直接返回对象；本次更新让异步返回保持一致，并将异常正确记录为失败。
+
+Before：异步函数以前需要自行序列化结果。直接返回`Task<FileResult>`会丢失对象，只传回`"Success"`。
+
+```csharp
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed class FileToolsBefore
+{
+    [AiFunction("read_file", "读取文本文件")]
+    public async Task<string> ReadFileAsync(string path)
+    {
+        string text = await File.ReadAllTextAsync(path);
+        return JsonSerializer.Serialize(new { Path = path, Text = text });
+    }
+}
+```
+
+After：直接返回对象，并把库注入的取消令牌传给I/O操作。应用无需实现新的结果包装类型或适配器。
+
+```csharp
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+using Mythosia.AI.Attributes;
+
+public sealed record FileResult(string Path, string Text);
+
+public sealed class FileTools
+{
+    [AiFunction("read_file", "读取文本文件")]
+    public async Task<FileResult> ReadFileAsync(
+        string path, CancellationToken cancellationToken)
+    {
+        string text = await File.ReadAllTextAsync(path, cancellationToken);
+        return new FileResult(path, text);
+    }
+}
+```
+
+`[AiFunction]`注册支持普通对象、`Task<T>`和`ValueTask<T>`，非字符串值会转换为JSON。`string`、`Task<string>`和`ValueTask<string>`保持原始文本，不额外添加JSON引号。无返回值的`Task`和`ValueTask`也会等待完成。原有同步对象返回继续可用。 null返回值会变为`"Done"`；无返回值的`Task` / `ValueTask`完成后传递`"Success"`。
+
+即使返回类型声明为`Task`或`object`，实际返回的`Task<T>`也会等待完成并按相同规则转换。作为`object`返回的`ValueTask<T>`和无返回值的`ValueTask`也会等待完成，每个`ValueTask`只消费一次。
+
+`CancellationToken`参数由库注入，不出现在面向模型的参数架构中。通过服务或请求构建器的`WithFunctions(...)`、`WithStaticFunctions<T>()`注册即可。
+
+注册时会拒绝`async void`工具方法。请返回`Task`或`ValueTask`，以便执行器等待完成、观察错误并完成取消后的清理。
+
+```csharp
+using Mythosia.AI.Extensions;
+
+await using var run = await service
+    .CreateRequest("读取report.txt并总结。")
+    .WithFunctions(new FileTools())
+    .StartRunAsync(cancellationToken: cancellationToken);
+
+string answer = (await run.Result).Text;
+```
+
+`run.Cancel()`、取消传给`StartRunAsync`的令牌，或释放活动run，都会传递给支持取消的本地工具。函数必须使用该令牌；无法强制终止忽略令牌的代码。尚未开始的调用会跳过并记录取消结果，已经开始的函数仍会等待，以保持调用与结果成对。执行取消后run保持取消状态，不会再启动下一轮模型请求。
+
+Run启动失败或释放MCP连接时，即使取消回调抛出异常，也会继续尝试清理会话或传输连接。原始错误与清理错误都会保留，必要时通过`AggregateException`一起传递。 并发异步等待`McpConnection.DisposeAsync()`的调用会等待同一次清理完成。先关闭传输连接，让依赖连接关闭的读取结束，再等待读取循环退出。
+
+为避免关闭期间迟到的工具调用一直等待，连接开始释放后，新的 `InitializeAsync`、`RefreshToolsAsync` 和 `CallToolAsync` 操作会以 `ObjectDisposedException` 被拒绝。如果响应的请求 ID 匹配但正文格式无效，则跳过该响应并保留请求的等待登记；后续有效响应、调用方取消或连接清理仍可结束该调用。 如果服务器关闭流或传输读取失败导致读取已结束，新操作会以 `McpException` 失败，而不是等待无法到达的响应；请创建新连接后继续。
+
+实际失败时直接抛出异常。执行器将其记录为`FunctionCallResult.IsError = true`，不会误当成正常的`"Error: ..."`字符串。函数有意返回的字符串仍是正常结果。取消的工具结果同时设置`IsCancelled = true`和`IsError = true`。
+
+编程注册时，使用接收两个参数的`WithHandler`重载：
+
+```csharp
+using System.IO;
+using Mythosia.AI.Builders;
+
+var readText = FunctionBuilder.Create("read_text")
+    .WithDescription("读取文本文件")
+    .AddParameter("path", "string", "文件路径", required: true)
+    .WithHandler(async (args, token) =>
+        await File.ReadAllTextAsync(args["path"].ToString()!, token))
+    .Build();
+```
+
+现有单参数字符串处理器继续支持。直接构造定义时，可将`Func<Dictionary<string, object>, CancellationToken, Task<string>>`赋给`HandlerWithCancellation`。设置`Handler`或`HandlerWithCancellation`都会替换同一个处理器，不会注册两次执行。此低层API仍返回字符串；对象自动序列化由方法注册负责。
+
+这是本地.NET函数的返回值与取消处理，不依赖提供商原生的`AllowAsync`功能。仅停止`run.StreamAsync(token)`读取只会停止观察，run继续执行。参见[Run指南](execution-api-transition.md)和[提供商协议](https://developers.openai.com/api/docs/guides/async-tool-calling)。
+
 ## 模型异步工具调用
 
 天气查询较慢时，模型仍可先介绍不依赖天气结果的通用旅行用品。模型原生异步工具调用用于在这种等待期间继续独立工作；依赖查询结果的判断仍应等结果返回后再进行。
@@ -196,8 +294,10 @@ Mythosia 在 GPT-6 Astra 的 Responses API 中发送 `async: true`。对于不�
 
 运行中的工具任务由 `GetCompletionAsync`、接收输入的旧 `StreamAsync`，或 `StartRunAsync` 返回的 `AIRun` 管理；完成后使用原始调用 ID 发送结果。成功的最终返回或 Run 完成会等待待处理结果完成处理。Run 独立于输出观察继续运行，但工具任务并不是脱离 Run 存续的公开后台会话。
 
-使用异步工具时，`GetCompletionAsync` 在请求结束后按顺序汇总中间的独立说明与最终文本。旧 `StreamAsync` 和 `run.StreamAsync()` 都在各轮文本到达时通知读取者；`run.Result` 同样是 Run 中所有文本的连接结果。
+使用异步工具时，`GetCompletionAsync` 在请求结束后按顺序汇总中间的独立说明与最终文本。旧 `StreamAsync` 和 `run.StreamAsync()` 都在各轮文本到达时通知读取者；`(await run.Result).Text` 同样是 Run 中所有文本的连接结果。
 
-处理器不接收取消令牌。因此，在取消、超时、错误或提前结束接收输入的旧流时，清理仍会等待已启动的处理器完成。仅停止读取 `run.StreamAsync()` 不会停止执行；取消 Run 应使用 `run.Cancel()`、启动时的令牌或释放 Run。此集成适用于已注册的函数处理器。底层协议见[官方 API 指南](https://developers.openai.com/api/docs/guides/async-tool-calling)。
+本地工具可以通过`Task<T>` / `ValueTask<T>`返回对象，并接收库注入的`CancellationToken`。`run.Cancel()`或启动令牌的取消会传递给配合取消的工具，仅停止流读取则不会。异常会记录为失败；取消时跳过排队调用，清理仍会等待已启动且忽略令牌的工具。参见[结果、错误与取消](function-calling.md#tool-execution-contract)。
 
 流式调用在确认函数调用完整且到达有效响应边界后才启动处理器，随后可在异步任务执行期间继续下一轮模型请求。未完成的调用事件不会触发执行。如果模型没有发起新调用但仍有任务未完成，Mythosia 会等待结果后再继续。为避免未完成的调用从历史中丢失，存在待处理调用时会禁用上下文超限后的自动摘要和重试。
+
+Perplexity: [控制研究和工具](perplexity.md).

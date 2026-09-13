@@ -1,5 +1,7 @@
 # Structured Output
 
+Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
+
 ## Why Structured Output?
 
 LLMs return free-form text by default. If your application needs to **process the response programmatically** — store it in a database, pass it to another API, or render it in a typed UI — you have to parse that text yourself. This leads to fragile regex or `string.Contains` checks that break when the model changes phrasing.
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: return the first validation failure without a repair retry
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+The repair budget excludes the initial response. `StructuredOutputMaxRetries` and `MaxRepairAttempts` treat negative values as zero and accept up to `int.MaxValue - 1`; `int.MaxValue` raises `ArgumentOutOfRangeException` before provider work so the total attempt count cannot overflow. This applies to typed completion and `BeginStream(...).As<T>()`.

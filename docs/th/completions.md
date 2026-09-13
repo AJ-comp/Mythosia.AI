@@ -1,6 +1,73 @@
 # การสร้างข้อความ
 
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 `GetCompletionAsync` ยังเป็นวิธีที่สะดวกสำหรับรับคำตอบที่เสร็จแล้ว หากต้องการดูความคืบหน้าหรือควบคุมงานก่อนเสร็จ ให้ใช้ [Run](execution-api-transition.md)
+
+<a id="completion-cancellation"></a>
+
+## ยกเลิกคำตอบที่ไม่ต้องการแล้ว
+
+เมื่อผู้ใช้ปิดหน้าจอ กดหยุด หรือแอปรอเกินเวลาที่กำหนด คำตอบอาจไม่จำเป็นอีกต่อไป ส่ง `CancellationToken` เพื่อหยุดการสื่อสารและงานฝั่งไคลเอนต์ รวมถึงหลีกเลี่ยงการเรียกเครื่องมือและโมเดลรอบถัดไป หากต้องการคำตอบที่เสร็จแล้ว ยังใช้ `GetCompletionAsync` ได้ การยกเลิกอย่างเดียวไม่ต้องสร้าง Run
+
+### Before: ผู้เรียกไม่ส่งสัญญาณยกเลิก
+
+```csharp
+string answer = await service.CreateRequest("สรุปเอกสารนี้")
+    .GetCompletionAsync();
+```
+
+### After: ยกเลิกตามผู้ใช้หรือเมื่อครบ 30 วินาที
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("สรุปเอกสารนี้")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("ยกเลิกแล้ว");
+}
+```
+
+เก็บแหล่งโทเค็นไว้ระหว่างการเรียก และให้ปุ่มหยุดหรือเหตุการณ์ปิดหน้าจอเรียก `cancellation.Cancel()` ตัวอย่างยังกำหนดให้ยกเลิกหลัง 30 วินาทีด้วย ผู้เรียกจะได้รับ `OperationCanceledException` หลังเก็บกวาดงานเสร็จ เวลาที่ตั้งด้วย `CancellationTokenSource` ถือเป็นการยกเลิกจากผู้เรียก ส่วน `FunctionCallingPolicy.TimeoutSeconds` ยังคงพฤติกรรมข้อผิดพลาดเมื่อหมดเวลาเดิม
+
+โอเวอร์โหลดบริการที่รับข้อความและ `Message` ผลลัพธ์แบบระบุชนิด request builder และ `MessageChain.SendAsync` / `SendOnceAsync` รับโทเค็นได้ การเรียกเดิมที่ไม่ส่งโทเค็นยังใช้ได้ จุดเรียกทางเลือก:
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "สรุปเอกสารนี้", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "ส่งชื่อเรื่องและผู้เขียนเป็น JSON", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("สรุปเอกสารนี้")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("แปลประโยคนี้")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+โทเค็นส่งต่อถึงการเตรียมคำขอ การส่งและอ่าน HTTP เครื่องมือภายในที่รองรับการยกเลิก และรอบโมเดลถัดไป เมื่อพบการยกเลิก จะข้ามเครื่องมือที่รออยู่และรอบถัดไป การเก็บกวาดรักษาคู่การเรียกเครื่องมือกับผลลัพธ์ที่บันทึกไว้ เครื่องมือที่เริ่มแล้วแต่ไม่สนใจโทเค็นจึงอาจทำให้การเก็บกวาดช้าลง ไม่ย้อนคืนการกระทำที่เสร็จแล้วหรือลบประวัติ ดู[ข้อกำหนดเครื่องมือ](function-calling.md#tool-execution-contract)
+
+ไม่รับประกันว่าผู้ให้บริการจะหยุดการประมวลผลหรือคิดค่าบริการ OpenAI ระบุให้ปิดการเชื่อมต่อเพื่อยกเลิก Responses ปกติ ส่วน Google ระบุชัดว่ายกเลิกเฉพาะไคลเอนต์และยังคิดค่าบริการตามการใช้งาน [OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal) งานเบื้องหลังต้องเรียก `CancelAsync()` โดยตรง การยกเลิก `WaitForCompletionAsync(cancellationToken: ...)` หยุดเพียงการรอ คำขอปกติจะไม่เปลี่ยนเป็นงานเบื้องหลัง ดู [Perplexity](perplexity.md)
+
+<a id="completion-cancellation-migration"></a>
+
+ส่วนเพิ่มเติมนี้อยู่ในMythosia.AI 8.0.0 การเรียกที่ไม่ส่งโทเค็นและอาร์กิวเมนต์ profile/context ตามตำแหน่งเดิมยังใช้ได้ในระดับซอร์ส แต่ผู้ใช้แพ็กเกจต้องคอมไพล์ใหม่ ผู้พัฒนา `IAIService` เองต้องเพิ่ม `CancellationToken cancellationToken = default` ท้ายลายเซ็นทั้งสองและส่งต่อ ผู้ให้บริการที่สืบทอด `AIService` คง override `GetCompletionAsync(Message)` เดิมและส่ง `RequestCancellationToken` แบบ protected ไปยังการสื่อสาร ตัว builder และ Run เองไม่ได้ต้องการการเปลี่ยนอินเทอร์เฟซนี้ คลาสลูกที่ override โอเวอร์โหลด public virtual ที่เปลี่ยน เช่น การตอบแบบ string/profile/context เมธอดช่วยเรื่องภาพ หรือ `RunAgentAsync` ต้องเพิ่มและส่งต่อ `CancellationToken` ใหม่ด้วย เฉพาะ override ของผู้ให้บริการที่รับ `Message` ตัวเดียวเท่านั้นที่คงลายเซ็นเดิม delegate ที่อ้างถึงเมธอดซึ่งเปลี่ยนลายเซ็นโดยตรงอาจต้องเปลี่ยนเป็น lambda ที่ระบุว่าจะส่งหรือละโทเค็น
 
 ## แบบ Single Turn
 
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("แผนผังนี้แส
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+สำหรับวิเคราะห์กราฟ ภาพหน้าจอ เรียกฟังก์ชันภายใน หรือตรวจคำตอบเชิงลึก ใช้ [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash) การใช้เหตุผลปิดโดยค่าเริ่มต้น เปิดด้วย `WithDeepSeekReasoning(...)` หรือ `WithReasoning(...)` ต่อคำขอ
 
 ## Quick Ask (Static API)
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("เล่าเร�
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // ยิ่งต่ำยิ่งแน่นอน
 ```
+
+Perplexity: [ตอบด้วย preset ของ Agent / แหล่งอ้างอิง ภาพ และคำตอบที่มีโครงสร้าง](perplexity.md).

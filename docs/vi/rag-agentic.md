@@ -13,6 +13,8 @@ Agentic RAG giải quyết tất cả những điều này. Thay vì pipeline re
 
 Khi câu trả lời cần nhiều lần truy xuất hoặc công cụ bên ngoài, hãy khởi chạy Run từ dịch vụ đã đăng ký công cụ tìm kiếm để cung cấp tiến độ và thao tác dừng. [Hướng dẫn Run](execution-api-transition.md) giải thích phạm vi điều khiển khi chạy và chỉ dẫn bổ sung.
 
+`WithAgenticRag` truyền token hủy đến `RagStore.QueryAsync`, nên thành phần truy xuất có sử dụng token cũng có thể dừng. Ngoại lệ tìm kiếm trở thành kết quả công cụ lỗi sau khi ghi chẩn đoán, thay vì văn bản lỗi bị coi là thành công. Run đã hủy không bắt đầu vòng mô hình tiếp theo. Xem [hợp đồng chung của công cụ](function-calling.md#tool-execution-contract).
+
 ## Bắt đầu nhanh
 
 Đăng ký `RagStore` như một công cụ với `WithAgenticRag`, rồi giao cho `StartRunAsync(...)`:
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Tóm tắt chính sách hoàn tiền.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 Agent tự động gọi `search_documents` khi cần context tài liệu, rồi tổng hợp câu trả lời cuối cùng từ các đoạn đã truy xuất.
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // Agent tìm kiếm tài liệu về chính sách VÀ gọi API để lấy dữ liệu đơn hàng trực tiếp
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Đơn hàng #12345 — tôi có đủ điều kiện hoàn tiền theo chính sách hiện tại không?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 Trong ví dụ này, agent tự chủ:

@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models;
+using Mythosia.AI.Models;
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -22,8 +22,8 @@ namespace Mythosia.AI.Services.OpenAI
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
 
             // Determine endpoint based on model
-            string endpoint = IsNewApiModel(Model)
-                ? (Stream ? "responses?stream=true" : "responses")
+            string endpoint = IsNewApiModel(RequestModel)
+                ? (RequestStream ? "responses?stream=true" : "responses")
                 : "chat/completions";
 
             var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
@@ -38,7 +38,7 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var requestBody = new Dictionary<string, object>();
 
-            if (IsNewApiModel(Model))
+            if (IsNewApiModel(RequestModel))
             {
                 // Build new API format (GPT-5, o3, GPT-4.1)
                 BuildNewApiRequest(requestBody);
@@ -318,7 +318,7 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Convert functions to tools format using unified schema
-            var tools = Functions.Select(f =>
+            var tools = RequestFunctions.Select(f =>
             {
                 var tool = new Dictionary<string, object>
                 {
@@ -333,7 +333,7 @@ namespace Mythosia.AI.Services.OpenAI
                 return tool;
             }).ToList();
 
-            requestBody["model"] = Model;
+            requestBody["model"] = RequestModel;
             requestBody["input"] = inputList;
             requestBody["tools"] = tools;
             // This allows the model to request multiple tools in one response. Ordinary handler
@@ -346,9 +346,9 @@ namespace Mythosia.AI.Services.OpenAI
                 requestBody["instructions"] = instructions;
             }
 
-            if (_structuredOutputSchemaJson != null)
+            if (RequestStructuredOutputSchemaJson != null)
             {
-                var schemaElement = JsonDocument.Parse(_structuredOutputSchemaJson).RootElement.Clone();
+                var schemaElement = JsonDocument.Parse(RequestStructuredOutputSchemaJson).RootElement.Clone();
                 requestBody["text"] = new Dictionary<string, object>
                 {
                     ["format"] = new Dictionary<string, object>
@@ -362,17 +362,17 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             // Tool choice configuration
-            if (FunctionCallMode == FunctionCallMode.None)
+            if (RequestFunctionCallMode == FunctionCallMode.None)
             {
                 requestBody["tool_choice"] = "none";
             }
             else if (!IsFunctionContinuation() &&
-                     !string.IsNullOrWhiteSpace(ForceFunctionName))
+                     !string.IsNullOrWhiteSpace(RequestForceFunctionName))
             {
                 requestBody["tool_choice"] = new Dictionary<string, object>
                 {
                     ["type"] = "function",
-                    ["name"] = ForceFunctionName
+                    ["name"] = RequestForceFunctionName
                 };
             }
             else
@@ -380,10 +380,10 @@ namespace Mythosia.AI.Services.OpenAI
                 requestBody["tool_choice"] = "auto";
             }
 
-            if (Stream)
+            if (RequestStream)
             {
                 requestBody["stream"] = true;
-                if (!IsNewApiModel(Model))
+                if (!IsNewApiModel(RequestModel))
                 {
                     requestBody["stream_options"] = new Dictionary<string, object>
                     {
@@ -482,7 +482,7 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }
 
-            var tools = Functions.Select(f => new
+            var tools = RequestFunctions.Select(f => new
             {
                 type = "function",
                 function = new
@@ -493,13 +493,13 @@ namespace Mythosia.AI.Services.OpenAI
                 }
             }).ToList();
 
-            requestBody["model"] = Model;
+            requestBody["model"] = RequestModel;
             requestBody["messages"] = messagesList;
             requestBody["tools"] = tools;
-            requestBody["temperature"] = Temperature;
-            requestBody["stream"] = Stream;
+            requestBody["temperature"] = RequestTemperature;
+            requestBody["stream"] = RequestStream;
 
-            if (Stream)
+            if (RequestStream)
             {
                 requestBody["stream_options"] = new Dictionary<string, object>
                 {
@@ -507,19 +507,19 @@ namespace Mythosia.AI.Services.OpenAI
                 };
             }
 
-            if (FunctionCallMode == FunctionCallMode.None)
+            if (RequestFunctionCallMode == FunctionCallMode.None)
             {
                 requestBody["tool_choice"] = "none";
             }
             else if (!IsFunctionContinuation() &&
-                     !string.IsNullOrWhiteSpace(ForceFunctionName))
+                     !string.IsNullOrWhiteSpace(RequestForceFunctionName))
             {
                 requestBody["tool_choice"] = new Dictionary<string, object>
                 {
                     ["type"] = "function",
                     ["function"] = new Dictionary<string, object>
                     {
-                        ["name"] = ForceFunctionName
+                        ["name"] = RequestForceFunctionName
                     }
                 };
             }

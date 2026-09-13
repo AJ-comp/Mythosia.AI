@@ -1,5 +1,12 @@
 # Agent (Bucle ReAct)
 
+Para obtener respuesta, uso y fuentes juntos, `await run.Result` devuelve una instantánea `AIRunResult`. La cadena está en `result.Text`, sin leer el flujo. Es un cambio de Mythosia.AI 8.0.0; `GetCompletionAsync` y `StructuredStreamRun<T>.Result` mantienen sus tipos de retorno. [Resultado Run y migración](execution-api-transition.md#run-result).
+
+
+Para ajustes independientes y variantes reutilizables, use el [builder de solicitudes](request-building.md). Llame a `CreateRequest(...)` antes de `With...`. Las propiedades y métodos fluent del servicio conservan su comportamiento.
+
+> Los ejemplos con `CreateRequest` requieren Mythosia.AI 8.0.0 / Abstractions 4.0.0. La versión 7.1 que introdujo Run y las opciones comunes no incluye el builder. Los paquetes anteriores pueden usar las sobrecargas del servicio.
+
 Buscar una política y comprobar un pedido puede requerir varias llamadas a herramientas. La [guía de Run](execution-api-transition.md) muestra cómo seguir ese trabajo, cancelarlo y añadir instrucciones cuando el modelo lo admite.
 
 ## ¿Por qué un Bucle de Agent?
@@ -16,12 +23,16 @@ Algunas preguntas requieren varias fuentes: el modelo elige una herramienta, exa
 
 ```csharp
 // Registra las funciones en el servicio antes de iniciar la tarea.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Busca la política, comprueba el pedido y explica el resultado.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Busca la política, comprueba el pedido y explica el resultado.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Las herramientas locales pueden devolver objetos mediante `Task<T>` / `ValueTask<T>` y recibir un `CancellationToken` inyectado. `run.Cancel()` o el token inicial llega a las herramientas cooperativas; detener solo el lector no. Las excepciones son errores. Al cancelar se omiten las llamadas pendientes y la limpieza espera las herramientas iniciadas que ignoran el token. Consulta [resultados, errores y cancelación](function-calling.md#tool-execution-contract).
 
 ## API anterior de agente: ejemplos de compatibilidad
 

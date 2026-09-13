@@ -1,11 +1,13 @@
 using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Images;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -15,8 +17,66 @@ namespace Mythosia.AI.Services.Google
 {
     public partial class GoogleAIService
     {
+        private const int GoogleImageMaxImages = 1;
+        private static readonly ImageQuality[] GoogleImageQualities = { ImageQuality.Auto };
+        private static readonly ImageBackground[] GoogleImageBackgrounds = { ImageBackground.Auto };
+        private static readonly ImageOutputFormat[] GoogleImageOutputFormats = { ImageOutputFormat.Auto, ImageOutputFormat.Jpeg };
+        private static readonly ImageSizeKind[] GoogleImageSizeKinds = { ImageSizeKind.Auto, ImageSizeKind.Preset };
+        private static readonly Dictionary<ImageResolution, string> GoogleImageResolutions = new Dictionary<ImageResolution, string>
+        {
+            [ImageResolution.FiveTwelve] = "IMAGE_SIZE_FIVE_TWELVE",
+            [ImageResolution.OneK] = "IMAGE_SIZE_ONE_K",
+            [ImageResolution.TwoK] = "IMAGE_SIZE_TWO_K",
+            [ImageResolution.FourK] = "IMAGE_SIZE_FOUR_K"
+        };
+        private static readonly Dictionary<ImageAspectRatio, string> GoogleImageAspectRatios = new Dictionary<ImageAspectRatio, string>
+        {
+            [ImageAspectRatio.OneByOne] = "ASPECT_RATIO_ONE_BY_ONE",
+            [ImageAspectRatio.TwoByThree] = "ASPECT_RATIO_TWO_BY_THREE",
+            [ImageAspectRatio.ThreeByTwo] = "ASPECT_RATIO_THREE_BY_TWO",
+            [ImageAspectRatio.ThreeByFour] = "ASPECT_RATIO_THREE_BY_FOUR",
+            [ImageAspectRatio.FourByThree] = "ASPECT_RATIO_FOUR_BY_THREE",
+            [ImageAspectRatio.FourByFive] = "ASPECT_RATIO_FOUR_BY_FIVE",
+            [ImageAspectRatio.FiveByFour] = "ASPECT_RATIO_FIVE_BY_FOUR",
+            [ImageAspectRatio.NineBySixteen] = "ASPECT_RATIO_NINE_BY_SIXTEEN",
+            [ImageAspectRatio.SixteenByNine] = "ASPECT_RATIO_SIXTEEN_BY_NINE",
+            [ImageAspectRatio.TwentyOneByNine] = "ASPECT_RATIO_TWENTY_ONE_BY_NINE",
+            [ImageAspectRatio.OneByEight] = "ASPECT_RATIO_ONE_BY_EIGHT",
+            [ImageAspectRatio.EightByOne] = "ASPECT_RATIO_EIGHT_BY_ONE",
+            [ImageAspectRatio.OneByFour] = "ASPECT_RATIO_ONE_BY_FOUR",
+            [ImageAspectRatio.FourByOne] = "ASPECT_RATIO_FOUR_BY_ONE"
+        };
+
         /// <inheritdoc />
         public string DefaultImageModel => AIModels.Google.Images.Gemini3_1FlashImage;
+
+        /// <inheritdoc />
+        public override ImageModelCapabilities GetImageCapabilities(string? model = null)
+        {
+            var selectedModel = string.IsNullOrWhiteSpace(model) ? DefaultImageModel : model!;
+            var knownModel = string.Equals(selectedModel, AIModels.Google.Images.Gemini3_1FlashImage, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(selectedModel, AIModels.Google.Images.Gemini3_1FlashLiteImage, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(selectedModel, AIModels.Google.Images.Gemini3ProImage, StringComparison.OrdinalIgnoreCase);
+            if (!knownModel)
+                return new ImageModelCapabilities(
+                    provider: Provider, model: selectedModel,
+                    generation: CapabilitySupport.Unknown, editing: CapabilitySupport.Unknown,
+                    mask: CapabilitySupport.Unsupported, maxImages: GoogleImageMaxImages);
+
+            return new ImageModelCapabilities(
+                provider: Provider,
+                model: selectedModel,
+                generation: CapabilitySupport.Supported,
+                editing: CapabilitySupport.Supported,
+                mask: CapabilitySupport.Unsupported,
+                qualities: GoogleImageQualities,
+                backgrounds: GoogleImageBackgrounds,
+                outputFormats: GoogleImageOutputFormats,
+                sizeKinds: GoogleImageSizeKinds,
+                resolutions: new[] { ImageResolution.Auto }.Concat(GoogleImageResolutions.Keys),
+                aspectRatios: new[] { ImageAspectRatio.Auto }.Concat(GoogleImageAspectRatios.Keys),
+                maxImages: GoogleImageMaxImages);
+        }
 
         /// <inheritdoc />
         public Task<ImageGenerationResult> GenerateImagesAsync(
@@ -134,102 +194,43 @@ namespace Mythosia.AI.Services.Google
         }
 
         private static Dictionary<string, object> BuildGoogleImageFormat(
-            string size,
-            string outputFormat)
+            ImageSize size,
+            ImageOutputFormat outputFormat)
         {
             var result = new Dictionary<string, object>();
-            // The current GenerateContent ImageResponseFormat exposes an explicit JPEG selector
-            // but no PNG enum. png/auto therefore leave mimeType unspecified and the response's
-            // inlineData.mimeType remains authoritative for the bytes actually returned.
-            if (string.Equals(outputFormat, "jpeg", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(outputFormat, "jpg", StringComparison.OrdinalIgnoreCase))
+            // Auto preserves the provider's native codec; JPEG is the only explicit selector.
+            if (outputFormat == ImageOutputFormat.Jpeg)
             {
                 result["mimeType"] = "IMAGE_JPEG";
             }
 
-            if (string.IsNullOrWhiteSpace(size) ||
-                string.Equals(size, "auto", StringComparison.OrdinalIgnoreCase))
-            {
+            if (size == null)
+                throw new ArgumentNullException(nameof(size));
+            if (size.Kind == ImageSizeKind.Auto)
                 return result;
-            }
-
-            var normalized = size.Trim().ToUpperInvariant();
-            if (normalized == "512" || normalized == "1K" || normalized == "2K" || normalized == "4K")
-            {
-                result["imageSize"] = ToGoogleImageSize(normalized);
-                return result;
-            }
-
-            var dimensions = normalized.Split('X');
-            if (dimensions.Length != 2 ||
-                !int.TryParse(dimensions[0], NumberStyles.None, CultureInfo.InvariantCulture, out var width) ||
-                !int.TryParse(dimensions[1], NumberStyles.None, CultureInfo.InvariantCulture, out var height) ||
-                width <= 0 || height <= 0)
-            {
-                throw new ArgumentException(
-                    "Gemini image size must be auto, 512, 1K, 2K, 4K, or WIDTHxHEIGHT.",
-                    nameof(size));
-            }
-
-            var divisor = GreatestCommonDivisor(width, height);
-            result["aspectRatio"] = ToGoogleAspectRatio(width / divisor, height / divisor, size);
-            var longestEdge = Math.Max(width, height);
-            result["imageSize"] = ToGoogleImageSize(longestEdge <= 512
-                ? "512"
-                : longestEdge <= 1024
-                    ? "1K"
-                    : longestEdge <= 2048
-                        ? "2K"
-                        : "4K");
+            if (size.Kind == ImageSizeKind.Pixels)
+                throw new NotSupportedException("Gemini does not support exact pixel sizes. Use ImageSize.Preset with a resolution and aspect ratio.");
+            if (size.Kind != ImageSizeKind.Preset)
+                throw new ArgumentOutOfRangeException(nameof(size), "Unknown image size kind.");
+            if (size.Resolution != ImageResolution.Auto)
+                result["imageSize"] = ToGoogleImageSize(size.Resolution);
+            if (size.AspectRatio != ImageAspectRatio.Auto)
+                result["aspectRatio"] = ToGoogleAspectRatio(size.AspectRatio);
             return result;
         }
 
-        private static string ToGoogleImageSize(string size)
+        private static string ToGoogleImageSize(ImageResolution size)
         {
-            return size switch
-            {
-                "512" => "IMAGE_SIZE_FIVE_TWELVE",
-                "1K" => "IMAGE_SIZE_ONE_K",
-                "2K" => "IMAGE_SIZE_TWO_K",
-                "4K" => "IMAGE_SIZE_FOUR_K",
-                _ => throw new ArgumentOutOfRangeException(nameof(size), size, "Unsupported Gemini image size.")
-            };
+            if (GoogleImageResolutions.TryGetValue(size, out var value))
+                return value;
+            throw new ArgumentOutOfRangeException(nameof(size), size, "Unsupported Gemini image size.");
         }
 
-        private static string ToGoogleAspectRatio(int width, int height, string size)
+        private static string ToGoogleAspectRatio(ImageAspectRatio ratio)
         {
-            var ratio = $"{width}:{height}";
-            return ratio switch
-            {
-                "1:1" => "ASPECT_RATIO_ONE_BY_ONE",
-                "2:3" => "ASPECT_RATIO_TWO_BY_THREE",
-                "3:2" => "ASPECT_RATIO_THREE_BY_TWO",
-                "3:4" => "ASPECT_RATIO_THREE_BY_FOUR",
-                "4:3" => "ASPECT_RATIO_FOUR_BY_THREE",
-                "4:5" => "ASPECT_RATIO_FOUR_BY_FIVE",
-                "5:4" => "ASPECT_RATIO_FIVE_BY_FOUR",
-                "9:16" => "ASPECT_RATIO_NINE_BY_SIXTEEN",
-                "16:9" => "ASPECT_RATIO_SIXTEEN_BY_NINE",
-                "21:9" => "ASPECT_RATIO_TWENTY_ONE_BY_NINE",
-                "1:8" => "ASPECT_RATIO_ONE_BY_EIGHT",
-                "8:1" => "ASPECT_RATIO_EIGHT_BY_ONE",
-                "1:4" => "ASPECT_RATIO_ONE_BY_FOUR",
-                "4:1" => "ASPECT_RATIO_FOUR_BY_ONE",
-                _ => throw new ArgumentException(
-                    $"Gemini does not support the {ratio} image aspect ratio.",
-                    nameof(size))
-            };
-        }
-
-        private static int GreatestCommonDivisor(int left, int right)
-        {
-            while (right != 0)
-            {
-                var remainder = left % right;
-                left = right;
-                right = remainder;
-            }
-            return Math.Abs(left);
+            if (GoogleImageAspectRatios.TryGetValue(ratio, out var value))
+                return value;
+            throw new NotSupportedException($"Gemini does not support the {ratio} image aspect ratio.");
         }
 
         private async Task<HttpResponseMessage> SendGoogleImageRequestAsync(
@@ -274,6 +275,17 @@ namespace Mythosia.AI.Services.Google
                 {
                     foreach (var candidate in candidates.EnumerateArray())
                     {
+                        // The chat validator checks the first candidate, while image results
+                        // include every candidate. Do not present an interrupted one as success.
+                        if (!TryGetFinishReason(candidate, out var finishReason) ||
+                            !string.Equals(finishReason, SuccessfulFinishReason, StringComparison.Ordinal))
+                        {
+                            throw CreateGeminiResponseException(
+                                "Gemini image candidate did not complete successfully.",
+                                string.IsNullOrEmpty(finishReason) ? "missing_finish_reason" : finishReason,
+                                root);
+                        }
+
                         if (!candidate.TryGetProperty("content", out var candidateContent) ||
                             !candidateContent.TryGetProperty("parts", out var parts) ||
                             parts.ValueKind != JsonValueKind.Array)
@@ -283,24 +295,35 @@ namespace Mythosia.AI.Services.Google
 
                         foreach (var part in parts.EnumerateArray())
                         {
-                            if (!part.TryGetProperty("inlineData", out var inlineData) ||
+                            if (!part.TryGetProperty("inlineData", out var inlineData))
+                                continue;
+                            if (inlineData.ValueKind != JsonValueKind.Object ||
                                 !inlineData.TryGetProperty("data", out var dataElement) ||
                                 dataElement.ValueKind != JsonValueKind.String)
                             {
-                                continue;
+                                throw new AIServiceException("Gemini returned an image part without valid base64 data.");
                             }
 
                             var encodedData = dataElement.GetString();
                             if (string.IsNullOrWhiteSpace(encodedData))
-                                continue;
+                                throw new AIServiceException("Gemini returned an empty image part.");
+
+                            if (!inlineData.TryGetProperty("mimeType", out var mimeType) ||
+                                mimeType.ValueKind != JsonValueKind.String)
+                                throw new AIServiceException("Gemini returned an image part without an image MIME type.");
+                            var declaredMediaType = mimeType.GetString();
+                            if (!MediaTypeHeaderValue.TryParse(declaredMediaType, out var parsedMediaType) ||
+                                string.IsNullOrEmpty(parsedMediaType.MediaType) ||
+                                !parsedMediaType.MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) ||
+                                parsedMediaType.MediaType.IndexOf('*') >= 0 ||
+                                parsedMediaType.MediaType.Any(char.IsWhiteSpace) ||
+                                !string.Equals(parsedMediaType.MediaType, declaredMediaType!.Split(';')[0].Trim(), StringComparison.OrdinalIgnoreCase))
+                                throw new AIServiceException("Gemini returned an invalid or non-image MIME type.");
 
                             images.Add(new GeneratedImage
                             {
                                 Data = Convert.FromBase64String(encodedData),
-                                MediaType = inlineData.TryGetProperty("mimeType", out var mimeType) &&
-                                            mimeType.ValueKind == JsonValueKind.String
-                                    ? mimeType.GetString() ?? "image/png"
-                                    : "image/png"
+                                MediaType = parsedMediaType.MediaType
                             });
                         }
                     }
@@ -340,23 +363,24 @@ namespace Mythosia.AI.Services.Google
                 throw new ArgumentNullException(nameof(request));
             if (string.IsNullOrWhiteSpace(request.Prompt))
                 throw new ArgumentException("An image prompt is required.", nameof(request));
-            if (request.Count != 1)
+            if (request.Count != GoogleImageMaxImages)
                 throw new ArgumentOutOfRangeException(
                     nameof(request),
                     "Gemini does not expose a guaranteed image-count request parameter; Count must be one.");
-            if (!string.Equals(request.Quality, "auto", StringComparison.OrdinalIgnoreCase))
+            if (!Enum.IsDefined(typeof(ImageQuality), request.Quality) ||
+                !Enum.IsDefined(typeof(ImageBackground), request.Background) ||
+                !Enum.IsDefined(typeof(ImageOutputFormat), request.OutputFormat))
+                throw new ArgumentOutOfRangeException(nameof(request), "Unknown image option value.");
+            if (!GoogleImageQualities.Contains(request.Quality))
                 throw new NotSupportedException("Gemini image generation does not expose a quality request parameter.");
-            if (!string.Equals(request.Background, "auto", StringComparison.OrdinalIgnoreCase))
+            if (!GoogleImageBackgrounds.Contains(request.Background))
                 throw new NotSupportedException("Gemini image generation does not expose a background request parameter.");
             if (request.OutputCompression.HasValue)
                 throw new NotSupportedException("Gemini image generation does not expose output compression.");
-            if (!string.Equals(request.OutputFormat, "png", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(request.OutputFormat, "auto", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(request.OutputFormat, "jpeg", StringComparison.OrdinalIgnoreCase) &&
-                !string.Equals(request.OutputFormat, "jpg", StringComparison.OrdinalIgnoreCase))
+            if (!GoogleImageOutputFormats.Contains(request.OutputFormat))
             {
                 throw new NotSupportedException(
-                    "Gemini image generation accepts jpeg/jpg, or png/auto as a provider-selected output preference.");
+                    "Gemini supports ImageOutputFormat.Jpeg or ImageOutputFormat.Auto for its native output format.");
             }
         }
     }

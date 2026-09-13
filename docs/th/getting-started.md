@@ -1,5 +1,7 @@
 # เริ่มต้นอย่างรวดเร็ว
 
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 ## การติดตั้ง
 
 ติดตั้ง package หลัก:

@@ -1,0 +1,208 @@
+// Executes the actual settings module against HTML-derived controls. No network calls.
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath } from 'node:url';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const web = path.join(root, 'apps/Mythosia.AI.Samples.ChatUi/wwwroot');
+const html = fs.readFileSync(path.join(web, 'index.html'), 'utf8');
+const source = fs.readFileSync(path.join(web, 'js/settings.js'), 'utf8');
+const domSource = fs.readFileSync(path.join(web, 'js/dom.js'), 'utf8');
+const elements = new Map();
+function create(id, tag = '') {
+  const listeners = new Map(), classes = new Set(), children = [];
+  let innerHTML = '', radio;
+  return {
+    id, value: tag.match(/\bvalue="([^"]*)"/)?.[1] || '', checked: /\bchecked\b/.test(tag),
+    disabled: /\bdisabled\b/.test(tag), textContent: '', title: '',
+    classList: { add: name => classes.add(name), remove: name => classes.delete(name),
+      contains: name => classes.has(name), toggle(name, on) { if (on ?? !classes.has(name)) classes.add(name); else classes.delete(name); } },
+    addEventListener(type, action) { listeners.set(type, [...(listeners.get(type) || []), action]); },
+    async fire(type) { for (const action of listeners.get(type) || []) await action(); },
+    appendChild(child) { children.push(child); }, contains() { return false; },
+    get innerHTML() { return innerHTML; },
+    set innerHTML(value) {
+      innerHTML = value; children.length = 0;
+      const input = value.match(/<input\b[^>]*>/)?.[0];
+      radio = input ? create('', input) : null;
+    },
+    querySelectorAll() { return children.map(child => child.querySelector('input')).filter(Boolean); },
+    querySelector(selector) { return selector.includes(':checked') ? this.querySelectorAll().find(item => item.checked) : radio; }
+  };
+}
+function node(id) {
+  if (elements.has(id)) return elements.get(id);
+  const tag = html.match(new RegExp(`<[^>]+\\bid="${id}"[^>]*>`))?.[0];
+  assert.ok(tag, `Missing actual HTML control ${id}`);
+  const value = create(id, tag); elements.set(id, value); return value;
+}
+const dom = {};
+const modelsSource = fs.readFileSync(path.join(web, 'js/models.js'), 'utf8');
+const stateSource = fs.readFileSync(path.join(web, 'js/state-panel.js'), 'utf8');
+const imports = [...(source + '\n' + modelsSource + '\n' + stateSource).matchAll(/import\s*\{([^}]+)\}\s*from\s*'\.\/([^']+)'/g)];
+for (const declaration of imports.filter(item => item[2] === 'dom.js'))
+  for (const name of declaration[1].split(',').map(item => item.trim())) {
+    const id = domSource.match(new RegExp(`export const ${name}\\s*=\\s*\\$\\('#([^']+)'\\)`))?.[1];
+    assert.ok(id, `Missing actual dom.js export ${name}`); dom[name] = node(id);
+  }
+
+const app = { isConnected: false, selectedProvider: null, modelReasoningInfo: null, modelSamplingInfo: null };
+const alibabaSettings = { baseUrl: 'http://localhost:11434', platform: 'Ollama' };
+const providerKeys = { Alibaba: 'offline-endpoint' };
+const requests = [];
+const connectionControls = { reasoning: null, sampling: { temperature: false, topP: false }, maxOutputTokens: null };
+let polledState;
+let fetchOverride;
+const document = {
+  getElementById: node, createElement: () => create(''), activeElement: null,
+  querySelector: () => null
+};
+const context = vm.createContext({
+  console, document,
+  setTimeout, clearTimeout,
+  fetch: async (url, options) => {
+    if (fetchOverride) return fetchOverride(url, options);
+    requests.push({ url, body: options ? JSON.parse(options.body) : null });
+    if (url === '/api/state') return { json: async () => polledState };
+    return { ok: true, json: async () => ({ provider: 'Alibaba', model: 'qwen3:8b', controls: connectionControls }) };
+  }
+});
+const settingsModule = new vm.SourceTextModule(source, { context });
+function synthetic(values) {
+  return new vm.SyntheticModule(Object.keys(values), function () {
+    for (const [key, value] of Object.entries(values)) this.setExport(key, value);
+  }, { context });
+}
+await settingsModule.link(async name => synthetic(name === './dom.js' ? dom
+  : name === './state.js' ? { app } : { refreshState() {} }));
+await settingsModule.evaluate();
+const modelsModule = new vm.SourceTextModule(modelsSource + '\nexport { onModelSelect };', { context });
+await modelsModule.link(async name => {
+  if (name === './settings.js') return settingsModule;
+  if (name === './dom.js') return synthetic(dom);
+  if (name === './state.js') return synthetic({
+    app, providerKeys, alibabaSettings, enableChatInput() {}, disableChatInput() {}, autoScroll() {}
+  });
+  if (name === './utils.js') return synthetic({ $$: () => [], escapeHtml: String });
+  if (name === './state-panel.js') return synthetic({ startStatePolling() {}, stopStatePolling() {}, refreshState() {} });
+  if (name === './functions-panel.js') return synthetic({ refreshFunctions() {} });
+  if (name === './apikey-modal.js') return synthetic({ openKeyModal() {} });
+  if (name === './alibaba-settings.js') return synthetic({ openAlibabaSettingsModal() {} });
+  throw new Error('Unexpected module: ' + name);
+});
+await modelsModule.evaluate();
+// The catalogue entry describes the official cloud model. The selected connection
+// is a custom deployment whose capabilities are intentionally Unknown.
+modelsModule.namespace.onModelSelect('Qwen3_8B', 'Alibaba', 'qwen3-8b',
+  { type: 'qwen_thinking', levels: [] }, 8192, { temperature: true, topP: true });
+await new Promise(resolve => setImmediate(resolve));
+assert.equal(requests[0].url, '/api/configure');
+assert.equal(dom.setReasoning.disabled, true, 'Custom endpoint must replace cloud reasoning controls');
+assert.equal(dom.setTemp.disabled, true, 'Connected sampling must replace catalogue sampling');
+assert.equal(dom.setTopp.disabled, true);
+assert.equal(app.modelReasoningInfo, null);
+
+// A settings response must update controls without resetting the user's current
+// reasoning choice or output budget when the choices themselves have not changed.
+const ui = settingsModule.namespace;
+app.modelReasoningInfo = { type: 'deepseek_thinking', levels: ['Auto', 'Low', 'High', 'Max'] };
+app.modelSamplingInfo = { temperature: true, topP: false };
+ui.updateReasoningUI();
+dom.setReasoning.checked = true;
+connectionControls.reasoning = app.modelReasoningInfo;
+connectionControls.sampling = { temperature: false, topP: true };
+app.isConnected = true;
+ui.scheduleApplySettings(0);
+await new Promise(resolve => setTimeout(resolve, 20));
+assert.equal(dom.setTemp.disabled, true);
+assert.equal(dom.setTopp.disabled, false);
+assert.equal(dom.setReasoning.checked, true, 'Refreshing capabilities must retain enabled reasoning');
+assert.equal(dom.setMaxTokens.value, 8192, 'Capability refresh must not overwrite the user budget');
+
+const stateModule = new vm.SourceTextModule(stateSource, { context });
+await stateModule.link(async name => {
+  if (name === './settings.js') return settingsModule;
+  if (name === './dom.js') return synthetic(dom);
+  if (name === './state.js') return synthetic({ app });
+  if (name === './utils.js') return synthetic({ escapeHtml: String, truncate: String });
+  throw new Error('Unexpected state module: ' + name);
+});
+await stateModule.evaluate();
+polledState = { configured: true, provider: 'Alibaba', modelEnum: 'Qwen3_8B',
+  controls: { reasoning: null, sampling: { temperature: true, topP: false } } };
+await stateModule.namespace.refreshState();
+assert.equal(app.modelReasoningInfo, null, 'Polling must refresh active connection capabilities');
+assert.equal(dom.setTemp.disabled, false);
+assert.equal(dom.setTopp.disabled, true);
+polledState.modelEnum = 'a-previously-selected-model';
+polledState.controls = { reasoning: null, sampling: { temperature: false, topP: true } };
+await stateModule.namespace.refreshState();
+assert.equal(dom.setTemp.disabled, false, 'Stale polling must not replace current model controls');
+
+const pending = [];
+fetchOverride = (url, options) => new Promise(resolve =>
+  pending.push({ url, body: options ? JSON.parse(options.body) : null, resolve }));
+const reply = (operation, controls, ok = true) => operation.resolve({
+  ok, json: async () => ({ provider: 'Alibaba', model: operation.body?.model,
+    error: ok ? null : 'old connection failed', controls })
+});
+const waitTurn = () => new Promise(resolve => setTimeout(resolve, 10));
+modelsModule.namespace.onModelSelect('Qwen3_4B', 'Alibaba', 'qwen3-4b', null, 8192, null);
+modelsModule.namespace.onModelSelect('Qwen3_14B', 'Alibaba', 'qwen3-14b', null, 8192, null);
+assert.equal(pending.length, 2);
+reply(pending[1], connectionControls);
+await waitTurn();
+reply(pending[0], connectionControls, false);
+await waitTurn();
+assert.equal(app.isConnected, true, 'An obsolete failure must not disconnect the current model');
+assert.equal(app.selectedModel, 'Qwen3_14B');
+
+// Selecting the same name again is a different connection, so a name-only check is insufficient.
+pending.length = 0;
+modelsModule.namespace.onModelSelect('Qwen3_4B', 'Alibaba', 'qwen3-4b', null, 8192, null);
+modelsModule.namespace.onModelSelect('Qwen3_14B', 'Alibaba', 'qwen3-14b', null, 8192, null);
+modelsModule.namespace.onModelSelect('Qwen3_4B', 'Alibaba', 'qwen3-4b', null, 8192, null);
+reply(pending[2], { reasoning: null, sampling: { temperature: true, topP: false } });
+await waitTurn();
+reply(pending[0], { reasoning: null, sampling: { temperature: false, topP: true } });
+reply(pending[1], connectionControls, false);
+await waitTurn();
+assert.equal(dom.setTemp.disabled, false, 'An obsolete same-name connection must not replace controls');
+assert.equal(app.isConnected, true);
+
+// On then Off requests may finish in the reverse order.
+pending.length = 0;
+app.selectedProvider = 'DeepSeek';
+app.modelReasoningInfo = { type: 'deepseek_thinking', levels: ['Auto', 'Low', 'High', 'Max'] };
+ui.updateReasoningUI();
+dom.setReasoning.checked = true;
+ui.scheduleApplySettings(0);
+await waitTurn();
+dom.setReasoning.checked = false;
+ui.scheduleApplySettings(0);
+await waitTurn();
+assert.equal(pending.length, 2);
+reply(pending[1], { reasoning: app.modelReasoningInfo, sampling: { temperature: true, topP: false } });
+await waitTurn();
+reply(pending[0], { reasoning: app.modelReasoningInfo, sampling: { temperature: false, topP: true } });
+await waitTurn();
+assert.equal(dom.setReasoning.checked, false);
+assert.equal(dom.setTemp.disabled, false, 'An obsolete settings response must not replace current controls');
+assert.equal(dom.setTopp.disabled, true);
+
+// Polling started before the latest edit must also be ignored when it finishes later.
+pending.length = 0;
+const oldPoll = stateModule.namespace.refreshState();
+ui.scheduleApplySettings(0);
+await waitTurn();
+reply(pending[1], { reasoning: app.modelReasoningInfo, sampling: { temperature: true, topP: false } });
+await waitTurn();
+pending[0].resolve({ json: async () => ({ configured: true,
+  provider: app.selectedProvider, modelEnum: app.selectedModel,
+  controls: { reasoning: null, sampling: { temperature: false, topP: true } } }) });
+await oldPoll;
+assert.equal(dom.setTemp.disabled, false, 'An obsolete poll must not undo a newer settings response');
+assert.notEqual(app.modelReasoningInfo, null);
+console.log('Connection capability UI regression checks passed, including reversed responses.');

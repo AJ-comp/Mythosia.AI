@@ -2,6 +2,10 @@
 
 Token 用量表示一次模型請求在輸入、輸出、快取與推理上消耗了多少 token。在 Mythosia.AI 中，這些資料會透過串流事件上的 `TokenUsage` 提供。
 
+即使輸入、輸出明細不完整，也會保留提供者明確回報的 `TotalTokens`；跨輪彙總會累加這些已回報的總數。
+
+Token 計數仍使用 `Int32`。跨輪總和超過 `Int32.MaxValue` 時，串流或 Run 會以 `OverflowException` 失敗，而不會傳回溢位後的錯誤值。清理仍會完成；即使最終彙總失敗，`run.Result` 也不會一直處於等待狀態。
+
 當一次回應不只包含一個 LLM 呼叫時，這點特別重要。一般回答通常只有一個 round；但 agent 或 function calling 流程可能先呼叫模型、執行工具，再把工具結果帶回去呼叫模型。因此有兩個值需要分清楚。
 
 - `RoundUsage` 表示單一 LLM round 的用量。

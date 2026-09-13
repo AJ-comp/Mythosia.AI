@@ -49,35 +49,51 @@ function Get-ProjectPropertyValue {
 $releasePackages = @(
     [pscustomobject]@{
         Id = "Mythosia.AI.Abstractions"
-        Version = "3.1.0"
+        Version = "4.0.0"
         Project = "src/core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj"
         Readme = "src/core/Mythosia.AI.Abstractions/README.md"
         ReleaseNotes = "src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v310"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400"
     },
     [pscustomobject]@{
         Id = "Mythosia.AI"
-        Version = "7.1.0"
+        Version = "8.0.0"
         Project = "src/core/Mythosia.AI/Mythosia.AI.csproj"
         Readme = "src/core/Mythosia.AI/README.md"
         ReleaseNotes = "src/core/Mythosia.AI/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v710"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v800"
     },
     [pscustomobject]@{
         Id = "Mythosia.AI.Providers.Alibaba"
-        Version = "2.0.1"
+        Version = "3.0.0"
         Project = "src/core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj"
         Readme = "src/core/Mythosia.AI.Providers.Alibaba/README.md"
         ReleaseNotes = "src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v201"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300"
     },
     [pscustomobject]@{
         Id = "Mythosia.AI.Rag"
-        Version = "7.6.0"
+        Version = "8.0.0"
         Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
         Readme = "src/rag/Mythosia.AI.Rag/README.md"
         ReleaseNotes = "src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800"
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.AI.Mcp"
+        Version = "0.1.0-preview"
+        Project = "src/integrations/Mythosia.AI.Mcp/Mythosia.AI.Mcp.csproj"
+        Readme = "src/integrations/Mythosia.AI.Mcp/README.md"
+        ReleaseNotes = "src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview"
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.AI.Serving.Vllm"
+        Version = "1.0.0"
+        Project = "src/serving/Mythosia.AI.Serving.Vllm/Mythosia.AI.Serving.Vllm.csproj"
+        Readme = "src/serving/Mythosia.AI.Serving.Vllm/README.md"
+        ReleaseNotes = "src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100"
     }
 )
 
@@ -142,9 +158,17 @@ foreach ($package in $releasePackages) {
     if ($firstReleaseHeading -ne $package.Version) {
         Add-Issue "$($package.ReleaseNotes) must start with release v$($package.Version), found '$firstReleaseHeading'."
     }
-    if ($package.Id -ne "Mythosia.AI.Rag" -and
+    if ($package.Id -in @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba") -and
         -not $releaseNotesText.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md")) {
         Add-Issue "$($package.ReleaseNotes) does not link to the v7 migration guide."
+    }
+    # Check the current release independently: a historical migration link is not
+    # sufficient guidance for the new image, completion, Run and tool contracts.
+    $currentRelease = [regex]::Match($releaseNotesText, '(?ms)^## v[^\r\n]+\r?\n(?<body>.*?)(?=^## v|\z)').Groups['body'].Value
+    # The independent vLLM control-plane client has no core v8 API migration.
+    if ($package.Id -ne "Mythosia.AI.Serving.Vllm" -and
+        -not $currentRelease.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md")) {
+        Add-Issue "$($package.ReleaseNotes) current release does not link to the v8 migration guide."
     }
 
     $packedReleaseNotes = @($projectXml.Project.ItemGroup.None | Where-Object {
@@ -248,9 +272,176 @@ foreach ($directory in $guideDirectories) {
         Add-Issue "Missing Run guide: $(Get-RepositoryRelativePath -Path $guidePath)"
     }
     $tocText = Get-Content -Raw -LiteralPath $tocPath
+    $migrationGuidePath = Join-Path $directory.FullName 'v8-migration.md'
+    if (-not (Test-Path -LiteralPath $migrationGuidePath -PathType Leaf)) {
+        Add-Issue "Missing v8 migration guide: $(Get-RepositoryRelativePath -Path $migrationGuidePath)"
+    }
+    else {
+        $migrationGuideText = Get-Content -Raw -LiteralPath $migrationGuidePath
+        foreach ($contract in @('CreateRequest', 'AIRequestBuilder', 'AIRunResult',
+                'ImageSize.Pixels', 'ImageSize.Preset', 'CancellationToken',
+                'HandlerWithCancellation', 'GetCapabilities', 'PerplexityAgentOptions', 'McpException',
+                '4.0.0', '8.0.0', '3.0.0', '0.1.0-preview')) {
+            if (-not $migrationGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $migrationGuidePath) omits the $contract migration contract."
+            }
+        }
+        foreach ($relatedGuide in @('request-building.md', 'execution-api-transition.md',
+                'providers.md#image-options-migration', 'completions.md#completion-cancellation',
+                'function-calling.md#tool-execution-contract', 'model-capabilities.md', 'perplexity.md')) {
+            if (-not $migrationGuideText.Contains($relatedGuide)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $migrationGuidePath) must link to its local $relatedGuide guide."
+            }
+        }
+        if ([regex]::Matches($migrationGuideText, '(?m)^```csharp\s*$').Count -lt 3) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $migrationGuidePath) must retain current image, request and Run migration examples."
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*v8-migration\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local v8 migration guide exactly once."
+    }
+    $capabilityGuidePath = Join-Path $directory.FullName 'model-capabilities.md'
+    if (-not (Test-Path -LiteralPath $capabilityGuidePath -PathType Leaf)) {
+        Add-Issue "Missing model capability guide: $(Get-RepositoryRelativePath -Path $capabilityGuidePath)"
+    }
+    else {
+        $capabilityGuideText = Get-Content -Raw -LiteralPath $capabilityGuidePath
+        foreach ($contract in @('GetCapabilities()', 'GetImageCapabilities', 'AIModelCapabilities',
+                'ImageModelCapabilities', 'CapabilitySupport', 'Supported', 'Unsupported', 'Unknown',
+                'GetReasoningSupport', 'NativeReasoning', 'ThinkingBudgetPresets', 'StructuredOutput',
+                'ResolveRequestCapabilities', 'ApplyCapabilityRequestProfile', 'run.CanSteer')) {
+            if (-not $capabilityGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $capabilityGuidePath) omits the $contract capability contract."
+            }
+        }
+        if ([regex]::Matches($capabilityGuideText, '(?m)^```csharp\s*$').Count -lt 3) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $capabilityGuidePath) must retain Before/After and image capability examples."
+        }
+        if ($directory.FullName -ne $documentationRoot -and
+            $capabilityGuideText.StartsWith('# Choose controls the selected model supports')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $capabilityGuidePath) still uses the English guide title."
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*model-capabilities\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local model capability guide exactly once."
+    }
     $guideEntries = [regex]::Matches($tocText, '(?m)^\s*href:\s*execution-api-transition\.md\s*$')
     if ($guideEntries.Count -ne 1) {
         Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local Run guide exactly once."
+    }
+
+    $requestBuilderGuidePath = Join-Path $directory.FullName "request-building.md"
+    $completionGuidePath = Join-Path $directory.FullName 'completions.md'
+    if (-not (Test-Path -LiteralPath $completionGuidePath -PathType Leaf)) {
+        Add-Issue "Missing completion guide: $(Get-RepositoryRelativePath -Path $completionGuidePath)"
+    }
+    else {
+        $completionGuideText = Get-Content -Raw -LiteralPath $completionGuidePath
+        foreach ($contract in @('completion-cancellation', 'completion-cancellation-migration',
+                'CancellationTokenSource(TimeSpan.FromSeconds(30))', 'cancellation.Cancel()',
+                'OperationCanceledException', 'FunctionCallingPolicy.TimeoutSeconds',
+                'GetCompletionAsync(cancellationToken: cancellation.Token)',
+                'GetCompletionAsync<Dictionary<string, string>>', 'SendAsync(cancellationToken: token)',
+                'SendOnceAsync(cancellationToken: token)', 'RequestCancellationToken',
+                'CancellationToken cancellationToken = default', 'CancelAsync()',
+                'WaitForCompletionAsync(cancellationToken:', 'GenerateContentConfig.abortSignal')) {
+            if (-not $completionGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $completionGuidePath) omits the $contract completion cancellation contract."
+            }
+        }
+        if ([regex]::Matches($completionGuideText, '<a id="completion-cancellation">').Count -ne 1) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $completionGuidePath) must define one completion-cancellation anchor."
+        }
+        foreach ($relatedGuide in @('request-building.md', 'execution-api-transition.md',
+                'structured-output.md', 'request-contexts.md', 'function-calling.md', 'rag.md')) {
+            $relatedPath = Join-Path $directory.FullName $relatedGuide
+            if ((Test-Path -LiteralPath $relatedPath) -and
+                -not (Get-Content -Raw -LiteralPath $relatedPath).Contains('completions.md#completion-cancellation')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $relatedPath) must link to its local completion cancellation guide."
+            }
+        }
+        $contextPath = Join-Path $directory.FullName 'request-contexts.md'
+        if ((Test-Path -LiteralPath $contextPath) -and
+            (Get-Content -Raw -LiteralPath $contextPath) -match '(?m)^[^\r\n]*GetCompletionAsync[^\r\n]*RunAgentAsync[^\r\n]*(?:CancellationToken\.None|не принимают|не приймають|ไม่รับ)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $contextPath) still says ordinary completion cannot cancel context loading."
+        }
+    }
+    $toolGuidePath = Join-Path $directory.FullName 'function-calling.md'
+    if (-not (Test-Path -LiteralPath $toolGuidePath -PathType Leaf)) {
+        Add-Issue "Missing tool guide: $(Get-RepositoryRelativePath -Path $toolGuidePath)"
+    }
+    else {
+        $toolGuideText = Get-Content -Raw -LiteralPath $toolGuidePath
+        foreach ($contract in @('tool-execution-contract', 'Task<T>', 'ValueTask<T>',
+                'CancellationToken', 'HandlerWithCancellation', 'IsCancelled')) {
+            if (-not $toolGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $toolGuidePath) omits the $contract tool execution contract."
+            }
+        }
+        foreach ($relatedGuide in @('agent.md', 'request-building.md', 'execution-api-transition.md')) {
+            $relatedPath = Join-Path $directory.FullName $relatedGuide
+            if ((Test-Path -LiteralPath $relatedPath) -and
+                -not (Get-Content -Raw -LiteralPath $relatedPath).Contains('function-calling.md#tool-execution-contract')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $relatedPath) must link to its local tool execution contract."
+            }
+        }
+    }
+    if (-not (Test-Path -LiteralPath $requestBuilderGuidePath -PathType Leaf)) {
+        Add-Issue "Missing request builder guide: $(Get-RepositoryRelativePath -Path $requestBuilderGuidePath)"
+    }
+    else {
+        $requestBuilderGuideText = Get-Content -Raw -LiteralPath $requestBuilderGuidePath
+        foreach ($contract in @('CreateRequest', 'AIRequestBuilder', 'AIRequest',
+                'basis.WithTemperature(0.2f)', 'basis.WithTemperature(0.8f)',
+                'ReferenceEquals(summary, creative); // false', 'GetCompletionAsync()',
+                'StartRunAsync(', 'run.Result', 'WithProfile', 'WithContext',
+                'WithStatelessMode()', 'WithFunctions', 'WithStaticFunctions<T>()',
+                'ArgumentOutOfRangeException', 'MessageChain', 'IAIService')) {
+            if (-not $requestBuilderGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) omits the $contract request builder contract."
+            }
+        }
+        if ([regex]::Matches($requestBuilderGuideText, '(?m)^## ').Count -lt 7 -or
+            [regex]::Matches($requestBuilderGuideText, '(?m)^```csharp\s*$').Count -lt 4) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) must explain independent branches, execution, copied settings, and shared conversation limits with Before/After examples."
+        }
+        if ($directory.FullName -ne $documentationRoot -and
+            $requestBuilderGuideText.StartsWith('# Keep each request')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) still uses the English guide title."
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*request-building\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local request builder guide exactly once."
+    }
+    $builderReadmePath = if ($directory.FullName -eq $documentationRoot) {
+        Join-Path $repoRoot 'README.md'
+    } else {
+        Join-Path $directory.FullName 'README.md'
+    }
+    if (-not (Test-Path -LiteralPath $builderReadmePath -PathType Leaf)) {
+        Add-Issue "Missing request builder README entry: $(Get-RepositoryRelativePath -Path $builderReadmePath)"
+    }
+    else {
+        $builderReadmeText = Get-Content -Raw -LiteralPath $builderReadmePath
+        $expectedBuilderLink = if ($directory.FullName -eq $documentationRoot) { '(docs/request-building.md)' } else { '(request-building.md)' }
+        if (-not $builderReadmeText.Contains($expectedBuilderLink) -or
+            -not $builderReadmeText.Contains('CreateRequest')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $builderReadmePath) must introduce CreateRequest and link to its request builder guide."
+        }
+    }
+
+    $runGuidePath = Join-Path $directory.FullName 'execution-api-transition.md'
+    if (-not (Test-Path -LiteralPath $runGuidePath -PathType Leaf)) {
+        Add-Issue "Missing run guide: $(Get-RepositoryRelativePath -Path $runGuidePath)"
+    }
+    else {
+        $runGuideText = Get-Content -Raw -LiteralPath $runGuidePath
+        foreach ($contract in @('AIRunResult', 'RequestedModel', 'RawFinishReason',
+                'RoundCount', 'AIFinishReason', 'result.Text', 'result.Usage', 'result.Citations')) {
+            if (-not $runGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $runGuidePath) omits the $contract run result contract."
+            }
+        }
     }
 
     $featureGuidePath = Join-Path $directory.FullName "reasoning-and-search.md"
@@ -277,6 +468,103 @@ foreach ($directory in $guideDirectories) {
     if ([regex]::Matches($tocText, '(?m)^\s*href:\s*reasoning-and-search\.md\s*$').Count -ne 1) {
         Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local reasoning/search guide exactly once."
     }
+
+    $providerGuidePath = Join-Path $directory.FullName "providers.md"
+    if (Test-Path -LiteralPath $providerGuidePath -PathType Leaf) {
+        $providerGuideText = Get-Content -Raw -LiteralPath $providerGuidePath
+        if ($providerGuideText -notmatch 'Grok4_6|grok-4\.6' -or
+            $providerGuideText -notmatch 'GrokReasoning\.XHigh') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits Grok 4.6 or its XHigh reasoning example."
+        }
+        foreach ($imageContract in @('GrokImagineImage2_0', 'IImageGenerationService',
+                'GenerateImagesAsync', 'EditImagesAsync', 'ImageAspectRatio', 'ImageOutputFormat.Auto')) {
+            if (-not $providerGuideText.Contains($imageContract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $imageContract image contract."
+            }
+        }
+        foreach ($image25Contract in @('GptImage2_5Sunburst', 'GptImage2_5Flare',
+                'gpt-image-2.5-sunburst', 'gpt-image-2.5-flare', '2026-09-08', 'ImageQuality.XHigh', 'ImageBackground.Transparent')) {
+            if (-not $providerGuideText.Contains($image25Contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $image25Contract GPT Image 2.5 contract."
+            }
+        }
+        foreach ($typedImageContract in @('ImageSize.Pixels', 'ImageSize.Preset', 'ImageResolution.TwoK',
+                'ImageAspectRatio.ThreeByTwo', 'image-options-migration')) {
+            if (-not $providerGuideText.Contains($typedImageContract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $typedImageContract typed image contract."
+            }
+        }
+        foreach ($codeBlock in [regex]::Matches($providerGuideText, '(?s)```csharp\s*\r?\n(.*?)```')) {
+            if ($codeBlock.Groups[1].Value -match '\b(?:Quality|Background|OutputFormat|Size)\s*=\s*"' -or
+                $codeBlock.Groups[1].Value -match '\bAspectRatio\s*=') {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) contains an executable example with legacy string image options. Use a text block for historical migration examples."
+            }
+        }
+        foreach ($minor in @(7, 8)) {
+            if ($providerGuideText -notmatch "Gemini3_${minor}Flash|gemini-3\.${minor}-flash") {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits Gemini 3.$minor Flash."
+            }
+        }
+        foreach ($deepSeekContract in @('AIModels.DeepSeek.Flash', 'DeepSeekReasoning',
+                'WithReasoning', 'reasoning_content', '393216')) {
+            if (-not $providerGuideText.Contains($deepSeekContract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $deepSeekContract DeepSeek contract."
+            }
+        }
+    }
+    else {
+        Add-Issue "Missing provider guide: $(Get-RepositoryRelativePath -Path $providerGuidePath)"
+    }
+
+    $perplexityGuidePath = Join-Path $directory.FullName "perplexity.md"
+    if (-not (Test-Path -LiteralPath $perplexityGuidePath -PathType Leaf)) {
+        Add-Issue "Missing Perplexity guide: $(Get-RepositoryRelativePath -Path $perplexityGuidePath)"
+    }
+    else {
+        $perplexityGuideText = Get-Content -Raw -LiteralPath $perplexityGuidePath
+        foreach ($contract in @('PerplexityAgentOptions', 'StartRunAsync', 'run.Citations', 'MaxSteps',
+            'StartBackgroundAsync', 'WaitForCompletionAsync', 'ResumeBackgroundRun', 'CancelAsync',
+            'PreviousResponseId', 'PerplexitySearchClient', 'PerplexityContextualizedEmbeddingProvider',
+            'GetQueryEmbeddingAsync', 'HammingDistance', 'pplx-embed-v1-4b', 'perplexity/sonar', '2026-09-27')) {
+            if (-not $perplexityGuideText.Contains($contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $perplexityGuidePath) omits the $contract contract."
+            }
+        }
+        if ([regex]::Matches($perplexityGuideText, '(?m)^## ').Count -lt 8 -or
+            [regex]::Matches($perplexityGuideText, '(?m)^```csharp\s*$').Count -lt 6) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $perplexityGuidePath) must retain all feature explanations and examples."
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*perplexity\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local Perplexity guide exactly once."
+    }
+
+    $fableGuidePath = Join-Path $directory.FullName "fable-5-1.md"
+    if (-not (Test-Path -LiteralPath $fableGuidePath -PathType Leaf)) {
+        Add-Issue "Missing Fable 5.1 guide: $(Get-RepositoryRelativePath -Path $fableGuidePath)"
+    }
+    else {
+        $fableGuideText = Get-Content -Raw -LiteralPath $fableGuidePath
+        foreach ($requiredContract in @('ClaudeFable5_1', 'ClaudeMythos5_1', 'ClaudeThinkingDisplay.Updates',
+                'StreamingContentType.Reasoning', 'WithTurnInstruction', 'WithConversationInstruction',
+                'CachePreservation.Required', 'WithThinkingBinding', 'LastInputTransformations',
+                'prefix_binding_mismatch', 'model_binding_mismatch', 'clear_at', 'ForceFunctionName')) {
+            if (-not $fableGuideText.Contains($requiredContract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $fableGuidePath) omits the $requiredContract contract."
+            }
+        }
+        if ([regex]::Matches($fableGuideText, '(?m)^## ').Count -ne 7 -or
+            [regex]::Matches($fableGuideText, '(?m)^```csharp\s*$').Count -ne 4) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $fableGuidePath) must retain all seven guide sections and four examples."
+        }
+        if ($directory.FullName -ne $documentationRoot -and
+            $fableGuideText.StartsWith('# Keep long Claude Fable 5.1 tasks observable')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $fableGuidePath) still uses the English guide title."
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*fable-5-1\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local Fable 5.1 guide exactly once."
+    }
 }
 foreach ($directory in $localizedDirectories) {
     foreach ($document in Get-ChildItem -LiteralPath $directory.FullName -Filter "*.md" -File -Recurse) {
@@ -287,10 +575,23 @@ foreach ($directory in $localizedDirectories) {
         if ($text -match '\]\(\.\./reasoning-and-search\.md(?:[?#][^)]*)?\)') {
             Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated reasoning/search guide."
         }
+        if ($text -match '\]\(\.\./request-building\.md(?:[?#][^)]*)?\)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated request builder guide."
+        }
+        if ($text -match '\]\(\.\./fable-5-1\.md(?:[?#][^)]*)?\)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated Fable 5.1 guide."
+        }
+        if ($text -match '\]\(\.\./perplexity\.md(?:[?#][^)]*)?\)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated Perplexity guide."
+        }
+        if ($text -match '\]\(\.\./v8-migration\.md(?:[?#][^)]*)?\)') {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) must link to its translated v8 migration guide."
+        }
     }
 }
 
 $forbiddenPatterns = [ordered]@{
+    'incorrect xAI namespace casing' = '(?-i:using\s+Mythosia\.AI\.Services\.XAI\s*;)'
     'service.FunctionCallingPolicy assignment' = 'service\.FunctionCallingPolicy\s*='
     'direct assignment to the read-only Model property' = 'service\.Model\s*=\s*AIModels\.'
     'nonexistent AlibabaCloud endpoint enum' = 'EndpointPlatform\.AlibabaCloud'
@@ -307,6 +608,16 @@ foreach ($document in $activeDocumentation) {
         if ($text -match $pattern.Value) {
             $relativeDocument = Get-RepositoryRelativePath -Path $document.FullName
             Add-Issue "$relativeDocument contains $($pattern.Key)."
+        }
+    }
+
+    # Migration guides may intentionally show old calls. Current executable examples
+    # should use supported catalogue entries, even when compatibility constants remain.
+    if ($document.Name -notmatch '(?i)migration') {
+        foreach ($codeBlock in [regex]::Matches($text, '(?ms)^```(?:csharp|cs|c#)[ \t]*\r?\n(?<code>.*?)^```[ \t]*$')) {
+            if ($codeBlock.Groups['code'].Value -match 'AIModels\.(?:OpenAI\.(?:Gpt5|Gpt5Mini|Gpt5Nano|Gpt5Pro|O3|O3Pro)|DeepSeek\.(?:Chat|Reasoner|V4Flash))\b') {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $document.FullName) uses a deprecated model constant in a current C# example."
+            }
         }
     }
 }
@@ -382,4 +693,4 @@ if ($issues.Count -ne 0) {
 
 Write-Host "Release documentation and NuGet metadata validation passed."
 Write-Host "Validated $($releasePackages.Count) release packages and $($linkDocuments.Count) Markdown files."
-Write-Host "Validated Run and reasoning/search guide coverage and navigation for $($guideDirectories.Count) documentation languages."
+Write-Host "Validated v8 migration, model capabilities, completion cancellation and implementation migration, local tool returns/errors/cancellation, request builders, GPT Image 2.5, Perplexity Agent/Search/embeddings, DeepSeek Flash, Grok 4.6, Grok Imagine Image 2.0, Gemini 3.7/3.8, Run, reasoning/search, and Fable 5.1 guide coverage and navigation for $($guideDirectories.Count) documentation languages."

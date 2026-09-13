@@ -2,6 +2,10 @@
 
 Token usage tells you how much of a model request was spent on input, output, cache, and reasoning. In Mythosia.AI it is exposed through `TokenUsage` on streaming events.
 
+An explicitly reported `TotalTokens` is preserved even when the input/output breakdown is incomplete; round aggregation adds those reported totals.
+
+Token counters remain `Int32`. If a cross-round sum exceeds `Int32.MaxValue`, the stream or Run fails with `OverflowException` instead of returning wrapped counts. Cleanup still completes, and `run.Result` settles even when the final aggregation fails.
+
 This matters most when a conversation can take more than one LLM round. A normal answer usually has one round. An agent or function-calling run may call the model, execute a tool, then call the model again with the tool result. In that case there are two useful numbers:
 
 - `RoundUsage` shows the usage for one LLM round.

@@ -17,35 +17,19 @@ namespace Mythosia.AI.Extensions
         /// <summary>
         /// Performs a one-time question without affecting the conversation history
         /// </summary>
-        public static async Task<string> AskOnceAsync(this AIService service, string prompt)
+        public static async Task<string> AskOnceAsync(this AIService service, string prompt, CancellationToken cancellationToken = default)
         {
-            var backup = service.StatelessMode;
-            service.StatelessMode = true;
-            try
-            {
-                return await service.GetCompletionAsync(prompt);
-            }
-            finally
-            {
-                service.StatelessMode = backup;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return await service.CreateRequest(prompt).WithStatelessMode().GetCompletionAsync(cancellationToken);
         }
 
         /// <summary>
         /// Performs a one-time multimodal question without affecting the conversation history
         /// </summary>
-        public static async Task<string> AskOnceAsync(this AIService service, Message message)
+        public static async Task<string> AskOnceAsync(this AIService service, Message message, CancellationToken cancellationToken = default)
         {
-            var backup = service.StatelessMode;
-            service.StatelessMode = true;
-            try
-            {
-                return await service.GetCompletionAsync(message);
-            }
-            finally
-            {
-                service.StatelessMode = backup;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return await service.CreateRequest(message).WithStatelessMode().GetCompletionAsync(cancellationToken);
         }
 
         /// <summary>
@@ -54,18 +38,16 @@ namespace Mythosia.AI.Extensions
         public static async Task<string> AskOnceWithImageAsync(
             this AIService service,
             string prompt,
-            string imagePath)
+            string imagePath,
+            CancellationToken cancellationToken = default)
         {
-            var backup = service.StatelessMode;
-            service.StatelessMode = true;
-            try
+            cancellationToken.ThrowIfCancellationRequested();
+            var bytes = await System.IO.File.ReadAllBytesAsync(imagePath, cancellationToken);
+            var message = new Message(ActorRole.User, new System.Collections.Generic.List<MessageContent>
             {
-                return await service.GetCompletionWithImageAsync(prompt, imagePath);
-            }
-            finally
-            {
-                service.StatelessMode = backup;
-            }
+                new TextContent(prompt), new ImageContent(bytes, Mythosia.AI.Utilities.MimeTypes.GetFromPath(imagePath))
+            });
+            return await service.CreateRequest(message).WithStatelessMode().GetCompletionAsync(cancellationToken);
         }
 
         /// <summary>
@@ -160,7 +142,7 @@ namespace Mythosia.AI.Extensions
         /// overload when the baseline context requires IO (database, cache, HTTP) so that
         /// the provider does not need to block on <c>.Result</c> or <c>.GetAwaiter().GetResult()</c>.
         /// The supplied <see cref="CancellationToken"/> is the caller's token for the
-        /// current LLM call (for non-streaming paths it is <see cref="CancellationToken.None"/>).
+        /// current LLM call, including ordinary completions, summaries and streaming requests.
         /// Merge semantics are identical to the synchronous overload.
         /// </summary>
         public static AIService WithSystemMessageProvider(this AIService service, Func<CancellationToken, ValueTask<AIRequestContext?>> provider)
@@ -239,8 +221,9 @@ namespace Mythosia.AI.Extensions
         /// <summary>
         /// Retries the last user message if the previous response was unsatisfactory
         /// </summary>
-        public static async Task<string> RetryLastMessageAsync(this AIService service)
+        public static async Task<string> RetryLastMessageAsync(this AIService service, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var messages = service.ActivateChat.Messages;
             if (messages.Count < 2)
                 throw new InvalidOperationException("No messages to retry");
@@ -268,7 +251,7 @@ namespace Mythosia.AI.Extensions
 
             // Resend the message. The three-argument overload, explicitly — the one-argument abstract
             // wins overload resolution otherwise and skips context-overflow recovery.
-            return await service.GetCompletionAsync(lastUserMessage, null, null);
+            return await service.GetCompletionAsync(lastUserMessage, null, null, cancellationToken);
         }
 
         /// <summary>
@@ -277,8 +260,10 @@ namespace Mythosia.AI.Extensions
         public static async Task<string> GetCompletionWithContextAsync(
             this AIService service,
             string prompt,
-            int contextMessages = 5)
+            int contextMessages = 5,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var messages = service.ActivateChat.Messages;
             var contextBuilder = new System.Text.StringBuilder();
 
@@ -291,7 +276,7 @@ namespace Mythosia.AI.Extensions
 
             contextBuilder.AppendLine($"\nBased on the above context, {prompt}");
 
-            return await service.GetCompletionAsync(contextBuilder.ToString());
+            return await service.GetCompletionAsync(contextBuilder.ToString(), cancellationToken: cancellationToken);
         }
 
         #region Structured Output Policy

@@ -1,5 +1,9 @@
 # AIRequestContext
 
+หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
+
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 request context ช่วยเพิ่มข้อมูลล่าสุดเฉพาะงานที่ต้องใช้ โดยส่งให้[การเริ่ม Run](execution-api-transition.md) ได้เช่นกัน พร้อมความสามารถสังเกตและยกเลิกงาน
 
 ## คืออะไร?
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"วันนี้: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Properties ที่ใช้ได้
@@ -267,7 +271,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`StartRunAsync` ส่งโทเคนยกเลิกให้ตัวจัดหาบริบทแบบอะซิงโครนัส ไม่ว่าแอปจะอ่านสตรีมหรือไม่ ส่วน `StreamAsync` และ `RunAgentStreamAsync` เดิมก็ส่งโทเคนของผู้เรียกเช่นกัน ซิกเนเจอร์ของ `GetCompletionAsync` และ `RunAgentAsync` ไม่รับ `CancellationToken` หากต้องการยกเลิกการค้นฐานข้อมูลหรือแหล่งบริบทอื่น ให้ใช้ Run
+`GetCompletionAsync(..., cancellationToken: token)` และ `RunAgentAsync` เดิมส่งการยกเลิกให้ `SystemMessageProvider` แล้ว การเรียกฐานข้อมูลหรือ HTTP ที่ใช้โทเค็นจึงหยุดได้ระหว่างเตรียมงาน `StartRunAsync` และเมธอดสตรีมเดิมที่รับอินพุตก็ส่งโทเค็นการทำงานด้วย การยกเลิกเฉพาะ `run.StreamAsync(token)` หยุดการสังเกต ไม่ได้หยุดผู้ให้บริการหรือการทำงานทั้งหมด
 
 ### การ merge กับ context per-call ที่ระบุชัดเจน
 

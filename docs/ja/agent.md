@@ -1,5 +1,12 @@
 # エージェント（ReActループ）
 
+回答・使用量・出典をまとめて取得するには、`await run.Result` が返す `AIRunResult` を使用します。文字列は `result.Text` で取得でき、ストリームを読む必要はありません。Mythosia.AI 8.0.0 の API 変更です。`GetCompletionAsync` と `StructuredStreamRun<T>.Result` の戻り値型は維持します。 [Run の結果と移行](execution-api-transition.md#run-result).
+
+
+設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
+
+> `CreateRequest`の例にはMythosia.AI 8.0.0 / Abstractions 4.0.0が必要です。Runと共通リクエスト機能を導入した旧7.1リリースにはビルダーがありません。旧パッケージでは既存のサービスオーバーロードを使えます。
+
 ## エージェントループが必要な理由
 
 通常の関数呼び出しでも、モデルの1つの応答から**複数の関数を順序付きバッチとして**実行し、複数のツールラウンドを継続できます。Agent APIはこの仕組みを、明示的な**ステップ上限**を持つ目標指向のReActループとしてまとめ、最終回答が生成されるまで各バッチの結果をモデルに返します:
@@ -16,12 +23,16 @@
 
 ```csharp
 // タスクの開始前にserviceへ関数を登録します。
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "ポリシーを探し、注文を確認して結果を説明してください。",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("ポリシーを探し、注文を確認して結果を説明してください。")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+ローカルツールは`Task<T>` / `ValueTask<T>`でオブジェクトを返し、注入された`CancellationToken`を受け取れます。`run.Cancel()`や開始トークンのキャンセルは協調するツールにも届きますが、読み取りの停止だけでは届きません。例外は失敗として記録します。キャンセル時は未開始の呼び出しをスキップし、トークンを無視する開始済みツールは後処理で待ちます。[結果・エラー・キャンセル](function-calling.md#tool-execution-contract)を参照してください。
 
 ## 既存APIの互換性例
 

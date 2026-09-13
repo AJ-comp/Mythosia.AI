@@ -1,5 +1,7 @@
 # Gestion des conversations
 
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 ## Comment fonctionne l'historique de conversation
 
 Chaque appel à `GetCompletionAsync` ou `StreamAsync` ajoute des messages à la liste interne du service. Le modèle a ainsi le contexte de tous les tours précédents.

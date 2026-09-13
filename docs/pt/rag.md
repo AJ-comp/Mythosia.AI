@@ -1,5 +1,9 @@
 # RAG (Retrieval-Augmented Generation)
 
+Para uma resposta final com botão Parar, passe `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progresso ou instruções adicionais suportadas. Consulte [cancelamento](completions.md#completion-cancellation).
+
+Para respostas enriquecidas com pesquisa, passe também `cancellationToken` a `RagEnabledService.GetCompletionAsync`. O mesmo token chega à pesquisa, `LlmQueryRewriter`, `LlmReranker` e resposta interna; cancelar durante a pesquisa evita a chamada posterior ao modelo. `RagPipeline.QueryAndGenerateAsync` também transmite o token. Os componentes devem cooperar; pesquisas e ações de ferramentas já concluídas não são revertidas.
+
 O RAG permite que o modelo responda perguntas com base nos seus próprios documentos, recuperando chunks relevantes no momento da consulta.
 
 Para permitir que o usuário acompanhe ou interrompa a escrita de uma resposta baseada nos seus documentos, combine a busca RAG com um run. O [guia de Run](execution-api-transition.md) explica o fluxo e os limites das instruções adicionais.
@@ -108,3 +112,5 @@ Se seu índice já estiver hospedado pelo provedor do modelo, compare RAG com a 
 - [Agentic RAG](rag-agentic.md) — IA decide quando e o que pesquisar
 - [Vector Stores](vectordb-overview.md) — configuração de armazenamento persistente
 - [Text Splitters](text-splitters.md) — personalize como os documentos são divididos
+
+Perplexity: [Usar vetores em seu próprio índice / Pesquisar sem gerar uma resposta](perplexity.md).

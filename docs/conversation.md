@@ -1,5 +1,7 @@
 # Conversation Management
 
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 ## How Conversation History Works
 
 Every call to `GetCompletionAsync` or `StreamAsync` appends to the service's internal message list. This means the model has context from all previous turns.

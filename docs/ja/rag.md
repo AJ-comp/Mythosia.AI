@@ -1,5 +1,9 @@
 # RAG（検索拡張生成）
 
+完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
+
+検索で補強した回答にも`RagEnabledService.GetCompletionAsync`へ`cancellationToken`を渡します。同じトークンが検索、`LlmQueryRewriter`、`LlmReranker`、内部完了呼び出しへ伝わり、検索中のキャンセルは後続のモデル呼び出しを防ぎます。`RagPipeline.QueryAndGenerateAsync`もトークンを渡します。各要素はキャンセルに協調する必要があり、完了した検索やツール操作は巻き戻しません。
+
 ## RAGとは？
 
 RAG（Retrieval-Augmented Generation）は、AIモデルが回答を生成する際に、**自分が持っているドキュメントから関連情報を先に探し出し**、その情報をもとに回答させる技術です。
@@ -149,3 +153,5 @@ var response = await service.GetCompletionAsync("質問", options: options);
 - [エージェンティックRAG](rag-agentic.md) — AIが自ら判断して検索するインテリジェントRAG
 - [ベクターストア](../vectordb-overview.md) — 永続ストアの設定
 - [テキストスプリッター](text-splitters.md) — ドキュメントの分割方法を変更
+
+Perplexity: [文書インデックスでベクトルを使う / 回答を生成せずに検索する](perplexity.md).

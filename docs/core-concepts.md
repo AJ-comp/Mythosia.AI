@@ -1,5 +1,7 @@
 # Core Concepts
 
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 This page collects foundational concepts you will see referenced across the rest of the documentation. More concepts will be added here over time.
 
 ## What Is a Round?

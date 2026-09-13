@@ -4,9 +4,13 @@
     {
         public static class OpenAI
         {
+            [System.Obsolete("Use Gpt5_6Sol. This legacy alias points to a snapshot scheduled to retire on 2026-12-11.", false)]
             public const string Gpt5 = "gpt-5";
+            [System.Obsolete("Use Gpt5_6Terra. This legacy alias points to a snapshot scheduled to retire on 2026-12-11.", false)]
             public const string Gpt5Mini = "gpt-5-mini";
+            [System.Obsolete("Use Gpt5_6Luna. This legacy alias points to a snapshot scheduled to retire on 2026-12-11.", false)]
             public const string Gpt5Nano = "gpt-5-nano";
+            [System.Obsolete("Use Gpt5_6Sol with Pro reasoning mode. This legacy alias points to a snapshot scheduled to retire on 2026-12-11.", false)]
             public const string Gpt5Pro = "gpt-5-pro";
             public const string Gpt5_1 = "gpt-5.1";
             public const string Gpt5_2 = "gpt-5.2";
@@ -27,7 +31,13 @@
             public const string Gpt6Astra = "gpt-6-astra";
             public const string GptImage2 = "gpt-image-2";
             public const string GptImage2_260421 = "gpt-image-2-2026-04-21";
+            public const string GptImage2_5Sunburst = "gpt-image-2.5-sunburst";
+            public const string GptImage2_5Sunburst_260908 = "gpt-image-2.5-sunburst-2026-09-08";
+            public const string GptImage2_5Flare = "gpt-image-2.5-flare";
+            public const string GptImage2_5Flare_260908 = "gpt-image-2.5-flare-2026-09-08";
+            [System.Obsolete("Use Gpt5_6Sol with Pro reasoning mode. This legacy alias points to a snapshot scheduled to retire on 2026-12-11.", false)]
             public const string O3Pro = "o3-pro";
+            [System.Obsolete("Use Gpt5_6Sol. This legacy alias points to a snapshot scheduled to retire on 2026-12-11.", false)]
             public const string O3 = "o3";
             public const string Gpt4_1 = "gpt-4.1";
             public const string Gpt4_1Mini = "gpt-4.1-mini";
@@ -39,6 +49,8 @@
 
         public static class Anthropic
         {
+            public const string ClaudeFable5_1 = "claude-fable-5-1";
+            public const string ClaudeMythos5_1 = "claude-mythos-5-1";
             public const string ClaudeFable5 = "claude-fable-5";
             public const string ClaudeMythos5 = "claude-mythos-5";
             public const string ClaudeOpus5 = "claude-opus-5";
@@ -63,6 +75,8 @@
             public const string Gemini3_5Flash = "gemini-3.5-flash";
             public const string Gemini3_5FlashLite = "gemini-3.5-flash-lite";
             public const string Gemini3_6Flash = "gemini-3.6-flash";
+            public const string Gemini3_7Flash = "gemini-3.7-flash";
+            public const string Gemini3_8Flash = "gemini-3.8-flash";
 
             public static class Images
             {
@@ -74,6 +88,8 @@
 
         public static class xAI
         {
+            public const string GrokImagineImage2_0 = "grok-imagine-image-2.0";
+            public const string Grok4_6 = "grok-4.6";
             public const string Grok4_5 = "grok-4.5";
             public const string Grok4_5Latest = "grok-4.5-latest";
             public const string GrokBuildLatest = "grok-build-latest";
@@ -87,15 +103,31 @@
 
         public static class DeepSeek
         {
+            public const string Flash = "deepseek-flash";
+
+            [System.Obsolete("Use Flash. DeepSeek retired V4 Flash on 2026-09-10; this legacy name temporarily routes to V4.1 Flash.", false)]
+            public const string V4Flash = "deepseek-v4-flash";
+
+            [System.Obsolete("The provider announced retirement of deepseek-chat on 2026-07-24. Use Flash with thinking disabled.", false)]
             public const string Chat = "deepseek-chat";
+            [System.Obsolete("The provider announced retirement of deepseek-reasoner on 2026-07-24. Use Flash with ThinkingEnabled, or UseReasonerModel().", false)]
             public const string Reasoner = "deepseek-reasoner";
         }
 
         public static class Perplexity
         {
-            public const string Sonar = "sonar";
-            public const string SonarPro = "sonar-pro";
-            public const string SonarReasoningPro = "sonar-reasoning-pro";
+            /// <summary>Sonar through the Agent API. The legacy Sonar endpoint is retired.</summary>
+            public const string Sonar = "perplexity/sonar";
+            public const string Gpt5_6Sol = "openai/gpt-5.6-sol";
+            public const string Gpt5_6Terra = "openai/gpt-5.6-terra";
+            public const string Gpt5_6Luna = "openai/gpt-5.6-luna";
+            public const string ClaudeFable5 = "anthropic/claude-fable-5";
+            public const string ClaudeOpus5 = "anthropic/claude-opus-5";
+            public const string ClaudeSonnet5 = "anthropic/claude-sonnet-5";
+            public const string Gemini3_8Flash = "google/gemini-3.8-flash";
+            public const string Grok4_6 = "xai/grok-4.6";
+            public const string DeepSeekV4Flash0731 = "perplexity/deepseek-v4-flash-0731";
+            public const string KimiK3 = "perplexity/kimi-k3";
         }
     }
 

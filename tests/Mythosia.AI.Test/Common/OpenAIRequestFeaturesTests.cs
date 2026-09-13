@@ -257,7 +257,7 @@ public class OpenAIRequestFeaturesTests
         await using var run = await service.WithReasoning(ReasoningLevel.High, CachePreservation.Required)
             .WithWebSearch().WithFileSearch(new FileSearchStore("OpenAI", "vs_reference"))
             .StartRunAsync("research");
-        Assert.AreEqual("grounded", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("grounded", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(2, run.Citations.Count);
         Assert.AreEqual(2, service.LastCitations.Count);
         var payload = socket.Sent.Single();
@@ -288,7 +288,7 @@ public class OpenAIRequestFeaturesTests
             else socket.Push(SourceEvents());
         };
         await using var run = await service.WithReasoning(ReasoningLevel.High, CachePreservation.Required).WithWebSearch().StartRunAsync("research");
-        Assert.AreEqual("grounded", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("grounded", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(1, executions);
         Assert.AreEqual(2, socket.Sent.Count);
         AssertUpdateBefore(socket.Sent[0], "high", "research");

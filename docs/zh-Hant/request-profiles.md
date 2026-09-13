@@ -1,5 +1,9 @@
 # AIRequestProfile
 
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
+設定檔只定義單次呼叫的覆寫值，不保證共用對話可安全並行使用。建議透過`service.CreateRequest(prompt).WithProfile(profile)`將其保存在獨立請求中。既有設定檔多載仍受支援。
+
 ## 概述
 
 `AIRequestProfile` 可以**僅對單次請求**覆寫生成參數 — 溫度、最大 Token 數、無狀態模式、函式呼叫等。服務的全域設定不受影響。

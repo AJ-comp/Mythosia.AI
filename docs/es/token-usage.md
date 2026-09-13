@@ -2,6 +2,10 @@
 
 El uso de tokens indica cuánto ha consumido una petición del modelo en entrada, salida, caché y razonamiento. En Mythosia.AI se expone mediante `TokenUsage` dentro de los eventos de streaming.
 
+El valor de `TotalTokens` comunicado explícitamente se conserva aunque el desglose de entrada y salida esté incompleto; la suma entre rondas utiliza esos totales comunicados.
+
+Los contadores de tokens siguen siendo `Int32`. Si la suma entre rondas supera `Int32.MaxValue`, el flujo o Run falla con `OverflowException` en vez de devolver valores desbordados. La limpieza se completa y `run.Result` no queda pendiente aunque falle la suma final.
+
 Esto se vuelve especialmente importante cuando una respuesta no termina en una sola llamada al LLM. Una respuesta normal suele tener un único round. Un agente o un flujo con function calling puede llamar al modelo, ejecutar una herramienta y volver a llamar al modelo con el resultado. Por eso conviene separar dos valores.
 
 - `RoundUsage` muestra el uso de un único round del LLM.

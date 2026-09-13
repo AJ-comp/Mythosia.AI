@@ -1,6 +1,8 @@
 # Generierungsparameter
 
-## Gemeinsame Eigenschaften
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
+## Service-Standardwerte und Kompatibilitätsmethoden
 
 Alle KI-Service-Instanzen stellen diese Eigenschaften bereit:
 
@@ -115,3 +117,5 @@ Alle Einstellungen einer anderen Service-Instanz klonen (ohne Gesprächsverlauf)
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [Recherche und Werkzeuge steuern](perplexity.md).

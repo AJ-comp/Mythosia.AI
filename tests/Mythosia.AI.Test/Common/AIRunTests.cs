@@ -27,7 +27,7 @@ public class AIRunTests
         var outputTask = CollectAsync(run);
         release.SetResult();
         var events = await outputTask.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.AreEqual("hello world", await run.Result);
+        Assert.AreEqual("hello world", (await run.Result).Text);
         Assert.AreEqual("hello world", string.Concat(callback));
         Assert.AreEqual("hello world", string.Concat(events.Where(e => e.Type == StreamingContentType.Text).Select(e => e.Content)));
         Assert.AreEqual(1, events.Count(e => e.Type == StreamingContentType.Completion));
@@ -41,7 +41,7 @@ public class AIRunTests
         var callbackCount = 0;
         var service = new RunTestService { Chunks = Enumerable.Repeat("x", 1500).ToArray() };
         await using var run = await service.StartRunAsync("prompt", _ => callbackCount++);
-        Assert.AreEqual(1500, (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Length);
+        Assert.AreEqual(1500, (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text.Length);
         Assert.AreEqual(1500, callbackCount);
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CollectAsync(run));
         StringAssert.Contains(exception.Message, "1,024");
@@ -53,7 +53,7 @@ public class AIRunTests
     {
         var service = new RunTestService();
         await using var run = await service.StartRunAsync("prompt");
-        Assert.AreEqual("answer", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("answer", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         var events = await CollectAsync(run);
         Assert.AreEqual("answer", string.Concat(events.Where(e => e.Type == StreamingContentType.Text).Select(e => e.Content)));
         Assert.Throws<InvalidOperationException>(() => run.StreamAsync());
@@ -75,7 +75,7 @@ public class AIRunTests
         await reader.DisposeAsync();
         Assert.IsFalse(run.Result.IsCompleted);
         release.SetResult();
-        Assert.AreEqual("answer", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("answer", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
     }
 
     [TestMethod]
@@ -92,7 +92,7 @@ public class AIRunTests
         Assert.AreEqual("display failed", exception.Message);
         Assert.IsTrue(service.SessionDisposed);
         await using var next = await service.StartRunAsync("next");
-        Assert.AreEqual("answer", await next.Result);
+        Assert.AreEqual("answer", (await next.Result).Text);
     }
 
     [TestMethod]
@@ -107,7 +107,7 @@ public class AIRunTests
         Assert.IsTrue(service.SessionDisposed);
         service.BlockUntil = Task.CompletedTask;
         await using var next = await service.StartRunAsync("next");
-        Assert.AreEqual("answer", await next.Result);
+        Assert.AreEqual("answer", (await next.Result).Text);
     }
 
     [TestMethod]
@@ -135,7 +135,7 @@ public class AIRunTests
         await using var run = await service.StartRunAsync("prompt");
         Assert.IsFalse(run.CanSteer);
         await Assert.ThrowsAsync<NotSupportedException>(() => run.SteerAsync("new instruction"));
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
     }
 
     [TestMethod]
@@ -159,7 +159,7 @@ public class AIRunTests
         service.WithFunction("lookup", "lookup", () => { toolCalls++; return "tool answer"; });
         await using var run = await service.WithMaxRounds(2).StartRunAsync("prompt", options: StreamOptions.TextOnlyOptions);
         var events = await CollectAsync(run);
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
         Assert.AreEqual(1, toolCalls);
         Assert.AreEqual(2, service.RoundCount);
         Assert.IsTrue(service.ObservedUseFunctions);
@@ -189,7 +189,7 @@ public class AIRunTests
         policy.MaxRounds = 99;
         preparation.SetResult();
         await using var run = await starting;
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
         Assert.AreEqual(3, service.ObservedMaxRounds);
     }
 
@@ -205,7 +205,7 @@ public class AIRunTests
         Assert.AreEqual(0, service.RoundCount);
         service.PrepareUntil = Task.CompletedTask;
         await using var next = await service.StartRunAsync("next");
-        Assert.AreEqual("answer", await next.Result);
+        Assert.AreEqual("answer", (await next.Result).Text);
     }
 
     [TestMethod]
@@ -220,7 +220,7 @@ public class AIRunTests
         Assert.AreEqual(0, service.RoundCount);
         service.PrepareUntil = Task.CompletedTask;
         await using var next = await service.StartRunAsync("next");
-        Assert.AreEqual("answer", await next.Result);
+        Assert.AreEqual("answer", (await next.Result).Text);
     }
 
     [TestMethod]
@@ -238,7 +238,7 @@ public class AIRunTests
         service.OverrideStreamingCore = false;
         service.BlockUntil = Task.CompletedTask;
         await using var next = await service.StartRunAsync("next");
-        Assert.AreEqual("answer", await next.Result);
+        Assert.AreEqual("answer", (await next.Result).Text);
     }
 
     [TestMethod]
@@ -343,7 +343,7 @@ public class AIRunTests
     {
         IAIService service = new RunTestService();
         await using var run = await service.StartRunAsync("prompt");
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
     }
 
     private static TaskCompletionSource Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -464,9 +464,9 @@ public class AIRunTests
         public string SystemMessage { get; set; } = string.Empty;
         public bool StatelessMode { get; set; }
         public ChatBlock ActivateChat { get; } = new();
-        public Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null)
+        public Task<string> GetCompletionAsync(string prompt, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default)
             => Task.FromResult("legacy completion");
-        public Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null)
+        public Task<string> GetCompletionAsync(Message message, AIRequestProfile? profile = null, AIRequestContext? context = null, CancellationToken cancellationToken = default)
             => Task.FromResult("legacy completion");
         public IAsyncEnumerable<string> StreamAsync(string prompt, CancellationToken cancellationToken = default)
             => throw new NotSupportedException();

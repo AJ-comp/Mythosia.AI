@@ -154,19 +154,31 @@ namespace Mythosia.AI.Models
     }
 
     /// <summary>
-    /// Controls whether Claude returns a readable summary of its adaptive thinking.
-    /// Omitted keeps the provider default and Summarized requests summarized reasoning blocks.
+    /// Controls readable output from Claude adaptive thinking.
+    /// Omitted hides readable reasoning; Summarized requests summaries.
+    /// Updates requests supported user-facing progress updates without reasoning summaries.
     /// </summary>
     public enum ClaudeThinkingDisplay
     {
         Omitted,
-        Summarized
+        Summarized,
+        Updates
+    }
+
+    /// <summary>How supported Claude requests handle thinking blocks bound to a changed conversation prefix.</summary>
+    public enum ClaudeThinkingPrefixMismatchBehavior
+    {
+        /// <summary>Reject an invalid prefix instead of discarding prior thinking.</summary>
+        Error,
+        /// <summary>Let the provider discard invalid thinking and report the dropped blocks.</summary>
+        DropBlock
     }
 
     /// <summary>
     /// Reasoning effort for xAI Grok models.
     /// Auto omits the provider parameter. Grok 4.3 supports None through High;
-    /// Grok 4.5 supports Low through High and cannot disable reasoning.
+    /// Grok 4.5 supports Low through High; Grok 4.6 also supports XHigh.
+    /// Grok 4.5 and 4.6 cannot disable reasoning.
     /// </summary>
     public enum GrokReasoning
     {
@@ -174,6 +186,7 @@ namespace Mythosia.AI.Models
         None,
         Low,
         Medium,
-        High
+        High,
+        XHigh
     }
 }

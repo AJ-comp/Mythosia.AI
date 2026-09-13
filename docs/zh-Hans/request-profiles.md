@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
+
 ## 概述
 
 `AIRequestProfile` 可以**仅对单次请求**覆盖生成参数 — 温度、最大 Token 数、无状态模式、函数调用等。服务的全局设置不受影响。
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("改写这个查询：...",
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-全局设置不受影响。无需清理。线程安全。
+配置档只定义单次调用的覆盖值，不保证共享会话可安全并发使用。建议通过`service.CreateRequest(prompt).WithProfile(profile)`将其保存在独立请求中。现有配置档重载仍受支持。
 
 ## 可用属性
 

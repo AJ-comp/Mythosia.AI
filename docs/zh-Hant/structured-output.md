@@ -1,5 +1,7 @@
 # 結構化輸出
 
+只需完整答案和停止按鈕時，將 `cancellationToken` 傳給 `GetCompletionAsync`。進度事件或支援的中途追加指令使用 Run。參閱[取消回答](completions.md#completion-cancellation)。
+
 ## 為什麼需要結構化輸出？
 
 LLM 預設回傳自由格式文字。如果你的應用程式需要**以程式方式處理回應** — 存入資料庫、傳遞給另一個 API 或在型別化 UI 中呈現 — 你必須自己解析文字。
@@ -78,3 +80,5 @@ using Mythosia.AI.Models;
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+修復次數不包含首次回應。`StructuredOutputMaxRetries` 和 `MaxRepairAttempts` 將負數視為 0，最大允許值為 `int.MaxValue - 1`。為避免總嘗試次數溢位，`int.MaxValue` 會在向供應商發出請求之前觸發 `ArgumentOutOfRangeException`。此規則同時適用於具型別的完成呼叫和 `BeginStream(...).As<T>()`。

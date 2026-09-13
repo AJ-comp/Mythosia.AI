@@ -1,5 +1,12 @@
 # Agent (ReAct Loop)
 
+Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](execution-api-transition.md#run-result).
+
+
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
+> `CreateRequest` examples require Mythosia.AI 8.0.0 / Abstractions 4.0.0; they are not available in the earlier 7.1 release that introduced Run and common request features. Earlier packages can keep their existing service overloads.
+
 ## Why an Agent Loop?
 
 Regular function calling can execute **multiple functions from one model response as an ordered batch** and continue through tool rounds. The agent API packages that mechanism as a goal-oriented ReAct loop with an explicit **step limit**, returning each batch's results to the model until it produces a final answer:
@@ -16,12 +23,16 @@ Keep the handle returned by `StartRunAsync` to display or stop a task that uses 
 
 ```csharp
 // Register functions on service before starting the task.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Find the policy, check the order, and explain the outcome.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Find the policy, check the order, and explain the outcome.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Local tools can return objects from `Task<T>` / `ValueTask<T>` and accept an injected `CancellationToken`. `run.Cancel()` or the startup token reaches cooperative tools; stopping only a stream reader does not. Exceptions are failures; queued calls are skipped on cancellation, and cleanup still awaits started tools that ignore it. See [tool results, errors, and cancellation](function-calling.md#tool-execution-contract).
 
 ## Legacy agent compatibility
 

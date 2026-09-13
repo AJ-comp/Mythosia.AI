@@ -32,7 +32,7 @@ public class OpenAIRunWebSocketTests
 
         await using var run = await service.StartRunAsync("hello");
         Assert.IsTrue(run.CanSteer);
-        Assert.AreEqual("hello", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("hello", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(1, socket.Sent.Count);
         Assert.AreEqual(1, service.Connections);
     }
@@ -63,8 +63,80 @@ public class OpenAIRunWebSocketTests
         await using var run = await service.StartRunAsync("draft", text => { observed.Append(text); firstText.TrySetResult(); });
         await firstText.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await run.SteerAsync("revise").WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.AreEqual("before after", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
-        Assert.AreEqual(run.Result.Result, observed.ToString());
+        Assert.AreEqual("before after", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
+        Assert.AreEqual(run.Result.Result.Text, observed.ToString());
+        Assert.AreEqual(1, socket.Sent.Count(item => Kind(item) == "response.create"));
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task SteeredResult_AggregatesEachResponseUsageAndKeepsOnlyFinalResponseModel(bool finalModelReported)
+    {
+        using var socket = new ScriptedSocket();
+        var firstText = NewSignal();
+        socket.OnSend = payload =>
+        {
+            if (Kind(payload) == "response.create")
+            {
+                socket.Push(JsonSerializer.Serialize(new
+                {
+                    type = "response.created",
+                    response = new { id = "resp_1", model = "reported-first-model", status = "in_progress" }
+                }), Text("before "));
+                return;
+            }
+
+            Assert.AreEqual("response.steer", Kind(payload));
+            var successor = new Dictionary<string, object>
+            {
+                ["id"] = "resp_2",
+                ["status"] = "in_progress"
+            };
+            if (finalModelReported) successor["model"] = "reported-final-model";
+            socket.Push(
+                Accepted("resp_1", "steer_1"),
+                JsonSerializer.Serialize(new
+                {
+                    type = "response.incomplete",
+                    response = new
+                    {
+                        id = "resp_1", status = "incomplete",
+                        incomplete_details = new { reason = "steered" },
+                        usage = new { input_tokens = 10, output_tokens = 3, total_tokens = 13 },
+                        output = Array.Empty<object>()
+                    }
+                }),
+                JsonSerializer.Serialize(new { type = "response.created", response = successor }),
+                Text("after"),
+                JsonSerializer.Serialize(new
+                {
+                    type = "response.completed",
+                    response = new
+                    {
+                        id = "resp_2", status = "completed",
+                        usage = new { input_tokens = 20, output_tokens = 5, total_tokens = 25 },
+                        output = Array.Empty<object>()
+                    }
+                }));
+        };
+        var service = new SocketService(socket);
+        await using var run = await service.StartRunAsync("draft", _ => firstText.TrySetResult());
+        await firstText.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await run.SteerAsync("revise").WaitAsync(TimeSpan.FromSeconds(5));
+
+        var result = await run.Result.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.AreEqual("before after", result.Text);
+        Assert.AreEqual(2, result.RoundCount);
+        Assert.AreEqual(finalModelReported ? "reported-final-model" : null, result.Model);
+        Assert.AreEqual("gpt-6-astra", result.RequestedModel);
+        Assert.AreEqual("completed", result.RawFinishReason);
+        Assert.AreEqual(AIFinishReason.Stop, result.FinishReason);
+        Assert.IsNotNull(result.Usage);
+        Assert.AreEqual(30, result.Usage.InputTokens);
+        Assert.AreEqual(8, result.Usage.OutputTokens);
+        Assert.AreEqual(38, result.Usage.TotalTokens);
         Assert.AreEqual(1, socket.Sent.Count(item => Kind(item) == "response.create"));
     }
 
@@ -96,7 +168,7 @@ public class OpenAIRunWebSocketTests
         await run.SteerAsync("first change").WaitAsync(TimeSpan.FromSeconds(5));
         await secondText.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await run.SteerAsync("second change").WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.AreEqual("first second third", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("first second third", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(1, socket.Sent.Count(item => Kind(item) == "response.create"));
     }
 
@@ -149,7 +221,7 @@ public class OpenAIRunWebSocketTests
             Assert.IsFalse(run.Result.IsCompleted);
         }
         finally { release.TrySetResult(); }
-        Assert.AreEqual("finished", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("finished", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         await reading.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.AreEqual(1, calls);
         Assert.AreEqual(2, creates);
@@ -201,7 +273,7 @@ public class OpenAIRunWebSocketTests
             await run.SteerAsync("change answer").WaitAsync(TimeSpan.FromSeconds(5));
         }
         finally { release.TrySetResult(); }
-        Assert.AreEqual("waiting complete", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("waiting complete", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(1, calls);
         Assert.AreEqual(3, creates);
     }
@@ -272,7 +344,7 @@ public class OpenAIRunWebSocketTests
             Assert.IsFalse(release.Task.IsCompleted, "Resuming the model must not release or cancel the pending tool.");
         }
         finally { release.TrySetResult(); }
-        var resultText = await run.Result.WaitAsync(TimeSpan.FromSeconds(5));
+        var resultText = (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text;
         StringAssert.Contains(resultText, "resumed revised result");
         Assert.AreEqual(1, steers);
         Assert.AreEqual(1, calls);
@@ -301,7 +373,7 @@ public class OpenAIRunWebSocketTests
         await using var run = await service.StartRunAsync("draft", _ => ready.TrySetResult());
         await ready.Task.WaitAsync(TimeSpan.FromSeconds(5));
         await run.SteerAsync("revise").WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.AreEqual("draft revised", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("draft revised", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(0, calls, "Syntactically valid partial arguments must not make an unfinished call executable.");
         Assert.IsFalse(service.ActivateChat.Messages.Any(message => message.FunctionCallBatch != null));
     }
@@ -357,7 +429,7 @@ public class OpenAIRunWebSocketTests
             Assert.AreNotSame(createAfterSteer.Task, early, "An unrelated ready result must not start the continuation.");
         }
         finally { fast.TrySetResult(); slow.TrySetResult(); }
-        Assert.AreEqual("waiting done", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("waiting done", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(3, creates);
     }
 
@@ -391,7 +463,7 @@ public class OpenAIRunWebSocketTests
         Assert.IsFalse(secondSent.Task.IsCompleted);
         socket.Push(Accepted("resp_1", "steer_1"));
         await second.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.AreEqual("draft done", await run.Result.WaitAsync(TimeSpan.FromSeconds(5)));
+        Assert.AreEqual("draft done", (await run.Result.WaitAsync(TimeSpan.FromSeconds(5))).Text);
         Assert.AreEqual(2, steers);
     }
 

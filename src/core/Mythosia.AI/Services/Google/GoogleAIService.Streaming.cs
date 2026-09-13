@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Exceptions;
+using Mythosia.AI.Exceptions;
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
@@ -153,6 +153,7 @@ namespace Mythosia.AI.Services.Google
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             TokenUsage? lastUsage = null;
+            string? responseModel = null;
             var diagnostics = new StreamDiagnostics();
 
             await foreach (var line in ReadSseLinesAsync(response, diagnostics, cancellationToken))
@@ -171,6 +172,9 @@ namespace Mythosia.AI.Services.Google
                 try
                 {
                     using var document = JsonDocument.Parse(jsonData);
+                    if (document.RootElement.TryGetProperty("modelVersion", out var modelVersion) &&
+                        modelVersion.ValueKind == JsonValueKind.String)
+                        responseModel = modelVersion.GetString();
                     envelopeError = InspectGeminiStreamEnvelope(document.RootElement, streamState);
                     if (envelopeError == null)
                         parsedContents = ParseGeminiStreamChunk(jsonData, options, functionCalls);
@@ -242,12 +246,15 @@ namespace Mythosia.AI.Services.Google
                 yield break;
             }
 
-            if (!options.TextOnly)
+            // Terminal data is consumed by the shared loop regardless of observation options.
             {
                 var completionContent = new StreamingContent
                 {
                     Type = StreamingContentType.Completion,
-                    Usage = lastUsage
+                    Usage = lastUsage,
+                    ResponseModel = responseModel,
+                    RawFinishReason = streamState.FinishReason,
+                    FinishReason = MapFinishReason(streamState.FinishReason)
                 };
                 if (options.IncludeMetadata)
                 {

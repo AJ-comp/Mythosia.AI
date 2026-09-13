@@ -152,8 +152,8 @@ public abstract partial class AIServiceTestBase
                     "Completion InputTokens should equal the sum of per-round input tokens.");
                 Assert.AreEqual(roundUsageEvents.Sum(e => e.Usage!.OutputTokens), completionUsage.OutputTokens,
                     "Completion OutputTokens should equal the sum of per-round output tokens.");
-                Assert.AreEqual(completionUsage.InputTokens + completionUsage.OutputTokens, completionUsage.TotalTokens,
-                    "Completion TotalTokens should remain cumulative InputTokens + OutputTokens.");
+                Assert.AreEqual(roundUsageEvents.Sum(e => e.Usage!.TotalTokens), completionUsage.TotalTokens,
+                    "Completion TotalTokens should sum the provider-reported per-round totals.");
             },
             "Agent function-calling RoundUsage"
         );
@@ -161,8 +161,8 @@ public abstract partial class AIServiceTestBase
 
     /// <summary>
     /// Verifies the shared RoundUsage contract: sequential round indexes, non-null usage,
-    /// positive input tokens, non-negative output tokens, and TotalTokens normalized to
-    /// InputTokens + OutputTokens for each individual round.
+    /// positive input tokens, non-negative output tokens, and non-negative reported totals.
+    /// Per-round totals need not equal a potentially incomplete component breakdown.
     /// </summary>
     private static void AssertRoundUsageSequence(IReadOnlyList<StreamingContent> roundUsageEvents)
     {
@@ -179,8 +179,8 @@ public abstract partial class AIServiceTestBase
                 $"RoundUsage event {i + 1} InputTokens should be > 0, got {usage.InputTokens}.");
             Assert.IsTrue(usage.OutputTokens >= 0,
                 $"RoundUsage event {i + 1} OutputTokens should be >= 0, got {usage.OutputTokens}.");
-            Assert.AreEqual(usage.InputTokens + usage.OutputTokens, usage.TotalTokens,
-                $"RoundUsage event {i + 1} TotalTokens should be InputTokens + OutputTokens.");
+            Assert.IsTrue(usage.TotalTokens >= 0,
+                $"RoundUsage event {i + 1} TotalTokens should be non-negative.");
         }
     }
 }

@@ -1,5 +1,7 @@
 # Getting Started
 
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 ## Installation
 
 Install the core package:

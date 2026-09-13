@@ -39,7 +39,7 @@ public class RagRequestFeaturesTests
         var rag = service.WithRag(builder => builder.AddText("LOCAL_CONTEXT", id: "local").UseLocalEmbedding(64))
             .WithFileSearch(new FileSearchStore("OpenAI", "vs_test"));
         await using var run = await rag.StartRunAsync("Question?", streamOptions: StreamOptions.TextOnlyOptions);
-        Assert.AreEqual("answer", await run.Result);
+        Assert.AreEqual("answer", (await run.Result).Text);
         Assert.AreEqual("vs_test", service.Requests.Single().FileSearch!.Stores.Single().Id);
         Assert.AreEqual("source", run.Citations.Single().Title);
         Assert.AreEqual("original", service.ObservedMetadata!["feature_anchor"]);

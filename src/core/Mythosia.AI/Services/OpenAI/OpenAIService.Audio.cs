@@ -47,7 +47,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Transcribes audio to text using OpenAI's Whisper model
+        /// Transcribes a completed audio recording to text using OpenAI's GPT-Transcribe model.
         /// </summary>
         public async Task<string> TranscribeAudioAsync(byte[] audioData, string fileName, string? language = null)
         {
@@ -56,11 +56,12 @@ namespace Mythosia.AI.Services.OpenAI
             var audioContent = new ByteArrayContent(audioData);
             audioContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("audio/mpeg");
             form.Add(audioContent, "file", fileName);
-            form.Add(new StringContent("whisper-1"), "model");
+            form.Add(new StringContent("gpt-transcribe"), "model");
+            form.Add(new StringContent("json"), "response_format");
 
             if (!string.IsNullOrEmpty(language))
             {
-                form.Add(new StringContent(language), "language");
+                form.Add(new StringContent(language), "languages[]");
             }
 
             var request = new HttpRequestMessage(HttpMethod.Post, "audio/transcriptions")

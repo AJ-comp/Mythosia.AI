@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
+
+For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
+
 ## What Is It?
 
 `AIRequestContext` lets you modify **what the model sees** for a single request — inject extra instructions, add reference documents, or completely replace the user's message — without permanently changing the service's system message or conversation history.
@@ -52,7 +56,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Today's date: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Available Properties
@@ -269,7 +273,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-The existing `GetCompletionAsync` and `RunAgentAsync` signatures do not accept a cancellation token, so their context provider receives `CancellationToken.None`. For cancellable context loading, such as a long database query, use `StartRunAsync(..., cancellationToken: token)`. The token reaches the provider callback even when you only await `run.Result` without observing output. Existing `StreamAsync` and `RunAgentStreamAsync` calls also forward the caller's token.
+`GetCompletionAsync(..., cancellationToken: token)` and the legacy `RunAgentAsync` now forward caller cancellation to `SystemMessageProvider`, so a cooperative database or HTTP query can stop during context preparation. `StartRunAsync` and the existing input-taking streaming methods also forward their execution token. Cancelling only `run.StreamAsync(token)` stops observation and does not cancel the provider or execution.
 
 ### Merging with an explicit per-call context
 

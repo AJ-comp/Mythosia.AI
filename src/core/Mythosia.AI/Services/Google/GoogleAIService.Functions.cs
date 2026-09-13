@@ -1,4 +1,4 @@
-﻿using Mythosia.AI.Models;
+using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using System;
 using System.Collections.Generic;
@@ -25,9 +25,9 @@ namespace Mythosia.AI.Services.Google
 
         internal HttpRequestMessage CreateFunctionMessageRequest(bool includeThoughts)
         {
-            var endpoint = Stream
-                ? $"v1beta/models/{Model}:streamGenerateContent?alt=sse"
-                : $"v1beta/models/{Model}:generateContent";
+            var endpoint = RequestStream
+                ? $"v1beta/models/{RequestModel}:streamGenerateContent?alt=sse"
+                : $"v1beta/models/{RequestModel}:generateContent";
 
             var requestBody = BuildRequestBodyWithFunctions(includeThoughts);
             var content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
@@ -266,7 +266,7 @@ namespace Mythosia.AI.Services.Google
             {
                 new Dictionary<string, object>
                 {
-                    ["functionDeclarations"] = Functions.Select(f => new Dictionary<string, object>
+                    ["functionDeclarations"] = RequestFunctions.Select(f => new Dictionary<string, object>
                     {
                         ["name"] = f.Name,
                         ["description"] = f.Description,
@@ -282,7 +282,7 @@ namespace Mythosia.AI.Services.Google
                 }
             };
 
-            if (FunctionCallMode == FunctionCallMode.None)
+            if (RequestFunctionCallMode == FunctionCallMode.None)
             {
                 requestBody["toolConfig"] = new Dictionary<string, object>
                 {
@@ -290,14 +290,14 @@ namespace Mythosia.AI.Services.Google
                 };
             }
             else if (!IsFunctionContinuation() &&
-                     !string.IsNullOrWhiteSpace(ForceFunctionName))
+                     !string.IsNullOrWhiteSpace(RequestForceFunctionName))
             {
                 requestBody["toolConfig"] = new Dictionary<string, object>
                 {
                     ["functionCallingConfig"] = new Dictionary<string, object>
                     {
                         ["mode"] = "ANY",
-                        ["allowedFunctionNames"] = new[] { ForceFunctionName }
+                        ["allowedFunctionNames"] = new[] { RequestForceFunctionName }
                     }
                 };
             }

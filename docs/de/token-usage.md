@@ -2,6 +2,10 @@
 
 Die Token-Nutzung zeigt, wie viele Tokens eine Modellanfrage für Eingabe, Ausgabe, Cache und Reasoning verbraucht hat. In Mythosia.AI bekommst du diese Daten über `TokenUsage` auf Streaming-Events.
 
+Ein ausdrücklich gemeldeter Wert für `TotalTokens` bleibt auch bei unvollständiger Aufschlüsselung der Ein- und Ausgabetokens erhalten; die Rundensumme addiert diese gemeldeten Gesamtwerte.
+
+Tokenzähler bleiben `Int32`. Übersteigt die Summe mehrerer Runden `Int32.MaxValue`, schlägt der Stream oder Run mit `OverflowException` fehl, statt übergelaufene Werte zurückzugeben. Die Bereinigung wird abgeschlossen; auch bei einem Fehler in der abschließenden Aggregation bleibt `run.Result` nicht offen.
+
 Wichtig wird das vor allem, wenn eine Antwort nicht aus genau einem LLM-Aufruf besteht. Eine einfache Antwort hat meist nur einen Round. Ein Agent oder ein Function-Calling-Flow kann zuerst das Modell aufrufen, dann ein Tool ausführen und anschließend mit dem Tool-Ergebnis erneut das Modell aufrufen. Deshalb gibt es zwei Werte, die man sauber unterscheiden sollte.
 
 - `RoundUsage` beschreibt die Nutzung eines einzelnen LLM-Rounds.

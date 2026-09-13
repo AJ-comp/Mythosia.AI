@@ -3,8 +3,11 @@ using Mythosia.AI.Models.Enums;
 using Mythosia.AI.Providers.Alibaba;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
+using Mythosia.AI.Services.DeepSeek;
 using Mythosia.AI.Services.Google;
 using Mythosia.AI.Services.OpenAI;
+using Mythosia.AI.Services.Perplexity;
+using Mythosia.AI.Models.Perplexity;
 using Mythosia.AI.Services.xAI;
 
 namespace Mythosia.AI.Samples.ChatUi;
@@ -13,7 +16,43 @@ internal static class ChatUiSettingsHelpers
 {
     internal static void ApplyReasoningSettings(AIService service, SettingsRequest request)
     {
+        if (service is PerplexityService perplexity)
+        {
+            var options = perplexity.AgentOptions.Clone();
+            if (request.PerplexityPreset != null)
+            {
+                if (request.PerplexityPreset == "Model") options.Preset = null;
+                else if (Enum.TryParse<PerplexityPreset>(request.PerplexityPreset, out var preset) && Enum.IsDefined(preset)) options.Preset = preset;
+                else throw new ArgumentException("Unknown Perplexity research preset.");
+            }
+            if (request.PerplexityMaxSteps.HasValue)
+            {
+                if (request.PerplexityMaxSteps < 0 || request.PerplexityMaxSteps > 100) throw new ArgumentException("Research steps must be between 0 and 100.");
+                options.MaxSteps = request.PerplexityMaxSteps.Value;
+            }
+            if (request.PerplexityWebSearch.HasValue) options.DisableWebSearch = !request.PerplexityWebSearch.Value;
+            if (request.ReasoningEnabled == false) options.ReasoningEffort = ReasoningLevel.Auto;
+            else if (request.ReasoningEnabled == true && request.ReasoningLevel != null)
+            {
+                if (!Enum.TryParse<ReasoningLevel>(request.ReasoningLevel, out var effort) || !Enum.IsDefined(effort) || effort == ReasoningLevel.None)
+                    throw new ArgumentException("Unsupported Perplexity reasoning effort.");
+                if (options.Preset == null && service.Model == AIModels.Perplexity.Sonar && effort != ReasoningLevel.Auto)
+                    throw new ArgumentException("Sonar does not expose reasoning effort. Select a research preset or another Agent model.");
+                options.ReasoningEffort = effort;
+            }
+            perplexity.WithPerplexityOptions(options);
+            return;
+        }
         if (request.ReasoningEnabled == true &&
+            request.ReasoningType == "deepseek_thinking" &&
+            service is DeepSeekService deepSeekOn)
+        {
+            deepSeekOn.ThinkingEnabled = true;
+            if (Enum.TryParse<DeepSeekReasoning>(request.ReasoningLevel, out var effort) &&
+                Enum.IsDefined(effort))
+                deepSeekOn.ReasoningEffort = effort;
+        }
+        else if (request.ReasoningEnabled == true &&
             request.ReasoningType == "qwen_thinking" &&
             service is QwenService qwenOn)
         {
@@ -33,6 +72,22 @@ internal static class ChatUiSettingsHelpers
 
     internal static object? GetReasoningState(AIService service)
     {
+        if (service is PerplexityService perplexity)
+            return new { type = "perplexity", enabled = perplexity.AgentOptions.ReasoningEffort != ReasoningLevel.Auto,
+                effort = perplexity.AgentOptions.ReasoningEffort.ToString(), preset = perplexity.AgentOptions.Preset?.ToString() ?? "Model",
+                maxSteps = perplexity.AgentOptions.MaxSteps, webSearch = !perplexity.AgentOptions.DisableWebSearch };
+        if (service is DeepSeekService deepSeek)
+            return new { type = "deepseek_thinking", enabled = deepSeek.ThinkingEnabled,
+                effort = deepSeek.ReasoningEffort.ToString(), defaultEffort = "High" };
+
+        if (service is GoogleAIService gemini &&
+            gemini.Model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase))
+            return new { type = "gemini3", alwaysOn = true, effort = gemini.ThinkingLevel.ToString() };
+
+        if (service is XAIService grok &&
+            grok.Model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase))
+            return new { type = "grok_always", alwaysOn = true, effort = grok.ReasoningEffort.ToString(), defaultEffort = "High" };
+
         if (service is not OpenAIService gpt ||
             !gpt.Model.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase))
             return null;
@@ -181,7 +236,8 @@ internal static class ChatUiSettingsHelpers
         else if (service is XAIService grokOff)
         {
             var model = grokOff.Model ?? string.Empty;
-            if (model.Equals(AIModels.xAI.Grok4_5, StringComparison.OrdinalIgnoreCase) ||
+            if (model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase) ||
+                model.Equals(AIModels.xAI.Grok4_5, StringComparison.OrdinalIgnoreCase) ||
                 model.Equals(AIModels.xAI.Grok4_5Latest, StringComparison.OrdinalIgnoreCase) ||
                 model.Equals(AIModels.xAI.GrokBuildLatest, StringComparison.OrdinalIgnoreCase))
             {
@@ -204,7 +260,7 @@ internal static class ChatUiSettingsHelpers
             if (model.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase))
             {
                 geminiOff.ThinkingBudget = -1;
-                geminiOff.ThinkingLevel = model.Contains("-pro", StringComparison.OrdinalIgnoreCase)
+                geminiOff.ThinkingLevel = ChatUiModelHelpers.RequiresLowGeminiThinking(model)
                     ? GeminiThinkingLevel.Low
                     : GeminiThinkingLevel.Minimal;
             }
@@ -215,6 +271,10 @@ internal static class ChatUiSettingsHelpers
                     ? 128
                     : 0;
             }
+        }
+        else if (service is DeepSeekService deepSeekOff)
+        {
+            deepSeekOff.ThinkingEnabled = false;
         }
         else if (service is QwenService qwenOff)
         {

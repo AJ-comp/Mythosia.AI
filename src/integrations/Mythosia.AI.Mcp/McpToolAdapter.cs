@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Mythosia.AI.Models.Functions;
 
@@ -43,7 +44,7 @@ namespace Mythosia.AI.Mcp
                     Name = funcName,
                     Description = tool.Description ?? $"MCP tool: {tool.Name}",
                     Parameters = ConvertInputSchema(tool.InputSchema),
-                    Handler = CreateHandler(connection, tool.Name)
+                    HandlerWithCancellation = CreateHandler(connection, tool.Name)
                 };
 
                 definitions.Add(funcDef);
@@ -55,24 +56,10 @@ namespace Mythosia.AI.Mcp
         /// <summary>
         /// Creates an async handler that calls the MCP tool via the connection.
         /// </summary>
-        private static Func<Dictionary<string, object>, Task<string>> CreateHandler(
+        private static Func<Dictionary<string, object>, CancellationToken, Task<string>> CreateHandler(
             McpConnection connection, string toolName)
         {
-            return async (args) =>
-            {
-                try
-                {
-                    return await connection.CallToolAsync(toolName, args).ConfigureAwait(false);
-                }
-                catch (McpException ex)
-                {
-                    return $"Error: {ex.Message}";
-                }
-                catch (Exception ex)
-                {
-                    return $"Error calling MCP tool '{toolName}': {ex.Message}";
-                }
-            };
+            return (args, cancellationToken) => connection.CallToolAsync(toolName, args, cancellationToken);
         }
 
         /// <summary>

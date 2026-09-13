@@ -13,6 +13,9 @@ export const app = {
   statePollingTimer: null,
   modelReasoningInfo: null,
   modelSamplingInfo: null,
+  connectionRevision: 0,
+  controlsRevision: 0,
+  settingsPending: false,
   shouldAutoScroll: true,
   modalTargetProvider: null,
 };

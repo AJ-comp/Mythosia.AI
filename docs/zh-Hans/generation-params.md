@@ -1,6 +1,8 @@
 # 生成参数
 
-## 通用属性
+如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
+
+## 服务默认值和兼容方法
 
 所有 AI 服务实例都暴露以下属性：
 
@@ -115,3 +117,5 @@ string info = service.GetConversationSummary();
 var newService = new AnthropicService(apiKey, http);
 newService.CopyFrom(existingService);
 ```
+
+Perplexity: [控制研究和工具](perplexity.md).

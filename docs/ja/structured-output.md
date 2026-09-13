@@ -1,5 +1,7 @@
 # 構造化出力
 
+完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
+
 ## 構造化出力が必要な理由
 
 LLMはデフォルトで自由形式のテキストを返します。アプリケーションがレスポンスを**プログラム的に処理**する必要がある場合 — データベースへの保存、別のAPIへの受け渡し、型付きUIでのレンダリング — テキストを自分でパースする必要があります。これはモデルが表現を変えると壊れる脆弱な正規表現や`string.Contains`チェックにつながります。
@@ -103,3 +105,5 @@ service.WithStructuredOutputPolicy(StructuredOutputPolicy.Strict);
 // NoRetry: 修復を再試行せず、最初の検証エラーを返す
 service.WithStructuredOutputPolicy(StructuredOutputPolicy.NoRetry);
 ```
+
+修復回数に最初の応答は含まれません。`StructuredOutputMaxRetries` と `MaxRepairAttempts` は負の値を 0 として扱い、`int.MaxValue - 1` まで受け付けます。総試行回数のオーバーフローを防ぐため、`int.MaxValue` はプロバイダーへの要求前に `ArgumentOutOfRangeException` となります。型付き完了呼び出しと `BeginStream(...).As<T>()` の両方に適用されます。

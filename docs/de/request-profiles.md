@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 ## Was ist das?
 
 `AIRequestProfile` ermöglicht es, Generierungsparameter — Temperatur, maximale Tokens, statusloser Modus, Funktionsaufruf — **nur für eine einzelne Anfrage** zu überschreiben. Die globalen Einstellungen des Services bleiben unberührt.
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("Schreibe diese Anfrage um: ...
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-Die globalen Einstellungen des Services werden nie angefasst. Kein Aufräumen nötig. Thread-sicher.
+Ein Profil definiert Überschreibungen für einen Aufruf; es garantiert keine sichere gleichzeitige Nutzung eines gemeinsamen Gesprächs. Verwenden Sie vorzugsweise `service.CreateRequest(prompt).WithProfile(profile)`. Bestehende Profilüberladungen bleiben unterstützt.
 
 ## Verfügbare Eigenschaften
 

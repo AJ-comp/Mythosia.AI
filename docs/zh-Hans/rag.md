@@ -1,5 +1,9 @@
 # RAG（检索增强生成）
 
+只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](completions.md#completion-cancellation)。
+
+使用检索上下文回答时，也向 `RagEnabledService.GetCompletionAsync` 传入 `cancellationToken`。同一令牌贯穿检索、`LlmQueryRewriter`、`LlmReranker` 和内部完成调用；检索中取消会阻止后续模型调用。`RagPipeline.QueryAndGenerateAsync` 也传递令牌。各组件必须配合取消，已完成的检索或工具操作不会回滚。
+
 RAG 通过在查询时检索相关文本片段，让模型基于你自己的文档来回答问题。
 
 需要逐段显示基于检索结果的答案并允许停止生成时，可以使用 `RagEnabledService.StartRunAsync`。检索在 Run 之前执行，追加指令不会自动触发重新检索。示例和适用范围见 [Run 使用指南](execution-api-transition.md)。
@@ -108,3 +112,5 @@ var response = await service.GetCompletionAsync("你的问题", options: options
 - [智能体 RAG](rag-agentic.md) — AI 自行判断何时搜索什么
 - [向量存储](vectordb-overview.md) — 持久化存储配置
 - [文本分割器](text-splitters.md) — 自定义文档分割方式
+
+Perplexity: [为自有文档索引使用向量 / 仅搜索，不生成答案](perplexity.md).

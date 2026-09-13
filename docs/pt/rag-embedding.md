@@ -13,6 +13,14 @@ No pipeline RAG, o embedding acontece em dois pontos:
 
 ## Provedores de Embedding Integrados
 
+Escolha o provedor de embeddings conforme o idioma dos documentos, o ambiente de hospedagem e as necessidades de recuperação.
+
+### Perplexity
+
+Embeddings padrão tratam trechos de forma independente e implementam `IEmbeddingProvider`, encaixando-se no construtor RAG. Embeddings contextuais mantêm a ordem dos trechos e os grupos de documentos. Sua API separada evita achatar documentos sem relação em uma entrada única.
+
+[Perplexity Agent API, pesquisa e embeddings](perplexity.md).
+
 ### OpenAI Embedding
 
 A opção mais popular baseada em nuvem:
@@ -79,6 +87,8 @@ A propriedade `Dimensions` controla o tamanho de cada vetor de embedding. O vect
 | Provedor | Modelo | Dimensões Padrão |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 |
 | Local | (hashing de features) | 1024 |

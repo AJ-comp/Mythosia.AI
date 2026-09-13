@@ -13,6 +13,8 @@ En el RAG estándar, cada mensaje del usuario dispara exactamente **una** búsqu
 
 El RAG Agéntico resuelve todo esto. En lugar de un pipeline fijo de recuperar-y-responder, el **agente decide de forma autónoma** — cuándo buscar, qué buscar, si debe buscar de nuevo y cuándo llamar otras herramientas — todo dentro de un loop ReAct.
 
+`WithAgenticRag` transmite el token de cancelación a `RagStore.QueryAsync`, para que los componentes de búsqueda que lo usan puedan detenerse. Las excepciones de búsqueda se registran como resultados fallidos tras la traza de diagnóstico, no como texto de error considerado exitoso. Un run cancelado no continúa con otra ronda del modelo. Consulta [el contrato común de herramientas](function-calling.md#tool-execution-contract).
+
 ## Inicio Rápido
 
 Registra el `RagStore` como herramienta con `WithAgenticRag` y delega a `StartRunAsync(...)`:
@@ -29,7 +31,7 @@ var service = new AnthropicService(apiKey, http);
 service.WithAgenticRag(ragStore);
 
 await using var run = await service.WithMaxRounds(10).StartRunAsync("Resume la política de reembolso.");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 El agente llama a `search_documents` automáticamente cuando necesita contexto documental y sintetiza la respuesta final a partir de los fragmentos recuperados.
@@ -49,7 +51,7 @@ service.WithAgenticRag(ragStore)
 // El agente busca la política en documentos Y llama a la API para datos del pedido
 await using var run = await service.WithMaxRounds(10).StartRunAsync(
     "Pedido #12345 — ¿tengo derecho a reembolso según la política actual?");
-var answer = await run.Result;
+var answer = (await run.Result).Text;
 ```
 
 En este ejemplo, el agente de forma autónoma:

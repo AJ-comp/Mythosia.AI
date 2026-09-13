@@ -1,15 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>7.6.0</Version>
+    <Version>8.0.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>RAG (Retrieval Augmented Generation) orchestration for Mythosia.AI, with document loading, splitting, embeddings, hybrid search, reranking, metadata filters, and Agentic RAG tools. Adds Run execution with streaming, cancellation, and supported steering, plus request-scoped reasoning and hosted-search forwarding. Requires Mythosia.AI.Abstractions 3.1.0 and Mythosia.AI.Rag.Abstractions 6.2.0; does not depend on the full Mythosia.AI implementation.</Description>
-    <PackageTags>AI;RAG;AgenticRag;Pipeline;TextSplitter;Embedding;ContextBuilder;HybridSearch;BM25;Reranking;MetadataFilter;Observability;Run;Streaming;Reasoning;Search</PackageTags>
+    <Description>Ground AI answers in application-managed documents with loading, splitting, embeddings, hybrid retrieval, reranking and metadata filters. Provides RAG and Agentic RAG tools, streaming runs, cooperative cancellation and supported reasoning/search forwarding. Includes Perplexity standard embeddings and separate contextualized document-group APIs with explicit binary-vector results. Requires Mythosia.AI.Abstractions 4.0.0 and Mythosia.AI.Rag.Abstractions 6.2.0; no dependency on the full Mythosia.AI implementation.</Description>
+    <PackageTags>AI;RAG;AgenticRag;TextSplitter;Embedding;HybridSearch;BM25;Reranking;MetadataFilter;Run;Streaming;Reasoning;Perplexity;ContextualizedEmbedding;BinaryEmbedding;Cancellation</PackageTags>
     <PackageProjectUrl>https://aj-comp.github.io/Mythosia.AI/docs/rag.html</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -17,7 +17,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v7.6.0 adds RagEnabledService.StartRunAsync with one retrieval pass, streaming, cancellation, and supported steering; forwards request-scoped reasoning and hosted search to the final answer; and fixes all-duplicate source lists being embedded again. Existing completion and streaming APIs remain available. Requires Mythosia.AI.Abstractions 3.1.0 and Mythosia.AI.Rag.Abstractions 6.2.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760</PackageReleaseNotes>
+    <PackageReleaseNotes>v8.0.0 aligns RAG with Mythosia.AI.Abstractions 4.0.0 while retaining the independent retrieval architecture and Mythosia.AI.Rag.Abstractions 6.2.0 contract. Completion propagates CancellationToken through retrieval, rewriting and the inner service; Agentic RAG forwards the tool token into retrieval and reports search failures as failed tool results. RAG runs expose AIRunResult: use (await run.Result).Text for the answer or inspect the inner model usage, citations, model, rounds and finish details without a stream reader. Retrieval/embedding usage is separate. Rebuild callers for the changed completion/Run contracts; ordinary RAG completion remains a string API. Adds Perplexity standard 0.6B/4B embeddings, contextualized document-group APIs and explicit packed binary vectors. Use Mythosia.AI 8.0.0 for its new provider controls when choosing the inner service. Migration: https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

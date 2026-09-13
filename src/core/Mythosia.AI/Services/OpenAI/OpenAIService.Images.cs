@@ -29,15 +29,17 @@ namespace Mythosia.AI.Services.OpenAI
             ValidateGenerationRequest(request);
 
             var model = ResolveImageModel(request.Model);
+            ValidateOpenAIImageOptions(request, model);
+            var outputFormat = ToOpenAIImageFormat(request.OutputFormat);
             var requestBody = new Dictionary<string, object>
             {
                 ["model"] = model,
                 ["prompt"] = request.Prompt,
                 ["n"] = request.Count,
-                ["size"] = request.Size,
-                ["quality"] = request.Quality,
-                ["output_format"] = request.OutputFormat,
-                ["background"] = request.Background
+                ["size"] = ToOpenAIImageSize(request.Size),
+                ["quality"] = ToOpenAIImageQuality(request.Quality),
+                ["output_format"] = outputFormat,
+                ["background"] = ToOpenAIImageBackground(request.Background)
             };
 
             if (request.OutputCompression.HasValue)
@@ -54,7 +56,7 @@ namespace Mythosia.AI.Services.OpenAI
             var responseContent = await response.Content.ReadAsStringAsync();
 
             EnsureImageRequestSucceeded(response, responseContent, "generation");
-            return ParseImageResponse(response, responseContent, model, request.OutputFormat);
+            return ParseImageResponse(response, responseContent, model, outputFormat);
         }
 
         /// <inheritdoc />
@@ -65,15 +67,18 @@ namespace Mythosia.AI.Services.OpenAI
             ValidateEditRequest(request);
 
             var model = ResolveImageModel(request.Model);
+            ValidateOpenAIImageOptions(request, model);
+            ValidateImage25Inputs(request, model);
+            var outputFormat = ToOpenAIImageFormat(request.OutputFormat);
             using var form = new MultipartFormDataContent();
 
             AddFormField(form, "model", model);
             AddFormField(form, "prompt", request.Prompt);
             AddFormField(form, "n", request.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            AddFormField(form, "size", request.Size);
-            AddFormField(form, "quality", request.Quality);
-            AddFormField(form, "output_format", request.OutputFormat);
-            AddFormField(form, "background", request.Background);
+            AddFormField(form, "size", ToOpenAIImageSize(request.Size));
+            AddFormField(form, "quality", ToOpenAIImageQuality(request.Quality));
+            AddFormField(form, "output_format", outputFormat);
+            AddFormField(form, "background", ToOpenAIImageBackground(request.Background));
 
             if (request.OutputCompression.HasValue)
             {
@@ -98,7 +103,7 @@ namespace Mythosia.AI.Services.OpenAI
             var responseContent = await response.Content.ReadAsStringAsync();
 
             EnsureImageRequestSucceeded(response, responseContent, "editing");
-            return ParseImageResponse(response, responseContent, model, request.OutputFormat);
+            return ParseImageResponse(response, responseContent, model, outputFormat);
         }
 
         private HttpRequestMessage CreateImageRequest(HttpMethod method, string path, HttpContent content)
@@ -157,7 +162,9 @@ namespace Mythosia.AI.Services.OpenAI
             ImageInput image,
             string fieldName)
         {
-            var imageContent = new ByteArrayContent(image.Data);
+            // Multipart content may be read after this method returns. Own the bytes just as
+            // the JSON image adapters own their already encoded input strings before sending.
+            var imageContent = new ByteArrayContent((byte[])image.Data.Clone());
             imageContent.Headers.ContentType = new MediaTypeHeaderValue(image.MediaType);
             form.Add(imageContent, fieldName, image.FileName);
         }
@@ -183,6 +190,16 @@ namespace Mythosia.AI.Services.OpenAI
             {
                 throw new ArgumentOutOfRangeException(nameof(request), "Image count must be at least one.");
             }
+
+            if (request.Size == null) throw new ArgumentNullException(nameof(request.Size));
+            if (request.Size.Kind == ImageSizeKind.Preset)
+                throw new NotSupportedException("OpenAI image requests require ImageSize.Auto or ImageSize.Pixels; resolution presets are not supported.");
+            if (!Enum.IsDefined(typeof(ImageQuality), request.Quality))
+                throw new ArgumentOutOfRangeException(nameof(request.Quality));
+            if (!Enum.IsDefined(typeof(ImageOutputFormat), request.OutputFormat))
+                throw new ArgumentOutOfRangeException(nameof(request.OutputFormat));
+            if (!Enum.IsDefined(typeof(ImageBackground), request.Background))
+                throw new ArgumentOutOfRangeException(nameof(request.Background));
         }
 
         private static void ValidateEditRequest(ImageEditRequest request)

@@ -12,7 +12,7 @@ import {
 } from './state.js';
 import { openKeyModal } from './apikey-modal.js';
 import { openAlibabaSettingsModal } from './alibaba-settings.js';
-import { updateReasoningUI, updateSamplingUI } from './settings.js';
+import { updateReasoningUI, updateSamplingUI, updateModelControls } from './settings.js';
 import { startStatePolling, stopStatePolling, refreshState } from './state-panel.js';
 import { refreshFunctions } from './functions-panel.js';
 
@@ -115,6 +115,12 @@ function onModelSelect(modelName, provider, desc, reasoning, maxOutputTokens, sa
   }
 
   if (!providerKeys[provider]) return;
+  const connectionRevision = app.connectionRevision = (app.connectionRevision || 0) + 1;
+  app.controlsRevision = (app.controlsRevision || 0) + 1;
+  app.settingsPending = false;
+  app.isConnected = false;
+  disableChatInput();
+  stopStatePolling();
 
   $$('.model-item.selected').forEach(el => el.classList.remove('selected'));
 
@@ -124,16 +130,20 @@ function onModelSelect(modelName, provider, desc, reasoning, maxOutputTokens, sa
   app.modelSamplingInfo = sampling || null;
   updateReasoningUI();
   updateSamplingUI();
-  if (maxOutputTokens) setMaxTokens.value = maxOutputTokens;
+  // Unknown model limits use an editable initial budget, not an advertised maximum.
+  setMaxTokens.value = maxOutputTokens || 4096;
   const btn = document.querySelector(`.model-item[data-model="${modelName}"]`);
   if (btn) btn.classList.add('selected');
 
   chatStatus.textContent = `Connecting to ${desc}...`;
   chatStatus.classList.remove('connected');
-  connectToModel(modelName, provider, desc);
+  connectToModel(modelName, provider, desc, connectionRevision);
 }
 
 export function deselectModel() {
+  app.connectionRevision = (app.connectionRevision || 0) + 1;
+  app.controlsRevision = (app.controlsRevision || 0) + 1;
+  app.settingsPending = false;
   app.selectedModel = null;
   app.selectedProvider = null;
   app.modelReasoningInfo = null;
@@ -152,7 +162,7 @@ export function deselectModel() {
 // ── Connect to model ─────────────────────────────────────────
 import { setSystem } from './dom.js';
 
-async function connectToModel(modelName, provider, desc) {
+async function connectToModel(modelName, provider, desc, connectionRevision) {
   const apiKey = providerKeys[provider];
   if (!modelName || !apiKey) return;
 
@@ -180,7 +190,11 @@ async function connectToModel(modelName, provider, desc) {
     });
 
     const data = await res.json();
+    if (app.connectionRevision !== connectionRevision) return;
+    if (app.selectedModel !== modelName || app.selectedProvider !== provider) return;
     if (!res.ok) throw new Error(data.error);
+
+    updateModelControls(data.controls);
 
     app.isConnected = true;
 
@@ -197,6 +211,7 @@ async function connectToModel(modelName, provider, desc) {
     refreshState();
     refreshFunctions();
   } catch (e) {
+    if (app.connectionRevision !== connectionRevision) return;
     chatStatus.textContent = `Error: ${e.message}`;
     chatStatus.classList.remove('connected');
     app.isConnected = false;

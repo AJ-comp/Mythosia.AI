@@ -25,14 +25,14 @@ namespace Mythosia.AI.Services.xAI
                 return chunk;
             }
 
+            if (root.TryGetProperty("model", out var model))
+                chunk.Model = model.GetString();
+
             if (options.IncludeMetadata)
             {
                 chunk.Metadata = new Dictionary<string, object>();
-                if (root.TryGetProperty("model", out var m))
-                {
-                    chunk.Model = m.GetString();
-                    chunk.Metadata["model"] = chunk.Model!;
-                }
+                if (chunk.Model != null)
+                    chunk.Metadata["model"] = chunk.Model;
             }
 
             if (root.TryGetProperty("usage", out var usage))
@@ -79,7 +79,7 @@ namespace Mythosia.AI.Services.xAI
             }
 
             // Reasoning summaries emitted by supported xAI Chat Completions models,
-            // including Grok 4.5, arrive as reasoning_content deltas.
+            // including Grok 4.5 and 4.6, arrive as reasoning_content deltas.
             if (delta.TryGetProperty("reasoning_content", out var reasoningElem) &&
                 reasoningElem.ValueKind == JsonValueKind.String)
             {

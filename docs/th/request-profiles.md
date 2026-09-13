@@ -1,5 +1,7 @@
 # AIRequestProfile
 
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 ## คืออะไร?
 
 `AIRequestProfile` ให้คุณ override พารามิเตอร์การสร้าง — temperature, max token, stateless mode, function calling — **เฉพาะสำหรับ request เดียวเท่านั้น** การตั้งค่าทั่วไปของ service ไม่ถูกแตะต้อง
@@ -45,7 +47,7 @@ var rewritten = await service.GetCompletionAsync("เขียน query นี�
     new AIRequestProfile { Temperature = 0.1f, MaxTokens = 256, Stateless = true });
 ```
 
-การตั้งค่าทั่วไปของ service ไม่ถูกแตะ ไม่ต้อง cleanup และ thread-safe
+Profile กำหนดค่าของการเรียกหนึ่งครั้ง ไม่ได้ทำให้บทสนทนาที่ใช้ร่วมกันปลอดภัยต่อการเรียกพร้อมกัน แนะนำ `service.CreateRequest(prompt).WithProfile(profile)` ส่วน overload เดิมยังรองรับ
 
 ## Properties ที่ใช้ได้
 

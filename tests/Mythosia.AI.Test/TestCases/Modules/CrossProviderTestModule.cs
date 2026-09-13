@@ -97,7 +97,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
     }
 
     [TestCategory("CrossProvider"), TestMethod]
-    public async Task ToOpenAIo3()
+    public async Task ToOpenAIGpt5_6Sol()
     {
         await RunIfSupported(() => SupportsFunctionCalling(), async () =>
         {
@@ -116,7 +116,7 @@ public abstract class CrossProviderTestModule : TestModuleBase
             var secretFetcher = new SecretFetcher("https://mythosia-key-vault.vault.azure.net/", "momedit-openai-secret");
             string openAiKey = await secretFetcher.GetKeyValueAsync();
             var chatGptService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
-            chatGptService.ChangeModel(AIModels.OpenAI.O3);
+            chatGptService.ChangeModel(AIModels.OpenAI.Gpt5_6Sol);
             Assert.AreEqual(messageCountBefore, chatGptService.ActivateChat.Messages.Count);
 
             try
@@ -209,9 +209,9 @@ public abstract class CrossProviderTestModule : TestModuleBase
             try { var r = await gptLegacyService.GetCompletionAsync("What did you tell me about the time?"); Console.WriteLine($"[Phase 3 GPT Legacy] {r}"); }
             catch (Exception ex) { Console.WriteLine($"ChatGPT Legacy FAILED: {ex.Message}"); failures.Add($"ChatGPT Legacy: {ex.Message}"); }
 
-            Console.WriteLine($"\n========== [Phase 4] Switch to ChatGPT New API with Functions DISABLED ==========");
+            Console.WriteLine($"\n========== [Phase 4] Switch to ChatGPT New API (gpt-5.6-terra) with Functions DISABLED ==========");
             var gptNewService = new OpenAIService(openAiKey, new HttpClient()).CopyFrom(AI);
-            gptNewService.ChangeModel(AIModels.OpenAI.Gpt5Mini);
+            gptNewService.ChangeModel(AIModels.OpenAI.Gpt5_6Terra);
             gptNewService.FunctionsDisabled = true;
             try { var r = await gptNewService.GetCompletionAsync("What did you tell me about the time?"); Console.WriteLine($"[Phase 4 GPT New API] {r}"); }
             catch (Exception ex) { Console.WriteLine($"ChatGPT New API FAILED: {ex.Message}"); failures.Add($"ChatGPT New API: {ex.Message}"); }

@@ -1,6 +1,12 @@
 # Reasoning-Aufwand wählen und mit Quellen antworten
 
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 > Diese APIs benötigen `Mythosia.AI` ab 7.1.0, einschließlich `Mythosia.AI.Abstractions` ab 3.1.0. RAG-Beispiele benötigen `Mythosia.AI.Rag` ab 7.6.0.
+
+> Die `CreateRequest`-Beispiele benötigen die aktuelle Arbeitsversion. Die frühere Version 7.1 mit Run und gemeinsamen Anfrageoptionen enthält den Builder noch nicht. Ältere Pakete können ihre bisherigen Service-Überladungen verwenden.
+
+[Claude Fable 5.1](fable-5-1.md) bietet ab `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 Fortschrittsmeldungen, Anweisungen für einzelne Gesprächsrunden und Thinking-Binding-Diagnosen. Mythos 5.1 erfordert eine Einladung. Beide lehnen erzwungene Tool-Auswahl ab.
 
 ## Warum diese Optionen verwenden?
 
@@ -23,13 +29,17 @@ Für eine Gliederung können Sie weniger Reasoning einsetzen und anschließend i
 
 ```csharp
 string outline = await service
+    .CreateRequest("Skizziere den Migrationsplan.")
     .WithReasoning(ReasoningLevel.Low)
-    .GetCompletionAsync("Skizziere den Migrationsplan.");
+    .GetCompletionAsync();
 
 string review = await service
+    .CreateRequest("Prüfe den Plan auf Fehlerszenarien und Wiederherstellungsschritte.")
     .WithReasoning(ReasoningLevel.High)
-    .GetCompletionAsync("Prüfe den Plan auf Fehlerszenarien und Wiederherstellungsschritte.");
+    .GetCompletionAsync();
 ```
+
+Gemini 3.7/3.8 Flash akzeptieren `Low`, `Medium` und `High` über `WithReasoning`; `Minimal`, `None` und `CachePreservation.Required` werden nicht unterstützt. Completion, Streaming, Run, Tool-Aufrufe und native Suche nutzen die bestehenden Pfade samt Googles Kombinationsgrenzen. Siehe das [Google-Konfigurationsbeispiel](providers.md#google-googleaiservice).
 
 `ReasoningLevel` bezeichnet einen gewünschten Aufwand, kein festes Token-Budget und keine Qualitätsgarantie. Jedes Modell unterstützt eine eigene Teilmenge. `Auto` behält das konfigurierte beziehungsweise standardmäßige Verhalten des Anbieters bei; nicht unterstützte Werte werden dadurch nicht automatisch ersetzt. Für Modelle mit Token-Budgets statt benannter Stufen bleiben die anbieterspezifischen Budget-Eigenschaften verfügbar.
 
@@ -37,8 +47,9 @@ In langen Gesprächen kann eine Änderung des übergeordneten Effort-Werts einen
 
 ```csharp
 string review = await service
+    .CreateRequest("Prüfe die Annahmen der vorherigen Antwort erneut.")
     .WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)
-    .GetCompletionAsync("Prüfe die Annahmen der vorherigen Antwort erneut.");
+    .GetCompletionAsync();
 ```
 
 `Required` legt fest, wie die Änderung übertragen wird. Es garantiert **keinen** Cache-Treffer, kostenlose Tokens oder geringere Latenz: Eignung, Aufbewahrung und Preise des Anbieter-Caches gelten weiterhin. Nicht unterstützte Modelle lösen vor dem Senden `NotSupportedException` aus. Verwenden Sie dasselbe nachverfolgte Gespräch, Modell und denselben Endpunkt; kürzen oder sortieren Sie ein Gespräch mit solchen Änderungen nicht um. Beginnen Sie ein neues Gespräch, wenn sich diese Bedingungen ändern. Automatische Komprimierung wird blockiert, solange der erhaltene Präfix erforderlich ist.
@@ -51,8 +62,9 @@ Aktivieren Sie die native Websuche, wenn die Antwort Informationen außerhalb de
 
 ```csharp
 string answer = await service
+    .CreateRequest("Suche die neueste Release-Ankündigung und nenne die Quelle.")
     .WithWebSearch()
-    .GetCompletionAsync("Suche die neueste Release-Ankündigung und nenne die Quelle.");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.Url}");
@@ -70,8 +82,9 @@ Wenn Ihre Anwendung bereits einen Dokumentindex beim Anbieter führt, können Si
 var documents = new FileSearchStore("OpenAI", "vs_your_existing_store");
 
 string answer = await service
+    .CreateRequest("Durchsuche unsere Richtliniendokumente. Welche Kündigungsfrist gilt?")
     .WithFileSearch(documents)
-    .GetCompletionAsync("Durchsuche unsere Richtliniendokumente. Welche Kündigungsfrist gilt?");
+    .GetCompletionAsync();
 
 foreach (AICitation source in service.GetLastCitations())
     Console.WriteLine($"{source.Title}: {source.FileId ?? source.Url}");
@@ -79,7 +92,7 @@ foreach (AICitation source in service.GetLastCitations())
 
 Verwenden Sie für Google `new FileSearchStore("Google", "fileSearchStores/your-existing-store")` mit einem Google-Service. Speicher gehören zu ihrem Anbieter, Konto und Deployment; eine OpenAI-Speicher-ID kann nicht an Google übergeben werden. Erstellen Sie den Speicher und laden beziehungsweise indexieren Sie seine Dokumente vorab über die API oder Konsole des Anbieters. Diese API durchsucht nur vorhandene Speicher und lädt keine lokalen Dateien hoch.
 
-Gehostete Dateisuche und die [RAG-Pipeline](rag.md) der Bibliothek passen zu unterschiedlichen Ausgangslagen. Wählen Sie die gehostete Suche, wenn der Anbieter Ihren Index bereits verwaltet. Wählen Sie RAG, wenn Ihre Anwendung Loader, Aufteilung, Embeddings, Retrieval oder Vektorspeicher kontrollieren muss. `RagEnabledService` reicht auch `WithReasoning`, `WithWebSearch` und `WithFileSearch` an die abschließende Antwort weiter; seine interne Query-Umschreibung erbt diese Optionen nicht. RAG-Retrieval-Referenzen bleiben auf `RagProcessedQuery`, getrennt von den `AICitation`-Quellen des Anbieters.
+`CreateRequest(...).With...` speichert Optionen in einem unabhängigen Builder. Bei Wiederverwendung gelten sie für jede Ausführung und deren Tool-Runden. Die bisherigen `service.WithReasoning`, `service.WithWebSearch` und `service.WithFileSearch` liefern weiterhin den konkreten Servicetyp und verbrauchen Optionen beim nächsten logischen Request. Sie bleiben für `IAIRequestFeatureService` und RAG-Wrapper verfügbar. Keine Variante garantiert gleichzeitige Ausführungen auf einem Service.
 
 ## Fortschritt anzeigen und Quellen behalten
 
@@ -87,14 +100,14 @@ Verwenden Sie dieselben Optionen vor `StartRunAsync`. Der Text-Callback kann die
 
 ```csharp
 await using var run = await service
+    .CreateRequest("Suche die aktuellen Ankündigungen und vergleiche die Änderungen.")
     .WithReasoning(ReasoningLevel.High)
     .WithWebSearch()
     .StartRunAsync(
-        "Suche die aktuellen Ankündigungen und vergleiche die Änderungen.",
         onText: text => Console.Write(text),
         cancellationToken: cancellationToken);
 
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 foreach (AICitation source in run.Citations)
     Console.WriteLine($"{source.Title}: {source.Url ?? source.FileId}");
 ```
@@ -104,8 +117,10 @@ foreach (AICitation source in run.Citations)
 Um Quellenereignisse beim Eintreffen zu verarbeiten, verwenden Sie einen einzelnen Ereignisleser:
 
 ```csharp
-await using var run = await service.WithWebSearch().StartRunAsync(
-    "Suche und erkläre die neuesten Änderungen.", cancellationToken: cancellationToken);
+await using var run = await service
+    .CreateRequest("Suche und erkläre die neuesten Änderungen.")
+    .WithWebSearch()
+    .StartRunAsync(cancellationToken: cancellationToken);
 
 await foreach (var item in run.StreamAsync())
 {
@@ -114,10 +129,10 @@ await foreach (var item in run.StreamAsync())
     else if (item.Type == StreamingContentType.Citation && item.Citation is AICitation source)
         Console.WriteLine($"\nQuelle: {source.Title} {source.Url ?? source.FileId}");
 }
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
-Quellenfelder können `null` sein, wenn der Anbieter keinen Wert liefert. `ResponseId`, `OutputIndex` und `ContentIndex` kennzeichnen die ursprüngliche Antwort und deren Inhaltsteil. `StartIndex` und `EndIndex` behalten die lokalen Offsets und die Indexkonvention des Anbieters bei; sie sind **keine** Offsets im zusammengefügten `run.Result`. Platzieren Sie Quellen deshalb nicht durch ungeprüftes Indizieren der gesamten Antwort mit diesen Werten.
+Quellenfelder können `null` sein, wenn der Anbieter keinen Wert liefert. `ResponseId`, `OutputIndex` und `ContentIndex` kennzeichnen die ursprüngliche Antwort und deren Inhaltsteil. `StartIndex` und `EndIndex` behalten die lokalen Offsets und die Indexkonvention des Anbieters bei; sie sind **keine** Offsets im zusammengefügten `(await run.Result).Text`. Platzieren Sie Quellen deshalb nicht durch ungeprüftes Indizieren der gesamten Antwort mit diesen Werten.
 
 ## Anbieterunterstützung und Anfrageumfang prüfen
 
@@ -126,12 +141,19 @@ Quellenfelder können `null` sein, wenn der Anbieter keinen Wert liefert. `Respo
 | OpenAI | Unterstützte Reasoning-Modelle; Stufen sind modellabhängig | GPT-6 Astra Standard im Einzelagentenmodus | Unterstützte Responses-Modelle | Unterstützte Responses-Modelle, vorhandene Vektorspeicher |
 | Anthropic | Modelle mit nativer Effort-Steuerung | Unterstützte Opus 5 / Fable 5.1 / Mythos 5.1 mit Anbieter-Beta | Unterstützte Claude-Modelle | Kein nativer Speicheradapter; RAG verwenden |
 | Google | Gemini-3-Stufen; Gemini 2.5 behält anbieterspezifische Budgets | Nicht unterstützt | Unterstützte Gemini-Textmodelle | Unterstützte Gemini-Textmodelle, vorhandene Dateisuchspeicher |
+| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
+| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; Zuordnung zu nativem Low/High/Max | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
+| Perplexity | `Auto` oder modellabhängig `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`; kein expliziter Effort für Sonar | Nicht unterstützt | Agent `web_search` | Kein gemeinsamer Adapter |
 | Andere Services | Bestehende anbieterspezifische Einstellungen bleiben verfügbar; gemeinsame Optionen benötigen einen Adapter | Von diesen Adaptern nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
 
-Modell, Stufe, Transport und Kombinationen werden vor dem Senden geprüft. Insbesondere lassen sich **Google-Websuche und Dateisuche nicht in einer Anfrage kombinieren**. Die Bibliothek entfernt keine Funktion stillschweigend, reduziert keine Aufwandsstufe, ignoriert keine Domain-Einschränkung und wechselt nicht zu einem externen Suchdienst. Native Werkzeuge können bei entsprechender Unterstützung mit registrierten Client-Funktionen zusammenarbeiten; Werkzeugrunden folgen weiterhin der Funktionsrichtlinie und `WithMaxRounds`.
+Der Adapter prüft vor dem Senden die lokal bekannten Einschränkungen für Modell, Stufe, Transport und Kombinationen; weitere modellspezifische Regeln prüft der Anbieter. Insbesondere lassen sich **Google-Websuche und Dateisuche nicht in einer Anfrage kombinieren**. Die Bibliothek entfernt keine Funktion stillschweigend, reduziert keine Aufwandsstufe, ignoriert keine Domain-Einschränkung und wechselt nicht zu einem externen Suchdienst. Native Werkzeuge können bei entsprechender Unterstützung mit registrierten Client-Funktionen zusammenarbeiten; Werkzeugrunden folgen weiterhin der Funktionsrichtlinie und `WithMaxRounds`.
 
-Fluent-Methoden behalten den konkreten Service-Typ bei und kopieren ihre Eingabeoptionen. Nicht-null-Komponenten werden für die nächste logische Anfrage zusammengeführt, einschließlich ihrer Werkzeugrunden und Reparaturaufrufe für strukturierte Ausgaben, und danach verbraucht. Für spätere unabhängige Aufrufe bleibt die Suche nicht aktiv; setzen Sie bei Bedarf erneut `WithWebSearch` oder `WithFileSearch`. Ein gestarteter Run behält seine erfassten Einstellungen. Wie bei anderer veränderlicher Service-Konfiguration dürfen Sie während einer laufenden Anfrage weder Einstellungen ändern noch überlappende Anfragen auf demselben Service starten.
+`CreateRequest(...).With...` speichert Optionen in einem unabhängigen Builder. Bei Wiederverwendung gelten sie für jede Ausführung und deren Tool-Runden. Die bisherigen `service.WithReasoning`, `service.WithWebSearch` und `service.WithFileSearch` liefern weiterhin den konkreten Servicetyp und verbrauchen Optionen beim nächsten logischen Request. Sie bleiben für `IAIRequestFeatureService` und RAG-Wrapper verfügbar. Keine Variante garantiert gleichzeitige Ausführungen auf einem Service.
 
 Eigene Implementierungen von `IAIService` bleiben kompatibel. Sie unterstützen diese Funktionen optional über `IAIRequestFeatureService`; auf Implementierungen ohne diese Fähigkeit schlagen die Hilfsmethoden ausdrücklich fehl. Bestehende Completion-, Streaming- und anbieterspezifische Konfigurations-APIs bleiben verfügbar. Hinweise zu Abbruch, Beobachtung und Steering finden Sie unter [Run-Steuerung](execution-api-transition.md).
 
 Anbieterprotokolle: [OpenAI-Reasoning-Änderungen](https://developers.openai.com/api/docs/guides/reasoning#change-reasoning-mid-conversation), [OpenAI-Werkzeuge](https://developers.openai.com/api/docs/guides/tools), [Anthropic-Effort-Änderungen](https://platform.claude.com/docs/en/build-with-claude/effort#change-effort-mid-conversation), [Anthropic-Websuche](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool), [Quellenbindung mit Google Search](https://ai.google.dev/gemini-api/docs/google-search), [Google-Dateisuche](https://ai.google.dev/gemini-api/docs/file-search).
+
+Bei Perplexity bestimmt das tatsächlich ausgewählte Modell die unterstützten Effort-Stufen; der Server kann unvereinbare Kombinationen ablehnen. `None` wird nicht unterstützt. Standardsuche und Preset-/Profilwerkzeuge sind dauerhafte Anbietereinstellungen und werden durch gemeinsame Anfrageoptionen nicht ausgeschaltet.
+
+Perplexity: [Perplexity Agent API, Suche und Embeddings](perplexity.md).

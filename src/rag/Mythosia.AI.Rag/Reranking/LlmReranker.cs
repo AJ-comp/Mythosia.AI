@@ -35,6 +35,7 @@ namespace Mythosia.AI.Rag.Reranking
             IReadOnlyList<VectorSearchResult> results,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (results.Count == 0)
                 return results;
 
@@ -59,7 +60,8 @@ namespace Mythosia.AI.Rag.Reranking
             }
 
             // Get LLM response
-            var response = await _aiService.GetCompletionAsync(sb.ToString());
+            var response = await _aiService.GetCompletionAsync(sb.ToString(), cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             // Parse scores
             var scores = ParseScores(response, results.Count);

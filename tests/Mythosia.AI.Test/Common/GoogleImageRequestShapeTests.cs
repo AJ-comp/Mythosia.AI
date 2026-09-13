@@ -68,33 +68,34 @@ public class GoogleImageRequestShapeTests
     }
 
     [TestMethod]
-    [DataRow("512", "IMAGE_SIZE_FIVE_TWELVE")]
-    [DataRow("1K", "IMAGE_SIZE_ONE_K")]
-    [DataRow("2K", "IMAGE_SIZE_TWO_K")]
-    [DataRow("4K", "IMAGE_SIZE_FOUR_K")]
-    public async Task GenerateImagesAsync_MapsPublicSizesToGenerateContentEnums(
-        string size,
+    [DataRow(ImageResolution.FiveTwelve, "IMAGE_SIZE_FIVE_TWELVE")]
+    [DataRow(ImageResolution.OneK, "IMAGE_SIZE_ONE_K")]
+    [DataRow(ImageResolution.TwoK, "IMAGE_SIZE_TWO_K")]
+    [DataRow(ImageResolution.FourK, "IMAGE_SIZE_FOUR_K")]
+    public async Task Preset_MapsPublicResolutionsForGenerationAndEditing(
+        ImageResolution size,
         string expectedImageSize)
     {
         var handler = new CaptureHttpMessageHandler();
         IImageGenerationService service = CreateService(handler);
 
-        await service.GenerateImagesAsync(new ImageGenerationRequest
+        foreach (var editing in new[] { false, true })
         {
-            Prompt = "Create a square editorial illustration",
-            Size = size
-        });
-
-        using var document = JsonDocument.Parse(AssertSingleRequest(handler).JsonBody!);
-        var imageFormat = document.RootElement
-            .GetProperty("generationConfig")
-            .GetProperty("responseFormat")
-            .GetProperty("image");
-        Assert.AreEqual(expectedImageSize, imageFormat.GetProperty("imageSize").GetString());
+            var request = NewImageRequest(editing);
+            request.Size = ImageSize.Preset(size);
+            await SendAsync(service, request);
+            using var document = JsonDocument.Parse(handler.Requests.Last().JsonBody!);
+            var imageFormat = document.RootElement
+                .GetProperty("generationConfig")
+                .GetProperty("responseFormat")
+                .GetProperty("image");
+            Assert.AreEqual(expectedImageSize, imageFormat.GetProperty("imageSize").GetString());
+            Assert.IsFalse(imageFormat.TryGetProperty("aspectRatio", out _));
+        }
     }
 
     [TestMethod]
-    public async Task GenerateImagesAsync_MapsDimensionsToAspectRatioAndImageSize()
+    public async Task GenerateImagesAsync_MapsPresetToAspectRatioAndImageSize()
     {
         var handler = new CaptureHttpMessageHandler();
         IImageGenerationService service = CreateService(handler);
@@ -103,8 +104,8 @@ public class GoogleImageRequestShapeTests
         {
             Prompt = "Create a wide editorial illustration",
             Model = AIModels.Google.Images.Gemini3ProImage,
-            Size = "1536x1024",
-            OutputFormat = "jpeg"
+            Size = ImageSize.Preset(ImageResolution.TwoK, ImageAspectRatio.ThreeByTwo),
+            OutputFormat = ImageOutputFormat.Jpeg
         });
 
         var captured = AssertSingleRequest(handler);
@@ -247,16 +248,16 @@ public class GoogleImageRequestShapeTests
         switch (option)
         {
             case "quality":
-                request.Quality = "high";
+                request.Quality = ImageQuality.High;
                 break;
             case "background":
-                request.Background = "transparent";
+                request.Background = ImageBackground.Transparent;
                 break;
             case "compression":
                 request.OutputCompression = 80;
                 break;
             case "format":
-                request.OutputFormat = "webp";
+                request.OutputFormat = ImageOutputFormat.WebP;
                 break;
         }
 
@@ -267,38 +268,58 @@ public class GoogleImageRequestShapeTests
     }
 
     [TestMethod]
-    public async Task GenerateImagesAsync_RejectsInvalidSizeBeforeSending()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task ExactPixelsAndNullSize_AreRejectedBeforeHttp(bool editing)
     {
         var handler = new CaptureHttpMessageHandler();
         IImageGenerationService service = CreateService(handler);
-
-        var exception = await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
-            service.GenerateImagesAsync(new ImageGenerationRequest
-            {
-                Prompt = "test",
-                Size = "landscape"
-            }));
-
-        Assert.AreEqual("size", exception.ParamName);
-        Assert.AreEqual(0, handler.Requests.Count, "Invalid requests must not reach HTTP.");
+        var request = NewImageRequest(editing);
+        request.Size = ImageSize.Pixels(1536, 1024);
+        var pixels = await Assert.ThrowsExactlyAsync<NotSupportedException>(() => SendAsync(service, request));
+        StringAssert.Contains(pixels.Message, "exact pixel");
+        request.Size = null!;
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() => SendAsync(service, request));
+        Assert.AreEqual(0, handler.Requests.Count);
     }
 
     [TestMethod]
-    public async Task GenerateImagesAsync_RejectsUnsupportedAspectRatioBeforeSending()
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task TypedOptions_RejectUnsupportedValuesAndInvalidEnumCastsBeforeHttp(bool editing)
     {
         var handler = new CaptureHttpMessageHandler();
         IImageGenerationService service = CreateService(handler);
-
-        var exception = await Assert.ThrowsExactlyAsync<ArgumentException>(() =>
-            service.GenerateImagesAsync(new ImageGenerationRequest
-            {
-                Prompt = "test",
-                Size = "1000x700"
-            }));
-
-        Assert.AreEqual("size", exception.ParamName);
-        StringAssert.Contains(exception.Message, "10:7");
-        Assert.AreEqual(0, handler.Requests.Count, "Unsupported ratios must not reach HTTP.");
+        foreach (var mutate in new Action<ImageGenerationRequest>[]
+        {
+            request => request.Quality = ImageQuality.Low,
+            request => request.Quality = ImageQuality.Medium,
+            request => request.Quality = ImageQuality.High,
+            request => request.Quality = ImageQuality.XHigh,
+            request => request.Quality = ImageQuality.Max,
+            request => request.Background = ImageBackground.Opaque,
+            request => request.Background = ImageBackground.Transparent,
+            request => request.OutputFormat = ImageOutputFormat.Png,
+            request => request.OutputFormat = ImageOutputFormat.WebP,
+            request => request.OutputCompression = 80
+        })
+        {
+            var request = NewImageRequest(editing);
+            mutate(request);
+            await Assert.ThrowsExactlyAsync<NotSupportedException>(() => SendAsync(service, request));
+        }
+        foreach (var mutate in new Action<ImageGenerationRequest>[]
+        {
+            request => request.Quality = (ImageQuality)999,
+            request => request.Background = (ImageBackground)999,
+            request => request.OutputFormat = (ImageOutputFormat)999
+        })
+        {
+            var request = NewImageRequest(editing);
+            mutate(request);
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => SendAsync(service, request));
+        }
+        Assert.AreEqual(0, handler.Requests.Count);
     }
 
     [TestMethod]
@@ -314,7 +335,7 @@ public class GoogleImageRequestShapeTests
             service.GenerateImagesAsync(new ImageGenerationRequest
             {
                 Prompt = "test",
-                Size = "1K"
+                Size = ImageSize.Preset(ImageResolution.OneK)
             }));
 
         Assert.AreEqual(errorBody, exception.ErrorDetails);
@@ -354,6 +375,117 @@ public class GoogleImageRequestShapeTests
 
         StringAssert.Contains(exception.Message, "Gemini image request timeout after 1 seconds");
     }
+
+    [TestMethod]
+    [DataRow(ImageAspectRatio.OneByOne, "ASPECT_RATIO_ONE_BY_ONE")]
+    [DataRow(ImageAspectRatio.TwoByThree, "ASPECT_RATIO_TWO_BY_THREE")]
+    [DataRow(ImageAspectRatio.ThreeByTwo, "ASPECT_RATIO_THREE_BY_TWO")]
+    [DataRow(ImageAspectRatio.ThreeByFour, "ASPECT_RATIO_THREE_BY_FOUR")]
+    [DataRow(ImageAspectRatio.FourByThree, "ASPECT_RATIO_FOUR_BY_THREE")]
+    [DataRow(ImageAspectRatio.FourByFive, "ASPECT_RATIO_FOUR_BY_FIVE")]
+    [DataRow(ImageAspectRatio.FiveByFour, "ASPECT_RATIO_FIVE_BY_FOUR")]
+    [DataRow(ImageAspectRatio.NineBySixteen, "ASPECT_RATIO_NINE_BY_SIXTEEN")]
+    [DataRow(ImageAspectRatio.SixteenByNine, "ASPECT_RATIO_SIXTEEN_BY_NINE")]
+    [DataRow(ImageAspectRatio.TwentyOneByNine, "ASPECT_RATIO_TWENTY_ONE_BY_NINE")]
+    [DataRow(ImageAspectRatio.OneByEight, "ASPECT_RATIO_ONE_BY_EIGHT")]
+    [DataRow(ImageAspectRatio.EightByOne, "ASPECT_RATIO_EIGHT_BY_ONE")]
+    [DataRow(ImageAspectRatio.OneByFour, "ASPECT_RATIO_ONE_BY_FOUR")]
+    [DataRow(ImageAspectRatio.FourByOne, "ASPECT_RATIO_FOUR_BY_ONE")]
+    public async Task Preset_MapsSupportedRatiosForGenerationAndEditing(ImageAspectRatio ratio, string expected)
+    {
+        var handler = new CaptureHttpMessageHandler();
+        IImageGenerationService service = CreateService(handler);
+        foreach (var editing in new[] { false, true })
+        {
+            var request = NewImageRequest(editing);
+            request.Size = ImageSize.Preset(ImageResolution.TwoK, ratio);
+            request.OutputFormat = ImageOutputFormat.Jpeg;
+            await SendAsync(service, request);
+            using var document = JsonDocument.Parse(handler.Requests.Last().JsonBody!);
+            var format = document.RootElement.GetProperty("generationConfig").GetProperty("responseFormat").GetProperty("image");
+            Assert.AreEqual(expected, format.GetProperty("aspectRatio").GetString());
+            Assert.AreEqual("IMAGE_SIZE_TWO_K", format.GetProperty("imageSize").GetString());
+            Assert.AreEqual("IMAGE_JPEG", format.GetProperty("mimeType").GetString());
+        }
+    }
+
+    [TestMethod]
+    public async Task EditImagesAsync_UsesAspectRatioWithAutomaticSize()
+    {
+        var handler = new CaptureHttpMessageHandler();
+        IImageGenerationService service = CreateService(handler);
+        await service.EditImagesAsync(new ImageEditRequest
+        {
+            Prompt = "test", Size = ImageSize.Preset(ImageResolution.Auto, ImageAspectRatio.SixteenByNine),
+            InputImages = new[] { new ImageInput(new byte[] { 1 }, "image/png") }
+        });
+        using var document = JsonDocument.Parse(AssertSingleRequest(handler).JsonBody!);
+        var format = document.RootElement.GetProperty("generationConfig").GetProperty("responseFormat").GetProperty("image");
+        Assert.AreEqual("ASPECT_RATIO_SIXTEEN_BY_NINE", format.GetProperty("aspectRatio").GetString());
+        Assert.IsFalse(format.TryGetProperty("imageSize", out _));
+    }
+
+    [TestMethod]
+    [DataRow(ImageAspectRatio.OneByTwo)]
+    [DataRow(ImageAspectRatio.TwoByOne)]
+    [DataRow(ImageAspectRatio.FiveByTwo)]
+    [DataRow(ImageAspectRatio.NineByNineteenPointFive)]
+    [DataRow(ImageAspectRatio.NineteenPointFiveByNine)]
+    [DataRow(ImageAspectRatio.NineByTwenty)]
+    [DataRow(ImageAspectRatio.TwentyByNine)]
+    public async Task Preset_RejectsRatiosUnsupportedByGoogleBeforeHttp(ImageAspectRatio ratio)
+    {
+        var handler = new CaptureHttpMessageHandler();
+        IImageGenerationService service = CreateService(handler);
+        foreach (var editing in new[] { false, true })
+        {
+            var request = NewImageRequest(editing);
+            request.Size = ImageSize.Preset(ImageResolution.TwoK, ratio);
+            await Assert.ThrowsExactlyAsync<NotSupportedException>(() => SendAsync(service, request));
+        }
+        Assert.AreEqual(0, handler.Requests.Count);
+    }
+
+    [TestMethod]
+    [DataRow(false)]
+    [DataRow(true)]
+    public async Task AutoPreset_OmitsImageSizingFields(bool editing)
+    {
+        var handler = new CaptureHttpMessageHandler();
+        var request = NewImageRequest(editing);
+        request.Size = ImageSize.Preset(ImageResolution.Auto);
+        await SendAsync(CreateService(handler), request);
+        using var json = JsonDocument.Parse(AssertSingleRequest(handler).JsonBody!);
+        Assert.IsFalse(json.RootElement.GetProperty("generationConfig").TryGetProperty("responseFormat", out _));
+    }
+
+    [TestMethod]
+    [DataRow(ImageOutputFormat.Auto, false)]
+    [DataRow(ImageOutputFormat.Auto, true)]
+    [DataRow(ImageOutputFormat.Jpeg, false)]
+    [DataRow(ImageOutputFormat.Jpeg, true)]
+    public async Task OutputFormat_UsesNativeDefaultOrExplicitJpeg(ImageOutputFormat format, bool editing)
+    {
+        const string jpegResponse = "{\"candidates\":[{\"content\":{\"parts\":[{\"inlineData\":{\"mimeType\":\"image/jpeg\",\"data\":\"AQID\"}}]},\"finishReason\":\"STOP\"}]}";
+        var handler = new CaptureHttpMessageHandler(_ => Task.FromResult(CreateResponse(HttpStatusCode.OK, jpegResponse)));
+        var request = NewImageRequest(editing);
+        request.OutputFormat = format;
+        var result = await SendAsync(CreateService(handler), request);
+        using var json = JsonDocument.Parse(AssertSingleRequest(handler).JsonBody!);
+        var config = json.RootElement.GetProperty("generationConfig");
+        if (format == ImageOutputFormat.Auto)
+            Assert.IsFalse(config.TryGetProperty("responseFormat", out _));
+        else
+            Assert.AreEqual("IMAGE_JPEG", config.GetProperty("responseFormat").GetProperty("image").GetProperty("mimeType").GetString());
+        Assert.AreEqual("image/jpeg", result.Images.Single().MediaType);
+    }
+
+    private static ImageGenerationRequest NewImageRequest(bool editing) => editing
+        ? new ImageEditRequest { Prompt = "test", InputImages = new[] { new ImageInput(new byte[] { 1 }, "image/png") } }
+        : new ImageGenerationRequest { Prompt = "test" };
+
+    private static Task<ImageGenerationResult> SendAsync(IImageGenerationService service, ImageGenerationRequest request)
+        => request is ImageEditRequest edit ? service.EditImagesAsync(edit) : service.GenerateImagesAsync(request);
 
     private static GoogleAIService CreateService(CaptureHttpMessageHandler handler)
     {

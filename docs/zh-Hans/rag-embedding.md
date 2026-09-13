@@ -17,6 +17,14 @@
 
 ## 内置嵌入提供者
 
+根据文档语言、部署环境和检索需求选择嵌入提供者。
+
+### Perplexity
+
+标准嵌入独立处理各段落，并实现 `IEmbeddingProvider`，因此可接入现有构建器。上下文嵌入保留相邻分块顺序和文档分组；为防止把无关文档展平成单一输入，使用单独的 API。
+
+[Perplexity Agent API、搜索与嵌入](perplexity.md).
+
 ### OpenAI
 
 ```csharp
@@ -91,6 +99,8 @@ pipeline.Options = options;
 | 提供者 | 模型 | 默认维度 |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

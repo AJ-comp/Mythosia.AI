@@ -156,7 +156,7 @@ protected static void EnsureUserFirstMessage(List<Message> messages)
 ```
 
 - **適用対象**: Gemini、Claude（リクエストビルダー4箇所）
-- **非適用**: OpenAI、Grok、DeepSeek、Sonar、Qwen（User-first制約なし）
+- **非適用**: OpenAI、Grok、DeepSeek、Perplexity、Qwen（User-first制約なし）
 - **原本不変**: `GetLatestMessages().ToList()`で作成したコピーにのみ適用
 
 ## 要約がラウンド完了後に実行される理由
@@ -204,3 +204,7 @@ Round 2: [サーバーが400で拒否]
 > **非ストリーミングは異なる。** 再試行がプロバイダーのラウンドループを0から回し直すため、
 > すでに実行済みのツールがあれば二度実行されてしまう。そのため該当する場合は
 > `tool-side-effects` を理由にリカバリせず停止する。ラウンド単位の再実行はストリーミング経路のみ。
+
+完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](../../../../../docs/ja/completions.md#completion-cancellation)を参照してください。
+
+このキャンセル契約は Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 に含まれます。トークン省略や従来のprofile/context位置引数はソース上で有効ですが、利用側は再ビルドが必要です。独自の`IAIService`実装では両完了メソッドの末尾に`CancellationToken cancellationToken = default`を追加して伝播します。`AIService`派生プロバイダーは既存の`GetCompletionAsync(Message)` overrideを維持し、protectedの`RequestCancellationToken`を通信に渡します。ビルダーとRun自体にはこのインターフェース変更は不要でした。

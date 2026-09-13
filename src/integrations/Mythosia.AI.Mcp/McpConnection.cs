@@ -21,8 +21,10 @@ namespace Mythosia.AI.Mcp
             = new ConcurrentDictionary<int, TaskCompletionSource<JsonRpcResponse>>();
         private readonly CancellationTokenSource _readCts = new CancellationTokenSource();
         private readonly Task _readLoop;
+        private readonly object _disposeGate = new object();
+        private Task? _disposeTask;
+        private bool _readLoopEnded;
         private int _nextId;
-        private bool _disposed;
 
         /// <summary>
         /// The server name reported during initialization.
@@ -98,6 +100,7 @@ namespace Mythosia.AI.Mcp
         /// <summary>
         /// Calls a tool on the MCP server with the given arguments.
         /// </summary>
+        /// <exception cref="McpException">The server reports a protocol or tool execution error.</exception>
         public async Task<string> CallToolAsync(
             string toolName,
             Dictionary<string, object>? arguments = null,
@@ -121,7 +124,7 @@ namespace Mythosia.AI.Mcp
                     .Where(c => c.Type == "text")
                     .Select(c => c.Text)
                     .FirstOrDefault() ?? "Unknown MCP tool error";
-                return $"Error: {errorText}";
+                throw new McpException($"MCP tool '{toolName}' failed: {errorText}");
             }
 
             // Concatenate all text content blocks
@@ -141,6 +144,7 @@ namespace Mythosia.AI.Mcp
         private async Task<JsonRpcResponse> SendRequestAsync(
             string method, object? parameters, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var id = Interlocked.Increment(ref _nextId);
             var request = new JsonRpcRequest
             {
@@ -150,18 +154,38 @@ namespace Mythosia.AI.Mcp
             };
 
             var tcs = new TaskCompletionSource<JsonRpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
-            _pending[id] = tcs;
-
-            using (cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken)))
+            lock (_disposeGate)
             {
-                var json = JsonSerializer.Serialize(request);
-                await _transport.SendAsync(json, cancellationToken).ConfigureAwait(false);
-                return await tcs.Task.ConfigureAwait(false);
+                // Publish requests under the same gate that starts disposal. Once cleanup
+                // begins, the read loop may already have drained its last pending call.
+                if (_disposeTask != null) throw new ObjectDisposedException(nameof(McpConnection));
+                if (_readLoopEnded) throw new McpException("The MCP connection is closed. Create a new connection before sending requests.");
+                _pending[id] = tcs;
+            }
+
+            try
+            {
+                using (cancellationToken.Register(() => tcs.TrySetCanceled(cancellationToken)))
+                {
+                    var json = JsonSerializer.Serialize(request);
+                    await _transport.SendAsync(json, cancellationToken).ConfigureAwait(false);
+                    return await tcs.Task.ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                // Cancelled requests may never receive a response from the server.
+                _pending.TryRemove(id, out _);
             }
         }
 
         private async Task SendNotificationAsync(string method, CancellationToken cancellationToken)
         {
+            lock (_disposeGate)
+            {
+                if (_disposeTask != null) throw new ObjectDisposedException(nameof(McpConnection));
+                if (_readLoopEnded) throw new McpException("The MCP connection is closed. Create a new connection before sending notifications.");
+            }
             var notification = new JsonRpcNotification { Method = method };
             var json = JsonSerializer.Serialize(notification);
             await _transport.SendAsync(json, cancellationToken).ConfigureAwait(false);
@@ -189,9 +213,11 @@ namespace Mythosia.AI.Mcp
                             continue;
 
                         var id = idProp.GetInt32();
+                        // A malformed body must not remove its pending call: a later valid
+                        // response or connection cleanup still needs to settle that task.
+                        var response = JsonSerializer.Deserialize<JsonRpcResponse>(line);
                         if (_pending.TryRemove(id, out var tcs))
                         {
-                            var response = JsonSerializer.Deserialize<JsonRpcResponse>(line);
                             if (response != null)
                                 tcs.TrySetResult(response);
                             else
@@ -214,6 +240,9 @@ namespace Mythosia.AI.Mcp
             }
             finally
             {
+                // EOF and transport failure also close the receiving side. Seal registration
+                // before draining so a late request cannot appear after the final cleanup.
+                lock (_disposeGate) _readLoopEnded = true;
                 foreach (var kvp in _pending)
                 {
                     kvp.Value.TrySetCanceled();
@@ -225,24 +254,57 @@ namespace Mythosia.AI.Mcp
         #endregion
 
         /// <inheritdoc/>
-        public async ValueTask DisposeAsync()
+        public ValueTask DisposeAsync()
         {
-            if (_disposed) return;
-            _disposed = true;
+            TaskCompletionSource<bool> completion;
+            lock (_disposeGate)
+            {
+                if (_disposeTask != null)
+                    return _disposeTask.IsCompleted ? default : new ValueTask(_disposeTask);
 
-            _readCts.Cancel();
+                completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+                // Publish before cancellation can reenter DisposeAsync through a callback.
+                _disposeTask = completion.Task;
+            }
 
+            _ = CompleteDisposalAsync(completion);
+            return new ValueTask(completion.Task);
+        }
+
+        private async Task CompleteDisposalAsync(TaskCompletionSource<bool> completion)
+        {
+            var failures = new List<Exception>();
             try
             {
-                await _readLoop.ConfigureAwait(false);
+                try { _readCts.Cancel(); }
+                catch (Exception cancellationException) { failures.Add(cancellationException); }
+
+                // Closing the transport must be able to unblock a read whose underlying
+                // I/O cannot stop through its cancellation token alone.
+                try { await _transport.DisposeAsync().ConfigureAwait(false); }
+                catch (Exception disposalException) { failures.Add(disposalException); }
+
+                try
+                {
+                    await _readLoop.ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Ignore read loop exit exceptions
+                }
             }
-            catch
+            finally
             {
-                // Ignore read loop exit exceptions
+                try { _readCts.Dispose(); }
+                catch (Exception disposalException) { failures.Add(disposalException); }
             }
 
-            await _transport.DisposeAsync().ConfigureAwait(false);
-            _readCts.Dispose();
+            if (failures.Count == 0)
+                completion.TrySetResult(true);
+            else if (failures.Count == 1)
+                completion.TrySetException(failures[0]);
+            else
+                completion.TrySetException(new AggregateException("MCP connection cleanup failed.", failures));
         }
     }
 

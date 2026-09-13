@@ -1,5 +1,7 @@
 # Gesprächsverwaltung
 
+Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
+
 ## Wie der Gesprächsverlauf funktioniert
 
 Jeder Aufruf von `GetCompletionAsync` oder `StreamAsync` fügt der internen Nachrichtenliste des Services Nachrichten hinzu. Das bedeutet, das Modell hat Kontext aus allen vorherigen Gesprächsrunden.

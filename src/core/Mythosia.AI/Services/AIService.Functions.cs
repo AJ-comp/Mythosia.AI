@@ -16,16 +16,52 @@ namespace Mythosia.AI.Services.Base
     {
         #region Function Calling Support
 
+        private readonly AsyncLocal<CancellationToken> _functionCancellation = new AsyncLocal<CancellationToken>();
+
+        /// <summary>The current tool execution token, also available to existing single-call overrides.</summary>
+        protected CancellationToken FunctionCancellationToken => _functionCancellation.Value;
+
+        private async Task<FunctionCallResult> ExecuteFunctionCallAsync(
+            FunctionCall functionCall, CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return CancelledFunction(functionCall);
+
+            var previous = _functionCancellation.Value;
+            _functionCancellation.Value = cancellationToken;
+            try
+            {
+                // Retain the existing virtual extension point for custom providers.
+                return await ProcessFunctionCallAsync(functionCall).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException exception)
+            {
+                return CancelledFunction(functionCall, exception);
+            }
+            finally
+            {
+                _functionCancellation.Value = previous;
+            }
+        }
+
+        private static FunctionCallResult CancelledFunction(FunctionCall call, OperationCanceledException? exception = null) => new FunctionCallResult
+        {
+            Call = call.Clone(),
+            Content = exception == null ? "Function execution cancelled." : $"Function execution cancelled: {exception.Message}",
+            IsError = true,
+            IsCancelled = true
+        };
+
         /// <summary>
         /// Process function call
         /// </summary>
         protected virtual async Task<FunctionCallResult> ProcessFunctionCallAsync(FunctionCall functionCall)
         {
             var callSnapshot = functionCall.Clone();
-            var function = Functions
+            var function = RequestFunctions
                 .FirstOrDefault(f => f.Name == callSnapshot.Name);
 
-            if (function?.Handler == null)
+            if (function?.HandlerWithCancellation == null)
             {
                 return new FunctionCallResult
                 {
@@ -38,7 +74,9 @@ namespace Mythosia.AI.Services.Base
             try
             {
                 var handlerArguments = ObjectGraphSnapshot.CloneDictionary(callSnapshot.Arguments);
-                var content = await function.Handler(handlerArguments);
+                FunctionCancellationToken.ThrowIfCancellationRequested();
+                var content = await function.HandlerWithCancellation(handlerArguments, FunctionCancellationToken)
+                    .ConfigureAwait(false);
                 if (string.IsNullOrEmpty(content))
                     content = "Function executed successfully";
 
@@ -47,6 +85,10 @@ namespace Mythosia.AI.Services.Base
                     Call = callSnapshot,
                     Content = content
                 };
+            }
+            catch (OperationCanceledException exception)
+            {
+                return CancelledFunction(callSnapshot, exception);
             }
             catch (Exception ex)
             {
@@ -101,9 +143,8 @@ namespace Mythosia.AI.Services.Base
                 throw new ArgumentNullException(nameof(policy));
 
             NormalizeAndValidateFunctionCalls(functionCalls);
-            // A provider turn is one execution unit. Honour cancellation before any handler
-            // starts, then finish the validated batch so history never contains tool calls
-            // without their corresponding result batch.
+            // After a batch starts, preserve one result per call, including cancelled calls.
+            // Running handlers receive cancellation; queued handlers are never started after it.
             cancellationToken.ThrowIfCancellationRequested();
             var executionBatch = functionCalls.Clone();
             var results = new List<FunctionCallResult>(executionBatch.Calls.Count);
@@ -114,7 +155,7 @@ namespace Mythosia.AI.Services.Base
                 if (enableLogging)
                     Console.WriteLine($"  Executing function: {functionCall.Name}");
 
-                results.Add(await ProcessFunctionCallAsync(functionCall));
+                results.Add(await ExecuteFunctionCallAsync(functionCall, cancellationToken).ConfigureAwait(false));
             }
 
             return new FunctionCallResultBatch(executionBatch.Id, results);
@@ -139,10 +180,7 @@ namespace Mythosia.AI.Services.Base
                     "MaxConcurrency must be greater than zero for parallel execution.");
 
             NormalizeAndValidateFunctionCalls(functionCalls);
-            // Match the sequential batch contract: cancellation is honoured before any
-            // handler starts, then the validated batch is completed so call/result history
-            // cannot be left partially populated. Function handlers do not currently accept
-            // a CancellationToken.
+            // Complete the result batch even on cancellation, without starting queued work.
             cancellationToken.ThrowIfCancellationRequested();
             var executionBatch = functionCalls.Clone();
             var enableLogging = policy.EnableLogging;
@@ -152,17 +190,23 @@ namespace Mythosia.AI.Services.Base
 
             var tasks = executionBatch.Calls.Select(async functionCall =>
             {
-                await concurrencyGate.WaitAsync().ConfigureAwait(false);
+                var entered = false;
                 try
                 {
+                    await concurrencyGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                    entered = true;
                     if (enableLogging)
                         Console.WriteLine($"  Executing function: {functionCall.Name}");
 
-                    return await ProcessFunctionCallAsync(functionCall).ConfigureAwait(false);
+                    return await ExecuteFunctionCallAsync(functionCall, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    return CancelledFunction(functionCall);
                 }
                 finally
                 {
-                    concurrencyGate.Release();
+                    if (entered) concurrencyGate.Release();
                 }
             }).ToArray();
 

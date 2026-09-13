@@ -1,5 +1,72 @@
 # 文字生成
 
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
+<a id="completion-cancellation"></a>
+
+## 取消不再需要的回答
+
+使用者關閉頁面、按下停止，或應用程式等待逾時後，可能不再需要這個回答。傳入 `CancellationToken` 可中斷用戶端的通訊與工作，避免多餘的工具呼叫和後續模型呼叫。需要完整答案時仍可使用 `GetCompletionAsync`；僅需取消時不必建立 Run。
+
+### Before：呼叫端不傳入取消訊號
+
+```csharp
+string answer = await service.CreateRequest("摘要這份文件。")
+    .GetCompletionAsync();
+```
+
+### After：使用者操作或 30 秒後取消
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("摘要這份文件。")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("已取消。");
+}
+```
+
+呼叫期間保留權杖來源，讓停止按鈕或頁面關閉事件呼叫 `cancellation.Cancel()`。範例也會在 30 秒後要求取消。清理結束後，呼叫端收到 `OperationCanceledException`。使用 `CancellationTokenSource` 設定的期限也屬於呼叫端取消；現有 `FunctionCallingPolicy.TimeoutSeconds` 保留原有逾時錯誤行為。
+
+服務的字串與 `Message` 多載、泛型完成方法、要求建構器和 `MessageChain.SendAsync` / `SendOnceAsync` 均接受權杖。省略權杖的既有呼叫仍可使用。以下是其他呼叫入口：
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "摘要這份文件。", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "以JSON傳回標題和作者。", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("摘要這份文件。")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("翻譯這個句子。")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+權杖傳遞至要求準備、HTTP 傳送與讀取、配合取消的本機工具以及後續模型回合。偵測到取消後，略過排隊工具和後續回合。清理維持已記錄工具呼叫與結果的配對，因此忽略權杖的已啟動工具可能延遲清理。取消不會復原已完成操作或清空對話歷程。參閱[工具執行約定](function-calling.md#tool-execution-contract)。
+
+不保證供應商伺服器停止生成或計費。OpenAI 說明一般 Responses 要求可透過中斷連線取消；Google 明確說明只取消用戶端，相關用量仍計費。[OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal)。背景工作本身需要明確呼叫 `CancelAsync()`；取消 `WaitForCompletionAsync(cancellationToken: ...)` 只停止等待。一般完成要求不會轉換為背景執行。參閱 [Perplexity](perplexity.md)。
+
+<a id="completion-cancellation-migration"></a>
+
+此功能屬於Mythosia.AI 8.0.0。不傳權杖的呼叫和既有 profile/context 位置參數在原始碼層面仍有效，但使用端需要重新建置。自訂 `IAIService` 實作必須在兩個完成方法簽章末尾新增並傳遞 `CancellationToken cancellationToken = default`。繼承 `AIService` 的自訂供應商保留現有 `GetCompletionAsync(Message)` override，並將受保護的 `RequestCancellationToken` 傳給傳輸層。建構器和 Run 本身不需要這次介面修改。 若子類別覆寫了已修改的字串/profile/context 完成呼叫、影像輔助方法或 `RunAgentAsync` 等 public virtual 多載，也必須新增並傳遞新的 `CancellationToken`；僅接收單一 `Message` 的供應商 override 保留原簽章。直接繫結至已修改簽章的方法群組委派可能需要改成明確傳入或省略權杖的 lambda。
+
 ## 單輪對話
 
 最簡單的用法 — 發送訊息，取得回應：
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("這張圖展示了什麼？")
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+圖表和截圖分析、本地函式呼叫、快速回答後的深入審查可使用 [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash)。推理預設關閉，透過 `WithDeepSeekReasoning(...)` 或請求級 `WithReasoning(...)` 開啟。
 
 ## 快速提問（靜態 API）
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("講個故事吧").St
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // 越低越確定
 ```
+
+Perplexity: [使用 Agent 預設回答 / 來源、影像與結構化答案](perplexity.md).

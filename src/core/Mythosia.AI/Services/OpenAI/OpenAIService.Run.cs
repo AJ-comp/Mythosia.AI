@@ -28,8 +28,7 @@ namespace Mythosia.AI.Services.OpenAI
             Message message, StreamOptions executionOptions, AIRequestContext? context,
             CancellationToken cancellationToken)
         {
-            if (!string.Equals(Model, "gpt-6-astra", StringComparison.OrdinalIgnoreCase) &&
-                !Model.StartsWith("gpt-6-astra-", StringComparison.OrdinalIgnoreCase))
+            if (!IsAstraNativeRunModel(RequestModel))
                 return await base.CreateRunSessionAsync(message, executionOptions, context, cancellationToken).ConfigureAwait(false);
 
             var socket = await ConnectRunWebSocketAsync(cancellationToken).ConfigureAwait(false);

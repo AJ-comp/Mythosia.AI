@@ -1,5 +1,7 @@
 # Prise en main
 
+Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
+
 ## Installation
 
 Installez le package principal :

@@ -12,7 +12,7 @@ import {
   stateMessageJsonCopy
 } from './dom.js';
 import { app } from './state.js';
-import { updateSummaryUI } from './settings.js';
+import { updateSummaryUI, updatePerplexitySettings, updateModelControls } from './settings.js';
 
 // ── Polling ──────────────────────────────────────────────────
 export function startStatePolling() {
@@ -48,6 +48,7 @@ export function initStatePanel() {
 
 // ── Fetch & Render ───────────────────────────────────────────
 export async function refreshState() {
+  const controlsRevision = app.controlsRevision;
   try {
     const res = await fetch('/api/state');
     const s = await res.json();
@@ -56,6 +57,11 @@ export async function refreshState() {
       return;
     }
     renderState(s);
+    if (s.modelEnum === app.selectedModel && s.provider === app.selectedProvider &&
+        controlsRevision === app.controlsRevision && !app.settingsPending) {
+      updateModelControls(s.controls);
+      updatePerplexitySettings(s);
+    }
     updateSummaryUI(s);
   } catch (e) {
     stateContainer.innerHTML = `<div class="empty-state"><p style="color:var(--danger)">Failed to fetch state</p></div>`;
@@ -72,15 +78,42 @@ function renderState(s) {
   ]);
 
   html += section('Generation Settings', [
-    row('Temperature', s.sampling?.temperature === false ? '(not supported)' : s.temperature?.toFixed(2)),
-    row('Top P', s.sampling?.topP === false ? '(not supported)' : s.topP?.toFixed(2)),
+    row('Temperature', s.sampling?.temperatureSupport === 'Unknown' ? '(support unknown)'
+      : s.sampling?.temperature === false ? '(not supported)' : s.temperature?.toFixed(2)),
+    row('Top P', s.sampling?.topPSupport === 'Unknown' ? '(support unknown)'
+      : s.sampling?.topP === false ? '(not supported)' : s.topP?.toFixed(2)),
     row('Max Output Tokens', s.maxTokens),
     row('Freq Penalty', s.frequencyPenalty?.toFixed(2)),
     row('Pres Penalty', s.presencePenalty?.toFixed(2)),
     row('Stream', s.stream, 'bool'),
   ]);
 
-  if (s.reasoning) {
+  if (s.reasoning?.type === 'perplexity') {
+    html += section('Perplexity Research', [
+      row('Preset', s.reasoning.preset),
+      row('Effort', s.reasoning.effort),
+      row('Step limit', s.reasoning.maxSteps || 'Provider default'),
+      row('Web search', s.reasoning.webSearch, 'bool'),
+    ]);
+  } else if (s.reasoning?.type === 'deepseek_thinking') {
+    html += section('Reasoning', [
+      row('Enabled', s.reasoning.enabled, 'bool'),
+      row('Effort', s.reasoning.effort === 'Auto'
+        ? `Auto (${s.reasoning.defaultEffort})` : s.reasoning.effort),
+      row('Output', s.reasoning.enabled ? 'Reasoning and final answer' : 'Final answer'),
+    ]);
+  } else if (s.reasoning?.type === 'gemini3') {
+    html += section('Reasoning', [
+      row('Always On', s.reasoning.alwaysOn, 'bool'),
+      row('Thinking Level', s.reasoning.effort),
+    ]);
+  } else if (s.reasoning?.type === 'grok_always') {
+    html += section('Reasoning', [
+      row('Always On', s.reasoning.alwaysOn, 'bool'),
+      row('Effort', s.reasoning.effort === 'Auto' && s.reasoning.defaultEffort
+        ? `Auto (${s.reasoning.defaultEffort})` : s.reasoning.effort),
+    ]);
+  } else if (s.reasoning) {
     html += section('Reasoning', [
       row('Always On', s.reasoning.alwaysOn, 'bool'),
       row('Effort', s.reasoning.effort),

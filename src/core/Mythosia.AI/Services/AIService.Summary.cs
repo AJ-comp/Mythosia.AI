@@ -3,6 +3,7 @@ using Mythosia.AI.Models.Messages;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Mythosia.AI.Services.Base
@@ -34,7 +35,7 @@ namespace Mythosia.AI.Services.Base
         /// </summary>
         internal string GetEffectiveSystemMessage()
         {
-            var baseMsg = ActivateChat?.SystemMessage ?? "";
+            var baseMsg = RequestSystemMessage;
             var summary = ConversationPolicy?.CurrentSummary;
             var ctx = _currentRequestContext.Value;
 
@@ -69,7 +70,8 @@ namespace Mythosia.AI.Services.Base
         /// Called automatically at the beginning of GetCompletionAsync(string).
         /// For streaming scenarios, call this explicitly before StreamAsync().
         /// </summary>
-        public Task ApplySummaryPolicyIfNeededAsync() => CompactAsync(force: false);
+        public Task ApplySummaryPolicyIfNeededAsync(CancellationToken cancellationToken = default)
+            => CompactAsync(force: false, cancellationToken);
 
         /// <summary>
         /// Compacts the conversation regardless of the token trigger, and reports whether the set
@@ -85,17 +87,19 @@ namespace Mythosia.AI.Services.Base
         /// only for the caller to retry the identical request into the same wall.
         /// </para>
         /// </summary>
-        internal Task<SummaryCompactionResult> ForceCompactAsync() => CompactAsync(force: true);
+        internal Task<SummaryCompactionResult> ForceCompactAsync(CancellationToken cancellationToken = default)
+            => CompactAsync(force: true, cancellationToken);
 
-        private async Task<SummaryCompactionResult> CompactAsync(bool force)
+        private async Task<SummaryCompactionResult> CompactAsync(bool force, CancellationToken cancellationToken)
         {
+            using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             if (_isSummarizing) return SummaryCompactionResult.Skipped("reentrant");
             var compactionBlock = GetConversationCompactionBlockReason();
             if (compactionBlock != null) return SummaryCompactionResult.Skipped(compactionBlock);
             // No policy means no summary store — there is nothing to compact into.
             // Injecting a policy here would silently start deleting history the caller never opted into.
             if (ConversationPolicy == null) return SummaryCompactionResult.Skipped("no-policy");
-            if (StatelessMode) return SummaryCompactionResult.Skipped("stateless");
+            if (RequestStatelessMode) return SummaryCompactionResult.Skipped("stateless");
 
             if (!force && !ConversationPolicy.ShouldSummarize(ActivateChat.Messages, LastKnownInputTokens))
                 return SummaryCompactionResult.Skipped("trigger-not-met");
@@ -144,6 +148,7 @@ namespace Mythosia.AI.Services.Base
             try
             {
                 var summaryResult = await GetCompletionAsync(prompt, RequestProfiles.Summarization);
+                RequestCancellationToken.ThrowIfCancellationRequested();
                 ConversationPolicy.CurrentSummary = summaryResult;
 
                 // Only remove messages when there are messages beyond KeepRecent

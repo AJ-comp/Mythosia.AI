@@ -1,5 +1,9 @@
 # RAG (검색 증강 생성)
 
+완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
+
+검색한 문맥으로 답변할 때도 `RagEnabledService.GetCompletionAsync`에 `cancellationToken`을 전달하세요. 같은 토큰이 검색, `LlmQueryRewriter`, `LlmReranker`, 내부 완료 호출까지 이어지며, 검색 중 취소하면 다음 모델 호출을 진행하지 않습니다. `RagPipeline.QueryAndGenerateAsync`도 토큰을 전달합니다. 각 구성요소는 취소에 협조해야 하며, 이미 완료한 검색이나 도구 행동을 되돌리지는 않습니다.
+
 ## RAG란?
 
 RAG(Retrieval-Augmented Generation)는 AI 모델이 답변을 생성할 때, **내가 가진 문서에서 관련 정보를 먼저 찾아온 뒤** 그 정보를 바탕으로 답변하도록 하는 기술입니다.
@@ -149,3 +153,5 @@ var response = await service.GetCompletionAsync("질문", options: options);
 - [에이전틱 RAG](rag-agentic.md) — AI가 스스로 판단해서 검색하는 지능형 RAG
 - [벡터 스토어](../vectordb-overview.md) — 영구 저장소 설정
 - [텍스트 분할기](text-splitters.md) — 문서를 나누는 방식 변경
+
+Perplexity: [직접 관리하는 문서 색인에 벡터 사용하기 / 답변을 만들지 않고 검색하기](perplexity.md).

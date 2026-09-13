@@ -1,5 +1,12 @@
 # Agent (ReAct Loop)
 
+Để nhận câu trả lời, mức sử dụng và nguồn cùng lúc, dùng bản chụp `AIRunResult` do `await run.Result` trả về. Chuỗi ở `result.Text`; không cần đọc luồng. Đây là thay đổi của Mythosia.AI 8.0.0; kiểu trả về của `GetCompletionAsync` và `StructuredStreamRun<T>.Result` giữ nguyên. [Kết quả Run và chuyển đổi](execution-api-transition.md#run-result).
+
+
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
+> Ví dụ `CreateRequest` cần Mythosia.AI 8.0.0 / Abstractions 4.0.0. Bản 7.1 trước đây giới thiệu Run và tùy chọn chung chưa có builder. Gói cũ có thể tiếp tục dùng các overload của dịch vụ.
+
 ## Tại sao cần Agent Loop?
 
 Function calling thông thường có thể thực thi **nhiều hàm từ một phản hồi của model dưới dạng batch có thứ tự** và tiếp tục qua các vòng dùng công cụ. API Agent đóng gói cơ chế đó thành vòng lặp ReAct hướng mục tiêu với **giới hạn số bước** rõ ràng, gửi kết quả của từng batch lại cho model cho đến khi tạo ra câu trả lời cuối cùng:
@@ -16,12 +23,16 @@ Function calling thông thường có thể thực thi **nhiều hàm từ một
 
 ```csharp
 // Đăng ký các hàm trên service trước khi bắt đầu tác vụ.
-await using var run = await service.WithMaxRounds(10).StartRunAsync(
-    "Tìm chính sách, kiểm tra đơn hàng và giải thích kết quả.",
-    onText: text => Console.Write(text),
-    cancellationToken: cancellationToken);
-string answer = await run.Result;
+await using var run = await service
+    .CreateRequest("Tìm chính sách, kiểm tra đơn hàng và giải thích kết quả.")
+    .WithMaxRounds(10)
+    .StartRunAsync(
+        onText: text => Console.Write(text),
+        cancellationToken: cancellationToken);
+string answer = (await run.Result).Text;
 ```
+
+Công cụ cục bộ có thể trả đối tượng qua `Task<T>` / `ValueTask<T>` và nhận `CancellationToken` được tiêm. `run.Cancel()` hoặc token lúc khởi chạy truyền đến công cụ có hỗ trợ hủy; chỉ dừng đọc luồng thì không. Ngoại lệ được ghi là lỗi. Khi hủy, lời gọi đang chờ được bỏ qua; bước dọn dẹp vẫn chờ công cụ đã chạy nhưng bỏ qua token. Xem [kết quả, lỗi và hủy](function-calling.md#tool-execution-contract).
 
 ## Ví dụ tương thích với API cũ
 

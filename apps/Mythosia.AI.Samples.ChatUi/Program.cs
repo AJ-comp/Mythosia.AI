@@ -32,6 +32,7 @@ app.UseStaticFiles(new StaticFileOptions
 
 // ── Shared state ────────────────────────────────────────────────
 AIService? currentService = null;
+ChatUiConnectionSnapshot? currentConnection = null;
 string? currentProvider = null;
 string? currentModelEnum = null;
 bool streamIncludeReasoning = true;
@@ -69,7 +70,7 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
     {
         var previousService = currentService;
         var httpClient = new HttpClient();
-        currentService = provider switch
+        AIService configuredService = provider switch
         {
             "OpenAI" => new OpenAIService(req.ApiKey!, httpClient),
             "Anthropic" => new AnthropicService(req.ApiKey!, httpClient),
@@ -82,30 +83,31 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
                 : new QwenService(req.BaseUrl!, ParsePlatform(req.Platform), httpClient),
             _ => throw new NotSupportedException($"Provider {provider} not supported")
         };
-        if (currentService is QwenService qwenService)
+        if (configuredService is QwenService qwenService)
         {
             qwenService.ModelIdOverride = string.IsNullOrWhiteSpace(req.ModelIdOverride)
                 ? null
                 : req.ModelIdOverride.Trim();
         }
-        currentService.ChangeModel(selectedModel);
+        configuredService.ChangeModel(selectedModel);
         streamIncludeReasoning = true;
 
         // Carry over conversation history and settings from previous service
         if (previousService != null)
-            currentService.CopyFrom(previousService);
-
-        currentProvider = provider;
-        currentModelEnum = req.Model;
+            configuredService.CopyFrom(previousService);
 
         // Register preset functions if enabled
-        if (presetFunctionsEnabled && !currentService.Functions.Any(f => f.Name == "get_url_content"))
-            RegisterPresetFunctions(currentService);
+        if (presetFunctionsEnabled && !configuredService.Functions.Any(f => f.Name == "get_url_content"))
+            RegisterPresetFunctions(configuredService);
 
         if (!string.IsNullOrWhiteSpace(req.SystemMessage))
-            currentService.SystemMessage = req.SystemMessage;
+            configuredService.SystemMessage = req.SystemMessage;
 
-        return Results.Ok(new { provider, model = desc, status = "configured" });
+        currentService = configuredService;
+        currentProvider = provider;
+        currentModelEnum = req.Model;
+        currentConnection = new ChatUiConnectionSnapshot(configuredService, provider, req.Model);
+        return Results.Ok(new { provider, model = desc, status = "configured", controls = GetModelControls(configuredService) });
     }
     catch (Exception ex)
     {
@@ -490,6 +492,8 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 StreamingContentType.Text => "text",
                 StreamingContentType.FunctionCall => "function_call",
                 StreamingContentType.FunctionResult => "function_result",
+                StreamingContentType.Citation => "citation",
+                StreamingContentType.RoundUsage => "usage",
                 StreamingContentType.Error => "error",
                 _ => null
             };
@@ -497,7 +501,15 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
 
             // Build payload based on type
             object payloadObj;
-            if (type == "function_call")
+            if (type == "citation")
+            {
+                payloadObj = new { type, citation = sc.Citation };
+            }
+            else if (type == "usage")
+            {
+                payloadObj = new { type, usage = sc.Usage };
+            }
+            else if (type == "function_call")
             {
                 // FunctionCall event: Content is null, name is in Metadata
                 var name = sc.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "";
@@ -565,18 +577,24 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     if (req.SystemMessage != null) currentService.SystemMessage = req.SystemMessage;
     if (req.ReasoningEnabled.HasValue) streamIncludeReasoning = req.ReasoningEnabled.Value;
 
-    ChatUiSettingsHelpers.ApplyReasoningSettings(currentService, req);
+    try { ChatUiSettingsHelpers.ApplyReasoningSettings(currentService, req); }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    if (currentService is PerplexityService) streamIncludeReasoning = true;
 
-    return Results.Ok(new { status = "updated" });
+    return Results.Ok(new { status = "updated", controls = GetModelControls(currentService) });
 });
 
 // ── GET /api/state ──────────────────────────────────────────────
 app.MapGet("/api/state", async () =>
 {
-    if (currentService == null)
+    var connection = currentConnection;
+    if (connection == null)
         return Results.Ok(new { configured = false });
 
-    var svc = currentService;
+    // Keep service identity together across token counting and concurrent model changes.
+    var svc = connection.Service;
+    var stateProvider = connection.Provider;
+    var stateModelEnum = connection.ModelEnum;
 
     var conversationTokenCount = await svc.GetInputTokenCountAsync();
 
@@ -636,8 +654,8 @@ app.MapGet("/api/state", async () =>
     return Results.Ok(new
     {
         configured = true,
-        provider = currentProvider,
-        modelEnum = currentModelEnum,
+        provider = stateProvider,
+        modelEnum = stateModelEnum,
 
         // Model & Generation Settings
         model = svc.Model,
@@ -648,7 +666,8 @@ app.MapGet("/api/state", async () =>
         presencePenalty = svc.PresencePenalty,
         stream = svc.Stream,
         reasoning = ChatUiSettingsHelpers.GetReasoningState(svc),
-        sampling = GetSamplingControls(svc.Model),
+        sampling = GetSamplingControls(svc.GetCapabilities()),
+        controls = GetModelControls(svc),
 
         // Modes
         statelessMode = svc.StatelessMode,

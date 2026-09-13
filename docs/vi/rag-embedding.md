@@ -17,7 +17,13 @@ Trang này tập trung vào embedding thời điểm truy vấn (bước 2), chu
 
 ## Provider embedding tích hợp
 
-Mythosia.AI.Rag đi kèm bốn embedding provider. Chọn dựa trên nhu cầu của bạn:
+Chọn nhà cung cấp embedding theo ngôn ngữ tài liệu, môi trường triển khai và nhu cầu truy xuất.
+
+### Perplexity
+
+Embedding tiêu chuẩn xử lý đoạn độc lập và triển khai `IEmbeddingProvider` cho bộ dựng RAG hiện có. Embedding ngữ cảnh giữ thứ tự đoạn và nhóm tài liệu. API riêng ngăn gộp phẳng các tài liệu không liên quan.
+
+[Perplexity Agent API, tìm kiếm và embedding](perplexity.md).
 
 ### OpenAI Embedding
 
@@ -107,6 +113,8 @@ Kích thước chiều phổ biến:
 | Provider | Model | Chiều mặc định |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| Perplexity | pplx-embed-v1-0.6b | 1024 |
+| Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
 | Ollama | qwen3-embedding:4b | 1024 (32–2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |

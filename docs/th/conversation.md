@@ -1,5 +1,7 @@
 # การจัดการการสนทนา
 
+ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
+
 ## ประวัติการสนทนาทำงานอย่างไร
 
 ทุกครั้งที่เรียก `GetCompletionAsync` หรือ `StreamAsync` จะเพิ่มข้อความเข้าไปในรายการข้อความภายในของ service หมายความว่า model มี context จากทุกรอบก่อนหน้า

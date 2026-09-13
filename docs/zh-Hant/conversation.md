@@ -1,5 +1,7 @@
 # 對話管理
 
+若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
+
 ## 對話歷史的運作方式
 
 每次呼叫 `GetCompletionAsync` 或 `StreamAsync` 都會追加到服務的內部訊息清單。模型擁有所有前序輪次的上下文。

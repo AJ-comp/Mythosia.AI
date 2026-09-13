@@ -1,5 +1,7 @@
 - name: 快速入門
   items:
+  - name: 遷移至 Mythosia.AI 8
+    href: v8-migration.md
   - name: 簡介
     href: introduction.md
   - name: 核心概念
@@ -15,6 +17,10 @@
     href: completions.md
   - name: 生成參數
     href: generation-params.md
+  - name: 讓每個請求的設定互相獨立
+    href: request-building.md
+  - name: 顯示所選模型支援的功能選項
+    href: model-capabilities.md
   - name: 推理選擇與來源引用
     href: reasoning-and-search.md
   - name: 串流輸出
@@ -38,6 +44,10 @@
   items:
   - name: 各供應商特性
     href: providers.md
+  - name: Claude Fable 5.1
+    href: fable-5-1.md
+  - name: Perplexity Agent API、搜尋與嵌入
+    href: perplexity.md
 
 - name: RAG
   items:

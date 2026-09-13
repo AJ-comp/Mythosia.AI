@@ -1,5 +1,9 @@
 # AIRequestContext
 
+Para una respuesta final con botón Detener, pase `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progreso o instrucciones adicionales compatibles. Consulte [cancelación](completions.md#completion-cancellation).
+
+Para ajustes independientes y variantes reutilizables, use el [builder de solicitudes](request-building.md). Llame a `CreateRequest(...)` antes de `With...`. Las propiedades y métodos fluent del servicio conservan su comportamiento.
+
 La fecha, la información del usuario y los documentos encontrados a menudo deben aplicarse solo a la tarea actual. El contexto limita esas aportaciones a la petición y también puede acompañar una tarea controlable; consulta la [guía de Run](execution-api-transition.md).
 
 ## ¿Qué Es?
@@ -31,7 +35,7 @@ await using var run = await service.StartRunAsync(
         SystemMessagePrefix = $"Fecha de hoy: {DateTime.UtcNow:yyyy-MM-dd}.\n"
     },
     cancellationToken: cancellationToken);
-string answer = await run.Result;
+string answer = (await run.Result).Text;
 ```
 
 ## Propiedades Disponibles
@@ -196,7 +200,7 @@ service.WithSystemMessageProvider(async ct =>
 });
 ```
 
-`GetCompletionAsync` y las sobrecargas anteriores de `RunAgentAsync` no aceptan un `CancellationToken`; el proveedor de contexto recibe `CancellationToken.None`. Si el proveedor necesita cancelación, por ejemplo durante una consulta larga de base de datos, utiliza `StartRunAsync(..., cancellationToken: token)`. Las rutas anteriores de streaming (`StreamAsync`, `RunAgentStreamAsync`) también transmiten el token del llamador al callback del proveedor.
+`GetCompletionAsync(..., cancellationToken: token)` y el anterior `RunAgentAsync` ahora transmiten la cancelación a `SystemMessageProvider`, para detener consultas cooperativas de base de datos o HTTP durante la preparación. `StartRunAsync` y los métodos de streaming con entrada también transmiten su token de ejecución. Cancelar solo `run.StreamAsync(token)` detiene la observación, no el proveedor ni la ejecución.
 
 ### Fusión con un contexto per-call explícito
 

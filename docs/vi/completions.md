@@ -1,5 +1,72 @@
 # Tạo văn bản
 
+Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
+
+<a id="completion-cancellation"></a>
+
+## Hủy câu trả lời không còn cần thiết
+
+Khi người dùng đóng màn hình, nhấn Dừng hoặc hết thời gian chờ của ứng dụng, câu trả lời có thể không còn hữu ích. Truyền `CancellationToken` để dừng giao tiếp và công việc phía máy khách, tránh gọi công cụ và mô hình ở các vòng tiếp theo. `GetCompletionAsync` vẫn phù hợp để nhận câu trả lời hoàn chỉnh; chỉ hủy thì không cần Run.
+
+### Before: bên gọi không truyền tín hiệu hủy
+
+```csharp
+string answer = await service.CreateRequest("Tóm tắt tài liệu này.")
+    .GetCompletionAsync();
+```
+
+### After: hủy theo người dùng hoặc sau 30 giây
+
+```csharp
+using System;
+using System.Threading;
+
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+try
+{
+    string answer = await service.CreateRequest("Tóm tắt tài liệu này.")
+        .GetCompletionAsync(cancellationToken: cancellation.Token);
+    Console.WriteLine(answer);
+}
+catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+{
+    Console.WriteLine("Đã hủy.");
+}
+```
+
+Giữ nguồn token trong lúc gọi và nối nút Dừng hoặc sự kiện đóng màn hình với `cancellation.Cancel()`. Ví dụ cũng đặt lịch hủy sau 30 giây. Bên gọi nhận `OperationCanceledException` sau khi dọn dẹp. Thời hạn đặt bằng `CancellationTokenSource` cũng là hủy từ bên gọi; `FunctionCallingPolicy.TimeoutSeconds` giữ cách báo lỗi hết thời gian hiện có.
+
+Các overload dịch vụ nhận chuỗi và `Message`, kết quả có kiểu, request builder và `MessageChain.SendAsync` / `SendOnceAsync` đều nhận token. Lệnh gọi cũ bỏ qua token vẫn hoạt động. Các điểm gọi khác:
+
+```csharp
+using System.Collections.Generic;
+using System.Threading;
+using Mythosia.AI.Extensions;
+
+using var cancellation = new CancellationTokenSource();
+CancellationToken token = cancellation.Token;
+
+string answer = await service.GetCompletionAsync(
+    "Tóm tắt tài liệu này.", cancellationToken: token);
+
+Dictionary<string, string> data = await service.GetCompletionAsync<Dictionary<string, string>>(
+    "Trả về tiêu đề và tác giả dưới dạng JSON.", cancellationToken: token);
+
+string messageAnswer = await service.BeginMessage().AddText("Tóm tắt tài liệu này.")
+    .SendAsync(cancellationToken: token);
+
+string oneOffAnswer = await service.BeginMessage().AddText("Dịch câu này.")
+    .SendOnceAsync(cancellationToken: token);
+```
+
+Token đi tới khâu chuẩn bị, gửi và đọc HTTP, công cụ cục bộ có hỗ trợ hủy và các vòng mô hình tiếp theo. Khi phát hiện hủy, bỏ qua công cụ đang chờ và các vòng sau. Việc dọn dẹp giữ từng lệnh gọi đã ghi khớp với kết quả; công cụ đã chạy nhưng bỏ qua token có thể làm chậm bước này. Không hoàn tác hành động đã xong hay xóa lịch sử. Xem [quy tắc công cụ](function-calling.md#tool-execution-contract).
+
+Không bảo đảm nhà cung cấp dừng suy luận hoặc tính phí. OpenAI hướng dẫn ngắt kết nối cho Responses thông thường; Google nêu rõ chỉ hủy phía máy khách và vẫn tính phí phần sử dụng áp dụng. [OpenAI Responses](https://developers.openai.com/api/docs/guides/background#limits) · [Google GenerateContentConfig.abortSignal](https://googleapis.github.io/js-genai/release_docs/interfaces/types.GenerateContentConfig.html#abortsignal). Tác vụ nền cần gọi rõ `CancelAsync()`; hủy `WaitForCompletionAsync(cancellationToken: ...)` chỉ dừng chờ. Yêu cầu thông thường không được chuyển thành chạy nền. Xem [Perplexity](perplexity.md).
+
+<a id="completion-cancellation-migration"></a>
+
+Phần bổ sung này thuộc Mythosia.AI 8.0.0. Lệnh gọi bỏ qua token và đối số profile/context theo vị trí vẫn tương thích ở mã nguồn, nhưng bên sử dụng cần biên dịch lại. Triển khai `IAIService` riêng phải thêm `CancellationToken cancellationToken = default` ở cuối cả hai chữ ký và truyền tiếp. Nhà cung cấp kế thừa `AIService` giữ override `GetCompletionAsync(Message)` hiện có và truyền `RequestCancellationToken` được bảo vệ vào tầng giao tiếp. Riêng builder và Run không cần thay đổi giao diện này. Lớp con ghi đè các overload public virtual đã đổi cho phản hồi string/profile/context, hàm hỗ trợ ảnh hoặc `RunAgentAsync` cũng phải thêm và truyền `CancellationToken` mới; chỉ override nhà cung cấp nhận một `Message` giữ chữ ký cũ. Delegate liên kết trực tiếp với chữ ký đã đổi có thể cần lambda tường minh để truyền hoặc bỏ qua token.
+
 ## Một lượt
 
 Cách dùng đơn giản nhất — gửi tin nhắn, nhận kết quả:
@@ -63,6 +130,8 @@ var message = MessageBuilder.Create().AddText("Sơ đồ này mô tả gì?")
 
 var response = await service.GetCompletionAsync(message);
 ```
+
+Để phân tích biểu đồ, ảnh chụp, gọi hàm cục bộ hoặc rà soát kỹ câu trả lời, dùng [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Suy luận mặc định tắt; bật bằng `WithDeepSeekReasoning(...)` hoặc `WithReasoning(...)` cho từng yêu cầu.
 
 ## Quick Ask (API tĩnh)
 
@@ -168,3 +237,5 @@ await foreach (var chunk in service.BeginMessage().AddText("Kể cho tôi một 
 service.MaxTokens = 512;
 service.Temperature = 0.2f;  // thấp hơn = xác định hơn
 ```
+
+Perplexity: [Trả lời bằng preset Agent / Nguồn, ảnh và câu trả lời có cấu trúc](perplexity.md).
