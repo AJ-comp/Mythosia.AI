@@ -2,9 +2,9 @@
 
 Call Qwen-compatible chat endpoints on DashScope, vLLM or Ollama while keeping the shared `AIService` conversation, streaming and tool workflows. `QwenService` adds provider-specific thinking controls and custom deployment names.
 
-## Current release: 3.0.0
+## Current release: 3.0.1
 
-Requires **Mythosia.AI 8.0.0**, which brings **Mythosia.AI.Abstractions 4.0.0** transitively. Review the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) and rebuild callers for the inherited completion and Run contract changes.
+This patch rebuilds the adapter against **Mythosia.AI 8.1.0**, which brings **Mythosia.AI.Abstractions 4.1.0** transitively. Qwen public APIs and endpoint defaults remain unchanged; no additional source migration is required from 3.0.0. When upgrading from 2.x or earlier, review the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for the inherited completion and Run contract changes.
 
 Prepare different settings with an immutable `CreateRequest(...)` builder, pass cancellation to stop cooperative client work, and read `(await run.Result).Text` for a Run answer. The completed `AIRunResult` also retains reported usage, sources, requested/actual model, rounds and finish details without requiring a stream reader. Ordinary `GetCompletionAsync` still returns a string. [Request settings](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md) · [Run migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result) · [Completion cancellation](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation).
 
@@ -212,4 +212,4 @@ var result = await service.GetCompletionAsync("What's the weather in Seoul?");
 
 - Main package: [GitHub Repository](https://github.com/AJ-comp/Mythosia.AI)
 - Core documentation: [Mythosia.AI Provider Guide](https://aj-comp.github.io/Mythosia.AI/docs/providers.html)
-- Release notes: [Mythosia.AI.Providers.Alibaba v3.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300)
+- Release notes: [Mythosia.AI.Providers.Alibaba v3.0.1 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301)

@@ -1,8 +1,8 @@
 # 소개
 
-> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+> Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
 
-> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+> GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 
 Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더, 벡터 데이터베이스를 단일 인터페이스로 통합한 모듈식 .NET AI 라이브러리입니다.
 

@@ -2,11 +2,13 @@
 
 Build applications that can switch AI providers while keeping the same completion, streaming and tool workflows. `Mythosia.AI` connects OpenAI, Anthropic, Google, xAI, DeepSeek and Perplexity, with multimodal input, reasoning, hosted search, citations and optional image generation/editing.
 
-Choose premium low-latency processing only for requests that need it, while keeping the same model and reasoning effort. The unreleased `WithSpeed(InferenceSpeed.ProviderDefault/Standard/Fast)` API works on immutable request builders and next-request service extensions. Inspect model capabilities, then read `AIRunResult.Processing` or `LastProcessing` to distinguish requested from reported processing; unknown reporting remains unknown. Fast can cost more and is limited by provider/model/API and account access. See [speed selection and examples](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
+Choose premium low-latency processing only for requests that need it, while keeping the same model and reasoning effort. The `WithSpeed(InferenceSpeed.ProviderDefault/Standard/Fast)` API works on immutable request builders and next-request service extensions. Inspect model capabilities, then read `AIRunResult.Processing` or `LastProcessing` to distinguish requested from reported processing; unknown reporting remains unknown. Fast can cost more and is limited by provider/model/API and account access. See [speed selection and examples](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 8.0.0
+## Current release: 8.1.0
 
-This major release is paired with **Mythosia.AI.Abstractions 4.0.0**. Read the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) before upgrading, and rebuild dependent applications and custom providers.
+This minor release requires **Mythosia.AI.Abstractions 4.1.0**. It adds GPT-6 Sol/Luna, Claude Opus 5.5, Grok 4.7, DeepSeek V4 Pro and Responses/Files APIs, plus common processing-speed controls. Existing public APIs and service defaults remain. See the [v8.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v810).
+
+The v8 API contracts below remain available. When upgrading from 7.x or earlier, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) and rebuild dependent applications and custom providers.
 
 | When you need to... | Use... |
 | --- | --- |
@@ -23,13 +25,13 @@ Provider additions include [Claude Fable/Mythos 5.1](https://github.com/AJ-comp/
 
 Reliability fixes preserve request snapshots and reported token totals, complete cleanup on failure, validate stream termination and image payloads, and reject invalid structured-output retry budgets. See the [v8.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v800) for exact changes and compatibility limits. For older upgrades, apply the [v7 migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md) as well.
 
-## Unreleased: Grok 4.7
+## Grok 4.7
 
-For fast drafts and careful code/document reviews, select `AIModels.xAI.Grok4_7` and choose `Low`, `Medium`, `High` or `XHigh` through the existing request builder. Completion, streaming, Run, local tools, structured output, image input and model capabilities share the same model-specific validation. Native Auto uses the provider’s High default; reasoning cannot be disabled. `WithSpeed(InferenceSpeed.Fast)` selects paid priority processing, not the separate Cursor/Grok Build-only Grok 4.7 Fast variant. Read the reported tier in `AIRunResult.Processing`. This addition requires matching unreleased core and abstractions builds; the service default remains Grok 4.5. See [usage, limits and transport scope](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
+For fast drafts and careful code/document reviews, select `AIModels.xAI.Grok4_7` and choose `Low`, `Medium`, `High` or `XHigh` through the existing request builder. Completion, streaming, Run, local tools, structured output, image input and model capabilities share the same model-specific validation. Native Auto uses the provider’s High default; reasoning cannot be disabled. `WithSpeed(InferenceSpeed.Fast)` selects paid priority processing, not the separate Cursor/Grok Build-only Grok 4.7 Fast variant. Read the reported tier in `AIRunResult.Processing`. This addition requires Mythosia.AI 8.1.0 and Abstractions 4.1.0; the service default remains Grok 4.5. See [usage, limits and transport scope](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
 
-## Unreleased: Claude Opus 5.5
+## Claude Opus 5.5
 
-For long coding and document tasks, select `AIModels.Anthropic.ClaudeOpus5_5` through the existing completion, streaming and Run APIs. Untouched settings use medium adaptive effort and omit readable thinking; explicitly choose summarized reasoning or progress updates for your interface. Signed thinking, including empty blocks, is retained across ordinary turns and tool rounds. Forced tools, assistant prefills and reasoning-off requests are unsupported; native server features are not all exposed. This addition is not in the published 8.0.0 / 4.0.0 packages. See [Opus 5.5 configuration and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
+For long coding and document tasks, select `AIModels.Anthropic.ClaudeOpus5_5` through the existing completion, streaming and Run APIs. Untouched settings use medium adaptive effort and omit readable thinking; explicitly choose summarized reasoning or progress updates for your interface. Signed thinking, including empty blocks, is retained across ordinary turns and tool rounds. Forced tools, assistant prefills and reasoning-off requests are unsupported; native server features are not all exposed. This addition is available with Mythosia.AI 8.1.0 and Abstractions 4.1.0. See [Opus 5.5 configuration and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
 
 ## Supported Providers
 
@@ -47,7 +49,7 @@ For long coding and document tasks, select `AIModels.Anthropic.ClaudeOpus5_5` th
 - **[Reasoning and Search](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/reasoning-and-search.md)** — Move from quick drafts to deeper review, search hosted sources, and retain citations through common Fluent options
 - **[Claude Fable 5.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/fable-5-1.md)** — Observe progress, append turn instructions, and diagnose preserved-thinking changes
 - **[Perplexity](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md)** — Produce grounded answers, manage research tasks, or use independent search and embeddings
-- **[v8.0.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v800)** — Current changes, compatibility details, and full version history
+- **[v8.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v810)** — Current changes, compatibility details, and full version history
 - **[Relationship to Microsoft.Extensions.AI](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions#relationship-to-microsoftextensionsai)** — How IAIService and IChatClient differ
 
 > Claude Fable 5 and Claude Mythos 5 require 30-day data retention and cannot use zero-data-retention arrangements. Adaptive thinking is always on; a reasoning-off request is represented by low effort with readable reasoning omitted. Mythos 5 is limited to approved Project Glasswing customers.
@@ -251,11 +253,11 @@ var vision = await AIService.QuickAskWithImageAsync(apiKey, "Describe this image
 
 <a id="gpt-6-sol-luna"></a>
 
-## GPT-6 Sol / Luna (unreleased)
+## GPT-6 Sol / Luna
 
 Choose GPT-6 Sol for demanding coding, tool use and agent tasks; choose Luna when cost and throughput matter for large volumes of text or image-input work. Both use the existing completion, streaming and Run APIs, so switching models does not require a new application workflow.
 
-> This is an unreleased addition requiring matching core and abstractions builds. Published Mythosia.AI 8.0.0 / Abstractions 4.0.0 do not contain `Gpt6Sol`, `Gpt6Luna` or `Gpt6Reasoning.None`. Existing Astra support retains its earlier minimum versions; the service default is unchanged.
+> `Gpt6Sol`, `Gpt6Luna` and `Gpt6Reasoning.None` require Mythosia.AI 8.1.0 / Abstractions 4.1.0. Existing Astra support retains its earlier minimum versions; the service default is unchanged.
 
 Use `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) or `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`). Both accept text and images and produce text, with a 1,050,000-token context window, at most 922,000 input tokens and 128,000 output tokens. Input, reasoning and output must still fit the context budget. `MaxTokens` sets the requested output budget, not the context size.
 
@@ -478,7 +480,7 @@ string answer = (await run.Result).Text;
 
 Use DeepSeek Flash when a task needs a quick answer, a more careful review, or an explanation of a chart or screenshot. `AIModels.DeepSeek.Flash` (`deepseek-flash`) selects V4.1 Flash, released on September 10, 2026, with native visual understanding. The existing completion, streaming, Run, function-calling, and RAG APIs remain the entry points; support starts with `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0.
 
-> V4 Pro, Responses and Files support below requires matching unreleased core and abstractions builds. Published 8.0.0 / 4.0.0 includes the Flash integration described above, but does not contain these additions.
+> V4 Pro, Responses and Files support below requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. Earlier 8.0.0 / 4.0.0 packages include the Flash integration described above.
 
 Select `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) for text-only work; Flash remains the default and supports images. Both expose Low/High/Max thinking and the same output ceiling. To use DeepSeek Responses with the existing completion, streaming, Run and local-function APIs, set `UseResponsesApi = true` before creating the request. The default stays `false` so existing applications keep Chat Completions; the choice is captured for the whole request and its tool rounds. Responses resends full conversation and native reasoning history instead of relying on server-stored response IDs.
 
@@ -1317,7 +1319,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 | **OpenAI GPT-5.2 / 5.2 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.1** | ✅ | ✅ | ✅ | Reasoning + verbosity control |
 | **OpenAI GPT-4.1 / 4.1 Mini / GPT-4o / 4o Mini** | ✅ | ✅ | — | Full function support |
-| **Claude Opus 5.5** | ✅ | ✅ | ✅ | Unreleased; always-on adaptive thinking, medium/omitted default, explicit updates, preserved-thinking controls; forced tools unsupported |
+| **Claude Opus 5.5** | ✅ | ✅ | ✅ | Since v8.1.0; always-on adaptive thinking, medium/omitted default, explicit updates, preserved-thinking controls; forced tools unsupported |
 | **Claude Fable 5.1** | ✅ | ✅ | ✅ | Progress updates, per-message effort, turn instructions, binding diagnostics; forced tool choice unsupported |
 | **Claude Mythos 5.1** | ✅ | ✅ | ✅ | Invitation only; same 5.1 controls without Fable's prefix check; forced tool choice unsupported |
 | **Claude Fable 5** | ✅ | ✅ | ✅ | Adaptive thinking + tool use |

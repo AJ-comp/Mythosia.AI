@@ -79,11 +79,11 @@ var presetRequest = new ImageGenerationRequest
 
 <a id="gpt-6-sol-luna"></a>
 
-### GPT-6 Sol / Luna（未リリース）
+### GPT-6 Sol / Luna
 
 複雑なコーディング、ツール利用、エージェント処理には GPT-6 Sol を、テキストや画像入力を大量に処理しコストを抑えたい場合には Luna を選びます。既存の完了応答、ストリーミング、Run API を使えるため、モデルを切り替えても呼び出しの流れは変わりません。
 
-> 未リリースの追加機能で、対応する core と abstractions のビルドが必要です。公開済みの Mythosia.AI 8.0.0 / Abstractions 4.0.0 には `Gpt6Sol`、`Gpt6Luna`、`Gpt6Reasoning.None` は含まれません。既存の Astra 機能の最低バージョンとサービスの既定モデルは変わりません。
+> Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 既存の Astra 機能の最低バージョンとサービスの既定モデルは変わりません。
 
 `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) または `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`) を選択します。両モデルはテキスト・画像入力とテキスト出力に対応し、コンテキストは 1,050,000 トークン、最大入力は 922,000、最大出力は 128,000 トークンです。入力・推論・出力の合計もコンテキストの制限内に収めます。`MaxTokens` はコンテキスト長ではなく出力の予算です。
 
@@ -244,7 +244,7 @@ await File.WriteAllBytesAsync("pavilion-cutout.png", edited.Images[0].Data);
 
 ### Claude Opus 5.5: 長いツール処理の進行状況を表示する
 
-複数回のツール呼び出しを伴うコードレビューや文書調査に Opus 5.5 を使えます。既存の completion・Run API を使いますが、既定では進行状況が非表示で、推論を保持する際は履歴変更にも注意が必要です。この対応は開発中であり、公開済みの 8.0.0 / 4.0.0 パッケージには含まれません。
+複数回のツール呼び出しを伴うコードレビューや文書調査に Opus 5.5 を使えます。 既存の completion・Run API を使いますが、既定では進行状況が非表示で、推論を保持する際は履歴変更にも注意が必要です。 Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。
 
 `ClaudeOpus5_5` は `claude-opus-5-5` を選択します。テキスト・画像入力、テキスト出力、1M コンテキスト、最大 128K 出力トークンに対応します。2026-09-24 時点の通常入出力料金は 100 万トークン当たり $4/$20 で、特殊モードやツールは別料金です。 [公式モデル情報](https://platform.claude.com/docs/en/models/opus-5-5/overview).
 
@@ -346,7 +346,7 @@ Flash-Lite の[モデルページ](https://ai.google.dev/gemini-api/docs/models/
 
 ### Grok 4.7
 
-素早い下書きの後にコードや文書を詳しく検証する場合は、Grok 4.7 を選び、リクエストごとに推論レベルを調整します。既存の通常応答・ストリーミング・Run・ローカルツール・構造化出力・画像入力 API を使えます。`grok-4.7` はテキストと画像を入力し、テキストを出力します。コンテキストは 500,000 トークンです。対応する未リリースの core と abstractions が必要で、公開済み 8.0.0 / 4.0.0 には含まれません。既定モデルは Grok 4.5 のままです。
+素早い下書きの後にコードや文書を詳しく検証する場合は、Grok 4.7 を選び、リクエストごとに推論レベルを調整します。 既存の通常応答・ストリーミング・Run・ローカルツール・構造化出力・画像入力 API を使えます。 `grok-4.7` はテキストと画像を入力し、テキストを出力します。 コンテキストは 500,000 トークンです。 既定モデルは Grok 4.5 のままです。 Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -479,7 +479,7 @@ Google は `ImageSize.Auto` またはモデル別の解像度・比率の `Prese
 
 素早い回答の後に詳しく検証したり、グラフやスクリーンショットを説明したりする場合に DeepSeek Flash を使えます。`AIModels.DeepSeek.Flash` (`deepseek-flash`) は、2026年9月10日公開の視覚理解対応 V4.1 Flash を選択します。既存の補完・ストリーミング・Run・関数呼び出し・RAG API を使用し、`Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から利用できます。
 
-> 公開済みの `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 は Flash の基本機能に対応しています。`AIModels.DeepSeek.V4Pro`、`UseResponsesApi`、Files API、`DeepSeekImageFileContent` はソースに追加された未リリース機能であり、対応するコアと抽象化のソースビルドが必要です。これらは上記の公開済みパッケージには含まれません。[未リリースの変更履歴](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased)。
+> 公開済みの `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 は Flash の基本機能に対応しています。 `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, Files API, `DeepSeekImageFileContent`: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [v8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810).
 
 テキスト処理には `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) を選択できます。既定の Flash は画像にも対応し、両モデルで Low/High/Max 推論と同じ出力上限を使えます。既存の補完・ストリーミング・Run・ローカル関数 API で Responses を使う場合は、リクエスト作成前に `UseResponsesApi = true` を設定します。既存アプリの Chat Completions を維持するため既定値は `false` で、設定は後続のツールラウンドまで固定されます。Responses は保存済み応答 ID に依存せず、会話と元の推論履歴をすべて再送します。
 

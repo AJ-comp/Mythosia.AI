@@ -5,15 +5,20 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Pdf</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Load PDF files into DoclingDocument structured models with PdfPig. Supports font-size heading detection, bullet/numbered lists, spatial paragraph grouping, encrypted PDFs, metadata extraction and page headers. File sources use normalized absolute paths for consistent RAG document identity across relative/absolute registrations and separate identities for same-named files in different folders.</Description>
+    <Description>Load PDF files into DoclingDocument structured models with PdfPig. Supports font-size heading detection, bullet/numbered lists, spatial paragraph grouping, encrypted PDFs, metadata extraction and page headers. File sources use normalized absolute paths for consistent RAG document identity across relative/absolute registrations and separate identities for same-named files in different folders. What's New in v1.1.2: Stable absolute-path document identity across relative and absolute registrations.</Description>
     <PackageTags>Document;DocumentLoader;Pdf;PdfPig</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>Unreleased (next version not assigned): Uses normalized absolute file paths as DoclingDocument.Source for stable RAG automatic IDs and separation of same-named files in different folders. Explicit IDs remain unchanged; default citations may show absolute paths. Existing relative-path records are not automatically migrated or removed; delete only identified old document IDs before reindexing, or rebuild a complete source set into a new collection. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Pdf/RELEASE_NOTES.md#unreleased. Previous version notes: v1.1.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
-v1.1.0: Structured extraction — font-size heading detection, bullet/numbered list recognition, spatial paragraph grouping. Direct metadata access (reflection removed). NormalizeWhitespace preserves newlines. Fallback for PDFs with no extractable words.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.1.2: Uses normalized absolute file paths as DoclingDocument.Source for stable RAG automatic IDs and separation of same-named files in different folders. Explicit IDs remain unchanged; default citations may show absolute paths. Existing relative-path records are not automatically migrated or removed; delete only identified old document IDs before reindexing, or rebuild a complete source set into a new collection. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Pdf/RELEASE_NOTES.md#v112</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +34,10 @@ v1.1.0: Structured extraction — font-size heading detection, bullet/numbered l
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

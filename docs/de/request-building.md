@@ -1,6 +1,6 @@
 # Einstellungen jeder Anfrage unabhängig halten
 
-> Grok 4.7 ist eine noch unveröffentlichte Ergänzung; siehe [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47).
+> Grok 4.7: Benötigt Mythosia.AI 8.1.0 / Abstractions 4.1.0. [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47)
 
 Eine Zusammenfassung benötigt möglicherweise eine niedrige Temperatur, ein kreativer Entwurf eine höhere. Der Entwurf darf die bereits vorbereitete Zusammenfassung nicht verändern. Verwenden Sie `CreateRequest`, wenn Aufrufe unterschiedliche Einstellungen benötigen oder Sie Varianten einer gemeinsamen Anfrage erstellen möchten.
 
@@ -117,7 +117,7 @@ Ein Builder ist kein eigenes Gespräch. Er verwendet das zur Ausführungszeit ak
 
 ## Verarbeitungsgeschwindigkeit passend zur Aufgabe wählen
 
-Für wartende Nutzer kann sich die kostenpflichtige Verarbeitung mit geringerer Latenz lohnen; ein Hintergrundbericht kann regulär laufen. `WithSpeed` wählt den Modus bei gleichem Modell und Denkaufwand. Diese unveröffentlichte Funktion benötigt die zugehörigen Core- und Abstractions-Änderungen; die veröffentlichten Pakete 8.0.0 / 4.0.0 enthalten sie nicht.
+Für wartende Nutzer kann sich die kostenpflichtige Verarbeitung mit geringerer Latenz lohnen; ein Hintergrundbericht kann regulär laufen. `WithSpeed` wählt den Modus bei gleichem Modell und Denkaufwand. Benötigt Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 `ProviderDefault` überschreibt nichts und erhält vorhandene Dienst-/Anbietereinstellungen; der Projektstandard kann bereits Fast sein. `Standard` fordert reguläre Verarbeitung ausdrücklich an. `Fast` wählt den kostenpflichtigen Modus mit niedriger Latenz und kann Mehrkosten verursachen. Behalten Sie den zurückgegebenen Builder: Die drei Zweige sind unabhängig, die Basis bleibt unverändert.
 

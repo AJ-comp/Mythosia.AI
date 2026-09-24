@@ -1,16 +1,16 @@
 # Escolher o esforço de raciocínio e responder com fontes
 
-> Grok 4.7 é uma adição ainda não publicada; veja [seleção do modelo, raciocínio e velocidade](providers.md#grok-47).
+> Grok 4.7: Requer Mythosia.AI 8.1.0 / Abstractions 4.1.0. [seleção do modelo, raciocínio e velocidade](providers.md#grok-47)
 
 > GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
 
-[Claude Opus 5.5](providers.md#claude-opus-55) é uma adição não publicada: raciocínio sempre ativo, esforço medium por padrão e exibição omitida. Solicite progresso legível explicitamente; padrões e regras de vínculo diferem do Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) está disponível com Mythosia.AI 8.1.0 / Abstractions 4.1.0: raciocínio sempre ativo, esforço medium por padrão e exibição omitida. Solicite progresso legível explicitamente; padrões e regras de vínculo diferem do Fable 5.1.
 
 Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
 
 > Estas APIs exigem `Mythosia.AI` 7.1.0 ou posterior, que inclui `Mythosia.AI.Abstractions` 3.1.0 ou posterior. Os exemplos de RAG exigem `Mythosia.AI.Rag` 7.6.0 ou posterior.
 
-> Os exemplos com `CreateRequest` exigem a versão atual em desenvolvimento. A versão 7.1 que introduziu Run e as opções comuns não inclui o builder. Pacotes anteriores podem usar as sobrecargas do serviço.
+> Os exemplos com `CreateRequest` exigem Mythosia.AI 8.0.0 / Abstractions 4.0.0. A versão 7.1 que introduziu Run e as opções comuns não inclui o builder. Pacotes anteriores podem usar as sobrecargas do serviço.
 
 [Claude Fable 5.1](fable-5-1.md) adiciona atualizações de progresso, instruções por turno e diagnósticos de vinculação do raciocínio a partir de `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 exige convite. Ambos rejeitam a seleção forçada de ferramentas.
 

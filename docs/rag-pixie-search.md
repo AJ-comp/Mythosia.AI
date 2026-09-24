@@ -25,13 +25,13 @@ PIXIE runs in-process through ONNX Runtime and does not need a Python server, AP
 
 ## Add it to an existing RAG configuration
 
-**Publication status:** this preview is currently available from source and locally validated packages; it has not been published to NuGet. The install commands below apply after publication. For current checkout validation, follow [building from source](#building-the-model-bundled-package-from-source).
+**Package versions:** this guide targets `Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview with `Mythosia.AI.Rag` 8.1.0 and `Mythosia.VectorDb.Abstractions` 4.1.0. The optional preview includes the model assets. To validate a source checkout, follow [building from source](#building-the-model-bundled-package-from-source).
 
-After publication, install the RAG package and the optional search preview:
+Install the RAG package and the optional search preview:
 
 ```bash
-dotnet add package Mythosia.AI.Rag
-dotnet add package Mythosia.AI.Rag.Search.Pixie --prerelease
+dotnet add package Mythosia.AI.Rag --version 8.1.0
+dotnet add package Mythosia.AI.Rag.Search.Pixie --version 0.1.0-preview
 ```
 
 In this example, `embeddings` is the same `IEmbeddingProvider` used by the current application. Retaining it makes comparisons about the search change rather than a simultaneous embedding-model change.
@@ -183,4 +183,4 @@ The preparation script downloads only the pinned official revision and checks ha
 
 The locally validated NuGet package is **184,022,040 bytes (approximately 184 MB)**. Fresh consumers using both direct and transitive package references successfully loaded the bundled assets and ran inference, including after `dotnet publish`; the direct consumer also exercised search. The validation record is `artifacts/pixie-package/pixie-package-validation.json`. This verifies package consumption, not publication to NuGet.
 
-The current source version of `Mythosia.VectorDb.Abstractions` contains the new text/hybrid contracts while still carrying version `4.0.1`. The already-published package with that version is not a substitute for these source contracts. `pack-pixie.ps1` creates a local dependency package solely for consumer validation. Before publishing PIXIE, assign appropriate release versions to the changed contracts and align dependent packages. Existing versions are not bumped by this implementation, and the existing GitHub release workflow does not yet publish this new package.
+`Mythosia.VectorDb.Abstractions` 4.1.0 supplies the text/hybrid contracts used by this preview; the earlier 4.0.1 package does not contain them. The coordinated release plan includes PIXIE 0.1.0-preview and its versioned dependencies. `pack-pixie.ps1` remains a local model-package validation tool; official release validation and publication use the GitHub publishing workflow and its release manifest.

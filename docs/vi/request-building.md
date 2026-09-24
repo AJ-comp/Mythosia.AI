@@ -1,6 +1,6 @@
 # Giữ cấu hình của từng yêu cầu độc lập
 
-> Grok 4.7 là phần bổ sung chưa phát hành; xem [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47).
+> Grok 4.7: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47)
 
 Bản tóm tắt có thể cần nhiệt độ thấp, còn bản nháp sáng tạo cần giá trị cao hơn. Chuẩn bị bản nháp không được làm đổi cấu hình của yêu cầu tóm tắt đã chuẩn bị. Dùng `CreateRequest` để đặt cấu hình riêng cho từng lần gọi hoặc tạo nhiều biến thể từ một yêu cầu cơ sở.
 
@@ -117,7 +117,7 @@ Builder không phải hội thoại riêng. Nó dùng hội thoại đang hoạt
 
 ## Chọn tốc độ xử lý theo tác vụ
 
-Yêu cầu có người dùng đang chờ có thể cần xử lý trả phí với độ trễ thấp; báo cáo nền có thể dùng xử lý thường. `WithSpeed` chọn chế độ nhưng giữ nguyên mô hình và mức suy luận. Đây là chức năng chưa phát hành, cần các thay đổi core và abstractions tương ứng; gói 8.0.0 / 4.0.0 đã công bố chưa có.
+Yêu cầu có người dùng đang chờ có thể cần xử lý trả phí với độ trễ thấp; báo cáo nền có thể dùng xử lý thường. `WithSpeed` chọn chế độ nhưng giữ nguyên mô hình và mức suy luận. Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 `ProviderDefault` không ghi đè mà giữ thiết lập dịch vụ/nhà cung cấp; mặc định dự án có thể đã là Fast. `Standard` yêu cầu xử lý thường một cách rõ ràng. `Fast` yêu cầu chế độ trả phí độ trễ thấp và có thể tăng chi phí. Giữ builder trả về: ba nhánh độc lập, yêu cầu gốc không đổi.
 

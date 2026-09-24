@@ -1,6 +1,6 @@
 # Mythosia.VectorDb.Qdrant
 
-> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published package versions listed below.
+> **v4.2.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#v420) for compatibility and fixes.
 
 [Qdrant](https://qdrant.tech/) vector store implementation for the **Mythosia VectorDb** abstraction layer.
 
@@ -40,7 +40,7 @@ dotnet add package Mythosia.VectorDb.Qdrant
 Current package version:
 
 ```bash
-dotnet add package Mythosia.VectorDb.Qdrant --version 4.1.1
+dotnet add package Mythosia.VectorDb.Qdrant --version 4.2.0
 ```
 
 ## Quick Start
@@ -150,7 +150,7 @@ var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 | `And / Or groups` | Nested `Condition{Filter}` in `Must` / `Should` |
 | `Gt / Gte / Lt / Lte / Like / Exists / NotExists` | **Silently ignored** for `SearchAsync` and the `HybridSearchAsync` overload without `HybridSearchOptions` (no client-side fallback). Evaluated client-side via `MatchesFilter` for `GetAsync` / `GetBatchAsync`. |
 
-The unreleased `TextSearchAsync` and configurable `HybridSearchAsync` paths support `Eq`, `Ne`, `In`, `NotIn`, `Exists`, `NotExists`, and nested `And` / `Or` groups. Unsupported range and `Like` filters throw `NotSupportedException` before a request is sent. `Ne` / `NotIn` exclude records missing the metadata key.
+The v4.2.0 `TextSearchAsync` and configurable `HybridSearchAsync` paths support `Eq`, `Ne`, `In`, `NotIn`, `Exists`, `NotExists`, and nested `And` / `Or` groups. Unsupported range and `Like` filters throw `NotSupportedException` before a request is sent. `Ne` / `NotIn` exclude records missing the metadata key.
 
 ## VectorFilter
 

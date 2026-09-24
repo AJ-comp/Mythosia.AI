@@ -1,10 +1,10 @@
 # 選択したモデルに合う機能を表示する
 
-> Grok 4.7 は未リリースの追加機能です。[モデル選択・推論・処理速度](providers.md#grok-47)を参照してください。
+> Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
 
-> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)を参照してください。
+> GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) の capability は `XHigh` を含む `Low`〜`Max` を公開し、`None` と `Minimal` は未対応です。`ThinkingToggle` は未対応、`MaxOutputTokens` は 128000 です。非表示は推論の無効化を意味しません。これは開発中の追加機能であり、既存の公開パッケージの説明ではありません。
+[Claude Opus 5.5](providers.md#claude-opus-55) の capability は `XHigh` を含む `Low`〜`Max` を公開し、`None` と `Minimal` は未対応です。 `ThinkingToggle` は未対応、`MaxOutputTokens` は 128000 です。 非表示は推論の無効化を意味しません。 Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。
 
 チャット画面の推論・検索・ツール・画像設定は、選択した接続に合わせる必要があります。アプリごとにモデル名のリストを管理するとライブラリの規則と重複し、提供元・プロトコル・デプロイの変更で食い違います。機能スナップショットなら画面と実行時検証が同じモデル定義を使えます。
 
@@ -52,7 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | ストリーミング、ツール、提供元固有の非同期ツール、実行中の追加指示。 |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | ホスト型検索、キャッシュを維持する推論変更、画像入力、構造化出力。 |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | サンプリング設定の対応と、判明している出力トークン上限（nullable）。 |
-| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | 未公開：処理モードの Supported/Unsupported/Unknown。アカウント権限は別途確認します。 |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Mythosia.AI 8.1.0 / Abstractions 4.1.0: 処理モードの Supported/Unsupported/Unknown。アカウント権限は別途確認します。 |
 | `Provider`, `Model` | 提供元と送信するモデルの識別。不明なら null の場合があります。 |
 
 `ReasoningLevels` は共通 `WithReasoning`、`NativeReasoningLevels` は提供元固有の設定です。`ThinkingBudgetPresets` は UI 用の予算候補で、全許容値や数値範囲の網羅ではありません。`AsyncFunctionCalling` は提供元の非同期ツール実行で、ローカル関数の `Task` 戻り値や並列実行とは別です。 `StructuredOutput` はプロンプトと修復による代替処理を含む共通の型付き出力 API を指し、ネイティブの制約付きデコーディングを保証しません。両方の推論レベル一覧は `ReasoningLevel`、予算候補は整数です。

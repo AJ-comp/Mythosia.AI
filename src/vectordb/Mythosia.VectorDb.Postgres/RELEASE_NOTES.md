@@ -1,8 +1,6 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
-## Unreleased
-
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+## v10.8.0
 
 ### Added
 

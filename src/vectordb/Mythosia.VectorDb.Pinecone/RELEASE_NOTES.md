@@ -1,5 +1,16 @@
 # Release Notes — Mythosia.VectorDb.Pinecone
 
+## v4.0.2
+
+### Internal
+
+- Update `System.IO.Hashing` and `System.Text.Json` from 10.0.6 to 10.0.7.
+- Build against the compatible `Mythosia.VectorDb.Abstractions` 4.1.0 contracts and include release notes, symbols and repository provenance in the package.
+
+### Compatibility
+
+- Existing vector and native hybrid APIs remain compatible, with no stored-index migration. Pinecone does not implement the optional `ITextSearchStore` or `IConfigurableHybridSearchStore` capabilities.
+
 ## v4.0.1
 
 ### Internal

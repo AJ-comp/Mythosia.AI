@@ -1,6 +1,6 @@
 # Keep long Claude Fable 5.1 tasks observable
 
-[Claude Opus 5.5](providers.md#claude-opus-55) is an unreleased addition with always-on thinking, default medium effort and omitted display. Explicitly request readable progress; its defaults and model-binding rules differ from Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) is available with Mythosia.AI 8.1.0 / Abstractions 4.1.0, with always-on thinking, default medium effort and omitted display. Explicitly request readable progress; its defaults and model-binding rules differ from Fable 5.1.
 
 > Fable 5.1 controls require `Mythosia.AI` 8.0.0 and `Mythosia.AI.Abstractions` 4.0.0 or later. Existing Run, reasoning/search, and GPT-6 Astra APIs retain their 7.1.0 / 3.1.0 minimum versions.
 

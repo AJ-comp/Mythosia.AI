@@ -11,7 +11,7 @@
     <Company>Mythosia</Company>
     <Authors>JJW</Authors>
     <PackageTags>AI;LLM;Alibaba;Qwen;DashScope;vLLM;Ollama;Reasoning;Streaming;FunctionCalling;Run;RequestBuilder;Capabilities;Cancellation</PackageTags>
-    <Description>Call Qwen chat endpoints on DashScope, vLLM or Ollama while using the shared Mythosia.AI conversation and tool APIs. QwenService supports provider-specific thinking controls, custom deployment names, streaming usage, immutable request configuration, cancellable local tools, controllable runs and local model-capability inspection. Requires Mythosia.AI 8.0.0. Native steering, hosted search and image generation are outside this adapter.</Description>
+    <Description>Call Qwen chat endpoints on DashScope, vLLM or Ollama while using the shared Mythosia.AI conversation and tool APIs. QwenService supports provider-specific thinking controls, custom deployment names, streaming usage, immutable request configuration, cancellable local tools, controllable runs and local model-capability inspection. Requires Mythosia.AI 8.1.0. Native steering, hosted search and image generation are outside this adapter.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -20,8 +20,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v3.0.0 aligns Qwen with Mythosia.AI 8.0.0 and Mythosia.AI.Abstractions 4.0.0. Inherits immutable request builders that capture common and Qwen settings, asynchronous local-tool object returns, cooperative cancellation, ordinary completion cancellation and local capability inspection. AIRun.Result now returns AIRunResult; read its Text for the former string and rebuild callers for the changed completion signatures. Endpoint-specific model IDs are retained in RequestedModel, separately from the reported response Model. Invalid content after a stream terminal event fails the round before history is saved or tools execute; the first terminal delta and trailing usage-only events remain valid. Existing Qwen endpoint and thinking controls remain available, and unknown custom deployments remain Unknown during inspection. Remote inference/billing cancellation is not guaranteed. Migration: https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300</PackageReleaseNotes>
-    <Version>3.0.0</Version>
+    <PackageReleaseNotes>v3.0.1 rebuilds the Qwen adapter against Mythosia.AI 8.1.0 and transitively Mythosia.AI.Abstractions 4.1.0. Inherits core request-context and stateless-summary fixes. Qwen public APIs, endpoint defaults and thinking controls are unchanged; this update does not add provider-specific priority processing. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301</PackageReleaseNotes>
+    <Version>3.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

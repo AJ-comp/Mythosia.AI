@@ -95,9 +95,9 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | Sparse + dense vector รวม server-side |
 | **Postgres** | Vector similarity + คะแนน `tsvector`/`trigram` รวมใน SQL |
 
-### การค้นหาข้อความและ Hybrid Search ที่กำหนดค่าได้ (ยังไม่เผยแพร่)
+### การค้นหาข้อความและ Hybrid Search ที่กำหนดค่าได้
 
-โอเวอร์โหลดด้านบนใช้การค้นหาแบบไฮบริดเดิมของแต่ละ backend ในซอร์สโค้ดปัจจุบัน InMemory, PostgreSQL และ Qdrant ยังรองรับ `ITextSearchStore` และ `IConfigurableHybridSearchStore` ด้วย API เสริมเหล่านี้ **ยังไม่เผยแพร่ (Unreleased)** และ Pinecone ไม่รองรับ
+โอเวอร์โหลดข้างต้นคงพฤติกรรมไฮบริดของแต่ละ backend สัญญาเสริม `ITextSearchStore` และ `IConfigurableHybridSearchStore` ต้องใช้ Mythosia.VectorDb.Abstractions 4.1.0 และรองรับใน InMemory 4.2.0, PostgreSQL 10.8.0 และ Qdrant 4.2.0 ส่วน Pinecone ไม่รองรับ API เหล่านี้
 
 ```csharp
 using Mythosia.VectorDb;

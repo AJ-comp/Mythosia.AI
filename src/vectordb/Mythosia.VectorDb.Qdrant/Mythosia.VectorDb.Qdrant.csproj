@@ -5,15 +5,21 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Qdrant</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.1.1</Version>
+    <Version>4.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Qdrant storage for Mythosia VectorDb with Cosine, Euclidean and Dot Product similarity, metadata filtering and automatic collection provisioning. Supports sparse-only text retrieval, configurable normalized weighted RRF and direct native sparse/dense hybrid fusion with server RRF or DBSF. Uses a single collection with metadata-based logical isolation and provides batch retrieval, counts and connection verification.</Description>
+    <Description>Qdrant storage for Mythosia VectorDb with Cosine, Euclidean and Dot Product similarity, metadata filtering and automatic collection provisioning. Supports sparse-only text retrieval, configurable normalized weighted RRF and direct native sparse/dense hybrid fusion with server RRF or DBSF. Uses a single collection with metadata-based logical isolation and provides batch retrieval, counts and connection verification. What's New in v4.2.0: Sparse text and configurable hybrid search with literal metadata-key filtering.</Description>
     <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>Unreleased (next version not assigned): Adds sparse-only text queries and configurable normalized weighted RRF while retaining configured server RRF/DBSF for direct legacy hybrid calls. Treats flat metadata keys literally and excludes missing fields from Ne/NotIn. New text/configurable-hybrid paths support equality, membership, existence and nested groups; unsupported string range/LIKE filters and unrepresentable keys fail explicitly. No stored payload migration is required. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#unreleased. Previous version notes: v4.1.1: Recompiled against System.IO.Hashing 10.0.6. No behavioral changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.2.0: Adds sparse-only text queries and configurable normalized weighted RRF while retaining configured server RRF/DBSF for direct legacy hybrid calls. Treats flat metadata keys literally and excludes missing fields from Ne/NotIn. New text/configurable-hybrid paths support equality, membership, existence and nested groups; unsupported string range/LIKE filters and unrepresentable keys fail explicitly. No stored payload migration is required. Uses System.IO.Hashing 10.0.7. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#v420</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <UserSecretsId>36819fe4-a0b6-41e3-9bdb-7cdfd9d51aa5</UserSecretsId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +36,10 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

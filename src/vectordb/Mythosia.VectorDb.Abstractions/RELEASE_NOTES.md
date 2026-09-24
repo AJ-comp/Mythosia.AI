@@ -1,8 +1,6 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
-## Unreleased
-
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+## v4.1.0
 
 ### Added
 
@@ -15,7 +13,7 @@
 
 ### Internal
 
-- Include these contracts in coordinated package validation instead of resolving older published assemblies that lack the new hybrid types. Pack the README, release notes and symbols with repository provenance. The next release version is still unassigned.
+- Include these contracts in coordinated package validation instead of resolving older published assemblies that lack the new hybrid types. Pack the README, release notes and symbols with repository provenance. Dependencies are versioned together for this release.
 
 
 ## v4.0.1

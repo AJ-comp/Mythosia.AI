@@ -1,8 +1,8 @@
 # Introduction
 
-> Grok 4.7 est un ajout non publié ; consultez [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47).
+> Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
 
-> GPT-6 Sol/Luna ne sont pas encore publiés. Voir [choix du modèle et prérequis](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [choix du modèle et prérequis](providers.md#gpt-6-sol-luna)
 
 Mythosia.AI est une bibliothèque .NET modulaire pour l'IA, offrant une interface unifiée pour travailler avec plusieurs fournisseurs d'IA, des pipelines RAG, des chargeurs de documents et des bases de données vectorielles.
 

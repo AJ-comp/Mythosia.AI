@@ -46,81 +46,9 @@ function Get-ProjectPropertyValue {
     return $null
 }
 
-$releasePackages = @(
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Abstractions"
-        Version = "4.0.0"
-        Project = "src/core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj"
-        Readme = "src/core/Mythosia.AI.Abstractions/README.md"
-        ReleaseNotes = "src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI"
-        Version = "8.0.0"
-        Project = "src/core/Mythosia.AI/Mythosia.AI.csproj"
-        Readme = "src/core/Mythosia.AI/README.md"
-        ReleaseNotes = "src/core/Mythosia.AI/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v800"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Providers.Alibaba"
-        Version = "3.0.0"
-        Project = "src/core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj"
-        Readme = "src/core/Mythosia.AI.Providers.Alibaba/README.md"
-        ReleaseNotes = "src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.VectorDb.Abstractions"
-        Version = "4.0.1"
-        Project = "src/vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj"
-        Readme = "src/vectordb/Mythosia.VectorDb.Abstractions/README.md"
-        ReleaseNotes = "src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Rag.Abstractions"
-        Version = "6.2.0"
-        Project = "src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj"
-        Readme = "src/rag/Mythosia.AI.Rag.Abstractions/README.md"
-        ReleaseNotes = "src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.VectorDb.InMemory"
-        Version = "4.1.0"
-        Project = "src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj"
-        Readme = "src/vectordb/Mythosia.VectorDb.InMemory/README.md"
-        ReleaseNotes = "src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#unreleased"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Rag"
-        Version = "8.0.0"
-        Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
-        Readme = "src/rag/Mythosia.AI.Rag/README.md"
-        ReleaseNotes = "src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Mcp"
-        Version = "0.1.0-preview"
-        Project = "src/integrations/Mythosia.AI.Mcp/Mythosia.AI.Mcp.csproj"
-        Readme = "src/integrations/Mythosia.AI.Mcp/README.md"
-        ReleaseNotes = "src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview"
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Serving.Vllm"
-        Version = "1.0.0"
-        Project = "src/serving/Mythosia.AI.Serving.Vllm/Mythosia.AI.Serving.Vllm.csproj"
-        Readme = "src/serving/Mythosia.AI.Serving.Vllm/README.md"
-        ReleaseNotes = "src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100"
-    }
-)
-
+. (Join-Path $PSScriptRoot 'release-plan.ps1')
+$releasePlan = Get-ReleasePlan
+$releasePackages = @($releasePlan.Packages)
 foreach ($package in $releasePackages) {
     $projectPath = Join-Path $repoRoot $package.Project
     $readmePath = Join-Path $repoRoot $package.Readme
@@ -156,6 +84,8 @@ foreach ($package in $releasePackages) {
     if ([string]::IsNullOrWhiteSpace($description) -or $description.Length -gt 4000) {
         Add-Issue "$($package.Id) needs a non-empty Description of at most 4,000 characters."
     }
+    try { Assert-ReleaseDescriptionVersion -PackageId $package.Id -Version $package.Version -Description $description }
+    catch { Add-Issue $_.Exception.Message }
     if ([string]::IsNullOrWhiteSpace($tags) -or $tags.Length -gt 4000) {
         Add-Issue "$($package.Id) needs non-empty PackageTags of at most 4,000 characters."
     }
@@ -186,14 +116,19 @@ foreach ($package in $releasePackages) {
         -not $releaseNotesText.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v7-migration.md")) {
         Add-Issue "$($package.ReleaseNotes) does not link to the v7 migration guide."
     }
-    # Check the current release independently: a historical migration link is not
-    # sufficient guidance for the new image, completion, Run and tool contracts.
-    $currentRelease = [regex]::Match($releaseNotesText, '(?ms)^## v[^\r\n]+\r?\n(?<body>.*?)(?=^## v|\z)').Groups['body'].Value
-    # Only the five packages in the coordinated core v8 migration need this guide.
-    # The independent vLLM and RAG/vector dependency packages retain their own history.
-    if ($package.Id -in @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba", "Mythosia.AI.Rag", "Mythosia.AI.Mcp") -and
-        -not $currentRelease.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md")) {
-        Add-Issue "$($package.ReleaseNotes) current release does not link to the v8 migration guide."
+    # Preserve migration guidance in the original breaking release, not unrelated
+    # subsequent additive or corrective releases.
+    $v8MigrationVersions = @{
+        'Mythosia.AI.Abstractions' = '4.0.0'; 'Mythosia.AI' = '8.0.0'
+        'Mythosia.AI.Providers.Alibaba' = '3.0.0'; 'Mythosia.AI.Rag' = '8.0.0'
+        'Mythosia.AI.Mcp' = '0.1.0-preview'
+    }
+    if ($v8MigrationVersions.ContainsKey($package.Id)) {
+        $versionPattern = [regex]::Escape($v8MigrationVersions[$package.Id])
+        $migrationRelease = [regex]::Match($releaseNotesText, "(?ms)^## v$versionPattern\r?\n(?<body>.*?)(?=^## v|\z)").Groups['body'].Value
+        if (-not $migrationRelease.Contains('https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md')) {
+            Add-Issue "$($package.ReleaseNotes) original breaking release v$($v8MigrationVersions[$package.Id]) does not link to the v8 migration guide."
+        }
     }
 
     $packedReleaseNotes = @($projectXml.Project.ItemGroup.None | Where-Object {

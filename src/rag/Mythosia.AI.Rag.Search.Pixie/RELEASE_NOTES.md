@@ -10,6 +10,6 @@
 
 ### Compatibility
 
-- New optional .NET 8+ preview package. Existing RAG defaults and other package versions remain unchanged; this preview does not remove BM25 or trigram search.
+- New optional .NET 8+ preview package. Requires `Mythosia.VectorDb.Abstractions` 4.1.0; use `Mythosia.AI.Rag` 8.1.0 for the builder examples. Existing RAG defaults remain unchanged; this preview does not remove BM25 or trigram search.
 - The index is memory-only and must be rebuilt after process restart or encoding-configuration changes. This package does not add PIXIE encoding to persistent PostgreSQL, Qdrant or Pinecone stores or migrate existing indexes.
 - The bundled model is quantized; original publisher benchmarks are not validation of this package's derived model. Evaluate your own corpus before changing the retrieval default.

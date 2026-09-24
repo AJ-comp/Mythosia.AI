@@ -4,7 +4,7 @@ PDF document loader. Parses PDF files into `DoclingDocument` structured models v
 
 ## Stable file identity
 
-This fix is currently unreleased; see the [pending package notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Pdf/RELEASE_NOTES.md#unreleased). Use a source build until the next package version is published.
+Included in **v1.1.2**; see the [package release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Pdf/RELEASE_NOTES.md#v112).
 
 Registering the same file through a relative path and an absolute path must update one document, while same-named files in different folders must stay separate. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` and `PdfDocumentLoader` now set `DoclingDocument.Source` to the normalized absolute file path, as the built-in TXT loaders do. RAG derives automatic document IDs from this value; explicit IDs remain caller-controlled. Default citations may therefore show absolute paths.
 

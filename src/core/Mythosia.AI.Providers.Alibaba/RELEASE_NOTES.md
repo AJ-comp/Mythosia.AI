@@ -1,5 +1,15 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v3.0.1
+
+### Changed
+
+- Rebuilds the Qwen adapter against `Mythosia.AI` 8.1.0 and transitively `Mythosia.AI.Abstractions` 4.1.0. Inherits core request-context and stateless-summary corrections.
+
+### Compatibility
+
+- Existing Qwen public APIs, endpoint defaults and thinking controls remain unchanged. No additional source migration is required from 3.0.0. The shared speed API does not add Qwen-specific priority processing; unsupported explicit speed selections remain rejected.
+
 ## v3.0.0
 
 > This coordinated major release changes public contracts. See the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) before upgrading the package family.

@@ -95,9 +95,9 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | Розріджені + щільні вектори зливаються на сервері |
 | **Postgres** | Векторна схожість + `tsvector`/`trigram`, об'єднання в SQL |
 
-### Текстовий і налаштовуваний гібридний пошук (не опубліковано)
+### Текстовий і налаштовуваний гібридний пошук
 
-Перевантаження вище використовує наявну гібридну поведінку кожного бекенду. У поточному вихідному коді InMemory, PostgreSQL і Qdrant також реалізують `ITextSearchStore` та `IConfigurableHybridSearchStore`. Ці додаткові API **ще не опубліковано (Unreleased)**; Pinecone їх не реалізує.
+Перевантаження вище зберігає гібридну поведінку кожного бекенду. Додаткові контракти `ITextSearchStore` та `IConfigurableHybridSearchStore` потребують Mythosia.VectorDb.Abstractions 4.1.0 і реалізовані в InMemory 4.2.0, PostgreSQL 10.8.0 та Qdrant 4.2.0. Pinecone їх не реалізує.
 
 ```csharp
 using Mythosia.VectorDb;

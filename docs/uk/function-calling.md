@@ -1,6 +1,6 @@
 # Виклик функцій
 
-> GPT-6 Sol/Luna ще не опубліковані в пакетах. Див. [вибір моделі та вимоги](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі та вимоги](providers.md#gpt-6-sol-luna)
 
 Для готової відповіді й кнопки Стоп передайте `cancellationToken` у `GetCompletionAsync`. Run потрібен для подій прогресу або підтримуваних додаткових вказівок. Див. [скасування відповіді](completions.md#completion-cancellation).
 

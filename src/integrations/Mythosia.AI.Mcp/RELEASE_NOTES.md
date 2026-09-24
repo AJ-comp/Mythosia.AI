@@ -1,5 +1,15 @@
 # Release Notes
 
+## v0.1.1-preview
+
+### Changed
+
+- Rebuilds the MCP integration against `Mythosia.AI` 8.1.0 and transitively `Mythosia.AI.Abstractions` 4.1.0, using the updated core execution implementation.
+
+### Compatibility
+
+- Existing tool registration, cancellation, failure and connection-lifecycle contracts remain unchanged. No additional source migration is required from 0.1.0-preview. This package remains a preview.
+
 ## v0.1.0-preview
 
 > This prerelease targets Mythosia.AI 8.0.0. Rebuild consumers and review the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for shared contracts and MCP error handling.

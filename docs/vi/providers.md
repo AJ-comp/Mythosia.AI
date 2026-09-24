@@ -79,11 +79,11 @@ Xem [hướng dẫn suy luận và tìm kiếm](reasoning-and-search.md) để �
 
 <a id="gpt-6-sol-luna"></a>
 
-### GPT-6 Sol / Luna (chưa phát hành)
+### GPT-6 Sol / Luna
 
 Chọn GPT-6 Sol cho lập trình phức tạp, sử dụng công cụ và tác vụ tác nhân; chọn Luna khi cần xử lý lượng lớn văn bản hoặc ảnh với chi phí thấp. Cả hai dùng API trả lời đầy đủ, streaming và Run hiện có nên đổi mô hình không làm thay đổi luồng gọi của ứng dụng.
 
-> Đây là phần bổ sung chưa phát hành, cần các bản dựng core và abstractions tương thích. Mythosia.AI 8.0.0 / Abstractions 4.0.0 đã phát hành không chứa `Gpt6Sol`, `Gpt6Luna` hay `Gpt6Reasoning.None`. Phiên bản tối thiểu của tính năng Astra hiện có và mô hình mặc định của dịch vụ không đổi.
+> Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. Phiên bản tối thiểu của tính năng Astra hiện có và mô hình mặc định của dịch vụ không đổi.
 
 Dùng `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) hoặc `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`). Cả hai nhận văn bản, ảnh và trả văn bản: ngữ cảnh 1.050.000 token, đầu vào tối đa 922.000 và đầu ra tối đa 128.000. Tổng đầu vào, suy luận và đầu ra vẫn phải nằm trong giới hạn ngữ cảnh. `MaxTokens` đặt ngân sách đầu ra được yêu cầu, không phải kích thước ngữ cảnh.
 
@@ -244,7 +244,7 @@ Xem [hướng dẫn ảnh chính thức](https://developers.openai.com/api/docs/
 
 ### Claude Opus 5.5: hiển thị tiến độ tác vụ công cụ kéo dài
 
-Dùng Opus 5.5 để rà soát mã hoặc nghiên cứu tài liệu cần nhiều vòng gọi công cụ. API completion và Run vẫn giữ nguyên, nhưng tiến độ bị ẩn mặc định và việc giữ suy luận đòi hỏi cẩn thận khi sửa lịch sử. Đây là phần bổ sung chưa phát hành, không có trong các gói 8.0.0 / 4.0.0 đã công bố.
+Dùng Opus 5.5 để rà soát mã hoặc nghiên cứu tài liệu cần nhiều vòng gọi công cụ. API completion và Run vẫn giữ nguyên, nhưng tiến độ bị ẩn mặc định và việc giữ suy luận đòi hỏi cẩn thận khi sửa lịch sử. Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 `ClaudeOpus5_5` chọn `claude-opus-5-5`: nhận văn bản/hình ảnh, trả văn bản, ngữ cảnh 1M và đầu ra tối đa 128K token. Theo kiểm tra ngày 2026-09-24, giá đầu vào/đầu ra chuẩn là $4/$20 mỗi triệu token; chế độ đặc biệt và công cụ có giá riêng. [Thông tin mô hình chính thức](https://platform.claude.com/docs/en/models/opus-5-5/overview).
 
@@ -346,7 +346,7 @@ Với Flash-Lite, [trang mô hình](https://ai.google.dev/gemini-api/docs/models
 
 ### Grok 4.7
 
-Để tạo bản nháp nhanh rồi kiểm tra kỹ mã hoặc tài liệu, chọn Grok 4.7 và điều chỉnh mức suy luận theo từng yêu cầu. Các API trả lời, streaming, Run, công cụ cục bộ, đầu ra có cấu trúc và đầu vào hình ảnh vẫn được dùng như trước. `grok-4.7` nhận văn bản/hình ảnh và trả văn bản, với cửa sổ ngữ cảnh 500.000 token. Tích hợp này cần các bản dựng core và abstractions chưa phát hành tương ứng; gói 8.0.0 / 4.0.0 đã công bố không chứa nó. Mô hình mặc định vẫn là Grok 4.5.
+Để tạo bản nháp nhanh rồi kiểm tra kỹ mã hoặc tài liệu, chọn Grok 4.7 và điều chỉnh mức suy luận theo từng yêu cầu. Các API trả lời, streaming, Run, công cụ cục bộ, đầu ra có cấu trúc và đầu vào hình ảnh vẫn được dùng như trước. `grok-4.7` nhận văn bản/hình ảnh và trả văn bản, với cửa sổ ngữ cảnh 500.000 token. Mô hình mặc định vẫn là Grok 4.5. Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -479,7 +479,7 @@ Google nhận `ImageSize.Auto` hoặc `Preset` với độ phân giải và tỷ
 
 Dùng DeepSeek Flash để có câu trả lời nhanh rồi rà soát kỹ hơn, hoặc giải thích biểu đồ và ảnh chụp màn hình. `AIModels.DeepSeek.Flash` (`deepseek-flash`) chọn V4.1 Flash ra mắt ngày 10/9/2026 với thị giác tích hợp. Tiếp tục dùng API completion, streaming, Run, gọi hàm và RAG, từ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0.
 
-> Các gói đã phát hành `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 đã hỗ trợ Flash cơ bản. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, API Files và `DeepSeekImageFileContent` là các bổ sung trong mã nguồn chưa phát hành, cần bản dựng core và abstractions tương thích từ mã nguồn; chúng không có trong các gói đã phát hành này. [Ghi chú thay đổi chưa phát hành](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased).
+> Các gói đã phát hành `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 đã hỗ trợ Flash cơ bản. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, Files API, `DeepSeekImageFileContent`: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [v8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810).
 
 Chọn `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) cho tác vụ chỉ có văn bản. Flash vẫn là mặc định và hỗ trợ ảnh; cả hai có suy luận Low/High/Max và cùng giới hạn đầu ra. Đặt `UseResponsesApi = true` trước khi tạo yêu cầu để dùng Responses với các API completion, streaming, Run và hàm cục bộ hiện có. Mặc định vẫn là `false` để giữ Chat Completions cho ứng dụng hiện tại; lựa chọn được giữ suốt yêu cầu và các vòng công cụ. Responses gửi lại toàn bộ hội thoại và suy luận gốc thay vì dựa vào ID phản hồi lưu trên máy chủ.
 

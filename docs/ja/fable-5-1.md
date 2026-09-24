@@ -1,6 +1,6 @@
 # Claude Fable 5.1 の長い作業を観察する
 
-[Claude Opus 5.5](providers.md#claude-opus-55) は未公開の追加機能です。推論は常時有効、既定の effort は medium、表示は省略です。読める進行状況は明示的に指定します。既定値とモデル binding は Fable 5.1 と異なります。
+[Claude Opus 5.5](providers.md#claude-opus-55) は Mythosia.AI 8.1.0 / Abstractions 4.1.0 で利用できます。推論は常時有効、既定の effort は medium、表示は省略です。読める進行状況は明示的に指定します。既定値とモデル binding は Fable 5.1 と異なります。
 
 > Fable 5.1 の設定には `Mythosia.AI` 8.0.0 と `Mythosia.AI.Abstractions` 4.0.0 以降が必要です。既存の Run・推論/検索・GPT-6 Astra API の最小バージョンは 7.1.0 / 3.1.0 のままです。
 

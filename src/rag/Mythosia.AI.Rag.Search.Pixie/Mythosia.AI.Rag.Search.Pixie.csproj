@@ -8,7 +8,7 @@
     <Version>0.1.0-preview</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Local Korean and English neural sparse search for Mythosia RAG using a bundled, pinned PIXIE SPLADE model and ONNX Runtime. Runs without a Python server or API key.</Description>
+    <Description>Local Korean and English neural sparse search for Mythosia RAG using a bundled, pinned PIXIE SPLADE model and ONNX Runtime. Runs without a Python server or API key. What's New in v0.1.0-preview: Initial local neural sparse encoding and optional in-memory sparse/dense retrieval.</Description>
     <PackageTags>AI;RAG;Search;PIXIE;SPLADE;Sparse;Korean;ONNX</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag.Search.Pixie</PackageProjectUrl>
     <PackageReleaseNotes>v0.1.0-preview adds local PIXIE neural sparse encoding and an experimental in-memory sparse/dense hybrid store. Includes the pinned model converted to 8-bit weights, tokenizer, provenance and license. No Python server or runtime download is required. The index is memory-only; this preview does not replace existing search defaults. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Search.Pixie/RELEASE_NOTES.md#v010-preview</PackageReleaseNotes>

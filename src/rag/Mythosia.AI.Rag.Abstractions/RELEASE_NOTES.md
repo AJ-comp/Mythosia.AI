@@ -1,8 +1,6 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
-## Unreleased
-
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+## v6.3.0
 
 ### Added
 
@@ -14,7 +12,7 @@
 
 ### Internal
 
-- Include this package and its vector contracts in coordinated package validation so isolated RAG consumers resolve the new retrieval contracts from the same source build. Pack the README, release notes and symbols with repository provenance. The next release version is still unassigned.
+- Include this package and its vector contracts in coordinated package validation so isolated RAG consumers resolve the new retrieval contracts from the same source build. Pack the README, release notes and symbols with repository provenance. Dependencies are versioned together for this release.
 
 
 ## v6.2.0

@@ -85,17 +85,9 @@ function Assert-PackageMetadata {
 }
 
 $packages = @($manifest.packages)
-$expectedIds = @(
-    "Mythosia.AI.Abstractions",
-    "Mythosia.AI",
-    "Mythosia.AI.Providers.Alibaba",
-    "Mythosia.VectorDb.Abstractions",
-    "Mythosia.AI.Rag.Abstractions",
-    "Mythosia.VectorDb.InMemory",
-    "Mythosia.AI.Rag",
-    "Mythosia.AI.Mcp",
-    "Mythosia.AI.Serving.Vllm"
-)
+. (Join-Path $PSScriptRoot 'release-plan.ps1')
+$releasePlan = Get-ReleasePlan
+$expectedIds = @($releasePlan.Packages | ForEach-Object { [string]$_.Id })
 if ($packages.Count -ne $expectedIds.Count) {
     throw "Unexpected release manifest package count."
 }
@@ -143,11 +135,15 @@ foreach ($expectedId in $expectedIds) {
     }
 }
 
+foreach ($package in $releasePlan.ConsumerOnlyPackages) {
+    $versions[$package.Id] = $package.Version
+}
 $smokeName = "mythosia-ai-package-smoke-$([Guid]::NewGuid().ToString('N'))"
 $smokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) $smokeName
 $globalPackagesFolder = Join-Path $smokeRoot "global-packages"
 New-Item -ItemType Directory -Path $smokeRoot | Out-Null
 New-Item -ItemType Directory -Path $globalPackagesFolder | Out-Null
+$verifiedLibraries = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 
 function Invoke-PackageConsumer {
     param(
@@ -158,7 +154,9 @@ function Invoke-PackageConsumer {
         [string[]]$ExpectedLibraries,
         [string[]]$UnexpectedLibraries = @(),
         [string]$TargetFramework = "net10.0",
-        [switch]$BuildOnly
+        [switch]$BuildOnly,
+        [switch]$Publish,
+        [string]$NuGetConfig = (Join-Path $smokeRoot 'NuGet.config')
     )
 
     $consumerRoot = Join-Path $smokeRoot $Name
@@ -188,7 +186,7 @@ function Invoke-PackageConsumer {
         [System.Text.UTF8Encoding]::new($false))
 
     & dotnet restore $projectPath `
-        --configfile (Join-Path $smokeRoot "NuGet.config") `
+        --configfile $NuGetConfig `
         --packages $globalPackagesFolder `
         --no-cache `
         --force
@@ -203,6 +201,7 @@ function Invoke-PackageConsumer {
         if (-not ($libraries -contains $expectedLibrary)) {
             throw "$Name did not resolve expected package $expectedLibrary."
         }
+        $null = $verifiedLibraries.Add($expectedLibrary)
     }
     foreach ($unexpectedLibrary in $UnexpectedLibraries) {
         if (@($libraries | Where-Object { $_ -like $unexpectedLibrary }).Count -gt 0) {
@@ -240,13 +239,20 @@ function Invoke-PackageConsumer {
     if ($LASTEXITCODE -ne 0) {
         throw "$Name package consumer build or execution failed."
     }
+    if ($Publish) {
+        $published = Join-Path $consumerRoot 'published'
+        & dotnet publish $projectPath --configuration Release --no-restore --output $published
+        if ($LASTEXITCODE -ne 0) { throw "$Name package consumer publish failed." }
+        & dotnet (Join-Path $published "$Name.dll")
+        if ($LASTEXITCODE -ne 0) { throw "$Name published package consumer failed." }
+    }
 }
 
 function Get-ReleasePackageSourceMapping {
     param([string[]]$PackageIds)
 
     # Pin the complete explicit release set locally, including changed RAG contracts.
-    # Unchanged dependencies such as document loaders still resolve from nuget.org.
+    # Unchanged contracts and the consumer-only vLLM package resolve from nuget.org.
     return ($PackageIds | ForEach-Object {
         $escapedId = [System.Security.SecurityElement]::Escape($_)
         "      <package pattern=`"$escapedId`" />"
@@ -571,6 +577,8 @@ Console.WriteLine("RAG-only consumer dense, keyword, hybrid and public API smoke
             "Mythosia.VectorDb.Abstractions/$($versions['Mythosia.VectorDb.Abstractions'])",
             "Mythosia.AI.Rag.Abstractions/$($versions['Mythosia.AI.Rag.Abstractions'])",
             "Mythosia.VectorDb.InMemory/$($versions['Mythosia.VectorDb.InMemory'])",
+            "Mythosia.Documents.Office/$($versions['Mythosia.Documents.Office'])",
+            "Mythosia.Documents.Pdf/$($versions['Mythosia.Documents.Pdf'])",
             "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")
 
@@ -618,6 +626,8 @@ namespace PackageSmoke
             "Mythosia.VectorDb.Abstractions/$($versions['Mythosia.VectorDb.Abstractions'])",
             "Mythosia.AI.Rag.Abstractions/$($versions['Mythosia.AI.Rag.Abstractions'])",
             "Mythosia.VectorDb.InMemory/$($versions['Mythosia.VectorDb.InMemory'])",
+            "Mythosia.Documents.Office/$($versions['Mythosia.Documents.Office'])",
+            "Mythosia.Documents.Pdf/$($versions['Mythosia.Documents.Pdf'])",
             "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*") `
         -TargetFramework "netstandard2.1" `
@@ -861,6 +871,7 @@ namespace PackageSmoke
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*") `
         -TargetFramework "netstandard2.1" `
         -BuildOnly
+    . (Join-Path $PSScriptRoot 'test-release-package-probes.ps1')
 }
 finally {
     $expectedSmokeRoot = Join-Path ([System.IO.Path]::GetTempPath()) $smokeName
@@ -869,4 +880,9 @@ finally {
     }
 }
 
+foreach ($id in $expectedIds) {
+    if (-not $verifiedLibraries.Contains("$id/$($versions[$id])")) {
+        throw "The release plan package $id $($versions[$id]) was not exercised by an isolated consumer."
+    }
+}
 Write-Host "All isolated package consumer smoke tests passed."

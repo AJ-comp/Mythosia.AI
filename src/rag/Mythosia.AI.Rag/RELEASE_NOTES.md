@@ -1,8 +1,6 @@
 # Mythosia.AI.Rag - Release Notes
 
-## Unreleased
-
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+## v8.1.0
 
 ### Added
 
@@ -55,6 +53,11 @@
 - **Separate same-named files across directories:** `PlainTextDocumentLoader` and `DirectoryDocumentLoader` use normalized absolute file paths as `Source` and automatic document IDs. Equivalent relative/absolute paths reuse an ID; distinct directory roots no longer overwrite each other. Explicit `AddText` IDs, `RagDocument.Id`, custom loader rules and caller APIs are unchanged. Default directory `filename`/`relative_path` metadata remains available for display. Existing relative-path IDs are not automatically migrated or deleted, and default citations may now show absolute paths. See [document identity and index migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#document-identity).
 
 - **Clear stale content after an empty update:** When splitting succeeds with zero chunks, default persistence replaces records for that `document_id` with an empty set. It skips embeddings, preserves other document IDs and allows later nonempty updates under the same ID. Exceptions before storage and cancellation observed before the storage call preserve that document's records; rollback after storage starts remains store-specific. Empty loader results are not deletion instructions, and `onDocumentEmbedded` keeps its existing zero-chunk behavior (no callback or default-store access). Public APIs are unchanged. See [empty document updates](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#empty-document-updates).
+
+### Compatibility
+
+- Requires `Mythosia.AI.Abstractions` 4.1.0, `Mythosia.AI.Rag.Abstractions` 6.3.0, `Mythosia.VectorDb.InMemory` 4.2.0, `Mythosia.Documents.Office` 1.1.1 and `Mythosia.Documents.Pdf` 1.1.2. Existing public retrieval APIs remain available; use `Mythosia.AI` 8.1.0 for the current provider integrations.
+- Corrected chunk boundaries and document identities do not rewrite existing indexes. Apply the scoped cleanup and reindexing guidance above when upgrading an affected index.
 
 ## v8.0.0
 

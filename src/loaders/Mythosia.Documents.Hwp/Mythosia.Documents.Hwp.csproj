@@ -5,15 +5,20 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Hwp</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>HWP document loader. Parses Korean word-processor (.hwp) files into DoclingDocument structured models via HwpLibSharp. Section/paragraph text extraction with table support.</Description>
+    <Description>HWP document loader. Parses Korean word-processor (.hwp) files into DoclingDocument structured models via HwpLibSharp. Section/paragraph text extraction with table support. What's New in v1.0.2: OpenMcdf 3.1.4 dependency floor for HWP container parsing.</Description>
     <PackageTags>Document;DocumentLoader;HWP;Hangul;HwpLibSharp</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.0.1: Default SemanticTableSerializer for HWP documents. Requires Mythosia.Documents.Abstractions >= 1.1.0.
-v1.0.0: Initial release. HWP document loader returning DoclingDocument. Section-based paragraph extraction with table support via HwpLibSharp.</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.0.2: Adds an explicit OpenMcdf 3.1.4 dependency floor in place of HwpLibSharp's vulnerable transitive floor and uses Mythosia.Documents.Abstractions 1.2.0. Public loader APIs are unchanged. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Hwp/RELEASE_NOTES.md#v102</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +36,10 @@ v1.0.0: Initial release. HWP document loader returning DoclingDocument. Section-
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

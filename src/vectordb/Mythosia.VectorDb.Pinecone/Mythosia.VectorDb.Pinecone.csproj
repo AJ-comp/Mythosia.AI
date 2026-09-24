@@ -5,14 +5,20 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Pinecone</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.0.1</Version>
+    <Version>4.0.2</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with optional PineconeOptions.Namespace for data isolation, metadata filtering, GetBatchAsync, CountAsync, and connection verification.</Description>
+    <Description>Pinecone vector store implementation for Mythosia VectorDb. Uses Pinecone index as physical storage with optional PineconeOptions.Namespace for data isolation, metadata filtering, GetBatchAsync, CountAsync, and connection verification. What's New in v4.0.2: Updated hashing and JSON dependencies with current compatible vector contracts.</Description>
     <PackageTags>VectorDB;VectorStore;Pinecone;Embeddings;RAG;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v4.0.1: Recompiled against System.IO.Hashing 10.0.6 and System.Text.Json 10.0.6. No behavioral changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.0.2: Updates System.IO.Hashing and System.Text.Json to 10.0.7 and rebuilds against Mythosia.VectorDb.Abstractions 4.1.0. Existing Pinecone vector/native-hybrid APIs and stored indexes remain compatible; this provider does not implement the optional text/configurable-hybrid contracts. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Pinecone/RELEASE_NOTES.md#v402</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +35,10 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

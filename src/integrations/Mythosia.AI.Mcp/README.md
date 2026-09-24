@@ -2,9 +2,11 @@
 
 Give an AI workflow access to tools your application already exposes through MCP (Model Context Protocol). Connect through the built-in stdio transport or a custom `IMcpTransport`; the integration discovers tools and registers `FunctionDefinition`s for providers that support local function calling.
 
-## Current release: 0.1.0-preview
+## Current release: 0.1.1-preview
 
-This preview targets **Mythosia.AI 8.0.0**. Registered MCP tools share the core execution loop, cancellation and failure contracts. Direct `CallToolAsync` callers now receive `McpException` for `isError: true` instead of successful error text. Review the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) and [v0.1.0-preview release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview) before upgrading.
+This preview patch targets **Mythosia.AI 8.1.0** and transitively **Mythosia.AI.Abstractions 4.1.0**. Existing MCP public APIs and lifecycle behavior remain unchanged; no additional source migration is required from 0.1.0-preview. See the [v0.1.1-preview release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview).
+
+Registered MCP tools share the core execution loop, cancellation and failure contracts. Direct `CallToolAsync` reports `McpException` for `isError: true`. When upgrading from 0.0.1-preview, review the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for the earlier error-handling and Run contract changes.
 
 When a task needs progress display and a way to stop, keep an `AIRun` handle. `await run.Result` returns an `AIRunResult` containing the final text and reported execution details without requiring a stream reader; use `.Text` for the former string. Cancellation is cooperative and does not undo completed server actions. See the [Run result migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result).
 

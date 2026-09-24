@@ -1,16 +1,16 @@
 # 推論の深さを選び、出典のある回答を得る
 
-> Grok 4.7 は未リリースの追加機能です。[モデル選択・推論・処理速度](providers.md#grok-47)を参照してください。
+> Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
 
-> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)を参照してください。
+> GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) は未公開の追加機能です。推論は常時有効、既定の effort は medium、表示は省略です。読める進行状況は明示的に指定します。既定値とモデル binding は Fable 5.1 と異なります。
+[Claude Opus 5.5](providers.md#claude-opus-55) は Mythosia.AI 8.1.0 / Abstractions 4.1.0 で利用できます。推論は常時有効、既定の effort は medium、表示は省略です。読める進行状況は明示的に指定します。既定値とモデル binding は Fable 5.1 と異なります。
 
 設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
 
 > これらの API は `Mythosia.AI` 7.1.0 以降で利用でき、`Mythosia.AI.Abstractions` 3.1.0 以降を含みます。RAG の例には `Mythosia.AI.Rag` 7.6.0 以降が必要です。
 
-> `CreateRequest`の例には現在開発中のリリースが必要です。Runと共通リクエスト機能を導入した旧7.1リリースにはビルダーがありません。旧パッケージでは既存のサービスオーバーロードを使えます。
+> `CreateRequest`の例にはMythosia.AI 8.0.0 / Abstractions 4.0.0が必要です。Runと共通リクエスト機能を導入した旧7.1リリースにはビルダーがありません。旧パッケージでは既存のサービスオーバーロードを使えます。
 
 [Claude Fable 5.1](fable-5-1.md) は `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から進捗更新、ターン限定指示、thinking binding 診断を利用できます。Mythos 5.1 は招待制です。両モデルともツール選択の強制を拒否します。
 

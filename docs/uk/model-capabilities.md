@@ -1,10 +1,10 @@
 # Показувати функції, які підтримує вибрана модель
 
-> Grok 4.7 — ще не опубліковане доповнення; див. [вибір моделі, міркування та швидкість обробки](providers.md#grok-47).
+> Grok 4.7: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі, міркування та швидкість обробки](providers.md#grok-47)
 
-> GPT-6 Sol/Luna ще не опубліковані в пакетах. Див. [вибір моделі та вимоги](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі та вимоги](providers.md#gpt-6-sol-luna)
 
-Для [Claude Opus 5.5](providers.md#claude-opus-55) capabilities надають `Low`–`Max`, зокрема `XHigh`; `None`, `Minimal` і `ThinkingToggle` не підтримуються. `MaxOutputTokens` дорівнює 128000. Приховування тексту не вимикає мислення. Це визначення неопублікованого доповнення, а не вже випущених пакетів.
+Для [Claude Opus 5.5](providers.md#claude-opus-55) capabilities надають `Low`–`Max`, зокрема `XHigh`; `None`, `Minimal` і `ThinkingToggle` не підтримуються. `MaxOutputTokens` дорівнює 128000. Приховування тексту не вимикає мислення. Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 Інтерфейс чату має пропонувати міркування, пошук, інструменти й зображення відповідно до підключення. Списки моделей у кожному застосунку дублюють правила бібліотеки та розходяться зі зміною провайдера, протоколу чи розгортання. Знімки можливостей надають інтерфейсу й перевіркам виконання спільні визначення моделей.
 
@@ -52,7 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | Потік, інструменти, нативні асинхронні інструменти та вказівки під час роботи. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | Хостований пошук, зміна міркувань зі збереженням кешу, вхідні зображення та структурований вивід. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | Підтримувані параметри sampling і відома межа вихідних токенів, що допускає null. |
-| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Не опубліковано: режими Supported/Unsupported/Unknown; права акаунта перевіряються окремо. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Mythosia.AI 8.1.0 / Abstractions 4.1.0: режими Supported/Unsupported/Unknown; права акаунта перевіряються окремо. |
 | `Provider`, `Model` | Провайдер і надіслана модель; ідентифікатори можуть бути невідомі. |
 
 `ReasoningLevels` стосується спільного `WithReasoning`, `NativeReasoningLevels` — власних налаштувань провайдера. `ThinkingBudgetPresets` пропонує варіанти для UI, а не всі допустимі бюджети чи повний числовий діапазон. `AsyncFunctionCalling` означає нативне асинхронне виконання інструментів, а не просто локальний `Task` чи паралельний запуск. `StructuredOutput` охоплює спільний API типізованого виводу, включно з резервним шляхом через промпт і виправлення, та не гарантує нативного обмеженого декодування. Обидва списки рівнів використовують `ReasoningLevel`; бюджети є цілими числами.

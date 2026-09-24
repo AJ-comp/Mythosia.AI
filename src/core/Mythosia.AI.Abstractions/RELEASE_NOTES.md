@@ -1,19 +1,19 @@
 # Mythosia.AI.Abstractions - Release Notes
 
-## Unreleased
+## v4.1.0
 
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+> This additive contracts release pairs with Mythosia.AI 8.1.0. Existing required interface members, constructors and enum numeric values remain unchanged.
 
 ### Added
 
-- `AIModels.DeepSeek.V4Pro` identifies the supported text-only `deepseek-v4-pro`. The matching unreleased core supplies model capabilities and optional Responses execution; Flash remains the default and retired constants keep their original values and warning-only obsolete annotations.
+- `AIModels.DeepSeek.V4Pro` identifies the supported text-only `deepseek-v4-pro`. The Mythosia.AI 8.1.0 core supplies model capabilities and optional Responses execution; Flash remains the default and retired constants keep their original values and warning-only obsolete annotations.
 
-- `AIModels.xAI.Grok4_7` identifies `grok-4.7` and reuses existing `GrokReasoning`, request-feature, speed, capability and Run contracts. The matching unreleased core supplies reasoning validation, request wiring and processing observations; no required interface member or existing enum numeric value changes. See [Grok 4.7](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
+- `AIModels.xAI.Grok4_7` identifies `grok-4.7` and reuses existing `GrokReasoning`, request-feature, speed, capability and Run contracts. The Mythosia.AI 8.1.0 core supplies reasoning validation, request wiring and processing observations; no required interface member or existing enum numeric value changes. See [Grok 4.7](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
 
-- `AIModels.OpenAI.Gpt6Sol` and `Gpt6Luna` identify `gpt-6-sol` and `gpt-6-luna`. Additive `Gpt6Reasoning.None` retains earlier enum numeric values; it is valid for Sol/Luna and rejected for Astra. Existing Run, reasoning, speed and request-feature contracts are reused without new required interface members. The matching unreleased core build supplies validation and execution. See [model selection and settings](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-6-sol-luna).
+- `AIModels.OpenAI.Gpt6Sol` and `Gpt6Luna` identify `gpt-6-sol` and `gpt-6-luna`. Additive `Gpt6Reasoning.None` retains earlier enum numeric values; it is valid for Sol/Luna and rejected for Astra. Existing Run, reasoning, speed and request-feature contracts are reused without new required interface members. The Mythosia.AI 8.1.0 build supplies validation and execution. See [model selection and settings](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-6-sol-luna).
 
-- `InferenceSpeed` defines ProviderDefault, Standard and Fast without changing model or reasoning effort. `AIRequestFeatures.Speed` and `WithSpeed` request extensions reuse optional request-feature contracts. Immutable `AIProcessingInfo` and `AIRunResult.Processing` preserve per-attempt requested/applied modes; unknown provider reporting stays nullable. `AIModelCapabilities.StandardSpeed`, `.FastSpeed` and `.GetSpeedSupport(...)` describe local tri-state support independently from live account access. Optional `IAIProcessingInfoService` and `GetLastProcessing()` expose diagnostics through `IAIService` references without adding required members. The matching unreleased core implementation supplies execution and observations.
-- `AIModels.Anthropic.ClaudeOpus5_5` identifies `claude-opus-5-5`. Existing `ClaudeReasoningEffort`, `ClaudeThinkingDisplay`, request-feature and Run contracts are reused; no required interface member or existing model default changes. The matching unreleased core implementation supplies model-specific validation and preserved-thinking behavior. See [usage and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
+- `InferenceSpeed` defines ProviderDefault, Standard and Fast without changing model or reasoning effort. `AIRequestFeatures.Speed` and `WithSpeed` request extensions reuse optional request-feature contracts. Immutable `AIProcessingInfo` and `AIRunResult.Processing` preserve per-attempt requested/applied modes; unknown provider reporting stays nullable. `AIModelCapabilities.StandardSpeed`, `.FastSpeed` and `.GetSpeedSupport(...)` describe local tri-state support independently from live account access. Optional `IAIProcessingInfoService` and `GetLastProcessing()` expose diagnostics through `IAIService` references without adding required members. The Mythosia.AI 8.1.0 implementation supplies execution and observations.
+- `AIModels.Anthropic.ClaudeOpus5_5` identifies `claude-opus-5-5`. Existing `ClaudeReasoningEffort`, `ClaudeThinkingDisplay`, request-feature and Run contracts are reused; no required interface member or existing model default changes. The Mythosia.AI 8.1.0 implementation supplies model-specific validation and preserved-thinking behavior. See [usage and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
 
 ### Fixed
 

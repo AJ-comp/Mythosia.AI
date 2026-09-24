@@ -2,15 +2,15 @@
 
 Ground answers in documents your application manages. `Mythosia.AI.Rag` adds `.WithRag()` to an `IAIService` and handles document loading, splitting, embeddings, retrieval and context assembly. Use Agentic RAG tools when the model should decide when to search again.
 
-The published 8.0.0 package depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.0.0** and **Mythosia.AI.Rag.Abstractions 6.2.0**. The pending source changes below require matching source builds of the changed contracts.
+Version **8.1.0** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.1.0** and **Mythosia.AI.Rag.Abstractions 6.3.0**.
 
-> **Source checkout / unreleased changes:** This README also covers the pending request-based retriever, configurable hybrid search, indexing and embedding safeguards, and processing-speed integration. These additions and fixes are not part of the published 8.0.0 package; use matching source builds of the changed contract and implementation packages. See the [pending release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#unreleased). The next release versions have not been assigned.
+> **v8.1.0:** Adds request-based retrieval, configurable hybrid search, indexing and embedding safeguards, and processing-speed integration. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810) for changes and index migration guidance.
 
-Unreleased: `RagEnabledService.WithSpeed(InferenceSpeed.Fast)` can request paid low-latency processing for the next answer when the inner provider/model supports it. It preserves retrieval settings and keeps internal query rewriting separate. Read `LastProcessing` or `(await run.Result).Processing` for reported applied modes; missing information remains unknown. See [speed selection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
+In v8.1.0, `RagEnabledService.WithSpeed(InferenceSpeed.Fast)` can request paid low-latency processing for the next answer when the inner provider/model supports it. It preserves retrieval settings and keeps internal query rewriting separate. Read `LastProcessing` or `(await run.Result).Processing` for reported applied modes; missing information remains unknown. See [speed selection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 8.0.0
+## Current release: 8.1.0
 
-Upgrade RAG together with the other packages listed in the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md), and rebuild callers for the updated completion and Run contracts.
+The 8.1.0 release adds compatible APIs and fixes; existing retrieval interfaces remain supported. If upgrading from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for the earlier completion and Run contract changes.
 
 Pass `cancellationToken` to stop cooperative retrieval, query rewriting and the inner completion call when a user stops waiting. `WithAgenticRag` forwards tool cancellation into `RagStore.QueryAsync`; search exceptions become failed tool results. Cancellation avoids later model rounds, but cleanup can wait for components that ignore the token and does not guarantee that a provider stops inference or billing. See the [completion contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation) and [tool contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract).
 
@@ -18,7 +18,7 @@ Keep an `AIRunResult` when the answer needs usage, sources and execution details
 
 Perplexity standard 0.6B/4B embeddings plug into the existing RAG builder. Separate contextualized APIs preserve each document's ordered chunks, and packed binary results use an explicit vector type. See the [Perplexity guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md) and [v8.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800).
 
-RAG Run controls, request-scoped reasoning/search forwarding and duplicate-registration filtering were introduced in [v7.6.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760). Use a supporting inner service, such as Mythosia.AI 8.0.0, for the current provider integrations.
+RAG Run controls, request-scoped reasoning/search forwarding and duplicate-registration filtering were introduced in [v7.6.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760). Use a supporting inner service, such as Mythosia.AI 8.1.0, for the current provider integrations.
 
 ## Installation
 

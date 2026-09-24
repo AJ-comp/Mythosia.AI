@@ -1,5 +1,7 @@
 # Mythosia.VectorDb.Pinecone
 
+**v4.0.2** — Updated hashing and JSON dependencies with current compatible vector contracts. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Pinecone/RELEASE_NOTES.md#v402).
+
 [Pinecone](https://www.pinecone.io/) vector store implementation for the **Mythosia VectorDb** abstraction layer.
 
 Isolation model:

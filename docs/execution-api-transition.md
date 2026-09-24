@@ -1,6 +1,6 @@
 # Control ongoing AI tasks with Run
 
-> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection and requirements](providers.md#gpt-6-sol-luna)
 
 Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
 

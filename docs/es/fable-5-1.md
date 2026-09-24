@@ -1,6 +1,6 @@
 # Observar tareas largas con Claude Fable 5.1
 
-[Claude Opus 5.5](providers.md#claude-opus-55) es una incorporación sin publicar: razonamiento siempre activo, esfuerzo medium por defecto y visualización omitida. Solicite el progreso legible explícitamente; sus valores por defecto y reglas de vinculación difieren de Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) está disponible con Mythosia.AI 8.1.0 / Abstractions 4.1.0: razonamiento siempre activo, esfuerzo medium por defecto y visualización omitida. Solicite el progreso legible explícitamente; sus valores por defecto y reglas de vinculación difieren de Fable 5.1.
 
 > Los controles de Fable 5.1 requieren `Mythosia.AI` 8.0.0 y `Mythosia.AI.Abstractions` 4.0.0 o posteriores. Las API existentes de Run, razonamiento/búsqueda y GPT-6 Astra mantienen sus versiones mínimas 7.1.0 / 3.1.0.
 

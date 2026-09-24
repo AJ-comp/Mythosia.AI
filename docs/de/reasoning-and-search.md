@@ -1,16 +1,16 @@
 # Reasoning-Aufwand wählen und mit Quellen antworten
 
-> Grok 4.7 ist eine noch unveröffentlichte Ergänzung; siehe [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47).
+> Grok 4.7: Benötigt Mythosia.AI 8.1.0 / Abstractions 4.1.0. [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47)
 
 > GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
 
-[Claude Opus 5.5](providers.md#claude-opus-55) ist eine unveröffentlichte Erweiterung mit ständig aktivem Denken, standardmäßig mittlerem Aufwand und verborgener Anzeige. Fordern Sie lesbaren Fortschritt ausdrücklich an; Standardwerte und Modellbindung unterscheiden sich von Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) ist ab Mythosia.AI 8.1.0 / Abstractions 4.1.0 verfügbar, mit ständig aktivem Denken, standardmäßig mittlerem Aufwand und verborgener Anzeige. Fordern Sie lesbaren Fortschritt ausdrücklich an; Standardwerte und Modellbindung unterscheiden sich von Fable 5.1.
 
 Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
 
 > Diese APIs benötigen `Mythosia.AI` ab 7.1.0, einschließlich `Mythosia.AI.Abstractions` ab 3.1.0. RAG-Beispiele benötigen `Mythosia.AI.Rag` ab 7.6.0.
 
-> Die `CreateRequest`-Beispiele benötigen die aktuelle Arbeitsversion. Die frühere Version 7.1 mit Run und gemeinsamen Anfrageoptionen enthält den Builder noch nicht. Ältere Pakete können ihre bisherigen Service-Überladungen verwenden.
+> Die `CreateRequest`-Beispiele benötigen Mythosia.AI 8.0.0 / Abstractions 4.0.0. Die frühere Version 7.1 mit Run und gemeinsamen Anfrageoptionen enthält den Builder noch nicht. Ältere Pakete können ihre bisherigen Service-Überladungen verwenden.
 
 [Claude Fable 5.1](fable-5-1.md) bietet ab `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 Fortschrittsmeldungen, Anweisungen für einzelne Gesprächsrunden und Thinking-Binding-Diagnosen. Mythos 5.1 erfordert eine Einladung. Beide lehnen erzwungene Tool-Auswahl ab.
 

@@ -95,9 +95,9 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | 희소 + 밀집 벡터를 서버 측에서 병합 |
 | **Postgres** | 벡터 유사도 + `tsvector`/`trigram` 점수를 SQL에서 병합 |
 
-### 텍스트 전용 및 설정 가능한 하이브리드 검색 (미배포)
+### 텍스트 전용 및 설정 가능한 하이브리드 검색
 
-위 오버로드는 각 백엔드의 기존 하이브리드 동작을 사용합니다. 현재 소스의 InMemory, PostgreSQL, Qdrant는 `ITextSearchStore`와 `IConfigurableHybridSearchStore`도 구현합니다. 이 선택적 API는 **미배포(Unreleased)** 상태이며, Pinecone은 구현하지 않습니다.
+위 오버로드는 각 백엔드의 기존 하이브리드 동작을 유지합니다. `ITextSearchStore`와 `IConfigurableHybridSearchStore`는 Mythosia.VectorDb.Abstractions 4.1.0의 선택적 계약이며 InMemory 4.2.0, PostgreSQL 10.8.0, Qdrant 4.2.0에서 구현합니다. Pinecone은 이 API를 구현하지 않습니다.
 
 ```csharp
 using Mythosia.VectorDb;

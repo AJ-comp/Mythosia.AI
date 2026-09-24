@@ -1,5 +1,7 @@
 # Mythosia.Documents.Hwp
 
+**v1.0.2** — OpenMcdf 3.1.4 dependency floor for HWP container parsing. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Hwp/RELEASE_NOTES.md#v102).
+
 HWP (Hangul Word Processor) document loader. Parses `.hwp` files into `DoclingDocument` structured models via [HwpLibSharp](https://github.com/rkttu/libhwpsharp). Provides section/paragraph text extraction with table support.
 
 ## Installation

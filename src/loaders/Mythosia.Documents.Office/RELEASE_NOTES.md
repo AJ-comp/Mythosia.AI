@@ -1,16 +1,15 @@
 # Mythosia.Documents.Office - Release Notes
 
-## Unreleased
-
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+## v1.1.1
 
 ### Fixed
 
+- Skip missing worksheet and slide parts instead of dereferencing them during Excel/PowerPoint parsing.
 - File loading uses the normalized absolute path as `DoclingDocument.Source`, stabilizing RAG automatic document IDs across relative/absolute registrations and separating same-named files in different folders. Explicit IDs remain unchanged; default citations may show absolute paths.
 
 ### Compatibility
 
-- Existing relative-path IDs are not automatically migrated or removed. Delete only the identified old document ID in the relevant store before reindexing, or index all source documents into a new empty collection and switch after validation. Indexing only the new ID leaves old records behind; preserve unrelated documents. Public signatures and package versions are unchanged.
+- Existing relative-path IDs are not automatically migrated or removed. Delete only the identified old document ID in the relevant store before reindexing, or index all source documents into a new empty collection and switch after validation. Indexing only the new ID leaves old records behind; preserve unrelated documents. Public signatures are unchanged.
 
 ## v1.1.0
 

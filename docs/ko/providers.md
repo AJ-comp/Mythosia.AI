@@ -79,11 +79,11 @@ var presetRequest = new ImageGenerationRequest
 
 <a id="gpt-6-sol-luna"></a>
 
-### GPT-6 Sol / Luna (미배포)
+### GPT-6 Sol / Luna
 
 복잡한 코딩·도구 활용·에이전트 작업에는 GPT-6 Sol을, 텍스트나 이미지 입력을 대량 처리하며 비용을 줄이고 싶을 때는 Luna를 선택하세요. 기존 완료 응답·스트리밍·Run API를 그대로 사용하므로 모델을 바꿔도 애플리케이션의 호출 흐름은 유지됩니다.
 
-> 아직 배포되지 않은 추가 기능으로, 서로 맞는 코어·추상화 빌드가 필요합니다. 게시된 Mythosia.AI 8.0.0 / Abstractions 4.0.0에는 `Gpt6Sol`, `Gpt6Luna`, `Gpt6Reasoning.None`이 없습니다. 기존 Astra 기능의 최소 버전과 서비스 기본 모델은 바뀌지 않습니다.
+> Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. 기존 Astra 기능의 최소 버전과 서비스 기본 모델은 바뀌지 않습니다.
 
 `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) 또는 `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`)로 선택합니다. 둘 다 텍스트·이미지를 입력받아 텍스트를 출력하며, 문맥 창은 1,050,000토큰, 최대 입력은 922,000토큰, 최대 출력은 128,000토큰입니다. 입력·추론·출력을 합쳐 문맥 한도를 지켜야 합니다. `MaxTokens`는 문맥 크기가 아니라 요청한 출력 예산입니다.
 
@@ -244,7 +244,7 @@ await File.WriteAllBytesAsync("pavilion-cutout.png", edited.Images[0].Data);
 
 ### Claude Opus 5.5: 긴 도구 작업의 진행 상황 보여주기
 
-여러 번 도구를 호출하며 코드를 검토하거나 문서를 조사할 때 Opus 5.5를 사용할 수 있습니다. 기존 completion·Run API를 그대로 쓰지만 기본값에서는 진행 안내가 숨겨지며, 추론을 보존할 때는 이력 변경도 신경 써야 합니다. 이 지원은 현재 작업 중인 미배포 기능이며, 게시된 8.0.0 / 4.0.0 패키지에는 포함되지 않습니다.
+여러 번 도구를 호출하며 코드를 검토하거나 문서를 조사할 때 Opus 5.5를 사용할 수 있습니다. 기존 completion·Run API를 그대로 쓰지만 기본값에서는 진행 안내가 숨겨지며, 추론을 보존할 때는 이력 변경도 신경 써야 합니다. Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다.
 
 `ClaudeOpus5_5`는 `claude-opus-5-5`를 선택합니다. 텍스트·이미지 입력과 텍스트 출력을 지원하며 컨텍스트는 1M, 최대 출력은 128K토큰입니다. 2026-09-24 확인 기준 일반 입력·출력 요금은 100만 토큰당 $4/$20이며, 특수 모드와 도구 요금은 별도입니다. [공식 모델 정보](https://platform.claude.com/docs/en/models/opus-5-5/overview).
 
@@ -346,7 +346,7 @@ Flash-Lite의 [모델 페이지](https://ai.google.dev/gemini-api/docs/models/ge
 
 ### Grok 4.7
 
-빠른 초안을 만든 뒤 코드나 문서를 꼼꼼하게 검토하려면 Grok 4.7을 선택하고 요청마다 추론 수준을 조절하세요. 기존 일반 응답·스트리밍·Run·로컬 도구·구조화 출력·이미지 입력 API를 그대로 사용합니다. `grok-4.7`은 텍스트·이미지를 입력받아 텍스트를 반환하며 문맥 창은 500,000토큰입니다. 이 연결에는 서로 맞는 미배포 core·abstractions 빌드가 필요하며, 이미 게시된 8.0.0 / 4.0.0에는 포함되지 않습니다. 서비스 기본 모델은 Grok 4.5로 유지합니다.
+빠른 초안을 만든 뒤 코드나 문서를 꼼꼼하게 검토하려면 Grok 4.7을 선택하고 요청마다 추론 수준을 조절하세요. 기존 일반 응답·스트리밍·Run·로컬 도구·구조화 출력·이미지 입력 API를 그대로 사용합니다. `grok-4.7`은 텍스트·이미지를 입력받아 텍스트를 반환하며 문맥 창은 500,000토큰입니다. 서비스 기본 모델은 Grok 4.5로 유지합니다. Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다.
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -479,7 +479,7 @@ Google은 `ImageSize.Auto` 또는 모델별 해상도·비율의 `Preset`을 사
 
 빠른 답변을 받은 뒤 더 깊게 검토하거나 차트·스크린샷을 설명해야 할 때 DeepSeek Flash를 사용할 수 있습니다. `AIModels.DeepSeek.Flash` (`deepseek-flash`)는 2026년 9월 10일 출시된 비전 지원 V4.1 Flash를 선택합니다. 기존 완성 응답·스트리밍·Run·함수 호출·RAG API를 그대로 사용하며 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0부터 지원합니다.
 
-> 배포된 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0에는 Flash 기본 지원이 포함되어 있습니다. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, Files API, `DeepSeekImageFileContent`는 아직 배포되지 않은 소스 변경이며 서로 맞는 코어·추상화 소스 빌드가 필요합니다. 위 배포 패키지에는 이 추가 기능이 포함되어 있지 않습니다. [미배포 변경 사항](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased).
+> 배포된 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0에는 Flash 기본 지원이 포함되어 있습니다. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, Files API, `DeepSeekImageFileContent`: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [v8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810).
 
 텍스트 작업에는 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)를 선택할 수 있습니다. 기본 모델 Flash는 이미지를 지원하며 두 모델 모두 Low/High/Max 추론과 같은 출력 한도를 제공합니다. 기존 완성 응답·스트리밍·Run·로컬 함수 API에서 DeepSeek Responses를 사용하려면 요청 생성 전에 `UseResponsesApi = true`를 설정하세요. 기존 앱의 Chat Completions 동작을 유지하도록 기본값은 `false`이며, 설정은 요청과 후속 도구 라운드 전체에 캡처됩니다. Responses는 서버에 저장된 응답 ID 대신 전체 대화와 원본 추론 이력을 다시 전송합니다.
 

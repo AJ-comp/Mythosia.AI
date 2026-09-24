@@ -35,6 +35,13 @@
 | `Mythosia.AI` | `Mythosia.AI.Providers.Alibaba` |
 | `Mythosia.AI.Abstractions` | `Mythosia.AI`, `Mythosia.AI.Rag` |
 
+### 릴리스 준비 완료 및 푸시 전 검증
+- 릴리스 작업은 `build/release-plan.psd1`의 게시 대상·버전·의존성과 실제 프로젝트 및 문서를 함께 갱신한다.
+- 릴리스 커밋을 만들기 **전에** `pwsh -NoProfile -File build/test-release.ps1`를 실행하고 전체 통과 결과를 확인한다. 이 검사는 커밋·푸시·게시를 수행하지 않는다.
+- 문서 작성 완료, 솔루션 빌드 성공, 일반 CI 성공만으로 게시 준비가 완료됐다고 보고하지 않는다. 실제 패키지 생성·격리 설치 검증과 NuGet 버전 가용성 확인이 필요하다.
+- 검증 실패는 로컬에서 수정한 후 해당 검사를 다시 수행한다. 검증 후 변경된 내용도 다시 확인한다. 게시된 이력을 검증 수단으로 사용하지 않는다.
+- 실제 API·외부 DB 테스트의 미실행 또는 건너뜀은 통과와 구분해서 보고한다. 상세 절차는 `build/RELEASE.md`를 따른다.
+
 ---
 
 ## Breaking Change 규칙

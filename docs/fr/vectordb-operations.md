@@ -95,9 +95,9 @@ Fonctionnement de la recherche hybride par backend :
 | **Pinecone** | Vecteurs sparse + dense fusionnés côté serveur |
 | **Postgres** | Similarité vectorielle + scores `tsvector`/`trigram` fusionnés en SQL |
 
-### Recherche textuelle et hybride configurable (non publiée)
+### Recherche textuelle et hybride configurable
 
-La surcharge ci-dessus utilise le comportement hybride existant de chaque backend. Dans le code source actuel, InMemory, PostgreSQL et Qdrant implémentent aussi `ITextSearchStore` et `IConfigurableHybridSearchStore`. Ces API facultatives sont **non publiées (Unreleased)** ; Pinecone ne les implémente pas.
+La surcharge ci-dessus conserve le comportement hybride de chaque backend. Les contrats facultatifs `ITextSearchStore` et `IConfigurableHybridSearchStore` nécessitent Mythosia.VectorDb.Abstractions 4.1.0 et sont implémentés par InMemory 4.2.0, PostgreSQL 10.8.0 et Qdrant 4.2.0. Pinecone ne les implémente pas.
 
 ```csharp
 using Mythosia.VectorDb;

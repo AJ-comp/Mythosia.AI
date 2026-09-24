@@ -1,8 +1,6 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
-## Unreleased
-
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+## v4.2.0
 
 ### Added
 
@@ -16,6 +14,9 @@
 
 - No stored payload migration is needed. Filter keys containing quotes or backslashes are rejected because they cannot be represented by the supported Qdrant path grammar.
 
+### Internal
+
+- Update `System.IO.Hashing` to 10.0.7 and build against `Mythosia.VectorDb.Abstractions` 4.1.0.
 
 ## v4.1.1
 

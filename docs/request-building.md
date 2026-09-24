@@ -1,6 +1,6 @@
 # Keep each request’s settings independent
 
-> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](providers.md#grok-47).
+> Grok 4.7: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection, reasoning and processing speed](providers.md#grok-47)
 
 A summary may need a low temperature, while a creative draft needs a higher one. Preparing the draft must not silently change the settings of a summary you already prepared. Use `CreateRequest` when different calls need different settings, or when you want to reuse a base request with several variations.
 
@@ -117,7 +117,7 @@ A builder is not a separate conversation. The service’s active conversation at
 
 ## Choose processing speed for the current task
 
-A customer waiting for an answer may justify premium low-latency processing, while a background report can use ordinary processing. `WithSpeed` selects that processing mode while keeping the same model and reasoning effort. This is an unreleased addition requiring the matching core and abstractions changes; published 8.0.0 / 4.0.0 packages do not contain it.
+A customer waiting for an answer may justify premium low-latency processing, while a background report can use ordinary processing. `WithSpeed` selects that processing mode while keeping the same model and reasoning effort. Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 `ProviderDefault` adds no override and preserves existing service/provider settings; a project default may already be Fast. `Standard` explicitly requests ordinary processing. `Fast` opts into the provider’s premium low-latency mode and can incur additional charges. Keep each returned builder: the three branches below are independent, and the base request is unchanged.
 

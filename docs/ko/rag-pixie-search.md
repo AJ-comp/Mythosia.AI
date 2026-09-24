@@ -25,13 +25,13 @@ PIXIE는 ONNX Runtime을 통해 프로그램 내부에서 실행합니다. Pytho
 
 ## 기존 RAG 설정에 연결하기
 
-**게시 상태:** 현재 프리뷰는 소스와 로컬 검증용 패키지로 제공하며 NuGet에는 아직 게시하지 않았습니다. 아래 설치 명령은 게시 후에 사용할 수 있습니다. 현재 소스를 검증하려면 이 문서 마지막의 소스 패키지 생성 절차를 따르세요.
+**패키지 버전:** 이 안내는 `Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview, `Mythosia.AI.Rag` 8.1.0, `Mythosia.VectorDb.Abstractions` 4.1.0을 기준으로 합니다. 선택 프리뷰 패키지에 모델 파일이 포함됩니다. 소스 체크아웃을 검증하려면 이 문서 마지막의 소스 패키지 생성 절차를 따르세요.
 
-게시 후에는 RAG 패키지와 선택 검색 프리뷰를 설치합니다.
+RAG 패키지와 선택 검색 프리뷰를 설치합니다.
 
 ```bash
-dotnet add package Mythosia.AI.Rag
-dotnet add package Mythosia.AI.Rag.Search.Pixie --prerelease
+dotnet add package Mythosia.AI.Rag --version 8.1.0
+dotnet add package Mythosia.AI.Rag.Search.Pixie --version 0.1.0-preview
 ```
 
 아래의 `embeddings`는 현재 애플리케이션에서 사용하는 `IEmbeddingProvider`입니다. 같은 공급자를 유지해야 검색 변경의 효과와 임베딩 모델 변경의 효과가 섞이지 않습니다.
@@ -183,4 +183,4 @@ py -3.12 -m venv artifacts/pixie-model-env
 
 검증한 로컬 NuGet 패키지는 **184,022,040바이트(약 184MB)**입니다. 새 소비자에서 패키지를 직접 참조하거나 다른 NuGet 패키지를 통해 간접 참조한 경우 모두 포함된 모델을 읽고 추론했으며, `dotnet publish` 출력에서도 실행을 확인했습니다. 직접 소비자는 검색까지 검증했습니다. 근거는 `artifacts/pixie-package/pixie-package-validation.json`에 있습니다. 패키지 사용 검증이며 NuGet 게시를 완료했다는 뜻은 아닙니다.
 
-현재 소스의 `Mythosia.VectorDb.Abstractions`에는 새 텍스트·하이브리드 검색 계약이 추가되어 있지만 버전 표기는 아직 `4.0.1`입니다. 이미 게시된 같은 버전의 패키지가 이 소스 계약을 대신하지는 못합니다. `pack-pixie.ps1`은 소비자 검증을 위해서만 로컬 의존 패키지를 만듭니다. 실제 PIXIE 게시 전에는 변경된 계약의 릴리스 버전을 정하고 의존 패키지와 맞춰야 합니다. 이번 구현에서 기존 버전을 올리지는 않으며, 기존 GitHub 게시 워크플로에도 새 패키지 배포는 아직 연결하지 않았습니다.
+이 프리뷰가 사용하는 텍스트·하이브리드 검색 계약은 `Mythosia.VectorDb.Abstractions` 4.1.0에서 제공합니다. 이전 4.0.1 패키지에는 이 계약이 없습니다. 함께 게시하는 릴리스 계획에 PIXIE 0.1.0-preview와 버전이 정해진 의존 패키지가 포함되어 있습니다. `pack-pixie.ps1`은 로컬 모델 패키지 검증 도구이며, 정식 릴리스 검증과 게시는 GitHub 게시 워크플로와 릴리스 매니페스트를 사용합니다.

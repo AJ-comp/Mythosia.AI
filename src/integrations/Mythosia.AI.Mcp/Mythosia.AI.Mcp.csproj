@@ -16,7 +16,7 @@
     <Company>Mythosia</Company>
     <PackageTags>AI;MCP;ModelContextProtocol;Tools;FunctionCalling;Stdio;Run;Cancellation</PackageTags>
     <Authors>JJW</Authors>
-    <Description>Connect application AI workflows to existing MCP tools without writing a separate function adapter for each server. Mythosia.AI.Mcp discovers tools through a built-in stdio or custom IMcpTransport connection and registers FunctionDefinitions on supporting providers. Includes cooperative cancellation, explicit tool failures and coordinated connection cleanup. This preview requires Mythosia.AI 8.0.0.</Description>
+    <Description>Connect application AI workflows to existing MCP tools without writing a separate function adapter for each server. Mythosia.AI.Mcp discovers tools through a built-in stdio or custom IMcpTransport connection and registers FunctionDefinitions on supporting providers. Includes cooperative cancellation, explicit tool failures and coordinated connection cleanup. This preview requires Mythosia.AI 8.1.0.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/integrations/Mythosia.AI.Mcp</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -25,8 +25,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v0.1.0-preview updates the MCP integration for Mythosia.AI 8.0.0 and its shared tool and Run contracts. Registered tools propagate cooperative cancellation; tool and transport failures become failed results. Direct CallToolAsync now throws McpException for an MCP isError result, so callers that previously consumed error strings must migrate. Concurrent DisposeAsync calls await shared cleanup, and transport disposal proceeds even when cancellation callbacks fail. Malformed matching responses keep requests pending for a later valid response or cancellation; new calls fail after disposal starts or the read loop stops. Inherited Run results use AIRunResult and callers read Text for the answer. Remote server actions are not undone or guaranteed to stop by client cancellation. Migration: https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview</PackageReleaseNotes>
-    <Version>0.1.0-preview</Version>
+    <PackageReleaseNotes>v0.1.1-preview rebuilds the MCP integration against Mythosia.AI 8.1.0 and transitively Mythosia.AI.Abstractions 4.1.0. Retains existing MCP tool registration, cancellation, failure and connection-lifecycle contracts while using the updated core execution implementation. Existing preview callers require no additional source migration. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview</PackageReleaseNotes>
+    <Version>0.1.1-preview</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -1,16 +1,16 @@
 # 选择推理强度，并获得附带来源的回答
 
-> Grok 4.7 是尚未发布的新增功能；请参阅[模型选择、推理与处理速度](providers.md#grok-47)。
+> Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择、推理与处理速度](providers.md#grok-47)
 
-> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](providers.md#gpt-6-sol-luna)。
+> GPT-6 Sol/Luna: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择与版本要求](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) 是尚未发布的新增功能：推理始终启用，默认 effort 为 medium，并省略显示。可读进度需显式请求；默认值和模型绑定规则与 Fable 5.1 不同。
+[Claude Opus 5.5](providers.md#claude-opus-55) 从 Mythosia.AI 8.1.0 / Abstractions 4.1.0 起可用：推理始终启用，默认 effort 为 medium，并省略显示。可读进度需显式请求；默认值和模型绑定规则与 Fable 5.1 不同。
 
 如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
 
 > 这些 API 需要 `Mythosia.AI` 7.1.0 或更高版本，其中包含 `Mythosia.AI.Abstractions` 3.1.0 或更高版本。RAG 示例需要 `Mythosia.AI.Rag` 7.6.0 或更高版本。
 
-> `CreateRequest`示例需要当前开发中的版本。最初引入Run和公共请求功能的旧7.1版本不包含构建器；旧包可继续使用原有服务重载。
+> `CreateRequest`示例需要Mythosia.AI 8.0.0 / Abstractions 4.0.0。最初引入Run和公共请求功能的旧7.1版本不包含构建器；旧包可继续使用原有服务重载。
 
 [Claude Fable 5.1](fable-5-1.md) 的进度更新、单轮指令和 thinking 绑定诊断从 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 开始提供。Mythos 5.1 需要邀请访问，两个模型都拒绝强制工具选择。
 

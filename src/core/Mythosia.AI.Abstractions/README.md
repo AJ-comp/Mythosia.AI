@@ -2,11 +2,13 @@
 
 Use this package when building middleware, retrieval integrations or custom providers that need a shared AI contract without pulling in provider SDKs. It defines `IAIService`, messages, streaming events and shared models, with optional `IAIRunService`, `IAIRequestFeatureService` and `IImageGenerationService` capabilities. Applications normally receive it through `Mythosia.AI`; the only package dependency is the lightweight `Mythosia` base library.
 
-Unreleased speed contracts add `InferenceSpeed`, immutable `AIProcessingInfo`, request-feature `WithSpeed`, tri-state speed capabilities and `AIRunResult.Processing`. They describe processing mode and provider reports, not measured tokens per second. The matching core implementation provides provider validation and transport wiring; `IAIService` gains no required members; optional `IAIProcessingInfoService` and `GetLastProcessing()` expose observations through interface references. See [processing speed](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
+Version 4.1.0 speed contracts add `InferenceSpeed`, immutable `AIProcessingInfo`, request-feature `WithSpeed`, tri-state speed capabilities and `AIRunResult.Processing`. They describe processing mode and provider reports, not measured tokens per second. The matching core implementation provides provider validation and transport wiring; `IAIService` gains no required members; optional `IAIProcessingInfoService` and `GetLastProcessing()` expose observations through interface references. See [processing speed](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 4.0.0
+## Current release: 4.1.0
 
-This is the contracts release paired with **Mythosia.AI 8.0.0**. The [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) explains the required source changes and rebuilds.
+This additive contracts release pairs with **Mythosia.AI 8.1.0**. It adds model identifiers and optional speed contracts without changing existing required interface members, constructors or enum values. See the [v4.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410).
+
+The v4 contracts below remain available. When upgrading from 3.x or earlier, the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) explains the required source changes and rebuilds.
 
 | Contract | What it enables and what changes |
 | --- | --- |
@@ -20,13 +22,13 @@ This is the contracts release paired with **Mythosia.AI 8.0.0**. The [v8 migrati
 
 `AIService.CreateRequest(...)`, immutable `AIRequestBuilder`, capability queries and asynchronous tool execution live in the implementation package. Those features add no mandatory `IAIService` members themselves; the completion cancellation signature changes above still apply. See [request settings](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md), [tool returns/errors/cancellation](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract), and [capability inspection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/model-capabilities.md).
 
-The unreleased `AIModels.Anthropic.ClaudeOpus5_5` identifier selects `claude-opus-5-5` using the existing reasoning/display contracts. Its provider validation, preserved-thinking behavior and capabilities require the matching unreleased core implementation; installing published 8.0.0 / 4.0.0 does not add this integration. See [Opus 5.5](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
+The `AIModels.Anthropic.ClaudeOpus5_5` identifier selects `claude-opus-5-5` using the existing reasoning/display contracts. Its provider validation, preserved-thinking behavior and capabilities require Mythosia.AI 8.1.0 / Abstractions 4.1.0. See [Opus 5.5](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
 
-The unreleased `AIModels.OpenAI.Gpt6Sol`, `Gpt6Luna` and additive `Gpt6Reasoning.None` let applications select complex agent work or economical volume without changing execution APIs. They require matching unreleased core and abstractions builds; published 8.0.0 / 4.0.0 packages do not contain them. [Model selection and controls](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-6-sol-luna).
+The `AIModels.OpenAI.Gpt6Sol`, `Gpt6Luna` and additive `Gpt6Reasoning.None` let applications select complex agent work or economical volume without changing execution APIs. They require Mythosia.AI 8.1.0 / Abstractions 4.1.0. [Model selection and controls](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-6-sol-luna).
 
-The unreleased `AIModels.xAI.Grok4_7` identifier selects `grok-4.7` with the existing `GrokReasoning`, request, Run and processing-speed contracts. Core supplies model-specific validation for Low/Medium/High/XHigh, mandatory reasoning and priority processing. Published 8.0.0 / 4.0.0 packages do not include this integration; use matching unreleased builds. No required interface members or service defaults change. See [Grok 4.7](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
+The `AIModels.xAI.Grok4_7` identifier selects `grok-4.7` with the existing `GrokReasoning`, request, Run and processing-speed contracts. Core supplies model-specific validation for Low/Medium/High/XHigh, mandatory reasoning and priority processing. This integration requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. No required interface members or service defaults change. See [Grok 4.7](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
 
-The unreleased `AIModels.DeepSeek.V4Pro` identifier selects text-only DeepSeek V4 Pro and requires matching unreleased core and abstractions builds. The core package also adds optional Responses execution and Files support for reusing uploaded images with Flash; V4 Pro rejects images. Published 8.0.0 / 4.0.0 does not contain these additions. See [DeepSeek models, image reuse and limits](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#deepseek-deepseekservice).
+The `AIModels.DeepSeek.V4Pro` identifier selects text-only DeepSeek V4 Pro and requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. The core package also adds optional Responses execution and Files support for reusing uploaded images with Flash; V4 Pro rejects images. See [DeepSeek models, image reuse and limits](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#deepseek-deepseekservice).
 
 Model contracts include Fable/Mythos 5.1, Gemini 3.7/3.8 Flash, Grok 4.6 with `XHigh`, DeepSeek Flash, Grok Imagine Image 2.0 and GPT Image 2.5. Perplexity Agent API contracts replace legacy Sonar-specific selections; `AIModels.Perplexity.Sonar` now identifies `perplexity/sonar`. Provider execution and validation require Mythosia.AI 8.0.0. GPT-6 Astra and optional Run/request-feature contracts were introduced in v3.1.
 
@@ -161,11 +163,11 @@ The shared output-format default is now `ImageOutputFormat.Auto`: OpenAI resolve
 | `ActorRole` | Message role enum (`System`, `User`, `Assistant`, `Function`) |
 | `AIRequestContext` | Per-request context overrides (system message prefix/suffix, message override) |
 | `AIRequestProfile` | Per-request parameter overrides (temperature, max tokens, stateless mode) |
-| `AIModels` | Provider model identifiers, including `AIModels.Anthropic.ClaudeOpus5_5` (unreleased), `ClaudeFable5_1`, `ClaudeMythos5_1`, GPT-6 Astra / Sol / Luna (Sol/Luna unreleased), GPT-5.6, and current xAI aliases |
+| `AIModels` | Provider model identifiers, including `AIModels.Anthropic.ClaudeOpus5_5`, `ClaudeFable5_1`, `ClaudeMythos5_1`, GPT-6 Astra / Sol / Luna, GPT-5.6, and current xAI aliases |
 | `ClaudeThinkingDisplay` | `Omitted`, `Summarized`, or `Updates`; 5.1 progress updates keep reasoning hidden |
 | `ClaudeThinkingPrefixMismatchBehavior` | `Error` or `DropBlock` for the provider's handling of thinking bound to a changed conversation |
 | `ClaudeInputTransformation` | Provider-reported thinking changes: `Type`, `Path`, `Reason`, `ResponseId`, and `Model` |
-| `Gpt6Reasoning` | GPT-6 effort (`Auto`, `Low`, `Medium`, `High`, `XHigh`, `Max`, plus unreleased `None`); `None` is supported by Sol/Luna, not Astra; existing numeric values remain unchanged |
+| `Gpt6Reasoning` | GPT-6 effort (`Auto`, `Low`, `Medium`, `High`, `XHigh`, `Max`, plus `None`); `None` is supported by Sol/Luna, not Astra; existing numeric values remain unchanged |
 | `Gpt6ReasoningMode` | Standard or Pro reasoning execution on the same selected GPT-6 model ID |
 | `Gpt5_6Reasoning` | GPT-5.6 reasoning effort (`Auto`, `None`, `Low`, `Medium`, `High`, `XHigh`, `Max`) |
 | `Gpt5_6ReasoningMode` | Standard or Pro reasoning execution; Pro is a request mode, not a separate GPT-5.6 model ID |
@@ -246,4 +248,4 @@ By depending on abstractions rather than the full implementation package, librar
 - [Mythosia.AI (implementation)](https://www.nuget.org/packages/Mythosia.AI)
 - [GitHub](https://github.com/AJ-comp/Mythosia.AI)
 - [Documentation](https://aj-comp.github.io/Mythosia.AI/)
-- [v4.0.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400)
+- [v4.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410)

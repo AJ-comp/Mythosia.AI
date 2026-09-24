@@ -16,7 +16,7 @@ concurrency:
 jobs:
   validate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 60
 
     steps:
       - name: Checkout
@@ -29,6 +29,21 @@ jobs:
         with:
           dotnet-version: 10.0.301
 
+      - name: Setup pinned model preparation runtime
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: build/pixie-model-requirements.txt
+
+      - name: Cache the exact reviewed PIXIE model files
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            src/rag/Mythosia.AI.Rag.Search.Pixie/models/pixie/model.onnx
+            src/rag/Mythosia.AI.Rag.Search.Pixie/models/pixie/model.int8.onnx
+          key: pixie-${{ runner.os }}-730b515a74727b5f57f031a4c8108743b99e689f-dcf25f9fa452e61a48f5330a63a2aa68988ddac5bfc574a59c338ef1cff06e42-36bdc1f1fe0135d10667322a493fd6a32eb93e8f4f68d09004eeb92f39fc8f25-${{ hashFiles('build/prepare-pixie-model.py', 'build/pixie-model-requirements.txt') }}
+
       - name: Install DocFX
         run: dotnet tool install -g docfx --version 2.78.5
 
@@ -38,6 +53,14 @@ jobs:
       - name: Audit direct and transitive NuGet packages
         shell: pwsh
         run: ./build/test-package-vulnerabilities.ps1
+
+      - name: Verify release readiness structure and production coverage
+        shell: pwsh
+        run: ./build/test-release-readiness.ps1 -Offline
+
+      - name: Verify release readiness rejection cases
+        shell: pwsh
+        run: ./build/test-release-readiness-safety.ps1
 
       - name: Verify NuGet publication safety contracts
         shell: pwsh
@@ -49,6 +72,12 @@ jobs:
 
       - name: Verify DeepSeek RAG rewriter model selection
         run: node --experimental-vm-modules build/test-deepseek-rewriter-ui.mjs
+
+      - name: Prepare and verify model assets including cache hits
+        run: |
+          python -m venv .artifacts/pixie/release-venv
+          .artifacts/pixie/release-venv/bin/python -m pip install -r build/pixie-model-requirements.txt
+          .artifacts/pixie/release-venv/bin/python build/prepare-pixie-model.py
 
       - name: Build the complete solution
         run: dotnet build Mythosia.AI.slnx --configuration Release --no-restore -p:TreatWarningsAsErrors=true
@@ -90,6 +119,10 @@ jobs:
           --configuration Release
           --no-build
           --filter "TestCategory=Unit"
+
+      - name: Verify real local PIXIE model inference
+        shell: pwsh
+        run: ./build/test-pixie-model.ps1 -NoBuild
 
       - name: Verify evaluation test category coverage
         shell: pwsh
@@ -136,6 +169,7 @@ jobs:
           path: |
             artifacts/retrieval-evaluation/ci-smoke/
             artifacts/test-results/retrieval-evaluation/
+            artifacts/test-results/pixie-local-model/
           if-no-files-found: warn
           retention-days: 14
 

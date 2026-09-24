@@ -1,6 +1,6 @@
 # Mythosia.AI.Rag.Abstractions
 
-> **Unreleased addition:** `IRagRetriever` and `RagRetrievalRequest` require the pending source builds of this package and RAG; they are not included in the published 6.2.0 package. `IRetrievalStrategy` remains supported. See the [pending release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased).
+> **v6.3.0:** Adds `IRagRetriever` and `RagRetrievalRequest` for custom request-based retrieval. Use `Mythosia.AI.Rag` 8.1.0 for the corresponding builder and pipeline APIs; `IRetrievalStrategy` remains supported. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v630).
 
 ## Package Summary
 

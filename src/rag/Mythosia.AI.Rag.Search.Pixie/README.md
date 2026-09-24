@@ -6,11 +6,11 @@ Compare local neural sparse search with your existing RAG retrieval when questio
 
 ## Installation
 
-This preview has not been published to NuGet. It is currently available from source and local validation packages. The following commands apply after publication; use the [source build and package validation instructions](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pixie-search.md#building-the-model-bundled-package-from-source) for this checkout.
+Install the preview with `Mythosia.AI.Rag` 8.1.0. Its neural search contracts require `Mythosia.VectorDb.Abstractions` 4.1.0 or later. For local builds, follow the [model preparation and package validation instructions](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pixie-search.md#building-the-model-bundled-package-from-source).
 
 ```bash
-dotnet add package Mythosia.AI.Rag
-dotnet add package Mythosia.AI.Rag.Search.Pixie --prerelease
+dotnet add package Mythosia.AI.Rag --version 8.1.0
+dotnet add package Mythosia.AI.Rag.Search.Pixie --version 0.1.0-preview
 ```
 
 ## Connect an existing embedding provider
@@ -52,4 +52,4 @@ See the [full guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-p
 
 Package code uses MIT; the [TelePIX model](https://huggingface.co/telepix/PIXIE-Splade-v1.0) uses Apache-2.0. Model attribution, its license and the derivation manifest are included in the package.
 
-Release preparation must also version and publish the changed `Mythosia.VectorDb.Abstractions` contracts and align dependent packages. The local packaging script builds those source contracts for validation; the already-published `4.0.1` package does not contain the new contracts. Existing GitHub publication workflows do not yet publish PIXIE.
+The coordinated release includes PIXIE 0.1.0-preview and `Mythosia.VectorDb.Abstractions` 4.1.0. Package validation checks the bundled model, tokenizer and licenses before publication; ordinary runtime use never downloads model assets.

@@ -1,16 +1,16 @@
 # เลือกระดับการให้เหตุผลและตอบพร้อมแหล่งอ้างอิง
 
-> Grok 4.7 เป็นความสามารถที่ยังไม่เผยแพร่ ดู[การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+> Grok 4.7: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
 
-> GPT-6 Sol/Luna เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ ดู[การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+> GPT-6 Sol/Luna: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ การคิดเปิดตลอดเวลา effort เริ่มต้นเป็น medium และซ่อนการแสดงผล ต้องร้องขอความคืบหน้าที่อ่านได้โดยตรง ค่าเริ่มต้นและกฎการผูกกับโมเดลต่างจาก Fable 5.1
+[Claude Opus 5.5](providers.md#claude-opus-55) รองรับตั้งแต่ Mythosia.AI 8.1.0 / Abstractions 4.1.0 การคิดเปิดตลอดเวลา effort เริ่มต้นเป็น medium และซ่อนการแสดงผล ต้องร้องขอความคืบหน้าที่อ่านได้โดยตรง ค่าเริ่มต้นและกฎการผูกกับโมเดลต่างจาก Fable 5.1
 
 ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
 
 > API เหล่านี้ต้องใช้ `Mythosia.AI` 7.1.0 ขึ้นไป ซึ่งรวม `Mythosia.AI.Abstractions` 3.1.0 ขึ้นไป ตัวอย่าง RAG ต้องใช้ `Mythosia.AI.Rag` 7.6.0 ขึ้นไป
 
-> ตัวอย่าง `CreateRequest` ต้องใช้รุ่นที่กำลังพัฒนาอยู่ รุ่น 7.1 เดิมที่เพิ่ม Run และตัวเลือกคำขอทั่วไปยังไม่มี builder แพ็กเกจเดิมใช้ overload ของ service ต่อได้
+> ตัวอย่าง `CreateRequest` ต้องใช้Mythosia.AI 8.0.0 / Abstractions 4.0.0 รุ่น 7.1 เดิมที่เพิ่ม Run และตัวเลือกคำขอทั่วไปยังไม่มี builder แพ็กเกจเดิมใช้ overload ของ service ต่อได้
 
 [Claude Fable 5.1](fable-5-1.md) เพิ่มข้อความความคืบหน้า คำสั่งเฉพาะเทิร์น และการวินิจฉัย thinking binding ตั้งแต่ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 ส่วน Mythos 5.1 ต้องได้รับเชิญ และทั้งสองรุ่นไม่รองรับการบังคับเลือกเครื่องมือ
 

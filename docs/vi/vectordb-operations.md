@@ -95,9 +95,9 @@ Cách hybrid search hoạt động theo backend:
 | **Pinecone** | Sparse + dense vectors được hợp nhất server-side |
 | **Postgres** | Vector similarity + `tsvector`/`trigram` scores hợp nhất trong SQL |
 
-### Tìm kiếm văn bản và hybrid có cấu hình (chưa phát hành)
+### Tìm kiếm văn bản và hybrid có cấu hình
 
-Overload phía trên dùng cơ chế hybrid hiện có của từng backend. Trong mã nguồn hiện tại, InMemory, PostgreSQL và Qdrant cũng triển khai `ITextSearchStore` và `IConfigurableHybridSearchStore`. Các API tùy chọn này **chưa phát hành (Unreleased)**; Pinecone không triển khai chúng.
+Overload trên giữ hành vi hybrid của từng backend. Các hợp đồng tùy chọn `ITextSearchStore` và `IConfigurableHybridSearchStore` cần Mythosia.VectorDb.Abstractions 4.1.0, được triển khai trong InMemory 4.2.0, PostgreSQL 10.8.0 và Qdrant 4.2.0. Pinecone không triển khai các API này.
 
 ```csharp
 using Mythosia.VectorDb;

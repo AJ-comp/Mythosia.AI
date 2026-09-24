@@ -1,10 +1,10 @@
 # Afficher les options prises en charge par le modèle
 
-> Grok 4.7 est un ajout non publié ; consultez [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47).
+> Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
 
-> GPT-6 Sol/Luna ne sont pas encore publiés. Voir [choix du modèle et prérequis](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [choix du modèle et prérequis](providers.md#gpt-6-sol-luna)
 
-Pour [Claude Opus 5.5](providers.md#claude-opus-55), les capabilities exposent `Low` à `Max`, dont `XHigh` ; `None`, `Minimal` et `ThinkingToggle` ne sont pas pris en charge. `MaxOutputTokens` vaut 128000. Masquer l’affichage ne désactive pas le raisonnement. Ces définitions concernent l’ajout non publié, pas les packages déjà distribués.
+Pour [Claude Opus 5.5](providers.md#claude-opus-55), les capabilities exposent `Low` à `Max`, dont `XHigh` ; `None`, `Minimal` et `ThinkingToggle` ne sont pas pris en charge. `MaxOutputTokens` vaut 128000. Masquer l’affichage ne désactive pas le raisonnement. Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 Une interface de chat doit proposer raisonnement, recherche, outils et images selon la connexion choisie. Des listes de modèles maintenues dans chaque application dupliquent les règles de la bibliothèque et divergent lorsque fournisseur, protocole ou déploiement change. Les instantanés de capacités partagent les mêmes définitions entre interface et validation d’exécution.
 
@@ -52,7 +52,7 @@ Les capacités décrivent ce que la connexion peut supporter, pas les options ac
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | Streaming, outils, outils asynchrones natifs et instructions pendant l’exécution. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | Recherche hébergée, modification du raisonnement avec cache conservé, images en entrée, sortie structurée. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | Paramètres d’échantillonnage supportés et limite connue de jetons de sortie, nullable. |
-| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Non publié : modes Supported/Unsupported/Unknown ; accès du compte à vérifier séparément. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Mythosia.AI 8.1.0 / Abstractions 4.1.0: modes Supported/Unsupported/Unknown ; accès du compte à vérifier séparément. |
 | `Provider`, `Model` | Fournisseur et modèle envoyé ; ces identités peuvent être inconnues. |
 
 `ReasoningLevels` concerne le `WithReasoning` commun ; `NativeReasoningLevels`, les réglages natifs. `ThinkingBudgetPresets` fournit des choix d’interface, pas tous les budgets valides ni une plage exhaustive. `AsyncFunctionCalling` désigne les outils asynchrones natifs, pas simplement un handler local retournant `Task` ou exécuté en parallèle. `StructuredOutput` couvre l’API de sortie typée commune, y compris le repli par prompt et réparation ; il ne garantit pas le décodage contraint natif. Les deux listes de niveaux utilisent `ReasoningLevel` ; les budgets suggérés sont entiers.

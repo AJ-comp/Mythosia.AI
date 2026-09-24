@@ -1,16 +1,16 @@
 # Elegir el esfuerzo de razonamiento y responder con fuentes
 
-> Grok 4.7 es una incorporación aún no publicada; consulta [selección del modelo, razonamiento y velocidad](providers.md#grok-47).
+> Grok 4.7: Requiere Mythosia.AI 8.1.0 / Abstractions 4.1.0. [selección del modelo, razonamiento y velocidad](providers.md#grok-47)
 
 > GPT-6 Sol/Luna aún no están publicados. Consulta [selección del modelo y requisitos](providers.md#gpt-6-sol-luna).
 
-[Claude Opus 5.5](providers.md#claude-opus-55) es una incorporación sin publicar: razonamiento siempre activo, esfuerzo medium por defecto y visualización omitida. Solicite el progreso legible explícitamente; sus valores por defecto y reglas de vinculación difieren de Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) está disponible con Mythosia.AI 8.1.0 / Abstractions 4.1.0: razonamiento siempre activo, esfuerzo medium por defecto y visualización omitida. Solicite el progreso legible explícitamente; sus valores por defecto y reglas de vinculación difieren de Fable 5.1.
 
 Para ajustes independientes y variantes reutilizables, use el [builder de solicitudes](request-building.md). Llame a `CreateRequest(...)` antes de `With...`. Las propiedades y métodos fluent del servicio conservan su comportamiento.
 
 > Estas API requieren `Mythosia.AI` 7.1.0 o posterior, que incluye `Mythosia.AI.Abstractions` 3.1.0 o posterior. Los ejemplos de RAG requieren `Mythosia.AI.Rag` 7.6.0 o posterior.
 
-> Los ejemplos con `CreateRequest` requieren la versión actual en desarrollo. La versión 7.1 que introdujo Run y las opciones comunes no incluye el builder. Los paquetes anteriores pueden usar las sobrecargas del servicio.
+> Los ejemplos con `CreateRequest` requieren Mythosia.AI 8.0.0 / Abstractions 4.0.0. La versión 7.1 que introdujo Run y las opciones comunes no incluye el builder. Los paquetes anteriores pueden usar las sobrecargas del servicio.
 
 [Claude Fable 5.1](fable-5-1.md) añade actualizaciones de progreso, instrucciones por turno y diagnósticos de vinculación del pensamiento desde `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requiere invitación. Ambos rechazan la selección forzada de herramientas.
 

@@ -5,17 +5,21 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.Documents.Office</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Load Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files into DoclingDocument structured models with OpenXml. Preserves Word heading hierarchy and PowerPoint text/table order, with configurable metadata and Markdown serialization. File sources use normalized absolute paths for consistent RAG document identity across relative/absolute registrations and separate identities for same-named files in different folders.</Description>
+    <Description>Load Word (.docx), Excel (.xlsx) and PowerPoint (.pptx) files into DoclingDocument structured models with OpenXml. Preserves Word heading hierarchy and PowerPoint text/table order, with configurable metadata and Markdown serialization. File sources use normalized absolute paths for consistent RAG document identity across relative/absolute registrations and separate identities for same-named files in different folders. What's New in v1.1.1: Stable absolute-path document identity and missing worksheet/slide guards.</Description>
     <PackageTags>Document;DocumentLoader;Office;OpenXml;Word;Excel;PowerPoint;Docx;Xlsx;Pptx</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>Unreleased (next version not assigned): Uses normalized absolute file paths as DoclingDocument.Source for stable RAG automatic IDs and separation of same-named files in different folders. Explicit IDs remain unchanged; default citations may show absolute paths. Existing relative-path records are not automatically migrated or removed; delete only identified old document IDs before reindexing, or rebuild a complete source set into a new collection. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Office/RELEASE_NOTES.md#unreleased. Previous version notes: v1.1.0: Recompiled against Mythosia.Documents.Abstractions 1.2.0, exposing MarkdownSerializer.EscapeText and default Markdown text escaping to Office consumers. Fixed Word heading hierarchy so same-level headings are siblings, lower-level headings nest correctly, titles reset the stack, and tables attach to the current context. PowerPoint now preserves document order between text shapes and table graphic frames. Added OpenXml-generated parser tests.
-v1.0.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
-v1.0.0: Initial release as Mythosia.Documents.Office. Word/Excel/PowerPoint loaders returning DoclingDocument. OpenXml-based parsers with OfficeParserOptions (IncludeMetadata, NormalizeWhitespace, IncludeSheetNames, IncludeSlideNumbers).</PackageReleaseNotes>
+    <PackageReleaseNotes>v1.1.1: Uses normalized absolute file paths as DoclingDocument.Source for stable RAG automatic IDs and separation of same-named files in different folders. Explicit IDs remain unchanged; default citations may show absolute paths. Existing relative-path records are not automatically migrated or removed; delete only identified old document IDs before reindexing, or rebuild a complete source set into a new collection. Skips missing worksheet/slide parts instead of dereferencing them. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Office/RELEASE_NOTES.md#v111</PackageReleaseNotes>
 
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -31,6 +35,10 @@ v1.0.0: Initial release as Mythosia.Documents.Office. Word/Excel/PowerPoint load
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

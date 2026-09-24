@@ -1,6 +1,6 @@
 # 讓每個請求的設定互相獨立
 
-> Grok 4.7 是尚未發布的新增功能；請參閱[模型選擇、推理與處理速度](providers.md#grok-47)。
+> Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型選擇、推理與處理速度](providers.md#grok-47)
 
 文件摘要可能需要較低的Temperature，創意草稿則需要較高的值。準備草稿不應悄悄改變已經準備好的摘要請求。不同呼叫需要不同設定，或需要從基礎請求衍生多個版本時，請使用`CreateRequest`。
 
@@ -117,7 +117,7 @@ string rewritten = await request.GetCompletionAsync();
 
 ## 按工作選擇處理速度
 
-使用者正在等待的請求可選擇付費低延遲處理，背景報告可使用一般處理。`WithSpeed` 保持模型和推理層級，只選擇處理模式。此功能尚未發布，需要相符的 core 與 abstractions 變更；已發布的 8.0.0 / 4.0.0 不包含此功能。
+使用者正在等待的請求可選擇付費低延遲處理，背景報告可使用一般處理。 `WithSpeed` 保持模型和推理層級，只選擇處理模式。 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。
 
 `ProviderDefault` 不覆寫現有服務或供應商設定；專案預設值也可能已經是 Fast。`Standard` 明確要求一般處理。`Fast` 請求供應商的付費低延遲模式，可能產生額外費用。請保留回傳的建構器：以下三個分支相互獨立，不修改原始請求。
 

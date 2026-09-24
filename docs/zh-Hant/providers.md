@@ -79,11 +79,11 @@ var presetRequest = new ImageGenerationRequest
 
 <a id="gpt-6-sol-luna"></a>
 
-### GPT-6 Sol / Luna（尚未發布）
+### GPT-6 Sol / Luna
 
 複雜的程式設計、工具呼叫和代理工作可選擇 GPT-6 Sol；需要以低成本大量處理文字或影像輸入時可選擇 Luna。兩者沿用現有的完整回應、串流回應和 Run API，切換模型不需要改變應用程式的呼叫流程。
 
-> 這是尚未發布的新增功能，需要配套的 core 與 abstractions 建置。已發布的 Mythosia.AI 8.0.0 / Abstractions 4.0.0 不含 `Gpt6Sol`、`Gpt6Luna` 或 `Gpt6Reasoning.None`。既有 Astra 功能的最低版本與服務預設模型不變。
+> 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 既有 Astra 功能的最低版本與服務預設模型不變。
 
 使用 `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) 或 `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`) 選擇模型。兩者支援文字、影像輸入與文字輸出，上下文為 1,050,000 token，輸入上限 922,000，輸出上限 128,000。輸入、推理與輸出的總量仍須符合上下文限制。`MaxTokens` 設定要求的輸出預算，而非上下文大小。
 
@@ -240,7 +240,7 @@ await File.WriteAllBytesAsync("pavilion-cutout.png", edited.Images[0].Data);
 
 ### Claude Opus 5.5：顯示長時間工具工作的進度
 
-需要多輪工具呼叫的程式碼審查或文件調查可以使用 Opus 5.5。仍然使用現有 completion 和 Run API，但預設不顯示進度，保留推理時也需要注意歷史變更。此支援屬於尚未發布的工作區新增功能，不包含在已發布的 8.0.0 / 4.0.0 套件中。
+需要多輪工具呼叫的程式碼審查或文件調查可以使用 Opus 5.5。 仍然使用現有 completion 和 Run API，但預設不顯示進度，保留推理時也需要注意歷史變更。 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。
 
 `ClaudeOpus5_5` 選擇 `claude-opus-5-5`，支援文字和影像輸入、文字輸出，提供 1M 上下文和最多 128K 輸出 token。2026-09-24 核實的標準輸入／輸出價格為每百萬 token $4/$20；特殊模式和工具另行計費。 [官方模型資訊](https://platform.claude.com/docs/en/models/opus-5-5/overview).
 
@@ -342,7 +342,7 @@ Flash-Lite 的[模型頁面](https://ai.google.dev/gemini-api/docs/models/gemini
 
 ### Grok 4.7
 
-需要先快速起草、再仔細審查程式碼或文件時，可以選擇 Grok 4.7，並依請求調整推理強度。繼續使用現有的一般回應、串流、Run、本機工具、結構化輸出與圖片輸入 API。`grok-4.7` 接受文字與圖片輸入，回傳文字，上下文視窗為 500,000 token。此整合需要相符的未發布 core 與 abstractions 建置，已發布的 8.0.0 / 4.0.0 套件不包含它。服務預設模型仍為 Grok 4.5。
+需要先快速起草、再仔細審查程式碼或文件時，可以選擇 Grok 4.7，並依請求調整推理強度。 繼續使用現有的一般回應、串流、Run、本機工具、結構化輸出與圖片輸入 API。 `grok-4.7` 接受文字與圖片輸入，回傳文字，上下文視窗為 500,000 token。 服務預設模型仍為 Grok 4.5。 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -475,7 +475,7 @@ Google 使用 `ImageSize.Auto` 或模型專屬解析度與比例的 `Preset`。[
 
 需要快速回答後深入審查，或解釋圖表、截圖時，可使用 DeepSeek Flash。`AIModels.DeepSeek.Flash` (`deepseek-flash`) 選擇2026年9月10日發布、原生支援視覺理解的 V4.1 Flash。沿用補全、串流、Run、函式呼叫和 RAG API，從 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 起支援。
 
-> 已發布的 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 已包含 Flash 基本支援。`AIModels.DeepSeek.V4Pro`、`UseResponsesApi`、Files API 和 `DeepSeekImageFileContent` 是原始碼中尚未發布的新增功能，需要從原始碼建置相互對應的核心與抽象套件；上述已發布套件不包含這些功能。[尚未發布的更新說明](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased)。
+> 已發布的 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 已包含 Flash 基本支援。 `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, Files API, `DeepSeekImageFileContent`: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [v8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810).
 
 純文字任務可選擇 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)。預設模型 Flash 支援影像，兩者均提供 Low/High/Max 推理和相同輸出上限。若要透過既有補全、串流、Run 和本機函式 API 使用 Responses，請在建立請求前設定 `UseResponsesApi = true`。預設仍為 `false`，以保留既有應用程式的 Chat Completions 行為；設定會固定到該請求及後續工具輪次。Responses 重送完整對話和原始推理歷史，不依賴伺服器儲存的回應 ID。
 

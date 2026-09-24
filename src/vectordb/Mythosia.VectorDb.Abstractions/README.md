@@ -1,6 +1,6 @@
 # Mythosia.VectorDb.Abstractions
 
-> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published NuGet package.
+> **v4.1.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v410) for compatibility and fixes.
 
 Core contracts for the **Mythosia VectorDb** abstraction layer.
 Defines `IVectorStore`, all model types, and the metadata-based filtering API.
@@ -160,7 +160,7 @@ var filter = new VectorFilter()
 
 Qdrant and Pinecone silently skip unsupported operators during server-side filter translation for `SearchAsync` and the `HybridSearchAsync` overload without `HybridSearchOptions`; `MatchesFilter` in both stores evaluates all operators client-side for `GetAsync` / `GetBatchAsync`.
 
-The unreleased Qdrant text/configurable-hybrid paths also support `Exists` / `NotExists` and reject unsupported range/`Like` filters instead of skipping them.
+The Qdrant 4.2.0 text/configurable-hybrid paths also support `Exists` / `NotExists` and reject unsupported range/`Like` filters instead of skipping them.
 
 ---
 

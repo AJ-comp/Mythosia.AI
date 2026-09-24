@@ -1,6 +1,6 @@
 # Mythosia.VectorDb.Postgres
 
-> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published NuGet package.
+> **v10.8.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1080) for compatibility and fixes.
 
 PostgreSQL ([pgvector](https://github.com/pgvector/pgvector)) implementation of `IVectorStore`.
 Single-table design with a `metadata` JSONB column for all filtering including logical isolation.

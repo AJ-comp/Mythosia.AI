@@ -1,16 +1,16 @@
 # Choose reasoning effort and answer with sources
 
-> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](providers.md#grok-47).
+> Grok 4.7: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection, reasoning and processing speed](providers.md#grok-47)
 
-> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection and requirements](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) is an unreleased addition with always-on thinking, default medium effort and omitted display. Explicitly request readable progress; its defaults and model-binding rules differ from Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) is available with Mythosia.AI 8.1.0 / Abstractions 4.1.0, with always-on thinking, default medium effort and omitted display. Explicitly request readable progress; its defaults and model-binding rules differ from Fable 5.1.
 
 For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
 
 > These APIs require `Mythosia.AI` 7.1.0 or later, which includes `Mythosia.AI.Abstractions` 3.1.0 or later. RAG examples require `Mythosia.AI.Rag` 7.6.0 or later.
 
-> `CreateRequest` examples require the current working release; they are not available in the earlier 7.1 release that introduced Run and common request features. Earlier packages can keep their existing service overloads.
+> `CreateRequest` examples require Mythosia.AI 8.0.0 / Abstractions 4.0.0; they are not available in the earlier 7.1 release that introduced Run and common request features. Earlier packages can keep their existing service overloads.
 
 [Claude Fable 5.1](fable-5-1.md) adds progress updates, turn-scoped instructions, and thinking-binding diagnostics from `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requires invitation access. Both reject forced tool choice.
 

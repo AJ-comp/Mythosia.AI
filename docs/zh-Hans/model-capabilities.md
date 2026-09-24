@@ -1,10 +1,10 @@
 # 显示所选模型支持的功能选项
 
-> Grok 4.7 是尚未发布的新增功能；请参阅[模型选择、推理与处理速度](providers.md#grok-47)。
+> Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择、推理与处理速度](providers.md#grok-47)
 
-> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](providers.md#gpt-6-sol-luna)。
+> GPT-6 Sol/Luna: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择与版本要求](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) 的 capability 提供从 `Low` 到 `Max` 的级别，包括 `XHigh`；不支持 `None`、`Minimal` 和 `ThinkingToggle`。`MaxOutputTokens` 为 128000。隐藏显示不表示关闭推理。这些定义属于当前工作区新增功能，不代表已发布的包。
+[Claude Opus 5.5](providers.md#claude-opus-55) 的 capability 提供从 `Low` 到 `Max` 的级别，包括 `XHigh`；不支持 `None`、`Minimal` 和 `ThinkingToggle`。`MaxOutputTokens` 为 128000。隐藏显示不表示关闭推理。需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。
 
 聊天界面的推理、搜索、工具和图像选项需要匹配当前连接。每个应用单独维护模型名称列表，会重复库的规则，并在提供方、协议或部署变化时产生分歧。能力快照让界面和执行验证使用相同的模型定义。
 
@@ -52,7 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | 流式输出、工具、原生异步工具及运行中追加指示。 |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | 托管搜索、保留缓存的推理变更、图像输入及结构化输出。 |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | 采样设置的支持情况和已知输出令牌上限，未知上限为 null。 |
-| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | 尚未发布：处理模式的 Supported/Unsupported/Unknown；账户权限另行确认。 |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Mythosia.AI 8.1.0 / Abstractions 4.1.0: 处理模式的 Supported/Unsupported/Unknown；账户权限另行确认。 |
 | `Provider`, `Model` | 提供方及实际发送的模型标识；未知时可以为 null。 |
 
 `ReasoningLevels` 对应通用 `WithReasoning`；`NativeReasoningLevels` 对应提供方自身设置。`ThinkingBudgetPresets` 是适合 UI 的预算候选值，不是全部允许预算或完整数值范围。`AsyncFunctionCalling` 指提供方原生异步工具执行，不是本地函数返回 `Task` 或并行执行。 `StructuredOutput` 包含通过提示与修复实现的通用类型化输出 API，不保证提供方原生约束解码。两种推理级别列表均使用 `ReasoningLevel`，预算预设为整数。

@@ -53,17 +53,16 @@ $consumerIdsAssignment = $consumerAst.Find({
 }, $true)
 Assert-True ($null -ne $releaseSetAssignment -and $null -ne $consumerIdsAssignment) `
     "Both publication and consumer validation must declare their explicit release set."
-$releaseDefinitions = @(Invoke-Expression $releaseSetAssignment.Right.Extent.Text)
+. (Join-Path $PSScriptRoot 'release-plan.ps1')
+$releasePlan = Get-ReleasePlan
+$releaseDefinitions = @($releasePlan.Packages)
 $consumerIds = @(Invoke-Expression $consumerIdsAssignment.Right.Extent.Text)
-$expectedReleaseIds = @(
-    "Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba",
-    "Mythosia.VectorDb.Abstractions", "Mythosia.AI.Rag.Abstractions", "Mythosia.VectorDb.InMemory",
-    "Mythosia.AI.Rag", "Mythosia.AI.Mcp", "Mythosia.AI.Serving.Vllm")
 $releaseIds = @($releaseDefinitions | ForEach-Object { [string]$_.Id })
-Assert-True (($releaseIds -join '|') -ceq ($expectedReleaseIds -join '|')) `
-    "Publication must include exactly the nine dependency-ordered release packages, including the changed RAG contracts and in-memory store."
+Assert-True ($releaseSetAssignment.Right.Extent.Text.Contains('$releasePlan.Packages') -and
+    $publishText.Contains("Get-ReleasePlan") -and $consumerText.Contains("Get-ReleasePlan")) `
+    'Publication and consumers must load the shared explicit release plan.'
 Assert-True (($consumerIds -join '|') -ceq ($releaseIds -join '|')) `
-    "Package consumers must validate the same explicit release set that publication packs."
+    'Package consumers must validate every shared-plan publication target.'
 $precedingReleaseIds = @{}
 foreach ($definition in $releaseDefinitions) {
     Assert-True (-not $precedingReleaseIds.ContainsKey([string]$definition.Id)) `
@@ -82,7 +81,7 @@ foreach ($definition in $releaseDefinitions) {
 $expectedRagDependencies = @{
     'Mythosia.AI.Rag.Abstractions' = @('Mythosia.VectorDb.Abstractions')
     'Mythosia.VectorDb.InMemory' = @('Mythosia.VectorDb.Abstractions', 'Mythosia.AI.Rag.Abstractions')
-    'Mythosia.AI.Rag' = @('Mythosia.AI.Abstractions', 'Mythosia.AI.Rag.Abstractions', 'Mythosia.VectorDb.InMemory')
+    'Mythosia.AI.Rag' = @('Mythosia.AI.Abstractions', 'Mythosia.AI.Rag.Abstractions', 'Mythosia.VectorDb.InMemory', 'Mythosia.Documents.Office', 'Mythosia.Documents.Pdf')
 }
 foreach ($packageId in $expectedRagDependencies.Keys) {
     $definition = @($releaseDefinitions | Where-Object { $_.Id -eq $packageId })[0]
@@ -95,8 +94,8 @@ foreach ($packageId in $expectedRagDependencies.Keys) {
     }
 }
 $luceneWarningExceptions = @{
-    'Mythosia.VectorDb.Abstractions' = '4.0.1'
-    'Mythosia.VectorDb.InMemory' = '4.1.0'
+    'Mythosia.VectorDb.Abstractions' = '4.1.0'
+    'Mythosia.VectorDb.InMemory' = '4.2.0'
 }
 foreach ($definition in $releaseDefinitions) {
     [xml]$projectXml = Get-Content -Raw -LiteralPath (Join-Path $repoRoot $definition.Project)
@@ -137,12 +136,10 @@ Assert-True ($mcpRelease.Count -eq 1 -and $mcpRelease[0].Dependencies.Count -eq 
     $mcpRelease[0].Dependencies['Mythosia.AI'] -eq 'Mythosia.AI' -and
     $mcpRelease[0].FixedDependencies.Count -eq 0) `
     "The MCP package must validate its minimum dependency against the core built in the same release."
-$vllmRelease = @($releaseDefinitions | Where-Object { $_.Id -eq 'Mythosia.AI.Serving.Vllm' })
-Assert-True ($vllmRelease.Count -eq 1 -and $vllmRelease[0].Dependencies.Count -eq 0 -and
-    $vllmRelease[0].FixedDependencies.Count -eq 1 -and
-    $vllmRelease[0].FixedDependencies['Newtonsoft.Json'] -eq '13.0.4') `
-    "The vLLM serving client must depend only on Newtonsoft.Json and remain independent of the core AI packages."
-
+$vllmConsumerOnly = @($releasePlan.ConsumerOnlyPackages | Where-Object { $_.Id -eq 'Mythosia.AI.Serving.Vllm' })
+Assert-True ($releaseIds -notcontains 'Mythosia.AI.Serving.Vllm' -and
+    $vllmConsumerOnly.Count -eq 1 -and $vllmConsumerOnly[0].Version -ceq '1.0.0') `
+    'The unchanged vLLM package must be tested from NuGet without becoming a publication target.'
 $mappingFunction = $consumerAst.Find({
     param($node)
     $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
@@ -424,6 +421,8 @@ Assert-True ($conflictRecoveryStart -ge 0 -and
 $expectedActions = [ordered]@{
     "actions/checkout" = "3d3c42e5aac5ba805825da76410c181273ba90b1"
     "actions/setup-dotnet" = "a98b56852c35b8e3190ac28c8c2271da59106c68"
+    "actions/setup-python" = "5fda3b95a4ea91299a34e894583c3862153e4b97"
+    "actions/cache" = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
     "actions/upload-artifact" = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     "actions/download-artifact" = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"
     "actions/upload-pages-artifact" = "fc324d3547104276b827a68afc52ff2a11cc49c9"
@@ -439,8 +438,25 @@ $workflowText = ($workflowPaths | ForEach-Object {
 }) -join [Environment]::NewLine
 foreach ($workflowPath in $workflowPaths | Select-Object -First 2) {
     Assert-True ([System.IO.File]::ReadAllText($workflowPath).Contains('./build/test-nuget-packages.ps1 -ArtifactsDirectory ./artifacts')) `
-        "CI and NuGet publication must run the shared nine-package consumer validation."
+        "CI and NuGet publication must run the shared release-plan consumer validation."
+    $text = [System.IO.File]::ReadAllText($workflowPath)
+    Assert-True ($text.Contains('python build/prepare-pixie-model.py') -and
+        $text.Contains('./build/test-pixie-model.ps1 -NoBuild') -and
+        $text.Contains('./build/test-release-readiness-safety.ps1')) `
+        "Every package validation workflow must prepare pinned model assets, execute real inference, and test readiness rejection cases."
+    Assert-True (-not $text.Contains('prepare-pixie-model.py --validate')) `
+        'Release validation must not regenerate tracked PIXIE parity fixtures.'
 }
+$ciText = [System.IO.File]::ReadAllText($workflowPaths[0])
+$publicationText = [System.IO.File]::ReadAllText($workflowPaths[1])
+Assert-True ($ciText.Contains('./build/test-release-readiness.ps1 -Offline')) `
+    'Regular CI must verify release-plan structure and production change coverage.'
+Assert-True ($publicationText.Contains('./build/test-release-readiness.ps1 @parameters') -and
+    -not $publicationText.Contains('./build/test-release-readiness.ps1 -Offline')) `
+    'Manual release validation must establish online NuGet availability even before publication is selected.'
+Assert-True ($consumerText.Contains('test-release-package-probes.ps1') -and
+    $consumerText.Contains('$verifiedLibraries.Contains("$id/$($versions[$id])")')) `
+    'Isolated consumers must exercise every package from the shared release plan.'
 
 $actionReferences = [regex]::Matches(
     $workflowText,

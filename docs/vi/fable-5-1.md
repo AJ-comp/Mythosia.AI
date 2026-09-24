@@ -1,6 +1,6 @@
 # Theo dõi các tác vụ dài với Claude Fable 5.1
 
-[Claude Opus 5.5](providers.md#claude-opus-55) là phần bổ sung chưa phát hành: luôn bật suy luận, mặc định mức medium và ẩn hiển thị. Cần yêu cầu rõ tiến độ đọc được; mặc định và quy tắc gắn với mô hình khác Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) được hỗ trợ từ Mythosia.AI 8.1.0 / Abstractions 4.1.0: luôn bật suy luận, mặc định mức medium và ẩn hiển thị. Cần yêu cầu rõ tiến độ đọc được; mặc định và quy tắc gắn với mô hình khác Fable 5.1.
 
 > Các tùy chọn Fable 5.1 yêu cầu `Mythosia.AI` 8.0.0 và `Mythosia.AI.Abstractions` 4.0.0 trở lên. API Run, suy luận/tìm kiếm và GPT-6 Astra hiện có vẫn giữ phiên bản tối thiểu 7.1.0 / 3.1.0.
 

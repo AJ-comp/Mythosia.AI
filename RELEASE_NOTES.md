@@ -1,12 +1,34 @@
 # Mythosia.AI workspace release notes
 
-## Unreleased
+## v8.1.0
 
-> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+This coordinated release adds provider controls and models, request-based retrieval, optional local neural search, and indexing safeguards while preserving the existing public APIs. Upgrade the related packages together using the versions below. Review the document identity and reindexing guidance before updating an existing index.
+
+| Package | Previous version | Release version | Full notes |
+| --- | --- | --- | --- |
+| Mythosia.AI.Abstractions | 4.0.0 | **4.1.0** | [Contracts](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410) |
+| Mythosia.AI | 8.0.0 | **8.1.0** | [Core](src/core/Mythosia.AI/RELEASE_NOTES.md#v810) |
+| Mythosia.AI.Providers.Alibaba | 3.0.0 | **3.0.1** | [Alibaba](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301) |
+| Mythosia.AI.Mcp | 0.1.0-preview | **0.1.1-preview** | [MCP](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview) |
+| Mythosia.AI.Rag.Abstractions | 6.2.0 | **6.3.0** | [RAG contracts](src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v630) |
+| Mythosia.AI.Rag | 8.0.0 | **8.1.0** | [RAG](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810) |
+| Mythosia.AI.Rag.Search.Pixie | New package | **0.1.0-preview** | [PIXIE](src/rag/Mythosia.AI.Rag.Search.Pixie/RELEASE_NOTES.md#v010-preview) |
+| Mythosia.VectorDb.Abstractions | 4.0.1 | **4.1.0** | [Vector contracts](src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v410) |
+| Mythosia.VectorDb.InMemory | 4.1.0 | **4.2.0** | [InMemory](src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v420) |
+| Mythosia.VectorDb.Postgres | 10.7.1 | **10.8.0** | [PostgreSQL](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1080) |
+| Mythosia.VectorDb.Qdrant | 4.1.1 | **4.2.0** | [Qdrant](src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#v420) |
+| Mythosia.VectorDb.Pinecone | 4.0.1 | **4.0.2** | [Pinecone](src/vectordb/Mythosia.VectorDb.Pinecone/RELEASE_NOTES.md#v402) |
+| Mythosia.Documents.Office | 1.1.0 | **1.1.1** | [Office](src/loaders/Mythosia.Documents.Office/RELEASE_NOTES.md#v111) |
+| Mythosia.Documents.Pdf | 1.1.1 | **1.1.2** | [PDF](src/loaders/Mythosia.Documents.Pdf/RELEASE_NOTES.md#v112) |
+| Mythosia.Documents.Hwp | 1.0.1 | **1.0.2** | [HWP](src/loaders/Mythosia.Documents.Hwp/RELEASE_NOTES.md#v102) |
+
+Serving.Vllm 1.0.0, Documents.Abstractions 1.2.0 and VectorDb.Tools 10.0.3 retain their existing versions and are outside this publication set. Alibaba and MCP are dependency-rebuild patches. HWP and Pinecone include dependency fixes verified against their published packages even though those source changes predate the preceding workspace release commit.
+
+Before committing or pushing a release, run the [local release checks](build/RELEASE.md). Ordinary CI success alone does not establish that the target versions are available on NuGet.
 
 ### Added
 
-- **GPT-6 Sol and Luna:** `AIModels.OpenAI.Gpt6Sol` / `Gpt6Luna` select the new models through completion, streaming, structured output, image input, local tools and Run. Sol/Luna support `None` through `Max` except `Minimal`, default to `Medium`, and send sampling only with `None`; Astra keeps mandatory reasoning. Native async tools, WebSocket steering, Standard single-agent cache-preserving updates, paid Fast processing, capability inspection and Chat UI selection are connected. Service defaults and published package versions are unchanged. See [model selection and requirements](docs/providers.md#gpt-6-sol-luna).
+- **GPT-6 Sol and Luna:** `AIModels.OpenAI.Gpt6Sol` / `Gpt6Luna` select the new models through completion, streaming, structured output, image input, local tools and Run. Sol/Luna support `None` through `Max` except `Minimal`, default to `Medium`, and send sampling only with `None`; Astra keeps mandatory reasoning. Native async tools, WebSocket steering, Standard single-agent cache-preserving updates, paid Fast processing, capability inspection and Chat UI selection are connected. Service defaults are unchanged; use the coordinated package versions above. See [model selection and requirements](docs/providers.md#gpt-6-sol-luna).
 
 - **DeepSeek Responses, Files and V4 Pro:** select text-only `AIModels.DeepSeek.V4Pro`, or retain the default vision-capable Flash. Opt-in `UseResponsesApi` reuses completion, streaming, Run, typed output and local tools with captured full-history replay. Image upload, metadata, listing and deletion plus immutable `DeepSeekImageFileContent` enable Flash image reuse through either transport. Chat UI and RAG rewriting use the current model catalogue and migrate the former `DeepSeekChat` UI label without rewriting arbitrary model IDs. Chat Completions remains the default; background storage, hosted search, native asynchronous tools, steering and image generation are outside this addition.
 
@@ -32,7 +54,7 @@
 - **Respect Ada embedding dimensions:** `OpenAIEmbeddingProvider` omits `dimensions` for `text-embedding-ada-002` in single and batch requests, and rejects any configured dimension other than its fixed 1536 before HTTP. `text-embedding-3-small` and `text-embedding-3-large` continue sending configured dimensions. The model remains selectable; no resizing, fallback or default-model change is introduced. See [OpenAI embedding configuration](docs/rag-embedding.md#openai-dimensions).
 
 - **Google image options by model:** Capability lists and generation/editing validation now agree: Flash Image accepts 512/1K/2K/4K and 14 ratios, Flash-Lite Image conservatively accepts 1K and 14 ratios, and Pro Image accepts 1K/2K/4K and 10 standard ratios. All retain `Auto`, which omits the corresponding selector. Unsupported explicit choices throw `NotSupportedException` before HTTP without resizing or fallback. Unknown custom image models retain `Unknown` capabilities and provider-wide option validation. The Flash-Lite 512 documentation discrepancy remains unverified; see the [model matrix and source note](docs/providers.md#google-image-options).
-- **InMemory store consistency:** Synchronize records and the BM25 index across concurrent writes, deletes and reads, including both legs of hybrid search. Copy stored and returned records, vectors and metadata so edits require `UpsertAsync` and cannot bypass indexing. Waiting for the store lock is cancellable without itself aborting the operation holding it. Cancellation does not split an already-started record update and can retain completed batch writes; default `ReplaceByFilterAsync` remains sequential and non-transactional. Public signatures and package versions are unchanged.
+- **InMemory store consistency:** Synchronize records and the BM25 index across concurrent writes, deletes and reads, including both legs of hybrid search. Copy stored and returned records, vectors and metadata so edits require `UpsertAsync` and cannot bypass indexing. Waiting for the store lock is cancellable without itself aborting the operation holding it. Cancellation does not split an already-started record update and can retain completed batch writes; default `ReplaceByFilterAsync` remains sequential and non-transactional. Public signatures are unchanged.
 - **Preserve tool results in RAG completion:** The core request-message override stays attached to the initial input of a logical request instead of replacing the newest message after each tool round. Ordinary RAG `GetCompletionAsync` requests keep retrieved context, assistant tool calls and tool outputs together, including image-bearing inputs. Original history and public APIs are unchanged.
 - **Preserve RAG message attachments:** `RagEnabledService.GetCompletionAsync(Message)` now retains non-text attachments in the augmented request, matching `StartRunAsync(Message)`. Retrieval continues to use message text, and retrieved context does not overwrite the original message or the user text stored in conversation history. Media support remains provider/model-specific.
 - **Keep query rewriting stable during runtime changes:** The direct `RagStore.QueryAsync` overload accepting `conversationHistory` captures the selected rewriter before awaiting progress or rewriting. Disabling or replacing it through `SetQueryRewriter` no longer causes an in-flight query to dereference a cleared rewriter or switch implementations; subsequent queries use the new setting. Public signatures are unchanged.
@@ -68,8 +90,10 @@
 
 ### Internal
 
+- **Local release readiness:** a shared explicit release plan keeps versions, dependency order, frameworks, licenses and release-note links aligned. The local release command checks NuGet version availability, production-package coverage and metadata before building, testing, packing and running isolated consumers. Negative fixtures cover omitted packages, reused versions and inconsistent metadata. It performs no Git mutation or publication; CI structural checks and publication-time online checks remain distinct.
+
 - **Cross-platform retrieval evaluation:** use explicit LF JSON formatting for reports and compatibility fingerprints so identical Windows/Linux corpora, vectors and settings compare against the same baseline. Refresh the smoke fingerprint after verifying identical results and add a regression test against the committed baseline; retrieval scores and strict mismatch checks are unchanged.
-- **Package dependency validation:** include `Mythosia.VectorDb.Abstractions`, `Mythosia.AI.Rag.Abstractions` and `Mythosia.VectorDb.InMemory` in the explicit, dependency-ordered package set alongside the existing six packages. Isolated consumers resolve the new RAG contracts from the same build instead of incompatible published dependencies. Add README/release-note/symbol packaging and provenance metadata to these dependencies. Version numbers remain unchanged pending release preparation; existing-version and source-commit publication guards remain enforced. PIXIE and the other document/vector providers are outside this publication set.
+- **Package dependency validation:** include `Mythosia.VectorDb.Abstractions`, `Mythosia.AI.Rag.Abstractions` and `Mythosia.VectorDb.InMemory` in the explicit, dependency-ordered package set with the dependent implementation packages. Isolated consumers resolve the new RAG contracts from the same build instead of incompatible published dependencies. Add README/release-note/symbol packaging and provenance metadata to these dependencies. The complete fifteen-package release plan includes changed loaders, vector providers and PIXIE. Existing-version and source-commit publication guards remain enforced.
 
 - **Claude failure diagnostics:** preserve context-test failure steps, provider details and original exception stacks; record synthetic context exchanges without authentication headers or thinking blocks, and retain Anthropic speed error details. Add four context-history/refusal regression cases. A focused live recheck passed the original context scenario and confirmed zero Fast quota on both completion and Run; this does not establish a fix for the initial intermittent refusal. See the [follow-up record](tests/Mythosia.AI.Test/validation/2026-09-24-claude-errors.md).
 

@@ -1,6 +1,6 @@
 # Lange Aufgaben mit Claude Fable 5.1 beobachten
 
-[Claude Opus 5.5](providers.md#claude-opus-55) ist eine unveröffentlichte Erweiterung mit ständig aktivem Denken, standardmäßig mittlerem Aufwand und verborgener Anzeige. Fordern Sie lesbaren Fortschritt ausdrücklich an; Standardwerte und Modellbindung unterscheiden sich von Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) ist ab Mythosia.AI 8.1.0 / Abstractions 4.1.0 verfügbar, mit ständig aktivem Denken, standardmäßig mittlerem Aufwand und verborgener Anzeige. Fordern Sie lesbaren Fortschritt ausdrücklich an; Standardwerte und Modellbindung unterscheiden sich von Fable 5.1.
 
 > Die Fable-5.1-Steuerung benötigt `Mythosia.AI` 8.0.0 und `Mythosia.AI.Abstractions` 4.0.0 oder neuer. Für bestehende Run-, Reasoning-/Such- und GPT-6 Astra-APIs gelten weiterhin die Mindestversionen 7.1.0 / 3.1.0.
 

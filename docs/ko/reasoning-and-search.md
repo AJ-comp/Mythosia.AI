@@ -1,16 +1,16 @@
 # 추론 깊이를 조절하고 출처로 답변 보완하기
 
-> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+> Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
 
-> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+> GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55)는 미배포 추가 기능입니다. 추론은 항상 켜져 있고 기본 effort는 medium, 표시는 생략입니다. 읽을 수 있는 진행 안내는 명시적으로 요청하세요. 기본값과 모델 binding 규칙은 Fable 5.1과 다릅니다.
+[Claude Opus 5.5](providers.md#claude-opus-55)는 Mythosia.AI 8.1.0 / Abstractions 4.1.0에서 지원합니다. 추론은 항상 켜져 있고 기본 effort는 medium, 표시는 생략입니다. 읽을 수 있는 진행 안내는 명시적으로 요청하세요. 기본값과 모델 binding 규칙은 Fable 5.1과 다릅니다.
 
 요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
 
 > 이 API는 `Mythosia.AI` 7.1.0 이상에서 사용할 수 있으며, `Mythosia.AI.Abstractions` 3.1.0 이상이 함께 포함됩니다. RAG 예제는 `Mythosia.AI.Rag` 7.6.0 이상이 필요합니다.
 
-> `CreateRequest` 예제는 현재 작업 중인 릴리스의 기능입니다. Run과 공통 요청 기능이 처음 추가된 이전 7.1 버전에는 빌더가 없습니다. 이전 패키지에서는 기존 서비스 오버로드를 사용하세요.
+> `CreateRequest` 예제는 Mythosia.AI 8.0.0 / Abstractions 4.0.0의 기능입니다. Run과 공통 요청 기능이 처음 추가된 이전 7.1 버전에는 빌더가 없습니다. 이전 패키지에서는 기존 서비스 오버로드를 사용하세요.
 
 [Claude Fable 5.1](fable-5-1.md)의 진행 안내, 턴별 지시, thinking binding 진단은 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0부터 제공합니다. Mythos 5.1은 초대 접근이 필요하며, 두 모델 모두 강제 도구 선택을 거부합니다.
 

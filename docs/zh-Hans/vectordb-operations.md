@@ -95,9 +95,9 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | 稀疏 + 稠密向量在服务端融合 |
 | **Postgres** | 向量相似度 + `tsvector`/`trigram` 分数在 SQL 中融合 |
 
-### 纯文本与可配置混合检索（未发布）
+### 纯文本与可配置混合检索
 
-上面的重载使用各后端现有的混合检索行为。当前源码中的 InMemory、PostgreSQL 和 Qdrant 还实现了 `ITextSearchStore` 与 `IConfigurableHybridSearchStore`。这些可选 API **尚未发布（Unreleased）**；Pinecone 未实现它们。
+上面的重载保留各后端原有的混合检索行为。可选契约 `ITextSearchStore` 和 `IConfigurableHybridSearchStore` 需要 Mythosia.VectorDb.Abstractions 4.1.0，由 InMemory 4.2.0、PostgreSQL 10.8.0 和 Qdrant 4.2.0 实现。Pinecone 未实现这些 API。
 
 ```csharp
 using Mythosia.VectorDb;

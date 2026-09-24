@@ -1,6 +1,6 @@
 # Mythosia.VectorDb.InMemory
 
-> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published NuGet package.
+> **v4.2.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v420) for compatibility and fixes.
 
 ## Package Summary
 

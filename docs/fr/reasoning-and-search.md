@@ -1,16 +1,16 @@
 # Choisir l’effort de raisonnement et répondre avec des sources
 
-> Grok 4.7 est un ajout non publié ; consultez [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47).
+> Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
 
-> GPT-6 Sol/Luna ne sont pas encore publiés. Voir [choix du modèle et prérequis](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [choix du modèle et prérequis](providers.md#gpt-6-sol-luna)
 
-[Claude Opus 5.5](providers.md#claude-opus-55) est un ajout non publié : raisonnement toujours actif, effort medium par défaut et affichage omis. Demandez explicitement une progression lisible ; ses valeurs par défaut et règles de liaison diffèrent de Fable 5.1.
+[Claude Opus 5.5](providers.md#claude-opus-55) est disponible avec Mythosia.AI 8.1.0 / Abstractions 4.1.0 : raisonnement toujours actif, effort medium par défaut et affichage omis. Demandez explicitement une progression lisible ; ses valeurs par défaut et règles de liaison diffèrent de Fable 5.1.
 
 Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
 
 > Ces API nécessitent `Mythosia.AI` 7.1.0 ou ultérieur, qui inclut `Mythosia.AI.Abstractions` 3.1.0 ou ultérieur. Les exemples RAG nécessitent `Mythosia.AI.Rag` 7.6.0 ou ultérieur.
 
-> Les exemples `CreateRequest` nécessitent la version de travail actuelle. Le builder n’existe pas dans l’ancienne version 7.1 qui a introduit Run et les options communes. Les anciens packages peuvent conserver les surcharges du service.
+> Les exemples `CreateRequest` nécessitent Mythosia.AI 8.0.0 / Abstractions 4.0.0. Le builder n’existe pas dans l’ancienne version 7.1 qui a introduit Run et les options communes. Les anciens packages peuvent conserver les surcharges du service.
 
 [Claude Fable 5.1](fable-5-1.md) ajoute le suivi de progression, les instructions limitées à un tour et le diagnostic des liens du raisonnement à partir de `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 nécessite une invitation. Les deux refusent la sélection forcée d’outils.
 

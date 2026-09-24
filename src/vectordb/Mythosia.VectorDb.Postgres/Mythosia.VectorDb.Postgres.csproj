@@ -5,14 +5,20 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Postgres</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>10.7.1</Version>
+    <Version>10.8.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>PostgreSQL and pgvector storage for Mythosia VectorDb with Cosine, Euclidean and InnerProduct similarity, jsonb metadata filters, text-only retrieval and configurable normalized weighted RRF. Uses persisted full-text indexing and optional pg_trgm word_similarity for keyword search, including CJK text. Provides batch retrieval, counts, HNSW/IVFFlat/NoIndex settings, connection verification and schema provisioning.</Description>
+    <Description>PostgreSQL and pgvector storage for Mythosia VectorDb with Cosine, Euclidean and InnerProduct similarity, jsonb metadata filters, text-only retrieval and configurable normalized weighted RRF. Uses persisted full-text indexing and optional pg_trgm word_similarity for keyword search, including CJK text. Provides batch retrieval, counts, HNSW/IVFFlat/NoIndex settings, connection verification and schema provisioning. What's New in v10.8.0: Text and configurable hybrid search with corrected keyword syntax, trigram ordering and filters.</Description>
     <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>Unreleased (next version not assigned): Adds text-only retrieval and configurable normalized weighted RRF with filters and cancellation on active search legs. Fixes trigram ordering with word_similarity and stable record IDs, prevents dangling tsquery operators in natural-language keyword queries, and excludes missing metadata keys from empty NotIn conditions. Symbol-aware analyzer changes are outside this update. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#unreleased. Previous version notes: v10.7.1: Recompiled against Mythosia.VectorDb.Abstractions v4.0.1 (XML doc fixes). No code changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.8.0: Adds text-only retrieval and configurable normalized weighted RRF with filters and cancellation on active search legs. Fixes trigram ordering with word_similarity and stable record IDs, prevents dangling tsquery operators in natural-language keyword queries, and excludes missing metadata keys from empty NotIn conditions. Symbol-aware analyzer changes are outside this update. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1080</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
@@ -28,6 +34,10 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

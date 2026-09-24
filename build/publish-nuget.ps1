@@ -150,130 +150,10 @@ $manifestPath = Join-Path $artifactsDir "release-manifest.json"
 $nugetSource = "https://api.nuget.org/v3/index.json"
 $sourceCommit = Get-VerifiedSourceCommit
 
-# This is intentionally an explicit, dependency-ordered release set. Do not replace it
-# with recursive project discovery: a version edit in an unrelated project must never
-# cause that package to be published by this workflow.
-$releasePackages = @(
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Abstractions"
-        Project = "src/core/Mythosia.AI.Abstractions/Mythosia.AI.Abstractions.csproj"
-        Assembly = "Mythosia.AI.Abstractions.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400"
-        Dependencies = @{}
-        FixedDependencies = @{
-            "Mythosia" = "1.4.0"
-        }
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI"
-        Project = "src/core/Mythosia.AI/Mythosia.AI.csproj"
-        Assembly = "Mythosia.AI.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v800"
-        Dependencies = @{
-            "Mythosia.AI.Abstractions" = "Mythosia.AI.Abstractions"
-        }
-        FixedDependencies = @{
-            "Azure.AI.OpenAI" = "2.1.0"
-            "Newtonsoft.Json" = "13.0.4"
-            "NJsonSchema" = "11.6.1"
-            "System.Threading.Channels" = "10.0.10"
-            "TiktokenSharp" = "1.2.1"
-        }
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Providers.Alibaba"
-        Project = "src/core/Mythosia.AI.Providers.Alibaba/Mythosia.AI.Providers.Alibaba.csproj"
-        Assembly = "Mythosia.AI.Providers.Alibaba.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300"
-        Dependencies = @{
-            "Mythosia.AI" = "Mythosia.AI"
-        }
-        FixedDependencies = @{
-            "TiktokenSharp" = "1.2.1"
-        }
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.VectorDb.Abstractions"
-        Project = "src/vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj"
-        Assembly = "Mythosia.VectorDb.Abstractions.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased"
-        Dependencies = @{}
-        FixedDependencies = @{
-            "Lucene.Net" = "4.8.0-beta00016"
-            "Lucene.Net.Analysis.Common" = "4.8.0-beta00016"
-        }
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Rag.Abstractions"
-        Project = "src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj"
-        Assembly = "Mythosia.AI.Rag.Abstractions.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag.Abstractions"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased"
-        Dependencies = @{
-            "Mythosia.VectorDb.Abstractions" = "Mythosia.VectorDb.Abstractions"
-        }
-        FixedDependencies = @{}
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.VectorDb.InMemory"
-        Project = "src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj"
-        Assembly = "Mythosia.VectorDb.InMemory.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#unreleased"
-        Dependencies = @{
-            "Mythosia.VectorDb.Abstractions" = "Mythosia.VectorDb.Abstractions"
-            "Mythosia.AI.Rag.Abstractions" = "Mythosia.AI.Rag.Abstractions"
-        }
-        FixedDependencies = @{
-            "Lucene.Net" = "4.8.0-beta00016"
-            "Lucene.Net.Analysis.Common" = "4.8.0-beta00016"
-        }
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Rag"
-        Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
-        Assembly = "Mythosia.AI.Rag.dll"
-        ProjectUrl = "https://aj-comp.github.io/Mythosia.AI/docs/rag.html"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800"
-        Dependencies = @{
-            "Mythosia.AI.Abstractions" = "Mythosia.AI.Abstractions"
-            "Mythosia.AI.Rag.Abstractions" = "Mythosia.AI.Rag.Abstractions"
-            "Mythosia.VectorDb.InMemory" = "Mythosia.VectorDb.InMemory"
-        }
-        FixedDependencies = @{
-            "Mythosia.Documents.Office" = "1.1.0"
-            "Mythosia.Documents.Pdf" = "1.1.1"
-            "SharpZipLib" = "1.4.2"
-        }
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Mcp"
-        Project = "src/integrations/Mythosia.AI.Mcp/Mythosia.AI.Mcp.csproj"
-        Assembly = "Mythosia.AI.Mcp.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/integrations/Mythosia.AI.Mcp"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview"
-        Dependencies = @{
-            "Mythosia.AI" = "Mythosia.AI"
-        }
-        FixedDependencies = @{}
-    },
-    [pscustomobject]@{
-        Id = "Mythosia.AI.Serving.Vllm"
-        Project = "src/serving/Mythosia.AI.Serving.Vllm/Mythosia.AI.Serving.Vllm.csproj"
-        Assembly = "Mythosia.AI.Serving.Vllm.dll"
-        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/serving/Mythosia.AI.Serving.Vllm"
-        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100"
-        Dependencies = @{}
-        FixedDependencies = @{
-            "Newtonsoft.Json" = "13.0.4"
-        }
-    }
-)
-
+# The reviewed allowlist is shared with readiness, metadata and consumer validation.
+. (Join-Path $PSScriptRoot 'release-plan.ps1')
+$releasePlan = Get-ReleasePlan
+$releasePackages = @($releasePlan.Packages)
 function Get-ProjectPropertyValue {
     param(
         [xml]$ProjectXml,
@@ -323,6 +203,10 @@ function Get-ReleasePackageMetadata {
     if ([string]::IsNullOrWhiteSpace($version)) {
         throw "Release project has no package version: $projectPath"
     }
+    if ($version -cne $Definition.Version -or
+        (Get-ProjectPropertyValue -ProjectXml $projectXml -Name 'TargetFramework') -cne $Definition.TargetFramework) {
+        throw "Release project version or target framework does not match the shared release plan: $projectPath"
+    }
 
     return [pscustomobject]@{
         Id = $packageId
@@ -330,6 +214,12 @@ function Get-ReleasePackageMetadata {
         Project = $Definition.Project
         ProjectPath = $projectPath
         Assembly = $Definition.Assembly
+        TargetFramework = $Definition.TargetFramework
+        LicenseExpression = $Definition.LicenseExpression
+        RequiredEntries = $Definition.RequiredEntries
+        EntrySha256 = $Definition.EntrySha256
+        ForbiddenEntryPatterns = $Definition.ForbiddenEntryPatterns
+        MaxPackageBytes = $Definition.MaxPackageBytes
         ProjectUrl = $Definition.ProjectUrl
         ReleaseNotesUrl = $Definition.ReleaseNotesUrl
         Dependencies = $Definition.Dependencies
@@ -416,8 +306,8 @@ function Test-PackageArtifact {
         throw "Package version mismatch in $($Package.PackagePath)."
     }
     if ([string]$nuspec.Metadata.license.type -ne "expression" -or
-        [string]$nuspec.Metadata.license.'#text' -ne "MIT") {
-        throw "Package $($Package.Id) must declare the MIT license expression."
+        [string]$nuspec.Metadata.license.'#text' -ne $Package.LicenseExpression) {
+        throw "Package $($Package.Id) must declare its planned license expression: $($Package.LicenseExpression)."
     }
     if ([string]$nuspec.Metadata.repository.type -ne "git" -or
         [string]$nuspec.Metadata.repository.url -ne "https://github.com/AJ-comp/Mythosia.AI.git") {
@@ -470,9 +360,37 @@ function Test-PackageArtifact {
         throw "Package $($Package.Id) README contains a relative release-notes link that breaks on NuGet.org."
     }
 
-    $assemblyEntry = "lib/netstandard2.1/$($Package.Assembly)"
+    $assemblyEntry = "lib/$($Package.TargetFramework)/$($Package.Assembly)"
     if (-not ($nuspec.Entries -contains $assemblyEntry)) {
         throw "Package $($Package.Id) is missing $assemblyEntry."
+    }
+    foreach ($entry in @($Package.RequiredEntries)) {
+        if (-not [string]::IsNullOrWhiteSpace($entry) -and $nuspec.Entries -cnotcontains $entry) {
+            throw "Package $($Package.Id) is missing required asset $entry."
+        }
+    }
+    foreach ($pattern in @($Package.ForbiddenEntryPatterns)) {
+        if (-not [string]::IsNullOrWhiteSpace($pattern) -and @($nuspec.Entries | Where-Object { $_ -match $pattern }).Count -gt 0) {
+            throw "Package $($Package.Id) contains a forbidden model asset."
+        }
+    }
+    if ($Package.MaxPackageBytes -and (Get-Item -LiteralPath $Package.PackagePath).Length -ge $Package.MaxPackageBytes) {
+        throw "Package $($Package.Id) exceeds its reviewed distribution size budget."
+    }
+    if ($Package.EntrySha256) {
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($Package.PackagePath)
+        try {
+            foreach ($asset in $Package.EntrySha256.GetEnumerator()) {
+                $entry = $archive.GetEntry($asset.Key)
+                if ($null -eq $entry) { throw "Missing pinned package asset: $($asset.Key)." }
+                $stream = $entry.Open()
+                $sha = [Security.Cryptography.SHA256]::Create()
+                try { $hash = [BitConverter]::ToString($sha.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+                finally { $sha.Dispose(); $stream.Dispose() }
+                if ($hash -cne $asset.Value) { throw "Package asset hash mismatch: $($asset.Key)." }
+            }
+        }
+        finally { $archive.Dispose() }
     }
 
     $dependencyNodes = @()
@@ -561,7 +479,7 @@ function Test-SymbolPackageArtifact {
     }
 
     $pdbName = [System.IO.Path]::GetFileNameWithoutExtension($Package.Assembly) + ".pdb"
-    $expectedPdbEntry = "lib/netstandard2.1/$pdbName"
+    $expectedPdbEntry = "lib/$($Package.TargetFramework)/$pdbName"
     if (-not ($nuspec.Entries -contains $expectedPdbEntry)) {
         throw "Symbol package $($Package.Id) is missing $expectedPdbEntry."
     }

@@ -1,10 +1,10 @@
 # แสดงตัวเลือกที่โมเดลที่เลือกสนับสนุน
 
-> Grok 4.7 เป็นความสามารถที่ยังไม่เผยแพร่ ดู[การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+> Grok 4.7: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
 
-> GPT-6 Sol/Luna เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ ดู[การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+> GPT-6 Sol/Luna: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
 
-Capabilities ของ [Claude Opus 5.5](providers.md#claude-opus-55) มี `Low` ถึง `Max` รวม `XHigh` แต่ไม่รองรับ `None`, `Minimal` และ `ThinkingToggle` ค่า `MaxOutputTokens` คือ 128000 การซ่อนข้อความไม่ใช่การปิดการคิด ข้อมูลนี้เป็นของส่วนเพิ่มที่ยังไม่เผยแพร่ ไม่ใช่แพ็กเกจที่เผยแพร่ไปแล้ว
+Capabilities ของ [Claude Opus 5.5](providers.md#claude-opus-55) มี `Low` ถึง `Max` รวม `XHigh` แต่ไม่รองรับ `None`, `Minimal` และ `ThinkingToggle` ค่า `MaxOutputTokens` คือ 128000 การซ่อนข้อความไม่ใช่การปิดการคิด ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0
 
 หน้าจอแชตควรแสดงการคิด ค้นหา เครื่องมือ และรูปภาพให้ตรงกับการเชื่อมต่อ การเก็บรายชื่อโมเดลในแต่ละแอปซ้ำกับกฎของไลบรารีและคลาดเคลื่อนได้เมื่อผู้ให้บริการ โปรโตคอล หรือการติดตั้งเปลี่ยน ข้อมูลความสามารถแบบ snapshot ช่วยให้หน้าจอและการตรวจสอบตอนทำงานใช้คำนิยามโมเดลเดียวกัน
 
@@ -52,7 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | สตรีม เครื่องมือ เครื่องมืออะซิงโครนัสของผู้ให้บริการ และคำสั่งระหว่างทำงาน |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | ค้นหาแบบโฮสต์ การเปลี่ยนการคิดโดยคงแคช ภาพขาเข้า และผลลัพธ์มีโครงสร้าง |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | การสุ่มที่รองรับและเพดานโทเคนขาออกที่ทราบ ซึ่งเป็น null ได้ |
-| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | ยังไม่เผยแพร่: โหมด Supported/Unsupported/Unknown ต้องตรวจสิทธิ์บัญชีแยกต่างหาก |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Mythosia.AI 8.1.0 / Abstractions 4.1.0: โหมด Supported/Unsupported/Unknown ต้องตรวจสิทธิ์บัญชีแยกต่างหาก |
 | `Provider`, `Model` | ผู้ให้บริการและโมเดลที่ส่ง โดยอาจยังไม่ทราบค่า |
 
 `ReasoningLevels` ใช้กับ `WithReasoning` กลาง ส่วน `NativeReasoningLevels` เป็นค่าของผู้ให้บริการ `ThinkingBudgetPresets` เสนอทางเลือกใน UI ไม่ใช่งบประมาณที่ใช้ได้ทั้งหมดหรือช่วงตัวเลขครบถ้วน `AsyncFunctionCalling` หมายถึงเครื่องมืออะซิงโครนัสของผู้ให้บริการ ไม่ใช่เพียง handler ในเครื่องคืน `Task` หรือทำงานขนาน `StructuredOutput` ครอบคลุม API ผลลัพธ์มีชนิดแบบกลาง รวมวิธีใช้ prompt และซ่อมผลลัพธ์ ไม่รับประกันการถอดรหัสแบบจำกัดของผู้ให้บริการโดยตรง รายการระดับทั้งสองใช้ `ReasoningLevel` และงบประมาณแนะนำเป็นจำนวนเต็ม

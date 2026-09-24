@@ -84,9 +84,9 @@ var results = await store.HybridSearchAsync(
 );
 ```
 
-### テキスト専用検索と設定可能なハイブリッド検索（未リリース）
+### テキスト専用検索と設定可能なハイブリッド検索
 
-上のオーバーロードは各バックエンドの既存のハイブリッド動作を使用します。現在のソースでは InMemory、PostgreSQL、Qdrant が `ITextSearchStore` と `IConfigurableHybridSearchStore` も実装しています。これらの任意 API は **未リリース（Unreleased）** で、Pinecone は実装していません。
+上のオーバーロードは各バックエンドの従来のハイブリッド動作を維持します。`ITextSearchStore` と `IConfigurableHybridSearchStore` は Mythosia.VectorDb.Abstractions 4.1.0 の任意契約で、InMemory 4.2.0、PostgreSQL 10.8.0、Qdrant 4.2.0 が実装します。Pinecone は実装していません。
 
 ```csharp
 using Mythosia.VectorDb;

@@ -1,6 +1,6 @@
 # 观察 Claude Fable 5.1 的长时间任务
 
-[Claude Opus 5.5](providers.md#claude-opus-55) 是尚未发布的新增功能：推理始终启用，默认 effort 为 medium，并省略显示。可读进度需显式请求；默认值和模型绑定规则与 Fable 5.1 不同。
+[Claude Opus 5.5](providers.md#claude-opus-55) 从 Mythosia.AI 8.1.0 / Abstractions 4.1.0 起可用：推理始终启用，默认 effort 为 medium，并省略显示。可读进度需显式请求；默认值和模型绑定规则与 Fable 5.1 不同。
 
 > Fable 5.1 控制需要 `Mythosia.AI` 8.0.0 和 `Mythosia.AI.Abstractions` 4.0.0 或更高版本。现有 Run、推理/搜索和 GPT-6 Astra API 的最低版本仍为 7.1.0 / 3.1.0。
 

@@ -1,6 +1,6 @@
 # Управление выполняющимися задачами ИИ через Run
 
-> GPT-6 Sol/Luna ещё не опубликованы в пакетах. См. [выбор модели и требования](providers.md#gpt-6-sol-luna).
+> GPT-6 Sol/Luna: Требуются Mythosia.AI 8.1.0 / Abstractions 4.1.0. [выбор модели и требования](providers.md#gpt-6-sol-luna)
 
 Для готового ответа и кнопки Стоп передайте `cancellationToken` в `GetCompletionAsync`. Run нужен для событий прогресса или поддерживаемых дополнительных указаний. См. [отмену ответа](completions.md#completion-cancellation).
 
