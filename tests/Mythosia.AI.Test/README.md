@@ -2,9 +2,9 @@
 
 The `Unit` category contains deterministic tests for CI. The `Live` category sends requests to external providers and requires credentials. CI and package publishing continue to select `TestCategory=Unit`; live tests run explicitly.
 
-See the [2026-09-24 full live API validation record (Korean)](validation/2026-09-24-live-api.md) for the 3,207-case scope, preserved initial failures, verified reruns, and account/resource limitations. Validation is complete for the runnable scope: 3,147 passed, 18 failed, 35 unsupported skips, 4 inconclusive cases, and 3 blocked resource cases. See the record for the explicitly labeled 39 console-backed results from the interrupted Pro run.
+Keep dated execution reports, TRX files, provider responses and account-specific diagnostics under `artifacts/test-results/<run>/` or in CI artifacts. Existing local reports under `validation/` are also excluded from Git; preserve their evidence locally and do not link to them from committed documentation.
 
-The [Claude-only follow-up](validation/2026-09-24-claude-errors.md) rechecks the three Claude failures: the unchanged context scenario passed six actual requests, while both Fast paths confirmed an account quota of zero. It adds request/refusal diagnostics and four context regression cases (70 related unit cases passed). The original full-run snapshot is retained; the initial refusal cause remains unknown.
+Commit reusable test code, fixtures, execution instructions and reviewed regression baselines. Release notes may summarize verified changes and material validation limits without including one-off execution logs or account diagnostics.
 
 ## GPT-6 Sol and Luna validation
 

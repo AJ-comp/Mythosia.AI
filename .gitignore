@@ -64,6 +64,17 @@ project.lock.json
 project.fragment.lock.json
 artifacts/
 
+# Local, dated API validation reports. Keep reusable tests and fixtures tracked.
+/tests/Mythosia.AI.Test/validation/
+
+# Repository-local scratch work, draft documents and diagnostic build outputs.
+/.artifacts/
+/.codex-*/
+/.dotnet/
+/.tmp/
+/tmp/
+/experiment_results/
+
 # ASP.NET Scaffolding
 ScaffoldingReadMe.txt
 
@@ -370,8 +381,7 @@ api/*.yml
 # Repository-local .NET CLI state
 .dotnetcli/
 
-# Local PIXIE model conversion tools and validation artifacts (never commit weights).
-.artifacts/pixie/
+# Local PIXIE model weights (conversion tools and reports live under .artifacts/).
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/*.onnx
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/*.onnx_data
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/*.safetensors
