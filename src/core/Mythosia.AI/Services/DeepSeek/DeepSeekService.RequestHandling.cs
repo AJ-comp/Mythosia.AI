@@ -69,12 +69,12 @@ namespace Mythosia.AI.Services.DeepSeek
                     messages.LastOrDefault()?.FunctionCallResultBatch != null;
                 if (RequestFunctionCallMode != FunctionCallMode.None && !continuation && !string.IsNullOrWhiteSpace(RequestForceFunctionName))
                 {
-                    if (thinking.ThinkingEnabled)
+                    if (thinking.ThinkingEnabled && !RequestUsesResponsesApi)
                         throw new NotSupportedException("DeepSeek thinking mode does not support a forced named tool. Disable thinking or use automatic tool selection.");
                     body["tool_choice"] = new { type = "function", function = new { name = RequestForceFunctionName } };
                 }
             }
-            return _protocol.CreateRequest(ApiKey, body);
+            return RequestUsesResponsesApi ? CreateDeepSeekResponsesRequest(body) : _protocol.CreateRequest(ApiKey, body);
         }
 
         private static Dictionary<string, object> ConvertDeepSeekParameter(ParameterProperty property)
@@ -140,6 +140,7 @@ namespace Mythosia.AI.Services.DeepSeek
             foreach (var part in message.Contents)
             {
                 if (part is TextContent text) content.Add(new { type = "text", text = text.Text });
+                else if (part is DeepSeekImageFileContent file) content.Add(new { type = "file", file_id = file.FileId });
                 else if (part is ImageContent image)
                     content.Add(new { type = "image_url", image_url = new { url = image.GetBase64Url(), detail = image.IsHighDetail ? "high" : "low" } });
                 else throw new MultimodalNotSupportedException("DeepSeek", part.Type);
@@ -153,6 +154,16 @@ namespace Mythosia.AI.Services.DeepSeek
             foreach (var part in message.Contents)
             {
                 if (part is TextContent) continue;
+                if (part is DeepSeekImageFileContent)
+                {
+                    if (message.Role != ActorRole.User && message.Role != ActorRole.Function)
+                        throw new NotSupportedException("DeepSeek image files are supported only in user and tool messages.");
+                    if (string.Equals(RequestModel, "deepseek-v4-pro", StringComparison.OrdinalIgnoreCase))
+                        throw new MultimodalNotSupportedException("DeepSeek V4 Pro does not support image files. Use AIModels.DeepSeek.Flash.");
+                    if (message.Role == ActorRole.Function && string.IsNullOrWhiteSpace(message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString()))
+                        throw new ArgumentException("A DeepSeek tool image file requires its original tool-call ID.", nameof(message));
+                    continue;
+                }
                 if (!(part is ImageContent image)) throw new MultimodalNotSupportedException(Provider, part.Type);
                 if (message.Role != ActorRole.User && message.Role != ActorRole.Function)
                     throw new NotSupportedException("DeepSeek image content is supported only in user and tool messages.");

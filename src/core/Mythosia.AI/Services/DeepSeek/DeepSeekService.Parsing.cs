@@ -24,6 +24,7 @@ namespace Mythosia.AI.Services.DeepSeek
         {
             try
             {
+                if (RequestUsesResponsesApi) json = ConvertDeepSeekResponseToChat(json);
                 using var document = JsonDocument.Parse(json);
                 var root = document.RootElement;
                 if (root.TryGetProperty("error", out var error))
@@ -45,7 +46,7 @@ namespace Mythosia.AI.Services.DeepSeek
                     Usage = root.TryGetProperty("usage", out var usage) ? ParseDeepSeekUsage(usage) : null
                 };
             }
-            catch (Exception exception) when (exception is JsonException || exception is InvalidOperationException)
+            catch (Exception exception) when (exception is JsonException || exception is InvalidOperationException || exception is KeyNotFoundException)
             {
                 throw new AIServiceException("Failed to parse the DeepSeek response.", exception);
             }
@@ -69,6 +70,8 @@ namespace Mythosia.AI.Services.DeepSeek
             var output = ReadDeepSeekTokenCount(usage, "completion_tokens");
             var total = ReadDeepSeekTokenCount(usage, "total_tokens");
             if (!input.HasValue && !output.HasValue && !total.HasValue) return null;
+            var combined = (long)(input ?? 0) + (output ?? 0);
+            if (combined > int.MaxValue) throw new JsonException("DeepSeek combined token usage exceeds the supported count range.");
             var cached = ReadDeepSeekTokenCount(usage, "prompt_cache_hit_tokens");
             if (!cached.HasValue && usage.TryGetProperty("prompt_tokens_details", out var inputDetails) && inputDetails.ValueKind == JsonValueKind.Object)
                 cached = ReadDeepSeekTokenCount(inputDetails, "cached_tokens");
@@ -77,7 +80,7 @@ namespace Mythosia.AI.Services.DeepSeek
             return new TokenUsage
             {
                 InputTokens = input ?? 0, OutputTokens = output ?? 0,
-                TotalTokens = total ?? (input ?? 0) + (output ?? 0),
+                TotalTokens = total ?? (int)combined,
                 CachedInputTokens = cached ?? 0, ReasoningTokens = reasoning ?? 0
             };
         }

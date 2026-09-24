@@ -95,6 +95,25 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | 稀疏 + 稠密向量在服务端融合 |
 | **Postgres** | 向量相似度 + `tsvector`/`trigram` 分数在 SQL 中融合 |
 
+### 纯文本与可配置混合检索（未发布）
+
+上面的重载使用各后端现有的混合检索行为。当前源码中的 InMemory、PostgreSQL 和 Qdrant 还实现了 `ITextSearchStore` 与 `IConfigurableHybridSearchStore`。这些可选 API **尚未发布（Unreleased）**；Pinecone 未实现它们。
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "订单 #12345 状态", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "订单 #12345 状态",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` 不需要稠密查询向量。可配置重载使用归一化到 `[0, 1]` 的加权 RRF 分数；权重 `0` 跳过向量检索，`1` 跳过文本检索。元数据过滤在 top-K 选择前应用，`MinScore` 在融合后应用。原生文本和向量分数的尺度不同，应分别设置阈值。Qdrant 的 `HybridFusionStrategy` 仅控制上面的现有重载。
+
 ## 按 ID 获取
 
 按 ID 获取特定记录：
@@ -142,7 +161,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## 按过滤器替换
 
-原子性地删除所有匹配过滤器的记录并插入新记录。适合重新索引文档而不留下过期片段。
+删除所有匹配过滤器的记录并插入新记录。适合重新索引文档而不留下过期片段。整个替换操作的原子性取决于后端。
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -158,7 +177,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> 在 Postgres 上此操作在事务内执行，完全原子化。
+> Postgres 使用数据库事务。InMemory 按顺序执行删除和批量插入，因此其他查询可能看到中间的空缺。失败或取消可能留下部分替换的状态，已完成的写入不会回滚。同步单次操作可保持记录与 BM25 索引一致，但不代表整个替换操作具备事务性。
 
 ## 计数
 

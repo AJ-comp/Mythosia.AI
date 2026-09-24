@@ -2,6 +2,14 @@
 
 Document loader แปลงไฟล์เป็นออบเจกต์ `DoclingDocument` ที่มีโครงสร้าง จากนั้นส่งต่อไปยัง RAG pipeline ได้
 
+<a id="file-source-identity"></a>
+
+## รักษา ID ของไฟล์ให้คงที่เมื่อเปลี่ยนรูปแบบพาธ
+
+การลงทะเบียนไฟล์เดียวกันด้วยพาธสัมพัทธ์และพาธสัมบูรณ์ควรอัปเดตเอกสารเดียวกัน ส่วนไฟล์ชื่อเหมือนกันในคนละโฟลเดอร์ต้องแยกกัน `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` และ `PdfDocumentLoader` กำหนด `DoclingDocument.Source` เป็นพาธไฟล์สัมบูรณ์ที่ปรับรูปแบบแล้ว เช่นเดียวกับตัวโหลด TXT ในตัว RAG สร้าง ID อัตโนมัติจากค่านี้ ส่วน ID ที่ระบุเองยังอยู่ในการควบคุมของผู้เรียก แหล่งอ้างอิงเริ่มต้นอาจแสดงพาธสัมบูรณ์
+
+ID พาธสัมพัทธ์ที่บันทึกไว้จะไม่ถูกย้ายหรือลบอัตโนมัติ ให้ตรวจสอบ ID เดิม ลบเฉพาะเอกสารนั้นในแหล่งจัดเก็บที่เกี่ยวข้องอย่างชัดเจน แล้วทำดัชนีใหม่ อีกทางหนึ่งคือทำดัชนีต้นฉบับทั้งหมดลงในคอลเลกชันใหม่ที่ว่าง ตรวจสอบแล้วจึงสลับแอปพลิเคชันไปใช้ การใช้เฉพาะ ID พาธสัมบูรณ์ใหม่ในคอลเลกชันเดิมยังคงทิ้งข้อมูลเก่าไว้ อย่าลบเอกสารที่ไม่เกี่ยวข้อง ดู[ตัวตนเอกสารและการย้ายข้อมูล](rag.md#document-identity)
+
 ## การติดตั้ง
 
 Loader สำหรับ Office และ PDF รวมอยู่ใน `Mythosia.AI.Rag` หากต้องการใช้แบบ standalone:
@@ -161,14 +169,14 @@ foreach (var item in doc.Document)
 
 ## การรวม Document Loader กับ Text Splitter
 
-`MarkdownTextSplitter` เหมาะสมที่สุดสำหรับเอกสาร Office/HWP:
+ใช้ `MarkdownTextSplitter` เพื่อเก็บหัวข้อ บล็อกโค้ด และแถวตาราง ไม่มีอาร์กิวเมนต์ overlap หัวข้อที่ทำซ้ำไม่นับในงบเนื้อหา บล็อกโค้ดทั้งบล็อกหรือหัวตารางพร้อมหนึ่งแถวอาจเกินงบ ตรวจเพดาน token อย่างเคร่งครัดด้วย tokenizer ของโมเดลบน chunk สุดท้าย ดู [Text Splitters](text-splitters.md)
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter` แบ่งตารางที่ขอบเขตแถวและใส่ header ในแต่ละ chunk อัตโนมัติ ทำให้ข้อมูลตารางยังคงครบถ้วนในผลการค้นหา ดู [Text Splitters](text-splitters.md) สำหรับรายละเอียด
+ตาราง GFM ที่ตรวจพบจะแบ่งระหว่างแถว โดยทำซ้ำหัวตารางและแถวคั่นในแต่ละ chunk ของตาราง ไม่จำเป็นต้องมีขีดตั้งด้านนอก (รองรับ `Name | Value`) วิธีนี้เก็บชื่อคอลัมน์ไว้ แต่คุณภาพการค้นหายังขึ้นกับเอกสาร embedding และคำถาม

@@ -27,13 +27,17 @@ namespace Mythosia.AI.Services.OpenAI
             var levels = Enum.GetValues(typeof(ReasoningLevel)).Cast<ReasoningLevel>()
                 .Where(IsOpenAIReasoningLevelSupportedByAdapter).ToArray();
             var reasoning = levels.Length > 0 ? CapabilitySupport.Supported : CapabilitySupport.Unsupported;
-            var nativeRun = IsAstraNativeRunModel(model);
+            var nativeRun = IsKnownGpt6Model(model);
             var search = IsHostedSearchSupportedByAdapter(model);
-            var sampling = IsNewApiModel(model) ? CapabilitySupport.Unsupported : CapabilitySupport.Supported;
+            var gpt6Sampling = SupportsGpt6Sampling();
+            var sampling = !IsNewApiModel(model) || gpt6Sampling
+                ? CapabilitySupport.Supported : CapabilitySupport.Unsupported;
             // The legacy function-call body currently serializes temperature, but does not
             // serialize top_p or penalties. Report the captured request's actual adapter path.
             var extraSampling = sampling == CapabilitySupport.Supported && !ShouldUseFunctions
                 ? CapabilitySupport.Supported : CapabilitySupport.Unsupported;
+            var topP = gpt6Sampling ? CapabilitySupport.Supported : extraSampling;
+            var penalties = IsNewApiModel(model) ? CapabilitySupport.Unsupported : extraSampling;
             return new AIModelCapabilities(provider: Provider, model: model,
                 streaming: CapabilitySupport.Supported, functionCalling: CapabilitySupport.Supported,
                 asyncFunctionCalling: nativeRun ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
@@ -46,7 +50,7 @@ namespace Mythosia.AI.Services.OpenAI
                 reasoningCachePreservation: nativeRun && RequestGpt6ReasoningMode == Gpt6ReasoningMode.Standard
                     ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
                 imageInput: CapabilitySupport.Supported, structuredOutput: CapabilitySupport.Supported,
-                temperature: sampling, topP: extraSampling, frequencyPenalty: extraSampling, presencePenalty: extraSampling,
+                temperature: sampling, topP: topP, frequencyPenalty: penalties, presencePenalty: penalties,
                 maxOutputTokens: GetModelMaxOutputTokens());
         }
 
@@ -68,10 +72,6 @@ namespace Mythosia.AI.Services.OpenAI
         private bool IsHostedSearchSupportedByAdapter(string model) =>
             IsNewApiModel(model) && !model.Contains("nano", StringComparison.OrdinalIgnoreCase) &&
             !model.StartsWith("o3-mini", StringComparison.OrdinalIgnoreCase);
-
-        private static bool IsAstraNativeRunModel(string model) =>
-            string.Equals(model, AIModels.OpenAI.Gpt6Astra, StringComparison.OrdinalIgnoreCase) ||
-            model.StartsWith(AIModels.OpenAI.Gpt6Astra + "-", StringComparison.OrdinalIgnoreCase);
 
         /// <inheritdoc />
         public override ImageModelCapabilities GetImageCapabilities(string? model = null)

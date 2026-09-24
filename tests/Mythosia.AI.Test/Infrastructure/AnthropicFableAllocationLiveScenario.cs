@@ -2,14 +2,15 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Streaming;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Mythosia.AI.Tests;
 
 internal static class AnthropicFableAllocationLiveScenario
 {
-    internal static async Task VerifyAsync(FableExecutionMode mode)
+    internal static async Task VerifyAsync(FableExecutionMode mode, string model = AIModels.Anthropic.ClaudeFable5_1)
     {
-        using var probe = await AnthropicFableLiveProbe.CreateAsync();
+        using var probe = await AnthropicFableLiveProbe.CreateAsync(model);
         probe.Service.DefaultPolicy.MaxRounds = 6;
         probe.Service.ActivateChat.SystemMessage =
             "Keep the person following this task informed: give a short opening status, then brief public updates at meaningful " +
@@ -121,9 +122,26 @@ internal static class AnthropicFableAllocationLiveScenario
             for (var message = 0; message < before.Count; message++)
                 Assert.AreEqual(before[message]!.ToJsonString(), after[message]!.ToJsonString());
         }
+        if (model == AIModels.Anthropic.ClaudeOpus5_5)
+        {
+            var signedBlocks = 0;
+            for (var index = 0; index + 1 < probe.Requests.Count; index++)
+            {
+                var replayed = probe.Requests[index + 1].Body["messages"]!.AsArray().OfType<JsonObject>()
+                    .Where(message => message["content"] is JsonArray)
+                    .SelectMany(message => message["content"]!.AsArray().OfType<JsonObject>()).ToArray();
+                foreach (var original in probe.Requests[index].ResponseBlocks().Where(block => block["type"]?.GetValue<string>() == "thinking"))
+                {
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(original["signature"]?.GetValue<string>()));
+                    Assert.IsTrue(replayed.Any(block => JsonNode.DeepEquals(original, block)), "A real signed Opus 5.5 thinking block changed before tool continuation.");
+                    signedBlocks++;
+                }
+            }
+            Assert.IsTrue(signedBlocks > 0, "The live tool task must exercise signed thinking replay.");
+        }
         var readableThinking = probe.Requests.SelectMany(request => request.ResponseBlocks()).Count(block =>
             block["type"]?.GetValue<string>() == "thinking" && !string.IsNullOrWhiteSpace(block["thinking"]?.GetValue<string>()));
-        Console.WriteLine($"LIVE_FABLE_ALLOCATION handlers={reads + rulesReads + checks} readableThinkingBlocks={readableThinking} publicThinkingPresent={!string.IsNullOrWhiteSpace(probe.Service.LastThinkingContent)}");
+        Console.WriteLine($"{(model == AIModels.Anthropic.ClaudeOpus5_5 ? "LIVE_OPUS55_ALLOCATION" : "LIVE_FABLE_ALLOCATION")} handlers={reads + rulesReads + checks} readableThinkingBlocks={readableThinking} publicThinkingPresent={!string.IsNullOrWhiteSpace(probe.Service.LastThinkingContent)}");
         Assert.IsTrue(readableThinking > 0, "The real server did not emit readable thinking; accepted Updates options alone do not prove delivery.");
         Assert.IsFalse(string.IsNullOrWhiteSpace(probe.Service.LastThinkingContent));
         if (mode != FableExecutionMode.Completion)

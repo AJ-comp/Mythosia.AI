@@ -20,7 +20,7 @@ namespace Mythosia.AI.Services.xAI
                 RequestFunctions,
                 RequestFunctionCallMode);
 
-            if (GetModelFamily() == GrokModelFamily.Grok4_6)
+            if (IsGrok46Or47(GetModelFamily()))
             {
                 body["max_tokens"] = (int)p.MaxTokens;
                 body["top_p"] = p.TopP;

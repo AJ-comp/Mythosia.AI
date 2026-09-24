@@ -1,0 +1,4 @@
+models/pixie/*.onnx
+models/pixie/*.onnx.data
+models/pixie/*.download
+models/pixie/*.download

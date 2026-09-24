@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "smoke",
+  "version": "1",
+  "description": "Small deterministic infrastructure regression corpus. Explicit lexical examples and tenant filters; not a retrieval quality benchmark.",
+  "documents": [
+    { "id": "a-refund", "text": "Refund policy. Company A accepts a refund within seven days of purchase. Return your receipt to request a refund.", "metadata": { "tenant": "A", "language": "en" } },
+    { "id": "b-refund", "text": "Refund policy. Company B accepts a refund within thirty days. Contact company B for a refund.", "metadata": { "tenant": "B", "language": "en" } },
+    { "id": "shipping", "text": "Shipping delivery uses a tracked parcel. Shipping tracking numbers appear after dispatch.", "metadata": { "tenant": "A", "language": "en" } },
+    { "id": "csharp", "text": "C# uses the CLR and supports async await with CancellationToken. C# tasks can be cancelled cooperatively.", "metadata": { "tenant": "A", "language": "en" } },
+    { "id": "cpp", "text": "C++ uses RAII destructors and templates. C++ memory ownership can use unique_ptr.", "metadata": { "tenant": "A", "language": "en" } },
+    { "id": "ko-refund", "text": "환불 정책 안내입니다. 결제 영수증과 주문 번호를 제출하면 환불 신청이 가능합니다.", "metadata": { "tenant": "A", "language": "ko" } },
+    { "id": "ko-stream", "text": "스트리밍 응답은 생성되는 텍스트를 순서대로 전달합니다. 스트리밍 도중 취소 토큰으로 중단할 수 있습니다.", "metadata": { "tenant": "A", "language": "ko" } },
+    { "id": "cancellation", "text": "CancellationToken requests cooperative cancellation. Pass CancellationToken to asynchronous methods and release resources when cancelled.", "metadata": { "tenant": "A", "language": "en" } }
+  ],
+  "cases": [
+    { "id": "refund-a", "category": "tenant-filter", "language": "en", "query": "refund receipt", "filter": { "tenant": "A", "language": "en" }, "judgments": { "a-refund": 3 } },
+    { "id": "refund-b", "category": "tenant-filter", "language": "en", "query": "refund thirty days", "filter": { "tenant": "B" }, "judgments": { "b-refund": 3 } },
+    { "id": "shipping", "category": "lexical", "language": "en", "query": "shipping tracking parcel", "judgments": { "shipping": 3 } },
+    { "id": "csharp", "category": "identifier", "language": "en", "query": "C# CLR", "judgments": { "csharp": 3 } },
+    { "id": "cpp", "category": "identifier", "language": "en", "query": "C++ RAII unique_ptr", "judgments": { "cpp": 3 } },
+    { "id": "ko-refund", "category": "korean", "language": "ko", "query": "환불 영수증", "filter": { "language": "ko" }, "judgments": { "ko-refund": 3 } },
+    { "id": "ko-stream", "category": "korean", "language": "ko", "query": "스트리밍 취소", "judgments": { "ko-stream": 3 } },
+    { "id": "cancellation", "category": "graded", "language": "en", "query": "CancellationToken cooperative cancellation", "judgments": { "cancellation": 3, "csharp": 1 } },
+    { "id": "empty-tenant", "category": "no-answer-filter", "language": "en", "query": "refund policy", "filter": { "tenant": "missing" }, "judgments": {} },
+    { "id": "absent-topic", "category": "no-answer-topic", "language": "en", "query": "volcanic basalt geochemistry", "judgments": {} }
+  ]
+}

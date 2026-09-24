@@ -1,6 +1,8 @@
 # Re-ranking e Ajuste de Recuperação
 
-> 📍 **Pipeline de Pergunta e Resposta:** [Reescrita de Consulta](rag-query-rewriting.md) → Embedding → Filtragem → [Recuperação](rag-hybrid-search.md) → **`Re-ranking`** → Construção de Contexto
+> 📍 **Pipeline de Pergunta e Resposta:** [Reescrita de Consulta](rag-query-rewriting.md) → Filtragem → Embedding (quando necessário) → [Recuperação](rag-hybrid-search.md) → **`Re-ranking`** → Construção de Contexto
+
+A etapa de consulta `Embedding` depende do recuperador; busca lexical não a reporta. Um recuperador personalizado pode reportar etapas por `request.ProgressAsync`. Embeddings de documentos permanecem iguais.
 
 ## Por que Re-ranking?
 
@@ -20,6 +22,8 @@ Usa seu serviço de IA para pontuar resultados. Eficaz mas adiciona latência:
     .AddDocument("corpus.txt")
 )
 ```
+
+Para evitar que a pergunta e os documentos de cada avaliação se misturem com avaliações anteriores ou com a conversa do serviço, `LlmReranker` usa uma solicitação sem estado em cada avaliação. Ele não lê nem adiciona conteúdo ao histórico da conversa. As configurações padrão do serviço e seu código de chamada permanecem iguais. As avaliações dos re-rankers que compartilham o mesmo serviço de IA são processadas em sequência.
 
 ### Cohere Reranker
 
@@ -67,3 +71,5 @@ Usa um endpoint de reranking vLLM hospedado localmente:
 // Misturar pontuação de recuperação e pontuação do re-ranker
 .WithFinalSelectionPolicy(RagFinalSelectionMode.WeightedBlend, retrievalWeight: 0.65)
 ```
+
+Os modos vetorial e lexical puros preservam pontuações nativas. O híbrido configurável usa RRF ponderado normalizado mesmo com um ramo; peso vetorial 0 dispensa embedding de consulta. Pontuações não são probabilidades. `WeightedBlend` mistura pontuações sem calibração; prefira `RerankerOnly` para busca lexical sem calibração prévia.

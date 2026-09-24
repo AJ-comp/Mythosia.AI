@@ -33,6 +33,7 @@ namespace Mythosia.AI.Services.Anthropic
                 Console.WriteLine($"[Claude Stream Round]");
 
             var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+            var processing = BeginProcessingObservation();
             using var response = await HttpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
@@ -110,6 +111,7 @@ namespace Mythosia.AI.Services.Anthropic
                     break;
                 }
                 diagnostics.DataLinesProcessed++;
+                processing.Record(parseResult.AppliedSpeed, MapClaudeSpeed(parseResult.AppliedSpeed), parseResult.ResponseId);
 
                     if (currentModel == null && parseResult.Model != null)
                         currentModel = parseResult.Model;
@@ -564,6 +566,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private class ClaudeStreamParseResult
         {
+            public string? AppliedSpeed { get; set; }
             public string? ResponseId { get; set; }
             public string? TextContent { get; set; }
             public string? ThinkingContent { get; set; }
@@ -751,6 +754,7 @@ namespace Mythosia.AI.Services.Anthropic
                                 }
                                 if (msgStart.TryGetProperty("usage", out var startUsage))
                                 {
+                                    result.AppliedSpeed = ReadClaudeString(startUsage, "speed");
                                     if (startUsage.TryGetProperty("input_tokens", out var inputTokens))
                                         result.InputTokens = inputTokens.GetInt32();
                                     if (startUsage.TryGetProperty("cache_read_input_tokens", out var cacheRead))
@@ -901,10 +905,11 @@ namespace Mythosia.AI.Services.Anthropic
                                 }
                             }
 
-                            if (root.TryGetProperty("usage", out var usageElem) &&
-                                usageElem.TryGetProperty("output_tokens", out var outputTokens))
+                            if (root.TryGetProperty("usage", out var usageElem))
                             {
-                                result.OutputTokens = outputTokens.GetInt32();
+                                result.AppliedSpeed = ReadClaudeString(usageElem, "speed");
+                                if (usageElem.TryGetProperty("output_tokens", out var outputTokens))
+                                    result.OutputTokens = outputTokens.GetInt32();
                             }
                             break;
 

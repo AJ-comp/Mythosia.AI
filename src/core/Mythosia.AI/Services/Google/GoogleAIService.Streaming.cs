@@ -43,8 +43,10 @@ namespace Mythosia.AI.Services.Google
                 ? CreateFunctionMessageRequest(options.IncludeReasoning)
                 : CreateMessageRequest(options.IncludeReasoning);
 
+            var processing = BeginProcessingObservation();
             var response = await HttpClient.SendAsync(
                 request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            RecordGeminiProcessingHeaders(response, processing);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -57,7 +59,7 @@ namespace Mythosia.AI.Services.Google
             var streamState = new GeminiStreamState();
 
             await foreach (var content in ReadGeminiStreamChunks(
-                response, options, functionCalls, streamState, cancellationToken))
+                response, options, functionCalls, streamState, processing, cancellationToken))
             {
                 if (content.Type == StreamingContentType.Text)
                     textBuffer.Append(content.Content);
@@ -150,6 +152,7 @@ namespace Mythosia.AI.Services.Google
             StreamOptions options,
             GeminiFunctionCallCollector functionCalls,
             GeminiStreamState streamState,
+            ProcessingObservation processing,
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             TokenUsage? lastUsage = null;
@@ -172,6 +175,7 @@ namespace Mythosia.AI.Services.Google
                 try
                 {
                     using var document = JsonDocument.Parse(jsonData);
+                    RecordGeminiProcessing(document.RootElement, processing);
                     if (document.RootElement.TryGetProperty("modelVersion", out var modelVersion) &&
                         modelVersion.ValueKind == JsonValueKind.String)
                         responseModel = modelVersion.GetString();

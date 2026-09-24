@@ -78,7 +78,7 @@ var record = new VectorRecord
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0.0〜1.0（高いほど類似）
+    public double Score { get; set; }  // スコアの尺度はバックエンドと検索モードに依存；高いほど適合
 }
 ```
 

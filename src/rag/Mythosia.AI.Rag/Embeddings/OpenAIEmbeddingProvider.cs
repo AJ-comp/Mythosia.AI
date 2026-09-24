@@ -19,6 +19,8 @@ namespace Mythosia.AI.Rag.Embeddings
         private readonly HttpClient _httpClient;
         private readonly string _model;
 
+        private bool IsAda002 => string.Equals(_model, "text-embedding-ada-002", StringComparison.Ordinal);
+
         /// <inheritdoc />
         public int Dimensions { get; }
 
@@ -28,13 +30,16 @@ namespace Mythosia.AI.Rag.Embeddings
         /// <param name="apiKey">OpenAI API key.</param>
         /// <param name="httpClient">HttpClient instance (should not have a BaseAddress pre-set).</param>
         /// <param name="model">Embedding model name. Default is "text-embedding-3-small".</param>
-        /// <param name="dimensions">Output vector dimensions. Default is 1536.</param>
+        /// <param name="dimensions">Output vector dimensions. Default is 1536. For text-embedding-ada-002, only 1536 is valid; no dimensions option is sent to the API.</param>
         public OpenAIEmbeddingProvider(string apiKey, HttpClient httpClient, string model = "text-embedding-3-small", int dimensions = 1536)
         {
             _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
             _model = model;
-            Dimensions = dimensions;
+            Dimensions = dimensions > 0 ? dimensions : throw new ArgumentOutOfRangeException(nameof(dimensions), dimensions, "Dimensions must be a positive integer.");
+            if (IsAda002 && dimensions != 1536)
+                throw new ArgumentOutOfRangeException(nameof(dimensions), dimensions,
+                    "text-embedding-ada-002 has a fixed output size of 1536 dimensions.");
         }
 
         public async Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
@@ -45,6 +50,7 @@ namespace Mythosia.AI.Rag.Embeddings
 
         public async Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var inputList = texts.ToList();
             if (inputList.Count == 0)
                 return Array.Empty<float[]>();
@@ -52,52 +58,33 @@ namespace Mythosia.AI.Rag.Embeddings
             var requestBody = new Dictionary<string, object>
             {
                 ["model"] = _model,
-                ["input"] = inputList,
-                ["dimensions"] = Dimensions
+                ["input"] = inputList
             };
+            if (!IsAda002)
+                requestBody["dimensions"] = Dimensions;
 
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/embeddings")
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/embeddings")
             {
                 Content = content
             };
             request.Headers.Add("Authorization", $"Bearer {_apiKey}");
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
                 throw new InvalidOperationException(
-                    $"OpenAI Embeddings API request failed ({(int)response.StatusCode}): {errorContent}");
+                    $"OpenAI Embeddings API request failed (HTTP {(int)response.StatusCode}).");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
-            return ParseEmbeddingResponse(responseJson);
-        }
-
-        private static IReadOnlyList<float[]> ParseEmbeddingResponse(string responseJson)
-        {
-            using var doc = JsonDocument.Parse(responseJson);
-            var data = doc.RootElement.GetProperty("data");
-            var results = new List<float[]>(data.GetArrayLength());
-
-            foreach (var item in data.EnumerateArray())
-            {
-                var embeddingArray = item.GetProperty("embedding");
-                var vector = new float[embeddingArray.GetArrayLength()];
-                int i = 0;
-                foreach (var val in embeddingArray.EnumerateArray())
-                {
-                    vector[i++] = val.GetSingle();
-                }
-                results.Add(vector);
-            }
-
-            // Sort by index to ensure correct order
-            return results;
+            cancellationToken.ThrowIfCancellationRequested();
+            return IndexedEmbeddingResponseParser.Parse(responseJson, inputList.Count, Dimensions,
+                "OpenAI", allowMissingIndices: false);
         }
     }
 }

@@ -2,6 +2,14 @@
 
 Office document loaders for Word (.docx), Excel (.xlsx), and PowerPoint (.pptx). Parses documents into `DoclingDocument` structured models via OpenXml.
 
+## Stable file identity
+
+This fix is currently unreleased; see the [pending package notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Office/RELEASE_NOTES.md#unreleased). Use a source build until the next package version is published.
+
+Registering the same file through a relative path and an absolute path must update one document, while same-named files in different folders must stay separate. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` and `PdfDocumentLoader` now set `DoclingDocument.Source` to the normalized absolute file path, as the built-in TXT loaders do. RAG derives automatic document IDs from this value; explicit IDs remain caller-controlled. Default citations may therefore show absolute paths.
+
+Previously stored relative-path IDs are not migrated or deleted automatically. Identify the old document ID, explicitly remove only that document from the relevant store and reindex it. Alternatively, index the complete source set into a new empty collection, validate it and switch the application to it. Reindexing only the new absolute-path ID in the existing collection leaves the old records behind. Do not delete unrelated documents. See [document identity and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#document-identity).
+
 ## Installation
 
 ```bash

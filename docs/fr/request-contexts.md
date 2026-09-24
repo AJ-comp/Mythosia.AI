@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("Suis-je éligible à un rembour
 
 ### RequestMessageOverride
 
-Remplace complètement le message de l'utilisateur pour cette requête. Le prompt original est ignoré :
+`RequestMessageOverride` remplace uniquement l’entrée initiale de la requête logique en cours lors de son envoi au modèle. L’entrée originale reste dans l’historique, et les appels d’outils ainsi que leurs résultats ultérieurs sont préservés au sein de la même requête :
 
 ```csharp
 var context = new AIRequestContext

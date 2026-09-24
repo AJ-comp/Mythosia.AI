@@ -1,8 +1,16 @@
 # Hiển thị tùy chọn được mô hình đã chọn hỗ trợ
 
+> Grok 4.7 là phần bổ sung chưa phát hành; xem [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47).
+
+> GPT-6 Sol/Luna là phần bổ sung chưa phát hành. Xem [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna).
+
+Với [Claude Opus 5.5](providers.md#claude-opus-55), capabilities cung cấp `Low` đến `Max`, gồm `XHigh`; không hỗ trợ `None`, `Minimal` và `ThinkingToggle`. `MaxOutputTokens` là 128000. Ẩn hiển thị không có nghĩa là tắt suy luận. Các định nghĩa này thuộc phần bổ sung chưa phát hành, không phải gói đã công bố.
+
 Giao diện chat cần hiển thị suy luận, tìm kiếm, công cụ và ảnh phù hợp với kết nối. Tự giữ danh sách mô hình trong từng ứng dụng lặp lại quy tắc thư viện và dễ lệch khi nhà cung cấp, giao thức hoặc triển khai thay đổi. Bản chụp khả năng giúp giao diện và kiểm tra thực thi dùng chung định nghĩa mô hình.
 
 API thuộc Mythosia.AI 8.0.0. Đây là mô tả cục bộ bất biến về hỗ trợ đã biết, không phải thăm dò tài khoản hoặc máy chủ trực tiếp. Các kiểu ở `Mythosia.AI.Models.Capabilities`.
+
+Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử lý](request-building.md#inference-speed). `WithSpeed` giữ mô hình và mức suy luận; `Processing` báo chế độ thực tế. Fast là tùy chọn trả phí trên các tổ hợp được hỗ trợ.
 
 ## Before / After
 
@@ -44,6 +52,7 @@ Khả năng mô tả kết nối có thể hỗ trợ gì, không phải tùy ch
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | Streaming, công cụ, công cụ bất đồng bộ gốc và chỉ dẫn khi đang chạy. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | Tìm kiếm được lưu trữ, thay đổi suy luận giữ cache, ảnh đầu vào và đầu ra có cấu trúc. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | Thiết lập lấy mẫu được hỗ trợ và giới hạn token đầu ra đã biết, có thể null. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Chưa phát hành: chế độ Supported/Unsupported/Unknown; kiểm tra quyền tài khoản riêng. |
 | `Provider`, `Model` | Nhà cung cấp và mô hình gửi đi; có thể chưa rõ danh tính. |
 
 `ReasoningLevels` dành cho `WithReasoning` chung; `NativeReasoningLevels` dành cho cấu hình riêng. `ThinkingBudgetPresets` gợi ý lựa chọn UI, không liệt kê mọi ngân sách hoặc toàn bộ khoảng số. `AsyncFunctionCalling` là thực thi công cụ bất đồng bộ gốc, không chỉ handler cục bộ trả `Task` hay chạy song song. `StructuredOutput` bao gồm API đầu ra có kiểu chung với phương án prompt và sửa lỗi; không bảo đảm giải mã ràng buộc gốc. Cả hai danh sách mức dùng `ReasoningLevel`; ngân sách gợi ý là số nguyên.
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`, `Backgrounds`, `OutputFormats`, `SizeKinds`, `Resolutions` và `AspectRatios` là danh sách có kiểu chỉ đọc. `MaxImages` và `MaxInputImages` là giới hạn đã biết, có thể null. Giá trị trong danh sách không bảo đảm mọi tổ hợp hợp lệ: vẫn kiểm tra kích thước, định dạng, chất lượng, mask và mô hình. Mô hình ảnh tùy chỉnh hoặc chưa rõ không bị đánh dấu không hỗ trợ.
+
+Với Google, `Resolutions` và `AspectRatios` phụ thuộc mô hình ảnh được chọn và cũng áp dụng khi kiểm tra tạo/chỉnh sửa ảnh. Xem [bảng theo mô hình](providers.md#google-image-options), gồm chính sách thận trọng chỉ cho phép 1K của Flash-Lite. Giá trị chỉ định không được hỗ trợ bị từ chối trước HTTP; mô hình tùy chỉnh chưa rõ giữ `Unknown` và kiểm tra tùy chọn chung của nhà cung cấp.
 
 Một `AIService` tùy chỉnh có định nghĩa đáng tin cậy có thể ghi đè protected `ResolveRequestCapabilities()`. Mặc định là `AIModelCapabilities.Unknown`. Không có trong danh mục không khiến triển khai thành không hỗ trợ. `IAIService` không thêm thành viên bắt buộc; phương thức nằm trên `AIService` và builder của nó.
 

@@ -95,6 +95,25 @@ Cách hybrid search hoạt động theo backend:
 | **Pinecone** | Sparse + dense vectors được hợp nhất server-side |
 | **Postgres** | Vector similarity + `tsvector`/`trigram` scores hợp nhất trong SQL |
 
+### Tìm kiếm văn bản và hybrid có cấu hình (chưa phát hành)
+
+Overload phía trên dùng cơ chế hybrid hiện có của từng backend. Trong mã nguồn hiện tại, InMemory, PostgreSQL và Qdrant cũng triển khai `ITextSearchStore` và `IConfigurableHybridSearchStore`. Các API tùy chọn này **chưa phát hành (Unreleased)**; Pinecone không triển khai chúng.
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "trạng thái đơn hàng #12345", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "trạng thái đơn hàng #12345",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` không cần dense query vector. Overload có cấu hình dùng điểm weighted RRF chuẩn hóa về `[0, 1]`; trọng số `0` bỏ qua tìm kiếm vector, còn `1` bỏ qua tìm kiếm văn bản. Bộ lọc metadata áp dụng trước khi chọn top-K, còn `MinScore` áp dụng sau khi hợp nhất. Điểm văn bản và vector gốc có thang đo khác nhau; hãy chọn ngưỡng theo từng chế độ. `HybridFusionStrategy` của Qdrant chỉ điều khiển overload hiện có phía trên.
+
 ## Lấy theo ID
 
 Truy xuất một record cụ thể theo ID:
@@ -126,7 +145,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## Thay thế theo Filter
 
-Xóa nguyên tử tất cả record khớp filter và chèn tập mới. Hữu ích để re-index tài liệu mà không để lại chunk lỗi thời.
+Xóa tất cả record khớp filter và chèn tập mới. Hữu ích để re-index tài liệu mà không để lại chunk lỗi thời. Tính nguyên tử của toàn bộ thao tác thay thế phụ thuộc vào backend.
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -142,7 +161,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> Trên Postgres thao tác này chạy trong transaction, đảm bảo tính nguyên tử hoàn toàn.
+> Postgres dùng transaction của cơ sở dữ liệu. InMemory thực hiện xóa rồi chèn batch theo thứ tự, nên truy vấn khác có thể thấy khoảng trống giữa hai bước. Lỗi hoặc hủy có thể để lại trạng thái thay thế một phần; các lần ghi đã hoàn tất không được rollback. Đồng bộ từng thao tác giữ bản ghi và chỉ mục BM25 nhất quán, nhưng không biến toàn bộ thao tác thay thế thành transaction.
 
 ## Đếm
 

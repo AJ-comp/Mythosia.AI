@@ -59,6 +59,7 @@ import { providerKeys } from './state.js';
 import { ragState, toInt, toFloatOrNull, setSelectValue, setStatusState } from './rag-shared.js';
 import { getEmbeddingDefaults, getSelectedEmbeddingDimensions, setEmbeddingDimensions, updateEmbeddingUI } from './rag-embedding.js';
 import { refreshRagStatus, showRagStatusError } from './rag-run.js';
+import { normalizeRewriterModel, selectRewriterModel, getRewriterModelProvider } from './rag-rewriter-models.js';
 
 const PIPELINE_SETTINGS_KEY = 'rag_pipeline_settings';
 
@@ -108,7 +109,7 @@ export function applyPipelineSettings(settings) {
   if (ragRewriterMaxTokens && settings.queryRewriteMaxTokens) ragRewriterMaxTokens.value = settings.queryRewriteMaxTokens;
   if (ragExtractKeywords && typeof settings.extractKeywords === 'boolean') ragExtractKeywords.checked = settings.extractKeywords;
   if (ragRewriterOverride) ragRewriterOverride.checked = !!settings.rewriterModelOverride;
-  if (ragRewriterModel && settings.rewriterModelOverride) ragRewriterModel.value = settings.rewriterModelOverride;
+  if (ragRewriterModel && settings.rewriterModelOverride) selectRewriterModel(ragRewriterModel, settings.rewriterModelOverride);
   if (ragHybridSearch && typeof settings.hybridSearchEnabled === 'boolean') ragHybridSearch.checked = settings.hybridSearchEnabled;
   if (ragHybridWeight && settings.hybridSearchVectorWeight != null) ragHybridWeight.value = settings.hybridSearchVectorWeight;
   if (ragRerankEnabled) ragRerankEnabled.checked = !!settings.rerankEnabled;
@@ -132,12 +133,12 @@ export function applyPipelineSettings(settings) {
   updateRerankCandidateTopKDisplay();
   updateRerankDerivedMinScoreDisplay();
   updateRetrievalParamsDisplay();
-  updateEmbeddingUI();
-
-  // Restore saved custom embedding dimensions (after updateEmbeddingUI sets defaults)
+  // Restore dimensions before refreshing validation and the fixed-size model hint.
+  // Invalid saved values must remain visible and fail validation instead of changing silently.
   if (settings.embeddingDimensions && settings.embeddingProvider) {
     setEmbeddingDimensions(settings.embeddingProvider, settings.embeddingDimensions);
   }
+  updateEmbeddingUI();
 }
 
 export function buildPipelineSettingsPayload() {
@@ -484,7 +485,13 @@ function loadCachedPipelineSettings() {
     const raw = localStorage.getItem(PIPELINE_SETTINGS_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? parsed : null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const model = normalizeRewriterModel(parsed.rewriterModelOverride);
+    if (model !== parsed.rewriterModelOverride) {
+      parsed.rewriterModelOverride = model;
+      saveCachedPipelineSettings(parsed);
+    }
+    return parsed;
   } catch {
     return null;
   }
@@ -503,19 +510,8 @@ function saveCachedPipelineSettings(settings) {
   }
 }
 
-function getProviderForRewriterModel(modelEnum) {
-  if (!modelEnum) return null;
-  if (modelEnum.startsWith('Gpt') || modelEnum.startsWith('GPT')) return 'OpenAI';
-  if (modelEnum.startsWith('Claude')) return 'Anthropic';
-  if (modelEnum.startsWith('Gemini')) return 'Google';
-  if (modelEnum.startsWith('Grok')) return 'xAI';
-  if (modelEnum.startsWith('DeepSeek')) return 'DeepSeek';
-  if (modelEnum.startsWith('Perplexity')) return 'Perplexity';
-  return null;
-}
-
 function getApiKeyForRewriterModel(modelEnum) {
-  const provider = getProviderForRewriterModel(modelEnum);
+  const provider = getRewriterModelProvider(ragRewriterModel, modelEnum);
   if (!provider) return null;
   return providerKeys?.[provider] || null;
 }

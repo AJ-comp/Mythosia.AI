@@ -1,6 +1,8 @@
 # Reescritura de Consulta
 
-> 📍 **Pipeline de Pregunta y Respuesta:** **`Reescritura de Consulta`** → Embedding → Filtrado → [Recuperación](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Construcción de Contexto
+> 📍 **Pipeline de Pregunta y Respuesta:** **`Reescritura de Consulta`** → Filtrado → Embedding (si hace falta) → [Recuperación](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Construcción de Contexto
+
+La etapa de consulta `Embedding` depende del recuperador; la búsqueda léxica no la notifica. Un recuperador personalizado puede notificar etapas mediante `request.ProgressAsync`. Los embeddings de documentos no cambian.
 
 ## ¿Por qué Reescribir Consultas?
 
@@ -40,6 +42,12 @@ var result = await store.QueryAsync(
     conversationHistory: history
 );
 ```
+
+<a id="runtime-query-rewriter"></a>
+
+## Cambiar la reescritura durante las consultas
+
+Para desactivar temporalmente la reescritura o cambiar su implementación sin reconstruir el índice, use `store.SetQueryRewriter(null)` o `store.SetQueryRewriter(rewriter)`. Al llamar directamente a la sobrecarga de `RagStore.QueryAsync` que acepta `conversationHistory`, se conserva el reescritor seleccionado al comenzar la consulta. Aunque se desactive o reemplace mientras se espera una notificación de progreso o la reescritura, esa consulta sigue usando la misma instancia; las posteriores usan la nueva configuración. Esto se aplica a consultas directas al almacén y no actualiza un reescritor ya guardado por un contenedor `RagEnabledService`.
 
 ## Cómo Funciona el Gate de Búsqueda
 

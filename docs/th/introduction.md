@@ -1,5 +1,9 @@
 # แนะนำ
 
+> Grok 4.7 เป็นความสามารถที่ยังไม่เผยแพร่ ดู[การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+
+> GPT-6 Sol/Luna เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ ดู[การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+
 Mythosia.AI คือไลบรารี .NET AI แบบ modular ที่มี interface เดียวรองรับ AI provider หลายราย พร้อม RAG pipeline, document loader และ vector database
 
 ## ทำไมต้องใช้ Mythosia.AI?
@@ -22,11 +26,11 @@ Provider ทั้งหมดอยู่ใน package `Mythosia.AI` (ยก�
 
 | Provider | Models |
 |----------|--------|
-| **OpenAI** | GPT-6 Astra, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **OpenAI** | GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
 | **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
-| **xAI** | Grok 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
-| **DeepSeek** | Flash (V4.1 Flash) |
+| **xAI** | Grok 4.7 / 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
+| **DeepSeek** | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | Preset ของ Agent API และ `perplexity/sonar` |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 

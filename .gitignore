@@ -369,3 +369,9 @@ api/*.yml
 
 # Repository-local .NET CLI state
 .dotnetcli/
+
+# Local PIXIE model conversion tools and validation artifacts (never commit weights).
+.artifacts/pixie/
+src/rag/Mythosia.AI.Rag.Search.Pixie/models/*.onnx
+src/rag/Mythosia.AI.Rag.Search.Pixie/models/*.onnx_data
+src/rag/Mythosia.AI.Rag.Search.Pixie/models/*.safetensors

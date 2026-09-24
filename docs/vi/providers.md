@@ -3,6 +3,8 @@
 > Ví dụ `CreateRequest` cần Mythosia.AI 8.0.0 / Abstractions 4.0.0. Bản 7.1 trước đây giới thiệu Run và tùy chọn chung chưa có builder. Gói cũ có thể tiếp tục dùng các overload của dịch vụ.
 
 <a id="image-options-migration"></a>
+Chế độ và siêu dữ liệu trả về phụ thuộc nhà cung cấp, mô hình và API. Xem [tùy chọn tốc độ chung](request-building.md#inference-speed) và capabilities; yêu cầu Fast không chứng minh đã được xử lý Fast.
+
 ## Chuyển sang tùy chọn ảnh có kiểu
 
 Chọn chất lượng và định dạng qua enum và tự động hoàn thành, đồng thời phân biệt pixel chính xác với mức độ phân giải. Cách này tránh lỗi gõ chuỗi và chuyển ngầm kích thước sang mức khác.
@@ -71,13 +73,47 @@ Bạn có thể tái sử dụng bộ đệm đầu vào sau khi `EditImagesAsyn
 
 Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.
 
-Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
+Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
 
 Xem [hướng dẫn suy luận và tìm kiếm](reasoning-and-search.md) để đặt mức suy luận giữa các nhà cung cấp và dùng thông tin mới hoặc tài liệu đã lập chỉ mục. Hướng dẫn nêu rõ mô hình hỗ trợ, cách giữ bộ nhớ đệm và giới hạn kết hợp.
 
+<a id="gpt-6-sol-luna"></a>
+
+### GPT-6 Sol / Luna (chưa phát hành)
+
+Chọn GPT-6 Sol cho lập trình phức tạp, sử dụng công cụ và tác vụ tác nhân; chọn Luna khi cần xử lý lượng lớn văn bản hoặc ảnh với chi phí thấp. Cả hai dùng API trả lời đầy đủ, streaming và Run hiện có nên đổi mô hình không làm thay đổi luồng gọi của ứng dụng.
+
+> Đây là phần bổ sung chưa phát hành, cần các bản dựng core và abstractions tương thích. Mythosia.AI 8.0.0 / Abstractions 4.0.0 đã phát hành không chứa `Gpt6Sol`, `Gpt6Luna` hay `Gpt6Reasoning.None`. Phiên bản tối thiểu của tính năng Astra hiện có và mô hình mặc định của dịch vụ không đổi.
+
+Dùng `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) hoặc `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`). Cả hai nhận văn bản, ảnh và trả văn bản: ngữ cảnh 1.050.000 token, đầu vào tối đa 922.000 và đầu ra tối đa 128.000. Tổng đầu vào, suy luận và đầu ra vẫn phải nằm trong giới hạn ngữ cảnh. `MaxTokens` đặt ngân sách đầu ra được yêu cầu, không phải kích thước ngữ cảnh.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6Sol);
+await using var run = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(onText: text => Console.Write(text));
+var result = await run.Result;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Luna);
+string answer = await service.CreateRequest("Summarize this paragraph.")
+    .WithReasoning(ReasoningLevel.None)
+    .WithTemperature(0.2f)
+    .GetCompletionAsync();
+```
+
+`Auto` tương ứng với `Medium`. Sol/Luna hỗ trợ `None`, `Low`, `Medium`, `High`, `XHigh`, `Max`, không hỗ trợ `Minimal`. Dùng `WithReasoning(ReasoningLevel.None)` theo yêu cầu hoặc `Gpt6Reasoning.None` trong `WithGpt6Parameters`. Chỉ Sol/Luna với `None` mới gửi `Temperature` / `TopP`; khi bật suy luận hai trường bị bỏ qua. Astra luôn cần suy luận và bỏ các tham số lấy mẫu. `AIRequestProfile.DisableReasoning` chọn `None` cho Sol/Luna và `Low` ở chế độ Standard cho Astra, đồng thời bỏ tóm tắt suy luận.
+
+`Gpt6ReasoningMode.Standard` và `.Pro` giữ nguyên ID mô hình đã chọn. Cả ba GPT-6 hỗ trợ công cụ qua Responses, công cụ bất đồng bộ tùy chọn, chỉ dẫn bổ sung qua WebSocket Run và đổi suy luận giữ bộ nhớ đệm ở chế độ Standard một tác nhân. Kiểm tra `run.CanSteer`; việc nhận chỉ dẫn không thu hồi đầu ra trước đó. `WithSpeed(InferenceSpeed.Fast)` yêu cầu xử lý Fast trả phí độc lập với mức suy luận. Xem chế độ thực tế trong `result.Processing`; quyền tài khoản và việc máy chủ hạ cấp không được bảo đảm bởi khả năng cục bộ.
+
+[GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) · [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) · [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
+
 ### Mức độ suy luận
 
-GPT-6 Astra và GPT-5.1–5.6 cho phép điều chỉnh mức suy luận để cân bằng tốc độ và độ sâu của câu trả lời:
+GPT-6 Astra / Sol / Luna và GPT-5.1–5.6 cho phép điều chỉnh mức suy luận để cân bằng tốc độ và độ sâu của câu trả lời:
 
 ```csharp
 using Mythosia.AI.Models;
@@ -204,6 +240,52 @@ Xem [hướng dẫn ảnh chính thức](https://developers.openai.com/api/docs/
 
 [Claude Fable 5.1](fable-5-1.md) bổ sung cập nhật tiến độ, chỉ dẫn theo lượt và chẩn đoán liên kết thinking từ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 cần lời mời truy cập. Cả hai đều từ chối ép chọn công cụ.
 
+<a id="claude-opus-55"></a>
+
+### Claude Opus 5.5: hiển thị tiến độ tác vụ công cụ kéo dài
+
+Dùng Opus 5.5 để rà soát mã hoặc nghiên cứu tài liệu cần nhiều vòng gọi công cụ. API completion và Run vẫn giữ nguyên, nhưng tiến độ bị ẩn mặc định và việc giữ suy luận đòi hỏi cẩn thận khi sửa lịch sử. Đây là phần bổ sung chưa phát hành, không có trong các gói 8.0.0 / 4.0.0 đã công bố.
+
+`ClaudeOpus5_5` chọn `claude-opus-5-5`: nhận văn bản/hình ảnh, trả văn bản, ngữ cảnh 1M và đầu ra tối đa 128K token. Theo kiểm tra ngày 2026-09-24, giá đầu vào/đầu ra chuẩn là $4/$20 mỗi triệu token; chế độ đặc biệt và công cụ có giá riêng. [Thông tin mô hình chính thức](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+Khi chưa đổi thiết lập dịch vụ, `Auto` dùng mức `Medium` và bỏ phần suy luận đọc được. Suy luận thích ứng luôn bật. Có thể chọn `Low`, `Medium`, `High`, `XHigh` hoặc `Max`; các giá trị chung `ReasoningLevel.None` và `Minimal` bị từ chối. Mô hình mặc định của dịch vụ không đổi.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeOpus5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.Medium, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.StartRunAsync(
+    "Review the migration plan using the registered tools.",
+    options: StreamOptions.FullOptions);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+Ví dụ yêu cầu `Updates` và theo dõi `StreamingContentType.Reasoning`. Dùng `Summarized` để đọc tóm tắt suy luận hoặc `Omitted` để ẩn. Tham số hiển thị của `WithAdaptiveThinkingParameters(effort)` vẫn mặc định là `Summarized`, khác với dịch vụ chưa cấu hình. Với completion thông thường, đọc `LastThinkingContent` sau khi gọi. Không bảo đảm tiến độ xuất hiện theo chu kỳ cố định.
+
+`ThinkingBudget` dương kiểu cũ được ánh xạ thành high/xhigh/max, không phải ngân sách token chính xác. Giá trị 0 hoặc âm không tắt được suy luận. Profile tắt suy luận dùng mức low và ẩn phần đọc được. `MaxTokens` gồm cả suy luận ẩn và câu trả lời; hãy đánh giá lại giới hạn đầu ra và chi phí khi chuyển đổi.
+
+Mythosia giữ các khối thinking có chữ ký, kể cả khối rỗng, giữa các lượt hội thoại và kết quả công cụ. Tiếp tục dùng cùng dịch vụ và chat; không viết lại thông điệp cũ, system hay tools nếu muốn giữ suy luận. Có thể dùng `WithTurnInstruction`, `WithConversationInstruction` và `CachePreservation.Required`. `WithThinkingBinding` chọn `Error` hoặc `DropBlock`; `LastInputTransformations` cho biết các lần loại bỏ được báo cáo. Drop là loại bỏ suy luận. [Hướng dẫn lịch sử](fable-5-1.md) giải thích các điều khiển chung; mặc định và khả năng tương thích theo quy tắc của Opus 5.5.
+
+Không đặt `ForceFunctionName`; hỗ trợ chọn công cụ thông thường và `FunctionsDisabled`. Prefill assistant bị từ chối và tham số sampling không được gửi. Opus 5.5 không đọc thinking của Fable/Mythos; trên Claude API, Fable 5.1 và Mythos 5.1 đọc được thinking của Opus 5.5. Đổi mô hình có thể làm mất suy luận trước đó. Phần bổ sung này không cung cấp computer toolset gốc, task budget, thay đổi công cụ trong hội thoại, nén phía máy chủ hay fallback máy chủ tự động. [Yêu cầu chuyển đổi](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) · [Phạm vi tính năng gốc](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5).
+
+Với Opus 5.5, sửa trực tiếp nội dung phản hồi assistant đã lưu gây `InvalidOperationException` trước yêu cầu HTTP; `DropBlock` cũng không cho phép viết lại phản hồi có chữ ký. Hãy gửi phần sửa dưới dạng đầu vào người dùng mới hoặc bắt đầu hội thoại mới. Việc sửa nội dung user/system trước đó tuân theo chính sách gắn tiền tố của nhà cung cấp.
+
+Opus 5.5 fast mode dùng được qua [WithSpeed](request-building.md#inference-speed) trên Claude API trực tiếp khi có quyền. Mức suy luận được giữ nguyên và chế độ có phí cao hơn được yêu cầu.
+
 ### Đếm token (API gốc)
 
 `GetInputTokenCountAsync` có trên tất cả provider (xem [Tạo văn bản](completions.md#đếm-token)). Phiên bản Anthropic gọi endpoint `messages/count_tokens` chính thức, trả về **số token chính xác** thay vì ước tính cục bộ:
@@ -240,9 +322,61 @@ string review = await gemini
 
 Dùng `Low` cho lượt xem xét nhẹ và `High` cho phân tích khó; tăng suy luận có thể tăng độ trễ và số token. Cả hai hỗ trợ `Low`, `Medium`, `High`, nhưng không hỗ trợ `Minimal` hay `None`. `GeminiThinkingLevel.Auto` bỏ qua giá trị ghi đè; mặc định của nhà cung cấp cho 3.8 là `Medium`. `ThinkingLevel` đặt cấu hình nền của dịch vụ, còn `WithReasoning(...)` ghi đè cho một yêu cầu logic. Adapter không gửi `temperature`, `topP`, `topK`. Giới hạn của nhà cung cấp là 1.048.576 token đầu vào và 65.536 token đầu ra. [Gemini 3.7 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash), [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash).
 
+<a id="google-image-options"></a>
+
+### Độ phân giải và tỷ lệ theo mô hình ảnh Google
+
+| Mô hình | `Resolutions` | `AspectRatios` |
+| --- | --- | --- |
+| `gemini-3.1-flash-image` | `Auto`, `FiveTwelve` (512), `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 14 + `Auto` |
+| `gemini-3.1-flash-lite-image` | `Auto`, `OneK` (1K) | 14 + `Auto` |
+| `gemini-3-pro-image` | `Auto`, `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 10 + `Auto` |
+
+10 tỷ lệ chuẩn là `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`. Bộ 14 tỷ lệ bổ sung `1:4`, `4:1`, `1:8`, `8:1`. Mọi mô hình cũng cho phép `ImageAspectRatio.Auto`.
+
+Dùng `ImageSize.Auto` hoặc `ImageSize.Preset(resolution, aspectRatio)`. `Auto` bỏ qua trường lựa chọn tương ứng. `GetImageCapabilities(model)` và `GenerateImagesAsync` / `EditImagesAsync` dùng cùng các lựa chọn theo mô hình. Giá trị chỉ định không được hỗ trợ gây `NotSupportedException` trước HTTP; không đổi kích thước hay gửi yêu cầu thay thế. ID mô hình tùy chỉnh chưa rõ giữ `Unknown` và được chuyển nguyên trạng sau khi kiểm tra các tùy chọn chung của nhà cung cấp.
+
+Với Flash-Lite, [trang mô hình](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image) và phần văn bản của hướng dẫn nêu 1K, nhưng [bảng](https://ai.google.dev/gemini-api/docs/generate-content/image-generation#aspect_ratios_and_image_size) cũng có cột 512. Trước khi xác minh khác biệt này, thư viện thận trọng chỉ cho phép 1K; điều này không khẳng định đã quan sát máy chủ từ chối 512.
+
 ---
 
 ## xAI (XAIService)
+
+<a id="grok-47"></a>
+
+### Grok 4.7
+
+Để tạo bản nháp nhanh rồi kiểm tra kỹ mã hoặc tài liệu, chọn Grok 4.7 và điều chỉnh mức suy luận theo từng yêu cầu. Các API trả lời, streaming, Run, công cụ cục bộ, đầu ra có cấu trúc và đầu vào hình ảnh vẫn được dùng như trước. `grok-4.7` nhận văn bản/hình ảnh và trả văn bản, với cửa sổ ngữ cảnh 500.000 token. Tích hợp này cần các bản dựng core và abstractions chưa phát hành tương ứng; gói 8.0.0 / 4.0.0 đã công bố không chứa nó. Mô hình mặc định vẫn là Grok 4.5.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.xAI;
+
+var grok = new XAIService(apiKey, httpClient);
+grok.ChangeModel(AIModels.xAI.Grok4_7);
+grok.WithGrokReasoning(GrokReasoning.Low);
+
+var request = grok.CreateRequest("Review this deployment plan and its rollback risks.")
+    .WithReasoning(ReasoningLevel.XHigh)
+    .WithSpeed(InferenceSpeed.Fast);
+
+await using var run = await request.StartRunAsync();
+await foreach (var content in run.StreamAsync())
+    Console.Write(content.Content);
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (var processing in result.Processing)
+    Console.WriteLine(processing.AppliedSpeed);
+```
+
+Hỗ trợ `Low`, `Medium`, `High` và `XHigh`. `GrokReasoning.Auto` gốc bỏ qua `reasoning_effort`, dùng mặc định `High` của nhà cung cấp; `ReasoningLevel.Auto` chung cũng bỏ qua trường này và dùng mặc định `High` của nhà cung cấp cho yêu cầu đó. `None`, `Minimal` và `Max` bị từ chối trước khi gửi. `WithReasoning(...)` áp dụng cho yêu cầu logic, gồm các vòng công cụ và sửa đầu ra có cấu trúc; `WithGrokReasoning(...)` đặt cấu hình cơ sở. Hồ sơ nội bộ `DisableReasoning` dùng `Low`. Bản tóm tắt suy luận tùy chọn không phải toàn bộ suy luận nội bộ.
+
+`WithSpeed(InferenceSpeed.Standard)` gửi `service_tier: "default"`; `Fast` gửi `"priority"` tới endpoint xAI được hỗ trợ và có thể tốn phí hơn. `ProviderDefault` không ghi đè. Máy chủ có thể hạ xuống xử lý thông thường; đọc cấp được báo cáo trong `result.Processing`. Đây là xử lý ưu tiên của `grok-4.7`, không phải biến thể “Grok 4.7 Fast” dành riêng cho Cursor/Grok Build; biến thể đó không có ID mô hình API công khai.
+
+`GetCapabilities()` mô tả yêu cầu đã chọn tại chỗ, không kiểm tra quyền tài khoản. Tích hợp này dùng Chat Completions. Suy luận mã hóa riêng của Responses, tìm kiếm Web/X lưu trữ, công cụ bất đồng bộ gốc, cập nhật giữ bộ nhớ đệm và `SteerAsync` chưa được kết nối trong lần này. Hàm phía máy khách dùng vòng công cụ cục bộ hiện có; `run.CanSteer` là false.
+
+[Grok 4.7](https://docs.x.ai/developers/grok-4-7) · [reasoning_effort](https://docs.x.ai/developers/model-capabilities/text/reasoning) · [Priority Processing](https://docs.x.ai/developers/advanced-api-usage/priority-processing)
 
 ### Chọn mức suy luận phù hợp với tác vụ
 
@@ -335,7 +469,7 @@ Với xAI, dùng `ImageSize.Auto` hoặc `ImageSize.Preset(ImageResolution.OneK,
 
 xAI chỉ hỗ trợ mặc định chung mới `ImageOutputFormat.Auto`. Không có bộ chọn codec nên `Jpeg`, `Png`, `WebP` chỉ định rõ bị từ chối trước khi gửi. Chọn phần mở rộng theo `GeneratedImage.MediaType`; thư viện không chuyển mã. Chất lượng: `ImageQuality.Auto`, `Low`, `Medium`; nền: chỉ `ImageBackground.Auto`. Không hỗ trợ nén chỉ định hay `Mask` riêng.
 
-Google nhận `ImageSize.Auto` hoặc `Preset` với `ImageResolution.Auto`, `FiveTwelve`, `OneK`, `TwoK`, `FourK`, tùy mô hình. Định dạng: `ImageOutputFormat.Auto` hoặc `Jpeg`; từ chối `Png`/`WebP`. Google và xAI từ chối `Pixels`; OpenAI nhận `Auto`/`Pixels` và từ chối `Preset`. Xem [ví dụ chuyển đổi](#image-options-migration).
+Google nhận `ImageSize.Auto` hoặc `Preset` với độ phân giải và tỷ lệ theo mô hình; xem [Tùy chọn ảnh theo mô hình Google](#google-image-options). Định dạng: `ImageOutputFormat.Auto` hoặc `Jpeg`; từ chối `Png`/`WebP`. Google và xAI từ chối `Pixels`; OpenAI nhận `Auto`/`Pixels` và từ chối `Preset`. Xem [ví dụ chuyển đổi](#image-options-migration).
 
 [Grok Imagine Image 2.0](https://docs.x.ai/developers/models/grok-imagine-image-2.0) · [Image API](https://docs.x.ai/developers/rest-api-reference/inference/images)
 
@@ -344,6 +478,46 @@ Google nhận `ImageSize.Auto` hoặc `Preset` với `ImageResolution.Auto`, `Fi
 ## DeepSeek (DeepSeekService)
 
 Dùng DeepSeek Flash để có câu trả lời nhanh rồi rà soát kỹ hơn, hoặc giải thích biểu đồ và ảnh chụp màn hình. `AIModels.DeepSeek.Flash` (`deepseek-flash`) chọn V4.1 Flash ra mắt ngày 10/9/2026 với thị giác tích hợp. Tiếp tục dùng API completion, streaming, Run, gọi hàm và RAG, từ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0.
+
+> Các gói đã phát hành `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 đã hỗ trợ Flash cơ bản. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, API Files và `DeepSeekImageFileContent` là các bổ sung trong mã nguồn chưa phát hành, cần bản dựng core và abstractions tương thích từ mã nguồn; chúng không có trong các gói đã phát hành này. [Ghi chú thay đổi chưa phát hành](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased).
+
+Chọn `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) cho tác vụ chỉ có văn bản. Flash vẫn là mặc định và hỗ trợ ảnh; cả hai có suy luận Low/High/Max và cùng giới hạn đầu ra. Đặt `UseResponsesApi = true` trước khi tạo yêu cầu để dùng Responses với các API completion, streaming, Run và hàm cục bộ hiện có. Mặc định vẫn là `false` để giữ Chat Completions cho ứng dụng hiện tại; lựa chọn được giữ suốt yêu cầu và các vòng công cụ. Responses gửi lại toàn bộ hội thoại và suy luận gốc thay vì dựa vào ID phản hồi lưu trên máy chủ.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+Tải ảnh lên một lần để tái sử dụng trong nhiều câu hỏi hoặc hội thoại. `UploadFileAsync` nhận đường dẫn hoặc stream do bên gọi sở hữu cùng tên tệp; purpose là `user_data`. JPEG, PNG, GIF và WebP giới hạn 64 MiB. `DeepSeekImageFileContent` tham chiếu ảnh trên Flash bằng cả hai cơ chế truyền; không phải đầu vào PDF/tài liệu và V4 Pro từ chối. Bỏ thời hạn sẽ lưu vĩnh viễn; `expiresAfterSeconds` nhận 3600–2592000 giây. Giữ tệp đến khi mọi hội thoại tham chiếu kết thúc.
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+`GetFileAsync` đọc metadata, `ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` đọc một trang, `DeleteFileAsync` xóa tệp. Khi `HasMore` là true, dùng `LastId` làm `After` tiếp theo; cũng hỗ trợ `Descending`. Không có endpoint tải nội dung tệp được công bố. Chat UI cung cấp Flash và V4 Pro, dùng danh mục hiện tại cho viết lại truy vấn; giá trị cũ `DeepSeekChat` chuyển sang Flash còn ID tùy ý được giữ nguyên.
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -372,7 +546,7 @@ string review = (await run.Result).Text;
 
 `ThinkingEnabled` vẫn mặc định là `false`. `WithDeepSeekReasoning(...)` bật suy luận và đặt `ReasoningEffort` lâu dài (`Auto`, `Low`, `High`, `Max`); `Auto` này bỏ effort để dùng mặc định nhà cung cấp `High`. `WithReasoning(...)` chung chỉ áp dụng cho một yêu cầu logic cùng các vòng công cụ: `None` tắt, `Minimal`/`Low` → `Low`, `Medium`/`High`/`XHigh` → `High`, `Max` → `Max`. `Auto` chung giữ cấu hình hiện tại. Tăng suy luận có thể tăng độ trễ và token. Chỉ đổi `ReasoningEffort` không bật suy luận.
 
-Đăng ký hàm cục bộ bằng `WithFunction(...)` để truy vấn dữ liệu hoặc hành động qua mã của bạn. Công cụ hoạt động khi bật hoặc tắt suy luận; khi bật, lựa chọn công cụ bắt buộc/cưỡng chế bị từ chối nên dùng tự động. Bộ điều hợp giữ `reasoning_content` và ID gọi cho các vòng sau. Run và streaming cung cấp `StreamingContentType.Reasoning` khi bật `StreamOptions.WithReasoning()`; tùy chọn quan sát không tự bật suy luận. Thống kê gồm cache và suy luận nếu nhà cung cấp báo cáo. Khôi phục ngữ cảnh tự động dùng vòng streaming chung. Khi công cụ cần lịch sử suy luận gốc trước đó, việc nén tự động bị chặn để giữ lịch sử và lỗi vượt ngữ cảnh vẫn được trả về.
+Đăng ký hàm cục bộ bằng `WithFunction(...)` để truy vấn dữ liệu hoặc hành động qua mã của bạn. Công cụ hoạt động khi bật hoặc tắt suy luận. Chat Completions từ chối chọn công cụ bắt buộc/cưỡng chế khi suy luận; hãy dùng lựa chọn tự động với cơ chế này. Khi `UseResponsesApi = true`, có thể chỉ định hàm bằng `ForceFunctionName` ngay cả khi suy luận; bộ điều hợp đặt `type` và `name` trực tiếp trong `tool_choice` của Responses. Điều này không bật công cụ bất đồng bộ gốc. Bộ điều hợp giữ `reasoning_content` và ID gọi cho các vòng sau. Run và streaming cung cấp `StreamingContentType.Reasoning` khi bật `StreamOptions.WithReasoning()`; tùy chọn quan sát không tự bật suy luận. Thống kê gồm cache và suy luận nếu nhà cung cấp báo cáo. Khôi phục ngữ cảnh tự động dùng vòng streaming chung. Khi công cụ cần lịch sử suy luận gốc trước đó, việc nén tự động bị chặn để giữ lịch sử và lỗi vượt ngữ cảnh vẫn được trả về.
 
 Gửi biểu đồ hoặc ảnh chụp qua các kiểu thông điệp hiện có:
 
@@ -387,9 +561,9 @@ var message = new Message(ActorRole.User, new List<MessageContent>
 string description = await deepseek.GetCompletionAsync(message);
 ```
 
-`ImageContent` nhận byte JPEG, PNG, GIF, WebP hoặc URL HTTP(S) công khai do nhà cung cấp tải. Ví dụ dùng thông điệp người dùng. API hiện tại cũng nhận ảnh trong thông điệp công cụ, nhưng handler đăng ký vẫn trả văn bản qua hợp đồng chung. Thông điệp ảnh `ActorRole.Function` tự tạo phải có ID tương ứng trong `MessageMetadataKeys.FunctionId` (`tool_call_id` khi truyền). Xem giới hạn kích thước và tổng dung lượng trong hướng dẫn thị giác hiện hành. Không tích hợp `file_id`, Files API hay tạo ảnh.
+`ImageContent` nhận byte JPEG, PNG, GIF, WebP hoặc URL HTTP(S) công khai do nhà cung cấp tải. Ví dụ dùng thông điệp người dùng. API hiện tại cũng nhận ảnh trong thông điệp công cụ, nhưng handler đăng ký vẫn trả văn bản qua hợp đồng chung. Thông điệp ảnh `ActorRole.Function` tự tạo phải có ID tương ứng trong `MessageMetadataKeys.FunctionId` (`tool_call_id` khi truyền). Xem giới hạn kích thước và tổng dung lượng trong hướng dẫn thị giác hiện hành. Tạo ảnh vẫn chưa được hỗ trợ.
 
-Nhà cung cấp công bố ngữ cảnh 1M và tối đa 384K (`393216`) token đầu ra; ngân sách mặc định vẫn là 8.000. Khi suy luận, bỏ temperature/penalty và `top_p` ít nhất 0,95; không suy luận thì bỏ `top_p`. Bộ điều hợp dùng Chat Completions. Không tích hợp Responses, tìm kiếm do nhà cung cấp lưu trữ, `CachePreservation.Required`, công cụ bất đồng bộ gốc hay `SteerAsync`. RAG cục bộ và vòng công cụ thông thường vẫn dùng được.
+Cả hai có ngữ cảnh 1M và tối đa 384K (`393216`) token đầu ra; ngân sách mặc định vẫn là 8.000. Khi suy luận, bỏ temperature/penalty và `top_p` ít nhất 0,95; khi tắt thì bỏ `top_p`. Responses dùng API đầu ra có kiểu hiện có cho JSON schema gốc. Không hỗ trợ chạy nền, `store`/`previous_response_id` trên máy chủ, tìm kiếm lưu trữ, `CachePreservation.Required`, công cụ bất đồng bộ gốc, `SteerAsync` hay tạo ảnh. RAG cục bộ và vòng công cụ thông thường vẫn dùng được.
 
 `V4Flash`, `Chat`, `Reasoner` vẫn là hằng obsolete chỉ cảnh báo, giữ wire ID gốc. Nhà cung cấp tạm chuyển alias đã ngừng `deepseek-v4-flash` sang V4.1 Flash; thư viện không viết lại hằng. Mã mới nên chọn `Flash`. `UseReasonerModel()` chọn Flash và suy luận `High`.
 

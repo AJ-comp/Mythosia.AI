@@ -1,6 +1,8 @@
 # Query-Umschreibung
 
-> 📍 **Fragen & Antworten Pipeline:** **`Query-Umschreibung`** → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → Kontextaufbau
+> 📍 **Fragen & Antworten Pipeline:** **`Query-Umschreibung`** → Filtering → Embedding (bei Bedarf) → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → Kontextaufbau
+
+Die Anfragephase `Embedding` hängt nun vom Retriever ab; Stichwortsuche meldet sie nicht. Eigene Retriever können passende Phasen über `request.ProgressAsync` melden. Dokument-Embeddings bleiben unverändert.
 
 ## Warum Query-Umschreibung?
 
@@ -44,6 +46,12 @@ var result = await store.QueryAsync(
 ```
 
 Der Rewriter sieht den vollständigen Verlauf und schreibt „Gibt es dazu Ausnahmen?" in etwas wie „Ausnahmen von der Nicht-Rückgabe-Regel für digitale Produkte" um, was deutlich bessere Retrieval-Ergebnisse liefert.
+
+<a id="runtime-query-rewriter"></a>
+
+## Umschreibung während laufender Abfragen ändern
+
+Mit `store.SetQueryRewriter(null)` oder `store.SetQueryRewriter(rewriter)` können Sie die Umschreibung vorübergehend deaktivieren oder ihre Implementierung wechseln, ohne den Index neu aufzubauen. Ein direkter Aufruf der Überladung von `RagStore.QueryAsync`, die `conversationHistory` akzeptiert, hält den zu Abfragebeginn ausgewählten Rewriter fest. Wird er während einer ausstehenden Fortschrittsmeldung oder Umschreibung deaktiviert oder ersetzt, verwendet diese Abfrage weiterhin dieselbe Instanz; spätere Abfragen nutzen die neue Einstellung. Dies gilt für direkte Store-Abfragen und aktualisiert keinen Rewriter, den ein `RagEnabledService`-Wrapper bereits übernommen hat.
 
 ## Wie das Such-Gate funktioniert
 

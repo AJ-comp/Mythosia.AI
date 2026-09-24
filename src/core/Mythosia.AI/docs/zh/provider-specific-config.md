@@ -1,5 +1,7 @@
 # 提供商特有配置架构
 
+> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#gpt-6-sol-luna)。
+
 需要同时获取完整答案、用量和来源时，使用 `await run.Result` 返回的 `AIRunResult`，字符串位于 `result.Text`，无需读取流。这是 Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 的 API 变更；`GetCompletionAsync` 与 `StructuredStreamRun<T>.Result` 的返回类型保持不变。 [Run 结果与迁移](../../../../../docs/zh-Hans/execution-api-transition.md#run-result).
 
 
@@ -19,7 +21,7 @@
 | **提供商特有** | 各服务类 | ThinkingLevel/ThinkingBudget (Gemini), ReasoningEffort (GPT) 等 |
 | **每个函数的执行许可** | `FunctionDefinition` | `AllowAsync`（默认为 `false`） |
 
-`AllowAsync` 是调用方选择的许可，模型和 API 是否支持则由服务在内部判断。`FunctionBuilder.WithAsync()` 和 `[AiFunction("lookup", "查询数据", AllowAsync = true)]` 也可开启同一许可。GPT-6 Astra 通过 Responses 使用此选项；不支持的模型会省略 API 选项并等待同一个处理器的结果，不会修改已设置的许可。
+`AllowAsync` 是调用方选择的许可，模型和 API 是否支持则由服务在内部判断。`FunctionBuilder.WithAsync()` 和 `[AiFunction("lookup", "查询数据", AllowAsync = true)]` 也可开启同一许可。GPT-6 Astra / Sol / Luna 通过 Responses 使用此选项；不支持的模型会省略 API 选项并等待同一个处理器的结果，不会修改已设置的许可。
 
 ## 当前实现: 服务级别
 
@@ -100,11 +102,53 @@ await File.WriteAllBytesAsync("pavilion" + extension, image.Data);
 
 xAI仅支持新的共用默认值`ImageOutputFormat.Auto`。它无法选择输出编码，因此显式`Jpeg`、`Png`、`WebP`会在发送前拒绝。请按`GeneratedImage.MediaType`选择扩展名，库不会转码。质量支持`ImageQuality.Auto`、`Low`、`Medium`，背景仅支持`ImageBackground.Auto`；不支持显式压缩或单独的`Mask`。
 
-Google使用`ImageSize.Auto`或模型支持的`ImageResolution.Auto`、`FiveTwelve`、`OneK`、`TwoK`、`FourK`的`Preset`。输出支持`ImageOutputFormat.Auto`或显式`Jpeg`，拒绝`Png`/`WebP`。Google和xAI拒绝`Pixels`，OpenAI支持`Auto`/`Pixels`并拒绝`Preset`。参见[迁移示例](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#image-options-migration)。
+Google 使用 `ImageSize.Auto` 或模型专属分辨率和比例的 `Preset`。[Google 模型专属图像选项](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#google-image-options).输出支持`ImageOutputFormat.Auto`或显式`Jpeg`，拒绝`Png`/`WebP`。Google和xAI拒绝`Pixels`，OpenAI支持`Auto`/`Pixels`并拒绝`Preset`。参见[迁移示例](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#image-options-migration)。
+
+Google 的 `Resolutions` 和 `AspectRatios` 取决于所选图像模型，也用于生成和编辑验证。请参阅[模型专属表格](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#google-image-options)，其中包含 Flash-Lite 的保守 1K 策略。不支持的显式值在 HTTP 前拒绝；未知自定义模型保持 `Unknown` 和提供方通用选项验证。
 
 ### DeepSeek Flash
 
 需要快速回答后深入审查，或解释图表、截图时，可使用 DeepSeek Flash。`AIModels.DeepSeek.Flash` (`deepseek-flash`) 选择2026年9月10日发布、原生支持视觉理解的 V4.1 Flash。沿用补全、流式、Run、函数调用和 RAG API，从 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 起支持。
+
+> 已发布的 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 已包含 Flash 基础支持。`AIModels.DeepSeek.V4Pro`、`UseResponsesApi`、Files API 和 `DeepSeekImageFileContent` 是源码中尚未发布的新增功能，需要从源码构建相互匹配的核心与抽象包；上述已发布包不包含这些功能。[未发布的更新说明](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased)。
+
+纯文本任务可选择 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)。默认模型 Flash 支持图像，两者均提供 Low/High/Max 推理和相同输出上限。若要通过现有补全、流式、Run 和本地函数 API 使用 Responses，请在创建请求前设置 `UseResponsesApi = true`。默认仍为 `false`，以保留现有应用的 Chat Completions 行为；设置会固定到该请求及后续工具轮次。Responses 重发完整对话和原始推理历史，不依赖服务器保存的响应 ID。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+同一图像需要用于多个问题或对话时，可先上传一次。`UploadFileAsync` 接受路径，或调用方拥有的流和文件名；purpose 固定为 `user_data`。JPEG、PNG、GIF、WebP 上传上限为 64 MiB。`DeepSeekImageFileContent` 在两种传输方式的 Flash 中引用该图像，不是 PDF 或文档输入，V4 Pro 会拒绝。省略过期时间表示永久保留，`expiresAfterSeconds` 范围为 3600–2592000 秒。请在所有引用它的对话结束后再删除文件。
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+`GetFileAsync` 查询元数据；`ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` 获取一页；`DeleteFileAsync` 删除文件。`HasMore` 为 true 时将返回的 `LastId` 用作下一页 `After`，也可使用 `Descending`。官方文档未列出文件内容下载端点。Chat UI 提供 Flash 和 V4 Pro，重写模型选择器使用当前目录；旧保存值 `DeepSeekChat` 迁移为 Flash，任意模型 ID 保持不变。
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -133,9 +177,9 @@ string review = (await run.Result).Text;
 
 库的 `ThinkingEnabled` 默认仍为 `false`。`WithDeepSeekReasoning(...)` 开启推理并设置持续生效的 `ReasoningEffort` (`Auto`, `Low`, `High`, `Max`)；原生 `Auto` 省略 effort，使用提供方默认 `High`。共用 `WithReasoning(...)` 仅覆盖一个逻辑请求及工具轮次：`None` 关闭推理，`Minimal`/`Low` 映射到 `Low`，`Medium`/`High`/`XHigh` 映射到 `High`，`Max` 映射到 `Max`。共用 `Auto` 保留当前默认配置。增加推理可能提高响应时间和令牌用量。 仅修改 `ReasoningEffort` 属性不会开启推理。
 
-通过 `WithFunction(...)` 注册本地函数，让模型通过应用代码查询数据或执行操作。推理与非推理均支持工具，但推理模式拒绝强制/必选工具，应使用自动选择。适配器保留原生 `reasoning_content` 和调用 ID，供后续工具轮次重放。Run 与原有流式 API 在启用 `StreamOptions.WithReasoning()` 后通过 `StreamingContentType.Reasoning` 输出推理；观察选项本身不会开启推理。用量包含提供方报告的缓存和推理令牌。 自动上下文恢复使用共用流式循环。工具需要此前的原生推理历史时，为保留历史会阻止自动压缩，并传递超限错误。
+通过 `WithFunction(...)` 注册本地函数，让模型通过应用代码查询数据或执行操作。推理与非推理均支持工具。Chat Completions 在推理时拒绝强制/必选工具，应使用自动选择。设置 `UseResponsesApi = true` 后，推理时也可通过 `ForceFunctionName` 指定函数；适配器将 `type` 和 `name` 直接放在 Responses 的 `tool_choice` 中。这不会启用原生异步工具。适配器保留原生 `reasoning_content` 和调用 ID，供后续工具轮次重放。Run 与原有流式 API 在启用 `StreamOptions.WithReasoning()` 后通过 `StreamingContentType.Reasoning` 输出推理；观察选项本身不会开启推理。用量包含提供方报告的缓存和推理令牌。 自动上下文恢复使用共用流式循环。工具需要此前的原生推理历史时，为保留历史会阻止自动压缩，并传递超限错误。
 
-提供方标示上下文1M、输出最多384K (`393216`)令牌；库默认请求预算仍为8,000。推理模式省略 temperature/penalty，`top_p` 至少0.95；非推理模式省略 `top_p`。适配器使用 Chat Completions，未集成 Responses、托管搜索、`CachePreservation.Required`、原生异步工具或 `SteerAsync`。本地 RAG 和普通工具轮次仍可使用。
+两种模型均提供 1M 上下文和最多 384K (`393216`) 输出令牌，默认请求预算仍为 8,000。推理模式省略 temperature/penalty，`top_p` 至少 0.95；非推理模式省略 `top_p`。Responses 的原生 JSON schema 使用现有类型化输出 API。不支持后台执行、服务器 `store`/`previous_response_id`、托管搜索、`CachePreservation.Required`、原生异步工具、`SteerAsync` 或图像生成。本地 RAG 和普通工具轮次仍可使用。
 
 ### Perplexity Agent API
 

@@ -1,5 +1,7 @@
 # Function Calling
 
+> GPT-6 Sol/Luna เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ ดู[การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+
 หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
 
 ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
@@ -288,7 +290,7 @@ var answer = await service.GetCompletionAsync(
     "ตรวจสอบสภาพอากาศตัวอย่างของโซล ระหว่างรอให้แนะนำของจำเป็นสำหรับการเดินทางสามอย่าง");
 ```
 
-Mythosia ส่ง `async: true` สำหรับ GPT-6 Astra ผ่าน Responses API หากโมเดลหรือ API ไม่รองรับ จะไม่ส่งฟิลด์นี้และรอผลจาก handler เดิม โดยไม่เปลี่ยนค่า `AllowAsync` ผู้ให้บริการต้องระบุว่าการเรียกจริงเป็นแบบอะซิงโครนัสด้วย (`FunctionCall.IsAsync`) การเปิดสิทธิ์จึงไม่ได้รับประกันว่าจะทำงานแบบอะซิงโครนัสเสมอ
+Mythosia ส่ง `async: true` สำหรับ GPT-6 Astra / Sol / Luna ผ่าน Responses API หากโมเดลหรือ API ไม่รองรับ จะไม่ส่งฟิลด์นี้และรอผลจาก handler เดิม โดยไม่เปลี่ยนค่า `AllowAsync` ผู้ให้บริการต้องระบุว่าการเรียกจริงเป็นแบบอะซิงโครนัสด้วย (`FunctionCall.IsAsync`) การเปิดสิทธิ์จึงไม่ได้รับประกันว่าจะทำงานแบบอะซิงโครนัสเสมอ
 
 `WithFunctionAsync` ใช้ลงทะเบียน handler แบบอะซิงโครนัสของ .NET ส่วน `FunctionExecutionMode.Parallel` ควบคุมการทำงานของ handler ในแอป ทั้งสองอย่างไม่เปิดสิทธิ์นี้โดยอัตโนมัติ `AllowAsync` อนุญาตให้โมเดลทำงานต่อก่อนที่ผลของฟังก์ชันจะมาถึง `FunctionExecutionMode` ยังคงควบคุมการเรียกทั่วไป งานอะซิงโครนัสที่อนุญาตอาจทำงานซ้อนกันได้แม้ในโหมด `Sequential` โดยงานในพูลแยกนี้ใช้ขีดจำกัด `MaxConcurrency` ร่วมกัน
 

@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title description">
+<title id="title">Mythosia.AI package architecture</title>
+<desc id="description">Sixteen packages grouped by responsibility. Core AI and RAG orchestration: Mythosia.AI and Mythosia.AI.Rag. Provider and tool extensions: Mythosia.AI.Providers.Alibaba and Mythosia.AI.Mcp. Independent server management: Mythosia.AI.Serving.Vllm. Document loaders: Mythosia.Documents.Office and Mythosia.Documents.Pdf. Vector stores and search: Mythosia.VectorDb.InMemory, Mythosia.VectorDb.Postgres, Mythosia.VectorDb.Qdrant, Mythosia.VectorDb.Pinecone, and the source preview Mythosia.AI.Rag.Search.Pixie. Shared abstractions: Mythosia.AI.Abstractions, Mythosia.AI.Rag.Abstractions, Mythosia.Documents.Abstractions, and Mythosia.VectorDb.Abstractions. Each white or dark card is one package. Group position does not imply a direct dependency; see the README dependency diagram for exact references.</desc>
+<g font-family="Segoe UI, Arial, Helvetica, sans-serif">
+<rect x="0" y="0" width="1600" height="1120" rx="20" fill="#FFFFFF" stroke="none"/>
+<text x="48" y="75" fill="#172C46" font-size="38" font-weight="650" letter-spacing="-1">Mythosia.AI</text>
+<text x="1552" y="72" fill="#68788E" font-size="19" font-weight="600" text-anchor="end" letter-spacing="2">PACKAGE ARCHITECTURE</text>
+<rect x="48" y="122" width="1504" height="150" rx="14" fill="#F0F5FC" stroke="none"/>
+<text x="72" y="159" fill="#4D6FA5" font-size="20" font-weight="600" letter-spacing=".5">Core AI &amp; orchestration</text>
+<g data-package="Mythosia.AI">
+<rect x="72" y="180" width="716" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="94" y="225" fill="#172C46" font-size="32" font-weight="650" letter-spacing="-.35">Mythosia.AI</text>
+</g>
+<g data-package="Mythosia.AI.Rag">
+<rect x="812" y="180" width="716" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="834" y="225" fill="#172C46" font-size="32" font-weight="650" letter-spacing="-.35">Mythosia.AI.Rag</text>
+</g>
+<rect x="48" y="296" width="992" height="150" rx="14" fill="#F5F2FA" stroke="none"/>
+<text x="72" y="333" fill="#7C68A0" font-size="20" font-weight="600" letter-spacing=".5">Provider &amp; tool extensions</text>
+<g data-package="Mythosia.AI.Providers.Alibaba">
+<rect x="72" y="354" width="460" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="94" y="399" fill="#172C46" font-size="26" font-weight="650" letter-spacing="-.35">Mythosia.AI.Providers.Alibaba</text>
+</g>
+<g data-package="Mythosia.AI.Mcp">
+<rect x="556" y="354" width="460" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="578" y="399" fill="#172C46" font-size="28" font-weight="650" letter-spacing="-.35">Mythosia.AI.Mcp</text>
+</g>
+<rect x="1064" y="296" width="488" height="150" rx="14" fill="#FAF6EF" stroke="none"/>
+<text x="1088" y="333" fill="#8C744C" font-size="20" font-weight="600" letter-spacing=".5">Serving / control plane · independent</text>
+<g data-package="Mythosia.AI.Serving.Vllm">
+<rect x="1088" y="354" width="440" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="1110" y="399" fill="#172C46" font-size="27" font-weight="650" letter-spacing="-.35">Mythosia.AI.Serving.Vllm</text>
+</g>
+<rect x="48" y="470" width="488" height="322" rx="14" fill="#F3F5F8" stroke="none"/>
+<text x="72" y="507" fill="#66758D" font-size="20" font-weight="600" letter-spacing=".5">Document loaders</text>
+<g data-package="Mythosia.Documents.Office">
+<rect x="72" y="552" width="440" height="80" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="94" y="602" fill="#172C46" font-size="27" font-weight="650" letter-spacing="-.35">Mythosia.Documents.Office</text>
+</g>
+<g data-package="Mythosia.Documents.Pdf">
+<rect x="72" y="668" width="440" height="80" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="94" y="718" fill="#172C46" font-size="27" font-weight="650" letter-spacing="-.35">Mythosia.Documents.Pdf</text>
+</g>
+<rect x="560" y="470" width="992" height="322" rx="14" fill="#F0F7F5" stroke="none"/>
+<text x="584" y="507" fill="#3C7D79" font-size="20" font-weight="600" letter-spacing=".5">Vector stores &amp; search</text>
+<g data-package="Mythosia.VectorDb.InMemory">
+<rect x="584" y="528" width="460" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="606" y="573" fill="#172C46" font-size="26" font-weight="650" letter-spacing="-.35">Mythosia.VectorDb.InMemory</text>
+</g>
+<g data-package="Mythosia.VectorDb.Postgres">
+<rect x="1068" y="528" width="460" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="1090" y="573" fill="#172C46" font-size="26" font-weight="650" letter-spacing="-.35">Mythosia.VectorDb.Postgres</text>
+</g>
+<g data-package="Mythosia.VectorDb.Qdrant">
+<rect x="584" y="614" width="460" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="606" y="659" fill="#172C46" font-size="26" font-weight="650" letter-spacing="-.35">Mythosia.VectorDb.Qdrant</text>
+</g>
+<g data-package="Mythosia.VectorDb.Pinecone">
+<rect x="1068" y="614" width="460" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="1090" y="659" fill="#172C46" font-size="26" font-weight="650" letter-spacing="-.35">Mythosia.VectorDb.Pinecone</text>
+</g>
+<g data-package="Mythosia.AI.Rag.Search.Pixie">
+<rect x="584" y="700" width="944" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="606" y="745" fill="#172C46" font-size="28" font-weight="650" letter-spacing="-.35">Mythosia.AI.Rag.Search.Pixie</text>
+</g>
+<rect x="1361" y="720" width="144" height="30" rx="15" fill="#E6F0EC" stroke="none"/>
+<text x="1433" y="741" fill="#326C60" font-size="17" font-weight="600" text-anchor="middle">Source preview</text>
+<rect x="48" y="816" width="1504" height="238" rx="14" fill="#F3F5F8" stroke="none"/>
+<text x="72" y="853" fill="#66758D" font-size="20" font-weight="600" letter-spacing=".5">Shared abstractions</text>
+<g data-package="Mythosia.AI.Abstractions">
+<rect x="72" y="874" width="716" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="94" y="919" fill="#172C46" font-size="28" font-weight="650" letter-spacing="-.35">Mythosia.AI.Abstractions</text>
+</g>
+<g data-package="Mythosia.AI.Rag.Abstractions">
+<rect x="812" y="874" width="716" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="834" y="919" fill="#172C46" font-size="28" font-weight="650" letter-spacing="-.35">Mythosia.AI.Rag.Abstractions</text>
+</g>
+<g data-package="Mythosia.Documents.Abstractions">
+<rect x="72" y="960" width="716" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="94" y="1005" fill="#172C46" font-size="28" font-weight="650" letter-spacing="-.35">Mythosia.Documents.Abstractions</text>
+</g>
+<g data-package="Mythosia.VectorDb.Abstractions">
+<rect x="812" y="960" width="716" height="70" rx="10" fill="#FFFFFF" stroke="#DCE4EE"/>
+<text x="834" y="1005" fill="#172C46" font-size="28" font-weight="650" letter-spacing="-.35">Mythosia.VectorDb.Abstractions</text>
+</g>
+<text x="48" y="1094" fill="#68788E" font-size="18" font-weight="400" >One card = one package</text>
+<text x="1552" y="1094" fill="#68788E" font-size="18" font-weight="400" text-anchor="end">Grouped by responsibility · dependency details in README</text>
+</g></svg>

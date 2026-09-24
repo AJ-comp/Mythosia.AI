@@ -1,6 +1,8 @@
 # 过滤
 
-> 📍 **问答检索管道：** [查询改写](rag-query-rewriting.md) → [嵌入](rag-embedding.md) → **`过滤`** → [检索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → [上下文构建](rag-context-build.md)
+> 📍 **问答检索管道：** [查询改写](rag-query-rewriting.md) → **`过滤`** → [嵌入（按需）](rag-embedding.md) → [检索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → [上下文构建](rag-context-build.md)
+
+问题的 `Embedding` 阶段按检索器需要执行，关键词搜索不会报告该阶段。自定义检索器可通过 `request.ProgressAsync` 报告实际阶段。文档嵌入不变。
 
 ## 什么是过滤？
 

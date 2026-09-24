@@ -8,10 +8,10 @@
     <Version>1.1.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>PDF document loader. Parses PDF files into DoclingDocument structured models via PdfPig. Font-size based heading detection, bullet/numbered list recognition, spatial paragraph grouping. Supports encrypted PDFs, metadata extraction, and page number headers.</Description>
+    <Description>Load PDF files into DoclingDocument structured models with PdfPig. Supports font-size heading detection, bullet/numbered lists, spatial paragraph grouping, encrypted PDFs, metadata extraction and page headers. File sources use normalized absolute paths for consistent RAG document identity across relative/absolute registrations and separate identities for same-named files in different folders.</Description>
     <PackageTags>Document;DocumentLoader;Pdf;PdfPig</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v1.1.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
+    <PackageReleaseNotes>Unreleased (next version not assigned): Uses normalized absolute file paths as DoclingDocument.Source for stable RAG automatic IDs and separation of same-named files in different folders. Explicit IDs remain unchanged; default citations may show absolute paths. Existing relative-path records are not automatically migrated or removed; delete only identified old document IDs before reindexing, or rebuild a complete source set into a new collection. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/loaders/Mythosia.Documents.Pdf/RELEASE_NOTES.md#unreleased. Previous version notes: v1.1.1: Recompiled against Mythosia.Documents.Abstractions 1.1.0 (pluggable table serialization).
 v1.1.0: Structured extraction — font-size heading detection, bullet/numbered list recognition, spatial paragraph grouping. Direct metadata access (reflection removed). NormalizeWhitespace preserves newlines. Fallback for PDFs with no extractable words.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>

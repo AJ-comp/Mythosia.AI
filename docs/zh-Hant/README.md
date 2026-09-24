@@ -27,6 +27,14 @@
 
 </div>
 
+TXT 與 Markdown 應依文件結構選擇[規則式分割器](text-splitters.md)。實作會檢查大小、重疊與 Unicode 邊界，並保留 Markdown 標題、程式碼區塊及表格列。字元或單字數量不等於模型 token 上限。 表格條件與程式碼縮排的含義會保留；Markdown 上下文重複過量時會明確擲出例外並停止。
+
+為避免索引看似成功卻覆寫區塊或關聯錯誤向量，[索引驗證](rag-pipeline.md#indexing-validation)會在持久化前拒絕無效 ID 和嵌入批次。自訂分割器必須提供唯一 ID 並繼承文件中繼資料。
+
+穩定的[檔案識別](document-loaders.md#file-source-identity)、[問題向量驗證](rag-embedding.md#query-embedding-validation)及[文件單位持久化與 URL 取消](rag-pipeline.md#custom-persistence)可防止重複註冊、無效搜尋與舊區塊殘留。
+
+選用的 `Mythosia.AI.Rag.Search.Pixie` 預覽版可比較本機神經網路稀疏搜尋與既有搜尋。它保留既有稠密嵌入服務，將 PIXIE 索引放在記憶體中，不遷移持久化儲存區，也不自動取代預設搜尋。 [PIXIE 設定與比較指南（英文）](../rag-pixie-search.md).
+
 獨立管理請求設定，停止進行中的工作，並同時取得答案、用量與來源。[v8 升級指南](v8-migration.md)整理了六項架構變更、遷移範例與驗證範圍。
 
 > 本文件對應的套件版本: [Mythosia.AI 8.0.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
@@ -49,10 +57,23 @@ dotnet add package Mythosia.VectorDb.Postgres     # 可選：需要正式環境�
 
 使用`CreateRequest(...).WithTemperature(...).GetCompletionAsync()`準備獨立請求，不改變其他請求的設定。[請求設定指南](request-building.md)包含Before/After、Run、設定檔與共用對話限制。
 
+對等待時間敏感的請求可選擇[處理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理層級，`Processing` 顯示供應商實際套用的模式。Fast 是受支援組合上的付費選項。
+
 ## 架構
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+  </picture>
+</a>
+
+<details>
+<summary>套件相依關係詳情</summary>
 
 ```mermaid
 graph TD
+    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
         Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
@@ -70,13 +91,17 @@ graph TD
         VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
+    subgraph "🧩 Tool Integration"
+        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRetrievalStrategy · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
     end
 
     subgraph "🗄️ Vector Stores — 選擇一個或多個"
@@ -103,6 +128,7 @@ graph TD
 
     %% Provider packages → core
     Alibaba --> AI
+    Mcp --> AI
 
     %% Composite → Foundation
     RagAbs --> VdbAbs
@@ -113,10 +139,14 @@ graph TD
 
     %% VectorStores → Foundation
     InMem --> VdbAbs
+    InMem --> RagAbs
     Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
+    Pixie --> VdbAbs
 ```
+
+</details>
 
 ## 展示 / 測試平台 (Chat UI)
 
@@ -184,7 +214,7 @@ var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 
 天氣查詢較慢時，模型仍可先介紹不依賴天氣結果的一般旅行用品。模型原生非同步工具呼叫用於在這種等待期間繼續獨立工作；依賴查詢結果的判斷仍應等結果傳回後再進行。
 
-透過 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可選擇允許 GPT-6 Astra 在 Responses API 中非同步呼叫工具。預設值為 `false`；不支援的模型仍等待同一個處理常式的結果。範例與請求生命週期請參見[函式呼叫指南](function-calling.md)。
+透過 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可選擇允許 GPT-6 Astra / Sol / Luna 在 Responses API 中非同步呼叫工具。預設值為 `false`；不支援的模型仍等待同一個處理常式的結果。範例與請求生命週期請參見[函式呼叫指南](function-calling.md)。
 
 如果回答需要最新資訊或文件依據，請參閱[推理與搜尋指南](reasoning-and-search.md)。共用選項可啟用網頁搜尋或現有文件儲存區，並取得回答的來源引用。
 
@@ -246,6 +276,8 @@ policy.LoadSummary(saved);
 
 ### RAG（檢索增強生成）
 
+選擇關鍵字、語意或混合檢索，無需強制每次搜尋產生問題嵌入。[檢索指南](rag-hybrid-search.md)。
+
 ```bash
 dotnet add package Mythosia.AI.Rag
 ```
@@ -264,13 +296,19 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 ## 支援的供應商
 
+> Grok 4.7 是尚未發布的新增功能；請參閱[模型選擇、推理與處理速度](providers.md#grok-47)。
+
+> GPT-6 Sol/Luna 是尚未發布的新增功能。參見[模型選擇與版本需求](providers.md#gpt-6-sol-luna)。
+
+> Claude Opus 5.5 需要配套的未發布 Core 與 Abstractions 組建；請參閱[設定與移轉](providers.md#claude-opus-55)。
+
 | 供應商 | 套件 | 模型 |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (預設), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (預設), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Agent API 預設與 `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 系列 |
 
@@ -284,7 +322,13 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 快速製作視覺草稿可選 Flare，精細修改可選 Sunburst。[GPT Image 2.5 生成與編輯](providers.md#gpt-image-25)透過現有影像 API 為每個請求指定模型；OpenAI 預設仍為 GPT Image 2。
 
+產生或編輯影像時，請透過 [Google 各模型的影像選項](providers.md#google-image-options)選擇有效尺寸。Flash 支援 512/1K/2K/4K，Flash-Lite 目前支援 1K，Pro 支援 1K/2K/4K。Flash/Lite 提供 14 種長寬比，Pro 提供 10 種標準長寬比；全部接受 `Auto`。明確指定不支援的尺寸或長寬比會在 HTTP 請求前遭到拒絕。
+
 圖表和截圖分析、本地函式呼叫、快速回答後的深入審查可使用 [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash)。推理預設關閉，透過 `WithDeepSeekReasoning(...)` 或請求級 `WithReasoning(...)` 開啟。
+
+純文字任務可選擇 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)。預設模型 Flash 支援影像，兩者均提供 Low/High/Max 推理和相同輸出上限。若要透過既有補全、串流、Run 和本機函式 API 使用 Responses，請在建立請求前設定 `UseResponsesApi = true`。預設仍為 `false`，以保留既有應用程式的 Chat Completions 行為；設定會固定到該請求及後續工具輪次。Responses 重送完整對話和原始推理歷史，不依賴伺服器儲存的回應 ID。
+
+使用 `DeepSeekImageFileContent`，可在 Flash 的 Chat Completions 或 Responses 中於多次提問重複使用已上傳影像；僅支援文字的 V4 Pro 會拒絕影像。V4 Pro、Responses 和 Files 新增功能需要配套的未發布 Core 與 Abstractions 組建，已發布的 8.0.0 / 4.0.0 不包含這些功能。請參閱[影像上傳、重複使用與限制](providers.md#deepseek-deepseekservice)。
 
 ## 套件列表
 

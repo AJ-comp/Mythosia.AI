@@ -27,6 +27,14 @@
 
 </div>
 
+Wählen Sie für TXT und Markdown einen [regelbasierten Splitter](text-splitters.md) passend zur Struktur. Größenprüfung, Überlappung und Unicode-Grenzen werden berücksichtigt; Markdown behält Überschriften, Codeblöcke und Tabellenzeilen. Zeichen-/Wortzahlen sind keine Modell-Tokenlimits. Tabellenbedingungen und Code-Einrückungen behalten ihre Bedeutung; übermäßige Markdown-Kontextwiederholung endet mit einer expliziten Ausnahme.
+
+Damit eine scheinbar erfolgreiche Indexierung keine Chunks überschreibt oder falsche Vektoren zuordnet, lehnt die [Indexierungsprüfung](rag-pipeline.md#indexing-validation) ungültige IDs und Embedding-Batches vor dem Speichern ab. Benutzerdefinierte Splitter müssen eindeutige IDs vergeben und Dokumentmetadaten übernehmen.
+
+Stabile [Datei-IDs](document-loaders.md#file-source-identity), geprüfte [Fragevektoren](rag-embedding.md#query-embedding-validation) und [dokumentbezogene Persistenz mit URL-Abbruch](rag-pipeline.md#custom-persistence) verhindern doppelte Registrierung, ungültige Suchen und veraltete Chunks.
+
+Mit der optionalen Vorschau `Mythosia.AI.Rag.Search.Pixie` lässt sich lokale neuronale Sparse-Suche mit der bisherigen Suche vergleichen. Der Anbieter dichter Embeddings bleibt erhalten; PIXIE nutzt einen Index im Arbeitsspeicher. Persistente Speicher werden nicht migriert und die Standardsuche wird nicht ersetzt. [PIXIE einrichten und vergleichen (Englisch)](../rag-pixie-search.md).
+
 Anfragen unabhängig konfigurieren, Arbeit abbrechen und Antworten samt Verbrauch und Quellen erhalten: Der [v8-Umstiegsleitfaden](v8-migration.md) beschreibt sechs Architekturänderungen, Migrationsbeispiele und den Prüfumfang.
 
 > Hier dokumentierte Paketversionen: [Mythosia.AI 8.0.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
@@ -49,10 +57,23 @@ dotnet add package Mythosia.VectorDb.Postgres     # optional: wenn Sie einen pro
 
 Mit `CreateRequest(...).WithTemperature(...).GetCompletionAsync()` bereiten Sie unabhängige Anfrageeinstellungen vor. Der [Anfrageleitfaden](request-building.md) erklärt Before/After, Run, Profile und die Grenzen gemeinsam genutzter Gespräche.
 
+Für zeitkritische Anfragen wählen Sie die [Verarbeitungsgeschwindigkeit](request-building.md#inference-speed). `WithSpeed` behält Modell und Denkaufwand bei; `Processing` meldet den tatsächlich verwendeten Modus. Fast ist für unterstützte Kombinationen kostenpflichtig.
+
 ## Architektur
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+  </picture>
+</a>
+
+<details>
+<summary>Paketabhängigkeiten im Detail</summary>
 
 ```mermaid
 graph TD
+    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
         Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
@@ -70,13 +91,17 @@ graph TD
         VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
+    subgraph "🧩 Tool Integration"
+        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRetrievalStrategy · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
     end
 
     subgraph "🗄️ Vector Stores — einen oder mehrere wählen"
@@ -103,6 +128,7 @@ graph TD
 
     %% Provider packages → core
     Alibaba --> AI
+    Mcp --> AI
 
     %% Composite → Foundation
     RagAbs --> VdbAbs
@@ -113,10 +139,14 @@ graph TD
 
     %% VectorStores → Foundation
     InMem --> VdbAbs
+    InMem --> RagAbs
     Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
+    Pixie --> VdbAbs
 ```
+
+</details>
 
 ## Demo / Testumgebung (Chat UI)
 
@@ -186,7 +216,7 @@ var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 
 Eine langsame Abfrage muss die Antwort nicht vollständig anhalten. Während etwa Wetterdaten geladen werden, kann das Modell bereits allgemeine Reisetipps formulieren, die nicht vom Ergebnis abhängen.
 
-Mit `FunctionDefinition.AllowAsync = true` oder `FunctionBuilder.WithAsync()` erlaubst du GPT-6 Astra über Responses asynchrone Tool-Aufrufe. Standard ist `false`; nicht unterstützte Modelle warten auf das Ergebnis desselben Handlers. Beispiele und Details zur Lebensdauer des Requests stehen im [Leitfaden für Funktionsaufrufe](function-calling.md).
+Mit `FunctionDefinition.AllowAsync = true` oder `FunctionBuilder.WithAsync()` erlaubst du GPT-6 Astra / Sol / Luna über Responses asynchrone Tool-Aufrufe. Standard ist `false`; nicht unterstützte Modelle warten auf das Ergebnis desselben Handlers. Beispiele und Details zur Lebensdauer des Requests stehen im [Leitfaden für Funktionsaufrufe](function-calling.md).
 
 ### Strukturierte Ausgabe (einfach)
 
@@ -246,6 +276,8 @@ policy.LoadSummary(saved);
 
 ### RAG (Retrieval-Augmented Generation)
 
+Stichwort-, semantische oder Hybridsuche wählen, ohne jeder Suche Anfrage-Embeddings vorzuschreiben. [Suchleitfaden](rag-hybrid-search.md).
+
 ```bash
 dotnet add package Mythosia.AI.Rag
 ```
@@ -264,13 +296,19 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 ## Unterstützte Anbieter
 
+> Grok 4.7 ist eine noch unveröffentlichte Ergänzung; siehe [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47).
+
+> GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
+
+> Claude Opus 5.5 benötigt zueinander passende, noch unveröffentlichte Builds von Core und Abstractions; siehe [Konfiguration und Migration](providers.md#claude-opus-55).
+
 | Anbieter | Paket | Modelle |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (Standard), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (Standard), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Agent-API-Presets und `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 Varianten |
 
@@ -284,7 +322,13 @@ Für Bildentwürfe oder kombinierte Referenzen verwenden Sie [Grok Imagine Image
 
 Für schnelle Bildentwürfe eignet sich Flare, für präzise Änderungen Sunburst. [GPT Image 2.5 erzeugen und bearbeiten](providers.md#gpt-image-25) nutzt die bestehende Bild-API mit expliziter Modellauswahl je Anfrage; OpenAI bleibt standardmäßig bei GPT Image 2.
 
+Für gültige Größen bei Bilderzeugung und -bearbeitung beachten Sie die [Google-Bildoptionen je Modell](providers.md#google-image-options): Flash unterstützt 512/1K/2K/4K, Flash-Lite derzeit 1K und Pro 1K/2K/4K. Flash/Lite bieten 14 Seitenverhältnisse, Pro die 10 Standardverhältnisse; alle erlauben `Auto`. Explizit angegebene, nicht unterstützte Größen oder Verhältnisse werden vor dem HTTP-Aufruf abgelehnt.
+
 Für Diagramme, Screenshots, lokale Tool-Aufrufe oder gründliche Prüfung nach einer schnellen Antwort nutze [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Reasoning bleibt standardmäßig aus; aktiviere es mit `WithDeepSeekReasoning(...)` oder `WithReasoning(...)` je Anfrage.
+
+Für reine Textaufgaben steht `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) bereit. Flash bleibt Standard und unterstützt Bilder; beide bieten Low/High/Max-Reasoning und dieselbe Ausgabegrenze. Mit `UseResponsesApi = true` vor dem Erstellen einer Anfrage verwenden die bestehenden Completion-, Streaming-, Run- und lokalen Funktions-APIs Responses. Der Standard bleibt `false`, damit bestehende Anwendungen Chat Completions behalten. Die Wahl wird für die Anfrage samt Tool-Runden festgehalten. Responses überträgt den gesamten Gesprächs- und ursprünglichen Reasoning-Verlauf erneut, ohne gespeicherte Antwort-IDs vorauszusetzen.
+
+Verwenden Sie ein hochgeladenes Bild mit `DeepSeekImageFileContent` für mehrere Fragen an Flash über Chat Completions oder Responses. Das reine Textmodell V4 Pro lehnt Bilder ab. Die Ergänzungen V4 Pro, Responses und Files benötigen zueinander passende, noch unveröffentlichte Builds von Core und Abstractions und fehlen in den veröffentlichten Versionen 8.0.0 / 4.0.0. Siehe [Bild-Uploads, Wiederverwendung und Grenzen](providers.md#deepseek-deepseekservice).
 
 ## Pakete
 

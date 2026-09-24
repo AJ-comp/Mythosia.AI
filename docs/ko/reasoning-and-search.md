@@ -1,5 +1,11 @@
 # 추론 깊이를 조절하고 출처로 답변 보완하기
 
+> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+
+> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+
+[Claude Opus 5.5](providers.md#claude-opus-55)는 미배포 추가 기능입니다. 추론은 항상 켜져 있고 기본 effort는 medium, 표시는 생략입니다. 읽을 수 있는 진행 안내는 명시적으로 요청하세요. 기본값과 모델 binding 규칙은 Fable 5.1과 다릅니다.
+
 요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
 
 > 이 API는 `Mythosia.AI` 7.1.0 이상에서 사용할 수 있으며, `Mythosia.AI.Abstractions` 3.1.0 이상이 함께 포함됩니다. RAG 예제는 `Mythosia.AI.Rag` 7.6.0 이상이 필요합니다.
@@ -7,6 +13,8 @@
 > `CreateRequest` 예제는 현재 작업 중인 릴리스의 기능입니다. Run과 공통 요청 기능이 처음 추가된 이전 7.1 버전에는 빌더가 없습니다. 이전 패키지에서는 기존 서비스 오버로드를 사용하세요.
 
 [Claude Fable 5.1](fable-5-1.md)의 진행 안내, 턴별 지시, thinking binding 진단은 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0부터 제공합니다. Mythos 5.1은 초대 접근이 필요하며, 두 모델 모두 강제 도구 선택을 거부합니다.
+
+사용자가 기다리는 시간을 줄여야 하는 요청에는 [처리 속도](request-building.md#inference-speed)를 선택할 수 있습니다. `WithSpeed`는 모델과 추론 수준을 유지하고, `Processing`은 공급자가 실제 적용한 모드를 보여줍니다. Fast는 지원 조합에서 사용하는 유료 옵션입니다.
 
 ## 이 기능이 왜 필요한가요?
 
@@ -138,11 +146,11 @@ string answer = (await run.Result).Text;
 
 | 연결된 공급자 | 이름 붙은 추론 수준 | 캐시를 유지하는 변경 | 웹 검색 | 파일 검색 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 지원 추론 모델, 수준은 모델별 상이 | GPT-6 Astra Standard·단일 에이전트 모드 | 지원 Responses 모델 | 지원 Responses 모델의 기존 벡터 저장소 |
-| Anthropic | 네이티브 effort 지원 모델 | 지원 Opus 5 / Fable 5.1 / Mythos 5.1, 공급자 베타 사용 | 지원 Claude 모델 | 네이티브 저장소 어댑터 없음, RAG 사용 |
+| OpenAI | 지원 추론 모델, 수준은 모델별 상이 | GPT-6 Astra / Sol / Luna Standard·단일 에이전트 모드 | 지원 Responses 모델 | 지원 Responses 모델의 기존 벡터 저장소 |
+| Anthropic | 네이티브 effort 지원 모델 | 지원 Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1, 공급자 베타 사용 | 지원 Claude 모델 | 네이티브 저장소 어댑터 없음, RAG 사용 |
 | Google | Gemini 3 수준, Gemini 2.5는 기존 예산 속성 유지 | 미지원 | 지원 Gemini 텍스트 모델 | 지원 Gemini 텍스트 모델의 기존 파일 검색 저장소 |
-| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; 제공자 별칭을 원본 Low/High/Max로 매핑 | 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |
+| xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; 제공자 별칭을 원본 Low/High/Max로 매핑 | 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |
 | Perplexity | `Auto` 또는 모델이 지원하는 `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`; Sonar의 명시적 수준은 미지원 | 미지원 | Agent `web_search` | 공통 어댑터 없음 |
 | 그 외 서비스 | 기존 공급자별 설정 사용 가능, 공통 옵션에는 어댑터 필요 | 이번 어댑터 범위에서 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |
 

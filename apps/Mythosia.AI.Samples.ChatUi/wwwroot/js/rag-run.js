@@ -42,7 +42,7 @@ import {
 import { escapeHtml } from './utils.js';
 import { providerKeys } from './state.js';
 import { ragState, setSelectValue, markReferenceStale, setStatusState, setViewCodeEnabled, updateRunState } from './rag-shared.js';
-import { getSelectedEmbeddingProvider } from './rag-embedding.js';
+import { getSelectedEmbeddingProvider, validateOpenAiEmbeddingDimensions } from './rag-embedding.js';
 import { getPipelineSettingsForRequest } from './rag-pipeline.js';
 import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
 import { renderTrace as doRenderTrace, renderLoadingDetails, renderError } from './rag-trace.js';
@@ -114,6 +114,9 @@ export async function runReference() {
     vectorStore = getVectorStoreConfigForRequest();
     if (vectorStore.dimension != null) {
       embeddingDimensions = vectorStore.dimension;
+    }
+    if (provider === 'openai') {
+      validateOpenAiEmbeddingDimensions(embeddingModel, embeddingDimensions);
     }
 
     if (!chunker) throw new Error('Chunker is required.');

@@ -27,6 +27,14 @@
 
 </div>
 
+สำหรับ TXT และ Markdown ให้เลือก[ตัวแบ่งตามกฎ](text-splitters.md) ตามโครงสร้างเอกสาร มีการตรวจขนาด overlap และขอบเขต Unicode พร้อมเก็บหัวข้อ โค้ด และแถวตารางของ Markdown จำนวนอักขระหรือคำไม่ใช่เพดาน token ของโมเดล เงื่อนไขตารางและการเยื้องโค้ดยังคงความหมายเดิม ส่วนการทำซ้ำบริบท Markdown ที่มากเกินไปจะหยุดด้วยข้อยกเว้นที่ชัดเจน
+
+เพื่อไม่ให้การทำดัชนีที่ดูเหมือนสำเร็จเขียนทับชังก์หรือจับคู่เวกเตอร์ผิด [การตรวจสอบดัชนี](rag-pipeline.md#indexing-validation) จะปฏิเสธ ID และ batch embedding ที่ไม่ถูกต้องก่อนบันทึก ตัวแบ่งที่กำหนดเองต้องสร้าง ID ที่ไม่ซ้ำและสืบทอดเมทาดาทาของเอกสาร
+
+[ID ไฟล์ที่คงที่](document-loaders.md#file-source-identity) [การตรวจสอบเวกเตอร์คำถาม](rag-embedding.md#query-embedding-validation) และ[การจัดเก็บรายเอกสารพร้อมยกเลิก URL](rag-pipeline.md#custom-persistence) ช่วยป้องกันการลงทะเบียนซ้ำ การค้นหาที่ผิด และชิ้นข้อมูลเก่าค้างอยู่
+
+แพ็กเกจพรีวิวเสริม `Mythosia.AI.Rag.Search.Pixie` ใช้เปรียบเทียบการค้นหานิวรัลแบบ sparse ในเครื่องกับการค้นหาเดิม โดยคงผู้ให้บริการ dense embedding และเก็บดัชนี PIXIE ในหน่วยความจำ ไม่ย้ายสโตร์ถาวรหรือเปลี่ยนการค้นหาเริ่มต้นโดยอัตโนมัติ [คู่มือเชื่อมต่อและเปรียบเทียบ PIXIE (ภาษาอังกฤษ)](../rag-pixie-search.md).
+
 แยกการตั้งค่าคำขอ หยุดงาน และรับคำตอบพร้อมการใช้โทเค็นและแหล่งที่มา [คู่มือย้ายไป v8](v8-migration.md) รวมการเปลี่ยนสถาปัตยกรรมหกด้าน ตัวอย่าง และขอบเขตการตรวจสอบ
 
 > เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.0.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
@@ -49,10 +57,23 @@ dotnet add package Mythosia.VectorDb.Postgres     # เพิ่มเติม:
 
 เตรียมการตั้งค่าอิสระด้วย `CreateRequest(...).WithTemperature(...).GetCompletionAsync()` ดู Before/After, Run, profile และข้อจำกัดของบทสนทนาร่วมกันใน [คู่มือคำขอ](request-building.md)
 
+คำขอที่ต้องคำนึงถึงเวลารอสามารถเลือก[ความเร็วในการประมวลผล](request-building.md#inference-speed) ได้ `WithSpeed` คงโมเดลและระดับการคิด ส่วน `Processing` รายงานโหมดที่ใช้จริง Fast เป็นตัวเลือกเสียเงินสำหรับการผสมที่รองรับ
+
 ## สถาปัตยกรรม
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+  </picture>
+</a>
+
+<details>
+<summary>รายละเอียดการพึ่งพาของแพ็กเกจ</summary>
 
 ```mermaid
 graph TD
+    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
         Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
@@ -70,13 +91,17 @@ graph TD
         VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
+    subgraph "🧩 Tool Integration"
+        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRetrievalStrategy · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
     end
 
     subgraph "🗄️ Vector Stores — เลือกหนึ่งหรือหลายตัว"
@@ -98,14 +123,19 @@ graph TD
     Rag --> RagAbs
     Rag --> InMem
     Alibaba --> AI
+    Mcp --> AI
     RagAbs --> VdbAbs
     Office --> LoaderAbs
     Pdf --> LoaderAbs
     InMem --> VdbAbs
+    InMem --> RagAbs
     Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
+    Pixie --> VdbAbs
 ```
+
+</details>
 
 ## Demo / ทดสอบ (Chat UI)
 
@@ -173,7 +203,7 @@ var service = new OpenAIService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("อากาศที่กรุงเทพเป็นอย่างไร?");
 ```
 
-หากมีงานที่ทำได้โดยไม่ต้องรอผล เช่น อธิบายของที่ควรเตรียมเดินทางระหว่างเครื่องมือกำลังดึงข้อมูลอากาศ โมเดลสามารถทำส่วนนั้นก่อนได้โดยไม่ต้องหยุดรอทั้งคำตอบ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md)
+หากมีงานที่ทำได้โดยไม่ต้องรอผล เช่น อธิบายของที่ควรเตรียมเดินทางระหว่างเครื่องมือกำลังดึงข้อมูลอากาศ โมเดลสามารถทำส่วนนั้นก่อนได้โดยไม่ต้องหยุดรอทั้งคำตอบ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra / Sol / Luna ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md)
 
 หากคำตอบต้องใช้ข้อมูลใหม่หรือหลักฐานจากเอกสาร ดู[คู่มือการให้เหตุผลและการค้นหา](reasoning-and-search.md) เพื่อเปิดการค้นหาเว็บหรือใช้ที่เก็บเอกสารที่มีอยู่ผ่านตัวเลือกร่วม และรับแหล่งอ้างอิงของคำตอบ
 
@@ -235,6 +265,8 @@ policy.LoadSummary(saved);
 
 ### RAG (Retrieval-Augmented Generation)
 
+เลือกค้นหาคำ ความหมาย หรือ hybrid โดยไม่บังคับ embedding ทุกคำถาม [คู่มือ](rag-hybrid-search.md)
+
 ```bash
 dotnet add package Mythosia.AI.Rag
 ```
@@ -253,13 +285,19 @@ var response = await service.GetCompletionAsync("นโยบายการค�
 
 ## Provider ที่รองรับ
 
+> Grok 4.7 เป็นความสามารถที่ยังไม่เผยแพร่ ดู[การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+
+> GPT-6 Sol/Luna เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ ดู[การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+
+> Claude Opus 5.5 ต้องใช้บิลด์ Core และ Abstractions ที่เข้ากันได้และยังไม่เผยแพร่ ดู[การตั้งค่าและการย้ายมาใช้](providers.md#claude-opus-55)
+
 | Provider | Package | Model |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (ค่าเริ่มต้น), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (ค่าเริ่มต้น), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Preset ของ Agent API และ `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
 
@@ -273,7 +311,13 @@ var response = await service.GetCompletionAsync("นโยบายการค�
 
 เลือก Flare สำหรับภาพร่างที่รวดเร็ว และ Sunburst สำหรับการแก้ไขอย่างแม่นยำ [การสร้างและแก้ไขภาพ GPT Image 2.5](providers.md#gpt-image-25) ใช้ API ภาพเดิมโดยระบุโมเดลต่อคำขอ ค่าเริ่มต้นของ OpenAI ยังคงเป็น GPT Image 2
 
+เลือกขนาดที่ใช้ได้ในการสร้างหรือแก้ไขภาพจาก[ตัวเลือกภาพ Google แยกตามโมเดล](providers.md#google-image-options) Flash รองรับ 512/1K/2K/4K, Flash-Lite รองรับ 1K ในขณะนี้ และ Pro รองรับ 1K/2K/4K โดย Flash/Lite มีอัตราส่วน 14 แบบ ส่วน Pro มี 10 แบบมาตรฐาน ทั้งหมดรับ `Auto` หากระบุขนาดหรืออัตราส่วนที่ไม่รองรับ ระบบจะปฏิเสธก่อนส่ง HTTP
+
 สำหรับวิเคราะห์กราฟ ภาพหน้าจอ เรียกฟังก์ชันภายใน หรือตรวจคำตอบเชิงลึก ใช้ [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash) การใช้เหตุผลปิดโดยค่าเริ่มต้น เปิดด้วย `WithDeepSeekReasoning(...)` หรือ `WithReasoning(...)` ต่อคำขอ
+
+งานข้อความล้วนเลือก `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) ได้ Flash ยังเป็นค่าเริ่มต้นและรองรับภาพ ทั้งสองรองรับเหตุผล Low/High/Max และขีดจำกัดเอาต์พุตเดียวกัน ตั้ง `UseResponsesApi = true` ก่อนสร้างคำขอเพื่อใช้ Responses ผ่าน API completion, streaming, Run และฟังก์ชันภายในเดิม ค่าเริ่มต้นยังเป็น `false` เพื่อคง Chat Completions ของแอปเดิม และจะเก็บตัวเลือกนี้ตลอดคำขอรวมรอบเครื่องมือ Responses ส่งประวัติสนทนาและเหตุผลต้นฉบับทั้งหมดซ้ำ โดยไม่พึ่ง ID คำตอบที่เก็บบนเซิร์ฟเวอร์
+
+ใช้ภาพที่อัปโหลดซ้ำในหลายคำถามกับ Flash ผ่าน `DeepSeekImageFileContent` ได้ทั้ง Chat Completions และ Responses ส่วน V4 Pro รองรับเฉพาะข้อความและปฏิเสธภาพ ส่วนเพิ่ม V4 Pro, Responses และ Files ต้องใช้บิลด์ Core และ Abstractions ที่เข้ากันได้และยังไม่เผยแพร่ โดยไม่มีในรุ่น 8.0.0 / 4.0.0 ที่เผยแพร่แล้ว ดู[การอัปโหลด ใช้ภาพซ้ำ และข้อจำกัด](providers.md#deepseek-deepseekservice)
 
 ## Package ทั้งหมด
 

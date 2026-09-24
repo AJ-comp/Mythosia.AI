@@ -1,5 +1,7 @@
 # Mythosia.AI.Rag.Abstractions
 
+> **Unreleased addition:** `IRagRetriever` and `RagRetrievalRequest` require the pending source builds of this package and RAG; they are not included in the published 6.2.0 package. `IRetrievalStrategy` remains supported. See the [pending release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased).
+
 ## Package Summary
 
 Core interfaces and models for the Mythosia.AI RAG ecosystem.  
@@ -16,13 +18,15 @@ This package defines the contracts that all RAG components implement — you onl
 | `ITextSplitter` | Document → chunks (`Split(RagDocument)`) |
 | `IContextBuilder` | Search results → LLM prompt (`BuildContext(query, results)`) |
 | `IQueryRewriter` | Rewrites queries into retrieval-ready form using conversation history, and decides whether document search is needed (search gate) |
-| `IRetrievalStrategy` | Abstracts retrieval logic — pure vector or hybrid (BM25 + vector + RRF) |
+| `IRagRetriever` | Request-based retrieval without a mandatory query embedding; owns preparation, filtering, limits and cancellation |
+| `IRetrievalStrategy` | Existing dense-input strategy, retained through a compatibility adapter |
 | `IReranker` | Re-ranks search results post-retrieval for improved relevance |
 
 ## Models
 
 | Model | Description |
 | --- | --- |
+| `RagRetrievalRequest` | Read-only `Query`, nullable `TextQuery`, `TopK`, `Filter`, `ProgressAsync`; null lexical override uses the full query in built-in retrievers |
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
 | `RagDocument` | A loaded document with `Id`, `Content`, `Source`, and `Metadata` for the RAG pipeline |
 | `RagProcessedQuery` | Pipeline output: original query, rewritten semantic query, retrieval keywords, `RequestMessageContent`, references, `RetrievalCandidates`, `SearchSkipped`, `RewriteResult`, `HasReferences` flag, and `Diagnostics` |
@@ -56,6 +60,12 @@ Constructing `new RagQueryOptions { FinalFilter = ... }` from scratch silently d
 
 ## Custom Implementation Example
 
+Custom implementations must preserve the association between each document, chunk and vector. A splitter returns non-null chunks with nonblank IDs unique across the target store; include the document ID and chunk index, and copy inherited metadata when access filters depend on it. Indexing rejects blank or duplicate chunk IDs within a document before embedding or persistence and does not invent replacement IDs.
+
+An embedding batch returns exactly one vector per input, in input order, with the provider's positive `Dimensions` and finite values in every coordinate. RAG indexing validates each batch and copies its vectors before asking for another batch. Provider-owned buffers may therefore be reused by a later sequential call; they must remain stable while the caller is reading the current response. A validation failure preserves that document's previous index when it occurs before persistence. See the [indexing validation guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pipeline.md#indexing-validation) for exception types and storage boundaries.
+
+Single query embeddings follow the same dimension and finite-value contract. Built-in vector, hybrid and legacy retrieval adapters validate and copy a completed query vector before invoking retrieval progress callbacks or the store. This keeps a later sequential call from changing an earlier query through a reused provider buffer. Providers must still keep returned data stable while it is being read or copied; custom `IRagRetriever` implementations own their preparation and validation. Keyword-only retrieval does not inspect or call the embedding provider. See [query embedding validation](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md#query-embedding-validation).
+
 ```csharp
 public class MyEmbeddingProvider : IEmbeddingProvider
 {
@@ -79,3 +89,7 @@ Then register via the builder:
 ```csharp
 .WithRag(rag => rag.UseEmbedding(new MyEmbeddingProvider()))
 ```
+
+## Custom retrieval without mandatory embeddings
+
+An external search index should not need a dense query embedding merely to connect to RAG. Implement `IRagRetriever` and register it with `RagBuilder.UseRetriever(...)`. Preparation belongs to the retriever; the rest of the pipeline can still apply reranking and assemble context. Respect the request filter, top-K and cancellation, and return the content and metadata needed downstream. See the [custom retriever guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pipeline.md#custom-retriever). Existing `IRetrievalStrategy` implementations remain supported through an embedding adapter. This changes query retrieval, not the document-ingestion contract.

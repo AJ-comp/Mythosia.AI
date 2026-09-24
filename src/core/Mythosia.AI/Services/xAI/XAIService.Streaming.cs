@@ -15,6 +15,7 @@ namespace Mythosia.AI.Services.xAI
 
             using var doc = JsonDocument.Parse(jsonData);
             var root = doc.RootElement;
+            CaptureProcessing(_speedStreamState.Value?.Observation, root);
 
             if (root.TryGetProperty("error", out var errorElement))
             {
@@ -79,7 +80,7 @@ namespace Mythosia.AI.Services.xAI
             }
 
             // Reasoning summaries emitted by supported xAI Chat Completions models,
-            // including Grok 4.5 and 4.6, arrive as reasoning_content deltas.
+            // including Grok 4.5, 4.6, and 4.7, arrive as reasoning_content deltas.
             if (delta.TryGetProperty("reasoning_content", out var reasoningElem) &&
                 reasoningElem.ValueKind == JsonValueKind.String)
             {

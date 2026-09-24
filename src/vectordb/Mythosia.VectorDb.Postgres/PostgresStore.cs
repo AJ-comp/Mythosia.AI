@@ -16,7 +16,7 @@ namespace Mythosia.VectorDb.Postgres;
 /// Uses a single shared table with a <c>metadata</c> JSONB column for all filtering
 /// including logical isolation via metadata conditions.
 /// </summary>
-public class PostgresStore : IVectorStore, IDisposable
+public class PostgresStore : IVectorStore, ITextSearchStore, IConfigurableHybridSearchStore, IDisposable
 {
     private readonly PostgresOptions _options;
     private readonly string _qualifiedTable;
@@ -229,6 +229,9 @@ WHERE id = ANY(@ids){whereClause}";
         VectorSearchRuntimeOptions? runtimeOptions,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (queryVector == null) throw new ArgumentNullException(nameof(queryVector));
+        if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
         await EnsureSchemaIfNeededAsync(cancellationToken);
 
         var distanceOperator = GetDistanceOperator();
@@ -254,7 +257,7 @@ SELECT id, content, metadata, embedding::text,
        {scoreExpression} AS score
 FROM {_qualifiedTable}
 WHERE 1=1{whereClause}
-ORDER BY embedding {distanceOperator} @q::vector
+ORDER BY embedding {distanceOperator} @q::vector, id COLLATE ""C""
 LIMIT @topK";
 
             cmd.Parameters.AddWithValue("@q", VectorToString(queryVector));
@@ -281,26 +284,94 @@ LIMIT @topK";
 
     #endregion
 
+    /// <summary>
+    /// Searches configured PostgreSQL text indexes without a dense query vector.
+    /// Metadata conditions are applied before candidate selection; MinScore uses the native text score.
+    /// </summary>
+    public async Task<IReadOnlyList<VectorSearchResult>> TextSearchAsync(
+        string query, int topK = 5, VectorFilter? filter = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (query == null) throw new ArgumentNullException(nameof(query));
+        if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
+        if (string.IsNullOrWhiteSpace(query)) return Array.Empty<VectorSearchResult>();
+        await EnsureSchemaIfNeededAsync(cancellationToken);
+        var (whereClause, parameters) = filter != null
+            ? BuildFilterWhere(filter, includeMinScore: false, scoreExpression: string.Empty)
+            : (string.Empty, new List<NpgsqlParameter>());
+        using var conn = await OpenConnectionAsync(cancellationToken);
+        await using var tx = await conn.BeginTransactionAsync(cancellationToken);
+        if (_options.TextSearchMode == TextSearchMode.Trigram)
+        {
+            using var threshold = conn.CreateCommand();
+            threshold.Transaction = tx;
+            threshold.CommandText = "SET LOCAL pg_trgm.word_similarity_threshold = 0.1";
+            await threshold.ExecuteNonQueryAsync(cancellationToken);
+        }
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $@"WITH {BuildTextCandidatesCte(whereClause)}
+SELECT id, content, metadata, embedding, text_score::double precision AS score
+FROM text_candidates
+WHERE text_score >= @minScore
+ORDER BY text_score DESC, id COLLATE ""C""";
+        cmd.Parameters.AddWithValue("@query", NormalizeScriptBoundaries(query));
+        cmd.Parameters.AddWithValue("@candidateTopK", topK);
+        cmd.Parameters.AddWithValue("@minScore", filter?.MinScore ?? double.NegativeInfinity);
+        foreach (var parameter in parameters) cmd.Parameters.Add(parameter);
+        var results = new List<VectorSearchResult>();
+        using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+                results.Add(new VectorSearchResult(ReadRecord(reader), reader.GetDouble(reader.GetOrdinal("score"))));
+        }
+        await tx.CommitAsync(cancellationToken);
+        return results;
+    }
+
     #region IVectorStore — Hybrid Search
 
     /// <summary>
     /// Performs a hybrid search combining dense vector similarity with PostgreSQL full-text search (tsvector/tsquery).
     /// Both searches run in parallel, then results are merged using Reciprocal Rank Fusion (RRF).
     /// </summary>
-    public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
-        float[] denseVector,
-        string query,
-        int topK,
-        VectorFilter? filter = null,
-        CancellationToken cancellationToken = default)
-    {
-        await EnsureSchemaIfNeededAsync(cancellationToken);
+    public Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+        float[] denseVector, string query, int topK,
+        VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        => HybridSearchAsync(denseVector, query, new HybridSearchOptions(), topK, filter, cancellationToken);
 
+    /// <summary>Combines active dense and text searches with normalized weighted reciprocal rank fusion.</summary>
+    public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+        float[] denseVector, string query, HybridSearchOptions options, int topK = 5,
+        VectorFilter? filter = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (options == null) throw new ArgumentNullException(nameof(options));
+        var snapshot = options.Snapshot();
+        var expandedTopK = snapshot.GetCandidateCount(topK);
+        var rrfK = snapshot.RrfK;
+        var vectorWeight = (double)snapshot.VectorWeight;
+        var keywordWeight = 1.0 - vectorWeight;
+
+        // Do not execute or validate an inactive leg, and retain the same fusion
+        // score semantics at endpoint weights as for mixed searches.
+        if (vectorWeight == 0 || keywordWeight == 0)
+        {
+            var candidateFilter = new VectorFilter();
+            if (filter != null) candidateFilter.AppendConditionsFrom(filter);
+            var vectors = vectorWeight > 0
+                ? await SearchAsync(denseVector, expandedTopK, candidateFilter, cancellationToken)
+                : Array.Empty<VectorSearchResult>();
+            var text = keywordWeight > 0
+                ? await TextSearchAsync(query, expandedTopK, candidateFilter, cancellationToken)
+                : Array.Empty<VectorSearchResult>();
+            return HybridSearchFusion.Merge(vectors, text, snapshot, topK, filter?.MinScore);
+        }
+        if (denseVector == null) throw new ArgumentNullException(nameof(denseVector));
+        if (query == null) throw new ArgumentNullException(nameof(query));
+        await EnsureSchemaIfNeededAsync(cancellationToken);
         var distanceOperator = GetDistanceOperator();
-        var expandedTopK = topK * 2;
-        const int rrfK = 60;
-        const float vectorWeight = 0.5f;
-        const float keywordWeight = 0.5f;
 
         var (whereClause, filterParams) = filter != null
             ? BuildFilterWhere(filter, includeMinScore: false, string.Empty)
@@ -328,21 +399,22 @@ LIMIT @topK";
             cmd.Transaction = tx;
             cmd.CommandText = $@"
 WITH vector_candidates AS (
-    SELECT id, content, metadata, embedding::text AS embedding
+    SELECT id, content, metadata, embedding::text AS embedding,
+           embedding {distanceOperator} @q::vector AS distance
     FROM {_qualifiedTable}
     WHERE 1=1{whereClause}
-    ORDER BY embedding {distanceOperator} @q::vector
+    ORDER BY distance, id COLLATE ""C""
     LIMIT @candidateTopK
 ),
 vector_results AS (
     SELECT id, content, metadata, embedding,
-           ROW_NUMBER() OVER () AS rank_idx
+           ROW_NUMBER() OVER (ORDER BY distance, id COLLATE ""C"") AS rank_idx
     FROM vector_candidates
 ),
 {BuildTextCandidatesCte(bm25WhereClause)},
 text_results AS (
     SELECT id, content, metadata, embedding,
-           ROW_NUMBER() OVER (ORDER BY text_score DESC) AS rank_idx
+           ROW_NUMBER() OVER (ORDER BY text_score DESC, id COLLATE ""C"") AS rank_idx
     FROM text_candidates
 ),
 rrf_scores AS (
@@ -355,10 +427,11 @@ rrf_scores AS (
     FROM text_results
 ),
 final_scores AS (
-    SELECT id, SUM(rrf_score) * (@rrfK + 1) AS score
+    SELECT id, SUM(rrf_score) * (@rrfK::double precision + 1) AS score
     FROM rrf_scores
     GROUP BY id
-    ORDER BY score DESC
+    HAVING SUM(rrf_score) * (@rrfK::double precision + 1) >= @minScore
+    ORDER BY score DESC, id COLLATE ""C""
     LIMIT @topK
 ),
 base_records AS (
@@ -370,15 +443,16 @@ SELECT br.id, br.content, br.metadata, br.embedding,
        fs.score
 FROM final_scores fs
 JOIN base_records br ON br.id = fs.id
-ORDER BY fs.score DESC";
+ORDER BY fs.score DESC, br.id COLLATE ""C""";
 
             cmd.Parameters.AddWithValue("@q", VectorToString(denseVector));
-            cmd.Parameters.AddWithValue("@query", query);
+            cmd.Parameters.AddWithValue("@query", NormalizeScriptBoundaries(query));
             cmd.Parameters.AddWithValue("@candidateTopK", expandedTopK);
             cmd.Parameters.AddWithValue("@topK", topK);
             cmd.Parameters.AddWithValue("@rrfK", rrfK);
             cmd.Parameters.AddWithValue("@vectorWeight", vectorWeight);
             cmd.Parameters.AddWithValue("@keywordWeight", keywordWeight);
+            cmd.Parameters.AddWithValue("@minScore", filter?.MinScore ?? double.NegativeInfinity);
 
             foreach (var p in filterParams)
                 cmd.Parameters.Add(p);
@@ -828,7 +902,8 @@ ON CONFLICT (id) DO UPDATE SET
                 break;
 
             case FilterOperator.NotIn:
-                sb.Append($"NOT (metadata->>{pKey} = ANY({pVal}))");
+                // ANY(empty) is false even for NULL, so NOT alone would admit missing keys.
+                sb.Append($"(metadata->>{pKey} IS NOT NULL AND NOT (metadata->>{pKey} = ANY({pVal})))");
                 parameters.Add(new NpgsqlParameter(pKey, mc.Key));
                 parameters.Add(new NpgsqlParameter(pVal, NpgsqlTypes.NpgsqlDbType.Array | NpgsqlTypes.NpgsqlDbType.Text)
                 {
@@ -876,24 +951,31 @@ ON CONFLICT (id) DO UPDATE SET
       AND content IS NOT NULL
       AND length(@query) > 0
       AND @query <% content
-    ORDER BY @query <%> content
+    ORDER BY text_score DESC, id COLLATE ""C""
     LIMIT @candidateTopK
 )";
         }
 
         var cfg = _options.TextSearchConfig;
-        return $@"text_candidates AS (
+        // Parse input with the same text configuration used to index content. Build
+        // an OR query from its already-normalized lexemes, escaping tsquery literals.
+        // Raw punctuation/operators never become tsquery syntax, and stemming runs
+        // once only. Symbol distinction remains the configured PostgreSQL parser's responsibility.
+        return $@"text_query AS (
+    SELECT COALESCE((
+        SELECT string_agg(chr(39) ||
+            replace(replace(term, chr(92), chr(92) || chr(92)), chr(39), chr(39) || chr(39)) ||
+            chr(39), ' | ')
+        FROM unnest(tsvector_to_array(to_tsvector('{cfg}', @query))) AS lexemes(term)
+    ), '')::tsquery AS value
+),
+text_candidates AS (
     SELECT id, content, metadata, embedding::text AS embedding,
-           ts_rank(content_tsv, to_tsquery('{cfg}',
-               regexp_replace(regexp_replace(trim(@query), '[^\w\s]', '', 'g'), '\s+', ' | ', 'g')
-           )) AS text_score
-    FROM {_qualifiedTable}
+           ts_rank(content_tsv, text_query.value) AS text_score
+    FROM {_qualifiedTable} CROSS JOIN text_query
     WHERE 1=1{filterWhereClause}
-      AND length(trim(@query)) > 0
-      AND content_tsv @@ to_tsquery('{cfg}',
-              regexp_replace(regexp_replace(trim(@query), '[^\w\s]', '', 'g'), '\s+', ' | ', 'g')
-          )
-    ORDER BY text_score DESC
+      AND content_tsv @@ text_query.value
+    ORDER BY text_score DESC, id COLLATE ""C""
     LIMIT @candidateTopK
 )";
     }

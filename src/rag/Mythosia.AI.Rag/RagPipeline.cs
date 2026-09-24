@@ -16,13 +16,25 @@ namespace Mythosia.AI.Rag
     /// Coordinates the full pipeline: load ??split ??embed ??store (indexing)
     /// and query ??search ??context build ??LLM call (querying).
     /// </summary>
+    /// <remarks>
+    /// With default persistence, successfully splitting a document into zero chunks clears
+    /// its previously stored chunks by document ID without requesting embeddings.
+    /// Loader/splitter exceptions and cancellation observed before persistence leave that
+    /// document's previous index unchanged. Rollback after storage begins depends on the store.
+    /// Stored chunk metadata uses the source document's ID for the reserved document_id key;
+    /// conflicting input metadata is normalized without changing the input dictionaries.
+    /// Document and chunk IDs must be nonblank, and chunk IDs must be unique within each
+    /// document. Splitter output is validated and captured before embedding. Every embedding
+    /// batch must match its input count and the provider's positive Dimensions, with finite
+    /// values in every vector. Invalid output fails before persistence or a custom callback.
+    /// </remarks>
     public class RagPipeline : IRagPipeline
     {
         private readonly IEmbeddingProvider _embeddingProvider;
         private readonly IVectorStore _vectorStore;
         private readonly ITextSplitter _textSplitter;
         private readonly IContextBuilder _defaultContextBuilder;
-        private IRetrievalStrategy _retrievalStrategy;
+        private IRagRetriever _retriever;
         private readonly IReranker? _reranker;
         private RagPipelineOptions _options = null!;
 
@@ -68,7 +80,9 @@ namespace Mythosia.AI.Rag
             _vectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
             _textSplitter = textSplitter ?? throw new ArgumentNullException(nameof(textSplitter));
             _defaultContextBuilder = contextBuilder ?? throw new ArgumentNullException(nameof(contextBuilder));
-            _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(vectorStore);
+            _retriever = retrievalStrategy == null
+                ? (IRagRetriever)new RagRetrievers.Vector(embeddingProvider, vectorStore)
+                : new RagRetrievers.Legacy(retrievalStrategy, embeddingProvider);
             _reranker = reranker;
             Options = options ?? new RagPipelineOptions();
         }
@@ -89,7 +103,16 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public void SetRetrievalStrategy(IRetrievalStrategy? retrievalStrategy)
         {
-            _retrievalStrategy = retrievalStrategy ?? new VectorRetrievalStrategy(_vectorStore);
+            SetRetriever(retrievalStrategy == null ? null : new RagRetrievers.Legacy(retrievalStrategy, _embeddingProvider));
+        }
+
+        /// <summary>
+        /// Selects a retriever that receives the query text and decides which representations
+        /// it needs. Null restores vector search. In-flight queries keep their selected retriever.
+        /// </summary>
+        public void SetRetriever(IRagRetriever? retriever)
+        {
+            Volatile.Write(ref _retriever, retriever ?? new RagRetrievers.Vector(_embeddingProvider, _vectorStore));
         }
 
         #region Indexing Pipeline: load ??split ??embed ??store
@@ -102,9 +125,12 @@ namespace Mythosia.AI.Rag
             string source,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var embeddingBatchSize = CaptureEmbeddingBatchSize();
             var doclingDocs = await loader.LoadAsync(source, cancellationToken);
             var documents = DoclingDocumentConverter.ToRagDocuments(doclingDocs);
-            await IndexDocumentsAsync(documents, cancellationToken);
+            await IndexDocumentsInternalAsync(documents, textSplitter: null, cancellationToken,
+                embeddingBatchSize: embeddingBatchSize);
         }
 
         /// <summary>
@@ -162,14 +188,18 @@ namespace Mythosia.AI.Rag
             IEnumerable<RagDocument> documents,
             ITextSplitter? textSplitter,
             CancellationToken cancellationToken,
-            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
+            Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null,
+            int? embeddingBatchSize = null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var batchSize = embeddingBatchSize ?? CaptureEmbeddingBatchSize();
             var effectiveSplitter = textSplitter ?? _textSplitter;
 
             foreach (var document in documents)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await IndexSingleDocumentAsync(document, effectiveSplitter, cancellationToken, onDocumentEmbedded);
+                await IndexSingleDocumentAsync(document, effectiveSplitter, batchSize,
+                    cancellationToken, onDocumentEmbedded);
             }
         }
 
@@ -179,54 +209,140 @@ namespace Mythosia.AI.Rag
             CancellationToken cancellationToken,
             Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var embeddingBatchSize = CaptureEmbeddingBatchSize();
             var effectiveSplitter = textSplitter ?? _textSplitter;
-            await IndexSingleDocumentAsync(document, effectiveSplitter, cancellationToken, onDocumentEmbedded);
+            await IndexSingleDocumentAsync(document, effectiveSplitter, embeddingBatchSize,
+                cancellationToken, onDocumentEmbedded);
+        }
+
+        private int CaptureEmbeddingBatchSize()
+        {
+            var batchSize = Options.EmbeddingBatchSize;
+            if (batchSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(RagPipelineOptions.EmbeddingBatchSize),
+                    batchSize, "Embedding batch size must be positive.");
+            return batchSize;
         }
 
         private async Task IndexSingleDocumentAsync(
             RagDocument document,
             ITextSplitter textSplitter,
+            int embeddingBatchSize,
             CancellationToken cancellationToken,
             Func<IReadOnlyList<VectorRecord>, Task>? onDocumentEmbedded = null)
         {
-            // 1. Split
+            cancellationToken.ThrowIfCancellationRequested();
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            var documentId = document.Id;
+            if (string.IsNullOrWhiteSpace(documentId))
+                throw new ArgumentException("The document ID must not be null, empty, or whitespace.", nameof(document));
+
+            // 1. Split. A successful empty result still replaces this document's old chunks.
             IReadOnlyList<RagChunk> chunks = textSplitter.Split(document);
-            if (chunks.Count == 0) return;
+            cancellationToken.ThrowIfCancellationRequested();
+            if (chunks == null)
+                throw new InvalidOperationException("The text splitter returned a null chunk list.");
+            if (chunks.Count == 0)
+            {
+                // A custom persistence callback receives only embedded records, not document identity.
+                // Preserve its existing zero-chunk behavior and never mutate its store implicitly.
+                if (onDocumentEmbedded == null)
+                    await _vectorStore.ReplaceByFilterAsync(
+                        new VectorFilter().Where("document_id", documentId),
+                        Array.Empty<VectorRecord>(), cancellationToken);
+                return;
+            }
 
-            // 2. Embed in batches
-            var chunkTexts = chunks.Select(c => c.Content).ToList();
-            var allEmbeddings = new List<float[]>();
+            // Capture validated splitter output before calling an external component.
+            // A custom splitter may retain and reuse its mutable chunks and dictionaries.
+            var records = PrepareIndexRecords(chunks, documentId, cancellationToken);
+            var chunkTexts = records.Select(record => record.Content).ToList();
+            var dimensions = _embeddingProvider.Dimensions;
+            if (dimensions <= 0)
+                throw new InvalidOperationException("The embedding provider must declare a positive Dimensions value.");
 
-            for (int i = 0; i < chunkTexts.Count; i += Options.EmbeddingBatchSize)
+            // 2. Embed in batches, validating each response before accepting any of it.
+            for (int i = 0; i < chunkTexts.Count;)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var batch = chunkTexts.Skip(i).Take(Options.EmbeddingBatchSize);
+                // The captured option stays stable across awaits. Advancing by the actual
+                // batch length also prevents overflow for very large configured sizes.
+                var batchCount = Math.Min(embeddingBatchSize, chunkTexts.Count - i);
+                var batch = chunkTexts.GetRange(i, batchCount);
                 var embeddings = await _embeddingProvider.GetEmbeddingsAsync(batch, cancellationToken);
-                allEmbeddings.AddRange(embeddings);
-            }
+                cancellationToken.ThrowIfCancellationRequested();
+                if (embeddings == null || embeddings.Count != batchCount)
+                    throw new InvalidOperationException(
+                        $"Embedding batch at offset {i} must return exactly {batchCount} vectors; "
+                        + (embeddings == null ? "the response was null." : $"received {embeddings.Count}."));
 
-            // 3. Store ? ensure document_id is in metadata for DeleteDocumentAsync
-            var records = new List<VectorRecord>(chunks.Count);
-            for (int i = 0; i < chunks.Count; i++)
-            {
-                var metadata = chunks[i].Metadata;
-                if (!metadata.ContainsKey("document_id"))
-                    metadata["document_id"] = document.Id;
-
-                records.Add(new VectorRecord
+                for (int j = 0; j < batchCount; j++)
                 {
-                    Id = chunks[i].Id,
-                    Vector = allEmbeddings[i],
-                    Content = chunks[i].Content,
-                    Metadata = metadata
-                });
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var vector = embeddings[j];
+                    if (vector == null || vector.Length != dimensions)
+                        throw new InvalidOperationException(
+                            $"Embedding vector at offset {i + j} must have {dimensions} dimensions; "
+                            + (vector == null ? "the vector was null." : $"received {vector.Length}."));
+
+                    // Own the accepted vector before another batch can reuse its buffer.
+                    var ownedVector = (float[])vector.Clone();
+                    for (int k = 0; k < ownedVector.Length; k++)
+                        if (float.IsNaN(ownedVector[k]) || float.IsInfinity(ownedVector[k]))
+                            throw new InvalidOperationException(
+                                $"Embedding vector at offset {i + j} contains a non-finite value.");
+                    records[i + j].Vector = ownedVector;
+                }
+                i += batchCount;
             }
 
+            // 3. Persist only after every chunk and embedding batch has been accepted.
+            cancellationToken.ThrowIfCancellationRequested();
             if (onDocumentEmbedded != null)
                 await onDocumentEmbedded(records);
             else
                 await _vectorStore.ReplaceByFilterAsync(
-                    new VectorFilter().Where("document_id", document.Id), records, cancellationToken);
+                    new VectorFilter().Where("document_id", documentId), records, cancellationToken);
+        }
+
+        private static List<VectorRecord> PrepareIndexRecords(
+            IReadOnlyList<RagChunk> chunks, string documentId, CancellationToken cancellationToken)
+        {
+            var records = new List<VectorRecord>(chunks.Count);
+            var ids = new HashSet<string>(StringComparer.Ordinal);
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var chunk = chunks[i];
+                if (chunk == null)
+                    throw new InvalidOperationException($"The text splitter returned a null chunk at offset {i}.");
+                var id = chunk.Id;
+                var content = chunk.Content;
+                var inputMetadata = chunk.Metadata;
+                if (string.IsNullOrWhiteSpace(id))
+                    throw new InvalidOperationException($"The text splitter returned a blank chunk ID at offset {i}.");
+                if (!ids.Add(id))
+                    throw new InvalidOperationException($"The text splitter returned a duplicate chunk ID at offset {i}.");
+                if (content == null || inputMetadata == null)
+                    throw new InvalidOperationException($"The text splitter returned null content or metadata at offset {i}.");
+
+                // Stored identity must agree with the replacement filter. A loader or custom
+                // splitter may own this dictionary, so normalize a copy rather than its input.
+                var metadata = new Dictionary<string, string>(inputMetadata)
+                {
+                    ["document_id"] = documentId
+                };
+
+                records.Add(new VectorRecord
+                {
+                    Id = id,
+                    Content = content,
+                    Metadata = metadata
+                });
+            }
+
+            return records;
         }
 
         #endregion
@@ -234,7 +350,8 @@ namespace Mythosia.AI.Rag
         #region Query Pipeline: query ??search ??context build
 
         /// <summary>
-        /// Performs a RAG query: embed query ??search ??build context ??return context string.
+        /// Performs a RAG query: retrieve documents, build context, and return the result.
+        /// The selected retriever creates a query embedding only when needed.
         /// Use the returned context to call an LLM (e.g., via AIService.GetCompletionAsync).
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
@@ -262,7 +379,7 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Performs a RAG query with per-request query overrides:
-        /// embed query ??search ??build context.
+        /// retrieve documents and build context, preparing embeddings only when needed.
         /// </summary>
         public async Task<RagQueryResult> QueryAsync(
             string query,
@@ -282,8 +399,9 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Performs a RAG query with a separate text search query for the keyword leg of hybrid search.
-        /// When <paramref name="textSearchQuery"/> is set, it is used for the text/BM25 search
-        /// while the original <paramref name="query"/> is used for embedding (semantic search).
+        /// When <paramref name="textSearchQuery"/> is set, built-in text and hybrid retrievers
+        /// use it for their text search. The original <paramref name="query"/> supplies any
+        /// required semantic embedding. Null uses the query text; empty disables the text leg.
         /// </summary>
         internal async Task<RagQueryResult> QueryAsync(
             string query,
@@ -293,6 +411,8 @@ namespace Mythosia.AI.Rag
             CancellationToken cancellationToken = default,
             RagPipelineOptions? pipelineOptionsSnapshot = null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            var retriever = Volatile.Read(ref _retriever);
             var pipelineOptions = pipelineOptionsSnapshot ?? Options;
             var effectiveOptions = queryOptions ?? pipelineOptions.DefaultQuery;
 
@@ -304,24 +424,21 @@ namespace Mythosia.AI.Rag
 
             async Task ReportAsync(RagProgressStage stage)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (effectiveOptions.ProgressAsync != null)
                     await effectiveOptions.ProgressAsync(stage);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
-            // 1. Embed query (always uses the full semantic query)
-            await ReportAsync(RagProgressStage.Embedding);
-            var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
-
-            // 2. Apply retrieval score filter
+            // Apply constraints before the retriever chooses query analysis/embedding.
             await ReportAsync(RagProgressStage.Filtering);
             var effectiveFilter = MergeStoreFilter(filter, effectiveOptions.StoreFilter);
             effectiveFilter.MinScore = retrievalMinScore;
 
-            // 3. Search (via retrieval strategy) ??fetch wider pool when reranker is present
-            //    textSearchQuery overrides the text leg when keywords are available from query rewriter
-            await ReportAsync(RagProgressStage.Retrieval);
-            var retrievalTextQuery = textSearchQuery;
-            var searchResults = await _retrievalStrategy.RetrieveAsync(queryVector, retrievalTextQuery, retrievalK, effectiveFilter, cancellationToken);
+            var request = new RagRetrievalRequest(query, textSearchQuery, retrievalK,
+                effectiveFilter, effectiveOptions.ProgressAsync);
+            var searchResults = await retriever.RetrieveAsync(request, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             var retrievalCandidates = searchResults.ToList();
 
             // 4. Re-rank if configured ??reranker only re-scores, pipeline handles trimming
@@ -431,13 +548,11 @@ namespace Mythosia.AI.Rag
         /// </summary>
         private static VectorFilter MergeStoreFilter(VectorFilter? filter, VectorFilter? storeFilter)
         {
-            if (storeFilter == null)
-                return filter ?? new VectorFilter();
-
             var merged = new VectorFilter();
 
             // storeFilter conditions first (permission/tenant constraints), then per-query conditions
-            merged.AppendConditionsFrom(storeFilter);
+            if (storeFilter != null)
+                merged.AppendConditionsFrom(storeFilter);
             if (filter != null)
                 merged.AppendConditionsFrom(filter);
 
@@ -445,7 +560,7 @@ namespace Mythosia.AI.Rag
         }
 
         /// <summary>
-        /// Performs a full RAG query and calls the LLM: embed query ??search ??context build ??LLM call.
+        /// Retrieves documents, builds context, and calls the LLM.
         /// </summary>
         public async Task<string> QueryAndGenerateAsync(
             IAIService aiService,
@@ -481,7 +596,7 @@ namespace Mythosia.AI.Rag
         #region IRagPipeline Implementation
 
         /// <summary>
-        /// Implements IRagPipeline: embed query ??search ??build context ??return request message content.
+        /// Implements IRagPipeline: retrieve documents, build context, and return request message content.
         /// </summary>
         public async Task<RagProcessedQuery> ProcessAsync(string query, CancellationToken cancellationToken = default)
         {

@@ -1,5 +1,7 @@
 # 流式输出
 
+> Grok 4.7 是尚未发布的新增功能；请参阅[模型选择、推理与处理速度](providers.md#grok-47)。
+
 需要同时获取完整答案、用量和来源时，使用 `await run.Result` 返回的 `AIRunResult`，字符串位于 `result.Text`，无需读取流。这是Mythosia.AI 8.0.0 的 API 变更；`GetCompletionAsync` 与 `StructuredStreamRun<T>.Result` 的返回类型保持不变。 [Run 结果与迁移](execution-api-transition.md#run-result).
 
 

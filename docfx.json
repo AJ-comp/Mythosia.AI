@@ -16,6 +16,7 @@
             "src/loaders/Mythosia.Documents.Pdf/bin/Release/netstandard2.1/Mythosia.Documents.Pdf.dll",
             "src/rag/Mythosia.AI.Rag.Abstractions/bin/Release/netstandard2.1/Mythosia.AI.Rag.Abstractions.dll",
             "src/rag/Mythosia.AI.Rag/bin/Release/netstandard2.1/Mythosia.AI.Rag.dll",
+            "src/rag/Mythosia.AI.Rag.Search.Pixie/bin/Release/net8.0/Mythosia.AI.Rag.Search.Pixie.dll",
             "src/serving/Mythosia.AI.Serving.Vllm/bin/Release/netstandard2.1/Mythosia.AI.Serving.Vllm.dll",
             "src/vectordb/Mythosia.VectorDb.Abstractions/bin/Release/netstandard2.1/Mythosia.VectorDb.Abstractions.dll",
             "src/vectordb/Mythosia.VectorDb.InMemory/bin/Release/netstandard2.1/Mythosia.VectorDb.InMemory.dll",
@@ -33,6 +34,14 @@
     }
   ],
   "build": {
+    "resource": [
+      {
+        "files": [
+          "docs/assets/*.svg",
+          "docs/assets/*.png"
+        ]
+      }
+    ],
     "content": [
       {
         "files": [

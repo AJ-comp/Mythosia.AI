@@ -1,5 +1,7 @@
 # 使用 Run 控制執行中的 AI 工作
 
+> GPT-6 Sol/Luna 是尚未發布的新增功能。參見[模型選擇與版本需求](providers.md#gpt-6-sol-luna)。
+
 只需完整答案和停止按鈕時，將 `cancellationToken` 傳給 `GetCompletionAsync`。進度事件或支援的中途追加指令使用 Run。參閱[取消回答](completions.md#completion-cancellation)。
 
 若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
@@ -7,6 +9,8 @@
 > 需要同時取得完整答案、用量與來源時，使用 `await run.Result` 傳回的 `AIRunResult`；字串位於 `result.Text`，不必讀取串流。這是Mythosia.AI 8.0.0 的 API 變更；`GetCompletionAsync` 與 `StructuredStreamRun<T>.Result` 的傳回型別保持不變。 [Run 結果與移轉](#run-result).
 
 > `CreateRequest`範例需要Mythosia.AI 8.0.0 / Abstractions 4.0.0。最初引入Run和共通請求功能的舊7.1版本不包含建構器；舊套件可繼續使用原有服務多載。
+
+對等待時間敏感的請求可選擇[處理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理層級，`Processing` 顯示供應商實際套用的模式。Fast 是受支援組合上的付費選項。
 
 ## 為什麼需要在執行過程中控制工作？
 
@@ -195,9 +199,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-GPT-6 Astra 透過 Responses WebSocket 連線支援回合中的追加指示。其他提供者及不支援的模型仍可使用一般 Run，但 `CanSteer` 為 `false`，追加指示會明確回報不支援，而不會默默建立一般的下一回合。`CanSteer` 不保證稍後呼叫時 Run 仍處於作用中狀態。
+GPT-6 Astra / Sol / Luna 透過 Responses WebSocket 連線支援回合中的追加指示。其他提供者及不支援的模型仍可使用一般 Run，但 `CanSteer` 為 `false`，追加指示會明確回報不支援，而不會默默建立一般的下一回合。`CanSteer` 不保證稍後呼叫時 Run 仍處於作用中狀態。
 
-Astra 的 Run 會建立專用 socket。傳入的 `HttpClient` 及其訊息處理常式繼續服務於 HTTP 呼叫，不會攔截此 socket。自訂傳輸可以覆寫 `OpenAIService.ConnectRunWebSocketAsync`。
+GPT-6 的 Run 會建立專用 socket。傳入的 `HttpClient` 及其訊息處理常式繼續服務於 HTTP 呼叫，不會攔截此 socket。自訂傳輸可以覆寫 `OpenAIService.ConnectRunWebSocketAsync`。
 
 `SteerAsync` 成功表示伺服器已將輸入接受到佇列中，不表示模型已經套用該指示。繼續透過同一個 Run 觀察後續執行或等待結果。已經傳送的文字和已完成的操作不會復原，也不會僅因提交了追加指示而取消已啟動的工具。程式庫在同一連線上處理接續執行和工具結果關聯。參見 OpenAI 的[回合中追加指示指南](https://developers.openai.com/api/docs/guides/steering)和 [WebSocket 模式](https://developers.openai.com/api/docs/guides/websocket-mode)。佇列中的輸入屬於目前連線，不應假設中斷後仍會保留；不要盲目重送已被接受的指示。
 

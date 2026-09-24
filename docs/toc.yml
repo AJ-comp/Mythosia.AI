@@ -79,6 +79,8 @@
       href: rag-filtering.md
     - name: Hybrid Search
       href: rag-hybrid-search.md
+    - name: Compare Local Neural Search with PIXIE
+      href: rag-pixie-search.md
     - name: Re-ranking & Retrieval Tuning
       href: rag-reranking.md
     - name: Context Build

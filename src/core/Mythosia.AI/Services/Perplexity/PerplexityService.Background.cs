@@ -38,8 +38,8 @@ namespace Mythosia.AI.Services.Perplexity
             var restore = effectiveContext != null ? ApplyRequestContext(effectiveContext) : (Action)(() => { });
             try
             {
-                // Context replaces only this new input. GetLatestMessages would apply the override
-                // to the last saved turn because background submission never appends its input.
+                // Background submission never appends its input to history, so apply the
+                // override directly to this detached input and retain the saved turns.
                 var messages = RequestStatelessMode ? new List<Message>() : ActivateChat.Messages.ToList();
                 messages.Add(effectiveContext?.RequestMessageOverride ?? message);
                 if (effectiveContext?.AdditionalMessages != null)

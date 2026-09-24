@@ -1,6 +1,8 @@
 # การสร้าง Context
 
-> 📍 **Q&A Pipeline:** [การเขียนคำถามใหม่](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → [การกรอง](rag-filtering.md) → [การดึงข้อมูล](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → **`การสร้าง Context`**
+> 📍 **Q&A Pipeline:** [การเขียนคำถามใหม่](rag-query-rewriting.md) → [การกรอง](rag-filtering.md) → [Embedding (เมื่อจำเป็น)](rag-embedding.md) → [การดึงข้อมูล](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → **`การสร้าง Context`**
+
+ขั้นตอนคำถาม `Embedding` ขึ้นกับตัวค้นหา การค้นหาคำไม่รายงานขั้นตอนนี้ ตัวค้นหาที่กำหนดเองรายงานผ่าน `request.ProgressAsync` ได้ ส่วน embedding เอกสารไม่เปลี่ยนแปลง
 
 ## การสร้าง Context คืออะไร?
 

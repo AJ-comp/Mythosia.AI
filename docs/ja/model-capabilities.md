@@ -1,8 +1,16 @@
 # 選択したモデルに合う機能を表示する
 
+> Grok 4.7 は未リリースの追加機能です。[モデル選択・推論・処理速度](providers.md#grok-47)を参照してください。
+
+> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)を参照してください。
+
+[Claude Opus 5.5](providers.md#claude-opus-55) の capability は `XHigh` を含む `Low`〜`Max` を公開し、`None` と `Minimal` は未対応です。`ThinkingToggle` は未対応、`MaxOutputTokens` は 128000 です。非表示は推論の無効化を意味しません。これは開発中の追加機能であり、既存の公開パッケージの説明ではありません。
+
 チャット画面の推論・検索・ツール・画像設定は、選択した接続に合わせる必要があります。アプリごとにモデル名のリストを管理するとライブラリの規則と重複し、提供元・プロトコル・デプロイの変更で食い違います。機能スナップショットなら画面と実行時検証が同じモデル定義を使えます。
 
 Mythosia.AI 8.0.0の API です。スナップショットはライブラリが把握する対応情報の不変オブジェクトで、アカウントやサーバーへの実時間照会ではありません。型は `Mythosia.AI.Models.Capabilities` にあります。
+
+待ち時間が重要なリクエストでは[処理速度](request-building.md#inference-speed)を選べます。`WithSpeed` はモデルと推論レベルを保持し、`Processing` は実際に適用されたモードを示します。Fast は対応する組み合わせで使う有料設定です。
 
 ## Before / After
 
@@ -44,6 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | ストリーミング、ツール、提供元固有の非同期ツール、実行中の追加指示。 |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | ホスト型検索、キャッシュを維持する推論変更、画像入力、構造化出力。 |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | サンプリング設定の対応と、判明している出力トークン上限（nullable）。 |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | 未公開：処理モードの Supported/Unsupported/Unknown。アカウント権限は別途確認します。 |
 | `Provider`, `Model` | 提供元と送信するモデルの識別。不明なら null の場合があります。 |
 
 `ReasoningLevels` は共通 `WithReasoning`、`NativeReasoningLevels` は提供元固有の設定です。`ThinkingBudgetPresets` は UI 用の予算候補で、全許容値や数値範囲の網羅ではありません。`AsyncFunctionCalling` は提供元の非同期ツール実行で、ローカル関数の `Task` 戻り値や並列実行とは別です。 `StructuredOutput` はプロンプトと修復による代替処理を含む共通の型付き出力 API を指し、ネイティブの制約付きデコーディングを保証しません。両方の推論レベル一覧は `ReasoningLevel`、予算候補は整数です。
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`、`Backgrounds`、`OutputFormats`、`SizeKinds`、`Resolutions`、`AspectRatios` は型付きの読み取り専用リストです。`MaxImages` と `MaxInputImages` は既知の上限で、不明なら null。候補のすべての組み合わせが有効とは限らず、サイズ・形式・品質・マスク・モデルの既存検証は適用されます。独自・不明な画像モデルを非対応と断定しません。
+
+Google の `Resolutions` と `AspectRatios` は選択した画像モデルに応じて変わり、生成・編集の検証にも適用されます。Flash-Lite の保守的な 1K 方針を含む[モデル別の表](providers.md#google-image-options)を参照してください。非対応の明示的な値は HTTP 前に拒否され、不明な独自モデルは `Unknown` とプロバイダー共通のオプション検証を維持します。
 
 独自 `AIService` で信頼できる定義がある場合は protected `ResolveRequestCapabilities()` を再定義します。既定は `AIModelCapabilities.Unknown` です。一覧にないデプロイを非対応に変えてはいけません。`IAIService` に必須メンバーは追加せず、照会は `AIService` とリクエストビルダーにあります。
 

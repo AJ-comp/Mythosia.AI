@@ -75,7 +75,10 @@ namespace Mythosia.AI.Rag
         internal uint QueryRewriteMaxTokens => _queryRewriteMaxTokens;
 
         private bool _useHybridSearch;
-        private float _vectorWeight = 0.5f;
+        private bool _useKeywordSearch;
+        private IRagRetriever? _retriever;
+        private HybridSearchOptions _hybridOptions = new HybridSearchOptions();
+        private bool _allowLegacyHybridDefaults;
         private IReranker? _reranker;
         private RagFinalSelectionMode _finalSelectionMode = RagFinalSelectionMode.RerankerOnly;
         private double _finalSelectionRetrievalWeight = RagFinalSelectionOptions.DefaultRetrievalWeight;
@@ -280,13 +283,25 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Adds a document from a URL. Content is fetched via HTTP GET.
+        /// Supports gzip, deflate and Brotli HTTP content compression. Unsupported, nested
+        /// or incomplete compressed content is rejected before the document is indexed.
+        /// The build cancellation token also cancels waiting for response headers and content,
+        /// and is checked while decoding the downloaded content.
         /// </summary>
         public RagBuilder AddUrl(string url)
         {
             return AddDocumentSource(async ct =>
             {
+                ct.ThrowIfCancellationRequested();
                 using var httpClient = new HttpClient();
-                var content = await httpClient.GetStringAsync(url);
+                httpClient.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate, br");
+                // Buffer the raw HTTP response with cancellation before validating compression.
+                // Runtime automatic decompression can silently accept truncated compressed streams.
+                using var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, ct);
+                response.EnsureSuccessStatusCode();
+                ct.ThrowIfCancellationRequested();
+                var content = await UrlDocumentContent.ReadAsync(response.Content, ct);
+                ct.ThrowIfCancellationRequested();
                 var doc = new RagDocument
                 {
                     Id = url,
@@ -353,6 +368,7 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public RagBuilder WithChunkSize(int chunkSize)
         {
+            SplitterGuards.ValidateSize(chunkSize, nameof(chunkSize));
             _chunkSize = chunkSize;
             return this;
         }
@@ -362,6 +378,7 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public RagBuilder WithChunkOverlap(int overlap)
         {
+            SplitterGuards.ValidateOverlap(overlap, nameof(overlap));
             _chunkOverlap = overlap;
             return this;
         }
@@ -483,20 +500,49 @@ namespace Mythosia.AI.Rag
         public RagBuilder UseVectorSearch()
         {
             _useHybridSearch = false;
+            _useKeywordSearch = false;
+            _retriever = null;
             return this;
         }
 
         /// <summary>
-        /// Enables hybrid search combining BM25 keyword matching with dense vector similarity.
-        /// Uses Reciprocal Rank Fusion (RRF) to merge results.
+        /// Searches the stored text index without creating a query embedding.
+        /// Requires ITextSearchStore. Document ingestion still creates vectors for the shared index.
+        /// </summary>
+        public RagBuilder UseKeywordSearch()
+        {
+            _useKeywordSearch = true;
+            _useHybridSearch = false;
+            _retriever = null;
+            return this;
+        }
+
+        /// <summary>
+        /// Uses a custom request-based retriever. The retriever is responsible for query
+        /// analysis, backend access, filtering, and any required embeddings.
+        /// Document ingestion continues to use the configured embedding provider and store.
+        /// </summary>
+        public RagBuilder UseRetriever(IRagRetriever retriever)
+        {
+            _retriever = retriever ?? throw new ArgumentNullException(nameof(retriever));
+            _useHybridSearch = false;
+            _useKeywordSearch = false;
+            return this;
+        }
+
+        /// <summary>
+        /// Enables hybrid search combining the store's text search with dense vector similarity.
+        /// Configurable stores and application-level fusion use weighted Reciprocal Rank Fusion (RRF).
         /// <para>
-        /// When the underlying store supports <c>IVectorStore.HybridSearchAsync</c>,
-        /// the query is delegated natively. Otherwise, BM25 is computed at the application level.
+        /// Configurable stores receive the selected weight. Other stores must implement
+        /// ITextSearchStore for application-level fusion. Legacy native hybrid search remains
+        /// available at the default weight; unsupported options are never silently ignored.
         /// </para>
         /// </summary>
         /// <param name="vectorWeight">
         /// Weight for vector similarity vs keyword matching. Range [0, 1].
-        /// 0.5 = equal weight (default), 1.0 = pure vector, 0.0 = pure keyword.
+        /// 0.5 = equal weight (default), 1.0 = vector leg only, 0.0 = text leg only.
+        /// Rank-based hybrid scores are retained when only one leg is active.
         /// </param>
         /// <param name="minScore">
         /// Optional minimum score threshold applied after retrieval.
@@ -504,12 +550,28 @@ namespace Mythosia.AI.Rag
         /// </param>
         public RagBuilder UseHybridSearch(float vectorWeight = 0.5f, double? minScore = null)
         {
+            if (float.IsNaN(vectorWeight) || float.IsInfinity(vectorWeight))
+                throw new ArgumentOutOfRangeException(nameof(vectorWeight));
+            UseHybridSearch(new HybridSearchOptions
+            {
+                VectorWeight = Math.Max(0f, Math.Min(1f, vectorWeight))
+            }, minScore);
+            _allowLegacyHybridDefaults = _hybridOptions.VectorWeight == .5f;
+            return this;
+        }
+
+        /// <summary>
+        /// Configures weighted reciprocal rank fusion. Options are snapshotted;
+        /// unsupported store capabilities fail instead of falling back to a different search mode.
+        /// </summary>
+        public RagBuilder UseHybridSearch(HybridSearchOptions options, double? minScore = null)
+        {
+            _hybridOptions = (options ?? throw new ArgumentNullException(nameof(options))).Snapshot();
             _useHybridSearch = true;
-            _vectorWeight = Math.Max(0f, Math.Min(1f, vectorWeight));
-
-            if (minScore.HasValue)
-                _finalMinScore = minScore.Value;
-
+            _useKeywordSearch = false;
+            _retriever = null;
+            _allowLegacyHybridDefaults = false;
+            if (minScore.HasValue) _finalMinScore = minScore.Value;
             return this;
         }
 
@@ -664,26 +726,24 @@ namespace Mythosia.AI.Rag
                 PromptTemplate = _promptTemplate
             };
 
-            // 2. Build retrieval strategy
-            IRetrievalStrategy? retrievalStrategy = null;
-            Bm25Index? bm25Index = null;
-
-            if (_useHybridSearch)
-            {
-                // BM25 fallback index for stores that do not support native hybrid search.
-                // Native-supporting stores will ignore this via HybridRetrievalStrategy delegation.
-                bm25Index = new Bm25Index();
-                retrievalStrategy = new HybridRetrievalStrategy(vectorStore, _vectorWeight, bm25Index);
-            }
-            // else: null → RagPipeline defaults to VectorRetrievalStrategy
+            // Select and validate the query path before indexing documents.
+            var retriever = _retriever ?? (_useKeywordSearch
+                ? (IRagRetriever)new RagRetrievers.Keyword(vectorStore)
+                : _useHybridSearch
+                    ? (IRagRetriever)new RagRetrievers.Hybrid(embeddingProvider, vectorStore, _hybridOptions, _allowLegacyHybridDefaults)
+                    : new RagRetrievers.Vector(embeddingProvider, vectorStore));
 
             // 3. Create pipeline
             var pipeline = new RagPipeline(
                 embeddingProvider, vectorStore, textSplitter, contextBuilder,
-                retrievalStrategy, _reranker, options);
+                null, _reranker, options);
+            pipeline.SetRetriever(retriever);
 
             // 4. Load and index all documents (single-file priority + per-source routing)
-            var processedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var pathComparer = Path.DirectorySeparatorChar == '\\'
+                ? StringComparer.OrdinalIgnoreCase
+                : StringComparer.Ordinal;
+            var processedPaths = new HashSet<string>(pathComparer);
             var orderedSources = _documentSources
                 .Select((source, index) => new { source, index })
                 .OrderBy(entry => GetSourceOrder(entry.source.Kind))
@@ -726,16 +786,6 @@ namespace Mythosia.AI.Rag
 
                 if (source.Kind == DocumentSourceKind.SingleFile)
                     TrackProcessedPaths(docsToIndex, processedPaths);
-            }
-
-            // 5. Populate BM25 index from indexed records (for InMemory hybrid)
-            if (bm25Index != null && vectorStore is InMemoryVectorStore inMemoryStore)
-            {
-                var allRecords = await inMemoryStore.ListAllRecordsAsync(cancellationToken);
-                foreach (var record in allRecords)
-                {
-                    bm25Index.Index(record.Id, record.Content);
-                }
             }
 
             return new RagStore(pipeline, vectorStore, _queryRewriter);

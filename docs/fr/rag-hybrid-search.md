@@ -1,44 +1,86 @@
 # Recherche hybride
 
-> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → Embedding → Filtrage → **`Recherche`** → [Re-ranking](rag-reranking.md) → Construction du contexte
+Un code produit bénéficie de la recherche par mots-clés, une question formulée autrement de la recherche sémantique. Le moteur choisi prépare seulement la représentation nécessaire ; la recherche lexicale n’impose plus d’embedding préalable.
 
-## Pourquoi la recherche hybride ?
-
-La recherche vectorielle pure excelle à capturer le sens sémantique — « annuler mon abonnement » correspond à « résilier mon adhésion » même s'ils ne partagent aucun mot. Mais elle peut rater les **termes exacts** comme les noms de produits, les codes d'erreur ou les identifiants de politique que les utilisateurs saisissent mot pour mot.
-
-La recherche BM25 par mots-clés gère parfaitement ces cas mais échoue sur la compréhension sémantique. **La recherche hybride combine les deux**, offrant le meilleur des deux mondes : compréhension sémantique et correspondance précise par mots-clés.
-
-## Configuration
-
-Combinez la recherche vectorielle dense avec la recherche BM25 par un seul appel de méthode :
+## Modes de recherche intégrés
 
 ```csharp
-.WithRag(rag => rag
-    .UseHybridSearch(vectorWeight: 0.6f)  // 60% vecteur, 40% BM25
-    .AddDocument("base-de-connaissances.txt")
-)
+// Recherche sémantique (par défaut)
+.UseVectorSearch()
+
+// Recherche lexicale sans embedding de requête
+.UseKeywordSearch()
+
+// Recherche hybride pondérée
+.UseHybridSearch(new HybridSearchOptions
+{
+    VectorWeight = 0.7f,
+    CandidateMultiplier = 4,
+    RrfK = 60
+})
 ```
 
-`vectorWeight` va de 0,0 (BM25 pur) à 1,0 (vecteur pur). Une valeur autour de **0,5–0,7** fonctionne bien dans la plupart des cas.
+`HybridSearchOptions`: `using Mythosia.VectorDb;`
 
-## Quand utiliser quoi
+`UseKeywordSearch()` ignore les embeddings de requête. L’import découpe et vectorise toujours les documents pour le stockage existant ; ce n’est pas une indexation purement textuelle. L’initialisation différée peut encore appeler les embeddings de documents lors de la première question.
 
-| Scénario | Poids recommandé |
-| --- | --- |
-| Questions générales en langage naturel | 0,7–0,8 (plus de vecteur) |
-| Documentation technique avec termes précis | 0,4–0,5 (équilibré) |
-| Recherche de code ou de code d'erreur | 0,2–0,3 (plus de BM25) |
+## Combiner les résultats lexicaux et sémantiques
 
-## Exemple
+`VectorWeight` définit le poids vectoriel (0–1), et `1 - VectorWeight` le poids lexical. `CandidateMultiplier` contrôle les candidats par branche, `RrfK` le lissage des rangs de Reciprocal Rank Fusion pondérée. Ils sont distincts du multiplicateur du reranker RAG. Évaluez-les avec vos documents et questions.
+
+Les modes vectoriel et lexical purs gardent leurs scores natifs. Le mode hybride configurable utilise un RRF pondéré normalisé même avec une seule branche ; un poids vectoriel nul évite l’embedding de requête. Ces scores ne sont pas des probabilités. `WeightedBlend` mélange les scores sans calibration ; préférez `RerankerOnly` pour le lexical sans calibration préalable.
 
 ```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseHybridSearch(vectorWeight: 0.5f)
-        .AddDocument("catalogue-produits.txt")
-        .AddDocument("codes-erreur.txt")
-    );
+        .AddDocument("manual.txt")
+        .UseHybridSearch(new HybridSearchOptions
+        {
+            VectorWeight = 0.7f,
+            CandidateMultiplier = 4,
+            RrfK = 60
+        }));
 
-// "ERR-4012" est retrouvé par BM25 ; le contexte sémantique par le vecteur
-var answer = await service.GetCompletionAsync("Comment corriger ERR-4012 ?");
+string answer = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+## Prise en charge et compatibilité
+
+InMemory, PostgreSQL et Qdrant prennent en charge les nouveaux chemins lexical et RRF pondéré configurable. Les scores textuels diffèrent : BM25 pour InMemory, plein texte ou trigrammes configurés pour PostgreSQL, index creux pour Qdrant. Les scores ne sont pas équivalents entre moteurs.
+
+Pinecone conserve son chemin hybride natif via `UseHybridSearch()` avec les valeurs par défaut sur un index `dotproduct` compatible. Cet adaptateur ne prend pas en charge le mode lexical ni le RRF pondéré configurable avec les deux branches. Les autres stockages doivent implémenter les interfaces optionnelles correspondantes. Les modes ou options non pris en charge échouent explicitement, sans bascule silencieuse vers le vectoriel ni poids ignorés.
+
+Les adaptateurs InMemory, PostgreSQL et Qdrant existants n’installent pas de modèle neuronal et ne migrent pas les index. La distinction `C#`/`C++` dépend de leurs analyseurs. L’option PIXIE ci-dessous nécessite aussi une évaluation des identifiants exacts.
+
+Voir [modes et stockages compatibles](rag.md#retrieval-modes) et [moteurs personnalisés](rag-pipeline.md#custom-retriever).
+
+<a id="pixie-search"></a>
+
+## Comparer une recherche neuronale locale avec PIXIE
+
+Quand la question et le document emploient des termes différents, une recherche creuse apprise peut ajouter du vocabulaire associé. Le paquet optionnel `Mythosia.AI.Rag.Search.Pixie` encode localement les documents et les requêtes avec PIXIE et combine ces résultats avec vos embeddings denses existants. PIXIE n’exige ni serveur Python ni clé API ; vos fournisseurs d’embeddings denses ou de réponses peuvent encore utiliser une API distante.
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Search.Pixie;
+using Mythosia.VectorDb;
+
+using var encoder = new PixieSparseEncoder(new PixieOptions());
+var searchStore = new PixieInMemoryStore(encoder);
+RagStore rag = await RagStore.BuildAsync(builder => builder
+    .UseEmbedding(embeddings)
+    .UseStore(searchStore)
+    .AddDocument("manual.txt")
+    .UseHybridSearch(new HybridSearchOptions { VectorWeight = 0.7f }));
+
+RagProcessedQuery result = await rag.QueryAsync("refund policy");
+```
+
+Avec ce stockage, `UseKeywordSearch()` sélectionne la recherche neuronale creuse : il ignore le fournisseur d’embedding dense de requête, mais exécute PIXIE sur la question. L’indexation RAG produit toujours les embeddings denses des documents. `UseHybridSearch(...)` fusionne les rangs du produit scalaire creux et du cosinus dense avec le RRF pondéré configuré.
+
+Cette préversion fournit `PixieInMemoryStore`, un index en mémoire. Elle n’ajoute pas PIXIE à PostgreSQL, Qdrant ou Pinecone. Réindexez après un redémarrage ou un changement de modèle/paramètres. Gardez l’encodeur vivant pendant toutes les opérations, puis libérez-le. La recherche existante reste celle par défaut : comparez les mêmes documents et questions annotées avant de changer. PIXIE ne garantit ni la distinction exacte `C#`/`C++`, ni les contraintes d’exclusion.
+
+[Guide PIXIE et comparaison (anglais)](../rag-pixie-search.md).

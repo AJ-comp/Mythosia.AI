@@ -1,5 +1,9 @@
 # 简介
 
+> Grok 4.7 是尚未发布的新增功能；请参阅[模型选择、推理与处理速度](providers.md#grok-47)。
+
+> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](providers.md#gpt-6-sol-luna)。
+
 Mythosia.AI 是一个模块化的 .NET AI 库，提供统一接口来对接多个 AI 提供商、RAG 管道、文档加载器以及向量数据库。
 
 ## 为什么选择 Mythosia.AI？
@@ -22,11 +26,11 @@ Mythosia.AI 是一个模块化的 .NET AI 库，提供统一接口来对接多�
 
 | 提供商 | 模型 |
 |--------|------|
-| **OpenAI** | GPT-6 Astra, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **OpenAI** | GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
 | **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
-| **xAI** | Grok 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
-| **DeepSeek** | Flash (V4.1 Flash) |
+| **xAI** | Grok 4.7 / 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
+| **DeepSeek** | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | Agent API 预设与 `perplexity/sonar` |
 | **阿里巴巴 / 通义千问** | Qwen Max / Plus / Turbo / Qwen3（`Mythosia.AI.Providers.Alibaba`） |
 

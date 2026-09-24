@@ -5,7 +5,7 @@
 import { $$ } from './utils.js';
 import { escapeHtml } from './utils.js';
 import {
-  modelListEl, settingsArea, chatStatus, chatMessages, functionsArea
+  modelListEl, settingsArea, chatStatus, chatMessages, functionsArea, ragRewriterModel
 } from './dom.js';
 import {
   app, providerKeys, alibabaSettings, enableChatInput, disableChatInput, autoScroll
@@ -15,6 +15,7 @@ import { openAlibabaSettingsModal } from './alibaba-settings.js';
 import { updateReasoningUI, updateSamplingUI, updateModelControls } from './settings.js';
 import { startStatePolling, stopStatePolling, refreshState } from './state-panel.js';
 import { refreshFunctions } from './functions-panel.js';
+import { populateRewriterModels } from './rag-rewriter-models.js';
 
 // ── Load models from API ─────────────────────────────────────
 export async function loadModels() {
@@ -22,6 +23,7 @@ export async function loadModels() {
     const res = await fetch('/api/models');
     const groups = await res.json();
     renderModelList(groups);
+    populateRewriterModels(ragRewriterModel, groups);
   } catch (e) {
     modelListEl.innerHTML = `<p style="color:var(--danger);padding:12px;">Failed to load models</p>`;
   }

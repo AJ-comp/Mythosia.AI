@@ -1,6 +1,8 @@
 # Re-Ranking & Retrieval-Tuning
 
-> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → **`Re-Ranking`** → Kontextaufbau
+> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → Filtering → Embedding (bei Bedarf) → [Retrieval](rag-hybrid-search.md) → **`Re-Ranking`** → Kontextaufbau
+
+Die Anfragephase `Embedding` hängt nun vom Retriever ab; Stichwortsuche meldet sie nicht. Eigene Retriever können passende Phasen über `request.ProgressAsync` melden. Dokument-Embeddings bleiben unverändert.
 
 ## Warum Re-Ranking?
 
@@ -24,6 +26,8 @@ Nutzt deinen KI-Service zum Bewerten der Ergebnisse. Effektiv, aber erhöht die 
     .AddDocument("korpus.txt")
 )
 ```
+
+Damit Fragen und Dokumente einer Bewertung nicht mit früheren Bewertungen oder dem Gesprächsverlauf des Services vermischt werden, verwendet `LlmReranker` für jede Bewertung eine zustandslose Anfrage. Der Gesprächsverlauf wird weder gelesen noch ergänzt. Die Standardeinstellungen des Services und dein Aufrufcode bleiben unverändert. Bewertungen durch Re-Ranker, die denselben KI-Service gemeinsam nutzen, werden nacheinander verarbeitet.
 
 ### Cohere Reranker
 
@@ -81,3 +85,5 @@ using Mythosia.AI.Rag;
 **`RerankerOnly`** ist der sichere Standard — das Urteil des Re-Rankers ersetzt die ursprüngliche Retrieval-Bewertung vollständig.
 
 **`WeightedBlend`** behält das ursprüngliche Retrieval-Signal und bezieht das Re-Ranker-Urteil mit ein. Das kann helfen, wenn deine Vektor-Embeddings bereits hochwertig sind und du möchtest, dass der Re-Ranker eher als Tiebreaker als als vollständige Überschreibung fungiert.
+
+Reine Vektor- und Stichwortmodi behalten native Scores. Konfigurierbare Hybridsuche nutzt auch mit einem Zweig normalisierte gewichtete RRF; Vektorgewicht 0 überspringt Anfrage-Embeddings. Scores sind keine Wahrscheinlichkeiten. `WeightedBlend` mischt Such- und Reranker-Scores ohne Kalibrierung; für unkalibrierte Stichwortscores empfiehlt sich der Standard `RerankerOnly`.

@@ -1,6 +1,8 @@
 # Construction du contexte
 
-> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → [Filtrage](rag-filtering.md) → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → **`Construction du contexte`**
+> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → [Filtrage](rag-filtering.md) → [Embedding (si nécessaire)](rag-embedding.md) → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → **`Construction du contexte`**
+
+L’étape de requête `Embedding` dépend désormais du moteur ; la recherche lexicale ne la signale pas. Un moteur personnalisé peut signaler ses étapes via `request.ProgressAsync`. Les embeddings des documents ne changent pas.
 
 ## Qu'est-ce que la construction du contexte ?
 

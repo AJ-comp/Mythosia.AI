@@ -6,7 +6,7 @@ namespace Mythosia.AI.Services.OpenAI
 {
     public partial class OpenAIService
     {
-        protected override bool SupportsAsyncFunctionCalls => IsAstraNativeRunModel(RequestModel);
+        protected override bool SupportsAsyncFunctionCalls => IsKnownGpt6Model(RequestModel);
 
         /// <summary>
         /// Applies model-specific parameter configurations to the request body
@@ -353,7 +353,7 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Configures GPT-6 reasoning and text output. Reasoning is always enabled.
+        /// Configures GPT-6 reasoning and text output. Sol and Luna also support no reasoning.
         /// Pro is selected with reasoning.mode without changing the model ID.
         /// </summary>
         private void ConfigureGpt6Parameters(Dictionary<string, object> requestBody)
@@ -453,7 +453,7 @@ namespace Mythosia.AI.Services.OpenAI
                 unsupported.Add("presence_penalty");
             }
 
-            if (IsGpt6Model(model))
+            if (IsGpt6Model(model) && !SupportsGpt6Sampling())
             {
                 unsupported.Add("temperature");
                 unsupported.Add("top_p");
@@ -534,12 +534,24 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Matches GPT-6 models, including GPT-6 Astra.
+        /// Preserves the GPT-6 Responses request format for caller-supplied model IDs.
         /// </summary>
-        private bool IsGpt6Model(string model)
-        {
-            return model.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase);
-        }
+        private static bool IsGpt6Model(string model) =>
+            model.StartsWith("gpt-6", StringComparison.OrdinalIgnoreCase);
+
+        // Native run features require a verified model rather than a family prefix.
+        private static bool IsKnownGpt6Model(string model) =>
+            IsOpenAIModelOrSnapshot(model, AIModels.OpenAI.Gpt6Astra) ||
+            IsGpt6OptionalReasoningModel(model);
+
+        private static bool IsGpt6OptionalReasoningModel(string model) =>
+            IsOpenAIModelOrSnapshot(model, AIModels.OpenAI.Gpt6Sol) ||
+            IsOpenAIModelOrSnapshot(model, AIModels.OpenAI.Gpt6Luna);
+
+        private static bool IsOpenAIModelOrSnapshot(string model, string alias) =>
+            string.Equals(model, alias, StringComparison.OrdinalIgnoreCase) ||
+            (model.Length == alias.Length + 11 && HasOpenAISnapshotDate(model) &&
+             model.StartsWith(alias + "-", StringComparison.OrdinalIgnoreCase));
 
         /// <summary>
         /// Matches GPT-5.3 Codex models: gpt-5.3-codex and its snapshots.

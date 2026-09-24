@@ -1,6 +1,8 @@
 # Context Build
 
-> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → [Filtering](rag-filtering.md) → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → **`Context Build`**
+> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → [Filtering](rag-filtering.md) → [Embedding (when needed)](rag-embedding.md) → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → **`Context Build`**
+
+The query’s `Embedding` stage now depends on the retriever; keyword retrieval does not report it. Custom retrievers can report relevant stages through `request.ProgressAsync`. Document embeddings are unchanged.
 
 ## What is Context Build?
 

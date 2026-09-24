@@ -1,5 +1,6 @@
 using Mythosia.AI.Extensions;
 using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Models.Streaming;
@@ -17,13 +18,16 @@ public class RagRequestFeaturesTests
         var service = new RagFeatureService();
         var rag = service.WithRag(builder => builder.AddText("Shipping takes three days.", id: "shipping")
             .UseLocalEmbedding(64).WithQueryRewriter());
-        Assert.AreSame(rag, rag.WithReasoning(ReasoningLevel.High).WithWebSearch());
+        Assert.AreSame(rag, rag.WithReasoning(ReasoningLevel.High).WithWebSearch().WithSpeed(InferenceSpeed.Fast));
 
         await rag.GetCompletionAsync("Shipping policy?");
         Assert.AreEqual(2, service.Requests.Count);
         Assert.IsTrue(service.Requests[0].IsEmpty, "Query rewriting must not inherit answer tools.");
         Assert.AreEqual(ReasoningLevel.High, service.Requests[1].Reasoning!.Level);
         Assert.IsNotNull(service.Requests[1].WebSearch);
+        Assert.AreEqual(InferenceSpeed.Fast, service.Requests[1].Speed);
+        Assert.AreEqual(1, rag.LastProcessing.Count, "The internal query rewrite must not appear in answer observations.");
+        Assert.AreEqual(InferenceSpeed.Fast, rag.LastProcessing[0].RequestedSpeed);
         Assert.AreEqual("source", rag.LastCitations.Single().Title);
         Assert.AreEqual("original", service.LastReceivedMessage!.Metadata!["feature_anchor"]);
         StringAssert.Contains(service.LastReceivedPrompt!, "Shipping policy?");
@@ -37,9 +41,11 @@ public class RagRequestFeaturesTests
     {
         var service = new RagFeatureService();
         var rag = service.WithRag(builder => builder.AddText("LOCAL_CONTEXT", id: "local").UseLocalEmbedding(64))
-            .WithFileSearch(new FileSearchStore("OpenAI", "vs_test"));
+            .WithFileSearch(new FileSearchStore("OpenAI", "vs_test")).WithSpeed(InferenceSpeed.Fast);
         await using var run = await rag.StartRunAsync("Question?", streamOptions: StreamOptions.TextOnlyOptions);
         Assert.AreEqual("answer", (await run.Result).Text);
+        Assert.AreEqual(InferenceSpeed.Fast, (await run.Result).Processing.Single().RequestedSpeed);
+        Assert.AreEqual(InferenceSpeed.Fast, rag.LastProcessing.Single().RequestedSpeed);
         Assert.AreEqual("vs_test", service.Requests.Single().FileSearch!.Stores.Single().Id);
         Assert.AreEqual("source", run.Citations.Single().Title);
         Assert.AreEqual("original", service.ObservedMetadata!["feature_anchor"]);
@@ -108,6 +114,9 @@ public class RagRequestFeaturesTests
         public string? ObservedPrompt;
         public Dictionary<string, object>? ObservedMetadata;
 
+        protected override CapabilitySupport ResolveSpeedSupport(InferenceSpeed speed)
+            => SupportsFeatures ? CapabilitySupport.Supported : CapabilitySupport.Unsupported;
+
         protected override void ValidateRequestFeatures(AIRequestFeatures features)
         {
             if (!SupportsFeatures) base.ValidateRequestFeatures(features);
@@ -117,6 +126,7 @@ public class RagRequestFeaturesTests
         {
             using var scope = BeginRequestFeaturesScope(message);
             Requests.Add(CurrentRequestFeatures.Clone());
+            BeginProcessingObservation().Record("standard", InferenceSpeed.Standard);
             if (!CurrentRequestFeatures.IsEmpty)
             {
                 AddAnchor();
@@ -131,6 +141,7 @@ public class RagRequestFeaturesTests
         {
             await Task.Yield();
             Requests.Add(CurrentRequestFeatures.Clone());
+            BeginProcessingObservation().Record("standard", InferenceSpeed.Standard);
             AddAnchor();
             var outgoing = GetLatestMessages().Last();
             ObservedPrompt = outgoing.Content;

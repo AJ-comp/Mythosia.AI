@@ -1,26 +1,28 @@
 # Mythosia.VectorDb.Abstractions
 
+> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published NuGet package.
+
 Core contracts for the **Mythosia VectorDb** abstraction layer.
 Defines `IVectorStore`, all model types, and the metadata-based filtering API.
 Consumed by `Mythosia.AI.Rag` and all concrete store implementations (InMemory, Postgres, Qdrant, Pinecone).
 
-> **⚠ Deprecation Notice**
+> **Breaking change in v4.0.0**
 >
 > `VectorRecord.Namespace`, `VectorRecord.Scope`, `VectorFilter.Namespace`, `VectorFilter.Scope`,
 > `VectorFilter.WithNamespace()`, `INamespaceContext`, `IScopeContext`, and `InNamespace()` / `InScope()`
-> are **deprecated** and will be removed in a future major version.
+> were **removed in v4.0.0**. Calls to these APIs must be migrated before upgrading.
 >
 > **Use `Metadata` for logical isolation instead.** Store partition keys (namespace, scope, tenant, etc.)
 > as metadata entries and filter them with `VectorFilter.Where("key", "value")`.
 > This aligns with industry-standard vector database designs (Qdrant payload, Pinecone metadata, LangChain PGVector).
 >
 > ```csharp
-> // Before (deprecated)
+> // Before v4.0.0 (historical example; these APIs no longer compile)
 > record.Namespace = "docs";
 > record.Scope = "tenant-1";
 > var filter = new VectorFilter { Namespace = "docs", Scope = "tenant-1" };
 >
-> // After (recommended)
+> // v4.0.0 and later
 > record.Metadata["namespace"] = "docs";
 > record.Metadata["scope"] = "tenant-1";
 > var filter = new VectorFilter().Where("namespace", "docs").Where("scope", "tenant-1");
@@ -59,7 +61,7 @@ Install this package directly only when writing a **custom `IVectorStore` implem
 
 ### `VectorRecord`
 
-The unit of storage. Holds the embedding vector, content text, metadata, and isolation fields.
+The unit of storage. Holds the embedding vector, content text, and metadata. Store logical isolation keys in metadata.
 
 ```csharp
 var record = new VectorRecord
@@ -82,8 +84,6 @@ var record = new VectorRecord
 | `Vector` | `float[]` | Embedding vector |
 | `Content` | `string` | Original text (nullable in some stores) |
 | `Metadata` | `Dictionary<string, string>` | Arbitrary key-value pairs for filtering/display |
-| ~~`Namespace`~~ | `string?` | **Deprecated.** Use `Metadata["namespace"]` instead |
-| ~~`Scope`~~ | `string?` | **Deprecated.** Use `Metadata["scope"]` instead |
 
 ---
 
@@ -129,10 +129,10 @@ var filter = new VectorFilter()
     );
 ```
 
-#### First-class properties
+#### Metadata isolation and score filtering
 
 ```csharp
-// Recommended style — use Where() for all filtering including namespace/scope
+// Use Where() for metadata filtering, including namespace/scope
 var filter = new VectorFilter()
     .Where("namespace", "docs")
     .Where("scope", "tenant-1")
@@ -142,12 +142,10 @@ var filter = new VectorFilter()
 
 | Property | Type | Description |
 | --- | --- | --- |
-| ~~`Namespace`~~ | `string?` | **Deprecated.** Use `.Where("namespace", value)` instead |
-| ~~`Scope`~~ | `string?` | **Deprecated.** Use `.Where("scope", value)` instead |
 | `Conditions` | `IReadOnlyList<FilterCondition>` | Top-level condition tree (AND-combined) |
-| `MinScore` | `double?` | Exclude results below this similarity score |
+| `MinScore` | `double?` | Exclude search results below this score; its scale depends on the search mode |
 
-#### Operator support by store
+#### Operator support for vector and legacy hybrid search
 
 | Operator | InMemory | Postgres | Qdrant | Pinecone |
 | --- | :---: | :---: | :---: | :---: |
@@ -160,13 +158,15 @@ var filter = new VectorFilter()
 | `Exists / NotExists` | ✓ | ✓ (`jsonb_exists`) | — | — |
 | `And / Or groups` | ✓ | ✓ | ✓ | ✓ |
 
-Qdrant and Pinecone silently skip unsupported operators during server-side filter translation; `MatchesFilter` in both stores evaluates all operators client-side for `GetAsync` / `GetBatchAsync`.
+Qdrant and Pinecone silently skip unsupported operators during server-side filter translation for `SearchAsync` and the `HybridSearchAsync` overload without `HybridSearchOptions`; `MatchesFilter` in both stores evaluates all operators client-side for `GetAsync` / `GetBatchAsync`.
+
+The unreleased Qdrant text/configurable-hybrid paths also support `Exists` / `NotExists` and reject unsupported range/`Like` filters instead of skipping them.
 
 ---
 
 ### `VectorSearchResult`
 
-A single result from `SearchAsync` or `HybridSearchAsync`.
+A single result from vector, text, or hybrid search. Score scales depend on the backend and search mode; configurable hybrid search uses normalized weighted RRF scores in `[0, 1]`.
 
 ```csharp
 foreach (var result in results)
@@ -230,23 +230,12 @@ Concrete stores override these defaults where a more efficient or transactional 
 
 ---
 
-## ~~Fluent API — `InNamespace` / `InScope`~~ (Deprecated)
+## Logical Isolation with Metadata
 
-> **⚠ Deprecated.** `InNamespace()` / `InScope()`, `INamespaceContext`, and `IScopeContext` will be removed in a future major version.
-> Use `VectorFilter.Where()` and `Metadata` entries directly instead.
-
-The following still works but produces compiler warnings:
+`InNamespace()` / `InScope()`, `INamespaceContext`, and `IScopeContext` were removed in v4.0.0. Set partition keys in `Metadata` and apply matching `VectorFilter` conditions on each operation:
 
 ```csharp
-// Deprecated — still functional but will be removed
-var ns = store.InNamespace("docs");
-await ns.UpsertAsync(record);
-```
-
-**Recommended replacement:**
-
-```csharp
-var store = new InMemoryVectorStore();  // or PostgresStore, QdrantStore, PineconeStore
+IVectorStore store = new InMemoryVectorStore();  // or PostgresStore, QdrantStore, PineconeStore
 
 // Set isolation via Metadata
 record.Metadata["namespace"] = "docs";
@@ -259,7 +248,7 @@ var filter = new VectorFilter()
     .Where("scope", "tenant-1");
 var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 
-// Atomic replace
+// Replace matching records (atomicity depends on the store)
 var replaceFilter = new VectorFilter().Where("full_path", "/docs/file.md");
 await store.ReplaceByFilterAsync(replaceFilter, newRecords);
 
@@ -345,10 +334,22 @@ public class MyVectorStore : IVectorStore
 }
 ```
 
-The store is then usable with the fluent API automatically:
+The custom store uses the same metadata and filter contracts:
 
 ```csharp
-var store = new MyVectorStore();
-await store.InNamespace("docs").UpsertAsync(record);
-var results = await store.InNamespace("docs").SearchAsync(queryVector);
+IVectorStore store = new MyVectorStore();
+record.Metadata["namespace"] = "docs";
+await store.UpsertAsync(record);
+var results = await store.SearchAsync(
+    queryVector, filter: new VectorFilter().Where("namespace", "docs"));
 ```
+
+## Optional text and configurable hybrid search
+
+A text-only query should not require a dummy dense vector, and hybrid settings should reach the backend unchanged. These optional contracts extend `IVectorStore` without adding requirements to existing store implementations:
+
+- `ITextSearchStore.TextSearchAsync(query, topK, filter, cancellationToken)` searches text without a dense query vector.
+- `IConfigurableHybridSearchStore.HybridSearchAsync(denseVector, query, options, topK, filter, cancellationToken)` accepts `HybridSearchOptions` for weighted RRF.
+- `HybridSearchOptions` defaults to `VectorWeight = 0.5f`, `CandidateMultiplier = 2`, `RrfK = 60`. Nonfinite weights, weights outside `[0, 1]`, nonpositive candidate/smoothing settings and candidate-count overflow are rejected. Weight `0` disables dense search; weight `1` disables text search. Disabled legs do not inspect or validate their query input.
+
+InMemory, PostgreSQL and Qdrant implement these contracts. Pinecone keeps its legacy native hybrid API; its classic dense-index adapter does not advertise text-only or configurable RRF support. A caller requesting unsupported capabilities must receive an error instead of having settings ignored. Pure text and vector results retain native scoring, while configurable hybrid scores use normalized weighted RRF; do not reuse thresholds blindly across modes.

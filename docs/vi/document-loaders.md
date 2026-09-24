@@ -2,6 +2,14 @@
 
 Document loader phân tích file thành các đối tượng `DoclingDocument` có cấu trúc, sau đó có thể truyền vào RAG pipeline.
 
+<a id="file-source-identity"></a>
+
+## Giữ định danh tệp ổn định khi đăng ký
+
+Cùng một tệp được đăng ký bằng đường dẫn tương đối và tuyệt đối phải cập nhật cùng tài liệu; các tệp trùng tên ở thư mục khác nhau phải tách biệt. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` và `PdfDocumentLoader` nay đặt `DoclingDocument.Source` thành đường dẫn tuyệt đối đã chuẩn hóa như các loader TXT tích hợp. RAG tạo ID tự động từ giá trị này; ID chỉ định rõ vẫn do bên gọi quản lý. Trích dẫn mặc định có thể hiển thị đường dẫn tuyệt đối.
+
+ID đường dẫn tương đối đã lưu không tự động được chuyển đổi hoặc xóa. Xác định ID cũ, chỉ xóa rõ ràng tài liệu đó trong kho tương ứng rồi lập chỉ mục lại. Hoặc lập chỉ mục toàn bộ nguồn vào một collection mới và rỗng, kiểm tra rồi chuyển ứng dụng sang đó. Chỉ dùng ID tuyệt đối mới trong collection hiện có vẫn để lại bản ghi cũ. Không xóa tài liệu không liên quan. Xem [định danh và chuyển đổi](rag.md#document-identity).
+
 ## Cài đặt
 
 Loader cho Office và PDF được bao gồm trong `Mythosia.AI.Rag`. Để dùng độc lập:
@@ -161,14 +169,14 @@ Tài liệu trải qua ba giai đoạn trước khi trở thành các đoạn c�
 
 ## Tích hợp Document Loader & Text Splitter
 
-`MarkdownTextSplitter` là lựa chọn hiệu quả nhất cho tài liệu Office/HWP:
+Dùng `MarkdownTextSplitter` để giữ tiêu đề, khối mã và hàng bảng. Không có tham số overlap. Tiêu đề lặp nằm ngoài ngân sách nội dung; cả khối mã hoặc tiêu đề bảng kèm một hàng có thể vượt giới hạn. Kiểm tra giới hạn token bằng tokenizer của mô hình trên đoạn cuối cùng. Xem [Text Splitters](text-splitters.md).
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter` chia bảng tại ranh giới hàng và tự động thêm header vào mỗi đoạn, đảm bảo dữ liệu bảng còn nguyên vẹn trong kết quả tìm kiếm. Xem [Text Splitter](text-splitters.md) để biết thêm.
+Bảng GFM được nhận diện sẽ tách giữa các hàng, lặp lại tiêu đề và hàng phân cách trong mỗi đoạn bảng. Dấu gạch đứng ngoài cùng là tùy chọn (`Name | Value` được hỗ trợ). Nhờ vậy tên cột được giữ lại; chất lượng tìm kiếm vẫn phụ thuộc tài liệu, embedding và câu hỏi.

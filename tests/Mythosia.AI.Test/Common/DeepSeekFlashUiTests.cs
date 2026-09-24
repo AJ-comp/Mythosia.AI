@@ -18,7 +18,8 @@ public class DeepSeekFlashUiTests
         Assert.AreEqual(AIModels.DeepSeek.Flash, ChatUiModelHelpers.FindModelValueByName("DEEPSEEK-FLASH"));
         var catalogue = JsonSerializer.SerializeToElement(ChatUiModelHelpers.BuildModelCatalogue());
         var group = catalogue.EnumerateArray().Single(g => g.GetProperty("provider").GetString() == "DeepSeek");
-        var entry = group.GetProperty("models").EnumerateArray().Single();
+        var entry = group.GetProperty("models").EnumerateArray()
+            .Single(model => model.GetProperty("name").GetString() == "Flash");
         Assert.AreEqual("Flash", entry.GetProperty("name").GetString());
         Assert.AreEqual(AIModels.DeepSeek.Flash, entry.GetProperty("description").GetString());
         Assert.AreEqual(393216u, entry.GetProperty("maxOutputTokens").GetUInt32());

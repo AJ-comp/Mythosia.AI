@@ -266,6 +266,33 @@ $localizedDirectories = @(Get-ChildItem -LiteralPath $documentationRoot -Directo
     Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "toc.yml") -PathType Leaf })
 $guideDirectories = @(Get-Item -LiteralPath $documentationRoot) + $localizedDirectories
 foreach ($directory in $guideDirectories) {
+    # The executable custom splitter example must not teach empty record IDs:
+    # upserting its chunks would silently overwrite sentences and other documents.
+    $splitterGuidePath = Join-Path $directory.FullName "text-splitters.md"
+    if (-not (Test-Path -LiteralPath $splitterGuidePath -PathType Leaf)) {
+        Add-Issue "Missing text splitter guide: $(Get-RepositoryRelativePath -Path $splitterGuidePath)"
+    }
+    else {
+        $splitterGuideText = Get-Content -Raw -LiteralPath $splitterGuidePath
+        $customExamples = @([regex]::Matches($splitterGuideText, '(?ms)^```(?:csharp|cs|c#)[ \t]*\r?\n(?<code>.*?)^```[ \t]*\r?$') |
+            Where-Object { $_.Groups['code'].Value -match 'new\s+RagChunk\s*\{' })
+        if ($customExamples.Count -eq 0) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $splitterGuidePath) must retain its custom splitter example."
+        }
+        foreach ($example in $customExamples) {
+            $code = $example.Groups['code'].Value
+            $idAssignment = [regex]::Match($code, '(?m)^\s*Id\s*=\s*(?<value>[^\r\n]+)')
+            if (-not $idAssignment.Success -or
+                $idAssignment.Groups['value'].Value -notmatch 'document\.Id' -or
+                $idAssignment.Groups['value'].Value -notmatch '\{i\}') {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $splitterGuidePath) must give each example chunk an ID containing document identity and chunk index."
+            }
+            if ($code -notmatch '(?m)^\s*Metadata\s*=\s*.*document\.Metadata') {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $splitterGuidePath) must copy inherited metadata in its custom splitter example."
+            }
+        }
+    }
+
     $guidePath = Join-Path $directory.FullName "execution-api-transition.md"
     $tocPath = Join-Path $directory.FullName "toc.yml"
     if (-not (Test-Path -LiteralPath $guidePath -PathType Leaf)) {
@@ -391,6 +418,21 @@ foreach ($directory in $guideDirectories) {
     }
     else {
         $requestBuilderGuideText = Get-Content -Raw -LiteralPath $requestBuilderGuidePath
+        foreach ($speedContract in @('inference-speed', 'InferenceSpeed.ProviderDefault', 'InferenceSpeed.Standard',
+                'InferenceSpeed.Fast', 'GetSpeedSupport', 'StandardSpeed', 'FastSpeed', 'AIProcessingInfo',
+                'RequestIndex', 'AppliedSpeed', 'RawAppliedMode', 'ResponseId', 'IsDowngraded', 'LastProcessing',
+                'result.Processing', 'IAIProcessingInfoService', 'GetLastProcessing()', 'RagEnabledService.WithSpeed',
+                'fast-mode-2026-02-01', 'generate-content/priority-inference')) {
+            if (-not $requestBuilderGuideText.Contains($speedContract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) omits the $speedContract processing-speed contract."
+            }
+        }
+        foreach ($speedRelatedGuide in @('providers.md', 'model-capabilities.md', 'execution-api-transition.md', 'reasoning-and-search.md')) {
+            $speedRelatedText = Get-Content -Raw -LiteralPath (Join-Path $directory.FullName $speedRelatedGuide)
+            if (-not $speedRelatedText.Contains('(request-building.md#inference-speed)')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$speedRelatedGuide must link to its local speed guidance."
+            }
+        }
         foreach ($contract in @('CreateRequest', 'AIRequestBuilder', 'AIRequest',
                 'basis.WithTemperature(0.2f)', 'basis.WithTemperature(0.8f)',
                 'ReferenceEquals(summary, creative); // false', 'GetCompletionAsync()',
@@ -472,6 +514,63 @@ foreach ($directory in $guideDirectories) {
     $providerGuidePath = Join-Path $directory.FullName "providers.md"
     if (Test-Path -LiteralPath $providerGuidePath -PathType Leaf) {
         $providerGuideText = Get-Content -Raw -LiteralPath $providerGuidePath
+        foreach ($grok47Contract in @('grok-47', 'AIModels.xAI.Grok4_7', 'GrokReasoning.Auto',
+                'ReasoningLevel.XHigh', 'InferenceSpeed.Fast', 'result.Processing',
+                'run.CanSteer', 'Chat Completions', 'developers/grok-4-7')) {
+            if (-not $providerGuideText.Contains($grok47Contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $grok47Contract Grok 4.7 contract."
+            }
+        }
+        if ([regex]::Matches($providerGuideText, '<a id="grok-47">').Count -ne 1) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) must define one grok-47 anchor."
+        }
+        foreach ($grok47LinkedGuide in @('introduction.md', 'generation-params.md',
+                'reasoning-and-search.md', 'model-capabilities.md', 'streaming.md', 'request-building.md')) {
+            $grok47LinkedText = Get-Content -Raw -LiteralPath (Join-Path $directory.FullName $grok47LinkedGuide)
+            if (-not $grok47LinkedText.Contains('(providers.md#grok-47)')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$grok47LinkedGuide must link to its local Grok 4.7 section."
+            }
+        }
+        if (-not $requestBuilderGuideText.Contains('`grok-4.7`')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) omits Grok 4.7 from processing-speed guidance."
+        }
+        foreach ($gpt6Contract in @('gpt-6-sol-luna', 'AIModels.OpenAI.Gpt6Sol', 'AIModels.OpenAI.Gpt6Luna',
+                'Gpt6Reasoning.None', 'ReasoningLevel.None', 'Gpt6ReasoningMode.Standard',
+                'InferenceSpeed.Fast', 'run.CanSteer', 'result.Processing',
+                'models/gpt-6-sol', 'models/gpt-6-luna')) {
+            if (-not $providerGuideText.Contains($gpt6Contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $gpt6Contract GPT-6 Sol/Luna contract."
+            }
+        }
+        if ([regex]::Matches($providerGuideText, '<a id="gpt-6-sol-luna">').Count -ne 1) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) must define one gpt-6-sol-luna anchor."
+        }
+        foreach ($gpt6LinkedGuide in @('introduction.md', 'generation-params.md', 'function-calling.md',
+                'execution-api-transition.md', 'reasoning-and-search.md', 'model-capabilities.md')) {
+            $gpt6LinkedText = Get-Content -Raw -LiteralPath (Join-Path $directory.FullName $gpt6LinkedGuide)
+            if (-not $gpt6LinkedText.Contains('(providers.md#gpt-6-sol-luna)')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$gpt6LinkedGuide must link to its local GPT-6 Sol/Luna section."
+            }
+        }
+        foreach ($gpt6FastModel in @('`gpt-6-sol`', '`gpt-6-luna`')) {
+            if (-not $requestBuilderGuideText.Contains($gpt6FastModel)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) omits $gpt6FastModel from processing-speed guidance."
+            }
+        }
+        foreach ($opus55Contract in @('claude-opus-55', 'AIModels.Anthropic.ClaudeOpus5_5',
+                'ClaudeReasoningEffort.Medium', 'ClaudeThinkingDisplay.Updates', 'StreamingContentType.Reasoning',
+                'ReasoningLevel.None', 'ThinkingBudget', 'WithThinkingBinding', 'LastInputTransformations',
+                'ForceFunctionName', 'models/opus-5-5/migration-guide')) {
+            if (-not $providerGuideText.Contains($opus55Contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $opus55Contract Opus 5.5 contract."
+            }
+        }
+        foreach ($opus55LinkedGuide in @('reasoning-and-search.md', 'fable-5-1.md', 'model-capabilities.md')) {
+            $opus55LinkedText = Get-Content -Raw -LiteralPath (Join-Path $directory.FullName $opus55LinkedGuide)
+            if (-not $opus55LinkedText.Contains('(providers.md#claude-opus-55)')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$opus55LinkedGuide must link to its local Opus 5.5 section."
+            }
+        }
         if ($providerGuideText -notmatch 'Grok4_6|grok-4\.6' -or
             $providerGuideText -notmatch 'GrokReasoning\.XHigh') {
             Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits Grok 4.6 or its XHigh reasoning example."
@@ -600,6 +699,17 @@ $forbiddenPatterns = [ordered]@{
     'nonexistent UseQwenMaxModel helper' = '\.UseQwenMaxModel\('
     'stale GitHub Wiki link' = 'https://github\.com/AJ-comp/Mythosia\.AI/wiki'
     'old Chat UI samples directory' = 'samples/Mythosia\.AI\.Samples\.ChatUi'
+    'removed VectorFilter.ByMetadata helper' = 'VectorFilter\.ByMetadata\s*\('
+}
+
+# Public XML examples are also published by DocFX; check their executable snippets
+# for removed helpers just as we check current Markdown (historical release notes stay intact).
+$ragStoreSourcePath = Join-Path $repoRoot "src/rag/Mythosia.AI.Rag/RagStore.cs"
+$ragStoreSource = Get-Content -Raw -LiteralPath $ragStoreSourcePath
+foreach ($xmlExample in [regex]::Matches($ragStoreSource, '(?s)///\s*<code>(?<code>.*?)///\s*</code>')) {
+    if ($xmlExample.Groups['code'].Value -match 'VectorFilter\.ByMetadata\s*\(') {
+        Add-Issue "RagStore XML examples use the removed VectorFilter.ByMetadata helper."
+    }
 }
 
 foreach ($document in $activeDocumentation) {
@@ -642,6 +752,10 @@ $rootPrefix = $repoRoot.TrimEnd(
 
 foreach ($document in $linkDocuments) {
     $text = Get-Content -Raw -LiteralPath $document.FullName
+    if ($text -match 'new\s+MarkdownTextSplitter\s*\(\s*[^()\r\n]*,') {
+        $relativeDocument = Get-RepositoryRelativePath -Path $document.FullName
+        Add-Issue "$relativeDocument uses an unsupported MarkdownTextSplitter overlap constructor; use the chunkSize-only overload."
+    }
     $matches = [regex]::Matches($text, '(?<!\!)\[[^\]]+\]\((?<target>[^)]+)\)')
     foreach ($match in $matches) {
         $target = $match.Groups["target"].Value.Trim()
@@ -693,4 +807,4 @@ if ($issues.Count -ne 0) {
 
 Write-Host "Release documentation and NuGet metadata validation passed."
 Write-Host "Validated $($releasePackages.Count) release packages and $($linkDocuments.Count) Markdown files."
-Write-Host "Validated v8 migration, model capabilities, completion cancellation and implementation migration, local tool returns/errors/cancellation, request builders, GPT Image 2.5, Perplexity Agent/Search/embeddings, DeepSeek Flash, Grok 4.6, Grok Imagine Image 2.0, Gemini 3.7/3.8, Run, reasoning/search, and Fable 5.1 guide coverage and navigation for $($guideDirectories.Count) documentation languages."
+Write-Host "Validated v8 migration, model capabilities, completion cancellation and implementation migration, local tool returns/errors/cancellation, request builders, GPT Image 2.5, Perplexity Agent/Search/embeddings, DeepSeek Flash, Grok 4.6/4.7, Grok Imagine Image 2.0, Gemini 3.7/3.8, Run, reasoning/search, Fable 5.1, Opus 5.5, GPT-6 Sol/Luna and processing-speed guide coverage and navigation for $($guideDirectories.Count) documentation languages."

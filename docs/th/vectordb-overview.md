@@ -78,7 +78,7 @@ var record = new VectorRecord
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0.0–1.0 (สูงกว่า = คล้ายกว่า)
+    public double Score { get; set; }  // สเกลขึ้นอยู่กับ backend และโหมดค้นหา; ยิ่งสูงยิ่งเกี่ยวข้อง
 }
 ```
 

@@ -1,5 +1,11 @@
 # Choose reasoning effort and answer with sources
 
+> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](providers.md#grok-47).
+
+> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](providers.md#gpt-6-sol-luna).
+
+[Claude Opus 5.5](providers.md#claude-opus-55) is an unreleased addition with always-on thinking, default medium effort and omitted display. Explicitly request readable progress; its defaults and model-binding rules differ from Fable 5.1.
+
 For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
 
 > These APIs require `Mythosia.AI` 7.1.0 or later, which includes `Mythosia.AI.Abstractions` 3.1.0 or later. RAG examples require `Mythosia.AI.Rag` 7.6.0 or later.
@@ -7,6 +13,8 @@ For independent settings and reusable variations, use [the request builder](requ
 > `CreateRequest` examples require the current working release; they are not available in the earlier 7.1 release that introduced Run and common request features. Earlier packages can keep their existing service overloads.
 
 [Claude Fable 5.1](fable-5-1.md) adds progress updates, turn-scoped instructions, and thinking-binding diagnostics from `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requires invitation access. Both reject forced tool choice.
+
+For requests where waiting time matters, use [processing speed](request-building.md#inference-speed): `WithSpeed` keeps the model and reasoning effort, while `Processing` reports what the provider actually applied. Fast is a paid option on supported combinations.
 
 ## Why use these options?
 
@@ -138,11 +146,11 @@ Citation fields are nullable when the provider supplies no value. `ResponseId`, 
 
 | Integrated provider | Named reasoning levels | Cache-preserving change | Web search | File search |
 | --- | --- | --- | --- | --- |
-| OpenAI | Supported reasoning models; level varies by model | GPT-6 Astra Standard, single-agent mode | Supported Responses models | Supported Responses models, existing vector stores |
-| Anthropic | Models with native effort control | Supported Opus 5 / Fable 5.1 / Mythos 5.1 with the provider beta | Supported Claude models | No native store adapter; use RAG |
+| OpenAI | Supported reasoning models; level varies by model | GPT-6 Astra / Sol / Luna Standard, single-agent mode | Supported Responses models | Supported Responses models, existing vector stores |
+| Anthropic | Models with native effort control | Supported Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 with the provider beta | Supported Claude models | No native store adapter; use RAG |
 | Google | Gemini 3 levels; Gemini 2.5 retains provider-specific budgets | Unsupported | Supported Gemini text models | Supported Gemini text models, existing file search stores |
-| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Unsupported | No common adapter | No common adapter |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; provider aliases map to native Low/High/Max | Unsupported | No common adapter | No common adapter |
+| xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Unsupported | No common adapter | No common adapter |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; provider aliases map to native Low/High/Max | Unsupported | No common adapter | No common adapter |
 | Perplexity | `Auto` or model-supported `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`; no explicit Sonar effort | Unsupported | Agent `web_search` | No common adapter |
 | Other services | Existing provider-specific settings remain available; these common options require an adapter | Unsupported by this adapter set | No common adapter | No common adapter |
 

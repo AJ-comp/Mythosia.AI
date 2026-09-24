@@ -29,6 +29,8 @@
             public const string Gpt5_6Terra = "gpt-5.6-terra";
             public const string Gpt5_6Luna = "gpt-5.6-luna";
             public const string Gpt6Astra = "gpt-6-astra";
+            public const string Gpt6Sol = "gpt-6-sol";
+            public const string Gpt6Luna = "gpt-6-luna";
             public const string GptImage2 = "gpt-image-2";
             public const string GptImage2_260421 = "gpt-image-2-2026-04-21";
             public const string GptImage2_5Sunburst = "gpt-image-2.5-sunburst";
@@ -53,6 +55,7 @@
             public const string ClaudeMythos5_1 = "claude-mythos-5-1";
             public const string ClaudeFable5 = "claude-fable-5";
             public const string ClaudeMythos5 = "claude-mythos-5";
+            public const string ClaudeOpus5_5 = "claude-opus-5-5";
             public const string ClaudeOpus5 = "claude-opus-5";
             public const string ClaudeSonnet5 = "claude-sonnet-5";
             public const string ClaudeOpus4_8 = "claude-opus-4-8";
@@ -89,6 +92,7 @@
         public static class xAI
         {
             public const string GrokImagineImage2_0 = "grok-imagine-image-2.0";
+            public const string Grok4_7 = "grok-4.7";
             public const string Grok4_6 = "grok-4.6";
             public const string Grok4_5 = "grok-4.5";
             public const string Grok4_5Latest = "grok-4.5-latest";
@@ -104,6 +108,7 @@
         public static class DeepSeek
         {
             public const string Flash = "deepseek-flash";
+            public const string V4Pro = "deepseek-v4-pro";
 
             [System.Obsolete("Use Flash. DeepSeek retired V4 Flash on 2026-09-10; this legacy name temporarily routes to V4.1 Flash.", false)]
             public const string V4Flash = "deepseek-v4-flash";

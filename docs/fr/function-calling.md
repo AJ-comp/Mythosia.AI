@@ -1,5 +1,7 @@
 # Appel de fonctions
 
+> GPT-6 Sol/Luna ne sont pas encore publiés. Voir [choix du modèle et prérequis](providers.md#gpt-6-sol-luna).
+
 Pour un résultat final et un bouton Arrêter, passez `cancellationToken` à `GetCompletionAsync`. Utilisez Run pour les événements de progression ou les instructions supplémentaires prises en charge. Voir [l’annulation](completions.md#completion-cancellation).
 
 Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
@@ -288,7 +290,7 @@ var answer = await service.GetCompletionAsync(
     "Consulte l’exemple de météo pour Séoul. En attendant, indique trois indispensables à emporter en voyage.");
 ```
 
-Mythosia envoie `async: true` pour GPT-6 Astra via Responses. Avec les modèles et API non compatibles, ce champ est omis et le résultat du même gestionnaire est attendu, sans modifier `AllowAsync`. Le fournisseur doit aussi signaler l’appel réel comme asynchrone (`FunctionCall.IsAsync`) : l’autorisation ne garantit pas une exécution asynchrone.
+Mythosia envoie `async: true` pour GPT-6 Astra / Sol / Luna via Responses. Avec les modèles et API non compatibles, ce champ est omis et le résultat du même gestionnaire est attendu, sans modifier `AllowAsync`. Le fournisseur doit aussi signaler l’appel réel comme asynchrone (`FunctionCall.IsAsync`) : l’autorisation ne garantit pas une exécution asynchrone.
 
 `WithFunctionAsync` enregistre un gestionnaire .NET asynchrone et `FunctionExecutionMode.Parallel` règle l’exécution locale des gestionnaires. Aucun des deux n’active automatiquement cette autorisation. `AllowAsync` permet au modèle de continuer avant de recevoir le résultat de la fonction. `FunctionExecutionMode` continue de régler les appels ordinaires. Les tâches asynchrones autorisées peuvent se chevaucher même en mode `Sequential` et partagent une limite distincte définie par `MaxConcurrency`.
 

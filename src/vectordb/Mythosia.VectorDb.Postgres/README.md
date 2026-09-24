@@ -1,5 +1,7 @@
 # Mythosia.VectorDb.Postgres
 
+> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published NuGet package.
+
 PostgreSQL ([pgvector](https://github.com/pgvector/pgvector)) implementation of `IVectorStore`.
 Single-table design with a `metadata` JSONB column for all filtering including logical isolation.
 All isolation keys (e.g. `namespace`, `scope`, `category`) are standard metadata entries — there are no framework-reserved keys.
@@ -253,7 +255,16 @@ For the full operator reference and fluent API examples (`Where`, `WhereNot`, `W
 
 ## Hybrid Search
 
-`PostgresStore` supports native `IVectorStore.HybridSearchAsync` for hybrid search. When called, it executes a **single SQL query using CTEs** — combining the vector similarity leg and the text search leg — then merges results via **Reciprocal Rank Fusion (RRF)**.
+`PostgresStore` supports `ITextSearchStore` for text-only queries and `IConfigurableHybridSearchStore` for hybrid queries. With both legs active, the hybrid path uses a single SQL query with CTEs and combines rankings using normalized weighted Reciprocal Rank Fusion. At endpoint weights it queries only the active leg and retains the same normalized fusion score semantics. Metadata filters are applied before candidate limits; `MinScore` applies to the final fused score.
+
+```csharp
+var words = await store.TextSearchAsync("hello !", topK: 5, filter: filter);
+var mixed = await store.HybridSearchAsync(queryVector, "refund policy",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`HybridSearchOptions` is in `Mythosia.VectorDb`. Weight 0 skips the vector leg; weight 1 skips text search. Direct text search keeps the configured native text score. Query punctuation no longer creates malformed OR operators, but this does not preserve `C#` and `C++` as distinct tokens. Existing index format is unchanged.
 
 ### TextSearchMode.TsVector (default)
 
@@ -271,7 +282,7 @@ var store = new PostgresStore(new PostgresOptions
 
 ### TextSearchMode.Trigram
 
-Uses `pg_trgm` extension with `word_similarity` matching. Better for **CJK languages** (Korean, Japanese, Chinese) and agglutinative languages where PostgreSQL lacks built-in morphological analysis.
+Uses `pg_trgm` extension with `word_similarity` matching. It can help with spelling fragments in languages without a configured morphological analyzer; evaluate it on actual documents rather than assuming it is better for every CJK query.
 
 ```csharp
 var store = new PostgresStore(new PostgresOptions
@@ -284,7 +295,7 @@ var store = new PostgresStore(new PostgresOptions
 ```
 
 > **Why Trigram for Korean/CJK?**
-> PostgreSQL's `simple` text search config tokenizes by whitespace only. Korean particles (조사/어미) attach to words, so `"opm에"` ≠ `"opm은"` — no match. Trigram splits text into 3-character grams and uses substring similarity, bypassing morphological analysis entirely.
+> The `simple` configuration uses PostgreSQL’s text parser and simple dictionaries, not a Korean morphological analyzer. Attached particles can therefore prevent lexical matches. Trigram compares character groups rather than analyzing morphology; it also ignores non-word characters when building trigrams, so it does not solve `C#`/`C++` identity by itself.
 
 `content` may remain nullable for deployments where original text storage is prohibited, but `content_tsv` is required for lexical retrieval in `TsVector` mode.
 
@@ -312,6 +323,8 @@ long filtered = await store.CountAsync(
 var filter = new VectorFilter().Where("full_path", "/docs/policy.md");
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
+
+`full_path` in this example is caller-supplied metadata: populate it on records and choose the replacement filter explicitly. PostgreSQL does not infer it from a source file, and this filter does not make record IDs unique; `VectorRecord.Id` remains the table primary key. The default RAG pipeline instead replaces records by `document_id`, using the document ID assigned before storage. For built-in text and directory loaders, that ID now includes the normalized absolute file path. See [RAG document identity and index migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#document-identity).
 
 **How it works:**
 

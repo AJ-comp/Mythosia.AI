@@ -1,5 +1,11 @@
 # Chọn mức suy luận và trả lời kèm nguồn
 
+> Grok 4.7 là phần bổ sung chưa phát hành; xem [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47).
+
+> GPT-6 Sol/Luna là phần bổ sung chưa phát hành. Xem [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna).
+
+[Claude Opus 5.5](providers.md#claude-opus-55) là phần bổ sung chưa phát hành: luôn bật suy luận, mặc định mức medium và ẩn hiển thị. Cần yêu cầu rõ tiến độ đọc được; mặc định và quy tắc gắn với mô hình khác Fable 5.1.
+
 Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
 
 > Các API này yêu cầu `Mythosia.AI` 7.1.0 trở lên, bao gồm `Mythosia.AI.Abstractions` 3.1.0 trở lên. Các ví dụ RAG yêu cầu `Mythosia.AI.Rag` 7.6.0 trở lên.
@@ -7,6 +13,8 @@
 > Ví dụ `CreateRequest` cần phiên bản hiện đang phát triển. Bản 7.1 trước đây giới thiệu Run và tùy chọn chung chưa có builder. Gói cũ có thể tiếp tục dùng các overload của dịch vụ.
 
 [Claude Fable 5.1](fable-5-1.md) bổ sung cập nhật tiến độ, chỉ dẫn theo lượt và chẩn đoán liên kết thinking từ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 cần lời mời truy cập. Cả hai đều từ chối ép chọn công cụ.
+
+Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử lý](request-building.md#inference-speed). `WithSpeed` giữ mô hình và mức suy luận; `Processing` báo chế độ thực tế. Fast là tùy chọn trả phí trên các tổ hợp được hỗ trợ.
 
 ## Vì sao cần các tùy chọn này?
 
@@ -138,11 +146,11 @@ Các trường trích dẫn có thể là null khi nhà cung cấp không gửi 
 
 | Nhà cung cấp đã tích hợp | Mức suy luận có tên | Thay đổi giữ bộ nhớ đệm | Tìm kiếm web | Tìm kiếm tệp |
 | --- | --- | --- | --- | --- |
-| OpenAI | Các mô hình suy luận được hỗ trợ; mức tùy theo mô hình | GPT-6 Astra Standard, chế độ một tác nhân | Các mô hình Responses được hỗ trợ | Các mô hình Responses được hỗ trợ và kho vector hiện có |
-| Anthropic | Mô hình có điều khiển effort gốc | Opus 5 / Fable 5.1 / Mythos 5.1 được hỗ trợ, dùng tính năng beta của nhà cung cấp | Các mô hình Claude được hỗ trợ | Không có bộ điều hợp kho gốc; dùng RAG |
+| OpenAI | Các mô hình suy luận được hỗ trợ; mức tùy theo mô hình | GPT-6 Astra / Sol / Luna Standard, chế độ một tác nhân | Các mô hình Responses được hỗ trợ | Các mô hình Responses được hỗ trợ và kho vector hiện có |
+| Anthropic | Mô hình có điều khiển effort gốc | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 được hỗ trợ, dùng tính năng beta của nhà cung cấp | Các mô hình Claude được hỗ trợ | Không có bộ điều hợp kho gốc; dùng RAG |
 | Google | Các mức Gemini 3; Gemini 2.5 giữ ngân sách riêng của nhà cung cấp | Không hỗ trợ | Các mô hình văn bản Gemini được hỗ trợ | Các mô hình văn bản Gemini được hỗ trợ và kho tìm kiếm tệp hiện có |
-| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Không hỗ trợ | Không có adapter chung | Không có adapter chung |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; ánh xạ Low/High/Max gốc | Không hỗ trợ | Chưa có bộ điều hợp chung | Chưa có bộ điều hợp chung |
+| xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Không hỗ trợ | Không có adapter chung | Không có adapter chung |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; ánh xạ Low/High/Max gốc | Không hỗ trợ | Chưa có bộ điều hợp chung | Chưa có bộ điều hợp chung |
 | Perplexity | `Auto` hoặc `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max` tùy mô hình; Sonar không hỗ trợ effort tường minh | Không hỗ trợ | Agent `web_search` | Chưa có bộ điều hợp chung |
 | Dịch vụ khác | Thiết lập riêng của nhà cung cấp vẫn dùng được; các tùy chọn chung này cần bộ điều hợp | Không được hỗ trợ bởi nhóm bộ điều hợp này | Không có bộ điều hợp chung | Không có bộ điều hợp chung |
 

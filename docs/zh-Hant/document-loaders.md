@@ -2,6 +2,14 @@
 
 文件載入器將檔案解析為結構化的 `DoclingDocument` 物件，然後可以傳遞給 RAG 管線。
 
+<a id="file-source-identity"></a>
+
+## 讓同一檔案的識別保持穩定
+
+使用相對路徑和絕對路徑註冊同一檔案時，應更新同一份文件；不同資料夾中的同名檔案則應保持獨立。`WordDocumentLoader`、`ExcelDocumentLoader`、`PowerPointDocumentLoader` 和 `PdfDocumentLoader` 現在與內建 TXT 載入器一樣，將 `DoclingDocument.Source` 設為正規化的絕對檔案路徑。RAG 據此產生自動文件 ID，明確指定的 ID 仍由呼叫端管理。預設來源引用可能顯示絕對路徑。
+
+既有相對路徑 ID 不會自動遷移或刪除。請確認舊文件 ID，在對應儲存中明確刪除該文件後重新索引。也可以在新的空集合中索引全部原始資料，驗證後再將應用程式切換過去。僅在既有集合中以新的絕對路徑 ID 重新索引仍會留下舊記錄。請勿刪除無關文件。參閱[文件識別與遷移](rag.md#document-identity)。
+
 ## 安裝
 
 Office 和 PDF 載入器包含在 `Mythosia.AI.Rag` 中。如需單獨使用：
@@ -162,14 +170,14 @@ foreach (var item in doc.Document)
 
 ## 文件載入器與文字分割器的搭配
 
-`MarkdownTextSplitter` 是 Office/HWP 文件最有效的選擇：
+需要保留 Markdown 標題、程式碼區塊與表格列時，請使用 `MarkdownTextSplitter`。它沒有 overlap 參數。重複標題不計入內文預算；完整程式碼區塊或表頭加一列可能超限。嚴格 token 限制須以模型 tokenizer 檢查最終塊。參閱[文字分割器](text-splitters.md)。
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter` 會按行拆分表格，並自動在每個分塊中包含表頭，確保搜尋結果中的表格資料保持完整。詳細資訊請參見[文字分割器](text-splitters.md)。
+辨識的 GFM 表格依列之間的邊界切分，每個表格塊重複表頭與分隔列。外側豎線可省略（支援 `Name | Value`）。這保留了欄名，但檢索品質仍取決於文件、嵌入與問題。

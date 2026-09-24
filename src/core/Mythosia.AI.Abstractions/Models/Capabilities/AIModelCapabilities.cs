@@ -41,6 +41,8 @@ namespace Mythosia.AI.Models.Capabilities
         public IReadOnlyList<ReasoningLevel> NativeReasoningLevels { get; }
         public IReadOnlyList<int> ThinkingBudgetPresets { get; }
         public uint? MaxOutputTokens { get; }
+        public CapabilitySupport StandardSpeed { get; private set; }
+        public CapabilitySupport FastSpeed { get; private set; }
 
         public AIModelCapabilities(
             string? provider = null, string? model = null,
@@ -95,6 +97,25 @@ namespace Mythosia.AI.Models.Capabilities
             if (!Enum.IsDefined(typeof(ReasoningLevel), level)) return CapabilitySupport.Unsupported;
             if (Reasoning != CapabilitySupport.Supported) return Reasoning;
             return ReasoningLevels.Contains(level) ? CapabilitySupport.Supported : CapabilitySupport.Unsupported;
+        }
+
+        /// <summary>Checks processing-mode support for this model and endpoint, not account entitlement or capacity.</summary>
+        public CapabilitySupport GetSpeedSupport(InferenceSpeed speed)
+            => speed == InferenceSpeed.ProviderDefault ? CapabilitySupport.Supported
+                : speed == InferenceSpeed.Standard ? StandardSpeed
+                : speed == InferenceSpeed.Fast ? FastSpeed : CapabilitySupport.Unsupported;
+
+        /// <summary>Returns an independent capability snapshot with processing-mode support.
+        /// Retains the original constructor for source and binary compatibility.</summary>
+        public AIModelCapabilities WithSpeedSupport(CapabilitySupport standard, CapabilitySupport fast)
+        {
+            if (!Enum.IsDefined(typeof(CapabilitySupport), standard)) throw new ArgumentOutOfRangeException(nameof(standard));
+            if (!Enum.IsDefined(typeof(CapabilitySupport), fast)) throw new ArgumentOutOfRangeException(nameof(fast));
+            if (StandardSpeed == standard && FastSpeed == fast) return this;
+            var copy = (AIModelCapabilities)MemberwiseClone();
+            copy.StandardSpeed = standard;
+            copy.FastSpeed = fast;
+            return copy;
         }
 
         private static IReadOnlyList<T> Copy<T>(IEnumerable<T>? values)

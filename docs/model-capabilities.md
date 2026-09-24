@@ -1,8 +1,16 @@
 # Choose controls the selected model supports
 
+> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](providers.md#grok-47).
+
+> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](providers.md#gpt-6-sol-luna).
+
+For [Claude Opus 5.5](providers.md#claude-opus-55), capabilities expose `Low` through `Max`, including `XHigh`; `None` and `Minimal` are unsupported. `ThinkingToggle` is unsupported and `MaxOutputTokens` is 128000. Hidden display does not mean thinking is disabled. These definitions describe this workspace addition, not an already published package.
+
 A chat screen should offer reasoning, search, tools, or image controls that match the selected connection. Keeping model-name lists in every app duplicates the library’s rules and drifts when a provider, protocol, or deployment changes. Capability snapshots let the app and execution validation use the same model definitions.
 
 This API belongs to Mythosia.AI 8.0.0 / Abstractions 4.0.0. The snapshots are immutable local descriptions of library support, not live account or server probes. Types are in `Mythosia.AI.Models.Capabilities`.
+
+For requests where waiting time matters, use [processing speed](request-building.md#inference-speed): `WithSpeed` keeps the model and reasoning effort, while `Processing` reports what the provider actually applied. Fast is a paid option on supported combinations.
 
 ## Before / After
 
@@ -44,6 +52,7 @@ Capabilities describe what the connection can support, not which options you hav
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | Streaming, tools, provider-native asynchronous tools and mid-run instructions. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | Hosted search, cache-preserving reasoning changes, input images and structured output. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | Supported sampling controls and a nullable known output-token limit. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Unreleased: Supported/Unsupported/Unknown processing modes; account access is checked separately. |
 | `Provider`, `Model` | Provider and selected wire-model identity; either may be unknown. |
 
 Common and native reasoning are separate. `ReasoningLevels` describes common `WithReasoning` values; `NativeReasoningLevels` describes the provider’s own controls. `ThinkingBudgetPresets` supplies useful UI choices, not every valid budget or an exhaustive numeric range. `AsyncFunctionCalling` means native asynchronous tool execution, not merely that a local handler returns `Task` or runs in parallel. `StructuredOutput` covers the common typed-output API, including prompt-and-repair fallback; it does not guarantee native constrained decoding. Both reasoning-level lists use `ReasoningLevel`; budget presets are integer values.
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`, `Backgrounds`, `OutputFormats`, `SizeKinds`, `Resolutions` and `AspectRatios` are typed, read-only option lists. `MaxImages` and `MaxInputImages` are nullable known limits. A listed option is not a promise that every combination is valid: existing size, format, quality, mask and model validation still applies. Custom or unknown image models retain unknown support instead of being labelled unsupported.
+
+For Google, `Resolutions` and `AspectRatios` depend on the selected image model and also govern generation/editing validation. See the [model-specific table](providers.md#google-image-options), including the conservative Flash-Lite 1K policy. Unsupported explicit choices fail before HTTP; custom unknown models retain `Unknown` capabilities and provider-wide option validation.
 
 For a custom `AIService`, override the protected `ResolveRequestCapabilities()` hook when the provider can supply reliable definitions. The default is `AIModelCapabilities.Unknown`. Adding a catalogue entry must not turn an unknown deployment into an unsupported one. `IAIService` consumers do not gain mandatory capability members; these query methods belong to `AIService` and its request builder.
 

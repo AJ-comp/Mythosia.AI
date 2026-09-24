@@ -24,7 +24,7 @@ public class OtherProviderCapabilitiesTests
     public static IEnumerable<object[]> CommonReasoningCases =>
         Catalog(typeof(AIModels.Google)).Select(model => ("Google", model))
             .Concat(Catalog(typeof(AIModels.xAI)).Where(model => !model.Contains("image")).Select(model => ("xAI", model)))
-            .Concat(new[] { ("DeepSeek", AIModels.DeepSeek.Flash) })
+            .Concat(new[] { ("DeepSeek", AIModels.DeepSeek.Flash), ("DeepSeek", AIModels.DeepSeek.V4Pro) })
             .SelectMany(pair => Enum.GetValues<ReasoningLevel>().Select(level => new object[] { pair.Item1, pair.Item2, level }));
 
     [TestMethod]

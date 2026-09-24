@@ -1,5 +1,11 @@
 # 選擇推理強度，並取得附有來源的回答
 
+> Grok 4.7 是尚未發布的新增功能；請參閱[模型選擇、推理與處理速度](providers.md#grok-47)。
+
+> GPT-6 Sol/Luna 是尚未發布的新增功能。參見[模型選擇與版本需求](providers.md#gpt-6-sol-luna)。
+
+[Claude Opus 5.5](providers.md#claude-opus-55) 是尚未發布的新增功能：推理始終啟用，預設 effort 為 medium，並省略顯示。可讀進度需明確要求；預設值和模型綁定規則與 Fable 5.1 不同。
+
 若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
 
 > 這些 API 需要 `Mythosia.AI` 7.1.0 或更新版本，其中包含 `Mythosia.AI.Abstractions` 3.1.0 或更新版本。RAG 範例需要 `Mythosia.AI.Rag` 7.6.0 或更新版本。
@@ -7,6 +13,8 @@
 > `CreateRequest`範例需要目前開發中的版本。最初引入Run和共通請求功能的舊7.1版本不包含建構器；舊套件可繼續使用原有服務多載。
 
 [Claude Fable 5.1](fable-5-1.md) 的進度更新、單回合指令與 thinking 綁定診斷從 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 開始提供。Mythos 5.1 需要邀請存取，兩個模型都拒絕強制工具選擇。
+
+對等待時間敏感的請求可選擇[處理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理層級，`Processing` 顯示供應商實際套用的模式。Fast 是受支援組合上的付費選項。
 
 ## 為什麼需要這些設定？
 
@@ -138,11 +146,11 @@ string answer = (await run.Result).Text;
 
 | 已整合的供應商 | 具名推理等級 | 保留快取的變更 | 網頁搜尋 | 檔案搜尋 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 支援的推理模型；等級因模型而異 | GPT-6 Astra Standard，單一代理模式 | 支援的 Responses 模型 | 支援的 Responses 模型及現有向量儲存區 |
-| Anthropic | 具備原生 effort 控制的模型 | 支援的 Opus 5 / Fable 5.1 / Mythos 5.1，使用供應商測試版功能 | 支援的 Claude 模型 | 沒有原生儲存區轉接器；請使用 RAG |
+| OpenAI | 支援的推理模型；等級因模型而異 | GPT-6 Astra / Sol / Luna Standard，單一代理模式 | 支援的 Responses 模型 | 支援的 Responses 模型及現有向量儲存區 |
+| Anthropic | 具備原生 effort 控制的模型 | 支援的 Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1，使用供應商測試版功能 | 支援的 Claude 模型 | 沒有原生儲存區轉接器；請使用 RAG |
 | Google | Gemini 3 的等級；Gemini 2.5 保留供應商專用預算 | 不支援 | 支援的 Gemini 文字模型 | 支援的 Gemini 文字模型及現有檔案搜尋儲存區 |
 | xAI | Grok 4.6：`Auto`、`Low`、`Medium`、`High`、`XHigh` | 不支援 | 沒有共用轉接器 | 沒有共用轉接器 |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`；對應原生 Low/High/Max | 不支援 | 無共用配接器 | 無共用配接器 |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`；對應原生 Low/High/Max | 不支援 | 無共用配接器 | 無共用配接器 |
 | Perplexity | `Auto` 或模型支援的 `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`；Sonar 不支援明確 effort | 不支援 | Agent `web_search` | 無共用配接器 |
 | 其他服務 | 原有供應商專用設定仍然可用；這些共用選項需要轉接器 | 本組轉接器不支援 | 沒有共用轉接器 | 沒有共用轉接器 |
 

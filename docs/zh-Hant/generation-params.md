@@ -1,5 +1,7 @@
 # 生成參數
 
+> Grok 4.7 是尚未發布的新增功能；請參閱[模型選擇、推理與處理速度](providers.md#grok-47)。
+
 若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
 
 ## 服務預設值與相容方法
@@ -15,6 +17,8 @@ service.PresencePenalty = 0.0f;    // 對已出現 Token 的懲罰
 ```
 
 GPT-6 Astra 不支援 `temperature` 和 `top_p`；即使透過通用屬性或請求設定指定它們，Mythosia 也會在傳送時省略這兩個欄位。最大輸出為 128,000 個 token。參見 [GPT-6 設定](providers.md)。
+
+GPT-6 Sol/Luna 僅在 `ReasoningLevel.None` 時傳送 `temperature` 和 `top_p`，其他情況均省略。Astra 不支援 `None`。參見[模型選擇與設定](providers.md#gpt-6-sol-luna)。
 
 
 如果起草和審查需要不同的推理深度，可以使用[共用推理設定](reasoning-and-search.md)。指南也說明保留快取的變更與一般單次請求設定的差異。

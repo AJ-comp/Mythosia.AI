@@ -96,7 +96,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private bool SupportsPerMessageClaudeEffort()
         {
-            return IsClaudeNameOrSnapshot("claude-opus-5") ||
+            return IsClaudeOpus55Model() || IsClaudeNameOrSnapshot("claude-opus-5") ||
                    IsClaudeNameOrSnapshot("claude-fable-5-1") ||
                    IsClaudeNameOrSnapshot("claude-mythos-5-1");
         }
@@ -163,7 +163,7 @@ namespace Mythosia.AI.Services.Anthropic
                 (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var state) &&
                  state.PersistentEffort != null && ActivateChat.Messages.Count > 0))
                 return "Conversation compaction would invalidate the prefix required by cache-preserving Claude effort.";
-            if (IsClaudeNameOrSnapshot("claude-fable-5-1") &&
+            if ((IsClaudeNameOrSnapshot("claude-fable-5-1") || IsClaudeOpus55Model()) &&
                 ClaudeOptions.Binding != ClaudeThinkingPrefixMismatchBehavior.DropBlock && HasClaudeThinkingHistory())
                 return "Conversation compaction would invalidate preserved Claude thinking. Start a new conversation or explicitly select DropBlock.";
             return base.GetConversationCompactionBlockReason();
@@ -179,7 +179,8 @@ namespace Mythosia.AI.Services.Anthropic
             var effort = reasoning == null
                 ? baseline.PersistentEffort!
                 : reasoning.Level == ReasoningLevel.Auto
-                ? (UsesAdaptiveThinkingForRequest() && IsThinkingEnabled ? ResolveAdaptiveThinkingEffort() : "high")
+                ? (UsesAdaptiveThinkingForRequest() && IsThinkingEnabled ? ResolveAdaptiveThinkingEffort()
+                    : IsClaudeOpus55Model() ? "medium" : "high")
                 : reasoning.Level.ToString().ToLowerInvariant();
             if (reasoning?.Cache == CachePreservation.Required)
                 baseline.PersistentEffort = effort;

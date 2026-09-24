@@ -1,5 +1,18 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## Unreleased
+
+> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+
+### Added
+
+- `IRagRetriever` and `RagRetrievalRequest` support request-based retrieval without a required query embedding. Requests expose full and lexical query text, top-K, filter and optional progress callback; cancellation is passed to `RetrieveAsync`.
+
+### Compatibility
+
+- `IRetrievalStrategy` remains available; existing implementations are not required to implement the new contract. New built-in retrievers use the full query for a null lexical override and skip text search for an empty override.
+
+
 ## v6.2.0
 
 ### Added

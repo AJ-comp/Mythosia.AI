@@ -54,6 +54,12 @@ namespace Mythosia.AI.Services.xAI
                 };
             }
 
+            if (RequestSpeed == InferenceSpeed.Standard || RequestSpeed == InferenceSpeed.Fast)
+            {
+                p.ExtraParameters ??= new Dictionary<string, object>();
+                p.ExtraParameters["service_tier"] = RequestSpeed == InferenceSpeed.Fast ? "priority" : "default";
+            }
+
             return p;
         }
 
@@ -66,6 +72,7 @@ namespace Mythosia.AI.Services.xAI
         {
             return modelFamily switch
             {
+                GrokModelFamily.Grok4_7 => true,
                 GrokModelFamily.Grok4_6 => true,
                 GrokModelFamily.Grok4_5 => true,
                 GrokModelFamily.Grok4_3 => true,
@@ -82,7 +89,7 @@ namespace Mythosia.AI.Services.xAI
                 return null;
 
             if (effort == GrokReasoning.None &&
-                (modelFamily == GrokModelFamily.Grok4_6 || modelFamily == GrokModelFamily.Grok4_5))
+                (IsGrok46Or47(modelFamily) || modelFamily == GrokModelFamily.Grok4_5))
                 throw new NotSupportedException($"{RequestModel} cannot disable reasoning. Select a supported reasoning effort or Auto.");
             var supportedLevels = GetNativeGrokReasoningLevels(modelFamily);
             if (supportedLevels.Length == 0)
@@ -101,6 +108,7 @@ namespace Mythosia.AI.Services.xAI
         {
             return GetModelFamily() switch
             {
+                GrokModelFamily.Grok4_7 => GrokReasoning.Low,
                 GrokModelFamily.Grok4_6 => GrokReasoning.Low,
                 GrokModelFamily.Grok4_5 => GrokReasoning.Low,
                 GrokModelFamily.Grok4_3 => GrokReasoning.None,
@@ -111,6 +119,9 @@ namespace Mythosia.AI.Services.xAI
         private GrokModelFamily GetModelFamily()
         {
             var model = (RequestModel ?? string.Empty).Trim();
+
+            if (model.Equals(AIModels.xAI.Grok4_7, StringComparison.OrdinalIgnoreCase))
+                return GrokModelFamily.Grok4_7;
 
             if (model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase))
                 return GrokModelFamily.Grok4_6;
@@ -145,6 +156,9 @@ namespace Mythosia.AI.Services.xAI
             return GrokModelFamily.Unknown;
         }
 
+        private static bool IsGrok46Or47(GrokModelFamily family)
+            => family == GrokModelFamily.Grok4_6 || family == GrokModelFamily.Grok4_7;
+
         private enum GrokModelFamily
         {
             Unknown,
@@ -153,7 +167,8 @@ namespace Mythosia.AI.Services.xAI
             Grok4_3,
             Grok4_20Reasoning,
             Grok4_20NonReasoning,
-            GrokBuild
+            GrokBuild,
+            Grok4_7
         }
 
         #endregion

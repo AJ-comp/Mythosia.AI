@@ -11,12 +11,12 @@ namespace Mythosia.AI.Rag.Splitters
     public class TokenTextSplitter : ITextSplitter
     {
         /// <summary>
-        /// Maximum number of tokens per chunk.
+        /// Maximum number of whitespace-delimited units per chunk, not model tokens.
         /// </summary>
         public int MaxTokensPerChunk { get; set; } = 512;
 
         /// <summary>
-        /// Number of overlapping tokens between consecutive chunks.
+        /// Number of overlapping units. Values at least as large as MaxTokensPerChunk disable overlap.
         /// </summary>
         public int TokenOverlap { get; set; } = 50;
 
@@ -35,6 +35,11 @@ namespace Mythosia.AI.Rag.Splitters
 
         public IReadOnlyList<RagChunk> Split(RagDocument document)
         {
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            SplitterGuards.ValidateSize(MaxTokensPerChunk, nameof(MaxTokensPerChunk));
+            SplitterGuards.ValidateOverlap(TokenOverlap, nameof(TokenOverlap));
+            if (TokenSeparators == null || TokenSeparators.Any(char.IsSurrogate))
+                throw new ArgumentException("Token separators must be non-null and cannot contain surrogate code units.", nameof(TokenSeparators));
             if (string.IsNullOrEmpty(document.Content))
                 return Array.Empty<RagChunk>();
 
@@ -48,7 +53,7 @@ namespace Mythosia.AI.Rag.Splitters
 
             while (wordPos < words.Length)
             {
-                int end = Math.Min(wordPos + MaxTokensPerChunk, words.Length);
+                int end = wordPos + Math.Min(MaxTokensPerChunk, words.Length - wordPos);
                 var chunkWords = words.Skip(wordPos).Take(end - wordPos);
                 string chunkText = string.Join(" ", chunkWords).Trim();
 
@@ -68,6 +73,8 @@ namespace Mythosia.AI.Rag.Splitters
                     chunks.Add(chunk);
                     index++;
                 }
+
+                if (end == words.Length) break;
 
                 int advance = MaxTokensPerChunk - TokenOverlap;
                 if (advance <= 0) advance = MaxTokensPerChunk;

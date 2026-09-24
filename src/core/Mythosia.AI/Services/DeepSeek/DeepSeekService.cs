@@ -27,6 +27,12 @@ namespace Mythosia.AI.Services.DeepSeek
         /// <summary>Persistent thinking effort. Auto leaves the provider's High default intact.</summary>
         public DeepSeekReasoning ReasoningEffort { get; set; } = DeepSeekReasoning.Auto;
 
+        /// <summary>Uses the stateless Responses endpoint for completion, streaming and tool rounds.
+        /// False preserves the default Chat Completions transport. Captured per logical request.</summary>
+        public bool UseResponsesApi { get; set; }
+
+        private bool RequestUsesResponsesApi => RequestSetting(nameof(UseResponsesApi), UseResponsesApi);
+
         private const string ReasoningMetadataKey = "deepseek_reasoning_content";
         private bool DisableReasoningForProfile => RequestSetting("DeepSeek.DisableReasoningForProfile", false);
         private string? _deepSeekRequestMessageId;
@@ -45,6 +51,7 @@ namespace Mythosia.AI.Services.DeepSeek
             base.CaptureRequestSettings(settings);
             settings[nameof(ThinkingEnabled)] = ThinkingEnabled;
             settings[nameof(ReasoningEffort)] = ReasoningEffort;
+            settings[nameof(UseResponsesApi)] = UseResponsesApi;
         }
 
         protected override object? CaptureProviderRequestOptions(Message message)

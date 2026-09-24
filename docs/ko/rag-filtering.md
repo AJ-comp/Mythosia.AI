@@ -1,6 +1,8 @@
 # 필터링
 
-> 📍 **질문 응답 파이프라인:** [쿼리 재작성](rag-query-rewriting.md) → [임베딩](rag-embedding.md) → **`필터링`** → [검색](rag-hybrid-search.md) → [재순위](rag-reranking.md) → [컨텍스트 구성](rag-context-build.md)
+> 📍 **질문 응답 파이프라인:** [쿼리 재작성](rag-query-rewriting.md) → **`필터링`** → [임베딩(필요 시)](rag-embedding.md) → [검색](rag-hybrid-search.md) → [재순위](rag-reranking.md) → [컨텍스트 구성](rag-context-build.md)
+
+질문의 `Embedding` 단계는 선택한 검색기에 따라 실행됩니다. 키워드 검색은 이 단계를 보고하지 않습니다. 커스텀 검색기는 `request.ProgressAsync`로 실제 단계의 진행 상황을 알릴 수 있습니다. 문서 등록 임베딩은 그대로입니다.
 
 ## 필터링이란?
 

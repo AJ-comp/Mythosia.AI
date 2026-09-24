@@ -1,5 +1,7 @@
 # Funktionsaufruf
 
+> GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
+
 Für eine fertige Antwort mit Stoppschaltfläche übergeben Sie `cancellationToken` an `GetCompletionAsync`. Run dient Fortschrittsereignissen oder unterstützten zusätzlichen Anweisungen. Siehe [Completion-Abbruch](completions.md#completion-cancellation).
 
 Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
@@ -288,7 +290,7 @@ var answer = await service.GetCompletionAsync(
     "Prüfe das Beispielwetter für Seoul. Nenne währenddessen drei wichtige Dinge fürs Reisegepäck.");
 ```
 
-Mythosia sendet `async: true` für GPT-6 Astra über die Responses API. Bei nicht unterstützten Modellen und APIs wird das Feld weggelassen und das Ergebnis desselben Handlers abgewartet; `AllowAsync` bleibt unverändert. Der Anbieter muss auch den tatsächlichen Aufruf als asynchron kennzeichnen (`FunctionCall.IsAsync`). Die Erlaubnis garantiert daher keine asynchrone Ausführung.
+Mythosia sendet `async: true` für GPT-6 Astra / Sol / Luna über die Responses API. Bei nicht unterstützten Modellen und APIs wird das Feld weggelassen und das Ergebnis desselben Handlers abgewartet; `AllowAsync` bleibt unverändert. Der Anbieter muss auch den tatsächlichen Aufruf als asynchron kennzeichnen (`FunctionCall.IsAsync`). Die Erlaubnis garantiert daher keine asynchrone Ausführung.
 
 `WithFunctionAsync` registriert einen asynchronen .NET-Handler; `FunctionExecutionMode.Parallel` steuert die lokale Handler-Ausführung. Beide aktivieren diese Erlaubnis nicht automatisch. `AllowAsync` erlaubt dem Modell, vor Eingang des Funktionsergebnisses weiterzuarbeiten. `FunctionExecutionMode` steuert weiterhin gewöhnliche Aufrufe. Erlaubte asynchrone Aufgaben können auch im Modus `Sequential` überlappen; für ihren separaten Aufgabenpool gilt gemeinsam die Grenze `MaxConcurrency`.
 

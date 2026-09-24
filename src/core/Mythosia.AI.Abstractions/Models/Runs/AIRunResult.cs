@@ -12,6 +12,7 @@ namespace Mythosia.AI.Models.Runs
     {
         private readonly TokenUsage? _usage;
         private readonly AICitation[] _citations;
+        private readonly IReadOnlyList<AIProcessingInfo> _processing = Array.Empty<AIProcessingInfo>();
 
         public AIRunResult(string text, TokenUsage? usage = null, IEnumerable<AICitation>? citations = null,
             string provider = "", string? requestedModel = null, string? model = null, int roundCount = 0,
@@ -28,6 +29,21 @@ namespace Mythosia.AI.Models.Runs
             FinishReason = finishReason;
             RawFinishReason = rawFinishReason;
         }
+
+        /// <summary>Creates a result including provider processing observations. The original constructor remains available.</summary>
+        public AIRunResult(string text, TokenUsage? usage, IEnumerable<AICitation>? citations,
+            string provider, string? requestedModel, string? model, int roundCount,
+            AIFinishReason finishReason, string? rawFinishReason, IEnumerable<AIProcessingInfo>? processing)
+            : this(text, usage, citations, provider, requestedModel, model, roundCount, finishReason, rawFinishReason)
+        {
+            var copy = processing?.ToArray() ?? Array.Empty<AIProcessingInfo>();
+            if (copy.Any(item => item == null)) throw new ArgumentException("Processing entries must not be null.", nameof(processing));
+            _processing = Array.AsReadOnly(copy);
+        }
+
+        /// <summary>Server-reported processing modes for each inference attempt, including tool continuations and repairs.
+        /// Missing metadata remains unknown. Internal summaries and query rewriting are excluded.</summary>
+        public IReadOnlyList<AIProcessingInfo> Processing => _processing;
 
         /// <summary>All text emitted by the run, including intermediate turns and text before steering.</summary>
         public string Text { get; }

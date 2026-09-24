@@ -4,6 +4,8 @@ namespace Mythosia.AI.Tests;
 
 public abstract partial class AIServiceTestBase
 {
+    protected virtual uint ConfigurationMaxTokens => 2048;
+
     /// <summary>
     /// 설정 체이닝 테스트
     /// </summary>
@@ -16,7 +18,7 @@ public abstract partial class AIServiceTestBase
             // 체이닝 설정
             AI.WithSystemMessage("You are a creative writer")
               .WithTemperature(0.9f)
-              .WithMaxTokens(2048);
+              .WithMaxTokens(ConfigurationMaxTokens);
 
             var creativeResponse = await AI.GetCompletionAsync(
                 "Write a creative one-line story"

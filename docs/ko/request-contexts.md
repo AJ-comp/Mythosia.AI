@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("환불 대상인가요?", conte
 
 ### RequestMessageOverride
 
-이 요청의 사용자 메시지를 완전히 교체합니다. 원래 프롬프트는 무시됩니다:
+`RequestMessageOverride`는 현재 논리적 요청의 최초 입력만 모델에 보낼 때 교체합니다. 대화 기록에는 원래 입력을 보존하며, 같은 요청에서 이후 발생하는 도구 호출과 실행 결과는 유지합니다:
 
 ```csharp
 var context = new AIRequestContext

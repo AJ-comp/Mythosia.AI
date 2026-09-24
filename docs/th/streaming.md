@@ -1,5 +1,7 @@
 # Streaming
 
+> Grok 4.7 เป็นความสามารถที่ยังไม่เผยแพร่ ดู[การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+
 หากต้องการคำตอบ การใช้โทเคน และแหล่งอ้างอิงพร้อมกัน ให้ใช้ `AIRunResult` ที่ได้จาก `await run.Result` สตริงอยู่ใน `result.Text` โดยไม่ต้องอ่านสตรีม นี่คือการเปลี่ยน API ในMythosia.AI 8.0.0 ชนิดผลลัพธ์ของ `GetCompletionAsync` และ `StructuredStreamRun<T>.Result` ยังคงเดิม [ผลลัพธ์ Run และการย้ายรุ่น](execution-api-transition.md#run-result).
 
 

@@ -1,5 +1,7 @@
 # Mythosia.VectorDb.Qdrant
 
+> **Source checkout / Unreleased:** This README includes pending changes documented in [Unreleased release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#unreleased), including text-only and configurable hybrid search. They are not part of the published package versions listed below.
+
 [Qdrant](https://qdrant.tech/) vector store implementation for the **Mythosia VectorDb** abstraction layer.
 
 Uses a single Qdrant **collection** (physical container) with payload-based metadata filtering for logical isolation.
@@ -38,7 +40,7 @@ dotnet add package Mythosia.VectorDb.Qdrant
 Current package version:
 
 ```bash
-dotnet add package Mythosia.VectorDb.Qdrant --version 4.1.0
+dotnet add package Mythosia.VectorDb.Qdrant --version 4.1.1
 ```
 
 ## Quick Start
@@ -82,7 +84,7 @@ var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 | `Dimension` | *(required)* | Embedding vector dimension |
 | `DistanceStrategy` | `Cosine` | `Cosine`, `Euclidean`, or `DotProduct` |
 | `AutoCreateCollection` | `true` | Auto-create the collection on first use |
-| `HybridFusionStrategy` | `Rrf` | Server-side fusion for hybrid search — `Rrf` (Reciprocal Rank Fusion) or `Dbsf` (Distribution-Based Score Fusion) |
+| `HybridFusionStrategy` | `Rrf` | Server-side fusion for the overload without `HybridSearchOptions` — `Rrf` (Reciprocal Rank Fusion) or `Dbsf` (Distribution-Based Score Fusion) |
 | `AdditionalPayloadIndexes` | `[]` | Extra payload fields to index on collection creation (e.g. `meta.author`). |
 
 ## Hybrid Search (v2.0.0)
@@ -102,9 +104,9 @@ var options = new QdrantOptions
 var store = new QdrantStore(options);
 ```
 
-On upsert, BM25 sparse vectors are automatically computed from the record's `Content` and stored alongside the dense embedding. Hybrid search uses Qdrant's built-in **prefetch + fusion (RRF/DBSF)** for server-side scoring.
+On upsert, BM25 sparse vectors are automatically computed from the record's `Content` and stored alongside the dense embedding. Direct legacy `HybridSearchAsync` uses Qdrant’s **prefetch + fusion (RRF/DBSF)**. The new `HybridSearchOptions` overload instead retrieves active candidate legs and merges them with normalized weighted RRF, preserving its explicit weight, candidate multiplier and smoothing options. `TextSearchAsync` searches the named sparse vector without sending a dense query vector.
 
-When used via the RAG pipeline:
+Via the RAG pipeline, `UseHybridSearch(...)` now selects configurable weighted RRF. `QdrantOptions.HybridFusionStrategy` continues to control direct legacy calls only:
 
 ```csharp
 var store = await RagStore.BuildAsync(config => config
@@ -137,7 +139,7 @@ var filter = new VectorFilter { MinScore = 0.7 };
 var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 ```
 
-### Supported filter operators
+### Filter operators for vector and legacy hybrid search
 
 | Operator | Qdrant translation |
 | --- | --- |
@@ -146,15 +148,15 @@ var results = await store.SearchAsync(queryVector, topK: 5, filter: filter);
 | `In` | `Must` → nested `Should` (keyword per value) |
 | `NotIn` | `MustNot` → nested `Should` |
 | `And / Or groups` | Nested `Condition{Filter}` in `Must` / `Should` |
-| `Gt / Gte / Lt / Lte / Like / Exists / NotExists` | **Silently ignored** for `SearchAsync` / `HybridSearchAsync` (no client-side fallback). Evaluated client-side via `MatchesFilter` for `GetAsync` / `GetBatchAsync` only. |
+| `Gt / Gte / Lt / Lte / Like / Exists / NotExists` | **Silently ignored** for `SearchAsync` and the `HybridSearchAsync` overload without `HybridSearchOptions` (no client-side fallback). Evaluated client-side via `MatchesFilter` for `GetAsync` / `GetBatchAsync`. |
 
-> **Important**: Unsupported operators produce no error but filter nothing in search queries. Use `GetAsync` / `GetBatchAsync` when these operators are required.
+The unreleased `TextSearchAsync` and configurable `HybridSearchAsync` paths support `Eq`, `Ne`, `In`, `NotIn`, `Exists`, `NotExists`, and nested `And` / `Or` groups. Unsupported range and `Like` filters throw `NotSupportedException` before a request is sent. `Ne` / `NotIn` exclude records missing the metadata key.
 
 ## VectorFilter
 
 For the full operator reference and fluent API examples (`Where`, `WhereNot`, `WhereIn`, `WhereLike`, `WhereExists`, `Or`, `And`, `WithMinScore`, etc.), see the [Mythosia.VectorDb.Abstractions README](../Mythosia.VectorDb.Abstractions/README.md#vectorfilter).
 
-> **Qdrant-specific note**: `Gt`, `Gte`, `Lt`, `Lte`, `Like`, `Exists`, `NotExists` are silently ignored in `SearchAsync` / `HybridSearchAsync`. They are only evaluated client-side in `GetAsync` / `GetBatchAsync`.
+> **Qdrant-specific note**: Check the operator support for the search overload you use. The text/configurable-hybrid paths reject unsupported filters; vector and legacy hybrid search keep the behavior in the table above.
 
 ## Resource Disposal
 
@@ -241,3 +243,7 @@ catch (Exception ex)
 ## License
 
 See repository root for license information.
+
+## Filters on the new retrieval paths
+
+`TextSearchAsync` and configurable hybrid search apply equality, membership, existence and nested AND/OR filters before candidate truncation. String range and LIKE conditions fail explicitly rather than disappearing. `Ne`/`NotIn` exclude records missing the key; empty `In` matches no records. Flat `meta.*` payload keys are addressed literally, with no stored-data migration. Keys containing quotes or backslashes cannot be represented by the supported path grammar and are rejected. The legacy filter limitations listed above do not describe these new methods.

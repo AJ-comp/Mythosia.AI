@@ -95,6 +95,25 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | 희소 + 밀집 벡터를 서버 측에서 병합 |
 | **Postgres** | 벡터 유사도 + `tsvector`/`trigram` 점수를 SQL에서 병합 |
 
+### 텍스트 전용 및 설정 가능한 하이브리드 검색 (미배포)
+
+위 오버로드는 각 백엔드의 기존 하이브리드 동작을 사용합니다. 현재 소스의 InMemory, PostgreSQL, Qdrant는 `ITextSearchStore`와 `IConfigurableHybridSearchStore`도 구현합니다. 이 선택적 API는 **미배포(Unreleased)** 상태이며, Pinecone은 구현하지 않습니다.
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "주문 #12345 상태", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "주문 #12345 상태",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync`에는 밀집 쿼리 벡터가 필요하지 않습니다. 설정 가능한 오버로드는 `[0, 1]`로 정규화된 가중 RRF 점수를 사용하며, 가중치 `0`은 벡터 검색을, `1`은 텍스트 검색을 생략합니다. 메타데이터 필터는 top-K 선정 전에 적용되고, `MinScore`는 융합 후에 적용됩니다. 원래 텍스트·벡터 점수의 척도는 서로 다르므로 모드별로 임계값을 설정하세요. Qdrant의 `HybridFusionStrategy`는 위의 기존 오버로드에만 적용됩니다.
+
 ## ID로 가져오기
 
 특정 레코드를 ID로 검색합니다:
@@ -142,7 +161,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## 필터로 교체
 
-필터와 일치하는 모든 레코드를 원자적으로 삭제하고 새 레코드를 삽입합니다. 오래된 청크를 남기지 않고 문서를 재인덱싱하는 데 유용합니다.
+필터와 일치하는 모든 레코드를 삭제하고 새 레코드를 삽입합니다. 오래된 청크를 남기지 않고 문서를 재인덱싱하는 데 유용합니다. 전체 교체의 원자성은 백엔드에 따라 다릅니다.
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -158,7 +177,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> Postgres에서는 트랜잭션 내에서 실행되어 완전히 원자적입니다.
+> Postgres는 데이터베이스 트랜잭션을 사용합니다. InMemory는 삭제 후 배치 저장을 순서대로 실행하므로 다른 검색이 그 사이의 빈 상태를 볼 수 있습니다. 실패나 취소 시 일부만 교체된 상태가 남을 수 있으며, 완료된 저장은 롤백되지 않습니다. 개별 작업의 동기화는 레코드와 BM25 인덱스의 일관성을 보장하지만 전체 교체를 트랜잭션으로 만들지는 않습니다.
 
 ## 카운트
 

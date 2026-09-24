@@ -1,12 +1,12 @@
 # 文本分割器
 
-文本分割器在嵌入前将文档切分为多个文本片段。片段大小和重叠量对检索质量有显著影响。
+搜索结果需要足够的上下文来回答问题，但将整篇文档作为一个单元又难以定位所需片段。分块用于平衡大小与上下文。以下分割器按本地规则运行，无需 AI 模型。请按文档结构选择，再用实际问题评估检索效果。
 
 ## 可用分割器
 
 ### CharacterTextSplitter
 
-按字符数分割。简单快速，但可能在句子中间截断：
+适用于只需简单大小限制的纯文本。优先采用配置的分隔符，但也可能在句子中间切分。`RagBuilder` 默认使用 `CharacterTextSplitter(300, 30)`；`.md` 扩展名不会自动选择 Markdown 分割器。
 
 ```csharp
 .WithTextSplitter(new CharacterTextSplitter(500, 50))
@@ -14,7 +14,9 @@
 
 ### RecursiveTextSplitter（推荐默认选项）
 
-按语义边界优先级依次尝试分割：段落 → 句子 → 单词 → 字符。生成的片段更连贯：
+适用于希望尽量保留完整段落和单词的正文。默认分隔顺序为空行 → 换行 → `. ` → 空格 → 单个字符。这是文本规则，不是模型判断语义；句点加空格也只是近似的句子边界。
+
+`Separators` 中的重复项按首次出现的顺序只应用一次。重复配置同一个分隔符不会增加分割轮次。长分隔符列表也不会通过深度嵌套的递归调用处理。
 
 ```csharp
 .WithTextSplitter(new RecursiveTextSplitter(500, 50))
@@ -22,30 +24,25 @@
 
 ### TokenTextSplitter
 
-按 Token 数而非字符数分割。对 LLM 上下文窗口的预算控制更精确：
+仅适用于按空白分隔单词进行粗略计数。虽然名称包含 Token，`MaxTokensPerChunk` 与 `TokenOverlap` 实际统计 `TokenSeparators`（默认空格、制表符、换行）分隔的单元，而非模型 token。输出会将分隔符统一为空格。没有空白的长文本可能仍是一个单元，因此不能保证模型的 token 上限。
 
 ```csharp
 .WithTextSplitter(new TokenTextSplitter(256, 32))
 ```
 
-当嵌入模型有严格 Token 限制时使用此分割器。
-
 ### MarkdownTextSplitter
 
-能够理解并保留 Markdown 结构的分割器。它识别标题层级（H1–H6）、代码围栏和表格等结构，以语义有意义的单位进行分割：
+适用于需保留标题上下文、表格行和代码块的 Markdown 文档，以及 Office/HWP 加载器输出的 Markdown。识别 ATX 标题（`#`–`######`）、代码围栏和表格。这是基于规则的分割器，并非完整的 Markdown 语法树解析器。构造函数仅接受 `chunkSize`；Markdown 没有 overlap 参数或选项。
 
 ```csharp
-.WithTextSplitter(new MarkdownTextSplitter(500, 50))
+.WithTextSplitter(new MarkdownTextSplitter(500))
 ```
-
-最适合文档文件、README 以及 Office/HWP 等结构化文档加载器的输出。
-
-> [!TIP]
-> Word、Excel、PowerPoint 和 HWP 等文档加载器会在内部将文档转换为 Markdown。对这些文档使用 `MarkdownTextSplitter`，可以确保表格和代码块的结构在分块过程中得到完整保留。
 
 #### 表格分割质量
 
-`MarkdownTextSplitter` 按**行**分割 Markdown 表格。行中间绝不会被截断，每个分割后的片段都会自动包含**表头行和分隔线**：
+识别的 GFM 表格按行之间的边界切分，每个表格块重复表头与分隔行。外侧竖线可省略（支持 `Name | Value`）。这保留了列名，但检索质量仍取决于文档、嵌入和问题。
+
+加粗的表格单元格属于所在行。例如，A 公司行中的 `**不退款**` 不能变成 B 公司的条件。表格单元格和代码块不会被提升为重复的正文标签。独立的 `**标签**` 行只有位于空行或结构边界之后，即段落或文本块起点时才会被识别。现有段落中仅因换行独占一行的加粗内容不会被变成新段落或重复标签。识别出的标签可在该文本块的分片中重复；遇到表格、代码围栏、标题或下一个识别出的标签时，其作用范围结束。
 
 ```
 原始表格：
@@ -67,57 +64,40 @@
 | 王五   | 设计部 | 25,000   |
 ```
 
-每个片段都是一个独立有效的表格，保证了嵌入和检索质量。
-
 #### 代码块保护
 
-代码围栏（`` ``` ``）包裹的块被视为**原子单位**。代码块即使超出片段大小也绝不会被中间分割，确保代码语义完整。
+反引号或波浪号围栏内的代码保持完整。结束围栏须使用相同字符，长度不少于起始围栏；块内较短的围栏不会将其结束。为了保留完整代码块，大小可能超过 `ChunkSize`。
+
+起始围栏的缩进与代码一同保留，因此分割不会改变渲染后代码的缩进含义。每个块只解析一次起始围栏信息，避免在正文的每一行重复扫描很长的围栏。
 
 #### 标题面包屑
 
-每个片段会自动在前面加上所属的标题路径，丰富向量搜索时的上下文：
+`IncludeHeadingBreadcrumb` 默认为 `true`：每个块重复所属标题路径，使检索片段保留上下文。设为 `false` 只停止重复，原始标题仍会保留。仅有标题的章节也不会被丢弃。
 
+`MinSplitHeadingLevel` 接受 1–6，用于选择哪些标题级别开始新章节，默认值为 1。 上级标题变化时，会结束此前的下级章节，避免将旧标题路径附加到新内容。
+
+```csharp
+.WithTextSplitter(new MarkdownTextSplitter(500)
+{
+    IncludeHeadingBreadcrumb = false
+})
 ```
-# 产品手册
-## 安装指南
-### Windows
-
-（该部分的实际内容）
-```
-
-该功能由 `IncludeHeadingBreadcrumb` 属性控制（默认值：`true`）。
 
 ## 参数选择
 
-| 参数 | 效果 |
-|------|------|
-| `chunkSize`（较大） | 每个片段包含更多上下文，片段更少，嵌入成本更低 |
-| `chunkSize`（较小） | 检索精度更高，片段更多，嵌入次数更多 |
-| `chunkOverlap` | 防止片段边界处的信息丢失 |
+`CharacterTextSplitter`、`RecursiveTextSplitter`、`MarkdownTextSplitter` 按 UTF-16 代码单元（`string.Length`）计数，不是模型 token 或可见字形。表情等代理对不会从中间切开。大小为 1 时，一个需要 2 单元的代理对可例外超限。不保证组合字符及完整字素簇始终在一起。
 
-常见起点：`chunkSize: 500, chunkOverlap: 50`。
+大小必须为正，overlap 不可为负；无效设置在处理前抛出 `ArgumentOutOfRangeException`。可修改属性在分割时也会重新验证。overlap 大于或等于大小时，为兼容而禁用重叠。Character/Recursive 的 overlap 是按分隔符、Unicode 边界和下一块剩余空间调整的目标值；`0` 表示不重叠。不会生成只含末尾重复内容的额外块。
 
-## 片段大小与令牌数（多语言参考）
+Markdown 的 `ChunkSize` 是**不含重复标题路径的正文预算**。完整代码块，或表头加一整行，可能超过预算。普通正文遵守大小限制，代理对例外除外。
 
-`chunkSize` 以**字符**为单位，但嵌入模型的限制以**令牌（token）**为单位。同样的字符数在不同语言中可能产生差异很大的令牌数：
+为防止重复标题和表头把小文档放大成过量的嵌入输入，Markdown 另设文档整体输出预算。上限为 `max(65536, 32 × document.Content.Length)` 个 UTF-16 单位，按所有最终块的长度求和，包含重复的标题路径、表头和标签。创建过量重复输出之前会检查预算，若将超限则抛出 `InvalidOperationException`，不会截断内容或只返回部分结果。`ChunkSize` 及不可拆分块的例外仍受这一整体上限约束。在默认 RAG 索引流程中，此分割失败发生在嵌入或替换存储记录之前，因此该文档的现有索引保持不变。这是输出字符串上限，并非模型 token 或进程内存上限。 预算按每次 `Split` 调用应用，随原文长度增长，并非固定的文档输入大小上限。
 
-| 语言 | 1,000 字符 ≈ 令牌数 | 推荐 chunkSize |
-|------|---------------------|----------------|
-| 英语 | ~250 令牌 | 500–2,000 |
-| 中文 / 韩语 / 日语 | ~800–1,500 令牌 | 300–1,000 |
+可从正文 `RecursiveTextSplitter(500, 50)` 或 Markdown 的 `MarkdownTextSplitter(500)` 开始，再用代表性问题评估。较大块保留更多周边内容；重叠会重复文本并增加嵌入工作量。两者均不自动保证检索更好。
 
-> [!WARNING]
-> 中文、韩语、日语等 CJK 文本的每字符令牌比率远高于英语。如果片段超出嵌入模型的令牌限制（例如 2,048 令牌），将会发生错误。处理 CJK 文档时，请充分减小 `chunkSize`。
+若必须严格遵守嵌入或 LLM 的 token 上限，应使用目标模型的分词器统计每个最终块，包括重复标题和表头。字符、单词数量及语言换算比例不是安全的 token 预算。需要硬性上限时，可使用该分词器实现 `ITextSplitter`。
 
-例如，使用令牌限制为 2,048 的嵌入模型时：
-
-```csharp
-// 英语文档：2000 字符 ≈ 500 令牌 → 富余充足
-.WithTextSplitter(new MarkdownTextSplitter(2000, 200))
-
-// 中文文档：1000 字符 ≈ 1000 令牌 → 安全范围
-.WithTextSplitter(new MarkdownTextSplitter(1000, 200))
-```
+此次修复会改变相关文档的分块边界。请按相同文档 ID 重新索引以替换旧块，并更新相关嵌入缓存与评估基准。已有存储块不会自动重写。
 
 ## 按文档指定分割器
 
@@ -125,7 +105,7 @@
 
 ```csharp
 .WithRag(rag => rag
-    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600, 60))
+    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600))
     .AddDocuments(new PlainTextDocumentLoader(), "data.txt",  new RecursiveTextSplitter(300, 30))
     .WithTextSplitter(new RecursiveTextSplitter(500, 50))  // 其余文档的默认分割器
 )
@@ -135,6 +115,8 @@
 
 如果想编写自定义的分割模块并接入使用，请实现 `ITextSplitter` 接口：
 
+索引不应报告成功，却让后一个分块覆盖前一个分块。请为每个分块提供在集合中唯一且非空白的 ID，并复制文档元数据，以保留公司或访问权限过滤条件。下面的示例组合文档 ID 与分块序号。管线会拒绝缺失的 ID 和同一文档内重复的 ID，不会自动生成替代 ID。请参阅[索引验证](rag-pipeline.md#indexing-validation)。
+
 ```csharp
 public class SentenceSplitter : ITextSplitter
 {
@@ -143,9 +125,11 @@ public class SentenceSplitter : ITextSplitter
         var sentences = document.Content.Split(". ");
         return sentences.Select((s, i) => new RagChunk
         {
+            Id = $"{document.Id}_chunk_{i}",
             Content = s,
             Index = i,
-            DocumentId = document.Id
+            DocumentId = document.Id,
+            Metadata = new Dictionary<string, string>(document.Metadata)
         }).ToList();
     }
 }

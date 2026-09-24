@@ -27,7 +27,7 @@ namespace Mythosia.AI.Samples.ChatUi
         /// </summary>
         public AIService GetOrCreateRewriterService(string? modelOverride, AIService fallback)
         {
-            var overrideModel = FindModelValueByName(modelOverride) ?? modelOverride?.Trim();
+            var overrideModel = ResolveRewriterModelValue(modelOverride);
 
             if (string.IsNullOrWhiteSpace(overrideModel)
                 || string.IsNullOrWhiteSpace(RewriterApiKey))

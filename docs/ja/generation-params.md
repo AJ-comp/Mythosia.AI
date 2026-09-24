@@ -1,5 +1,7 @@
 # 生成パラメータ
 
+> Grok 4.7 は未リリースの追加機能です。[モデル選択・推論・処理速度](providers.md#grok-47)を参照してください。
+
 設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
 
 ## サービスの既定値と互換メソッド
@@ -15,6 +17,8 @@ service.PresencePenalty = 0.0f;    // 既出トークンペナルティ
 ```
 
 GPT-6 Astra は `temperature` と `top_p` をサポートしません。共通プロパティやリクエストプロファイルで設定しても、Mythosia は両方を送信時に省略します。最大出力は 128,000 トークンです。[GPT-6 の設定](providers.md)も参照してください。
+
+GPT-6 Sol/Luna は `ReasoningLevel.None` の場合だけ `temperature` と `top_p` を送信し、それ以外では省略します。Astra は `None` に対応しません。[モデルの選択と設定](providers.md#gpt-6-sol-luna)を参照してください。
 
 
 下書きと検証で推論の深さを変えたい場合は、[共通の推論設定](reasoning-and-search.md)を使えます。キャッシュを保持する変更と通常のリクエスト単位の指定の違いも説明しています。

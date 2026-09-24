@@ -17,18 +17,22 @@ namespace Mythosia.AI.Tests.Common;
 public class OpenAIRunWebSocketTests
 {
     [TestMethod]
-    public async Task ResultOnly_UsesOneSocketRequestWithoutStreamFields()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6Sol)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    public async Task ResultOnly_UsesOneSocketRequestWithoutStreamFields(string model)
     {
         using var socket = new ScriptedSocket();
         socket.OnSend = payload =>
         {
             Assert.AreEqual("response.create", Kind(payload));
-            Assert.AreEqual("gpt-6-astra", payload.GetProperty("model").GetString());
+            Assert.AreEqual(model, payload.GetProperty("model").GetString());
             Assert.IsFalse(payload.TryGetProperty("stream", out _));
             Assert.IsFalse(payload.TryGetProperty("background", out _));
             socket.Push(Created("resp_1"), Text("hello"), Completed("resp_1"));
         };
         var service = new SocketService(socket);
+        service.ChangeModel(model);
 
         await using var run = await service.StartRunAsync("hello");
         Assert.IsTrue(run.CanSteer);
@@ -38,9 +42,13 @@ public class OpenAIRunWebSocketTests
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task AcceptedSteer_WaitsForAutomaticContinuation(bool interrupted)
+    [DataRow(AIModels.OpenAI.Gpt6Astra, false)]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, true)]
+    [DataRow(AIModels.OpenAI.Gpt6Sol, false)]
+    [DataRow(AIModels.OpenAI.Gpt6Sol, true)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna, false)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna, true)]
+    public async Task AcceptedSteer_WaitsForAutomaticContinuation(string model, bool interrupted)
     {
         using var socket = new ScriptedSocket();
         var firstText = NewSignal();
@@ -59,6 +67,7 @@ public class OpenAIRunWebSocketTests
             }
         };
         var service = new SocketService(socket);
+        service.ChangeModel(model);
         var observed = new StringBuilder();
         await using var run = await service.StartRunAsync("draft", text => { observed.Append(text); firstText.TrySetResult(); });
         await firstText.Task.WaitAsync(TimeSpan.FromSeconds(5));

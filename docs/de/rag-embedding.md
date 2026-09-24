@@ -1,6 +1,8 @@
 # Embedding
 
-> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → **`Embedding`** → [Filtering](rag-filtering.md) → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → [Kontextaufbau](rag-context-build.md)
+> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → [Filtering](rag-filtering.md) → **`Embedding (bei Bedarf)`** → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → [Kontextaufbau](rag-context-build.md)
+
+Die Anfragephase `Embedding` hängt nun vom Retriever ab; Stichwortsuche meldet sie nicht. Eigene Retriever können passende Phasen über `request.ProgressAsync` melden. Dokument-Embeddings bleiben unverändert.
 
 ## Was ist Embedding?
 
@@ -45,6 +47,10 @@ Builder-Kurzform:
 )
 ```
 
+<a id="openai-dimensions"></a>
+
+`text-embedding-ada-002` hat eine feste Größe von **1536 Dimensionen**. Der Anbieter lässt das nicht unterstützte Feld `dimensions` bei Einzel- und Batchanfragen weg. Eine andere konfigurierte Größe führt vor jedem API-Aufruf zu einer `ArgumentOutOfRangeException`. Für `text-embedding-3-small` und `text-embedding-3-large` enthalten Anfragen weiterhin den konfigurierten Wert für `dimensions`.
+
 ### Ollama (lokal)
 
 Embeddings lokal ausführen mit [Ollama](https://ollama.com/):
@@ -57,6 +63,12 @@ var embedder = new OllamaEmbeddingProvider(
     baseUrl: "http://localhost:11434"
 );
 ```
+
+<a id="ollama-dimensions"></a>
+
+Dokument- und Anfragevektoren müssen dasselbe Modell und dieselbe Dimensionszahl verwenden. `OllamaEmbeddingProvider` sendet die konfigurierten `dimensions` an `/api/embed` und prüft die Länge jedes zurückgegebenen Vektors. Der Provider verwendet weiterhin standardmäßig `qwen3-embedding:4b` mit **1024 angeforderten Dimensionen**; die native Modellausgabe hat 2560 Dimensionen. Ollama-Server und Modell müssen die angeforderte Größe unterstützen. Nicht unterstützte Anfragen oder Antworten, die diese Einstellung ignorieren, schlagen fehl, statt `Dimensions` stillschweigend zu ändern oder Vektoren lokal anzupassen.
+
+Bei einem Modell- oder Dimensionswechsel erstellen Sie die Dokument-Embeddings mit denselben Einstellungen wie die Anfragevektoren neu und passen den Vektorspeicher an. Vorhandene Vektoren werden nicht automatisch umgewandelt.
 
 ### vLLM (selbst gehostet)
 
@@ -94,15 +106,36 @@ options.EmbeddingBatchSize = 100; // Standard: 100 Chunks pro API-Aufruf
 pipeline.Options = options;
 ```
 
+`EmbeddingBatchSize` muss positiv sein. Die Pipeline prüft und erfasst den Wert zu Beginn jedes Dokument-Indizierungsaufrufs, noch vor Embedding oder Datensatzersetzung. Das verhindert leere Batch-Schleifen und übersprungene Chunks, wenn sich die Einstellung während eines asynchronen Aufrufs ändert. Spätere Aufrufe können den neuen Wert verwenden.
+
+<a id="embedding-validation"></a>
+
+## Vektoren den richtigen Chunks zuordnen
+
+Auch eine erfolgreiche HTTP-Antwort kann fehlende Vektoren oder eine falsche Reihenfolge enthalten. Dadurch würde Text mit der Bedeutung eines anderen Chunks verknüpft. Ein benutzerdefinierter `IEmbeddingProvider` muss pro Eingabe genau ein nicht-null `float[]` in Eingabereihenfolge liefern und einen positiven Wert für `Dimensions` angeben. Jeder Vektor muss genau so viele endliche Elemente enthalten, ohne `NaN` oder Unendlich.
+
+Beim Indexieren lehnt die Pipeline ungültige Dimensionen, Antwortanzahlen oder Vektoren mit `InvalidOperationException` vor Speicherung oder `onDocumentEmbedded` ab. Sie kopiert jeden akzeptierten Vektor vor der nächsten Batch-Anfrage, damit die spätere Wiederverwendung eines Provider-Puffers frühere Chunks nicht verändert. Zurückgegebene Daten müssen während des Lesens stabil bleiben; gleichzeitige Änderungen während Prüfung oder Kopieren werden nicht unterstützt. Bei einem Validierungsfehler bleiben die bisherigen Datensätze dieses Dokuments erhalten.
+
+`OpenAIEmbeddingProvider` verlangt für jedes Antwortobjekt einen gültigen, eindeutigen `index` und stellt die Eingabereihenfolge wieder her. `VllmEmbeddingProvider` folgt derselben Regel, wenn Indizes vorhanden sind; aus Kompatibilitätsgründen akzeptiert er auch Antworten, in denen alle Objekte `index` weglassen, in Antwortreihenfolge. Teilweise fehlende, doppelte oder außerhalb des Bereichs liegende Indizes werden abgelehnt. Benutzerdefinierte Provider oder Antworten ohne Indizes müssen selbst die richtige Reihenfolge sicherstellen; Strukturprüfungen prüfen nicht die Bedeutung eines Vektors.
+
+<a id="query-embedding-validation"></a>
+
+## Den Fragevektor vor der Suche schützen
+
+Ein wiederverwendeter Provider-Puffer darf eine Frage während wartender Fortschrittsmeldungen oder Suche nicht verändern. Die integrierte dichte Suche einschließlich des `IRetrievalStrategy`-Adapters verlangt positive `Dimensions`, einen nicht-null Vektor mit genau dieser Länge und endliche Werte. Ungültige Ausgaben lösen vor der Suche `InvalidOperationException` aus. Der gültige Vektor wird unmittelbar nach der Rückgabe vor weiteren Meldungen oder Suchaufrufen kopiert. Während des Lesens muss der Provider seine Daten stabil halten; eigene `IRagRetriever` übernehmen Vorbereitung und Prüfung selbst.
+
+`OllamaEmbeddingProvider` prüft auch bei direkten Einzel- und Batch-Aufrufen Antwortstruktur, exakte Vektoranzahl, Dimensionen und endliche Werte. Fehlerhaftes JSON oder ungültige Vektoren führen zu `InvalidOperationException` statt unvollständiger Ergebnisse. Der übergebene `HttpClient` bleibt Eigentum des Aufrufers; das Freigeben einzelner HTTP-Anfragen und Antworten gibt ihn nicht frei.
+
 ## Dimensionen
 
 | Anbieter | Modell | Standard-Dimensionen |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
 | Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| Ollama | qwen3-embedding:4b | 1024 angefordert (nativ: 2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
 | vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (Feature-Hashing) | 1024 |

@@ -1,6 +1,8 @@
 # 查询改写
 
-> 📍 **问答检索管道：** **`查询改写`** → 嵌入 → 过滤 → [检索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → 上下文构建
+> 📍 **问答检索管道：** **`查询改写`** → 过滤 → 嵌入（按需） → [检索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → 上下文构建
+
+问题的 `Embedding` 阶段按检索器需要执行，关键词搜索不会报告该阶段。自定义检索器可通过 `request.ProgressAsync` 报告实际阶段。文档嵌入不变。
 
 ## 为什么需要查询改写？
 
@@ -44,6 +46,12 @@ var result = await store.QueryAsync(
 ```
 
 改写器看到完整历史后，会将"有没有例外情况？"改写为类似"数字产品不可退款政策的例外情况"的查询，显著提升检索效果。
+
+<a id="runtime-query-rewriter"></a>
+
+## 在处理查询时更改改写设置
+
+要在不重建索引的情况下暂时关闭改写或更换实现，请使用 `store.SetQueryRewriter(null)` 或 `store.SetQueryRewriter(rewriter)`。通过接收 `conversationHistory` 的重载直接调用 `RagStore.QueryAsync` 时，会在查询开始时保存所选改写器。即使在等待进度通知或改写期间关闭或更换设置，该查询仍使用同一实例，后续查询才使用新设置。此行为适用于直接查询存储，不会更新 `RagEnabledService` 包装器已经保存的改写器。
 
 ## 搜索门控的工作方式
 

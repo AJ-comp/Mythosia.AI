@@ -43,7 +43,8 @@ namespace Mythosia.AI.Services.Anthropic
         /// Selects the low/medium/high/xhigh/max effort range on adaptive-thinking Claude models.
         /// XHigh is rejected for Opus 4.6 and Sonnet 4.6 because those models do not support it.
         /// Auto preserves the legacy <see cref="ThinkingBudget"/> mapping using effort levels the
-        /// selected model supports.
+        /// selected model supports. Opus 5.5 uses medium for its default/explicit adaptive Auto;
+        /// a positive legacy budget still maps to high/xhigh/max rather than a wire token budget.
         /// </summary>
         public ClaudeReasoningEffort AdaptiveThinkingEffort { get; set; } = ClaudeReasoningEffort.Auto;
 
@@ -140,8 +141,10 @@ namespace Mythosia.AI.Services.Anthropic
                         ? CreateFunctionMessageRequest()
                         : CreateMessageRequest();
 
+                    var processing = BeginProcessingObservation();
                     using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
                     var responseContent = await ReadCompletionResponseBodyAsync(response, cts.Token);
+                    RecordClaudeProcessing(responseContent, processing);
 
                     if (!response.IsSuccessStatusCode)
                     {
@@ -363,6 +366,7 @@ namespace Mythosia.AI.Services.Anthropic
             };
 
             AddClaudeHeaders(request);
+            AddClaudeSpeedHeader(request);
 
             return request;
         }
@@ -393,7 +397,7 @@ namespace Mythosia.AI.Services.Anthropic
             if (UsesClaudeWireHistory)
             {
                 var baseMessage = RequestSystemMessage ?? string.Empty;
-                var summary = ConversationPolicy?.CurrentSummary;
+                var summary = RequestStatelessMode ? null : ConversationPolicy?.CurrentSummary;
                 if (!string.IsNullOrEmpty(summary))
                     baseMessage = string.IsNullOrEmpty(baseMessage) ? $"[Previous conversation summary]\n{summary}" :
                         $"[Previous conversation summary]\n{summary}\n\n{baseMessage}";
@@ -446,7 +450,8 @@ namespace Mythosia.AI.Services.Anthropic
         /// When thinking is disabled, Opus 5 and Sonnet 5 receive an explicit
         /// <c>thinking.type=disabled</c> because their API default is thinking-on. Other adaptive
         /// models omit the parameter. Fable 5 and Mythos 5 cannot disable thinking, so their closest equivalent
-        /// is adaptive thinking at low effort with readable thinking omitted.
+        /// is adaptive thinking at low effort with readable thinking omitted. Opus 5.5 also always
+        /// thinks, but defaults to medium effort with readable thinking omitted.
         /// </summary>
         private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
         {
@@ -462,7 +467,12 @@ namespace Mythosia.AI.Services.Anthropic
                 if (IsAlwaysOnAdaptiveThinkingModel())
                 {
                     requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
-                    requestBody["output_config"] = new Dictionary<string, object> { ["effort"] = "low" };
+                    // Preserve Opus 5.5's native default. Older always-on models retain
+                    // the library's legacy low-effort fallback for a disabled budget.
+                    requestBody["output_config"] = new Dictionary<string, object>
+                    {
+                        ["effort"] = IsClaudeOpus55Model() ? "medium" : "low"
+                    };
                     return;
                 }
 
@@ -581,15 +591,15 @@ namespace Mythosia.AI.Services.Anthropic
         private bool IsAlwaysOnAdaptiveThinkingModel()
         {
             var model = RequestModel ?? string.Empty;
-            return model.Contains("fable-5", StringComparison.OrdinalIgnoreCase) ||
+            return IsClaudeOpus55Model() || model.Contains("fable-5", StringComparison.OrdinalIgnoreCase) ||
                    model.Contains("mythos-5", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>
         /// Maps the legacy token-based <see cref="ThinkingBudget"/> onto an adaptive-thinking
-        /// effort level. Enabled thinking floors at "high" (the API default, which almost always
-        /// thinks) and scales up with larger budgets so existing "thinking on" callers keep
-        /// producing reasoning. Allowed values: low, medium, high, xhigh, max.
+        /// effort level. Legacy positive budgets floor at "high" and scale up with larger budgets.
+        /// Explicit adaptive Auto uses the model default (medium on Opus 5.5, high otherwise).
+        /// Allowed values: low, medium, high, xhigh, max.
         /// </summary>
         private string ResolveAdaptiveThinkingEffort()
         {
@@ -611,6 +621,8 @@ namespace Mythosia.AI.Services.Anthropic
                 case ClaudeReasoningEffort.Max: return "max";
             }
 
+            if (IsClaudeOpus55Model() && (RequestAdaptiveThinkingExplicitlyRequested || RequestThinkingBudget < 1024))
+                return "medium";
             if (RequestThinkingBudget >= 100_000) return "max";
             if (RequestThinkingBudget >= 32_768 && !ModelSupportsOptionalAdaptiveThinking()) return "xhigh";
             return "high";

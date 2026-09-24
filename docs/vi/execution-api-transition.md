@@ -1,5 +1,7 @@
 # Điều khiển tác vụ AI đang chạy bằng Run
 
+> GPT-6 Sol/Luna là phần bổ sung chưa phát hành. Xem [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna).
+
 Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
 
 Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
@@ -7,6 +9,8 @@ Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellation
 > Để nhận câu trả lời, mức sử dụng và nguồn cùng lúc, dùng bản chụp `AIRunResult` do `await run.Result` trả về. Chuỗi ở `result.Text`; không cần đọc luồng. Đây là thay đổi của Mythosia.AI 8.0.0; kiểu trả về của `GetCompletionAsync` và `StructuredStreamRun<T>.Result` giữ nguyên. [Kết quả Run và chuyển đổi](#run-result).
 
 > Ví dụ `CreateRequest` cần Mythosia.AI 8.0.0 / Abstractions 4.0.0. Bản 7.1 trước đây giới thiệu Run và tùy chọn chung chưa có builder. Gói cũ có thể tiếp tục dùng các overload của dịch vụ.
+
+Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử lý](request-building.md#inference-speed). `WithSpeed` giữ mô hình và mức suy luận; `Processing` báo chế độ thực tế. Fast là tùy chọn trả phí trên các tổ hợp được hỗ trợ.
 
 ## Vì sao cần điều khiển một tác vụ trong khi nó đang chạy?
 
@@ -195,9 +199,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-GPT-6 Astra hỗ trợ chỉ dẫn giữa lượt qua kết nối Responses WebSocket. Các nhà cung cấp khác và mô hình không hỗ trợ vẫn dùng Run bình thường, nhưng `CanSteer` là `false`; thao tác gửi thêm chỉ dẫn báo không hỗ trợ thay vì âm thầm tạo lượt yêu cầu thông thường tiếp theo. `CanSteer` không bảo đảm Run vẫn hoạt động ở thời điểm gọi sau đó.
+GPT-6 Astra / Sol / Luna hỗ trợ chỉ dẫn giữa lượt qua kết nối Responses WebSocket. Các nhà cung cấp khác và mô hình không hỗ trợ vẫn dùng Run bình thường, nhưng `CanSteer` là `false`; thao tác gửi thêm chỉ dẫn báo không hỗ trợ thay vì âm thầm tạo lượt yêu cầu thông thường tiếp theo. `CanSteer` không bảo đảm Run vẫn hoạt động ở thời điểm gọi sau đó.
 
-Run của Astra mở socket riêng. `HttpClient` được cung cấp cùng các message handler vẫn phục vụ lời gọi HTTP và không can thiệp vào socket này. Có thể ghi đè `OpenAIService.ConnectRunWebSocketAsync` để dùng cơ chế truyền tải tùy chỉnh.
+Run của GPT-6 mở socket riêng. `HttpClient` được cung cấp cùng các message handler vẫn phục vụ lời gọi HTTP và không can thiệp vào socket này. Có thể ghi đè `OpenAIService.ConnectRunWebSocketAsync` để dùng cơ chế truyền tải tùy chỉnh.
 
 `SteerAsync` thành công có nghĩa máy chủ đã nhận đầu vào vào hàng đợi, không có nghĩa mô hình đã áp dụng. Tiếp tục theo dõi cùng Run hoặc chờ kết quả qua phần thực thi tiếp nối. Văn bản đã gửi và hành động đã hoàn thành không bị hoàn tác; công cụ đã bắt đầu cũng không bị hủy chỉ vì có chỉ dẫn bổ sung. Thư viện xử lý việc tiếp nối và ghép kết quả công cụ trên cùng kết nối. Xem [hướng dẫn chỉ dẫn giữa lượt](https://developers.openai.com/api/docs/guides/steering) và [chế độ WebSocket](https://developers.openai.com/api/docs/guides/websocket-mode) của OpenAI. Đầu vào xếp hàng thuộc về kết nối hiện tại; không được giả định nó còn tồn tại sau khi ngắt kết nối, và không gửi lại một cách máy móc chỉ dẫn đã được chấp nhận.
 

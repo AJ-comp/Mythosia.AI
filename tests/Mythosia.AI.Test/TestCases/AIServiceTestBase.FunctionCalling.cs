@@ -280,6 +280,12 @@ public abstract partial class AIServiceTestBase
                 ConfigureFunctionCallingStreamEventsTest();
 
                 var eventLog = new List<(StreamingContentType type, string metadata)>();
+                void WriteStreamDiagnostic() => Console.WriteLine("LIVE_FUNCTION_STREAM_DIAGNOSTIC " + JsonSerializer.Serialize(new
+                {
+                    model = AI.Model,
+                    eventCounts = eventLog.GroupBy(item => item.type.ToString()).ToDictionary(group => group.Key, group => group.Count()),
+                    historyRoles = AI.ActivateChat.Messages.Select(item => item.Role.ToString()).ToArray()
+                }));
 
                 var options = StreamOptions.WithFunctions;
                 var message = new Message(ActorRole.User, "Call the test_function");
@@ -288,7 +294,12 @@ public abstract partial class AIServiceTestBase
                 {
                     eventLog.Add((content.Type, JsonSerializer.Serialize(content.Metadata)));
 
-                    if(content.Type == StreamingContentType.Text)
+                    if (content.Type == StreamingContentType.Error)
+                    {
+                        WriteStreamDiagnostic();
+                        Assert.Fail($"Function calling stream failed: {content.Content}; metadata={JsonSerializer.Serialize(content.Metadata)}");
+                    }
+                    else if(content.Type == StreamingContentType.Text)
                     {
                         Console.Write(content.Content);
                     }
@@ -307,6 +318,7 @@ public abstract partial class AIServiceTestBase
                 }
 
                 // 검증
+                WriteStreamDiagnostic();
                 var functionCallEvents = eventLog.Where(e => e.type == StreamingContentType.FunctionCall).ToList();
                 var functionResultEvents = eventLog.Where(e => e.type == StreamingContentType.FunctionResult).ToList();
 
@@ -561,14 +573,17 @@ public abstract partial class AIServiceTestBase
                             Console.Write(content.Content);
                             break;
                         case StreamingContentType.FunctionCall:
-                            var fcName = content.Metadata?["function_name"]?.ToString() ?? "?";
+                            var fcName = content.FunctionCall?.Name ?? content.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "?";
                             eventLog.Add((content.Type, fcName));
                             Console.WriteLine($"\n  [FunctionCall] {fcName}");
                             break;
                         case StreamingContentType.FunctionResult:
-                            var frName = content.Metadata?["function_name"]?.ToString() ?? "?";
+                            var frName = content.FunctionResult?.Call.Name ?? content.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "?";
                             eventLog.Add((content.Type, frName));
-                            Console.WriteLine($"  [FunctionResult] {frName}: {content.Metadata?["result"]?.ToString()?.Truncate(80)}");
+                            Console.WriteLine($"  [FunctionResult] {frName}: {(content.FunctionResult?.Content ?? content.Content)?.Truncate(80)}");
+                            break;
+                        case StreamingContentType.Error:
+                            Assert.Fail($"Function chaining stream failed: {content.Content}; metadata={JsonSerializer.Serialize(content.Metadata)}");
                             break;
                     }
                 }
@@ -667,6 +682,11 @@ public abstract partial class AIServiceTestBase
                 {
                     switch (content.Type)
                     {
+                        case StreamingContentType.Error:
+                            Assert.Fail(
+                                $"The function-chain stream failed before summary validation: {content.Content}. " +
+                                $"Metadata: {JsonSerializer.Serialize(content.Metadata)}");
+                            break;
                         case StreamingContentType.Text:
                             textChunkCount++;
                             Console.Write(content.Content);

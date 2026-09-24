@@ -78,7 +78,7 @@ Kết quả tìm kiếm ghép một record với điểm tương đồng của n
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0.0–1.0 (cao hơn = giống nhau hơn)
+    public double Score { get; set; }  // Thang điểm tùy backend và chế độ tìm kiếm; cao hơn là phù hợp hơn
 }
 ```
 

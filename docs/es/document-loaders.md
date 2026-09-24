@@ -2,6 +2,14 @@
 
 Los cargadores de documentos analizan archivos en objetos `DoclingDocument` estructurados, que luego pueden pasarse al pipeline RAG.
 
+<a id="file-source-identity"></a>
+
+## Mantener una identidad estable para cada archivo
+
+Registrar el mismo archivo con rutas relativas o absolutas debe actualizar un único documento; los archivos homónimos de carpetas distintas deben mantenerse separados. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` y `PdfDocumentLoader` ahora asignan a `DoclingDocument.Source` la ruta absoluta normalizada, igual que los cargadores TXT integrados. RAG deriva de ella los ID automáticos; los ID explícitos siguen bajo control del llamador. Las citas predeterminadas pueden mostrar rutas absolutas.
+
+Los ID relativos ya guardados no se migran ni eliminan automáticamente. Identifique el ID anterior, elimine explícitamente solo ese documento del almacén correspondiente y vuelva a indexarlo. También puede indexar todas las fuentes en una colección nueva y vacía, validarla y cambiar la aplicación a ella. Reindexar únicamente el nuevo ID absoluto en la colección existente deja los registros anteriores. No elimine documentos ajenos. Consulte [identidad y migración](rag.md#document-identity).
+
 ## Instalación
 
 Los cargadores de Office y PDF están incluidos en `Mythosia.AI.Rag`. Para uso independiente:
@@ -110,13 +118,13 @@ Los documentos pasan por tres etapas antes de convertirse en chunks buscables:
 
 ## Integración de Cargadores con Text Splitters
 
-`MarkdownTextSplitter` es la elección más efectiva para documentos Office:
+Use `MarkdownTextSplitter` para conservar títulos, código delimitado y filas de tablas. No recibe overlap. Los títulos repetidos no cuentan en el presupuesto de contenido; un bloque entero o la cabecera con una fila pueden excederlo. Compruebe los límites estrictos con el tokenizer del modelo sobre los chunks finales. Consulte [Text Splitters](text-splitters.md).
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "datos.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "datos.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 

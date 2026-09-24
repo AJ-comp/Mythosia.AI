@@ -28,6 +28,10 @@ public class ContextLengthErrorTranslationTests
     private const string XaiBody =
         """{"code":"invalid-argument","error":"This model's maximum prompt length is 256000 but the request contains 280193 tokens."}""";
 
+    // Captured from the real Grok Build context-overflow check on 2026-09-24.
+    private const string XaiInputTooLargeBody =
+        """{"code":"invalid-argument","error":"Failed to start sampling: [input_too_large] The prompt is too long for this model's context window (280193 tokens > 256000 tokens)"}""";
+
     #region 감지되어야 하는 것
 
     [TestCategory("Unit")]
@@ -88,6 +92,48 @@ public class ContextLengthErrorTranslationTests
         Assert.IsTrue(detected);
         Assert.AreEqual(256000, max);
         Assert.AreEqual(280193, requested);
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    [DataRow(400)]
+    [DataRow(413)]
+    public void Xai_InputTooLarge_TranslatesExceptionAndStreamingMetadata(int statusCode)
+    {
+        var exception = AIHttpErrorFactory.FromHttp(statusCode, "Bad Request", XaiInputTooLargeBody);
+        Assert.IsInstanceOfType<ContextLengthExceededException>(exception);
+        var overflow = (ContextLengthExceededException)exception;
+        Assert.AreEqual(statusCode, overflow.StatusCode);
+        Assert.AreEqual(256000, overflow.MaxContextTokens);
+        Assert.AreEqual(280193, overflow.RequestedTokens);
+        Assert.AreEqual(XaiInputTooLargeBody, overflow.ErrorDetails);
+
+        var metadata = AIHttpErrorFactory.BuildErrorMetadata(statusCode, XaiInputTooLargeBody);
+        Assert.AreEqual(true, metadata[AIHttpErrorFactory.ContextLengthExceededKey]);
+        Assert.AreEqual(256000, metadata[AIHttpErrorFactory.MaxContextTokensKey]);
+        Assert.AreEqual(280193, metadata[AIHttpErrorFactory.RequestedTokensKey]);
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    [DataRow(429)]
+    [DataRow(500)]
+    public void Xai_InputTooLarge_DoesNotTranslateQuotaOrServerFailures(int statusCode)
+    {
+        Assert.IsFalse(AIHttpErrorFactory.IsContextLengthExceeded(statusCode, XaiInputTooLargeBody, out _, out _));
+    }
+
+    [TestCategory("Unit")]
+    [TestCategory("SummaryPolicy")]
+    [TestMethod]
+    [DataRow("[input_too_large] The image is too large (280193 bytes > 256000 bytes)")]
+    [DataRow("[input_too_large] The prompt is too long")]
+    [DataRow("The prompt is too long for this model's context window (280193 tokens > 256000 tokens)")]
+    public void Xai_UnrelatedOrAmbiguousSizeMessage_DoesNotTriggerCompaction(string message)
+    {
+        Assert.IsFalse(AIHttpErrorFactory.IsContextLengthExceeded(400, message, out _, out _));
     }
 
     [TestCategory("Unit")]

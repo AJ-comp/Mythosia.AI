@@ -382,6 +382,8 @@ public abstract partial class AIServiceTestBase
 
             await foreach (var content in aiService.StreamAsync(message, customOptions))
             {
+                Assert.AreNotEqual(StreamingContentType.Error, content.Type,
+                    $"Custom stream options failed: {content.Content}; metadata={System.Text.Json.JsonSerializer.Serialize(content.Metadata)}");
                 receivedTypes.Add(content.Type);
 
                 if (content.Metadata?.ContainsKey("token_count") == true ||

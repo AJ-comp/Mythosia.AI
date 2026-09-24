@@ -17,15 +17,17 @@ internal sealed class AnthropicFableLiveProbe : IDisposable
     internal const string TurnBeta = "mid-conversation-system-clear-at-2026-08-21";
     internal const string EffortBeta = "mid-conversation-output-config-2026-07-01";
     private readonly HttpClient _http;
+    private readonly string _model;
     private readonly CaptureHandler _handler;
     public AnthropicService Service { get; }
     public IReadOnlyList<RequestRecord> Requests => _handler.Requests;
 
-    private AnthropicFableLiveProbe(string key)
+    private AnthropicFableLiveProbe(string key, string model)
     {
+        _model = model;
         _handler = new CaptureHandler();
         _http = new HttpClient(_handler) { Timeout = TimeSpan.FromMinutes(5) };
-        Service = new AnthropicService(key, AIModels.Anthropic.ClaudeFable5_1, _http)
+        Service = new AnthropicService(key, model, _http)
         {
             MaxTokens = 8192,
             AdaptiveThinkingEffort = ClaudeReasoningEffort.High,
@@ -36,8 +38,8 @@ internal sealed class AnthropicFableLiveProbe : IDisposable
         Service.ActivateChat.SystemMessage = "Follow the current task precisely. Keep final answers concise.";
     }
 
-    public static async Task<AnthropicFableLiveProbe> CreateAsync() =>
-        new(await LiveTestSecrets.GetAsync("momedit-antropic-secret"));
+    public static async Task<AnthropicFableLiveProbe> CreateAsync(string model = AIModels.Anthropic.ClaudeFable5_1) =>
+        new(await LiveTestSecrets.GetAsync("momedit-antropic-secret"), model);
 
     public async Task<ObservedAnswer> ExecuteAsync(string prompt, FableExecutionMode mode)
     {
@@ -79,7 +81,7 @@ internal sealed class AnthropicFableLiveProbe : IDisposable
         {
             Assert.AreEqual("api.anthropic.com", request.Host);
             Assert.AreEqual("/v1/messages", request.Path);
-            Assert.AreEqual(AIModels.Anthropic.ClaudeFable5_1, request.Body["model"]!.GetValue<string>());
+            Assert.AreEqual(_model, request.Body["model"]!.GetValue<string>());
             Assert.AreEqual(mode != FableExecutionMode.Completion, request.Streaming);
             foreach (var beta in requiredBetas)
                 Assert.IsTrue(request.Betas.Contains(beta, StringComparer.Ordinal), "The required feature beta was not sent: " + beta);
@@ -91,7 +93,7 @@ internal sealed class AnthropicFableLiveProbe : IDisposable
         for (var index = 0; index < Requests.Count; index++)
         {
             var request = Requests[index];
-            Console.WriteLine("LIVE_FABLE_REQUEST " + JsonSerializer.Serialize(new
+            Console.WriteLine((_model == AIModels.Anthropic.ClaudeOpus5_5 ? "LIVE_OPUS55_REQUEST " : "LIVE_FABLE_REQUEST ") + JsonSerializer.Serialize(new
             {
                 index, request.StatusCode, request.RequestId, request.Streaming, request.Betas,
                 model = request.Body["model"]?.GetValue<string>(),

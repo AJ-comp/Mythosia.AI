@@ -3,6 +3,8 @@
 > `CreateRequest` examples require Mythosia.AI 8.0.0 / Abstractions 4.0.0; they are not available in the earlier 7.1 release that introduced Run and common request features. Earlier packages can keep their existing service overloads.
 
 <a id="image-options-migration"></a>
+Supported processing modes and their returned metadata vary by provider, model and API. Use the [common speed option](request-building.md#inference-speed), inspect capabilities, and check applied processing instead of assuming that a Fast request received Fast service.
+
 ## Typed image options: migration
 
 Choose quality and file formats with completion-friendly enums, and distinguish exact pixels from a resolution class. This makes mistakes visible in code and prevents a requested pixel size from silently becoming a different resolution.
@@ -71,13 +73,47 @@ To avoid saving interrupted output as a finished image, Google generation and ed
 
 To switch effort between drafting and review, or answer from web/document sources, use the [common reasoning and search API](reasoning-and-search.md). It covers OpenAI, Anthropic and Google where supported, including cache-preserving changes and retained citations. The settings below remain available for provider-specific control.
 
-Astra's async tool calling is useful when the model can explain or prepare something independently while an external lookup runs, such as giving general packing advice while checking the weather.
+GPT-6 async tool calling is useful when the model can explain or prepare something independently while an external lookup runs, such as giving general packing advice while checking the weather.
 
-`FunctionDefinition.AllowAsync = true` or `FunctionBuilder.WithAsync()` enables opt-in async function calls on GPT-6 Astra through Responses. The default is `false`; unsupported models keep the same handler and wait for its result. See [async tool calling](function-calling.md#async-tool-calling) for examples and request-lifetime details.
+`FunctionDefinition.AllowAsync = true` or `FunctionBuilder.WithAsync()` enables opt-in async function calls on GPT-6 Astra / Sol / Luna through Responses. The default is `false`; unsupported models keep the same handler and wait for its result. See [async tool calling](function-calling.md#async-tool-calling) for examples and request-lifetime details.
+
+<a id="gpt-6-sol-luna"></a>
+
+### GPT-6 Sol / Luna (unreleased)
+
+Choose GPT-6 Sol for demanding coding, tool use and agent tasks; choose Luna when cost and throughput matter for large volumes of text or image-input work. Both use the existing completion, streaming and Run APIs, so switching models does not require a new application workflow.
+
+> This is an unreleased addition requiring matching core and abstractions builds. Published Mythosia.AI 8.0.0 / Abstractions 4.0.0 do not contain `Gpt6Sol`, `Gpt6Luna` or `Gpt6Reasoning.None`. Existing Astra support retains its earlier minimum versions; the service default is unchanged.
+
+Use `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) or `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`). Both accept text and images and produce text, with a 1,050,000-token context window, at most 922,000 input tokens and 128,000 output tokens. Input, reasoning and output must still fit the context budget. `MaxTokens` sets the requested output budget, not the context size.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6Sol);
+await using var run = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(onText: text => Console.Write(text));
+var result = await run.Result;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Luna);
+string answer = await service.CreateRequest("Summarize this paragraph.")
+    .WithReasoning(ReasoningLevel.None)
+    .WithTemperature(0.2f)
+    .GetCompletionAsync();
+```
+
+`Auto` resolves to `Medium`. Sol/Luna support `None`, `Low`, `Medium`, `High`, `XHigh` and `Max`; `Minimal` is unsupported. Use `WithReasoning(ReasoningLevel.None)` per request, or `Gpt6Reasoning.None` in `WithGpt6Parameters`. Only Sol/Luna with `None` send `Temperature` / `TopP`; reasoning-enabled requests omit them. Astra always requires reasoning and omits sampling. `AIRequestProfile.DisableReasoning` selects `None` for Sol/Luna and `Low` in Standard mode for Astra, omitting reasoning summaries.
+
+`Gpt6ReasoningMode.Standard` and `.Pro` use the same selected model ID. All three GPT-6 models use Responses for tool calling and support opt-in async tools, steering through a WebSocket Run, and cache-preserving reasoning updates in Standard single-agent mode. Check `run.CanSteer` before steering; acceptance does not retract earlier output. `WithSpeed(InferenceSpeed.Fast)` requests paid Fast processing independently of reasoning effort; inspect `result.Processing` to see the applied tier. Account access and server downgrades remain separate from local capability support.
+
+[GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) · [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) · [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
 
 ### Reasoning Effort
 
-GPT-6 Astra and GPT-5.1–5.6 models support reasoning effort control. Set the level to trade off speed and depth:
+GPT-6 Astra / Sol / Luna and GPT-5.1–5.6 models support reasoning effort control. Set the level to trade off speed and depth:
 
 ```csharp
 using Mythosia.AI.Models;
@@ -204,6 +240,52 @@ See the official [image guide](https://developers.openai.com/api/docs/guides/ima
 
 [Claude Fable 5.1](fable-5-1.md) adds progress updates, turn-scoped instructions, and thinking-binding diagnostics from `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requires invitation access. Both reject forced tool choice.
 
+<a id="claude-opus-55"></a>
+
+### Claude Opus 5.5: keep long tool tasks observable
+
+Use Opus 5.5 for coding or document investigations that need several tool rounds. The same completion and Run APIs apply, but progress is hidden by default and preserved reasoning makes history changes significant. This support is an unreleased workspace addition; it is not included in the published 8.0.0 / 4.0.0 packages.
+
+`ClaudeOpus5_5` selects `claude-opus-5-5`: text/images in, text out, 1M context and 128K maximum output. Standard input/output prices are $4/$20 per million tokens as checked on 2026-09-24; special modes and tools have separate pricing. [Official model details](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+With untouched service settings, `Auto` uses `Medium` effort and leaves readable thinking omitted. Adaptive thinking is always on. Choose `Low`, `Medium`, `High`, `XHigh` or `Max` explicitly; common `ReasoningLevel.None` and `Minimal` are rejected. The service default model remains unchanged.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeOpus5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.Medium, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.StartRunAsync(
+    "Review the migration plan using the registered tools.",
+    options: StreamOptions.FullOptions);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+The example opts into `Updates` and observes `StreamingContentType.Reasoning`. Use `Summarized` for readable reasoning summaries or `Omitted` to hide them. `WithAdaptiveThinkingParameters(effort)` still defaults its display argument to `Summarized`; it is not the untouched-service default. For ordinary completion, read `LastThinkingContent` after the call. No periodic progress interval is promised.
+
+A positive legacy `ThinkingBudget` maps to high/xhigh/max effort, not an exact token budget; zero or negative values cannot turn Opus 5.5 thinking off. A profile that disables reasoning uses low effort with readable thinking omitted. `MaxTokens` includes hidden reasoning as well as answer text, so re-evaluate output limits and cost when migrating.
+
+Mythosia retains signed thinking blocks, including empty ones, across conversation turns and tool results. Continue with the same service and chat; do not rewrite earlier messages, system text or tools while expecting reasoning to survive. `WithTurnInstruction`, `WithConversationInstruction` and `CachePreservation.Required` use the existing conversation controls. `WithThinkingBinding` chooses `Error` or `DropBlock`; inspect `LastInputTransformations` for reported drops. A drop discards reasoning. The [history guide](fable-5-1.md) explains these shared controls; Opus 5.5 uses its own defaults and model compatibility.
+
+Leave `ForceFunctionName` unset; ordinary tool selection and `FunctionsDisabled` are supported. Assistant prefills are rejected and sampling parameters are omitted. Opus 5.5 cannot read Fable/Mythos thinking; on the Claude API, Fable 5.1 and Mythos 5.1 can read Opus 5.5 thinking. Model switching can therefore lose prior reasoning. The native computer toolset, task budgets, inline tool changes, native compaction and automatic server fallback are not exposed by this addition. [Migration requirements](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) · [Native feature scope](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5).
+
+For Opus 5.5, directly editing the content of a stored assistant response fails before the HTTP request with `InvalidOperationException`; `DropBlock` does not authorize rewriting a signed response. Submit a correction as new user input or start a new conversation. Edits to earlier user/system content instead follow the provider’s prefix-binding policy.
+
+Opus 5.5 fast mode is now available through [WithSpeed](request-building.md#inference-speed) on the direct Claude API with the required account access. It preserves the selected effort and opts into premium pricing.
+
 ### Token Counting (Native API)
 
 `GetInputTokenCountAsync` is available on all providers (see [Basic Completions](completions.md#token-counting)). Anthropic's implementation calls the official `messages/count_tokens` endpoint, returning **exact** token counts rather than local estimation:
@@ -273,12 +355,64 @@ var result = await images.GenerateImagesAsync(new ImageGenerationRequest
 ```
 
 Gemini supports reference-image editing through `EditImagesAsync`, but it does not expose a separate mask parameter or a guaranteed multi-image count parameter.
-Google accepts `ImageSize.Auto` or `Preset` with `ImageResolution.Auto`, `FiveTwelve`, `OneK`, `TwoK`, or `FourK`, subject to model support. It accepts `ImageOutputFormat.Auto` or explicit `Jpeg`, and rejects `Png`/`WebP`. Google and xAI reject `Pixels`; OpenAI accepts `Auto`/`Pixels` and rejects `Preset`. See [migration examples](#image-options-migration).
+Google accepts `ImageSize.Auto` or `Preset` with model-specific resolutions and ratios; see [Google model-specific image options](#google-image-options). It accepts `ImageOutputFormat.Auto` or explicit `Jpeg`, and rejects `Png`/`WebP`. Google and xAI reject `Pixels`; OpenAI accepts `Auto`/`Pixels` and rejects `Preset`. See [migration examples](#image-options-migration).
 Google accepts `ImageOutputFormat.Auto` for provider-selected output or `ImageOutputFormat.Jpeg` for its explicit JPEG selector. Explicit `Png` and `WebP` are rejected before sending because those selectors are unavailable. Always use `GeneratedImage.MediaType` as the format of returned bytes.
+
+<a id="google-image-options"></a>
+
+### Google image resolutions and aspect ratios
+
+| Model | `Resolutions` | `AspectRatios` |
+| --- | --- | --- |
+| `gemini-3.1-flash-image` | `Auto`, `FiveTwelve` (512), `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 14 + `Auto` |
+| `gemini-3.1-flash-lite-image` | `Auto`, `OneK` (1K) | 14 + `Auto` |
+| `gemini-3-pro-image` | `Auto`, `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 10 + `Auto` |
+
+The 10 standard ratios are `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`. The 14-ratio set adds `1:4`, `4:1`, `1:8`, `8:1`. Every model also accepts `ImageAspectRatio.Auto`.
+
+Use `ImageSize.Auto` or `ImageSize.Preset(resolution, aspectRatio)`. `Auto` omits the corresponding selector. `GetImageCapabilities(model)` and both `GenerateImagesAsync` / `EditImagesAsync` use these model-specific choices. Unsupported explicit choices throw `NotSupportedException` before HTTP; no resizing or fallback is performed. Custom unknown model IDs retain `Unknown` capabilities and pass-through after provider-wide option validation.
+
+For Flash-Lite, the [model page](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image) and guide prose specify 1K, while the [guide table](https://ai.google.dev/gemini-api/docs/generate-content/image-generation#aspect_ratios_and_image_size) also contains a 512 column. Until that discrepancy is verified, the library conservatively allows only 1K; this is not a claim of observed server rejection for 512.
 
 ---
 
 ## xAI (XAIService)
+
+<a id="grok-47"></a>
+
+### Grok 4.7
+
+For a quick draft followed by a demanding code or document review, select Grok 4.7 and adjust the effort for each request. The same completion, streaming, Run, local tool, structured-output and image-input APIs remain available. `grok-4.7` accepts text/images and returns text, with a 500,000-token context window. This integration requires matching unreleased core and abstractions builds; published 8.0.0 / 4.0.0 packages do not contain it. The service default remains Grok 4.5.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.xAI;
+
+var grok = new XAIService(apiKey, httpClient);
+grok.ChangeModel(AIModels.xAI.Grok4_7);
+grok.WithGrokReasoning(GrokReasoning.Low);
+
+var request = grok.CreateRequest("Review this deployment plan and its rollback risks.")
+    .WithReasoning(ReasoningLevel.XHigh)
+    .WithSpeed(InferenceSpeed.Fast);
+
+await using var run = await request.StartRunAsync();
+await foreach (var content in run.StreamAsync())
+    Console.Write(content.Content);
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (var processing in result.Processing)
+    Console.WriteLine(processing.AppliedSpeed);
+```
+
+`Low`, `Medium`, `High` and `XHigh` are supported. Native `GrokReasoning.Auto` omits `reasoning_effort`, retaining the provider default of `High`; common `ReasoningLevel.Auto` also omits the field and uses the provider’s `High` default for that request. `None`, `Minimal` and `Max` are rejected before sending. Common `WithReasoning(...)` applies to the logical request, including tool rounds and structured-output repairs; `WithGrokReasoning(...)` sets the service baseline. Internal `DisableReasoning` profiles use `Low`. Optional streamed reasoning summaries are provider-generated summaries, not full internal reasoning.
+
+`WithSpeed(InferenceSpeed.Standard)` sends `service_tier: "default"`; `Fast` sends `"priority"` on supported xAI endpoints and can cost more. `ProviderDefault` adds no override. Read `result.Processing` to see the reported applied tier: priority can be downgraded by the server. This is priority processing of `grok-4.7`, not the separate “Grok 4.7 Fast” variant reserved for Cursor/Grok Build; that variant has no public API model ID.
+
+`GetCapabilities()` describes the selected request locally, without checking account access. This integration uses Chat Completions. Responses-only encrypted reasoning, hosted web/X search, native asynchronous tools, cache-preserving updates and `SteerAsync` are not connected by this addition. Use the existing local tool loop for client functions; `run.CanSteer` is false.
+
+[Grok 4.7](https://docs.x.ai/developers/grok-4-7) · [reasoning_effort](https://docs.x.ai/developers/model-capabilities/text/reasoning) · [Priority Processing](https://docs.x.ai/developers/advanced-api-usage/priority-processing)
 
 ### Choose effort for the task
 
@@ -371,7 +505,7 @@ For xAI, use `ImageSize.Auto` or `ImageSize.Preset(ImageResolution.OneK, ImageAs
 
 xAI supports only `ImageOutputFormat.Auto`, the new shared default. It has no output-codec selector and rejects explicit `Jpeg`, `Png`, and `WebP` before sending. Read `GeneratedImage.MediaType` and use the matching extension; the library does not transcode. `Quality` accepts `ImageQuality.Auto`, `Low`, or `Medium`; `Background` must be `ImageBackground.Auto`. Explicit compression and a separate `Mask` are unsupported.
 
-Google accepts `ImageSize.Auto` or `Preset` with `ImageResolution.Auto`, `FiveTwelve`, `OneK`, `TwoK`, or `FourK`, subject to model support. It accepts `ImageOutputFormat.Auto` or explicit `Jpeg`, and rejects `Png`/`WebP`. Google and xAI reject `Pixels`; OpenAI accepts `Auto`/`Pixels` and rejects `Preset`. See [migration examples](#image-options-migration).
+Google accepts `ImageSize.Auto` or `Preset` with model-specific resolutions and ratios; see [Google model-specific image options](#google-image-options). It accepts `ImageOutputFormat.Auto` or explicit `Jpeg`, and rejects `Png`/`WebP`. Google and xAI reject `Pixels`; OpenAI accepts `Auto`/`Pixels` and rejects `Preset`. See [migration examples](#image-options-migration).
 
 [Grok Imagine Image 2.0](https://docs.x.ai/developers/models/grok-imagine-image-2.0) · [Image API](https://docs.x.ai/developers/rest-api-reference/inference/images)
 
@@ -380,6 +514,46 @@ Google accepts `ImageSize.Auto` or `Preset` with `ImageResolution.Auto`, `FiveTw
 ## DeepSeek (DeepSeekService)
 
 Use DeepSeek Flash when a task needs a quick answer, a more careful review, or an explanation of a chart or screenshot. `AIModels.DeepSeek.Flash` (`deepseek-flash`) selects V4.1 Flash, released on September 10, 2026, with native visual understanding. The existing completion, streaming, Run, function-calling, and RAG APIs remain the entry points; support starts with `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0.
+
+> Published `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 already include baseline Flash support. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, the Files API and `DeepSeekImageFileContent` are unreleased source additions requiring matching core and abstractions source builds; they are not included in those published packages. [Pending release notes](../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased).
+
+Select `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) for text-only work; Flash remains the default and supports images. Both expose Low/High/Max thinking and the same output ceiling. To use DeepSeek Responses with the existing completion, streaming, Run and local-function APIs, set `UseResponsesApi = true` before creating the request. The default stays `false` so existing applications keep Chat Completions; the choice is captured for the whole request and its tool rounds. Responses resends full conversation and native reasoning history instead of relying on server-stored response IDs.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+Upload an image once when several questions or conversations need to reuse it. `UploadFileAsync` accepts a path or caller-owned stream plus filename; the upload purpose is `user_data`. JPEG, PNG, GIF and WebP uploads are limited to 64 MiB. `DeepSeekImageFileContent` refers to that uploaded image on Flash through either transport; it is not PDF/document input and V4 Pro rejects it. Omitted expiration keeps the file permanently; `expiresAfterSeconds` accepts 3600–2592000 seconds. Keep the file until every conversation that references it has finished.
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+Use `GetFileAsync` for metadata, `ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` for a page, and `DeleteFileAsync` when the image is no longer needed. Pass the returned `LastId` as `After` while `HasMore` is true; `Descending` is also supported. There is no documented file-content download endpoint. The Chat UI offers Flash and V4 Pro; query rewriting uses the current catalogue and migrates the former saved `DeepSeekChat` label to Flash while preserving arbitrary model IDs.
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -408,7 +582,7 @@ string review = (await run.Result).Text;
 
 `ThinkingEnabled` remains `false` by default in the library. `WithDeepSeekReasoning(...)` enables thinking and sets the persistent service `ReasoningEffort` (`Auto`, `Low`, `High`, `Max`); native `Auto` omits effort and uses the provider's `High` default. Common `WithReasoning(...)` overrides one logical request and its tool rounds: `None` disables thinking, `Minimal`/`Low` maps to `Low`, `Medium`/`High`/`XHigh` to `High`, and `Max` to `Max`. Common `Auto` keeps the configured baseline. More effort can increase response time and token usage. Setting `ReasoningEffort` alone does not enable thinking.
 
-Register local functions with `WithFunction(...)` to let the model fetch data or act through your code. Tool calls work with or without thinking; with thinking enabled, use automatic tool choice because forced/required selection is rejected. The adapter retains native `reasoning_content` and call IDs for later tool rounds. Run and legacy streaming expose provider reasoning as `StreamingContentType.Reasoning` when `StreamOptions.WithReasoning()` is enabled; this observation option does not itself enable thinking. Token usage includes cache and reasoning counts when reported. Automatic context recovery uses the shared streaming loop. When tools require earlier native reasoning history, automatic compaction is blocked to preserve that history; the overflow error remains visible.
+Register local functions with `WithFunction(...)` to let the model fetch data or act through your code. Tool calls work with or without thinking. Chat Completions rejects forced/required tool choice while thinking, so use automatic selection there. With `UseResponsesApi = true`, `ForceFunctionName` can select a named function even while thinking; the adapter emits a flat Responses `tool_choice` with `type` and `name`. This does not enable native asynchronous tools. The adapter retains native `reasoning_content` and call IDs for later tool rounds. Run and legacy streaming expose provider reasoning as `StreamingContentType.Reasoning` when `StreamOptions.WithReasoning()` is enabled; this observation option does not itself enable thinking. Token usage includes cache and reasoning counts when reported. Automatic context recovery uses the shared streaming loop. When tools require earlier native reasoning history, automatic compaction is blocked to preserve that history; the overflow error remains visible.
 
 For a chart or screenshot, send image bytes with the existing message types:
 
@@ -423,9 +597,9 @@ var message = new Message(ActorRole.User, new List<MessageContent>
 string description = await deepseek.GetCompletionAsync(message);
 ```
 
-`ImageContent` accepts JPEG, PNG, GIF, or WebP bytes, or a public HTTP(S) URL retrieved by the provider. The example uses a user message. The current API also accepts image content in tool messages, but registered function handlers still return text through the shared result contract. Manually supplied `ActorRole.Function` image messages must include the matching call ID through `MessageMetadataKeys.FunctionId` (`tool_call_id` on the wire). See the current official vision guide for image size and aggregate limits. `file_id`, the Files API, and image generation are not integrated.
+`ImageContent` accepts JPEG, PNG, GIF, or WebP bytes, or a public HTTP(S) URL retrieved by the provider. The example uses a user message. The current API also accepts image content in tool messages, but registered function handlers still return text through the shared result contract. Manually supplied `ActorRole.Function` image messages must include the matching call ID through `MessageMetadataKeys.FunctionId` (`tool_call_id` on the wire). See the current official vision guide for image size and aggregate limits. Image generation remains unsupported.
 
-The provider advertises 1M context and up to 384K (`393216`) output tokens; the library keeps its 8,000-token request default. In thinking mode, unsupported temperature/penalty fields are omitted and `top_p` is at least 0.95; in non-thinking mode, the adapter omits `top_p`. This adapter uses Chat Completions, not the provider's Responses transport. Hosted web/file search, `CachePreservation.Required`, native asynchronous tools, and `SteerAsync` are unsupported; local RAG and ordinary tool rounds remain available.
+Both models advertise 1M context and up to 384K (`393216`) output tokens; the library keeps its 8,000-token request default. Thinking omits temperature/penalties and uses `top_p` of at least 0.95; non-thinking omits `top_p`. Responses uses existing typed-output APIs for native JSON schema. Background execution, server-side `store`/`previous_response_id`, hosted web/file search, `CachePreservation.Required`, native asynchronous tools, `SteerAsync` and image generation are unsupported. Local RAG and ordinary tool rounds remain available.
 
 `V4Flash`, `Chat`, and `Reasoner` remain warning-only obsolete constants with their original wire IDs. The provider temporarily routes the retired `deepseek-v4-flash` alias to V4.1 Flash; the library does not rewrite that constant. Prefer `Flash` explicitly. `UseReasonerModel()` selects Flash with thinking enabled at `High`.
 

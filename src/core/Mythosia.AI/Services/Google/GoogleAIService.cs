@@ -216,12 +216,16 @@ namespace Mythosia.AI.Services.Google
 
         private async Task<string> SendAndReadAsync(
             HttpRequestMessage request,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken = default,
+            bool observeProcessing = true)
         {
             using var ownedRequest = request;
             cancellationToken.ThrowIfCancellationRequested();
+            var processing = observeProcessing ? BeginProcessingObservation() : null;
             using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            if (processing != null) RecordGeminiProcessingHeaders(response, processing);
             var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
+            if (processing != null) RecordGeminiProcessing(responseContent, processing);
 
             if (!response.IsSuccessStatusCode)
             {

@@ -10,6 +10,7 @@ namespace Mythosia.AI.Rag.Loaders
 {
     /// <summary>
     /// Loads plain text files (.txt, .md, .csv, .json, .xml, .html, etc.) as DoclingDocuments.
+    /// Source is the normalized absolute file path, used as the automatic RAG document ID.
     /// </summary>
     public class PlainTextDocumentLoader : IDocumentLoader
     {
@@ -18,17 +19,18 @@ namespace Mythosia.AI.Rag.Loaders
             if (!File.Exists(source))
                 throw new FileNotFoundException($"Document file not found: {source}", source);
 
-            var content = await File.ReadAllTextAsync(source, cancellationToken);
-            var fileName = Path.GetFileName(source);
+            var fullPath = Path.GetFullPath(source);
+            var content = await File.ReadAllTextAsync(fullPath, cancellationToken);
+            var fileName = Path.GetFileName(fullPath);
 
             var doc = new DoclingDocument
             {
-                Name = Path.GetFileNameWithoutExtension(source),
-                Source = source,
+                Name = Path.GetFileNameWithoutExtension(fullPath),
+                Source = fullPath,
                 RawContent = content,
             };
             doc.Metadata["filename"] = fileName;
-            doc.Metadata["extension"] = Path.GetExtension(source).ToLowerInvariant();
+            doc.Metadata["extension"] = Path.GetExtension(fullPath).ToLowerInvariant();
 
             return new[] { doc };
         }
@@ -36,6 +38,7 @@ namespace Mythosia.AI.Rag.Loaders
 
     /// <summary>
     /// Loads all supported text files from a directory recursively.
+    /// Source is the normalized absolute file path; relative_path metadata retains the display path.
     /// </summary>
     public class DirectoryDocumentLoader : IDocumentLoader
     {
@@ -64,7 +67,8 @@ namespace Mythosia.AI.Rag.Loaders
             if (!Directory.Exists(source))
                 throw new DirectoryNotFoundException($"Document directory not found: {source}");
 
-            var files = Directory.GetFiles(source, "*", SearchOption.AllDirectories);
+            var directoryPath = Path.GetFullPath(source);
+            var files = Directory.GetFiles(directoryPath, "*", SearchOption.AllDirectories);
             var docs = new List<DoclingDocument>();
 
             foreach (var file in files)
@@ -76,12 +80,12 @@ namespace Mythosia.AI.Rag.Loaders
                     continue;
 
                 var content = await File.ReadAllTextAsync(file, cancellationToken);
-                var relativePath = Path.GetRelativePath(source, file);
+                var relativePath = Path.GetRelativePath(directoryPath, file);
 
                 var doc = new DoclingDocument
                 {
                     Name = Path.GetFileNameWithoutExtension(file),
-                    Source = relativePath,
+                    Source = Path.GetFullPath(file),
                     RawContent = content,
                 };
                 doc.Metadata["filename"] = Path.GetFileName(file);

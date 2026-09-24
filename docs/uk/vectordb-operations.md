@@ -95,6 +95,25 @@ var results = await store.HybridSearchAsync(
 | **Pinecone** | Розріджені + щільні вектори зливаються на сервері |
 | **Postgres** | Векторна схожість + `tsvector`/`trigram`, об'єднання в SQL |
 
+### Текстовий і налаштовуваний гібридний пошук (не опубліковано)
+
+Перевантаження вище використовує наявну гібридну поведінку кожного бекенду. У поточному вихідному коді InMemory, PostgreSQL і Qdrant також реалізують `ITextSearchStore` та `IConfigurableHybridSearchStore`. Ці додаткові API **ще не опубліковано (Unreleased)**; Pinecone їх не реалізує.
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "order #12345 status", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "order #12345 status",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` не потребує щільного вектора запиту. Налаштовуване перевантаження використовує зважені оцінки RRF, нормалізовані до `[0, 1]`; вага `0` вимикає векторний пошук, а `1` — текстовий. Фільтри метаданих застосовуються до відбору top-K, а `MinScore` — після об'єднання. Шкали початкових текстових і векторних оцінок різняться; добирайте пороги для кожного режиму. `HybridFusionStrategy` у Qdrant керує лише наявним перевантаженням вище.
+
 ## Отримання за ID
 
 Отримання конкретного запису за ідентифікатором:
@@ -142,7 +161,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## Заміна за фільтром
 
-Атомарне видалення всіх записів за фільтром та вставка нового набору. Зручно для переіндексації документа без залишення застарілих чанків.
+Видалення всіх записів за фільтром та вставка нового набору. Зручно для переіндексації документа без залишення застарілих чанків. Атомарність усієї заміни залежить від бекенду.
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -158,7 +177,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> У Postgres це виконується всередині транзакції, забезпечуючи повну атомарність.
+> Postgres використовує транзакцію бази даних. InMemory послідовно виконує видалення та пакетну вставку, тому інший запит може побачити проміжний порожній стан. Помилка чи скасування може залишити часткову заміну; завершені записи не відкочуються. Синхронізація окремих операцій зберігає узгодженість записів та індексу BM25, але не робить усю заміну транзакційною.
 
 ## Підрахунок записів
 

@@ -14,31 +14,40 @@ namespace Mythosia.VectorDb.InMemory
     /// Supports metadata storage, filtering, upsert, and delete operations.
     /// Suitable for development, testing, and small-scale workloads.
     /// </summary>
-    public class InMemoryVectorStore : IVectorStore, IRagDiagnosticsStore, IDisposable
+    /// <remarks>
+    /// Each record update coordinates the stored body and keyword index. Searches,
+    /// including both hybrid legs, read a consistent store state. Stored and returned
+    /// records own copies of vectors and metadata; persist edits through upsert.
+    /// Cancellation can stop waiting for another operation to release the store,
+    /// without interrupting that operation or splitting a record update.
+    /// Batch writes and the default interface replacement are not transactions.
+    /// </remarks>
+    public class InMemoryVectorStore : IVectorStore, ITextSearchStore, IConfigurableHybridSearchStore, IRagDiagnosticsStore, IDisposable
     {
-        private const int RrfK = 60;
-        private const float HybridVectorWeight = 0.5f;
-
         private readonly ConcurrentDictionary<string, VectorRecord> _records
             = new ConcurrentDictionary<string, VectorRecord>(StringComparer.Ordinal);
         private readonly Bm25Index _bm25Index = new Bm25Index();
+        // The dictionary and Lucene index form one store state. Their individual
+        // thread-safety does not make a change spanning both structures atomic.
+        private readonly object _stateLock = new object();
+        private bool _disposed;
 
         #region Upsert
 
         public Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default)
         {
-            _records[record.Id] = record;
-            _bm25Index.Index(record.Id, record.Content);
+            WithState(() => UpsertCore(record), cancellationToken);
             return Task.CompletedTask;
         }
 
         public Task UpsertBatchAsync(IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
         {
+            WithState(() => { }, cancellationToken);
             foreach (var record in records)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                _records[record.Id] = record;
-                _bm25Index.Index(record.Id, record.Content);
+                // Enumerate caller code outside the gate. Cancellation may leave
+                // earlier records committed, but never half of a record update.
+                WithState(() => UpsertCore(record), cancellationToken);
             }
             return Task.CompletedTask;
         }
@@ -49,39 +58,40 @@ namespace Mythosia.VectorDb.InMemory
 
         public Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
-            if (!_records.TryGetValue(id, out var record))
-                return Task.FromResult<VectorRecord?>(null);
-
-            if (filter != null && !MatchesFilter(record, filter))
-                return Task.FromResult<VectorRecord?>(null);
-
-            return Task.FromResult<VectorRecord?>(record);
+            return Task.FromResult(WithState<VectorRecord?>(() =>
+            {
+                if (!_records.TryGetValue(id, out var record) ||
+                    (filter != null && !MatchesFilter(record, filter)))
+                    return null;
+                return CopyRecord(record);
+            }, cancellationToken));
         }
 
         public Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
-            if (filter != null && _records.TryGetValue(id, out var existing) && !MatchesFilter(existing, filter))
-                return Task.CompletedTask;
-
-            if (_records.TryRemove(id, out _))
-                _bm25Index.Remove(id);
-
+            WithState(() =>
+            {
+                if (_records.TryGetValue(id, out var existing) &&
+                    (filter == null || MatchesFilter(existing, filter)))
+                    DeleteCore(id);
+            }, cancellationToken);
             return Task.CompletedTask;
         }
 
         public Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default)
         {
-            var keysToRemove = _records.Values
-                .Where(r => MatchesFilter(r, filter))
-                .Select(r => r.Id)
-                .ToList();
-
-            foreach (var key in keysToRemove)
+            WithState(() =>
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                _records.TryRemove(key, out _);
-                _bm25Index.Remove(key);
-            }
+                var keysToRemove = _records.Values
+                    .Where(r => MatchesFilter(r, filter))
+                    .Select(r => r.Id)
+                    .ToList();
+                foreach (var key in keysToRemove)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    DeleteCore(key);
+                }
+            }, cancellationToken);
 
             return Task.CompletedTask;
         }
@@ -95,21 +105,20 @@ namespace Mythosia.VectorDb.InMemory
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var idList = ids.ToList();
-            if (idList.Count == 0)
-                return Task.FromResult<IReadOnlyList<VectorRecord>>(Array.Empty<VectorRecord>());
-
-            var results = new List<VectorRecord>();
-            foreach (var id in idList)
+            return Task.FromResult(WithState<IReadOnlyList<VectorRecord>>(() =>
             {
-                if (_records.TryGetValue(id, out var record) &&
-                    (filter == null || MatchesFilter(record, filter)))
+                var results = new List<VectorRecord>();
+                foreach (var id in idList)
                 {
-                    results.Add(record);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (_records.TryGetValue(id, out var record) &&
+                        (filter == null || MatchesFilter(record, filter)))
+                        results.Add(CopyRecord(record));
                 }
-            }
-
-            return Task.FromResult<IReadOnlyList<VectorRecord>>(results);
+                return results;
+            }, cancellationToken));
         }
 
         public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
@@ -118,49 +127,83 @@ namespace Mythosia.VectorDb.InMemory
             VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
+            return Task.FromResult(WithState(() => SearchCore(queryVector, topK, filter), cancellationToken));
+        }
+
+        // Call only while holding _stateLock, including both legs of hybrid search.
+        private IReadOnlyList<VectorSearchResult> SearchCore(float[] queryVector, int topK, VectorFilter? filter)
+        {
+            if (queryVector == null) throw new ArgumentNullException(nameof(queryVector));
+            if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
             var results = _records.Values
                 .Where(r => filter == null || MatchesFilter(r, filter))
                 .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
                 .Where(r => filter?.MinScore == null || r.Score >= (filter?.MinScore ?? 0))
                 .OrderByDescending(r => r.Score)
+                .ThenBy(r => r.Record.Id, StringComparer.Ordinal)
                 .Take(topK)
+                .Select(r => new VectorSearchResult(CopyRecord(r.Record), r.Score))
                 .ToList();
-
-            return Task.FromResult<IReadOnlyList<VectorSearchResult>>(results);
+            return results;
         }
 
-        public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
-            float[] denseVector,
-            string query,
-            int topK = 5,
-            VectorFilter? filter = null,
+        /// <summary>Searches text without producing or requiring a query embedding.</summary>
+        public Task<IReadOnlyList<VectorSearchResult>> TextSearchAsync(
+            string query, int topK = 5, VectorFilter? filter = null,
             CancellationToken cancellationToken = default)
         {
-            if (_records.Count == 0)
+            var results = WithState(() => TextSearchCore(query, topK, filter), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(results);
+        }
+
+        private IReadOnlyList<VectorSearchResult> TextSearchCore(string query, int topK, VectorFilter? filter)
+        {
+            if (query == null) throw new ArgumentNullException(nameof(query));
+            if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
+
+            // Restrict the Lucene candidates before top-K, so other tenants cannot
+            // consume the candidate budget and hide relevant records in this tenant.
+            var eligible = _records.Values
+                .Where(record => filter == null || MatchesFilter(record, filter))
+                .ToDictionary(record => record.Id, StringComparer.Ordinal);
+            if (eligible.Count == 0)
                 return Array.Empty<VectorSearchResult>();
 
-            var expandedTopK = Math.Max(topK * 2, topK);
-
-            var bm25Candidates = _bm25Index.Search(query, expandedTopK).ToList();
-
-            if (bm25Candidates.Count == 0)
-                return await SearchAsync(denseVector, topK, filter, cancellationToken);
-
-            var vectorFilter = WithoutMinScore(filter);
-
-            var vectorResults = await SearchAsync(denseVector, expandedTopK, vectorFilter, cancellationToken);
-            var bm25Results = bm25Candidates
-                .Where(r => _records.TryGetValue(r.Id, out var record) && (vectorFilter == null || MatchesFilter(record, vectorFilter)))
+            var results = _bm25Index.Search(query, topK, eligible.Keys.ToArray())
+                .Where(result => eligible.ContainsKey(result.Id))
+                .Select(result => new VectorSearchResult(CopyRecord(eligible[result.Id]), result.Score))
+                .Where(result => filter?.MinScore == null || result.Score >= filter.MinScore.Value)
                 .ToList();
+            return results;
+        }
 
-            var merged = RrfMerge(vectorResults, bm25Results, topK);
+        public Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector, string query, int topK = 5,
+            VectorFilter? filter = null, CancellationToken cancellationToken = default)
+            => HybridSearchAsync(denseVector, query, new HybridSearchOptions(), topK, filter, cancellationToken);
 
-            if (filter?.MinScore.HasValue == true)
+        /// <summary>Combines only the active search legs using normalized weighted RRF.</summary>
+        public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector, string query, HybridSearchOptions options, int topK = 5,
+            VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            var snapshot = options.Snapshot();
+            var candidateCount = snapshot.GetCandidateCount(topK);
+            var candidateFilter = WithoutMinScore(filter);
+            return await Task.FromResult(WithState(() =>
             {
-                merged = merged.Where(r => r.Score >= filter.MinScore.Value).ToList();
-            }
-
-            return merged;
+                var vectors = snapshot.VectorWeight > 0
+                    ? SearchCore(denseVector, candidateCount, candidateFilter)
+                    : Array.Empty<VectorSearchResult>();
+                var text = snapshot.VectorWeight < 1
+                    ? TextSearchCore(query, candidateCount, candidateFilter)
+                    : Array.Empty<VectorSearchResult>();
+                cancellationToken.ThrowIfCancellationRequested();
+                return HybridSearchFusion.Merge(vectors, text, snapshot, topK, filter?.MinScore);
+            }, cancellationToken));
         }
 
         #endregion
@@ -173,7 +216,8 @@ namespace Mythosia.VectorDb.InMemory
         /// </summary>
         public Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<IReadOnlyList<VectorRecord>>(_records.Values.ToList());
+            return Task.FromResult(WithState<IReadOnlyList<VectorRecord>>(
+                () => _records.Values.Select(CopyRecord).ToList(), cancellationToken));
         }
 
         /// <summary>
@@ -181,15 +225,15 @@ namespace Mythosia.VectorDb.InMemory
         /// </summary>
         public int GetTotalRecordCount()
         {
-            return _records.Count;
+            return WithState(() => _records.Count, CancellationToken.None);
         }
 
         public Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
         {
-            if (filter == null || filter.Conditions.Count == 0)
-                return Task.FromResult((long)_records.Count);
-
-            return Task.FromResult((long)_records.Values.Count(r => MatchesFilter(r, filter)));
+            return Task.FromResult(WithState(() =>
+                filter == null || filter.Conditions.Count == 0
+                    ? (long)_records.Count
+                    : _records.Values.LongCount(r => MatchesFilter(r, filter)), cancellationToken));
         }
 
         /// <summary>
@@ -200,12 +244,10 @@ namespace Mythosia.VectorDb.InMemory
             float[] queryVector,
             CancellationToken cancellationToken = default)
         {
-            var results = _records.Values
-                .Select(r => new VectorSearchResult(r, CosineSimilarity(queryVector, r.Vector)))
+            return Task.FromResult(WithState<IReadOnlyList<VectorSearchResult>>(() => _records.Values
+                .Select(r => new VectorSearchResult(CopyRecord(r), CosineSimilarity(queryVector, r.Vector)))
                 .OrderByDescending(r => r.Score)
-                .ToList();
-
-            return Task.FromResult<IReadOnlyList<VectorSearchResult>>(results);
+                .ToList(), cancellationToken));
         }
 
         #endregion
@@ -214,12 +256,75 @@ namespace Mythosia.VectorDb.InMemory
 
         public void Dispose()
         {
-            _bm25Index.Dispose();
+            lock (_stateLock)
+            {
+                if (_disposed) return;
+                _disposed = true;
+                _bm25Index.Dispose();
+            }
         }
 
         #endregion
 
         #region Private Helpers
+
+        private T WithState<T>(Func<T> action, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var lockTaken = false;
+            try
+            {
+                if (cancellationToken.CanBeCanceled)
+                {
+                    // Check cancellation while waiting, not only after an unrelated
+                    // operation completes. Keep Monitor's same-thread reentrancy.
+                    do
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        Monitor.TryEnter(_stateLock, millisecondsTimeout: 50, ref lockTaken);
+                    }
+                    while (!lockTaken);
+                }
+                else
+                {
+                    Monitor.Enter(_stateLock, ref lockTaken);
+                }
+
+                if (_disposed) throw new ObjectDisposedException(nameof(InMemoryVectorStore));
+                cancellationToken.ThrowIfCancellationRequested();
+                return action();
+            }
+            finally
+            {
+                if (lockTaken) Monitor.Exit(_stateLock);
+            }
+        }
+
+        private void WithState(Action action, CancellationToken cancellationToken)
+            => WithState(() => { action(); return true; }, cancellationToken);
+
+        private void UpsertCore(VectorRecord record)
+        {
+            if (record == null) throw new ArgumentNullException(nameof(record));
+            if (record.Id == null) throw new ArgumentNullException(nameof(record.Id));
+            var snapshot = CopyRecord(record);
+            // Publish the body only after indexing succeeds. Never observe
+            // cancellation between the two halves of this update.
+            _bm25Index.Index(snapshot.Id, snapshot.Content);
+            _records[snapshot.Id] = snapshot;
+        }
+
+        private void DeleteCore(string id)
+        {
+            _bm25Index.Remove(id);
+            _records.TryRemove(id, out _);
+        }
+
+        private static VectorRecord CopyRecord(VectorRecord record)
+            => new VectorRecord(record.Id, (float[])record.Vector.Clone(), record.Content)
+            {
+                Metadata = new Dictionary<string, string>(record.Metadata, record.Metadata.Comparer)
+            };
 
         private static VectorFilter? WithoutMinScore(VectorFilter? filter)
         {
@@ -232,58 +337,6 @@ namespace Mythosia.VectorDb.InMemory
             };
             copy.AppendConditionsFrom(filter);
             return copy;
-        }
-
-        private IReadOnlyList<VectorSearchResult> RrfMerge(
-            IReadOnlyList<VectorSearchResult> vectorResults,
-            IReadOnlyList<Bm25Index.Bm25Result> bm25Results,
-            int topK)
-        {
-            var scores = new Dictionary<string, (double score, VectorSearchResult? vectorResult, Bm25Index.Bm25Result? bm25Result)>(StringComparer.Ordinal);
-            var keywordWeight = 1f - HybridVectorWeight;
-
-            for (int i = 0; i < vectorResults.Count; i++)
-            {
-                var id = vectorResults[i].Record.Id;
-                var rrf = HybridVectorWeight * (1.0 / (RrfK + i + 1));
-
-                if (scores.TryGetValue(id, out var existing))
-                    scores[id] = (existing.score + rrf, vectorResults[i], existing.bm25Result);
-                else
-                    scores[id] = (rrf, vectorResults[i], null);
-            }
-
-            for (int i = 0; i < bm25Results.Count; i++)
-            {
-                var id = bm25Results[i].Id;
-                var rrf = keywordWeight * (1.0 / (RrfK + i + 1));
-
-                if (scores.TryGetValue(id, out var existing))
-                    scores[id] = (existing.score + rrf, existing.vectorResult, bm25Results[i]);
-                else
-                    scores[id] = (rrf, null, bm25Results[i]);
-            }
-
-            // Normalize RRF scores to [0, 1]: max raw RRF = 1/(k+1), so multiply by (k+1).
-            double normalizer = RrfK + 1;
-
-            return scores
-                .OrderByDescending(kvp => kvp.Value.score)
-                .Take(topK)
-                .Select(kvp =>
-                {
-                    var normalizedScore = kvp.Value.score * normalizer;
-
-                    if (kvp.Value.vectorResult != null)
-                        return new VectorSearchResult(kvp.Value.vectorResult.Record, normalizedScore);
-
-                    var bm25 = kvp.Value.bm25Result!;
-                    if (_records.TryGetValue(bm25.Id, out var record))
-                        return new VectorSearchResult(record, normalizedScore);
-
-                    return new VectorSearchResult(new VectorRecord { Id = bm25.Id, Content = bm25.Content }, normalizedScore);
-                })
-                .ToList();
         }
 
         private static bool MatchesFilter(VectorRecord record, VectorFilter filter)

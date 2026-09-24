@@ -27,6 +27,7 @@ namespace Mythosia.AI.Services.Anthropic
             };
 
             AddClaudeHeaders(request);
+            AddClaudeSpeedHeader(request);
 
             return request;
         }
@@ -111,6 +112,7 @@ namespace Mythosia.AI.Services.Anthropic
             ApplyTemperaturePolicy(requestBody);
             ApplyToolsConfig(requestBody);
             ApplyNativeClaudeTools(requestBody);
+            ApplyClaudeSpeed(requestBody);
 
             return requestBody;
         }
@@ -143,10 +145,12 @@ namespace Mythosia.AI.Services.Anthropic
                     out var originalContent) == true &&
                 !string.IsNullOrWhiteSpace(originalContent?.ToString()))
             {
+                var blocks = JsonSerializer.Deserialize<JsonElement>(originalContent!.ToString()!);
+                ValidatePreservedClaudeAssistantText(message, blocks);
                 return new
                 {
                     role = "assistant",
-                    content = JsonSerializer.Deserialize<JsonElement>(originalContent!.ToString()!)
+                    content = blocks
                 };
             }
 
@@ -243,10 +247,12 @@ namespace Mythosia.AI.Services.Anthropic
             if (metadata.ContainsKey(MessageMetadataKeys.OriginalContent))
             {
                 var originalContent = metadata[MessageMetadataKeys.OriginalContent].ToString();
+                var blocks = JsonSerializer.Deserialize<JsonElement>(originalContent);
+                ValidatePreservedClaudeAssistantText(message, blocks);
                 return new
                 {
                     role = "assistant",
-                    content = JsonSerializer.Deserialize<JsonElement>(originalContent)
+                    content = blocks
                 };
             }
 

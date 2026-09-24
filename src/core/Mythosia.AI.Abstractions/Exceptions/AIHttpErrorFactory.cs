@@ -58,6 +58,11 @@ namespace Mythosia.AI.Exceptions
         private static readonly Regex XaiPromptLength = new Regex(
             @"maximum\s+prompt\s+length\s+is\s+(\d+)\s+but\s+the\s+request\s+contains\s+(\d+)\s+tokens", Opts);
 
+        // xAI also reports the sampling error's explicit input-too-large marker and window.
+        // Do not match the marker alone: it can describe unrelated input-size limits.
+        private static readonly Regex XaiInputTooLarge = new Regex(
+            @"\[input_too_large\]\s+The\s+prompt\s+is\s+too\s+long\s+for\s+this\s+model's\s+context\s+window\s*\((\d+)\s+tokens\s*>\s*(\d+)\s+tokens\)", Opts);
+
         /// <summary>
         /// Does this HTTP failure mean "the prompt did not fit"? Only 400 and 413 are considered —
         /// 429/5xx are transport or quota problems that compaction cannot fix.
@@ -106,6 +111,14 @@ namespace Mythosia.AI.Exceptions
             {
                 maxContextTokens = ParseOrNull(xai.Groups[1].Value);
                 requestedTokens = ParseOrNull(xai.Groups[2].Value);
+                return true;
+            }
+
+            var xaiInput = XaiInputTooLarge.Match(body);
+            if (xaiInput.Success)
+            {
+                requestedTokens = ParseOrNull(xaiInput.Groups[1].Value);
+                maxContextTokens = ParseOrNull(xaiInput.Groups[2].Value);
                 return true;
             }
 

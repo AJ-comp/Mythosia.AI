@@ -1,6 +1,8 @@
 # Claude Fable 5.1의 긴 작업을 관찰하고 제어하기
 
-> Fable 5.1 설정은 `Mythosia.AI` 8.0.0과 `Mythosia.AI.Abstractions` 4.0.0 이상이 필요합니다. 기존 Run·추론/검색·GPT-6 API의 최소 버전은 7.1.0 / 3.1.0으로 유지합니다.
+[Claude Opus 5.5](providers.md#claude-opus-55)는 미배포 추가 기능입니다. 추론은 항상 켜져 있고 기본 effort는 medium, 표시는 생략입니다. 읽을 수 있는 진행 안내는 명시적으로 요청하세요. 기본값과 모델 binding 규칙은 Fable 5.1과 다릅니다.
+
+> Fable 5.1 설정은 `Mythosia.AI` 8.0.0과 `Mythosia.AI.Abstractions` 4.0.0 이상이 필요합니다. 기존 Run·추론/검색·GPT-6 Astra API의 최소 버전은 7.1.0 / 3.1.0으로 유지합니다.
 
 ## 이 설정이 왜 필요한가요?
 

@@ -19,7 +19,7 @@ public class OpenAIAsyncToolCallingLiveTests
     private const string Prompt =
         "Call read_live_verification_token exactly once. This lookup permits asynchronous execution. " +
         "While its result is pending, give one brief independent tip for packing a bag; " +
-        "do not call the lookup again. Once the actual tool result arrives, " +
+        "do not call the lookup again. End that response without waiting: the application sends the result in a later request. Once the actual tool result arrives, " +
         "include its verification_token verbatim in your final answer. Never invent the token.";
 
     [TestMethod]
@@ -40,7 +40,7 @@ public class OpenAIAsyncToolCallingLiveTests
         await VerifyAsync(model, allowAsync, expectNativeAsync: false, streaming);
     }
 
-    private static async Task VerifyAsync(string model, bool allowAsync, bool expectNativeAsync, bool streaming)
+    internal static async Task VerifyAsync(string model, bool allowAsync, bool expectNativeAsync, bool streaming)
     {
         // Use the same credential source as the existing provider live contracts. Do not log keys.
         var apiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
@@ -278,7 +278,7 @@ public class OpenAIAsyncToolCallingLiveTests
         public void Release() => _release.TrySetResult();
     }
 
-    // Fix the fixture's single-call policy through the existing public FunctionCallMode setting:
+    // Fix the fixture's single-call policy in the active request settings:
     // the first request forces the lookup, and later requests forbid new model calls. Registered
     // tools, real responses, pending handlers, and result delivery remain on the production path.
     // The observer releases the test-owned handler only after the production parser validates
@@ -290,17 +290,26 @@ public class OpenAIAsyncToolCallingLiveTests
         protected override HttpRequestMessage CreateFunctionMessageRequest()
         {
             if (observer.Requests.IsEmpty)
-                return base.CreateFunctionMessageRequest();
+            {
+                var request = base.CreateFunctionMessageRequest();
+                // A forced tool still permits multiple calls when parallel_tool_calls=true.
+                // Bound this integration fixture to one real call; do not mock its response.
+                var body = System.Text.Json.Nodes.JsonNode.Parse(request.Content!.ReadAsStringAsync().GetAwaiter().GetResult())!;
+                body["parallel_tool_calls"] = false;
+                request.Content.Dispose();
+                request.Content = new StringContent(body.ToJsonString(), System.Text.Encoding.UTF8, "application/json");
+                return request;
+            }
 
-            var previousMode = FunctionCallMode;
+            var previousMode = RequestFunctionCallMode;
             try
             {
-                FunctionCallMode = FunctionCallMode.None;
+                SetExecutionSetting(nameof(FunctionCallMode), FunctionCallMode.None);
                 return base.CreateFunctionMessageRequest();
             }
             finally
             {
-                FunctionCallMode = previousMode;
+                SetExecutionSetting(nameof(FunctionCallMode), previousMode);
             }
         }
 

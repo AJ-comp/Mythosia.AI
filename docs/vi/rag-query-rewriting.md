@@ -1,6 +1,8 @@
 # Viết lại truy vấn
 
-> 📍 **Pipeline Q&A:** **`Viết lại truy vấn`** → Embedding → Lọc → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → Xây dựng context
+> 📍 **Pipeline Q&A:** **`Viết lại truy vấn`** → Lọc → Embedding (khi cần) → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → Xây dựng context
+
+Giai đoạn câu hỏi `Embedding` phụ thuộc bộ truy xuất; tìm từ khóa không báo giai đoạn này. Bộ tùy chỉnh có thể báo giai đoạn qua `request.ProgressAsync`. Embedding tài liệu không đổi.
 
 ## Tại sao cần viết lại truy vấn?
 
@@ -44,6 +46,12 @@ var result = await store.QueryAsync(
 ```
 
 Bộ viết lại xem toàn bộ lịch sử và viết lại "Có ngoại lệ nào không?" thành "ngoại lệ của chính sách không hoàn tiền sản phẩm kỹ thuật số", cho kết quả truy xuất tốt hơn nhiều.
+
+<a id="runtime-query-rewriter"></a>
+
+## Đổi cấu hình viết lại khi đang xử lý truy vấn
+
+Để tạm tắt tính năng viết lại hoặc đổi cách triển khai mà không xây dựng lại chỉ mục, hãy dùng `store.SetQueryRewriter(null)` hoặc `store.SetQueryRewriter(rewriter)`. Khi gọi trực tiếp overload của `RagStore.QueryAsync` nhận `conversationHistory`, truy vấn giữ bộ viết lại được chọn lúc bắt đầu. Dù cấu hình bị tắt hoặc thay đổi trong khi chờ thông báo tiến độ hay bước viết lại, truy vấn đó vẫn dùng cùng một thể hiện; các truy vấn sau dùng cấu hình mới. Hành vi này áp dụng cho truy vấn trực tiếp vào kho và không cập nhật bộ viết lại mà wrapper `RagEnabledService` đã giữ trước đó.
 
 ## Cách search gate hoạt động
 

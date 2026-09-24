@@ -2,6 +2,61 @@
 
 The `Unit` category contains deterministic tests for CI. The `Live` category sends requests to external providers and requires credentials. CI and package publishing continue to select `TestCategory=Unit`; live tests run explicitly.
 
+See the [2026-09-24 full live API validation record (Korean)](validation/2026-09-24-live-api.md) for the 3,207-case scope, preserved initial failures, verified reruns, and account/resource limitations. Validation is complete for the runnable scope: 3,147 passed, 18 failed, 35 unsupported skips, 4 inconclusive cases, and 3 blocked resource cases. See the record for the explicitly labeled 39 console-backed results from the interrupted Pro run.
+
+The [Claude-only follow-up](validation/2026-09-24-claude-errors.md) rechecks the three Claude failures: the unchanged context scenario passed six actual requests, while both Fast paths confirmed an account quota of zero. It adds request/refusal diagnostics and four context regression cases (70 related unit cases passed). The original full-run snapshot is retained; the initial refusal cause remains unknown.
+
+## GPT-6 Sol and Luna validation
+
+`OpenAIGpt6SolLunaContractTests` and the extended GPT-6 request, async-tool, Run, speed, capability and Chat UI tests cover both models and Astra regression boundaries. They check model-specific `None`, all supported efforts, immutable request settings, sampling after cache-preserving changes, Pro, Fast, and real transport payloads. `node --experimental-vm-modules build/test-model-capabilities-ui.mjs` exercises the actual settings module, including choosing None and refreshing sampling controls.
+
+Run `./build/test-openai-gpt6-sol-luna-live.ps1` from the repository root for the strict 60-case paid suite. It uses the existing OpenAI Key Vault test credential and synthetic data. Cases cover all reasoning levels, ProviderDefault/Standard/Fast over completion and WebSocket Run, Pro with None/Medium, HTTP/SSE async tool continuations, None with tool results, steering during text and pending tools, cache-preserving transitions both into and out of None, typed structured output, synthetic image input, web search, and file search. Uploaded synthetic files and stores are cleaned up by the hosted-search fixture.
+
+The runner requires every discovered case to pass with no skips; an unavailable account capability or a server downgrade does not count as a successful Fast check. Cache tests verify accepted configuration changes and retained history, not a guaranteed cache hit. Raw HTTP observations retain status/request IDs without recording credentials. Reports are stored in `artifacts/test-results/openai-gpt6-sol-luna-live/`.
+
+On 2026-09-24 the final Sol/Luna matrix passed **60/60**, and the existing Astra/GPT-5.6 async-tool live regression passed **6/6**, with no skipped cases. Both new models confirmed actual Fast processing in completion and Run. Core Unit passed **2,724/2,724**; document validation covered 548 Markdown files in 13 languages, and DocFX finished with no warnings or errors. The initial async fixture exposed its obsolete service-default mutation and unconstrained repeated tool calls; its request-scoped control and single-call test setup were corrected before the final run. Evidence and the initial failure log are retained in `artifacts/gpt6-sol-luna/`.
+
+## Processing speed validation
+
+`InferenceSpeedContractTests`, `AuxiliaryRunProcessingTests`, `AnthropicGoogleSpeedTests`, `OpenAIXAISpeedTests` and `OpenAISpeedWebSocketTests` check immutable request branches, next-call options, early rejection, provider mappings, observed modes, tool continuations, server continuations, and internal-request isolation. `RagRequestFeaturesTests` also checks that speed reaches the answer while query rewriting remains separate.
+
+Run `./build/test-inference-speed-live.ps1` from the repository root for the strict 24-case live matrix: four providers × ProviderDefault/Standard/Fast × completion/Run. The runner uses existing Key Vault credentials and makes paid requests containing synthetic prompts. Every case must pass without skipping; a quota error, missing explicit-mode confirmation, or downgrade fails Fast verification. Claude's ordinary non-beta ProviderDefault response can omit speed: the test requires that it stays unknown rather than inventing Standard.
+
+Additional explicit suites:
+
+```powershell
+dotnet test --project tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj -c Release --filter "FullyQualifiedName~InferenceSpeedContinuationLiveTests&TestCategory=Live"
+dotnet test --project tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj -c Release --filter "FullyQualifiedName~InferenceSpeedWireDiagnosticLiveTests&TestCategory=Live"
+```
+
+The 12-case continuation suite verifies tool results and processing observations across multiple requests, and GPT-5.6 HTTP Responses separately from Astra's WebSocket Run. Anthropic and Gemini tool tests use Standard; OpenAI and xAI use Fast. It also checks Sonnet 5 Standard: this model rejects the native speed parameter, so the adapter sends an ordinary request and keeps missing actual-mode metadata unknown. The Gemini spelling diagnostic compares `serviceTier` with the official REST example's `service_tier`, records response headers and usage, and **does not** certify Fast access.
+
+The 2026-09-24 main matrix passed 20/24 cases with no skips. Anthropic Fast failed with HTTP 429 and an account limit of 0 Fast input tokens/minute; Gemini Fast returned Standard in both completion and Run. OpenAI and xAI confirmed Fast in both paths. Claude Standard's required beta header was corrected after the initial real-call failure and verified successfully. Reports are retained in `artifacts/test-results/inference-speed-live/` and `artifacts/speed/tests/`; the consolidated record is `artifacts/speed/RESULTS.ko.md`. Account limits were not changed, and downgrades were not relabeled as Fast successes.
+
+Final continuation tests passed 12/12 and spelling diagnostics passed 2/2. The diagnostics confirmed that both Google request spellings returned Standard, rather than proving Priority access. The full core unit suite passed 2,651/2,651 (102 new speed cases), and RAG passed 910/910. No tests were skipped. The first continuation run exposed the Sonnet parameter restriction and an invalid forced-tool setting in the test fixture; both were corrected before the final run, and the earlier report was retained.
+
+## Retrieval quality evaluation infrastructure
+
+Use the [shared evaluation runner](../Mythosia.AI.Rag.Evaluation/README.md) to compare search methods on versioned document/query datasets, retain every run, inspect category metrics and gate regressions against a reviewed baseline. `Mythosia.AI.Rag.Evaluation.Tests` checks the evaluator itself; CI also executes the offline smoke dataset against its committed baseline. Real PIXIE and paid OpenAI comparisons run explicitly through `build/test-retrieval-evaluation.ps1` or the `Retrieval Evaluation` workflow. Existing PIXIE commands remain compatibility entry points.
+
+## Retrieval architecture validation (2026-09-22)
+
+The new `IRagRetriever` path is exercised through `RagStore`, ordinary RAG and Agentic RAG. Tests cover query-embedding avoidance in keyword mode, configured and application-level weighted fusion, inactive search legs, filter isolation, cancellation, legacy strategy compatibility, index updates and explicit failures for unsupported search modes.
+
+The final Release checks passed with no failures or skips: **274/274 RAG tests**, **104/104 vector-store tests** and **2,468/2,468 AI Unit tests**. The vector suite includes **36 actual PostgreSQL checks**, run against a disposable localhost `pgvector/pgvector:pg17` database. These cover punctuation-safe text search, stemming, trigram search, rank scores and metadata filters, including empty `NotIn` sets with missing keys. An additional disposable **Qdrant 1.17** run passed **14 real backend checks**, including keyword/hybrid retrieval, tenant filters in new and legacy paths, missing-key semantics and quoted flat payload indexes. Qdrant/Pinecone adapter tests use recorded requests; no Pinecone cloud endpoint or model API was called.
+
+Reports are under `artifacts/test-results/retrieval-modern-rag-final/`, `retrieval-modern-vector-final/`, `retrieval-modern-core-unit/` and `search-modernization/`; the newest RAG report contains the final 274-case run. Build and test logs use `artifacts/retrieval-modern-`. The separate Qdrant live probe is retained locally at `artifacts/qdrant-search-modernization/Program.cs`; its 14 successful checks were verified from process output and exit status, not a TRX report. Both disposable database containers and the PostgreSQL connection file were removed afterward. The full Release solution build passed with warnings treated as errors. This validates execution and contracts; it does not establish retrieval-quality gains on a production corpus or add symbol-preserving tokenization.
+
+Documentation validation passed for six release packages, 545 Markdown files and 13 languages. DocFX regenerated the API manifest and built the reference/site with zero warnings and errors (`artifacts/retrieval-modern-docfx.log`). The test-category check and patch whitespace check also passed; published release history was preserved and no package versions were changed.
+
+To rerun the RAG suite:
+
+```powershell
+dotnet test --project tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj --configuration Release
+```
+
+Set `MYTHOSIA_PG_CONN` only in the test process to a disposable PostgreSQL database, then run `tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj`. Without it, PostgreSQL integration cases are inconclusive and cannot be counted as a successful live validation. Do not commit connection strings. The tests create unique tables and clean them up; use a database reserved for testing.
+
 ## Run deterministic tests
 
 From the repository root, using the .NET SDK pinned in `global.json`:
@@ -73,6 +128,42 @@ Web-search cases require actual URL citations. File-search cases upload only a s
 Reasoning cases change the level on a second turn; OpenAI and Anthropic additionally require the provider's cache-preserving transition to be accepted. This verifies the request contract, not a guaranteed billing cache hit. Google tests supported thinking levels without requesting cache preservation. Run cases also verify callback/result consistency and a single final completion event.
 
 These are billable model, search, and indexing operations. `LiveTestSecrets` remains the credential source; tests do not print keys or add environment-variable overrides. Unique TRX reports are written under `artifacts/test-results/request-features-live/`. The runner checks discovery, execution, and pass counts, rejecting skipped, unexecuted, or inconclusive cases. Test code being present does not by itself mean the live checks have passed.
+
+## Verify Claude Opus 5.5 reasoning and conversation contracts
+
+Use this suite before adopting `claude-opus-5-5`: thinking is always on, its default effort is **Medium**, and signed thinking must survive tool calls without changing the conversation prefix. Successful HTTP responses alone do not prove that progress events or preserved thinking reach library callers.
+
+```powershell
+./build/test-anthropic-opus55-live.ps1
+# With an up-to-date Release build:
+./build/test-anthropic-opus55-live.ps1 -NoBuild
+```
+
+The [dedicated runner](../../build/test-anthropic-opus55-live.ps1) selects `AnthropicOpus55LiveTests` and the `Live` category, builds in Release unless `-NoBuild` is set, and uses the existing serial settings. It requires at least the **12 current cases** to be discovered, executed and passed, with zero skipped, unexecuted or inconclusive results. Every future case selected by the same filter must also pass. A unique TRX report is written under `artifacts/test-results/anthropic-opus55-live/`; a failed process, missing report or incomplete result fails the runner.
+
+| Contract | Cases | Required evidence |
+| --- | ---: | --- |
+| Explicit effort | 5 | The real Messages API accepts Low, Medium, High, XHigh and Max, with adaptive thinking and no manual `budget_tokens`. |
+| Default multi-turn response and token counting | 1 | Medium is used without explicit effort; correct answers and unchanged signed thinking continue across turns; the real token-count endpoint accepts completed history without changing it. |
+| Automatic tools and readable Updates | 3 | Completion, Run and legacy streaming each execute three dependent tools once, calculate the correct allocation and replay actual signed thinking. Readable updates reach `LastThinkingContent`; streaming paths also emit reasoning events. |
+| Edited user prefix | 2 | `Error` produces the actual binding HTTP 400; `DropBlock` succeeds and reports the real dropped-thinking transformation. |
+| Cache-preserving effort and temporary instructions | 1 | High changes to Low through a per-message marker without rewriting the existing prefix or top-level configuration; a temporary instruction affects the first reply and clears on the next turn. |
+
+The tool cases reuse the [allocation scenario](Infrastructure/AnthropicFableAllocationLiveScenario.cs): read stock, fetch rules using the returned snapshot ID, then calculate and validate whole-carton quantities with a rules ID supplied only by the preceding handler. The final report reference also exists only in a handler result. This task requires real calculation between tool results. A trivial lookup can succeed without any thinking block, so it cannot establish signed-thinking replay or readable Updates delivery. These checks require the actual blocks and public events; accepted request fields, synthetic responses or a plausible final answer are insufficient. The scenario only calculates an allocation and does not modify external inventory.
+
+These are billable Anthropic API calls. The existing [LiveTestSecrets](Infrastructure/LiveTestSecrets.cs) retrieves `momedit-antropic-secret` from `https://mythosia-key-vault.vault.azure.net/` using the existing Azure authentication setup. The account must have Opus 5.5 access, and network access to Key Vault and Anthropic is required. No API-key environment-variable override is added. Authentication, model-access and behavioral failures are not converted to skipped or inconclusive successes.
+
+The shared observer tees real SSE reads through the production parser. Logs contain protocol metadata such as model, request ID, status, block types, stop reason and transformation counts; credentials, prompts, thinking text, signatures and handler-only values are not printed. The suite uses synthetic conversations and creates no hosted resources requiring cleanup. Cache-preservation checks verify the request and conversation contract, not a guaranteed billing cache hit.
+
+Deterministic `AnthropicOpus55Tests` additionally cover rejected reasoning settings, forced tools and prefills, builder isolation, legacy budget-to-effort mapping, and explicit rejection of public assistant-history edits that would otherwise be hidden by native content replay. Their presence, and the live runner's presence, do not establish a successful live run; retain the generated TRX report as execution evidence.
+
+### Recorded Opus 5.5 validation on 2026-09-24
+
+The final Release core Unit run passed **2,549/2,549**, including **71 Opus 5.5 cases**. The final live run passed **12/12**, with no failures or skips, in **1 minute 38.641 seconds**. Its report is `artifacts/opus55/tests/opus55-live-final.trx`; the accompanying log records 26 actual API requests: 25 HTTP 200 responses and one expected HTTP 400 for explicit prefix-binding rejection.
+
+All three allocation execution paths produced two actual readable thinking blocks and populated `LastThinkingContent`; Run and legacy streaming also passed the public reasoning-event assertions. The earlier trivial-lookup run is retained as a failed diagnostic: its tools and HTTP requests succeeded, but three cases lacked actual thinking. Replacing that task with the dependent calculation scenario exercised the intended feature without weakening the assertions. Only the final 12-case report is the passing live evidence.
+
+The dedicated runner was checked without additional API calls: PowerShell parsing succeeded, its counter gate accepted the final TRX report, and nine offline counter fixtures verified acceptance and rejection conditions. No extra live run was made just to validate the runner.
 
 ## Verify Claude Fable 5.1 thinking and instruction lifecycles
 
@@ -150,6 +241,28 @@ Gemini 3.7 Flash emitted one actual thought-summary part in the High-thinking Ru
 
 The same implementation passed all 987 deterministic core tests and 109 RAG regression tests. These results are separate from the earlier Fable validation recorded above.
 
+## Verify Grok 4.7 against the real API
+
+Use this suite before switching an application to Grok 4.7 or enabling its paid priority processing. It tests actual model and option acceptance through the library instead of inferring support from a model identifier.
+
+```powershell
+./build/test-xai-grok47-live.ps1
+# With an up-to-date Release build:
+./build/test-xai-grok47-live.ps1 -NoBuild
+```
+
+The [strict runner](../../build/test-xai-grok47-live.ps1) requires all **25 cases** and **29 real requests** to pass with `grok-4.7`. The existing `LiveTestSecrets` entry `xai-secret` supplies credentials. Calls incur model API charges, including priority processing. Reports are written to `artifacts/test-results/xai-grok47-live/`. Skipped cases, substituted models, missing applied-tier reports, and server downgrades in explicit Fast cases fail validation. The earlier Grok 4.6 suite and its recorded results remain separate.
+
+The [live fixture](Providers/xAI/Grok47LiveTests.cs) covers all supported native/common reasoning levels and omitted Auto, callback/rich streaming and Run, real local-tool round trips with provider call IDs, RAG rewrite Low-to-High restoration, typed JSON completion/streaming without repair, synthetic PNG image input, and ProviderDefault/Standard/Fast processing across completion and Run. Optional reasoning summaries are checked only when the provider actually emits them. JSON tests verify the adapter's JSON mode, not strict native JSON-schema enforcement. Synthetic text, images and local RAG/tool values are used; credentials and content are not written to diagnostics.
+
+This runner's existence is not evidence of a successful API run. Retain its generated TRX and request evidence to establish the result for the account being used.
+
+### Grok 4.7 execution record — 2026-09-24 (Asia/Seoul)
+
+The strict runner passed **25/25** with no failures or skipped cases. All **29 real requests** returned HTTP 200 from `grok-4.7`, with no model substitution or test retry. Evidence: `artifacts/test-results/xai-grok47-live/xai-grok47-live-20260923-232110-200-e687eb9371854b238f5e58fd41390263.trx` and `artifacts/grok47/LIVE-RESULTS.ko.md`.
+
+The requests exercised two omitted Auto settings, 15 Low, six Medium, four High and two XHigh settings. Both tool round trips preserved actual provider-issued call IDs and returned handler-only values. JSON completed without repair, the synthetic image was recognized, and actual reasoning deltas reached public stream events. ProviderDefault and Standard reported `default`, while explicit Fast reported `priority`, in both completion and Run. This validates public API priority processing, not the separate Grok 4.7 Fast product variant. API access and processing results remain account- and time-dependent.
+
 ## Verify Grok 4.6 against the real API
 
 Run these tests before relying on a new reasoning level or moving an application to Grok 4.6. They distinguish an accepted real request from a plausible mock response and verify that tools return data actually supplied by the application.
@@ -183,6 +296,54 @@ All **20** real requests used `grok-4.6` and returned HTTP 200: two Auto request
 The Auto, High, and XHigh Run cases and Medium rich stream received readable reasoning summaries; the probe verified that every actual delta reached the public reasoning stream. The tool Run did so across both rounds. This records observed delivery for these requests, not a guarantee of summaries on every future response. Typed output succeeded in JSON mode without repair, and both RAG paths restored Low to High for the final answer.
 
 The implementation also passed **1,026** deterministic core tests, **109** RAG regression tests, and **11** offline Chat UI JavaScript cases. Release builds completed with zero warnings or errors. The UI harness uses a mock DOM and transport, separately from the real API suite.
+
+## Verify current DeepSeek models, Responses and uploaded images
+
+Use the dedicated runner to verify V4 Pro reasoning, both current models through the Responses transport, native tool continuation, typed JSON output, and image-file reuse:
+
+```powershell
+./build/test-deepseek-current-live.ps1
+# With an up-to-date Release build:
+./build/test-deepseek-current-live.ps1 -NoBuild
+```
+
+The suite uses the existing `deepseek-secret` Key Vault credential and synthetic prompts/images. These are billable model calls. It requires 14 passing cases without skips: 19 successful model requests and four Files API operations. The model requests exercise completion, streaming and Run with `UseResponsesApi = true`, Pro Chat Completions at Low/High/Max effort, actual function calls and their returned values, later-turn reasoning replay, and typed schema responses. Flash receives the same uploaded image by file ID through both transports. The file lifecycle verifies upload, metadata, pagination-compatible listing and deletion; a `finally` block deletes only the test-created file, using a separate cleanup cancellation token. Upload expiration also bounds its lifetime if cleanup fails.
+
+The runner writes a unique TRX under `artifacts/test-results/deepseek-current-live/`. Protocol diagnostics contain endpoint/model/options/status counts, without credentials or full prompts. Tests reject hidden retries, model substitution, truncated responses and mismatches between provider output and public results. Network access, account permissions, balance, API errors and cleanup errors fail verification. Presence of the suite is not a record that a live run passed.
+
+### Recorded DeepSeek validation on 2026-09-24
+
+The strict runner passed **14/14** cases with no skips, retries or model substitution. All **23 requests returned HTTP 200**: Flash made eight Responses requests and one Chat Completions request; V4 Pro made seven Responses requests and three Chat Completions requests. The four Files operations completed, including deletion of the synthetic image. Both models passed completion, streaming, Run, real function-result continuation and native JSON-schema output checks. Pro Low/High/Max reasoning settings reached the API. Flash correctly recognized the uploaded blue image through both transports.
+
+Evidence: `artifacts/test-results/deepseek-current-live/deepseek-current-live-20260924-004614-216-05611154e8fa4af789280e88fab6b533.trx`. This validates the listed representative scenarios, not every possible image, tool schema or account configuration.
+
+## Verify Google image model options
+
+Run the [dedicated runner](../../build/test-google-image-model-options-live.ps1) from the repository root to check the selected model, resolution and aspect ratio through both `GenerateImagesAsync` and `EditImagesAsync`:
+
+```powershell
+./build/test-google-image-model-options-live.ps1
+# With an up-to-date Release build:
+./build/test-google-image-model-options-live.ps1 -NoBuild
+```
+
+The runner selects [GoogleImageModelOptionsLiveTests](Providers/Google/GoogleImageModelOptionsLiveTests.cs), uses the existing serial settings, and requires all six cases to pass without skipped, unexecuted or inconclusive results.
+
+| Model | Resolution | Aspect ratio | Operations |
+| --- | --- | --- | --- |
+| `gemini-3.1-flash-image` | `FiveTwelve` (512) | `FourByOne` (4:1) | Generate + Edit |
+| `gemini-3.1-flash-lite-image` | `OneK` (1K) | `SixteenByNine` (16:9) | Generate + Edit |
+| `gemini-3-pro-image` | `TwoK` (2K) | `FourByThree` (4:3) | Generate + Edit |
+
+Each case requires exactly one request to the selected model's `generateContent` endpoint, the exact requested resolution/ratio and JPEG selector, HTTP 200, and one output image. Editing also verifies the synthetic reference bytes sent in the request. A real JPEG decoder must decode the entire response; decoded dimensions must match the requested resolution tier and ratio within the fixture's rounding tolerances. Returned bytes must match the provider response, with no retries, fallback model or resizing. Unique TRX reports and generated JPEG evidence are retained under `artifacts/test-results/google-image-model-options-live/`.
+
+These are six billable Google image operations using synthetic prompts and references. The existing `LiveTestSecrets` Key Vault entry `gemini-secret` supplies the credential; the account must have access to all three models, and network access to Key Vault and Google is required. Authentication, model access, quota, transport or output-validation failures fail the runner. This suite does not test Flash-Lite 512 support; see the [model options and source discrepancy](../../docs/providers.md#google-image-options). The runner and cases define the required checks; they do not by themselves establish a successful live run.
+
+### Recorded Google image option validation on 2026-09-24
+
+The strict runner completed successfully with **6/6 passed**, six HTTP 200 responses, and no skipped cases, retries or fallback requests. Generation and editing both returned fully decoded JPEGs at 1024×256 for Flash 512 / 4:1, 1376×768 for Flash-Lite 1K / 16:9, and 2400×1792 for Pro 2K / 4:3. The exact model and option selectors, reference inputs for editing, and unchanged response bytes passed validation. This confirms these six combinations; Flash-Lite 512 was not tested and its documentation discrepancy remains unresolved.
+
+The TRX evidence is retained at `artifacts/test-results/google-image-model-options-live/google-image-model-options-live-20260924-001216-624-40170954871141ebba6f85222764c1bd.trx`; the six JPEGs are under `artifacts/test-results/google-image-model-options-live/images-20260924-001230-313-99e5da1052094270a13a2ba1fe0c41a0/`.
 
 ## Verify Grok Imagine image generation and editing
 
@@ -355,7 +516,7 @@ Use the [platform runner](../../build/test-perplexity-platform-live.ps1) to veri
 ./build/test-perplexity-platform-live.ps1 -NoBuild
 ```
 
-The suite requires all 11 cases to pass without skips. It covers background submission and polling, saved-cursor SSE reconnection, explicit server cancellation, stored-response continuation, selection from a valid model list, URL fetching, finance/people tools, a read-only public DeepWiki MCP tool, an inline skill executed in sandbox, and a built-in XLSX skill whose generated workbook is listed and downloaded. It uses the existing `sonar-secret2` credential and makes billable requests.
+The suite requires all 11 cases to pass without skips. It covers background submission and polling, saved-cursor SSE reconnection, explicit server cancellation, stored-response continuation, selection from a valid model list, URL fetching, finance/people tools, the read-only public DeepWiki MCP `ask_wiki_question` tool, an inline skill executed in sandbox, and a built-in XLSX skill whose generated workbook is listed and downloaded. It uses the existing `sonar-secret2` credential and makes billable requests.
 
 Saved profiles, uploaded custom skills, and connectors are excluded from this platform suite because no registered account resources were supplied. A separate [opt-in resource runner](#prepare-registered-profile-custom-skill-and-connector-tests) is now prepared for those fixtures; it has not been executed. Their request shapes have deterministic coverage, which does not establish successful live execution. Selecting a model from a valid fallback list does not establish failover during an actual provider outage. These limits are not counted as passed or skipped live cases.
 
@@ -680,3 +841,41 @@ Publication safety checks and release documentation validation passed for **six 
 This validation used mocked vLLM HTTP responses, with no live server requests. Packages under `artifacts/release-v8-vllm-validation/` are marked **development-validation**. No commit, Git push or NuGet publication was performed.
 
 The final DocFX API reference and site build passed with **zero warnings and errors** (`artifacts/docfx-release-v8-vllm.log`).
+
+## RAG reranker history isolation regression (2026-09-22)
+
+A shared `LlmReranker` now sends independent stateless evaluation requests through the Message overload, preserving the scorer's existing conversation without triggering automatic summarization. Rerankers sharing the same `IAIService` serialize their evaluations with cancellable waiting. Stored conversation summaries are omitted from stateless requests in both common and Anthropic wire-history system-message construction; stateful requests continue to include them.
+
+Added **15 regression cases**: nine RAG cases for sequential and overlapping evaluations, separate rerankers sharing one service, ranking preservation, existing history and summary preservation, failed/cancelled evaluations and cancelled waiters; plus six AI cases covering OpenAI and Anthropic stateless/profile isolation and stateful controls. Tests use real provider request construction with fake HTTP handlers; no paid API or database was called.
+
+The Release solution build passed with zero warnings/errors. **212/212 RAG tests** and **2,468/2,468 AI Unit tests** passed, with no failures or skips. Documentation metadata validation passed for six packages, 545 Markdown files and 13 languages. Reports are `artifacts/test-results/reranker-isolation/rag.trx` and `artifacts/test-results/reranker-isolation/ai-unit.trx`; build/test/documentation logs use the `artifacts/reranker-isolation-` prefix.
+
+The DocFX API reference and site build passed with zero warnings/errors (`artifacts/docfx-reranker-isolation.log`), and the CI test-category validation passed.
+
+This change addresses review finding F01. The other ten findings remain separate work. Package versions are unchanged and the fix is recorded under Unreleased; no commit, push or package publication was performed.
+
+## RAG document identity regression (2026-09-22)
+
+Built-in plain-text and directory loaders now use normalized absolute paths for `Source` and automatic document IDs. Files with the same relative name in different roots remain separate; relative/absolute/dot-segment references to the same normalized path reuse their identity. Explicit `RagDocument.Id`, `AddText(id)` and custom loader source rules are unchanged. The builder compares processed paths case-insensitively on Windows and ordinally elsewhere.
+
+Added **17 regression cases** using real temporary files, `InMemoryVectorStore` and local/counting embeddings. Coverage includes separate roots, stable identity and stale-chunk removal on nonempty updates, preservation of the other root, registration-route equivalence, overlapping file/directory registrations, splitter priority, display metadata and explicit IDs. A filesystem-based case-variant test checks one-build deduplication on Windows and distinct files on case-sensitive filesystems; this local run was on Windows, while Ubuntu CI will exercise the Linux path.
+
+The initial pre-fix run reproduced **10 failures** among the first 16 cases. After the fix, **229/229 RAG tests** passed with no failures or skips. The external report's original F02 reproduction also passed (**1/1**). The Release solution build and final RAG test build passed with zero warnings/errors. Reports are `artifacts/test-results/document-identity/before.trx`, `rag.trx` and `external-f02.trx`; logs use the `artifacts/document-identity-` prefix.
+
+Documentation metadata validation passed for six packages, 545 Markdown files and 13 languages. The DocFX API reference and site build passed with zero warnings/errors (`artifacts/docfx-document-identity.log`).
+
+This change addresses F02. Existing relative-path IDs are not automatically migrated or deleted; the 13-language RAG guide describes rebuilding into a new collection or cleaning up verified old IDs before reindexing. Empty-document replacement (F03) and other review findings remain separate work. No external model API or database was called. Package versions are unchanged and the fix is recorded under Unreleased; no commit, push or publication was performed.
+
+## RAG empty document replacement regression (2026-09-22)
+
+The default RAG storage flow now replaces a successfully processed zero-chunk document with an empty record set filtered by its existing `document_id`. It skips embeddings, removes all previous chunks of that document and preserves other IDs. Cancellation is checked before and after splitting and immediately before persistence. Loader/parser/splitter exceptions and cancellation observed before persistence preserve that document's stored data; rollback after storage starts depends on the vector store. Empty loader lists are not deletion instructions, and custom `onDocumentEmbedded` persistence retains its zero-chunk callback/store behavior.
+
+Added **17 regression cases** covering empty/whitespace updates, repeated clearing and later reindexing, multiple documents, loader and real-file builder paths, custom zero-chunk splitters, no embedding calls, read/parser/split failures, cancellation before/during splitting and after embedding, token propagation to storage, callback ownership, and old-text removal from vector and native hybrid search. **246/246 RAG tests** passed with no failures or skips. The original external F03 reproduction failed before the change and passed afterward.
+
+An isolated localhost `pgvector/pgvector:pg17` container passed **3/3 PostgreSQL integration checks**: clearing all target chunks while preserving another document and excluding the retired text from vector/hybrid search; pre-cancelled update preservation; and transaction rollback after an `AFTER DELETE STATEMENT` trigger deliberately raises an error. These use local embeddings, a disposable `mythosia_rag_review` database, unique validated table names and explicit cleanup. The PostgreSQL suite plus the original reproduction passed **4/4**. The container and its temporary connection file were removed after validation. No model API or cloud database was called.
+
+The Release solution build and reproduction-project build passed with zero warnings/errors. Reports are under `artifacts/test-results/empty-document-update/`: `external-f03-before.trx`, `rag.trx`, and `postgres-and-external.trx`. Build/test logs use `artifacts/empty-document-update-`; PostgreSQL probe source is `artifacts/rag-review-confirmation-20260922/EmptyDocumentPostgresTests.cs` (category `ReviewPostgresF03`, guarded by `MYTHOSIA_REVIEW_PG_CONN`).
+
+Documentation metadata validation passed for six packages, 545 Markdown files and 13 languages. DocFX regenerated the API reference and built the documentation site with zero warnings/errors (`artifacts/docfx-empty-document-update.log`). An independent implementation/documentation review found no further issue in this change.
+
+This addresses F03 only, preserving F01/F02 fixes. Public signatures and package versions are unchanged, and release notes use Unreleased. No commit, push or publication was performed.

@@ -10,7 +10,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const web = path.join(root, 'apps/Mythosia.AI.Samples.ChatUi/wwwroot');
 const html = fs.readFileSync(path.join(web, 'index.html'), 'utf8');
 const domSource = fs.readFileSync(path.join(web, 'js/dom.js'), 'utf8');
-const actual = new Set(['rag-embedding.js', 'rag-shared.js', 'rag-pipeline.js', 'rag-run.js', 'rag-vector-store.js']);
+const actual = new Set(['rag-embedding.js', 'rag-shared.js', 'rag-pipeline.js', 'rag-run.js', 'rag-vector-store.js', 'rag-rewriter-models.js']);
 const sources = Object.fromEntries([...actual].map(name => [name, fs.readFileSync(path.join(web, 'js', name), 'utf8')]));
 const requested = new Map();
 for (const source of Object.values(sources)) {
@@ -189,4 +189,81 @@ for (const provider of ['ollama', 'vllm']) {
   assert.equal(el.ragRun.disabled, false, `${provider} does not require a hosted API key`);
   assert.deepEqual(Object.keys(embedding.getEmbeddingCredentials()), []);
 }
-console.log('PASS: real HTML and RAG modules validate Perplexity models, dimensions, key gating, restoration, reconnect and upload payloads; no HTTP sent.');
+
+// Ada has a fixed output size; a saved or overridden size must never silently select a different vector space.
+el.ragEmbeddingProvider.value = 'openai';
+el.ragOpenAiModel.value = 'text-embedding-ada-002';
+el.ragVectorStoreProvider.value = 'inmemory';
+el.ragOpenAiDimensions.value = '512';
+embedding.updateEmbeddingUI(true);
+assert.equal(el.ragOpenAiDimensions.value, '1536');
+assert.equal(el.ragOpenAiDimensions.disabled, true);
+assert.equal(el.ragOpenAiDimensions.min, '1536');
+assert.equal(el.ragOpenAiDimensions.max, '1536');
+assert.equal(embedding.getSelectedEmbeddingDimensions(), 1536);
+assert.match(el.ragEmbeddingHint.textContent, /fixed size of 1536/);
+await run.runReference();
+assert.equal(requests.length, 2);
+assert.equal(requests.at(-1).body.get('embeddingModel'), 'text-embedding-ada-002');
+assert.equal(requests.at(-1).body.get('embeddingDimensions'), '1536');
+
+for (const invalid of ['512', '1536.5', '1536suffix']) {
+  el.ragOpenAiDimensions.value = invalid;
+  assert.throws(() => embedding.getSelectedEmbeddingDimensions(), /requires exactly 1536/);
+}
+const adaSettings = { ...settings, embeddingProvider: 'openai', embeddingModel: 'text-embedding-ada-002', embeddingDimensions: 512 };
+pipeline.applyPipelineSettings(adaSettings);
+assert.equal(el.ragOpenAiDimensions.value, '512', 'Invalid saved dimensions must remain visible until the user resets the model');
+assert.equal(el.ragOpenAiDimensions.disabled, true);
+assert.match(el.ragEmbeddingHint.textContent, /Saved dimensions are invalid/);
+assert.throws(() => pipeline.buildPipelineSettingsPayload(), /requires exactly 1536/);
+await pipeline.savePipelineSettings();
+assert.equal(el.ragSettingsSave.disabled, false);
+assert.match(el.ragSettingsStatus.textContent, /requires exactly 1536/);
+await run.runReference();
+assert.equal(requests.length, 2, 'Invalid saved Ada dimensions must prevent upload');
+
+// Reconnect must report invalid embedding settings instead of sending an empty snapshot and reusing server settings.
+el.ragPgHost.value = 'localhost'; el.ragPgPort.value = '5432'; el.ragPgDatabase.value = 'synthetic';
+el.ragPgTable.value = 'synthetic'; el.ragPgSchema.value = 'public'; el.ragPgDimension.value = '1536';
+el.ragPineconeIndexHost.value = 'synthetic.invalid'; el.ragPineconeApiKey.value = 'offline-key';
+el.ragPineconeNamespace.value = 'synthetic';
+for (const [connect, status, button] of [
+  [vector.connectPostgres, el.ragPgStatus, el.ragPgConnect],
+  [vector.connectQdrant, el.ragQdrantStatus, el.ragQdrantConnect],
+  [vector.connectPinecone, el.ragPineconeStatus, el.ragPineconeConnect]
+]) {
+  await connect();
+  assert.equal(requests.length, 2, 'Invalid Ada settings must prevent reconnect');
+  assert.match(status.textContent, /requires exactly 1536/);
+  assert.equal(button.disabled, false, 'Validation failure must restore the Connect button');
+}
+
+pipeline.applyPipelineSettings({ ...adaSettings, embeddingDimensions: 1536 });
+assert.equal(embedding.getSelectedEmbeddingDimensions(), 1536);
+assert.equal(el.ragOpenAiDimensions.disabled, true);
+assert.doesNotMatch(el.ragEmbeddingHint.textContent, /Saved dimensions are invalid/);
+el.ragVectorStoreProvider.value = 'qdrant';
+shared.ragState.qdrantConnected = true;
+el.ragQdrantDimension.value = '512';
+await run.runReference();
+assert.equal(requests.length, 2, 'A DB dimension override must not bypass the Ada size constraint');
+assert.match(el.ragStatus.textContent, /requires exactly 1536/);
+assert.equal(el.ragQdrantDimension.value, '512', 'Do not silently change the existing vector store dimension');
+el.ragQdrantDimension.value = '1536';
+await run.runReference();
+assert.equal(requests.length, 3);
+assert.equal(requests.at(-1).body.get('embeddingDimensions'), '1536');
+
+for (const [model, defaultDimensions] of [['text-embedding-3-small', 1536], ['text-embedding-3-large', 3072]]) {
+  el.ragOpenAiModel.value = model;
+  embedding.updateEmbeddingUI(true);
+  assert.equal(el.ragOpenAiDimensions.disabled, false, 'Embedding 3 must allow custom dimensions after switching from Ada');
+  assert.equal(el.ragOpenAiDimensions.min, '1');
+  assert.equal(el.ragOpenAiDimensions.max, '');
+  assert.equal(embedding.getSelectedEmbeddingDimensions(), defaultDimensions);
+  pipeline.applyPipelineSettings({ ...adaSettings, embeddingModel: model, embeddingDimensions: 512 });
+  assert.equal(embedding.getSelectedEmbeddingDimensions(), 512);
+  assert.equal(el.ragOpenAiDimensions.disabled, false);
+}
+console.log('PASS: real HTML and RAG modules validate Perplexity and OpenAI Ada dimensions, key gating, restoration, reconnect and upload payloads; no HTTP sent.');

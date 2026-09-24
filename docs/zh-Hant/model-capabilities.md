@@ -1,8 +1,16 @@
 # 顯示所選模型支援的功能選項
 
+> Grok 4.7 是尚未發布的新增功能；請參閱[模型選擇、推理與處理速度](providers.md#grok-47)。
+
+> GPT-6 Sol/Luna 是尚未發布的新增功能。參見[模型選擇與版本需求](providers.md#gpt-6-sol-luna)。
+
+[Claude Opus 5.5](providers.md#claude-opus-55) 的 capability 提供從 `Low` 到 `Max` 的層級，包括 `XHigh`；不支援 `None`、`Minimal` 和 `ThinkingToggle`。`MaxOutputTokens` 為 128000。隱藏顯示不表示關閉推理。這些定義屬於目前工作區新增功能，不代表已發布的套件。
+
 聊天畫面的推理、搜尋、工具與影像選項需要配合目前連線。每個應用程式自行維護模型名稱清單，會重複程式庫規則，並在提供者、協定或部署變更時產生差異。能力快照讓畫面與執行驗證使用相同模型定義。
 
 此 API 屬於Mythosia.AI 8.0.0。快照是程式庫已知支援資訊的不可變本機描述，不是帳戶或伺服器的即時探測。型別位於 `Mythosia.AI.Models.Capabilities`。
+
+對等待時間敏感的請求可選擇[處理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理層級，`Processing` 顯示供應商實際套用的模式。Fast 是受支援組合上的付費選項。
 
 ## Before / After
 
@@ -44,6 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | 串流、工具、原生非同步工具與執行中追加指示。 |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | 託管搜尋、保留快取的推理變更、影像輸入與結構化輸出。 |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | 取樣設定的支援情況與已知輸出權杖上限，未知上限為 null。 |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | 尚未發布：處理模式的 Supported/Unsupported/Unknown；帳戶權限另行確認。 |
 | `Provider`, `Model` | 提供者與實際傳送的模型識別；未知時可以為 null。 |
 
 `ReasoningLevels` 對應共通 `WithReasoning`；`NativeReasoningLevels` 對應提供者本身設定。`ThinkingBudgetPresets` 是適合 UI 的預算候選值，不是全部允許預算或完整數值範圍。`AsyncFunctionCalling` 指原生非同步工具執行，不是本機函式傳回 `Task` 或平行執行。 `StructuredOutput` 包含透過提示與修復實作的共通型別化輸出 API，不保證提供者原生限制解碼。兩種推理等級清單皆使用 `ReasoningLevel`，預算候選值為整數。
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`、`Backgrounds`、`OutputFormats`、`SizeKinds`、`Resolutions` 與 `AspectRatios` 是具型別的唯讀清單。`MaxImages` 與 `MaxInputImages` 為已知上限，未知則為 null。清單值不保證可以任意組合；既有尺寸、格式、品質、遮罩與模型驗證仍適用。自訂或未知影像模型維持未知，不被判定為不支援。
+
+Google 的 `Resolutions` 與 `AspectRatios` 取決於所選影像模型，也用於生成及編輯驗證。請參閱[模型專屬表格](providers.md#google-image-options)，其中包含 Flash-Lite 的保守 1K 政策。不支援的明確值在 HTTP 前拒絕；未知自訂模型維持 `Unknown` 與供應商通用選項驗證。
 
 自訂 `AIService` 能提供可靠定義時，可覆寫 protected `ResolveRequestCapabilities()`，預設傳回 `AIModelCapabilities.Unknown`。不能因部署未列入目錄就判定不支援。`IAIService` 不增加必要成員；查詢方法屬於 `AIService` 及其要求建構器。
 

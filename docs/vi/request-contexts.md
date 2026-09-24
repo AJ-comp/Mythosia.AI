@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("Tôi có đủ điều kiện h
 
 ### RequestMessageOverride
 
-Thay thế hoàn toàn tin nhắn của user cho request này. Prompt gốc bị bỏ qua:
+`RequestMessageOverride` chỉ thay thế đầu vào ban đầu của yêu cầu logic hiện tại khi gửi đến mô hình. Đầu vào gốc vẫn nằm trong lịch sử, còn các lệnh gọi công cụ và kết quả tiếp theo trong cùng yêu cầu được giữ nguyên:
 
 ```csharp
 var context = new AIRequestContext

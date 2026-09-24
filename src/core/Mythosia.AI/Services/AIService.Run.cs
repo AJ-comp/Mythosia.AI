@@ -56,7 +56,10 @@ namespace Mythosia.AI.Services.Base
                 if (policy.MaxRounds <= 0)
                     throw new ArgumentOutOfRangeException(nameof(policy.MaxRounds), "A run requires at least one LLM round.");
                 var capturedMessage = CaptureRunMessage(message);
-                var capturedFeatures = CaptureRequestFeatures(capturedMessage);
+                // Internal profiles still get their own run snapshot, but must not replace
+                // diagnostics belonging to the latest user request.
+                var capturedFeatures = CaptureRequestFeatures(capturedMessage,
+                    publishObservations: _requestFeatureExecution.Value?.IsAuxiliary != true);
                 var capturedContext = context == null ? null : new AIRequestContext
                 {
                     SystemMessagePrefix = context.SystemMessagePrefix,
@@ -442,7 +445,8 @@ namespace Mythosia.AI.Services.Base
                         {
                             result = new AIRunResult(text.ToString(),
                                 usage ?? SumRunRoundUsage(roundUsages.Values), _features.Snapshot(),
-                                _provider, _requestedModel, responseModel, roundCount, finishReason, rawFinishReason);
+                                _provider, _requestedModel, responseModel, roundCount, finishReason, rawFinishReason,
+                                _features.ProcessingSnapshot());
                         }
                         catch (Exception resultException)
                         {

@@ -27,6 +27,16 @@
 
 </div>
 
+TXT·Markdown은 문서 구조에 맞게 [규칙 기반 분할기](text-splitters.md)를 선택하세요. 크기 검증, 겹침, Unicode 경계를 처리하며 Markdown의 제목·코드 블록·표 행을 보존합니다. 문자·단어 수는 모델 토큰 상한과 다릅니다. 표 셀의 조건과 코드 들여쓰기 의미를 보존하며, Markdown 문맥 반복이 과도하게 커지면 명확한 예외로 중단합니다.
+
+색인은 성공했는데 청크가 덮이거나 잘못된 벡터와 연결되는 일을 막도록, [색인 검증](rag-pipeline.md#indexing-validation)은 잘못된 ID와 임베딩 배치를 저장 전에 거부합니다. 사용자 정의 분할기는 고유한 ID를 부여하고 문서 메타데이터를 상속해야 합니다.
+
+[파일 ID 안정화](document-loaders.md#file-source-identity), [질문 벡터 검증](rag-embedding.md#query-embedding-validation), [문서 단위 저장 콜백과 URL 취소](rag-pipeline.md#custom-persistence)로 중복 등록·잘못된 검색·오래된 청크 잔존을 방지합니다.
+
+로컬 신경망 희소 검색과 기존 검색을 비교하려면 선택 패키지 `Mythosia.AI.Rag.Search.Pixie` 프리뷰를 사용하세요. 기존 의미 임베딩 공급자를 유지하며 PIXIE 색인은 메모리에 보관합니다. 영구 저장소의 변환이나 기본 검색의 자동 교체는 수행하지 않습니다. [PIXIE 연결과 비교 안내](rag-pixie-search.md).
+
+[검색 평가 인프라](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md)에서 데이터셋과 검색 어댑터를 추가하고, 실행 이력과 이전 결과 대비 성능 저하를 확인할 수 있습니다. 새로운 검색 방식과 실제 사용할 문서도 같은 평가기에 연결합니다.
+
 요청별 설정을 독립적으로 관리하고, 작업을 중지하며, 답변과 사용량·출처를 함께 받으세요. [v8 업그레이드 안내](v8-migration.md)에 여섯 가지 구조 변경, 전환 예제와 검증 범위를 정리했습니다.
 
 > 이 문서의 패키지 기준 버전: [Mythosia.AI 8.0.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
@@ -49,10 +59,23 @@ dotnet add package Mythosia.VectorDb.Postgres     # 선택: 프로덕션 벡터 
 
 다른 요청의 설정을 바꾸지 않고 호출을 준비하려면 `CreateRequest(...).WithTemperature(...).GetCompletionAsync()`를 사용하세요. 독립적인 요청 빌더의 Before/After, Run, 프로파일, 공유 대화의 범위는 [요청 설정 가이드](request-building.md)에서 설명합니다.
 
+사용자가 기다리는 시간을 줄여야 하는 요청에는 [처리 속도](request-building.md#inference-speed)를 선택할 수 있습니다. `WithSpeed`는 모델과 추론 수준을 유지하고, `Processing`은 공급자가 실제 적용한 모드를 보여줍니다. Fast는 지원 조합에서 사용하는 유료 옵션입니다.
+
 ## 아키텍처
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Mythosia.AI 아키텍처: 핵심 AI, RAG 파이프라인, 문서 로더, 벡터 저장소, 공통 인터페이스, MCP 도구 연동 및 vLLM 서버 관리." width="1600">
+  </picture>
+</a>
+
+<details>
+<summary>패키지 의존성 상세</summary>
 
 ```mermaid
 graph TD
+    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
         Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
@@ -70,13 +93,17 @@ graph TD
         VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
+    subgraph "🧩 Tool Integration"
+        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRetrievalStrategy · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
     end
 
     subgraph "🗄️ Vector Stores — 하나 이상 선택"
@@ -103,6 +130,7 @@ graph TD
 
     %% Provider packages → core
     Alibaba --> AI
+    Mcp --> AI
 
     %% Composite → Foundation
     RagAbs --> VdbAbs
@@ -113,10 +141,14 @@ graph TD
 
     %% VectorStores → Foundation
     InMem --> VdbAbs
+    InMem --> RagAbs
     Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
+    Pixie --> VdbAbs
 ```
+
+</details>
 
 ## 데모 / 테스트 베드 (Chat UI)
 
@@ -182,7 +214,7 @@ var service = new OpenAIService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
 
-날씨를 조회하는 동안 일반적인 여행 준비물을 먼저 안내하는 것처럼, 외부 결과와 무관한 작업을 진행하고 싶을 때 비동기 도구 호출을 사용합니다. `FunctionDefinition.AllowAsync = true` 또는 `FunctionBuilder.WithAsync()`로 GPT-6 Astra의 Responses API에서 이를 선택적으로 허용합니다. 기본값은 `false`이며, 미지원 모델에서는 같은 핸들러의 결과를 기다립니다. 예제와 요청 수명은 [함수 호출 가이드](function-calling.md)를 참고하세요.
+날씨를 조회하는 동안 일반적인 여행 준비물을 먼저 안내하는 것처럼, 외부 결과와 무관한 작업을 진행하고 싶을 때 비동기 도구 호출을 사용합니다. `FunctionDefinition.AllowAsync = true` 또는 `FunctionBuilder.WithAsync()`로 GPT-6 Astra / Sol / Luna의 Responses API에서 이를 선택적으로 허용합니다. 기본값은 `false`이며, 미지원 모델에서는 같은 핸들러의 결과를 기다립니다. 예제와 요청 수명은 [함수 호출 가이드](function-calling.md)를 참고하세요.
 
 ### 구조화된 출력 (기본)
 
@@ -242,6 +274,8 @@ policy.LoadSummary(saved);
 
 ### RAG (검색 증강 생성)
 
+모든 검색에 질문 임베딩을 강제하지 않고 키워드·의미·하이브리드 검색을 선택합니다. [검색 안내](rag-hybrid-search.md).
+
 ```bash
 dotnet add package Mythosia.AI.Rag
 ```
@@ -260,13 +294,19 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 ## 지원 프로바이더
 
+> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+
+> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+
+> Claude Opus 5.5는 서로 호환되는 미배포 코어·추상화 빌드가 필요합니다. [설정과 전환 안내](providers.md#claude-opus-55)를 참고하세요.
+
 | 프로바이더 | 패키지 | 모델 |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (기본값), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (기본값), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Agent API 프리셋 및 `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
 
@@ -280,7 +320,13 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 빠른 이미지 시안에는 Flare, 정밀한 수정에는 Sunburst를 선택하세요. [GPT Image 2.5 생성·편집](providers.md#gpt-image-25)은 기존 이미지 API에서 요청별 모델을 명시해 사용하며, OpenAI 기본 모델은 GPT Image 2를 유지합니다.
 
+이미지 생성·편집에서 지원되는 크기를 선택하려면 [Google 모델별 이미지 옵션](providers.md#google-image-options)을 확인하세요. Flash는 512/1K/2K/4K, Flash-Lite는 현재 1K, Pro는 1K/2K/4K를 지원합니다. 화면 비율은 Flash/Lite가 14개, Pro가 표준 10개이며 모두 `Auto`를 허용합니다. 지원하지 않는 크기·비율을 명시하면 HTTP 요청 전에 거부합니다.
+
 차트·스크린샷 분석, 로컬 함수 호출, 빠른 답변 뒤의 깊은 검토에는 [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash)를 사용할 수 있습니다. 추론은 기본적으로 꺼져 있으며 `WithDeepSeekReasoning(...)` 또는 요청별 `WithReasoning(...)`으로 켭니다.
+
+텍스트 작업에는 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)를 선택할 수 있습니다. 기본 모델 Flash는 이미지를 지원하며 두 모델 모두 Low/High/Max 추론과 같은 출력 한도를 제공합니다. 기존 완성 응답·스트리밍·Run·로컬 함수 API에서 DeepSeek Responses를 사용하려면 요청 생성 전에 `UseResponsesApi = true`를 설정하세요. 기존 앱의 Chat Completions 동작을 유지하도록 기본값은 `false`이며, 설정은 요청과 후속 도구 라운드 전체에 캡처됩니다. Responses는 서버에 저장된 응답 ID 대신 전체 대화와 원본 추론 이력을 다시 전송합니다.
+
+같은 이미지를 여러 번 질문하려면 업로드한 이미지를 `DeepSeekImageFileContent`로 참조하세요. Flash의 Chat Completions·Responses에서 재사용할 수 있으며, 텍스트 전용 V4 Pro는 이미지를 거부합니다. V4 Pro·Responses·Files 추가 기능은 서로 호환되는 미배포 코어·추상화 빌드가 필요하며 배포된 8.0.0 / 4.0.0에는 없습니다. [이미지 업로드·재사용·제한](providers.md#deepseek-deepseekservice)을 참고하세요.
 
 ## 패키지 구성
 

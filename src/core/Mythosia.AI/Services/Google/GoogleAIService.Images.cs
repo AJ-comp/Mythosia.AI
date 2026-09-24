@@ -54,14 +54,28 @@ namespace Mythosia.AI.Services.Google
         public override ImageModelCapabilities GetImageCapabilities(string? model = null)
         {
             var selectedModel = string.IsNullOrWhiteSpace(model) ? DefaultImageModel : model!;
-            var knownModel = string.Equals(selectedModel, AIModels.Google.Images.Gemini3_1FlashImage, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(selectedModel, AIModels.Google.Images.Gemini3_1FlashLiteImage, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(selectedModel, AIModels.Google.Images.Gemini3ProImage, StringComparison.OrdinalIgnoreCase);
+            var isLite = string.Equals(selectedModel, AIModels.Google.Images.Gemini3_1FlashLiteImage, StringComparison.OrdinalIgnoreCase);
+            var isPro = string.Equals(selectedModel, AIModels.Google.Images.Gemini3ProImage, StringComparison.OrdinalIgnoreCase);
+            var knownModel = isLite || isPro ||
+                string.Equals(selectedModel, AIModels.Google.Images.Gemini3_1FlashImage, StringComparison.OrdinalIgnoreCase);
             if (!knownModel)
                 return new ImageModelCapabilities(
                     provider: Provider, model: selectedModel,
                     generation: CapabilitySupport.Unknown, editing: CapabilitySupport.Unknown,
                     mask: CapabilitySupport.Unsupported, maxImages: GoogleImageMaxImages);
+
+            // The Lite model card specifies 1K only. Its guide's 512 table conflicts
+            // with that explicit limit, so do not promise 512 support for Lite.
+            var resolutions = isLite
+                ? new[] { ImageResolution.Auto, ImageResolution.OneK }
+                : isPro
+                    ? new[] { ImageResolution.Auto, ImageResolution.OneK, ImageResolution.TwoK, ImageResolution.FourK }
+                    : new[] { ImageResolution.Auto }.Concat(GoogleImageResolutions.Keys);
+            var aspectRatios = isPro
+                ? GoogleImageAspectRatios.Keys.Where(ratio =>
+                    ratio != ImageAspectRatio.OneByFour && ratio != ImageAspectRatio.FourByOne &&
+                    ratio != ImageAspectRatio.OneByEight && ratio != ImageAspectRatio.EightByOne)
+                : GoogleImageAspectRatios.Keys;
 
             return new ImageModelCapabilities(
                 provider: Provider,
@@ -73,8 +87,8 @@ namespace Mythosia.AI.Services.Google
                 backgrounds: GoogleImageBackgrounds,
                 outputFormats: GoogleImageOutputFormats,
                 sizeKinds: GoogleImageSizeKinds,
-                resolutions: new[] { ImageResolution.Auto }.Concat(GoogleImageResolutions.Keys),
-                aspectRatios: new[] { ImageAspectRatio.Auto }.Concat(GoogleImageAspectRatios.Keys),
+                resolutions: resolutions,
+                aspectRatios: new[] { ImageAspectRatio.Auto }.Concat(aspectRatios),
                 maxImages: GoogleImageMaxImages);
         }
 
@@ -357,7 +371,7 @@ namespace Mythosia.AI.Services.Google
             }
         }
 
-        private static void ValidateImageGenerationRequest(ImageGenerationRequest request)
+        private void ValidateImageGenerationRequest(ImageGenerationRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -382,6 +396,21 @@ namespace Mythosia.AI.Services.Google
                 throw new NotSupportedException(
                     "Gemini supports ImageOutputFormat.Jpeg or ImageOutputFormat.Auto for its native output format.");
             }
+
+            var size = request.Size ?? throw new ArgumentNullException(nameof(request.Size));
+            var capabilities = GetImageCapabilities(request.Model);
+            // Custom model IDs keep their existing pass-through behavior. The wire
+            // formatter still validates provider-wide size kinds and enum mappings.
+            if (capabilities.Generation != CapabilitySupport.Supported)
+                return;
+            if (!capabilities.SizeKinds.Contains(size.Kind))
+                throw new NotSupportedException("Gemini does not support exact pixel sizes. Use ImageSize.Preset with a resolution and aspect ratio.");
+            if (size.Kind != ImageSizeKind.Preset)
+                return;
+            if (!capabilities.Resolutions.Contains(size.Resolution))
+                throw new NotSupportedException($"Gemini image model '{capabilities.Model}' does not support resolution '{size.Resolution}'.");
+            if (!capabilities.AspectRatios.Contains(size.AspectRatio))
+                throw new NotSupportedException($"Gemini image model '{capabilities.Model}' does not support aspect ratio '{size.AspectRatio}'.");
         }
     }
 }

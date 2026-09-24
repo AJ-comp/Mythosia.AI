@@ -1,6 +1,8 @@
 # コンテキスト構築
 
-> 📍 **質問応答パイプライン:** [クエリ書き換え](rag-query-rewriting.md) → [埋め込み](rag-embedding.md) → [フィルタリング](rag-filtering.md) → [検索](rag-hybrid-search.md) → [再ランキング](rag-reranking.md) → **`コンテキスト構築`**
+> 📍 **質問応答パイプライン:** [クエリ書き換え](rag-query-rewriting.md) → [フィルタリング](rag-filtering.md) → [埋め込み（必要な場合）](rag-embedding.md) → [検索](rag-hybrid-search.md) → [再ランキング](rag-reranking.md) → **`コンテキスト構築`**
+
+質問の `Embedding` ステージは検索器に応じて実行され、キーワード検索では通知されません。独自検索器は `request.ProgressAsync` で実際の処理を通知できます。文書の埋め込みは変わりません。
 
 ## コンテキスト構築とは？
 

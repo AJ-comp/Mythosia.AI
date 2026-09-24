@@ -75,7 +75,7 @@ namespace Mythosia.AI.Services.Google
             string responseString;
             try
             {
-                responseString = await SendAndReadAsync(request, timeoutSource.Token);
+                responseString = await SendAndReadAsync(request, timeoutSource.Token, observeProcessing: false);
             }
             catch (TaskCanceledException exception) when (!RequestCancellationToken.IsCancellationRequested &&
                 exception.InnerException is TimeoutException)

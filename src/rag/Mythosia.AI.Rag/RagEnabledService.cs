@@ -49,6 +49,16 @@ namespace Mythosia.AI.Rag
         /// </summary>
         public IAIService WithoutRag() => _innerService;
 
+        /// <summary>Sets processing speed for the next answer, after retrieval. Fast can incur premium provider charges.</summary>
+        public RagEnabledService WithSpeed(InferenceSpeed speed)
+        {
+            _innerService.WithSpeed(speed);
+            return this;
+        }
+
+        /// <summary>Processing modes reported for the last answer. Auxiliary query rewriting is excluded.</summary>
+        public IReadOnlyList<AIProcessingInfo> LastProcessing => _innerService.GetLastProcessing();
+
         /// <summary>Requests a reasoning level for the next answer, after RAG retrieval.</summary>
         public RagEnabledService WithReasoning(ReasoningLevel level, CachePreservation cache = CachePreservation.None)
         {
@@ -114,7 +124,7 @@ namespace Mythosia.AI.Rag
             var query = message.Content ?? message.GetDisplayText();
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken).ConfigureAwait(false);
             return await runService.StartRunAsync(
-                message, onText, streamOptions, BuildRunRequestContext(processed, message), cancellationToken).ConfigureAwait(false);
+                message, onText, streamOptions, BuildRequestContext(processed, message), cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -141,12 +151,13 @@ namespace Mythosia.AI.Rag
             cancellationToken.ThrowIfCancellationRequested();
             return await _innerService.GetCompletionAsync(
                 message,
-                context: BuildRequestContext(processed),
+                context: BuildRequestContext(processed, message),
                 cancellationToken: cancellationToken);
         }
 
         /// <summary>
         /// Processes a Message through RAG pipeline (extracts text content for retrieval).
+        /// Retains non-text content in the model request without changing the original message.
         /// </summary>
         public async Task<string> GetCompletionAsync(Message message, CancellationToken cancellationToken = default)
         {
@@ -155,7 +166,8 @@ namespace Mythosia.AI.Rag
 
         /// <summary>
         /// Processes a Message through RAG pipeline (extracts text content for retrieval)
-        /// with per-request query overrides.
+        /// with per-request query overrides. Non-text content is retained in the model request;
+        /// the original message and its text in conversation history are not replaced.
         /// </summary>
         public async Task<string> GetCompletionAsync(
             Message message,
@@ -167,7 +179,7 @@ namespace Mythosia.AI.Rag
             var query = message.Content ?? message.GetDisplayText();
             var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            return await _innerService.GetCompletionAsync(message, context: BuildRequestContext(processed),
+            return await _innerService.GetCompletionAsync(message, context: BuildRequestContext(processed, message),
                 cancellationToken: cancellationToken);
         }
 
@@ -210,7 +222,7 @@ namespace Mythosia.AI.Rag
 
             await foreach (var chunk in _innerService.StreamAsync(
                 message,
-                BuildRequestContext(processed),
+                BuildRequestContext(processed, message),
                 cancellationToken))
             {
                 yield return chunk;
@@ -248,7 +260,7 @@ namespace Mythosia.AI.Rag
                 var processed = await RewriteAndProcessAsync(prompt, options, cancellationToken);
                 await foreach (var chunk in _innerService.StreamAsync(
                     message,
-                    BuildRequestContext(processed),
+                    BuildRequestContext(processed, message),
                     cancellationToken))
                 {
                     yield return chunk;
@@ -371,16 +383,10 @@ namespace Mythosia.AI.Rag
                 .ToList();
         }
 
-        private static AIRequestContext BuildRequestContext(RagProcessedQuery processed)
+        private static AIRequestContext BuildRequestContext(RagProcessedQuery processed, Message original)
         {
-            return new AIRequestContext
-            {
-                RequestMessageOverride = new Message(ActorRole.User, processed.RequestMessageContent)
-            };
-        }
-
-        private static AIRequestContext BuildRunRequestContext(RagProcessedQuery processed, Message original)
-        {
+            // Augment only the outgoing text. Completion and runs must retain the same
+            // media payloads while history continues to contain the original user input.
             var requestMessage = original.Clone();
             requestMessage.Content = processed.RequestMessageContent;
             if (original.HasMultimodalContent)

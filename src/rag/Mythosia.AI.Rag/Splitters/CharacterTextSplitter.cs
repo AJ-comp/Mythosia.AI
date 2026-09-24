@@ -9,12 +9,14 @@ namespace Mythosia.AI.Rag.Splitters
     public class CharacterTextSplitter : ITextSplitter
     {
         /// <summary>
-        /// Maximum number of characters per chunk.
+        /// Maximum UTF-16 code units per chunk. Surrogate pairs are kept intact;
+        /// a single pair may exceed a chunk size of one.
         /// </summary>
         public int ChunkSize { get; set; } = 1000;
 
         /// <summary>
-        /// Number of overlapping characters between consecutive chunks.
+        /// Target number of overlapping UTF-16 code units, adjusted to separator boundaries.
+        /// Values at least as large as ChunkSize disable overlap.
         /// </summary>
         public int ChunkOverlap { get; set; } = 200;
 
@@ -35,6 +37,10 @@ namespace Mythosia.AI.Rag.Splitters
 
         public IReadOnlyList<RagChunk> Split(RagDocument document)
         {
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            SplitterGuards.ValidateSize(ChunkSize, nameof(ChunkSize));
+            SplitterGuards.ValidateOverlap(ChunkOverlap, nameof(ChunkOverlap));
+            if (Separator != null) SplitterGuards.ValidateSeparator(Separator, nameof(Separator));
             if (string.IsNullOrEmpty(document.Content))
                 return Array.Empty<RagChunk>();
 
@@ -42,19 +48,24 @@ namespace Mythosia.AI.Rag.Splitters
             var text = document.Content;
             int index = 0;
             int position = 0;
+            int previousEnd = 0;
+            int overlap = ChunkOverlap >= ChunkSize ? 0 : ChunkOverlap;
 
             while (position < text.Length)
             {
-                int end = Math.Min(position + ChunkSize, text.Length);
+                int end = SplitterGuards.SafeEnd(text, position, ChunkSize);
                 string chunkText;
 
-                if (end < text.Length && Separator != null)
+                if (end < text.Length && !string.IsNullOrEmpty(Separator))
                 {
                     // Try to find the last separator within the chunk range
-                    int lastSep = text.LastIndexOf(Separator, end, end - position, StringComparison.Ordinal);
-                    if (lastSep > position)
+                    int lastSep = text.LastIndexOf(Separator, end - 1, end - position, StringComparison.Ordinal);
+                    int separatorEnd = lastSep + Separator!.Length;
+                    // Never emit a chunk consisting entirely of a previous overlap.
+                    if (lastSep >= position && separatorEnd > previousEnd
+                        && SplitterGuards.SafeStart(text, separatorEnd) == separatorEnd)
                     {
-                        end = lastSep + Separator.Length;
+                        end = separatorEnd;
                     }
                 }
 
@@ -77,18 +88,21 @@ namespace Mythosia.AI.Rag.Splitters
                     index++;
                 }
 
+                if (end == text.Length) break;
+                previousEnd = end;
+
                 // Advance position with overlap
-                int nextPosition = end - ChunkOverlap;
-                if (Separator != null && nextPosition > position)
+                int nextPosition = Math.Max(position, end - overlap);
+                if (overlap > 0 && !string.IsNullOrEmpty(Separator) && nextPosition > position)
                 {
-                    int searchStart = Math.Min(nextPosition, text.Length - 1);
+                    int searchStart = nextPosition - 1;
                     int searchLength = searchStart - position + 1;
                     if (searchLength > 0)
                     {
                         int lastSep = text.LastIndexOf(Separator, searchStart, searchLength, StringComparison.Ordinal);
                         if (lastSep >= position)
                         {
-                            int aligned = lastSep + Separator.Length;
+                            int aligned = lastSep + Separator!.Length;
                             if (aligned > position && aligned < end)
                                 nextPosition = aligned;
                         }
@@ -98,7 +112,7 @@ namespace Mythosia.AI.Rag.Splitters
                 if (nextPosition <= position)
                     nextPosition = end; // Prevent infinite loop
 
-                position = nextPosition;
+                position = SplitterGuards.SafeStart(text, nextPosition);
             }
 
             return chunks;

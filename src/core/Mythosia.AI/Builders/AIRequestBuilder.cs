@@ -92,6 +92,15 @@ namespace Mythosia.AI.Builders
             return Set(nameof(AIService.Functions), existing.Concat(functions).Select(AIRequest.CopyFunction).ToList());
         }
 
+        /// <summary>Returns a separate request selecting a processing mode. Fast opts into premium pricing.</summary>
+        public AIRequestBuilder WithSpeed(InferenceSpeed speed)
+        {
+            if (!Enum.IsDefined(typeof(InferenceSpeed), speed)) throw new ArgumentOutOfRangeException(nameof(speed));
+            var features = _request.Features.Clone();
+            features.Speed = speed;
+            return new AIRequestBuilder(_service, _request.WithFeatures(features));
+        }
+
         public AIRequestBuilder WithReasoning(ReasoningLevel level, CachePreservation cache = CachePreservation.None)
         {
             if (!Enum.IsDefined(typeof(ReasoningLevel), level)) throw new ArgumentOutOfRangeException(nameof(level));

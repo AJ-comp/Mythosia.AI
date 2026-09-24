@@ -78,7 +78,7 @@ Search results pair a record with its similarity score:
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0.0–1.0 (higher = more similar)
+    public double Score { get; set; }  // Backend- and search-mode-dependent score; higher is better
 }
 ```
 

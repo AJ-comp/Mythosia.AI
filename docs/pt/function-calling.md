@@ -1,5 +1,7 @@
 # Chamada de Funções
 
+> GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
+
 Para uma resposta final com botão Parar, passe `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progresso ou instruções adicionais suportadas. Consulte [cancelamento](completions.md#completion-cancellation).
 
 Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
@@ -280,7 +282,7 @@ var answer = await service.GetCompletionAsync(
     "Consulte o exemplo do clima em Seul. Enquanto isso, liste três itens essenciais para uma viagem.");
 ```
 
-Mythosia envia `async: true` para GPT-6 Astra pela API Responses. Para modelos e APIs sem suporte, omite o campo e aguarda o resultado do mesmo handler, sem alterar `AllowAsync`. O provedor também precisa marcar a chamada real como assíncrona (`FunctionCall.IsAsync`); ativar a permissão não garante execução assíncrona.
+Mythosia envia `async: true` para GPT-6 Astra / Sol / Luna pela API Responses. Para modelos e APIs sem suporte, omite o campo e aguarda o resultado do mesmo handler, sem alterar `AllowAsync`. O provedor também precisa marcar a chamada real como assíncrona (`FunctionCall.IsAsync`); ativar a permissão não garante execução assíncrona.
 
 `WithFunctionAsync` registra um handler assíncrono de .NET, e `FunctionExecutionMode.Parallel` controla a execução local dos handlers. Nenhum deles ativa automaticamente essa permissão. `AllowAsync` permite que o modelo continue antes de receber o resultado da função. `FunctionExecutionMode` continua controlando as chamadas comuns. Os trabalhos assíncronos habilitados podem se sobrepor mesmo no modo `Sequential` e compartilham um limite separado de trabalhos definido por `MaxConcurrency`.
 

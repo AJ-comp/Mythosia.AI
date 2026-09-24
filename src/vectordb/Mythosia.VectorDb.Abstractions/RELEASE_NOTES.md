@@ -1,5 +1,19 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## Unreleased
+
+> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+
+### Added
+
+- Optional `ITextSearchStore` and `IConfigurableHybridSearchStore` contracts for text-only queries and explicitly configured hybrid queries.
+- `HybridSearchOptions` validates vector weight, candidate multiplier and RRF smoothing, and the shared fusion helper produces normalized weighted-RRF scores while applying final top-K and score thresholds.
+
+### Compatibility
+
+- Existing `IVectorStore` implementations and direct hybrid calls remain available without implementing the new optional capabilities. Native keyword/vector scores remain distinct from weighted-RRF scores.
+
+
 ## v4.0.1
 
 ### Fixed

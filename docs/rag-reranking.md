@@ -1,6 +1,8 @@
 # Re-ranking & Retrieval Tuning
 
-> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → **`Re-ranking`** → Context Build
+> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → Filtering → Embedding (when needed) → [Retrieval](rag-hybrid-search.md) → **`Re-ranking`** → Context Build
+
+The query’s `Embedding` stage now depends on the retriever; keyword retrieval does not report it. Custom retrievers can report relevant stages through `request.ProgressAsync`. Document embeddings are unchanged.
 
 ## Why Re-ranking?
 
@@ -24,6 +26,8 @@ Uses your AI service to score results. Effective but adds latency:
     .AddDocument("corpus.txt")
 )
 ```
+
+To keep each assessment's question and documents separate from earlier assessments and the service conversation, `LlmReranker` uses a stateless request for every evaluation. It neither reads nor appends conversation history. Service defaults and your calling code remain unchanged. Evaluations by rerankers sharing the same AI service are processed sequentially.
 
 ### Cohere Reranker
 
@@ -81,3 +85,5 @@ using Mythosia.AI.Rag;
 **`RerankerOnly`** is the safe default — the reranker's judgment completely replaces the initial retrieval score.
 
 **`WeightedBlend`** preserves the original retrieval signal while incorporating reranker judgment. This can help when your vector embeddings are already high-quality and you want the reranker to act as a tiebreaker rather than a full override.
+
+Pure vector and keyword modes retain native scores. Configurable hybrid retrieval uses normalized weighted RRF even with one active leg; zero vector weight skips query embeddings. These scores are not probabilities. `WeightedBlend` directly combines retrieval and reranker scores without calibration; prefer `RerankerOnly` for keyword search unless you calibrate the inputs.

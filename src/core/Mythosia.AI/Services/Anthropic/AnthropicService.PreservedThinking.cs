@@ -97,31 +97,34 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         private bool IsClaude51Model() => IsClaudeNameOrSnapshot("claude-fable-5-1") || IsClaudeNameOrSnapshot("claude-mythos-5-1");
-        private bool SupportsClaudeSystemMessages() => IsClaude51Model() || IsClaudeNameOrSnapshot("claude-fable-5") ||
+        // Opus 5.5 is a fixed ID, not a dated-snapshot model family.
+        private bool IsClaudeOpus55Model() => RequestModel.Equals(AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase);
+        private bool UsesBoundClaudeThinking() => IsClaude51Model() || IsClaudeOpus55Model();
+        private bool SupportsClaudeSystemMessages() => UsesBoundClaudeThinking() || IsClaudeNameOrSnapshot("claude-fable-5") ||
             IsClaudeNameOrSnapshot("claude-mythos-5") || IsClaudeNameOrSnapshot("claude-opus-5") || IsClaudeNameOrSnapshot("claude-opus-4-8");
 
         private void ValidateClaudeRequestOptions(ClaudeRequestOptions options, Message? message = null)
         {
             if (!Enum.IsDefined(typeof(ClaudeThinkingDisplay), RequestAdaptiveThinkingDisplay))
                 throw new ArgumentOutOfRangeException(nameof(AdaptiveThinkingDisplay));
-            if (RequestAdaptiveThinkingDisplay == ClaudeThinkingDisplay.Updates && !IsClaude51Model())
-                throw new NotSupportedException("Thinking progress updates require Claude Fable 5.1 or Mythos 5.1.");
+            if (RequestAdaptiveThinkingDisplay == ClaudeThinkingDisplay.Updates && !UsesBoundClaudeThinking())
+                throw new NotSupportedException("Thinking progress updates require Claude Opus 5.5, Fable 5.1 or Mythos 5.1.");
             if (options.Binding.HasValue && (!Enum.IsDefined(typeof(ClaudeThinkingPrefixMismatchBehavior), options.Binding.Value) || !SupportsExtendedThinking))
                 throw new NotSupportedException("Thinking binding controls require a supported thinking-capable Claude model and a defined behavior.");
             if ((options.TurnInstructions.Length > 0 || options.ConversationInstructions.Length > 0) && !SupportsClaudeSystemMessages())
                 throw new NotSupportedException("This Claude model does not support mid-conversation system instructions.");
-            if (IsClaude51Model())
+            if (UsesBoundClaudeThinking())
             {
                 if (!string.IsNullOrWhiteSpace(RequestForceFunctionName))
-                    throw new NotSupportedException("Claude Fable 5.1 and Mythos 5.1 do not support forced tool selection. Use automatic tool selection.");
+                    throw new NotSupportedException($"Claude model '{RequestModel}' does not support forced tool selection. Use automatic tool selection.");
                 if (!Enum.IsDefined(typeof(FunctionCallMode), RequestFunctionCallMode))
-                    throw new NotSupportedException("Claude Fable 5.1 and Mythos 5.1 accept only auto or none tool choice.");
+                    throw new NotSupportedException($"Claude model '{RequestModel}' accepts only auto or none tool choice.");
                 if (message?.Role == ActorRole.Assistant)
-                    throw new NotSupportedException("Claude Fable 5.1 and Mythos 5.1 do not support assistant prefill.");
+                    throw new NotSupportedException($"Claude model '{RequestModel}' does not support assistant prefill.");
             }
         }
 
-        private bool UsesClaudeWireHistory => IsClaude51Model() ||
+        private bool UsesClaudeWireHistory => UsesBoundClaudeThinking() ||
             ClaudeOptions.TurnInstructions.Length > 0 || ClaudeOptions.ConversationInstructions.Length > 0 ||
             (ActivateChat.Messages.Count > 0 && _claudeWireHistories.TryGetValue(ActivateChat, out _));
 
@@ -223,8 +226,8 @@ namespace Mythosia.AI.Services.Anthropic
             }
 
             var lastTurn = messages.LastOrDefault(item => ReadClaudeString(item, "role") != "system");
-            if (validateGenerationPrefill && IsClaude51Model() && ReadClaudeString(lastTurn, "role") == "assistant" && !EndsWithClaudeServerToolResult(lastTurn))
-                throw new NotSupportedException("Claude Fable 5.1 and Mythos 5.1 do not support assistant prefill, including in AdditionalMessages.");
+            if (validateGenerationPrefill && UsesBoundClaudeThinking() && ReadClaudeString(lastTurn, "role") == "assistant" && !EndsWithClaudeServerToolResult(lastTurn))
+                throw new NotSupportedException($"Claude model '{RequestModel}' does not support assistant prefill, including in AdditionalMessages.");
         }
 
         private static bool EndsWithClaudeServerToolResult(JsonElement message)

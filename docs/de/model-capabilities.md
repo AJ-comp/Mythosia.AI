@@ -1,8 +1,16 @@
 # Passende Funktionen für das gewählte Modell anzeigen
 
+> Grok 4.7 ist eine noch unveröffentlichte Ergänzung; siehe [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47).
+
+> GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
+
+Für [Claude Opus 5.5](providers.md#claude-opus-55) stehen `Low` bis `Max` einschließlich `XHigh` bereit; `None`, `Minimal` und `ThinkingToggle` werden nicht unterstützt. `MaxOutputTokens` ist 128000. Verborgene Anzeige deaktiviert Denken nicht. Diese Definitionen gehören zur unveröffentlichten Erweiterung, nicht zu bereits veröffentlichten Paketen.
+
 Eine Chatoberfläche sollte Reasoning, Suche, Tools und Bilder passend zur gewählten Verbindung anbieten. Modelllisten in jeder Anwendung verdoppeln Bibliotheksregeln und weichen bei Anbieter-, Protokoll- oder Deploymentänderungen ab. Fähigkeits-Snapshots geben Oberfläche und Ausführungsvalidierung dieselben Modelldefinitionen.
 
 Diese API gehört zu Mythosia.AI 8.0.0. Snapshots sind unveränderliche lokale Beschreibungen bekannten Supports, keine Liveabfrage von Konto oder Server. Die Typen liegen in `Mythosia.AI.Models.Capabilities`.
+
+Für zeitkritische Anfragen wählen Sie die [Verarbeitungsgeschwindigkeit](request-building.md#inference-speed). `WithSpeed` behält Modell und Denkaufwand bei; `Processing` meldet den tatsächlich verwendeten Modus. Fast ist für unterstützte Kombinationen kostenpflichtig.
 
 ## Before / After
 
@@ -44,6 +52,7 @@ Fähigkeiten beschreiben möglichen Support, keine bereits aktivierten Optionen.
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | Streaming, Tools, native asynchrone Tools und Anweisungen während der Ausführung. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | Gehostete Suche, cacheerhaltende Reasoning-Änderungen, Bildeingabe und strukturierte Ausgabe. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | Unterstützte Samplingoptionen und bekannte Ausgabetokengrenze; nullable. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Unveröffentlicht: Supported/Unsupported/Unknown für Verarbeitungsmodi; Kontozugriff separat prüfen. |
 | `Provider`, `Model` | Anbieter und gesendetes Modell; Identitäten können unbekannt sein. |
 
 `ReasoningLevels` beschreibt gemeinsames `WithReasoning`, `NativeReasoningLevels` anbietereigene Regler. `ThinkingBudgetPresets` liefert UI-Vorschläge, keine vollständige Menge zulässiger Budgets oder Zahlenbereiche. `AsyncFunctionCalling` meint native asynchrone Toolausführung, nicht lediglich lokale `Task`-Handler oder parallele Ausführung. `StructuredOutput` umfasst die gemeinsame typisierte Ausgabe einschließlich Prompt-/Reparaturfallback und garantiert kein natives eingeschränktes Decoding. Beide Reasoning-Listen verwenden `ReasoningLevel`; Budgetvorschläge sind Ganzzahlen.
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`, `Backgrounds`, `OutputFormats`, `SizeKinds`, `Resolutions` und `AspectRatios` sind typisierte schreibgeschützte Listen. `MaxImages` und `MaxInputImages` sind bekannte nullable Grenzen. Gelistete Werte erlauben nicht jede Kombination: Größen-, Format-, Qualitäts-, Masken- und Modellprüfungen bleiben. Eigene oder unbekannte Bildmodelle bleiben unbekannt statt unsupported.
+
+Bei Google hängen `Resolutions` und `AspectRatios` vom gewählten Bildmodell ab und gelten auch für die Validierung von Generierung und Bearbeitung. Die [Modelltabelle](providers.md#google-image-options) enthält auch die vorsichtige Beschränkung von Flash-Lite auf 1K. Nicht unterstützte explizite Werte scheitern vor HTTP; unbekannte eigene Modelle behalten `Unknown` und die anbieterweite Optionsprüfung.
 
 Eigene `AIService`-Implementierungen können bei zuverlässigen Definitionen den protected Hook `ResolveRequestCapabilities()` überschreiben. Standard ist `AIModelCapabilities.Unknown`. Ein nicht gelistetes Deployment darf nicht deshalb unsupported werden. `IAIService` erhält keine Pflichtmitglieder; die Abfragen liegen auf `AIService` und seinem Builder.
 

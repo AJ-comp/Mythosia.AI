@@ -56,10 +56,13 @@ public class OpenAIRequestFeaturesTests
     }
 
     [TestMethod]
-    public async Task CachePreservation_KeepsOriginalEffortAndReplaysUpdatesAtTheirHistoryPositions()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6Sol)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    public async Task CachePreservation_KeepsOriginalEffortAndReplaysUpdatesAtTheirHistoryPositions(string model)
     {
         var handler = new CaptureHandler(Answer, Answer, Answer, Answer);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         await service.WithReasoning(ReasoningLevel.Low).GetCompletionAsync("first");
         await service.WithReasoning(ReasoningLevel.High, CachePreservation.Required).GetCompletionAsync("second");
         await service.GetCompletionAsync("third");

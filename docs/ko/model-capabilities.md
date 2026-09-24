@@ -1,8 +1,16 @@
 # 선택한 모델에 맞는 기능 선택지 보여주기
 
+> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+
+> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+
+[Claude Opus 5.5](providers.md#claude-opus-55)의 capability는 `XHigh`를 포함한 `Low`부터 `Max`까지를 제공하며 `None`과 `Minimal`은 미지원입니다. `ThinkingToggle`은 미지원, `MaxOutputTokens`는 128000입니다. 표시를 숨겨도 추론이 꺼지는 것은 아닙니다. 이 정의는 현재 작업 중인 추가 기능으로, 기존 배포 패키지에 포함됐다는 의미는 아닙니다.
+
 채팅 화면의 추론·검색·도구·이미지 선택지는 현재 연결한 모델에 맞아야 합니다. 앱마다 모델 이름 목록을 따로 관리하면 라이브러리의 지원 규칙을 중복해서 만들게 되고, 제공자·API 방식·배포가 바뀔 때 서로 달라질 수 있습니다. 기능 스냅샷을 조회하면 화면과 실제 요청 검증이 같은 모델 정의를 사용할 수 있습니다.
 
 이 API는 Mythosia.AI 8.0.0의 기능입니다. 스냅샷은 라이브러리가 알고 있는 지원 정보를 담은 불변 객체이며, 계정이나 서버에 실시간으로 조회한 결과가 아닙니다. 타입은 `Mythosia.AI.Models.Capabilities`에 있습니다.
+
+사용자가 기다리는 시간을 줄여야 하는 요청에는 [처리 속도](request-building.md#inference-speed)를 선택할 수 있습니다. `WithSpeed`는 모델과 추론 수준을 유지하고, `Processing`은 공급자가 실제 적용한 모드를 보여줍니다. Fast는 지원 조합에서 사용하는 유료 옵션입니다.
 
 ## Before / After
 
@@ -44,6 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | 스트리밍, 도구, 제공자 고유 비동기 도구와 작업 중 추가 지시입니다. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | 호스팅 검색, 캐시를 유지하는 추론 변경, 이미지 입력과 구조화 출력입니다. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | 샘플링 설정의 지원 여부와 알려진 최대 출력 토큰 수이며, 한도는 nullable입니다. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | 미배포: 처리 모드의 Supported/Unsupported/Unknown. 계정 권한은 별도 확인합니다. |
 | `Provider`, `Model` | 제공자와 실제 전송 모델의 식별 정보이며, 알 수 없으면 null일 수 있습니다. |
 
 공통 추론과 제공자 고유 추론은 구분합니다. `ReasoningLevels`는 공통 `WithReasoning`에 넣을 값이고 `NativeReasoningLevels`는 제공자 고유 설정입니다. `ThinkingBudgetPresets`는 UI에서 제시할 만한 예산 선택지이며 모든 허용 예산이나 전체 숫자 범위를 나열한 것은 아닙니다. `AsyncFunctionCalling`은 제공자 고유 비동기 도구 실행을 뜻하며, 로컬 함수가 단순히 `Task`를 반환하거나 병렬로 실행된다는 뜻이 아닙니다. `StructuredOutput`은 프롬프트·복구 방식을 포함한 공통 타입 지정 출력 API의 지원을 뜻하며, 제공자의 네이티브 제약 디코딩을 보장하지 않습니다. 두 추론 수준 목록은 모두 `ReasoningLevel`을 사용하고 예산 프리셋은 정수 값입니다.
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`, `Backgrounds`, `OutputFormats`, `SizeKinds`, `Resolutions`, `AspectRatios`는 타입이 지정된 읽기 전용 선택지 목록입니다. `MaxImages`, `MaxInputImages`는 알려진 한도이며 알 수 없으면 null입니다. 목록에 있는 값이라고 모든 조합이 허용되는 것은 아닙니다. 기존 크기·형식·품질·마스크·모델 검증은 계속 적용합니다. 사용자 정의 또는 알 수 없는 이미지 모델을 미지원으로 단정하지 않습니다.
+
+Google의 `Resolutions`와 `AspectRatios`는 선택한 이미지 모델에 따라 달라지며 생성·편집 검증에도 적용됩니다. Flash-Lite의 보수적인 1K 정책을 포함한 [모델별 표](providers.md#google-image-options)를 참고하세요. 지원하지 않는 명시적 값은 HTTP 전에 거절하며 사용자 정의 미확인 모델은 `Unknown` 지원 정보와 공급자 공통 옵션 검증을 유지합니다.
 
 사용자 정의 `AIService`가 신뢰할 수 있는 지원 정의를 제공할 수 있다면 protected `ResolveRequestCapabilities()`를 재정의합니다. 기본값은 `AIModelCapabilities.Unknown`입니다. 모델 목록에 없다는 이유만으로 사용자 배포를 미지원으로 바꾸면 안 됩니다. `IAIService`에는 새 필수 멤버를 추가하지 않으며 조회 메서드는 `AIService`와 요청 빌더에서 제공합니다.
 

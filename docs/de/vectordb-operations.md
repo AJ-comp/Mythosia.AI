@@ -95,6 +95,25 @@ Wie Hybridsuche je Backend funktioniert:
 | **Pinecone** | Sparse + Dense Vektoren serverseitig zusammengeführt |
 | **Postgres** | Vektorähnlichkeit + `tsvector`/`trigram`-Bewertungen in SQL kombiniert |
 
+### Textsuche und konfigurierbare Hybridsuche (Unreleased)
+
+Die obige Überladung verwendet das bisherige Hybridverhalten des jeweiligen Backends. Im aktuellen Quellstand implementieren InMemory, PostgreSQL und Qdrant außerdem `ITextSearchStore` und `IConfigurableHybridSearchStore`. Diese optionalen APIs sind **noch nicht veröffentlicht (Unreleased)**; Pinecone implementiert sie nicht.
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "Bestellung #12345 Status", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "Bestellung #12345 Status",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` benötigt keinen Dense-Abfragevektor. Die konfigurierbare Überladung verwendet gewichtete RRF-Scores, normalisiert auf `[0, 1]`; Gewicht `0` überspringt die Vektorsuche, Gewicht `1` die Textsuche. Metadatenfilter greifen vor der Top-K-Auswahl, `MinScore` nach der Fusion. Native Text- und Vektorscores haben unterschiedliche Skalen; Schwellenwerte müssen zum Modus passen. Qdrants `HybridFusionStrategy` steuert nur die bisherige Überladung oben.
+
 ## Per ID abrufen
 
 Einen bestimmten Datensatz über seine ID abrufen:
@@ -142,7 +161,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## Per Filter ersetzen
 
-Alle einem Filter entsprechenden Datensätze atomar löschen und eine neue Menge einfügen. Nützlich für die Neuindizierung eines Dokuments ohne veraltete Abschnitte zu hinterlassen.
+Alle einem Filter entsprechenden Datensätze löschen und eine neue Menge einfügen. Nützlich für die Neuindizierung eines Dokuments ohne veraltete Abschnitte zu hinterlassen. Die Atomarität des gesamten Austauschs hängt vom Backend ab.
 
 ```csharp
 var filter = new VectorFilter().Where("source", "handbuch-v1.pdf");
@@ -158,7 +177,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> Bei Postgres läuft das innerhalb einer Transaktion und ist damit vollständig atomar.
+> Postgres verwendet eine Datenbanktransaktion. InMemory führt Löschen und Batch-Einfügen nacheinander aus, sodass eine andere Abfrage die Lücke sehen kann. Bei Fehlern oder Abbruch kann ein teilweise ersetzter Zustand bleiben; abgeschlossene Schreibvorgänge werden nicht zurückgesetzt. Die Synchronisierung einzelner Operationen hält Datensätze und BM25-Index konsistent, macht aber den gesamten Austausch nicht transaktional.
 
 ## Zählen
 

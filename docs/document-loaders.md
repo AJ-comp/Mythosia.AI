@@ -2,6 +2,14 @@
 
 Document loaders parse files into structured `DoclingDocument` objects, which can then be passed to the RAG pipeline.
 
+<a id="file-source-identity"></a>
+
+## Keep file identity stable across registrations
+
+Registering the same file through a relative path and an absolute path must update one document, while same-named files in different folders must stay separate. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` and `PdfDocumentLoader` now set `DoclingDocument.Source` to the normalized absolute file path, as the built-in TXT loaders do. RAG derives automatic document IDs from this value; explicit IDs remain caller-controlled. Default citations may therefore show absolute paths.
+
+Previously stored relative-path IDs are not migrated or deleted automatically. Identify the old document ID, explicitly remove only that document from the relevant store and reindex it. Alternatively, index the complete source set into a new empty collection, validate it and switch the application to it. Reindexing only the new absolute-path ID in the existing collection leaves the old records behind. Do not delete unrelated documents. See [document identity and migration](rag.md#document-identity).
+
 ## Installation
 
 Office and PDF loaders are included in `Mythosia.AI.Rag`. For standalone use:
@@ -169,17 +177,17 @@ Because these three stages are decoupled, adding a new document loader or changi
 
 ## Document Loaders & Text Splitters Integration
 
-`MarkdownTextSplitter` is the most effective choice for Office/HWP documents:
+Use `MarkdownTextSplitter` when preserving Markdown headings, fenced blocks and table rows matters. It has no overlap argument. Repeated headings are outside the content budget; a whole fenced block or table header plus one row may exceed it. Count final chunks with the embedding model's tokenizer for a strict token limit. See [Text Splitters](text-splitters.md).
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter` splits tables at row boundaries and automatically includes headers in each chunk, so table data remains intact in search results. See [Text Splitters](text-splitters.md) for details.
+Recognized GFM tables are split between rows, with the header and delimiter row repeated in each resulting table chunk. Outer pipes are optional (`Name | Value` is supported). This preserves the column labels; retrieval quality still depends on the documents, embeddings and queries.
 
 ---
 

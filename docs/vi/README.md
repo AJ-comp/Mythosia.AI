@@ -27,6 +27,14 @@
 
 </div>
 
+Với TXT và Markdown, chọn [splitter theo quy tắc](text-splitters.md) theo cấu trúc tài liệu. Kích thước, overlap và ranh giới Unicode được kiểm tra; Markdown giữ tiêu đề, khối mã và hàng bảng. Số ký tự hay từ không phải giới hạn token của mô hình. Điều kiện bảng và thụt lề mã giữ nguyên ý nghĩa; việc lặp ngữ cảnh Markdown quá lớn sẽ dừng bằng ngoại lệ rõ ràng.
+
+Để tránh lập chỉ mục có vẻ thành công nhưng ghi đè đoạn hoặc ghép nhầm vector, [kiểm tra lập chỉ mục](rag-pipeline.md#indexing-validation) từ chối ID và batch embedding không hợp lệ trước khi lưu. Splitter tùy chỉnh phải cấp ID duy nhất và kế thừa metadata của tài liệu.
+
+[Định danh tệp ổn định](document-loaders.md#file-source-identity), [kiểm tra vector câu hỏi](rag-embedding.md#query-embedding-validation) và [lưu theo tài liệu cùng hủy URL](rag-pipeline.md#custom-persistence) giúp tránh đăng ký trùng, tìm kiếm sai và đoạn cũ còn sót.
+
+Bản xem trước tùy chọn `Mythosia.AI.Rag.Search.Pixie` cho phép so sánh tìm kiếm thưa bằng nơ-ron cục bộ với cách tìm hiện tại. Nó giữ nhà cung cấp embedding đặc và dùng chỉ mục PIXIE trong bộ nhớ, không chuyển kho bền vững hay thay tìm kiếm mặc định. [Hướng dẫn PIXIE và so sánh (tiếng Anh)](../rag-pixie-search.md).
+
 Tách cấu hình yêu cầu, dừng tác vụ và nhận câu trả lời cùng mức sử dụng và nguồn. [Hướng dẫn nâng cấp v8](v8-migration.md) tổng hợp sáu thay đổi kiến trúc, ví dụ chuyển đổi và phạm vi xác minh.
 
 > Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.0.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
@@ -49,10 +57,23 @@ dotnet add package Mythosia.VectorDb.Postgres     # tùy chọn: khi cần vecto
 
 Chuẩn bị cấu hình độc lập bằng `CreateRequest(...).WithTemperature(...).GetCompletionAsync()`. [Hướng dẫn yêu cầu](request-building.md) giải thích Before/After, Run, profile và giới hạn hội thoại chung.
 
+Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử lý](request-building.md#inference-speed). `WithSpeed` giữ mô hình và mức suy luận; `Processing` báo chế độ thực tế. Fast là tùy chọn trả phí trên các tổ hợp được hỗ trợ.
+
 ## Kiến trúc
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+  </picture>
+</a>
+
+<details>
+<summary>Chi tiết phụ thuộc của các gói</summary>
 
 ```mermaid
 graph TD
+    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
         Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
@@ -70,13 +91,17 @@ graph TD
         VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
+    subgraph "🧩 Tool Integration"
+        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRetrievalStrategy · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
     end
 
     subgraph "🗄️ Vector Stores — chọn một hoặc nhiều"
@@ -98,14 +123,19 @@ graph TD
     Rag --> RagAbs
     Rag --> InMem
     Alibaba --> AI
+    Mcp --> AI
     RagAbs --> VdbAbs
     Office --> LoaderAbs
     Pdf --> LoaderAbs
     InMem --> VdbAbs
+    InMem --> RagAbs
     Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
+    Pixie --> VdbAbs
 ```
+
+</details>
 
 ## Demo / Thử nghiệm (Chat UI)
 
@@ -173,7 +203,7 @@ var response = await service.GetCompletionAsync("Thời tiết ở Hà Nội th�
 
 Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.
 
-Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
+Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
 
 Khi câu trả lời cần thông tin mới hoặc căn cứ từ tài liệu, xem [hướng dẫn suy luận và tìm kiếm](reasoning-and-search.md). Các tùy chọn chung cho phép tìm trên web hoặc dùng kho tài liệu hiện có, đồng thời lấy nguồn của câu trả lời.
 
@@ -235,6 +265,8 @@ policy.LoadSummary(saved);
 
 ### RAG (Retrieval-Augmented Generation)
 
+Chọn tìm từ khóa, ngữ nghĩa hoặc hybrid không bắt buộc embedding mọi truy vấn. [Hướng dẫn](rag-hybrid-search.md).
+
 ```bash
 dotnet add package Mythosia.AI.Rag
 ```
@@ -253,13 +285,19 @@ var response = await service.GetCompletionAsync("Chính sách hoàn tiền là g
 
 ## Provider được hỗ trợ
 
+> Grok 4.7 là phần bổ sung chưa phát hành; xem [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47).
+
+> GPT-6 Sol/Luna là phần bổ sung chưa phát hành. Xem [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna).
+
+> Claude Opus 5.5 cần các bản dựng Core và Abstractions tương thích, chưa phát hành; xem [cấu hình và chuyển đổi](providers.md#claude-opus-55).
+
 | Provider | Package | Model |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (mặc định), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (mặc định), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Preset Agent API và `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
 
@@ -273,7 +311,13 @@ Dùng Perplexity khi câu trả lời cần thông tin mới và nguồn để n
 
 Chọn Flare cho bản phác thảo nhanh, Sunburst cho chỉnh sửa chính xác. [Tạo và chỉnh sửa ảnh GPT Image 2.5](providers.md#gpt-image-25) dùng API ảnh hiện có với mô hình được chọn rõ theo yêu cầu; mặc định OpenAI vẫn là GPT Image 2.
 
+Để chọn kích thước hợp lệ khi tạo hoặc chỉnh sửa ảnh, xem [tùy chọn ảnh Google theo mô hình](providers.md#google-image-options). Flash hỗ trợ 512/1K/2K/4K, Flash-Lite hiện hỗ trợ 1K và Pro hỗ trợ 1K/2K/4K. Flash/Lite có 14 tỷ lệ khung hình, Pro có 10 tỷ lệ tiêu chuẩn; tất cả chấp nhận `Auto`. Kích thước hoặc tỷ lệ được chỉ định nhưng không hỗ trợ sẽ bị từ chối trước yêu cầu HTTP.
+
 Để phân tích biểu đồ, ảnh chụp, gọi hàm cục bộ hoặc rà soát kỹ câu trả lời, dùng [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Suy luận mặc định tắt; bật bằng `WithDeepSeekReasoning(...)` hoặc `WithReasoning(...)` cho từng yêu cầu.
+
+Chọn `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) cho tác vụ chỉ có văn bản. Flash vẫn là mặc định và hỗ trợ ảnh; cả hai có suy luận Low/High/Max và cùng giới hạn đầu ra. Đặt `UseResponsesApi = true` trước khi tạo yêu cầu để dùng Responses với các API completion, streaming, Run và hàm cục bộ hiện có. Mặc định vẫn là `false` để giữ Chat Completions cho ứng dụng hiện tại; lựa chọn được giữ suốt yêu cầu và các vòng công cụ. Responses gửi lại toàn bộ hội thoại và suy luận gốc thay vì dựa vào ID phản hồi lưu trên máy chủ.
+
+Tái sử dụng ảnh đã tải lên cho nhiều câu hỏi với Flash bằng `DeepSeekImageFileContent`, qua Chat Completions hoặc Responses; V4 Pro chỉ hỗ trợ văn bản nên từ chối ảnh. Các phần bổ sung V4 Pro, Responses và Files cần bản dựng Core và Abstractions tương thích, chưa phát hành và không có trong các phiên bản đã phát hành 8.0.0 / 4.0.0. Xem [tải lên, tái sử dụng và giới hạn ảnh](providers.md#deepseek-deepseekservice).
 
 ## Các package
 

@@ -28,14 +28,14 @@ namespace Mythosia.AI.Services.OpenAI
             Message message, StreamOptions executionOptions, AIRequestContext? context,
             CancellationToken cancellationToken)
         {
-            if (!IsAstraNativeRunModel(RequestModel))
+            if (!IsKnownGpt6Model(RequestModel))
                 return await base.CreateRunSessionAsync(message, executionOptions, context, cancellationToken).ConfigureAwait(false);
 
             var socket = await ConnectRunWebSocketAsync(cancellationToken).ConfigureAwait(false);
             return new OpenAIRunSession(this, socket, message, executionOptions, context, cancellationToken);
         }
 
-        /// <summary>Connects one Responses WebSocket for an Astra run. Override for a custom transport.</summary>
+        /// <summary>Connects one Responses WebSocket for a GPT-6 run. Override for a custom transport.</summary>
         protected virtual async Task<WebSocket> ConnectRunWebSocketAsync(CancellationToken cancellationToken)
         {
             var socket = new ClientWebSocket();
@@ -65,7 +65,12 @@ namespace Mythosia.AI.Services.OpenAI
         {
             var session = _openAIRunSession.Value;
             if (session == null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (_speedStreamState.Value != null)
+                    _speedStreamState.Value.Observation = BeginProcessingObservation();
                 return await base.SendStreamingRequestAsync(request, cancellationToken).ConfigureAwait(false);
+            }
 
             await session.SendRoundAsync(request, cancellationToken).ConfigureAwait(false);
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(string.Empty) };
@@ -101,6 +106,10 @@ namespace Mythosia.AI.Services.OpenAI
             private readonly Dictionary<string, string> _acceptedInputs = new Dictionary<string, string>(StringComparer.Ordinal);
             private readonly List<string> _historyInputs = new List<string>();
             private readonly Queue<StreamingContent> _toolEvents = new Queue<StreamingContent>();
+            private readonly Queue<ProcessingObservation> _pendingProcessing = new Queue<ProcessingObservation>();
+            private readonly Dictionary<string, ProcessingObservation> _responseProcessing =
+                new Dictionary<string, ProcessingObservation>(StringComparer.Ordinal);
+            private ProcessingObservation? _currentProcessing;
             private readonly Task _receiver;
             private TaskCompletionSource<bool>? _pendingAcceptance;
             private string? _pendingInstruction;
@@ -127,6 +136,30 @@ namespace Mythosia.AI.Services.OpenAI
             }
 
             public override bool CanSteer => true;
+
+            public void CaptureProcessing(JsonElement root)
+            {
+                if (!root.TryGetProperty("response", out var response) || response.ValueKind != JsonValueKind.Object)
+                    return;
+                var id = GetString(response, "id");
+                lock (_stateLock)
+                {
+                    ProcessingObservation? observation = null;
+                    if (id != null && !_responseProcessing.TryGetValue(id, out observation))
+                    {
+                        // Accepted steering can start another inference without another client
+                        // response.create. Preserve its tier separately from the earlier response.
+                        observation = _pendingProcessing.Count > 0
+                            ? _pendingProcessing.Dequeue() : _service.BeginProcessingObservation();
+                        if (observation != null) _responseProcessing[id] = observation;
+                    }
+                    observation ??= _currentProcessing;
+                    if (observation == null && _pendingProcessing.Count > 0)
+                        observation = _pendingProcessing.Peek();
+                    if (observation != null) _currentProcessing = observation;
+                    OpenAIService.CaptureProcessing(observation, response);
+                }
+            }
 
             public bool HasPendingContinuation
             {
@@ -505,6 +538,13 @@ namespace Mythosia.AI.Services.OpenAI
                 try
                 {
                     var bytes = JsonSerializer.SerializeToUtf8Bytes(payload);
+                    if (payload is IDictionary<string, object> fields &&
+                        fields.TryGetValue("type", out var type) && Equals(type, "response.create"))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var observation = _service.BeginProcessingObservation();
+                        lock (_stateLock) _pendingProcessing.Enqueue(observation);
+                    }
                     await _socket.SendAsync(new ArraySegment<byte>(bytes), WebSocketMessageType.Text, true, cancellationToken).ConfigureAwait(false);
                 }
                 finally { _sendLock.Release(); }

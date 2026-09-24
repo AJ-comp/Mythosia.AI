@@ -1,5 +1,11 @@
 # Choisir l’effort de raisonnement et répondre avec des sources
 
+> Grok 4.7 est un ajout non publié ; consultez [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47).
+
+> GPT-6 Sol/Luna ne sont pas encore publiés. Voir [choix du modèle et prérequis](providers.md#gpt-6-sol-luna).
+
+[Claude Opus 5.5](providers.md#claude-opus-55) est un ajout non publié : raisonnement toujours actif, effort medium par défaut et affichage omis. Demandez explicitement une progression lisible ; ses valeurs par défaut et règles de liaison diffèrent de Fable 5.1.
+
 Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
 
 > Ces API nécessitent `Mythosia.AI` 7.1.0 ou ultérieur, qui inclut `Mythosia.AI.Abstractions` 3.1.0 ou ultérieur. Les exemples RAG nécessitent `Mythosia.AI.Rag` 7.6.0 ou ultérieur.
@@ -7,6 +13,8 @@ Pour des paramètres indépendants et réutilisables, utilisez [le builder de re
 > Les exemples `CreateRequest` nécessitent la version de travail actuelle. Le builder n’existe pas dans l’ancienne version 7.1 qui a introduit Run et les options communes. Les anciens packages peuvent conserver les surcharges du service.
 
 [Claude Fable 5.1](fable-5-1.md) ajoute le suivi de progression, les instructions limitées à un tour et le diagnostic des liens du raisonnement à partir de `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 nécessite une invitation. Les deux refusent la sélection forcée d’outils.
+
+Pour une requête sensible au temps d’attente, choisissez la [vitesse de traitement](request-building.md#inference-speed). `WithSpeed` conserve modèle et effort, tandis que `Processing` rapporte le mode réellement appliqué. Fast est payant sur les combinaisons compatibles.
 
 ## Pourquoi utiliser ces options ?
 
@@ -138,11 +146,11 @@ Les champs d’une citation peuvent être `null` lorsque le fournisseur ne donne
 
 | Fournisseur intégré | Niveaux de raisonnement nommés | Modification conservant le cache | Recherche Web | Recherche de fichiers |
 | --- | --- | --- | --- | --- |
-| OpenAI | Modèles de raisonnement compatibles ; niveaux variables selon le modèle | GPT-6 Astra Standard, mode à un seul agent | Modèles Responses compatibles | Modèles Responses compatibles, magasins vectoriels existants |
-| Anthropic | Modèles avec contrôle natif de l’effort | Opus 5 / Fable 5.1 / Mythos 5.1 compatibles, avec la bêta du fournisseur | Modèles Claude compatibles | Aucun adaptateur de magasin natif ; utiliser RAG |
+| OpenAI | Modèles de raisonnement compatibles ; niveaux variables selon le modèle | GPT-6 Astra / Sol / Luna Standard, mode à un seul agent | Modèles Responses compatibles | Modèles Responses compatibles, magasins vectoriels existants |
+| Anthropic | Modèles avec contrôle natif de l’effort | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 compatibles, avec la bêta du fournisseur | Modèles Claude compatibles | Aucun adaptateur de magasin natif ; utiliser RAG |
 | Google | Niveaux Gemini 3 ; Gemini 2.5 conserve les budgets propres au fournisseur | Non pris en charge | Modèles de texte Gemini compatibles | Modèles de texte Gemini compatibles, magasins de recherche de fichiers existants |
 | xAI | Grok 4.6 : `Auto`, `Low`, `Medium`, `High`, `XHigh` | Non pris en charge | Aucun adaptateur commun | Aucun adaptateur commun |
-| DeepSeek | Flash : `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max` ; correspondances natives Low/High/Max | Non pris en charge | Aucun adaptateur commun | Aucun adaptateur commun |
+| DeepSeek | Flash / V4 Pro : `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max` ; correspondances natives Low/High/Max | Non pris en charge | Aucun adaptateur commun | Aucun adaptateur commun |
 | Perplexity | `Auto` ou `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max` selon le modèle ; aucun effort explicite pour Sonar | Non pris en charge | Agent `web_search` | Aucun adaptateur commun |
 | Autres services | Les réglages propres au fournisseur restent disponibles ; ces options communes nécessitent un adaptateur | Non pris en charge par ces adaptateurs | Aucun adaptateur commun | Aucun adaptateur commun |
 

@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("ฉันคืนสินค�
 
 ### RequestMessageOverride
 
-แทนที่ข้อความของ user ทั้งหมดสำหรับ request นี้ prompt เดิมถูกละเว้น:
+`RequestMessageOverride` จะแทนที่เฉพาะอินพุตแรกของคำขอเชิงตรรกะปัจจุบันเมื่อส่งให้โมเดล อินพุตต้นฉบับยังอยู่ในประวัติ และการเรียกเครื่องมือพร้อมผลลัพธ์ที่ตามมาในคำขอเดียวกันจะถูกเก็บไว้:
 
 ```csharp
 var context = new AIRequestContext

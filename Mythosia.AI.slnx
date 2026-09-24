@@ -16,6 +16,7 @@
   </Folder>
   <Folder Name="/src/rag/">
     <Project Path="src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj" />
+    <Project Path="src/rag/Mythosia.AI.Rag.Search.Pixie/Mythosia.AI.Rag.Search.Pixie.csproj" />
     <Project Path="src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
   </Folder>
   <Folder Name="/src/serving/">
@@ -34,8 +35,12 @@
     <Project Path="apps/Mythosia.AI.Tools.DocumentPreview/Mythosia.AI.Tools.DocumentPreview.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Mythosia.AI.Rag.Evaluation/Mythosia.AI.Rag.Evaluation.csproj" />
+    <Project Path="tests/Mythosia.AI.Rag.Evaluation.Tests/Mythosia.AI.Rag.Evaluation.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Mcp.Tests/Mythosia.AI.Mcp.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Rag.Search.Pixie.Tests/Mythosia.AI.Rag.Search.Pixie.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Rag.Search.Pixie.Benchmarks/Mythosia.AI.Rag.Search.Pixie.Benchmarks.csproj" />
     <Project Path="tests/Mythosia.AI.Serving.Vllm.Tests/Mythosia.AI.Serving.Vllm.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
     <Project Path="tests/Mythosia.Documents.Tests/Mythosia.Documents.Tests.csproj" />

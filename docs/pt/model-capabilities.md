@@ -1,8 +1,16 @@
 # Mostrar opções compatíveis com o modelo escolhido
 
+> Grok 4.7 é uma adição ainda não publicada; veja [seleção do modelo, raciocínio e velocidade](providers.md#grok-47).
+
+> GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
+
+Para [Claude Opus 5.5](providers.md#claude-opus-55), as capabilities expõem `Low` a `Max`, incluindo `XHigh`; `None`, `Minimal` e `ThinkingToggle` não são suportados. `MaxOutputTokens` é 128000. Ocultar o texto não desativa o raciocínio. Essas definições pertencem à adição não publicada, não a pacotes já distribuídos.
+
 Uma interface de chat deve oferecer raciocínio, pesquisa, ferramentas e imagens conforme a conexão escolhida. Listas de modelos mantidas em cada aplicativo duplicam regras da biblioteca e divergem quando provedor, protocolo ou implantação muda. As cópias de capacidades compartilham definições entre interface e validação da execução.
 
 Esta API pertence a Mythosia.AI 8.0.0. São descrições locais imutáveis do suporte conhecido, não consultas em tempo real à conta ou ao servidor. Os tipos estão em `Mythosia.AI.Models.Capabilities`.
+
+Para pedidos sensíveis ao tempo de espera, escolha a [velocidade de processamento](request-building.md#inference-speed). `WithSpeed` mantém modelo e esforço; `Processing` informa o modo aplicado. Fast é pago nas combinações suportadas.
 
 ## Before / After
 
@@ -44,6 +52,7 @@ As capacidades descrevem o que a conexão pode suportar, não o que está ativad
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | Streaming, ferramentas, ferramentas assíncronas nativas e instruções durante a execução. |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | Pesquisa hospedada, mudanças de raciocínio preservando cache, imagens de entrada e saída estruturada. |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | Amostragem suportada e limite conhecido de tokens de saída, nullable. |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | Não publicado: modos Supported/Unsupported/Unknown; verificar acesso da conta separadamente. |
 | `Provider`, `Model` | Provedor e modelo enviado; as identidades podem ser desconhecidas. |
 
 `ReasoningLevels` descreve `WithReasoning` comum; `NativeReasoningLevels`, os controles nativos. `ThinkingBudgetPresets` oferece sugestões para UI, não todos os orçamentos válidos ou uma faixa exaustiva. `AsyncFunctionCalling` indica execução assíncrona nativa de ferramentas, não apenas handlers locais retornando `Task` ou execução paralela. `StructuredOutput` inclui a API comum de saída tipada com alternativa por prompt e reparo; não garante decodificação restrita nativa. Ambas as listas de níveis usam `ReasoningLevel`; os orçamentos sugeridos são inteiros.
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`, `Backgrounds`, `OutputFormats`, `SizeKinds`, `Resolutions` e `AspectRatios` são listas tipadas somente leitura. `MaxImages` e `MaxInputImages` são limites conhecidos nullables. Um valor listado não garante todas as combinações: seguem as validações de tamanho, formato, qualidade, máscara e modelo. Modelos próprios ou desconhecidos continuam desconhecidos, sem serem marcados como incompatíveis.
+
+No Google, `Resolutions` e `AspectRatios` dependem do modelo de imagem selecionado e também orientam a validação de geração e edição. Consulte a [tabela por modelo](providers.md#google-image-options), incluindo a política conservadora de 1K para Flash-Lite. Valores explícitos sem suporte falham antes do HTTP; modelos personalizados desconhecidos mantêm `Unknown` e a validação geral do provedor.
 
 Um `AIService` próprio com definições confiáveis pode sobrescrever o hook protected `ResolveRequestCapabilities()`. O padrão é `AIModelCapabilities.Unknown`. Não estar no catálogo não torna uma implantação incompatível. `IAIService` não ganha membros obrigatórios; as consultas pertencem a `AIService` e seu builder.
 

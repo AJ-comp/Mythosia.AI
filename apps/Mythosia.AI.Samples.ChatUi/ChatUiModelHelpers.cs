@@ -17,6 +17,8 @@ namespace Mythosia.AI.Samples.ChatUi
         private static readonly (string Provider, string Name, string Value)[] Catalogue =
         {
             ("OpenAI", nameof(AIModels.OpenAI.Gpt6Astra), AIModels.OpenAI.Gpt6Astra),
+            ("OpenAI", nameof(AIModels.OpenAI.Gpt6Sol), AIModels.OpenAI.Gpt6Sol),
+            ("OpenAI", nameof(AIModels.OpenAI.Gpt6Luna), AIModels.OpenAI.Gpt6Luna),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt5_6), AIModels.OpenAI.Gpt5_6),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt5_6Sol), AIModels.OpenAI.Gpt5_6Sol),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt5_6Terra), AIModels.OpenAI.Gpt5_6Terra),
@@ -41,6 +43,7 @@ namespace Mythosia.AI.Samples.ChatUi
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeMythos5_1), AIModels.Anthropic.ClaudeMythos5_1),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeFable5), AIModels.Anthropic.ClaudeFable5),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeMythos5), AIModels.Anthropic.ClaudeMythos5),
+            ("Anthropic", nameof(AIModels.Anthropic.ClaudeOpus5_5), AIModels.Anthropic.ClaudeOpus5_5),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeOpus5), AIModels.Anthropic.ClaudeOpus5),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeSonnet5), AIModels.Anthropic.ClaudeSonnet5),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeOpus4_8), AIModels.Anthropic.ClaudeOpus4_8),
@@ -61,6 +64,7 @@ namespace Mythosia.AI.Samples.ChatUi
             ("Google", nameof(AIModels.Google.Gemini2_5Pro), AIModels.Google.Gemini2_5Pro),
             ("Google", nameof(AIModels.Google.Gemini2_5Flash), AIModels.Google.Gemini2_5Flash),
             ("Google", nameof(AIModels.Google.Gemini2_5FlashLite), AIModels.Google.Gemini2_5FlashLite),
+            ("xAI", nameof(AIModels.xAI.Grok4_7), AIModels.xAI.Grok4_7),
             ("xAI", nameof(AIModels.xAI.Grok4_6), AIModels.xAI.Grok4_6),
             ("xAI", nameof(AIModels.xAI.Grok4_5), AIModels.xAI.Grok4_5),
             ("xAI", nameof(AIModels.xAI.Grok4_3), AIModels.xAI.Grok4_3),
@@ -68,6 +72,7 @@ namespace Mythosia.AI.Samples.ChatUi
             ("xAI", nameof(AIModels.xAI.Grok4_20NonReasoning), AIModels.xAI.Grok4_20NonReasoning),
             ("xAI", nameof(AIModels.xAI.GrokBuild0_1), AIModels.xAI.GrokBuild0_1),
             ("DeepSeek", nameof(AIModels.DeepSeek.Flash), AIModels.DeepSeek.Flash),
+            ("DeepSeek", nameof(AIModels.DeepSeek.V4Pro), AIModels.DeepSeek.V4Pro),
             ("Perplexity", nameof(AIModels.Perplexity.Sonar), AIModels.Perplexity.Sonar),
             ("Perplexity", "PerplexityGpt5_6Luna", AIModels.Perplexity.Gpt5_6Luna),
             ("Perplexity", "PerplexityGpt5_6Terra", AIModels.Perplexity.Gpt5_6Terra),
@@ -143,6 +148,14 @@ namespace Mythosia.AI.Samples.ChatUi
             return string.IsNullOrEmpty(entry.Value) ? null : entry.Value;
         }
 
+        internal static string? ResolveRewriterModelValue(string? modelName)
+        {
+            // Migrate the former UI-only label without rewriting arbitrary deployment IDs.
+            if (string.Equals(modelName?.Trim(), "DeepSeekChat", StringComparison.OrdinalIgnoreCase))
+                return AIModels.DeepSeek.Flash;
+            return FindModelValueByName(modelName) ?? modelName?.Trim();
+        }
+
         // The catalogue inspects adapters offline. Each temporary service owns its client;
         // no key or account lookup is needed and no request is started.
         internal static AIModelCapabilities GetModelCapabilities(string model, bool deepSeekThinkingEnabled = false)
@@ -190,6 +203,13 @@ namespace Mythosia.AI.Samples.ChatUi
             if (provider == "Anthropic")
             {
                 if (budgets.Length > 0) return new { type = "claude", levels = budgets };
+                if (string.Equals(model, AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase))
+                    return new
+                    {
+                        type = "claude_always",
+                        levels = levels.Where(level => level != "Auto" && level != "None").ToArray(),
+                        defaultLevel = "Medium"
+                    };
                 return new
                 {
                     type = capabilities.ThinkingToggle == CapabilitySupport.Supported ? "claude_adaptive" : "claude_always",

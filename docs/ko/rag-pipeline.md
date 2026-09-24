@@ -1,5 +1,105 @@
 # RAG 파이프라인 커스터마이징
 
+<a id="indexing-validation"></a>
+
+## 색인 실패 시 기존 문서 보호하기
+
+사용자 정의 분할기나 임베딩 응답에 문제가 있어도 검색 중인 문서가 불완전하거나 잘못 연결된 내용으로 조용히 교체되면 안 됩니다. 파이프라인은 `onDocumentEmbedded`를 사용할 때도 문서별로 저장을 시작하기 전에 입력과 결과를 검증합니다.
+
+임베딩·저장·저장 콜백을 호출하기 전에 `RagDocument.Id`가 null, 빈 문자열 또는 공백뿐이면 `ArgumentException`이 발생합니다. 분할 결과 목록이나 청크가 null이거나, `Content`·`Metadata`가 null이거나, 청크 ID가 비어 있거나 공백뿐이거나, 같은 문서 안에서 청크 ID가 중복되면 `InvalidOperationException`이 발생합니다. 중복은 `StringComparer.Ordinal`로 대소문자를 구분합니다. 청크 값과 메타데이터는 첫 임베딩 호출 전에 복사합니다.
+
+유효한 사용자 지정 ID는 그대로 유지합니다. ID를 자동 생성하거나 공백을 제거해 보정하지 않으며, 서로 다른 문서의 사용자 지정 청크 ID 충돌을 전체 저장소에서 검사하지는 않습니다. [사용자 정의 분할기 예제](text-splitters.md)처럼 대상 컬렉션에서 고유한 ID를 만드세요. 예약 키 `document_id`는 저장용 복사본에서만 실제 문서 ID로 정규화하며 원본 메타데이터는 변경하지 않습니다.
+
+잘못된 ID, 분할 실패, 유효하지 않은 임베딩 배치는 해당 문서의 기존 레코드를 유지하며 저장 콜백도 호출하지 않습니다. 해당 문서의 모든 배치가 [임베딩 검증](rag-embedding.md#embedding-validation)을 통과해야 저장을 시작합니다. 같은 작업에서 앞서 저장을 마친 다른 문서까지 되돌리지는 않으며, 저장이 시작된 뒤의 롤백은 저장소나 콜백 구현에 달려 있습니다.
+
+이번 검증과 응답 순서 교정은 이미 덮어써진 본문이나 잘못된 청크에 연결되어 저장된 기존 벡터를 자동 복구하지 않으므로, 영향받은 문서는 원본에서 다시 색인해야 합니다.
+
+<a id="custom-persistence"></a>
+
+## 저장 콜백에서도 문서 전체를 교체하기
+
+문서가 짧아졌을 때 새 청크만 upsert하면 옛 뒷부분이 검색에 남습니다. `onDocumentEmbedded`는 기본 저장을 완전히 대체하므로 전달받은 레코드의 정규화된 `document_id`로 문서 전체를 교체하세요. 콜백은 검증을 마친 비어 있지 않은 문서 한 개씩 받습니다:
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
+var store = await RagStore.BuildAsync(config => config
+    .AddDocuments("./docs/")
+    .UseOpenAIEmbedding(apiKey)
+    .UseStore(vectorStore),
+    onDocumentEmbedded: async records =>
+    {
+        var documentId = records[0].Metadata["document_id"];
+        await vectorStore.ReplaceByFilterAsync(
+            new VectorFilter().Where("document_id", documentId), records, cancellationToken);
+    },
+    cancellationToken: cancellationToken);
+```
+
+분할이 성공해 청크가 0개인 경우에는 콜백을 호출하지 않고 기본 저장소에도 접근하지 않습니다. 알고 있는 문서 ID로 자체 저장소에서 명시적으로 삭제하세요. `DeleteDocumentAsync`는 파이프라인의 저장소를 대상으로 할 때 사용합니다. 교체의 원자성과 롤백은 선택한 저장소나 콜백 구현에 달려 있습니다.
+
+<a id="url-documents"></a>
+
+## URL 문서를 안전하게 읽기
+
+서버는 텍스트 문서를 전송할 때 압축할 수 있습니다. `AddUrl`은 `gzip`, `deflate`, Brotli(`br`)를 풀고 텍스트를 읽으며, 압축 스트림이 끝까지 완성됐는지도 검사합니다. HTTP 전송에 성공했더라도 압축 데이터가 잘렸거나 압축 해제가 실패하거나 해당 형식에서 제공하는 체크섬이 맞지 않으면 임베딩·저장 전에 로딩을 중단하여 해당 문서의 기존 레코드를 유지합니다. 지원하지 않는 `Content-Encoding`이나 여러 겹의 압축 인코딩도 임베딩·저장 전에 거부합니다.
+
+느린 URL 문서를 더 기다리지 않으려면 `RagStore.BuildAsync`에 `cancellationToken`을 전달하세요. 이 토큰은 HTTP 요청, 응답 본문 읽기, 압축 해제까지 전달됩니다. 취소는 협력적으로 처리하며, 앞서 저장을 마친 다른 문서까지 되돌리지는 않습니다.
+
+<a id="custom-retriever"></a>
+
+## 임베딩을 강제하지 않는 검색기 연결
+
+상품 코드는 키워드 검색이 유리하고, 문서와 표현이 다른 질문은 의미 검색이 필요합니다. 선택한 검색기는 각 방식에 필요한 처리만 실행합니다. 키워드 검색을 위해 질문 임베딩부터 만들 필요가 없습니다.
+
+- 이전: 모든 검색 전략에 질문 임베딩을 먼저 전달했습니다.
+- 이후: 선택한 검색기가 필요한 질문 표현만 만듭니다.
+
+외부 색인이나 다른 질문 표현을 사용하려면 `IRagRetriever`를 구현합니다. `RagRetrievalRequest`는 `Query`(전체 의미 검색 질문), nullable `TextQuery`(키워드 검색어 재정의), `TopK`, `Filter`, `ProgressAsync`를 전달합니다. 내장 검색기는 `TextQuery`가 null이면 `Query`를 사용하고 빈 문자열이면 텍스트 검색을 생략합니다. 커스텀 검색기는 필요한 변환을 수행하고 필터, 결과 개수, 취소 요청을 적용해야 합니다.
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+public sealed class CatalogRetriever : IRagRetriever
+{
+    private readonly ITextSearchStore _catalog;
+    public CatalogRetriever(ITextSearchStore catalog) => _catalog = catalog;
+
+    public Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
+        RagRetrievalRequest request,
+        CancellationToken cancellationToken = default)
+        => _catalog.TextSearchAsync(
+            request.TextQuery ?? request.Query,
+            request.TopK,
+            request.Filter,
+            cancellationToken);
+}
+```
+
+```csharp
+// catalog: an existing ITextSearchStore
+var service = new OpenAIService(apiKey, http)
+    .WithRag(rag => rag.UseRetriever(new CatalogRetriever(catalog)));
+```
+
+`UseRetriever(...)` 또는 `RagPipeline.SetRetriever(...)`로 등록합니다. 기존 `IRetrievalStrategy`와 `SetRetrievalStrategy(...)`도 유지되며 호환 어댑터에서 계속 질문 임베딩을 만듭니다. 반환 기록에는 재랭킹과 컨텍스트 구성에 필요한 본문과 메타데이터가 있어야 합니다.
+
+```csharp
+store.UpdateRetriever(new CatalogRetriever(catalog));
+store.UseKeywordSearch();
+store.UpdateRetrievalStrategy(new HybridSearchOptions { VectorWeight = 0.7f });
+store.UpdateRetriever(null); // UseVectorSearch
+```
+
+`UseKeywordSearch()`는 질문 임베딩을 생략합니다. 문서 등록은 여전히 기존 벡터 저장소를 위해 청크를 나누고 임베딩을 생성합니다. 문서까지 키워드만으로 저장하는 API는 아닙니다. 지연 초기화로 첫 질문에서 문서를 등록하면 문서 임베딩 호출이 발생할 수 있습니다.
+
+질문의 `Embedding` 단계는 선택한 검색기에 따라 실행됩니다. 키워드 검색은 이 단계를 보고하지 않습니다. 커스텀 검색기는 `request.ProgressAsync`로 실제 단계의 진행 상황을 알릴 수 있습니다. 문서 등록 임베딩은 그대로입니다.
+
 ## RAG 파이프라인이란?
 
 RAG 파이프라인은 사용자의 질문이 들어온 순간부터 AI가 답변을 생성하기까지 거치는 **일련의 처리 단계**를 말합니다. 공장의 조립 라인처럼, 각 단계가 순서대로 실행되면서 질문을 점점 더 정확한 답변으로 만들어갑니다.
@@ -13,9 +113,9 @@ RAG 파이프라인은 사용자의 질문이 들어온 순간부터 AI가 답�
     ↓
 ① 쿼리 재작성 (QueryRewrite)   — 대화 맥락을 반영해 검색 쿼리를 다듬습니다
     ↓
-② 임베딩 (Embedding)           — 쿼리를 숫자 벡터로 변환합니다
+② 필터링 (Filtering)           — 네임스페이스나 메타데이터로 검색 범위를 좁힙니다
     ↓
-③ 필터링 (Filtering)           — 네임스페이스나 메타데이터로 검색 범위를 좁힙니다
+③ 필요한 경우 임베딩 (Embedding)           — 쿼리를 숫자 벡터로 변환합니다
     ↓
 ④ 검색 (Retrieval)             — 벡터 스토어에서 유사한 청크를 가져옵니다
     ↓
@@ -51,7 +151,7 @@ var options = new RagQueryOptions
     ProgressAsync = async stage =>
     {
         Console.WriteLine($"[RAG] {stage}");
-        // 단계: QueryRewrite, Embedding, Filtering, Retrieval, Reranking, ContextBuild
+        // 단계: QueryRewrite, Filtering, Embedding, Retrieval, Reranking, ContextBuild
     }
 };
 
@@ -125,7 +225,7 @@ foreach (var ref_ in result.References)
 ragService.GetCompletionAsync("환불 정책이 뭔가요?")
     ↓
 ① RagEnabledService가 RAG 파이프라인 실행
-   쿼리 재작성 → 임베딩 → 검색 → 컨텍스트 조립
+   쿼리 재작성 → 필터링 → 임베딩(필요 시) → 검색 → 컨텍스트 조립
     ↓
 ② TemplateContextBuilder가 {context}와 {question}을 치환
    → "다음 정보로 답하세요.\n[1] 환불은 30일 이내...\n질문: 환불 정책이 뭔가요?"
@@ -137,7 +237,7 @@ ragService.GetCompletionAsync("환불 정책이 뭔가요?")
    → AIService가 AsyncLocal에 context 저장
    → 원래 질문을 대화 기록에 추가
     ↓
-⑤ AIService.GetLatestMessages()가 마지막 메시지를 교체
+⑤ AIService.GetLatestMessages()가 현재 요청의 최초 입력을 교체
    대화 기록: "환불 정책이 뭔가요?" (원본 유지)
    모델이 보는 것: 조립된 프롬프트 (RequestMessageOverride)
 ```
@@ -157,22 +257,28 @@ ragService.GetCompletionAsync("환불 정책이 뭔가요?")
 `RagEnabledService` 내부에서 이 연결이 일어나는 핵심 코드입니다:
 
 ```csharp
-// RagEnabledService.GetCompletionAsync 내부
 var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
+var original = new Message(ActorRole.User, query);
 return await _innerService.GetCompletionAsync(
-    new Message(ActorRole.User, query),         // ← 원래 질문 (대화 기록에 저장됨)
-    context: BuildRequestContext(processed));    // ← 조립된 프롬프트 (모델만 봄)
+    original,
+    context: BuildRequestContext(processed, original),
+    cancellationToken: cancellationToken);
 
-// BuildRequestContext — AIRequestContext를 생성하는 부분
-private static AIRequestContext BuildRequestContext(RagProcessedQuery processed)
+private static AIRequestContext BuildRequestContext(RagProcessedQuery processed, Message original)
 {
-    return new AIRequestContext
+    var requestMessage = original.Clone();
+    requestMessage.Content = processed.RequestMessageContent;
+    if (original.HasMultimodalContent)
     {
-        RequestMessageOverride = new Message(
-            ActorRole.User,
-            processed.RequestMessageContent)  // ← TemplateContextBuilder의 결과물
-    };
+        requestMessage.Contents = new List<MessageContent>
+        {
+            new TextContent(processed.RequestMessageContent)
+        };
+        requestMessage.Contents.AddRange(
+            original.Contents.Where(content => !(content is TextContent)));
+    }
+    return new AIRequestContext { RequestMessageOverride = requestMessage };
 }
 ```
 
-`AIService`는 이 context를 `AsyncLocal`에 저장한 뒤, `GetLatestMessages()` 에서 마지막 메시지를 `RequestMessageOverride`로 교체합니다. 요청이 끝나면 자동으로 복원되므로 다음 요청에 영향을 주지 않습니다.
+`AIService`는 context를 `AsyncLocal`에 저장합니다. `GetLatestMessages()`는 현재 논리적 요청의 최초 입력에만 `RequestMessageOverride`를 적용하고, 이후 assistant의 도구 호출과 도구 실행 결과는 유지합니다. 따라서 후속 모델 요청에도 검색 문서와 도구 결과를 함께 전달합니다. 요청이 끝나면 이전 context로 복원합니다.

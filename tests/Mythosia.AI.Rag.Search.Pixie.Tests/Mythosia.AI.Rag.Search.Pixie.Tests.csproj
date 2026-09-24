@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <EnableMSTestRunner>true</EnableMSTestRunner>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MSTest" Version="4.2.1" />
+    <ProjectReference Include="..\..\src\rag\Mythosia.AI.Rag.Search.Pixie\Mythosia.AI.Rag.Search.Pixie.csproj" />
+    <ProjectReference Include="..\..\src\rag\Mythosia.AI.Rag\Mythosia.AI.Rag.csproj" />
+    <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+    <None Update="Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\rag\Mythosia.AI.Rag.Search.Pixie\models\pixie\tokenizer.json" Link="Fixtures\tokenizer.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

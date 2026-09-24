@@ -8,6 +8,7 @@ using Mythosia.Azure;
 namespace Mythosia.AI.Tests.DeepSeek;
 
 [TestClass]
+[TestCategory("Live")]
 public class DeepSeekServiceTests : AIServiceTestBase
 {
     protected override AIService CreateAIService()
@@ -23,6 +24,21 @@ public class DeepSeekServiceTests : AIServiceTestBase
     {
         return true; // DeepSeek Flash는 이미지 입력을 지원합니다.
     }
+
+    // The current Flash adapter supports these paths; do not inherit the historical
+    // unsupported defaults and silently skip their real-provider regression tests.
+    protected override bool SupportsFunctionCalling() => true;
+    protected override bool SupportsArrayParameter() => true;
+    protected override bool SupportsReasoning() => true;
+
+    protected override void SetupReasoningEffort()
+        => ((DeepSeekService)AI).WithDeepSeekReasoning(DeepSeekReasoning.Low);
+
+    protected override void ConfigureRequiredFunctionCall(string functionName)
+        => AI.ForceFunctionName = functionName;
+
+    protected override void ConfigureFunctionCallingStreamEventsTest()
+        => ConfigureRequiredFunctionCall("test_function");
 
     protected override string? GetAlternativeModel()
     {

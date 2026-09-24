@@ -130,10 +130,12 @@ export function updateReasoningUI() {
       setReasoning.checked = true;
       setReasoning.disabled = true;
       reasoningOpts.classList.remove('hidden');
-      reasoningLvls.innerHTML = `<span class="reasoning-always-label">Always on — select ${info.type === 'gemini3' ? 'thinking level' : 'effort'}</span>`;
-      info.levels.forEach((lvl, i) => {
+      reasoningLvls.innerHTML = info.type === 'gpt6' && info.levels.includes('None')
+        ? '<span class="reasoning-always-label">Select effort — None disables reasoning</span>'
+        : `<span class="reasoning-always-label">Always on — select ${info.type === 'gemini3' ? 'thinking level' : 'effort'}</span>`;
+      info.levels.forEach(lvl => {
         const label = document.createElement('label');
-        label.innerHTML = `<input type="radio" name="reasoning-level" value="${lvl}" ${i === 0 ? 'checked' : ''} /><span>${lvl}</span>`;
+        label.innerHTML = `<input type="radio" name="reasoning-level" value="${lvl}" ${lvl === (info.defaultLevel || info.levels[0]) ? 'checked' : ''} /><span>${lvl}</span>`;
         label.querySelector('input').addEventListener('change', () => scheduleApplySettings(0));
         reasoningLvls.appendChild(label);
       });

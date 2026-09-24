@@ -1,5 +1,9 @@
 # 소개
 
+> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+
+> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+
 Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더, 벡터 데이터베이스를 단일 인터페이스로 통합한 모듈식 .NET AI 라이브러리입니다.
 
 ## Mythosia.AI를 사용하는 이유
@@ -22,11 +26,11 @@ Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더,
 
 | 프로바이더 | 모델 |
 |------------|------|
-| **OpenAI** | GPT-6 Astra, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **OpenAI** | GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
 | **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
 | **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
-| **xAI** | Grok 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
-| **DeepSeek** | Flash (V4.1 Flash) |
+| **xAI** | Grok 4.7 / 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
+| **DeepSeek** | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | Agent API 프리셋 및 `perplexity/sonar` |
 | **Alibaba / Qwen** | Qwen Max / Plus / Turbo / Qwen3 (`Mythosia.AI.Providers.Alibaba`) |
 

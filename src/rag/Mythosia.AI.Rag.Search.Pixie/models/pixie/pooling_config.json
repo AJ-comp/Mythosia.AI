@@ -1,0 +1,5 @@
+{
+    "pooling_strategy": "max",
+    "activation_function": "relu",
+    "word_embedding_dimension": 50000
+}

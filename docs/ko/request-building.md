@@ -1,5 +1,7 @@
 # 요청마다 설정을 독립적으로 관리하기
 
+> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+
 문서 요약에는 낮은 Temperature가 필요하고 창작 초안에는 높은 값이 필요할 수 있습니다. 초안을 준비했다고 이미 준비한 요약 요청의 설정까지 바뀌어서는 안 됩니다. 호출마다 다른 설정이 필요하거나, 공통 요청에서 여러 변형을 만들 때 `CreateRequest`를 사용하세요.
 
 완성된 답변과 사용량·출처를 함께 받아야 한다면 `await run.Result`가 반환하는 `AIRunResult`를 사용하세요. 문자열은 `result.Text`에 있으며 스트림을 읽지 않아도 결과를 모읍니다. Mythosia.AI 8.0.0의 API 변경이며 `GetCompletionAsync`와 타입 지정 `StructuredStreamRun<T>.Result`의 반환형은 유지합니다. [Run 결과와 전환 안내](execution-api-transition.md#run-result).
@@ -110,3 +112,82 @@ string rewritten = await request.GetCompletionAsync();
 `GetCompletionAsync`와 기존 서비스 진입점은 계속 지원합니다. `BeginMessage()` / `MessageChain`은 기존의 변경 가능한 메시지 작성 방식을 유지하고 실행부는 새 요청 경로를 사용합니다. 설정을 분기하거나 재사용하려면 `CreateRequest`를 사용하세요. 빌더 API는 `AIService`와 해당 제공자 구현에 있으며 `IAIService`에 필수 멤버를 추가하지 않습니다. 추상화 인터페이스나 RAG 래퍼만 사용하는 코드는 기존 프로파일·컨텍스트와 실행 API를 계속 사용합니다.
 
 [공통 지원 정의로 모델별 기능 선택지 구성하기](model-capabilities.md).
+
+<a id="inference-speed"></a>
+
+## 작업에 맞게 처리 속도 선택하기
+
+고객이 화면에서 답을 기다리는 요청에는 유료 저지연 처리를 쓰고, 백그라운드 보고서는 일반 처리로 실행할 수 있습니다. `WithSpeed`는 모델과 추론 수준을 유지한 채 처리 모드를 선택합니다. 현재 미배포 기능으로 core와 abstractions의 이번 변경이 함께 필요하며, 게시된 8.0.0 / 4.0.0에는 포함되지 않습니다.
+
+`ProviderDefault`는 별도 덮어쓰기 없이 기존 서비스·공급자 설정을 따릅니다. 프로젝트 기본값이 이미 Fast일 수도 있습니다. `Standard`는 일반 처리를 명시적으로 요청합니다. `Fast`는 공급자의 유료 저지연 처리를 요청하므로 추가 비용이 발생할 수 있습니다. 반환된 빌더를 사용하세요. 아래 세 요청은 각자 설정을 가지며 원본 요청을 바꾸지 않습니다.
+
+```csharp
+using Mythosia.AI.Models;
+
+var basis = service.CreateRequest("Explain this report.");
+var providerDefault = basis.WithSpeed(InferenceSpeed.ProviderDefault);
+var standard = basis.WithSpeed(InferenceSpeed.Standard);
+var fast = basis.WithSpeed(InferenceSpeed.Fast);
+```
+
+선택지를 보여주기 전에 `GetSpeedSupport(InferenceSpeed.Fast)`를 확인합니다. `StandardSpeed`와 `FastSpeed`도 Supported·Unsupported·Unknown을 구분합니다. 로컬 Supported 결과가 계정 권한·서버 용량·지연시간을 보장하지는 않습니다. 미지원·불명인 Standard/Fast 요청은 실패하며 모델이나 추론 수준을 조용히 바꾸지 않습니다. 기존 경로를 유지하려면 `ProviderDefault`를 사용하세요.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
+
+var request = service.CreateRequest("Explain this report.")
+    .WithSpeed(InferenceSpeed.Fast);
+if (request.GetCapabilities().GetSpeedSupport(InferenceSpeed.Fast)
+    != CapabilitySupport.Supported)
+    throw new NotSupportedException("Fast processing is not supported here.");
+
+await using var run = await request.StartRunAsync();
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (AIProcessingInfo processing in result.Processing)
+{
+    Console.WriteLine($"{processing.RequestIndex}: {processing.RequestedSpeed} -> " +
+        $"{processing.AppliedSpeed?.ToString() ?? "unknown"}; " +
+        $"raw={processing.RawAppliedMode}; response={processing.ResponseId}; " +
+        $"downgraded={processing.IsDowngraded}");
+}
+```
+
+`AIRunResult.Processing`은 스트림을 읽지 않아도 불변 `AIProcessingInfo` 기록을 보존합니다. `RequestIndex`는 1부터 시작하는 공급자 추론 시도 번호이며 서버 continuation도 포함합니다. 도구 라운드 수나 HTTP 요청 수와는 다릅니다. 도구 후속 호출·재시도·형식 복구로 기록이 늘어날 수 있습니다. 실패한 시도를 포함해 서버가 인식 가능한 모드를 보고하지 않으면 `AppliedSpeed`는 null입니다. `RawAppliedMode`와 `ResponseId`에는 공급자가 보고한 원본 값이 남습니다. `IsDowngraded`는 Fast를 요청했는데 Standard 적용이 명시적으로 보고된 경우에만 true입니다. false만으로 Fast 적용을 확정하지 마세요.
+
+일반 completion에서는 호출 직후 `AIService.LastProcessing`을 확인합니다. 다음 논리적 요청이 실행되면 이 뷰는 교체되며, 이미 받은 기록은 불변입니다. 서비스 확장 메서드는 다음 논리적 요청과 그 도구 왕복에 적용되며 영구 기본값을 바꾸지 않습니다. 보조 요약·내부 질의 재작성·내부 프로필은 본 요청의 속도 덮어쓰기를 상속하거나 관측 기록에 섞이지 않습니다.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+string answer = await service
+    .WithSpeed(InferenceSpeed.Standard)
+    .GetCompletionAsync("Explain this report.");
+var processing = service.LastProcessing;
+```
+
+이 값은 공급자의 처리 모드이며 실제 초당 토큰 수 측정값이 아닙니다. OpenAI·xAI·Google 서버가 일반 처리로 낮출 수 있으며, Mythosia가 다른 속도로 자동 재호출하지는 않습니다. Anthropic fast mode는 권한이 있는 계정의 직접 Claude API에서 지원하며, 속도를 바꾸면 프롬프트 캐시 재사용이 무효화될 수 있습니다. Gemini Developer API priority는 Tier 2/3 자격이 필요합니다. 공통 메서드와 별도로 공급자·모델·API의 지원 및 요금 조건을 확인하세요. 이미지 생성·임베딩·네이티브 Batch API에는 이 설정을 적용하지 않습니다. [OpenAI](https://developers.openai.com/api/docs/guides/fast-mode) · [Anthropic](https://platform.claude.com/docs/en/build-with-claude/fast-mode) · [xAI](https://docs.x.ai/developers/advanced-api-usage/priority-processing) · [Gemini](https://ai.google.dev/gemini-api/docs/generate-content/priority-inference)
+
+`IAIService`로 참조한다면 `Mythosia.AI.Extensions`의 `GetLastProcessing()`을 사용하세요. 선택적 `IAIProcessingInfoService`를 읽으며 진단 기능이 없으면 빈 목록을 반환합니다. `IAIService`에 필수 멤버를 추가하지 않습니다. RAG에서는 `RagEnabledService.WithSpeed(...)`가 검색 후 작성하는 다음 답변에 적용되고 `LastProcessing`은 해당 답변의 처리 정보를 보여줍니다. 내부 질의 재작성은 분리하며 Run 결과에서도 같은 `Processing`을 읽습니다.
+
+이번 구현의 Fast 지원 목록은 아래와 같이 명시되어 있습니다. Standard 지원은 `GetSpeedSupport(InferenceSpeed.Standard)`로 별도로 확인하세요. 목록 밖 모델·서드파티 엔드포인트·OpenAI 호환 공급자가 유료 처리 기능을 자동으로 상속하지 않습니다.
+
+| API | Fast |
+| --- | --- |
+| Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
+| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
+| xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
+| Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |
+
+| API | `Standard` | `Fast` | `RawAppliedMode` |
+| --- | --- | --- | --- |
+| Anthropic — Opus 4.8 / 5 / 5.5 | `speed: "standard"` + `fast-mode-2026-02-01` | `speed: "fast"` + `fast-mode-2026-02-01` | `usage.speed` |
+| Anthropic — Sonnet 5를 포함한 나머지 등록 Claude 모델 | `speed`와 fast-mode beta 생략 | `Unsupported` | `usage.speed` |
+| OpenAI | `service_tier: "default"` | `service_tier: "fast"` | `service_tier` (`fast` / `priority` → Fast) |
+| xAI | `service_tier: "default"` | `service_tier: "priority"` | `service_tier` |
+| Google | `serviceTier: "standard"` | `serviceTier: "priority"` | `x-gemini-service-tier` / `usageMetadata.serviceTier` |
+
+나머지 Claude 모델의 Standard는 기존 일반 요청을 사용합니다. 서버가 처리 정보를 보고하지 않으면 `AppliedSpeed`는 null로 유지하며, 요청값만 보고 Standard가 적용되었다고 추정하지 않습니다.

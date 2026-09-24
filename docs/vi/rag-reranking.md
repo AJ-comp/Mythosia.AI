@@ -1,6 +1,8 @@
 # Reranking & Tinh chỉnh tìm kiếm
 
-> 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → Embedding → Lọc → [Truy xuất](rag-hybrid-search.md) → **`Reranking`** → Xây dựng context
+> 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → Lọc → Embedding (khi cần) → [Truy xuất](rag-hybrid-search.md) → **`Reranking`** → Xây dựng context
+
+Giai đoạn câu hỏi `Embedding` phụ thuộc bộ truy xuất; tìm từ khóa không báo giai đoạn này. Bộ tùy chỉnh có thể báo giai đoạn qua `request.ProgressAsync`. Embedding tài liệu không đổi.
 
 ## Tại sao cần Reranking?
 
@@ -24,6 +26,8 @@ Dùng AI service của bạn để chấm điểm kết quả. Hiệu quả như
     .AddDocument("corpus.txt")
 )
 ```
+
+Để câu hỏi và tài liệu của mỗi lần đánh giá không bị trộn với các lần đánh giá trước hoặc cuộc hội thoại của service, `LlmReranker` gửi một yêu cầu độc lập không dùng lịch sử cho mỗi lần đánh giá. Nó không đọc hay thêm nội dung vào lịch sử hội thoại. Cấu hình mặc định của service và mã gọi của bạn không thay đổi. Các lần đánh giá của các reranker dùng chung một AI service được xử lý tuần tự.
 
 ### Cohere Reranker
 
@@ -81,3 +85,5 @@ using Mythosia.AI.Rag;
 **`RerankerOnly`** là mặc định an toàn — phán đoán của reranker hoàn toàn thay thế điểm truy xuất ban đầu.
 
 **`WeightedBlend`** giữ tín hiệu truy xuất gốc trong khi tích hợp đánh giá của reranker. Hữu ích khi embedding vector của bạn đã có chất lượng cao và bạn muốn reranker đóng vai trò tiebreaker thay vì override hoàn toàn.
+
+Chế độ vector và từ khóa thuần giữ điểm gốc. Hybrid tùy chỉnh dùng RRF có trọng số chuẩn hóa kể cả một nhánh; trọng số vector 0 bỏ embedding câu hỏi. Điểm không phải xác suất. `WeightedBlend` trộn điểm truy xuất và reranker không hiệu chỉnh; nên dùng `RerankerOnly` cho tìm từ khóa chưa hiệu chỉnh điểm.

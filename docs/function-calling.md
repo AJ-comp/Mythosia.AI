@@ -1,5 +1,7 @@
 # Function Calling
 
+> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](providers.md#gpt-6-sol-luna).
+
 Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
 
 For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
@@ -303,7 +305,7 @@ var answer = await service.GetCompletionAsync(
     "Check the demo Seoul weather. While waiting, list three packing essentials.");
 ```
 
-Mythosia sends `async: true` for GPT-6 Astra through Responses. Unsupported models and APIs omit that field and wait for the same handler's result, leaving your `AllowAsync` setting unchanged. The provider must also return an async call (`FunctionCall.IsAsync`); enabling the permission does not guarantee async execution.
+Mythosia sends `async: true` for GPT-6 Astra / Sol / Luna through Responses. Unsupported models and APIs omit that field and wait for the same handler's result, leaving your `AllowAsync` setting unchanged. The provider must also return an async call (`FunctionCall.IsAsync`); enabling the permission does not guarantee async execution.
 
 `WithFunctionAsync` only accepts a .NET asynchronous handler, and `FunctionExecutionMode.Parallel` controls local handler scheduling. Neither enables this permission. `AllowAsync` lets the model continue before a function result arrives. `FunctionExecutionMode` still controls ordinary calls. Opted-in async jobs can overlap even in `Sequential` mode and share a separate pending-job limit set by `MaxConcurrency`.
 

@@ -32,6 +32,7 @@ namespace Mythosia.AI.Services.OpenAI
 
             ApplyModelSpecificParameters(requestBody);
             ApplyNativeRequestFeatures(requestBody);
+            ApplySpeedParameter(requestBody);
             return requestBody;
         }
 

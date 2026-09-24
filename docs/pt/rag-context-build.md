@@ -1,6 +1,8 @@
 # Construção de Contexto
 
-> 📍 **Pipeline de Pergunta e Resposta:** [Reescrita de Consulta](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → [Filtragem](rag-filtering.md) → [Recuperação](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → **`Construção de Contexto`**
+> 📍 **Pipeline de Pergunta e Resposta:** [Reescrita de Consulta](rag-query-rewriting.md) → [Filtragem](rag-filtering.md) → [Embedding (quando necessário)](rag-embedding.md) → [Recuperação](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → **`Construção de Contexto`**
+
+A etapa de consulta `Embedding` depende do recuperador; busca lexical não a reporta. Um recuperador personalizado pode reportar etapas por `request.ProgressAsync`. Embeddings de documentos permanecem iguais.
 
 ## O que é a Construção de Contexto?
 

@@ -85,7 +85,7 @@ var context = new AIRequestContext
 
 ### RequestMessageOverride
 
-完全替換本次請求的使用者訊息：
+`RequestMessageOverride` 只在傳送給模型時取代目前邏輯請求的最初輸入。對話歷史保留原始輸入，同一請求內後續的工具呼叫及其結果均保持不變：
 
 ```csharp
 var context = new AIRequestContext

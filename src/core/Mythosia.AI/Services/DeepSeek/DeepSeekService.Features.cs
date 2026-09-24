@@ -21,7 +21,7 @@ namespace Mythosia.AI.Services.DeepSeek
             // Request profiles are applied after common feature validation. Check this combination
             // at provider entry so DisableReasoning can make a named tool request valid.
             var options = GetEffectiveThinkingOptions(CurrentRequestFeatures);
-            if (ShouldUseFunctions && RequestFunctionCallMode != FunctionCallMode.None && options.ThinkingEnabled &&
+            if (!RequestUsesResponsesApi && ShouldUseFunctions && RequestFunctionCallMode != FunctionCallMode.None && options.ThinkingEnabled &&
                 !string.IsNullOrWhiteSpace(RequestForceFunctionName))
                 throw new NotSupportedException("DeepSeek thinking mode does not support a forced named tool. Disable thinking or use automatic tool selection.");
         }

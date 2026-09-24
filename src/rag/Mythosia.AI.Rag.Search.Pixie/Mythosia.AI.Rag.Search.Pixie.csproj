@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>true</IsPackable>
+    <PackageId>Mythosia.AI.Rag.Search.Pixie</PackageId>
+    <Version>0.1.0-preview</Version>
+    <Authors>JJW</Authors>
+    <Company>Mythosia</Company>
+    <Description>Local Korean and English neural sparse search for Mythosia RAG using a bundled, pinned PIXIE SPLADE model and ONNX Runtime. Runs without a Python server or API key.</Description>
+    <PackageTags>AI;RAG;Search;PIXIE;SPLADE;Sparse;Korean;ONNX</PackageTags>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag.Search.Pixie</PackageProjectUrl>
+    <PackageReleaseNotes>v0.1.0-preview adds local PIXIE neural sparse encoding and an experimental in-memory sparse/dense hybrid store. Includes the pinned model converted to 8-bit weights, tokenizer, provenance and license. No Python server or runtime download is required. The index is memory-only; this preview does not replace existing search defaults. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Search.Pixie/RELEASE_NOTES.md#v010-preview</PackageReleaseNotes>
+    <PackageLicenseExpression>MIT AND Apache-2.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.24.4" />
+    <ProjectReference Include="..\..\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
+    <InternalsVisibleTo Include="Mythosia.AI.Rag.Search.Pixie.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="/" />
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
+    <None Update="NOTICE.txt" Pack="true" PackagePath="/" />
+    <None Include="../../../LICENSE" Pack="true" PackagePath="/" />
+    <None Update="models\pixie\tokenizer.json;models\pixie\LICENSE;models\pixie\manifest.json;models\pixie\model.int8.onnx" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Pack="true" PackagePath="contentFiles/any/any/" PackageCopyToOutput="false" />
+    <None Update="buildTransitive/Mythosia.AI.Rag.Search.Pixie.targets" Pack="true" PackagePath="buildTransitive/Mythosia.AI.Rag.Search.Pixie.targets" />
+  </ItemGroup>
+  <!-- Ordinary builds and unit tests need no model download. A distributable package must
+       contain the exact assets tested by the runtime; an empty runtime-only package is invalid. -->
+  <Target Name="ValidatePixiePackageAssets" BeforeTargets="GenerateNuspec">
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)/models/pixie/model.int8.onnx') Or !Exists('$(MSBuildProjectDirectory)/models/pixie/tokenizer.json') Or !Exists('$(MSBuildProjectDirectory)/models/pixie/manifest.json') Or !Exists('$(MSBuildProjectDirectory)/models/pixie/LICENSE')"
+           Text="PIXIE package assets are missing. Run build/prepare-pixie-model.py before packing; weights are intentionally not stored in Git." />
+    <GetFileHash Files="$(MSBuildProjectDirectory)/models/pixie/model.int8.onnx" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_PixieModelHash" />
+    </GetFileHash>
+    <GetFileHash Files="$(MSBuildProjectDirectory)/models/pixie/tokenizer.json" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_PixieTokenizerHash" />
+    </GetFileHash>
+    <Error Condition="'%(_PixieModelHash.FileHash)' != 'DCF25F9FA452E61A48F5330A63A2AA68988DDAC5BFC574A59C338EF1CFF06E42'" Text="PIXIE model hash does not match the validated runtime model." />
+    <Error Condition="'%(_PixieTokenizerHash.FileHash)' != '36BDC1F1FE0135D10667322A493FD6A32EB93E8F4F68D09004EEB92F39FC8F25'" Text="PIXIE tokenizer hash does not match the validated runtime tokenizer." />
+  </Target>
+</Project>

@@ -14,6 +14,8 @@ namespace Mythosia.AI.Tests.Anthropic;
 public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 {
     private static string? apiKey;
+    private HttpClient? _contextDiagnosticClient;
+    public TestContext TestContext { get; set; } = null!;
     protected abstract string ModelToTest { get; }  // 추가: 각 구체 클래스에서 모델 지정
 
     [ClassInitialize(InheritanceBehavior.BeforeEachDerivedClass)]  // 상속 동작 추가
@@ -80,10 +82,20 @@ public abstract class AnthropicServiceTestsBase : AIServiceTestBase
 
     protected override AIService CreateAIService()
     {
-        var service = new AnthropicService(apiKey!, new HttpClient());
+        // Record only this fixture's synthetic, non-streaming context requests.
+        var http = TestContext.TestName == nameof(ContextManagementTest)
+            ? _contextDiagnosticClient = new HttpClient(new AnthropicContextDiagnosticHandler())
+            : new HttpClient();
+        var service = new AnthropicService(apiKey!, http);
         service.ChangeModel(ModelToTest);  // 변경: 추상 속성 사용
         Console.WriteLine($"[Testing Model] {ModelToTest}");  // 추가: 어떤 모델 테스트 중인지 로그
         return service;
+    }
+
+    public override void TestCleanup()
+    {
+        _contextDiagnosticClient?.Dispose();
+        base.TestCleanup();
     }
 
     protected override void ConfigureRequiredFunctionCall(string functionName)

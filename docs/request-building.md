@@ -1,5 +1,7 @@
 # Keep each request’s settings independent
 
+> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](providers.md#grok-47).
+
 A summary may need a low temperature, while a creative draft needs a higher one. Preparing the draft must not silently change the settings of a summary you already prepared. Use `CreateRequest` when different calls need different settings, or when you want to reuse a base request with several variations.
 
 Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](execution-api-transition.md#run-result).
@@ -110,3 +112,82 @@ A builder is not a separate conversation. The service’s active conversation at
 `GetCompletionAsync` remains supported, as do the existing service entry points. `BeginMessage()` / `MessageChain` retain their mutable message-construction behavior, while their execution uses the request path. Use `CreateRequest` when branching and reusing settings. The builder API belongs to `AIService` and its provider implementations; no member is added to `IAIService`. An abstraction-only or RAG wrapper caller keeps its existing profile/context and execution APIs.
 
 [Choose model controls using shared capability definitions](model-capabilities.md).
+
+<a id="inference-speed"></a>
+
+## Choose processing speed for the current task
+
+A customer waiting for an answer may justify premium low-latency processing, while a background report can use ordinary processing. `WithSpeed` selects that processing mode while keeping the same model and reasoning effort. This is an unreleased addition requiring the matching core and abstractions changes; published 8.0.0 / 4.0.0 packages do not contain it.
+
+`ProviderDefault` adds no override and preserves existing service/provider settings; a project default may already be Fast. `Standard` explicitly requests ordinary processing. `Fast` opts into the provider’s premium low-latency mode and can incur additional charges. Keep each returned builder: the three branches below are independent, and the base request is unchanged.
+
+```csharp
+using Mythosia.AI.Models;
+
+var basis = service.CreateRequest("Explain this report.");
+var providerDefault = basis.WithSpeed(InferenceSpeed.ProviderDefault);
+var standard = basis.WithSpeed(InferenceSpeed.Standard);
+var fast = basis.WithSpeed(InferenceSpeed.Fast);
+```
+
+Inspect `GetSpeedSupport(InferenceSpeed.Fast)` before offering the option. `StandardSpeed` and `FastSpeed` also expose Supported, Unsupported or Unknown. A local Supported result does not verify account entitlement, capacity or a latency guarantee. Explicit Standard/Fast requests with unsupported or unknown support fail rather than silently changing model or effort. Use `ProviderDefault` to keep the existing route.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
+
+var request = service.CreateRequest("Explain this report.")
+    .WithSpeed(InferenceSpeed.Fast);
+if (request.GetCapabilities().GetSpeedSupport(InferenceSpeed.Fast)
+    != CapabilitySupport.Supported)
+    throw new NotSupportedException("Fast processing is not supported here.");
+
+await using var run = await request.StartRunAsync();
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (AIProcessingInfo processing in result.Processing)
+{
+    Console.WriteLine($"{processing.RequestIndex}: {processing.RequestedSpeed} -> " +
+        $"{processing.AppliedSpeed?.ToString() ?? "unknown"}; " +
+        $"raw={processing.RawAppliedMode}; response={processing.ResponseId}; " +
+        $"downgraded={processing.IsDowngraded}");
+}
+```
+
+`AIRunResult.Processing` retains immutable `AIProcessingInfo` records even when no stream is read. `RequestIndex` starts at 1 and identifies provider inference attempts, including server continuations; it is neither a tool-round counter nor an HTTP-request count. Tool follow-ups, retries and format repairs can create additional records. `AppliedSpeed` is null when the server reports no recognized mode, including failed attempts. `RawAppliedMode` and `ResponseId` retain supplied attribution. `IsDowngraded` is true only for requested Fast explicitly reported as Standard; false does not establish that Fast was applied.
+
+For an ordinary completion, inspect `AIService.LastProcessing` immediately after the call; a later logical request replaces that view. Captured records remain immutable. The service extension configures the next logical request, including its tool rounds; it does not set a permanent default. Auxiliary summaries, internal query rewriting and internal profiles do not inherit the main request’s speed override or mix their observations into its records.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+string answer = await service
+    .WithSpeed(InferenceSpeed.Standard)
+    .GetCompletionAsync("Explain this report.");
+var processing = service.LastProcessing;
+```
+
+These fields report the provider’s processing mode, not measured tokens per second. OpenAI, xAI and Google may downgrade on the server; Mythosia does not automatically retry at a different speed. Anthropic fast mode requires access and is limited to the direct Claude API; switching speed can invalidate prompt-cache reuse. Gemini Developer API priority requires Tier 2/3 eligibility. Provider/model/API support and pricing remain separate from the common method. This option does not configure image generation, embeddings or native Batch APIs. [OpenAI](https://developers.openai.com/api/docs/guides/fast-mode) · [Anthropic](https://platform.claude.com/docs/en/build-with-claude/fast-mode) · [xAI](https://docs.x.ai/developers/advanced-api-usage/priority-processing) · [Gemini](https://ai.google.dev/gemini-api/docs/generate-content/priority-inference)
+
+When you hold an `IAIService`, use `GetLastProcessing()` from `Mythosia.AI.Extensions`; it reads the optional `IAIProcessingInfoService` and returns an empty list when diagnostics are unavailable. `IAIService` gains no required member. For RAG, `RagEnabledService.WithSpeed(...)` configures the next answer after retrieval, and `LastProcessing` describes that answer; internal query rewriting remains separate. Run results expose the same `Processing` records.
+
+The Fast allowlist implemented here is explicit. Check Standard support separately with `GetSpeedSupport(InferenceSpeed.Standard)`. Unlisted models, third-party endpoints and OpenAI-compatible providers do not automatically inherit paid processing support.
+
+| API | Fast |
+| --- | --- |
+| Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
+| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
+| xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
+| Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |
+
+| API | `Standard` | `Fast` | `RawAppliedMode` |
+| --- | --- | --- | --- |
+| Anthropic — Opus 4.8 / 5 / 5.5 | `speed: "standard"` + `fast-mode-2026-02-01` | `speed: "fast"` + `fast-mode-2026-02-01` | `usage.speed` |
+| Anthropic — other known Claude models, including Sonnet 5 | `speed` and fast-mode beta omitted | `Unsupported` | `usage.speed` |
+| OpenAI | `service_tier: "default"` | `service_tier: "fast"` | `service_tier` (`fast` / `priority` → Fast) |
+| xAI | `service_tier: "default"` | `service_tier: "priority"` | `service_tier` |
+| Google | `serviceTier: "standard"` | `serviceTier: "priority"` | `x-gemini-service-tier` / `usageMetadata.serviceTier` |
+
+For these other Claude models, Standard uses the existing ordinary request. If the server omits processing metadata, `AppliedSpeed` remains null; the library does not infer Standard from the request.

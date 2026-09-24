@@ -195,11 +195,12 @@ namespace Mythosia.AI.Services.Base
             ValidateFeatureValues(features);
             var execution = new RequestFeatureExecution(features, input, CloneProviderRequestOptions(request.ProviderOptions));
             var scope = UseRequestFeatureExecution(execution);
+            _lastFeatureExecution = execution;
             try
             {
                 ValidateProviderRequestOptions(execution.ProviderOptions, input);
+                ValidateRequestSpeed(features);
                 ValidateRequestFeatures(features);
-                _lastFeatureExecution = execution;
                 return scope;
             }
             catch { scope.Dispose(); throw; }

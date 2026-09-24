@@ -1,5 +1,7 @@
 # Controlar tarefas de IA em andamento com Run
 
+> GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
+
 Para uma resposta final com botão Parar, passe `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progresso ou instruções adicionais suportadas. Consulte [cancelamento](completions.md#completion-cancellation).
 
 Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
@@ -7,6 +9,8 @@ Para configurações independentes e variações reutilizáveis, use o [builder 
 > Para receber resposta, uso e fontes juntos, `await run.Result` retorna um `AIRunResult` com o estado final. A string fica em `result.Text`, sem ler o fluxo. É uma mudança de Mythosia.AI 8.0.0; `GetCompletionAsync` e `StructuredStreamRun<T>.Result` mantêm seus tipos de retorno. [Resultado Run e migração](#run-result).
 
 > Os exemplos com `CreateRequest` exigem Mythosia.AI 8.0.0 / Abstractions 4.0.0. A versão 7.1 que introduziu Run e as opções comuns não inclui o builder. Pacotes anteriores podem usar as sobrecargas do serviço.
+
+Para pedidos sensíveis ao tempo de espera, escolha a [velocidade de processamento](request-building.md#inference-speed). `WithSpeed` mantém modelo e esforço; `Processing` informa o modo aplicado. Fast é pago nas combinações suportadas.
 
 ## Por que controlar uma tarefa durante a execução?
 
@@ -193,9 +197,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-As instruções durante a resposta estão disponíveis para GPT-6 Astra pela conexão WebSocket da Responses. Outros provedores e modelos sem suporte podem executar runs normais, mas `CanSteer` é false e a tentativa de enviar instruções informa a falta de suporte, em vez de criar silenciosamente um próximo turno comum. `CanSteer` não garante que o run ainda estará ativo quando uma chamada posterior for feita.
+As instruções durante a resposta estão disponíveis para GPT-6 Astra / Sol / Luna pela conexão WebSocket da Responses. Outros provedores e modelos sem suporte podem executar runs normais, mas `CanSteer` é false e a tentativa de enviar instruções informa a falta de suporte, em vez de criar silenciosamente um próximo turno comum. `CanSteer` não garante que o run ainda estará ativo quando uma chamada posterior for feita.
 
-Os runs de Astra abrem um socket dedicado. O `HttpClient` fornecido e seus handlers de mensagens continuam atendendo às chamadas HTTP e não interceptam esse socket. Transportes personalizados podem sobrescrever `OpenAIService.ConnectRunWebSocketAsync`.
+Os runs de GPT-6 abrem um socket dedicado. O `HttpClient` fornecido e seus handlers de mensagens continuam atendendo às chamadas HTTP e não interceptam esse socket. Transportes personalizados podem sobrescrever `OpenAIService.ConnectRunWebSocketAsync`.
 
 O sucesso de `SteerAsync` significa que o servidor aceitou a entrada na fila, não que o modelo já a aplicou. Continue observando o mesmo run ou aguardando seu resultado durante a continuação. O texto já entregue e as ações concluídas não são desfeitos, e ferramentas iniciadas não são canceladas apenas porque uma nova instrução foi enviada. A biblioteca gerencia a continuação e a associação dos resultados de ferramentas na mesma conexão. Consulte o [guia de instruções durante a resposta](https://developers.openai.com/api/docs/guides/steering) e o [modo WebSocket](https://developers.openai.com/api/docs/guides/websocket-mode) da OpenAI. Não presuma que entradas em espera vinculadas à conexão sobrevivam a uma desconexão, nem reenvie sem verificar uma instrução já aceita.
 

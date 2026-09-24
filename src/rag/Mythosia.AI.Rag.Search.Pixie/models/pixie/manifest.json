@@ -1,0 +1,34 @@
+{
+  "model": "telepix/PIXIE-Splade-v1.0",
+  "revision": "730b515a74727b5f57f031a4c8108743b99e689f",
+  "license": "Apache-2.0",
+  "upstreamOnnxSha256": "d887920f8bb98b0367942e169b29e74eb57dd83386ab2ca6479cd85617eee10e",
+  "modelFile": "model.int8.onnx",
+  "modelSha256": "dcf25f9fa452e61a48f5330a63a2aa68988ddac5bfc574a59c338ef1cff06e42",
+  "modelBytes": 189928604,
+  "tokenizerSha256": "36bdc1f1fe0135d10667322a493fd6a32eb93e8f4f68d09004eeb92f39fc8f25",
+  "quantization": {
+    "method": "onnxruntime.quantize_dynamic",
+    "weightType": "QUInt8",
+    "perChannel": true,
+    "operators": [
+      "MatMul",
+      "Gather"
+    ]
+  },
+  "tools": {
+    "onnx": "1.20.1",
+    "onnxruntime": "1.24.4",
+    "numpy": "2.5.3",
+    "protobuf": "7.36.2"
+  },
+  "vocabularySize": 50000,
+  "inputNames": [
+    "input_ids",
+    "attention_mask"
+  ],
+  "output": "logits [batch, sequence, 50000]",
+  "pooling": "max(log(1 + relu(logits)), sequence); exclude special token IDs",
+  "tokenizer": "NFC, case-preserving BertPreTokenizer, WordPiece, <s>/</s> boundaries",
+  "notice": "Derived quantized weights; original upstream benchmark scores do not measure this artifact."
+}

@@ -44,6 +44,7 @@ namespace Mythosia.AI.Services.Anthropic
             ApplyClaudeRequestOptions(requestBody);
             ApplyTemperaturePolicy(requestBody);
             ApplyNativeClaudeTools(requestBody);
+            ApplyClaudeSpeed(requestBody);
 
             return requestBody;
         }
@@ -52,7 +53,11 @@ namespace Mythosia.AI.Services.Anthropic
         {
             if (message.Role == ActorRole.Assistant &&
                 message.Metadata?.TryGetValue(ClaudeNativeContentKey, out var nativeContent) == true)
-                return new { role = "assistant", content = JsonSerializer.Deserialize<JsonElement>(nativeContent.ToString()!) };
+            {
+                var blocks = JsonSerializer.Deserialize<JsonElement>(nativeContent.ToString()!);
+                ValidatePreservedClaudeAssistantText(message, blocks);
+                return new { role = "assistant", content = blocks };
+            }
             var role = message.Role.ToDescription();
 
             if (!message.HasMultimodalContent)
@@ -79,6 +84,27 @@ namespace Mythosia.AI.Services.Anthropic
                 role,
                 content = contentArray
             };
+        }
+
+        private void ValidatePreservedClaudeAssistantText(Message message, JsonElement blocks)
+        {
+            if (!IsClaudeOpus55Model()) return;
+            var originalText = string.Concat(blocks.EnumerateArray()
+                .Where(block => ReadClaudeString(block, "type") == "text")
+                .Select(block => ReadClaudeString(block, "text")));
+            // Signed content is opaque. Reconstructing it after an assistant edit can
+            // change block ordering, citations or tool results; replaying it silently
+            // would ignore the edit. Require a new correction message instead.
+            var contentText = message.Contents.Count > 0
+                ? string.Concat(message.Contents.OfType<TextContent>().Select(content => content.Text))
+                : message.Content;
+            if (!string.Equals(message.Content, originalText, StringComparison.Ordinal) ||
+                !string.Equals(contentText, originalText, StringComparison.Ordinal) ||
+                message.Contents.Any(content => !(content is TextContent)))
+                throw new InvalidOperationException(
+                    "A preserved Claude Opus 5.5 assistant response was edited. " +
+                    "Restore the original response and send the correction as a new user message, " +
+                    "or start a new conversation; signed assistant blocks must remain unchanged.");
         }
 
         private object ConvertImageForClaude(ImageContent imageContent)

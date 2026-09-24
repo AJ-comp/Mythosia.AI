@@ -1,6 +1,8 @@
 # Re-ranking & réglage de la récupération
 
-> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → Embedding → Filtrage → [Recherche](rag-hybrid-search.md) → **`Re-ranking`** → Construction du contexte
+> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → Filtrage → Embedding (si nécessaire) → [Recherche](rag-hybrid-search.md) → **`Re-ranking`** → Construction du contexte
+
+L’étape de requête `Embedding` dépend désormais du moteur ; la recherche lexicale ne la signale pas. Un moteur personnalisé peut signaler ses étapes via `request.ProgressAsync`. Les embeddings des documents ne changent pas.
 
 ## Pourquoi le re-ranking ?
 
@@ -24,6 +26,8 @@ Utilise votre service IA pour noter les résultats. Efficace mais ajoute de la l
     .AddDocument("corpus.txt")
 )
 ```
+
+Pour éviter de mélanger la question et les documents de chaque évaluation avec les évaluations précédentes ou la conversation du service, `LlmReranker` utilise une requête sans état à chaque évaluation. Il ne lit pas l’historique de conversation et n’y ajoute aucun contenu. Les paramètres par défaut du service et votre code d’appel restent inchangés. Les évaluations des re-classeurs qui partagent le même service IA sont traitées les unes après les autres.
 
 ### Cohere Reranker
 
@@ -81,3 +85,5 @@ using Mythosia.AI.Rag;
 **`RerankerOnly`** est la valeur sûre par défaut — le jugement du re-classeur remplace complètement le score de récupération initial.
 
 **`WeightedBlend`** préserve le signal de récupération original tout en intégrant le jugement du re-classeur. Utile quand vos embeddings vectoriels sont déjà de haute qualité et que vous voulez que le re-classeur joue le rôle d'arbitre plutôt que de tout écraser.
+
+Les modes vectoriel et lexical purs gardent leurs scores natifs. Le mode hybride configurable utilise un RRF pondéré normalisé même avec une seule branche ; un poids vectoriel nul évite l’embedding de requête. Ces scores ne sont pas des probabilités. `WeightedBlend` mélange les scores sans calibration ; préférez `RerankerOnly` pour le lexical sans calibration préalable.

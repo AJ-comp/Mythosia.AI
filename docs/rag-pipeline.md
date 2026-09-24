@@ -1,5 +1,105 @@
 # RAG Pipeline Customization
 
+<a id="indexing-validation"></a>
+
+## Protect existing documents when indexing fails
+
+An invalid custom splitter or embedding response must not silently replace a searchable document with incomplete or mismatched content. The pipeline checks each document before it starts persistence, including when you use `onDocumentEmbedded`.
+
+Before embedding, storage or the persistence callback, a null, empty or whitespace-only `RagDocument.Id` throws `ArgumentException`. Invalid splitter output throws `InvalidOperationException`: a null chunk list or chunk, null `Content` or `Metadata`, a blank chunk ID, or repeated chunk IDs within that document. Duplicate IDs use `StringComparer.Ordinal` (case-sensitive). Chunk values and metadata are copied before the first embedding call.
+
+Valid custom IDs are retained exactly as supplied. There is no automatic ID generation, trimming or repair, and collisions between custom chunk IDs belonging to different documents are not detected globally. Use IDs that are unique in the target collection, such as the [custom splitter example](text-splitters.md). The reserved `document_id` is normalized only on the copy used for storage; source metadata remains unchanged.
+
+Invalid IDs, splitter failures and invalid embedding batches leave that document's previous records intact and do not invoke the persistence callback. All of its batches must pass [embedding validation](rag-embedding.md#embedding-validation) before storage starts. This does not roll back documents already completed earlier in the operation; rollback after storage starts depends on the store or callback.
+
+These checks and response-order corrections do not automatically recover content already overwritten or previously stored vectors paired with the wrong chunks; reindex affected documents from their original sources.
+
+<a id="custom-persistence"></a>
+
+## Replace a whole document in a persistence callback
+
+When a document becomes shorter, upserting its new chunks alone leaves old tail chunks searchable. `onDocumentEmbedded` completely replaces default persistence, so use the normalized `document_id` supplied in the records to replace the entire document. The callback receives one validated nonempty document at a time:
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
+var store = await RagStore.BuildAsync(config => config
+    .AddDocuments("./docs/")
+    .UseOpenAIEmbedding(apiKey)
+    .UseStore(vectorStore),
+    onDocumentEmbedded: async records =>
+    {
+        var documentId = records[0].Metadata["document_id"];
+        await vectorStore.ReplaceByFilterAsync(
+            new VectorFilter().Where("document_id", documentId), records, cancellationToken);
+    },
+    cancellationToken: cancellationToken);
+```
+
+A successful zero-chunk split does not invoke this callback or access the default store. Explicitly delete that known document ID from your own store; use `DeleteDocumentAsync` only when targeting the pipeline's store. Replacement atomicity and rollback depend on the chosen store or callback.
+
+<a id="url-documents"></a>
+
+## Read URL documents safely
+
+A server may compress a text document for transport. `AddUrl` decodes `gzip`, `deflate` and Brotli (`br`) before reading text and checks that the compressed stream is complete. A successful HTTP transfer is not enough: truncated compressed data, decompression errors or failed checksum checks in formats that provide a checksum abort loading before embedding or persistence, preserving that document's previous records. Unsupported or stacked `Content-Encoding` values are also rejected before embedding or persistence.
+
+Pass `cancellationToken` to `RagStore.BuildAsync` to stop waiting for a slow URL document. The token reaches the HTTP request, response-body reading and decompression. Cancellation is cooperative and does not undo previously completed document writes.
+
+<a id="custom-retriever"></a>
+
+## Connect a retriever without mandatory embeddings
+
+Product codes often benefit from keyword search, while questions worded differently from the document benefit from semantic search. The selected retriever now prepares only what its search needs; keyword retrieval no longer requires a query embedding first.
+
+- Before: every retrieval strategy received a query embedding.
+- After: the selected retriever prepares only the representation it needs.
+
+Implement `IRagRetriever` for an external index or another query representation. `RagRetrievalRequest` carries `Query` (the full semantic query), nullable `TextQuery` (a lexical override), `TopK`, `Filter` and `ProgressAsync`. Built-in retrievers use `Query` when `TextQuery` is null; an empty text override skips the text leg. Custom retrievers own query preparation and must apply the filter, result limit and cancellation.
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+public sealed class CatalogRetriever : IRagRetriever
+{
+    private readonly ITextSearchStore _catalog;
+    public CatalogRetriever(ITextSearchStore catalog) => _catalog = catalog;
+
+    public Task<IReadOnlyList<VectorSearchResult>> RetrieveAsync(
+        RagRetrievalRequest request,
+        CancellationToken cancellationToken = default)
+        => _catalog.TextSearchAsync(
+            request.TextQuery ?? request.Query,
+            request.TopK,
+            request.Filter,
+            cancellationToken);
+}
+```
+
+```csharp
+// catalog: an existing ITextSearchStore
+var service = new OpenAIService(apiKey, http)
+    .WithRag(rag => rag.UseRetriever(new CatalogRetriever(catalog)));
+```
+
+Register with `UseRetriever(...)` or `RagPipeline.SetRetriever(...)`. Existing `IRetrievalStrategy` and `SetRetrievalStrategy(...)` remain available through an adapter that still creates query embeddings. Returned records need the content and metadata used by reranking and context assembly.
+
+```csharp
+store.UpdateRetriever(new CatalogRetriever(catalog));
+store.UseKeywordSearch();
+store.UpdateRetrievalStrategy(new HybridSearchOptions { VectorWeight = 0.7f });
+store.UpdateRetriever(null); // UseVectorSearch
+```
+
+`UseKeywordSearch()` skips query embeddings. Document ingestion still splits and embeds chunks for the existing vector store; this is not a text-only indexing API. Lazy initialization can therefore still call document embeddings on the first question.
+
+The query’s `Embedding` stage now depends on the retriever; keyword retrieval does not report it. Custom retrievers can report relevant stages through `request.ProgressAsync`. Document embeddings are unchanged.
+
 ## Why Customize the Pipeline?
 
 The default RAG pipeline works well out of the box, but real-world projects often need more control:
@@ -23,7 +123,7 @@ var options = new RagQueryOptions
     ProgressAsync = async stage =>
     {
         Console.WriteLine($"[RAG] {stage}");
-        // Stages: QueryRewrite, Embedding, Filtering, Retrieval, Reranking, ContextBuild
+        // Stages: QueryRewrite, Filtering, Embedding, Retrieval, Reranking, ContextBuild
     }
 };
 
@@ -97,7 +197,7 @@ When you call `.WithRag()`, a `RagEnabledService` wrapper is created around your
 ragService.GetCompletionAsync("What is the return policy?")
     ↓
 ① RagEnabledService executes the RAG pipeline
-   Query rewrite → Embedding → Retrieval → Context assembly
+   Query rewrite → Filtering → Embedding (when needed) → Retrieval → Context assembly
     ↓
 ② TemplateContextBuilder replaces {context} and {question}
    → "Answer using the following info.\n[1] Returns within 30 days...\nQuestion: What is the return policy?"
@@ -109,7 +209,7 @@ ragService.GetCompletionAsync("What is the return policy?")
    → AIService stores context in AsyncLocal
    → Original question is added to conversation history
     ↓
-⑤ AIService.GetLatestMessages() replaces the last message
+⑤ AIService.GetLatestMessages() replaces the initial input of the current request
    Conversation history: "What is the return policy?" (original preserved)
    What the model sees: assembled prompt (RequestMessageOverride)
 ```
@@ -129,22 +229,28 @@ This is the real-world use case of `RequestMessageOverride` described in the [AI
 Here's the core code inside `RagEnabledService` where this connection happens:
 
 ```csharp
-// Inside RagEnabledService.GetCompletionAsync
 var processed = await RewriteAndProcessAsync(query, options, cancellationToken);
+var original = new Message(ActorRole.User, query);
 return await _innerService.GetCompletionAsync(
-    new Message(ActorRole.User, query),         // ← original question (saved in history)
-    context: BuildRequestContext(processed));    // ← assembled prompt (only the model sees this)
+    original,
+    context: BuildRequestContext(processed, original),
+    cancellationToken: cancellationToken);
 
-// BuildRequestContext — creates the AIRequestContext
-private static AIRequestContext BuildRequestContext(RagProcessedQuery processed)
+private static AIRequestContext BuildRequestContext(RagProcessedQuery processed, Message original)
 {
-    return new AIRequestContext
+    var requestMessage = original.Clone();
+    requestMessage.Content = processed.RequestMessageContent;
+    if (original.HasMultimodalContent)
     {
-        RequestMessageOverride = new Message(
-            ActorRole.User,
-            processed.RequestMessageContent)  // ← output of TemplateContextBuilder
-    };
+        requestMessage.Contents = new List<MessageContent>
+        {
+            new TextContent(processed.RequestMessageContent)
+        };
+        requestMessage.Contents.AddRange(
+            original.Contents.Where(content => !(content is TextContent)));
+    }
+    return new AIRequestContext { RequestMessageOverride = requestMessage };
 }
 ```
 
-`AIService` stores this context in `AsyncLocal`, and `GetLatestMessages()` replaces the last message with the `RequestMessageOverride`. After the request completes, the context is automatically restored, ensuring no impact on subsequent requests.
+`AIService` stores the context in `AsyncLocal`. `GetLatestMessages()` applies `RequestMessageOverride` to the initial input of the current logical request, preserving later assistant tool calls and tool results. This keeps retrieved documents and tool outputs together in subsequent model requests. After completion, the previous context is restored.

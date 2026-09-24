@@ -2,6 +2,14 @@
 
 ドキュメントローダーはファイルを構造化された`DoclingDocument`オブジェクトに解析し、RAGパイプラインに渡すことができます。
 
+<a id="file-source-identity"></a>
+
+## 登録パスが異なっても同じファイルを更新する
+
+同じファイルを相対パスと絶対パスで登録しても一つの文書を更新し、別フォルダーの同名ファイルは区別する必要があります。`WordDocumentLoader`、`ExcelDocumentLoader`、`PowerPointDocumentLoader`、`PdfDocumentLoader` は、標準 TXT ローダーと同様に `DoclingDocument.Source` を正規化した絶対ファイルパスに設定します。RAG の自動文書 ID はこの値から生成され、明示的な ID は呼び出し側が管理します。既定の出典表示に絶対パスが現れる場合があります。
+
+相対パス ID で保存済みのレコードは自動移行・削除されません。以前の文書 ID を確認して対象ストアからその文書だけを明示的に削除し、再インデックスしてください。または、新しい空のコレクションに全原本をインデックスし、検証後にアプリケーションを切り替えてください。既存コレクションで新しい絶対パス ID だけを登録しても旧レコードは残ります。無関係な文書は削除しないでください。[文書 ID と移行](rag.md#document-identity)を参照してください。
+
 ## インストール
 
 OfficeとPDFローダーは`Mythosia.AI.Rag`に含まれます。単独使用する場合:
@@ -169,14 +177,14 @@ foreach (var item in doc.Document)
 
 ## ドキュメントローダーとテキストスプリッターの連携
 
-Office/HWPドキュメントには`MarkdownTextSplitter`が最も効果的です：
+Markdownの見出し・コードブロック・表の行を維持するには `MarkdownTextSplitter` を使用します。overlap引数はありません。繰り返す見出しは本文予算の外であり、コード全体や表ヘッダーと1行は上限を超える場合があります。厳密なトークン上限は最終チャンクをモデルのトークナイザーで検証してください。[テキストスプリッター](text-splitters.md)を参照してください。
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter`はテーブルを行単位で分割し、各チャンクにヘッダーを自動的に含めるため、検索結果でもテーブルデータが完全な形で返されます。詳細は[テキストスプリッター](text-splitters.md)を参照してください。
+認識したGFM表は行の間で分割し、各表チャンクにヘッダーと区切り行を繰り返します。外側のパイプを省略した `Name | Value` 形式も扱います。列名を維持する機能であり、検索品質は文書・埋め込み・質問によって変わります。

@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "description": "Deterministic smoke baseline with actual chunk content included in compatibility checks. Metrics unchanged after the chunking fix. Regenerate only after reviewing changed rankings and dataset/metric changes. This is not a model quality benchmark.",
+  "datasetId": "smoke",
+  "datasetVersion": "1",
+  "metricsBaseline": {
+    "compatibilityFingerprint": "76055ae52cf76f008f1034c55be9f62c75f833d5fbf967e7dd1681f085a064de",
+    "methods": {
+      "bm25": {
+        "caseCount": 10,
+        "answerableCaseCount": 8,
+        "noAnswerCaseCount": 2,
+        "recallAtK": 1,
+        "mrrAtK": 1,
+        "ndcgAtK": 1,
+        "hitAtK": 1,
+        "noAnswerFalsePositiveRate": 0
+      },
+      "dense": {
+        "caseCount": 10,
+        "answerableCaseCount": 8,
+        "noAnswerCaseCount": 2,
+        "recallAtK": 1,
+        "mrrAtK": 1,
+        "ndcgAtK": 1,
+        "hitAtK": 1,
+        "noAnswerFalsePositiveRate": 0.5
+      },
+      "hybrid-bm25": {
+        "caseCount": 10,
+        "answerableCaseCount": 8,
+        "noAnswerCaseCount": 2,
+        "recallAtK": 1,
+        "mrrAtK": 1,
+        "ndcgAtK": 1,
+        "hitAtK": 1,
+        "noAnswerFalsePositiveRate": 0.5
+      }
+    }
+  }
+}

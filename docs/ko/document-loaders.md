@@ -2,6 +2,14 @@
 
 문서 로더는 파일을 구조화된 `DoclingDocument` 객체로 파싱하며, 이를 RAG 파이프라인에 전달할 수 있습니다.
 
+<a id="file-source-identity"></a>
+
+## 같은 파일의 등록 경로가 달라도 문서 ID 유지하기
+
+같은 파일을 상대 경로와 절대 경로로 등록해도 하나의 문서를 갱신해야 하고, 폴더가 다른 동명 파일은 구분해야 합니다. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader`, `PdfDocumentLoader`는 TXT 기본 로더처럼 `DoclingDocument.Source`에 정규화된 절대 파일 경로를 넣습니다. RAG는 이 값에서 자동 문서 ID를 만들며, 명시적으로 지정한 ID는 호출자가 관리합니다. 기본 출처 표시에 절대 경로가 나타날 수 있습니다.
+
+기존 상대 경로 ID로 저장한 레코드는 자동 이전·삭제하지 않습니다. 이전 문서 ID를 확인해 해당 저장소에서 그 문서만 명시적으로 삭제한 뒤 다시 색인하세요. 또는 새 빈 컬렉션에 전체 원본을 색인하고 검증한 뒤 애플리케이션을 전환하세요. 기존 컬렉션에 새 절대 경로 ID로만 재색인하면 옛 레코드는 남습니다. 관련 없는 다른 문서는 삭제하지 마세요. [문서 ID와 이전 안내](rag.md#document-identity)를 참고하세요.
+
 ## 설치
 
 Office 및 PDF 로더는 `Mythosia.AI.Rag`에 포함됩니다. 독립적으로 사용하려면:
@@ -169,17 +177,17 @@ foreach (var item in doc.Document)
 
 ## 문서 로더와 텍스트 분할기 연계
 
-Office/HWP 문서에는 `MarkdownTextSplitter`를 사용하는 것이 가장 효과적입니다:
+Markdown 제목, 코드 블록, 표의 행을 유지하려면 `MarkdownTextSplitter`를 사용하세요. overlap 인자는 없습니다. 반복 제목은 본문 예산에서 제외되며, 코드 블록 전체나 표 헤더와 한 행은 상한을 넘길 수 있습니다. 엄격한 토큰 제한은 최종 청크를 임베딩 모델의 토크나이저로 검사하세요. [텍스트 분할기](text-splitters.md)에 동작과 제한을 정리했습니다.
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter`는 테이블을 행 단위로 분할하고 각 청크에 헤더를 자동 포함하므로, 검색 결과에서도 테이블 데이터가 온전한 형태로 반환됩니다. 자세한 내용은 [텍스트 분할기](text-splitters.md) 문서를 참고하세요.
+인식한 GFM 표는 행 사이에서 나누고 각 표 청크에 헤더와 구분 행을 반복합니다. 바깥쪽 파이프가 없는 `Name | Value` 형식도 지원합니다. 열 이름을 유지하는 기능이며, 검색 품질 자체는 문서·임베딩·질문에 따라 달라집니다.
 
 ---
 

@@ -1,5 +1,7 @@
 # 函式呼叫
 
+> GPT-6 Sol/Luna 是尚未發布的新增功能。參見[模型選擇與版本需求](providers.md#gpt-6-sol-luna)。
+
 只需完整答案和停止按鈕時，將 `cancellationToken` 傳給 `GetCompletionAsync`。進度事件或支援的中途追加指令使用 Run。參閱[取消回答](completions.md#completion-cancellation)。
 
 若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
@@ -282,7 +284,7 @@ var answer = await service.GetCompletionAsync(
     "查詢首爾的範例天氣。等待時請介紹三件旅行必備物品。");
 ```
 
-Mythosia 在 GPT-6 Astra 的 Responses API 中傳送 `async: true`。對於不支援的模型和 API，會省略此欄位並等待同一個處理常式的結果，不會變更使用者設定的 `AllowAsync` 值。供應商也必須將實際呼叫標示為非同步（`FunctionCall.IsAsync`）；開啟許可不代表一定會以非同步方式執行。
+Mythosia 在 GPT-6 Astra / Sol / Luna 的 Responses API 中傳送 `async: true`。對於不支援的模型和 API，會省略此欄位並等待同一個處理常式的結果，不會變更使用者設定的 `AllowAsync` 值。供應商也必須將實際呼叫標示為非同步（`FunctionCall.IsAsync`）；開啟許可不代表一定會以非同步方式執行。
 
 `WithFunctionAsync` 用於註冊 .NET 非同步處理常式，`FunctionExecutionMode.Parallel` 控制本機處理常式的排程，兩者都不會自動開啟此選項。`AllowAsync` 允許模型在函式結果傳回前繼續工作。 `FunctionExecutionMode` 仍控制一般呼叫。允許的非同步工作即使在 `Sequential` 模式下也可重疊執行，並在獨立工作池內共用 `MaxConcurrency` 上限。
 

@@ -1,5 +1,21 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
+## Unreleased
+
+> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+
+### Added
+
+- Text-only retrieval through `ITextSearchStore` and configurable normalized weighted RRF through `IConfigurableHybridSearchStore`, with filters and cancellation on the active search legs.
+
+### Fixed
+
+- Trigram search now orders by `word_similarity` and a stable record ID instead of using an invalid `<%>` ordering operator.
+
+- Natural-language keyword queries such as `hello !` no longer produce dangling `tsquery` operators; existing OR behavior is retained. Symbol distinctions such as `C#` versus `C++` still require a separate analyzer design.
+- Empty `NotIn` conditions exclude records missing the metadata key, consistently with the shared filter contract.
+
+
 ## v10.7.1
 
 ### Changed

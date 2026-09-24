@@ -1,5 +1,11 @@
 # Reasoning-Aufwand wählen und mit Quellen antworten
 
+> Grok 4.7 ist eine noch unveröffentlichte Ergänzung; siehe [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47).
+
+> GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
+
+[Claude Opus 5.5](providers.md#claude-opus-55) ist eine unveröffentlichte Erweiterung mit ständig aktivem Denken, standardmäßig mittlerem Aufwand und verborgener Anzeige. Fordern Sie lesbaren Fortschritt ausdrücklich an; Standardwerte und Modellbindung unterscheiden sich von Fable 5.1.
+
 Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
 
 > Diese APIs benötigen `Mythosia.AI` ab 7.1.0, einschließlich `Mythosia.AI.Abstractions` ab 3.1.0. RAG-Beispiele benötigen `Mythosia.AI.Rag` ab 7.6.0.
@@ -7,6 +13,8 @@ Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie de
 > Die `CreateRequest`-Beispiele benötigen die aktuelle Arbeitsversion. Die frühere Version 7.1 mit Run und gemeinsamen Anfrageoptionen enthält den Builder noch nicht. Ältere Pakete können ihre bisherigen Service-Überladungen verwenden.
 
 [Claude Fable 5.1](fable-5-1.md) bietet ab `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 Fortschrittsmeldungen, Anweisungen für einzelne Gesprächsrunden und Thinking-Binding-Diagnosen. Mythos 5.1 erfordert eine Einladung. Beide lehnen erzwungene Tool-Auswahl ab.
+
+Für zeitkritische Anfragen wählen Sie die [Verarbeitungsgeschwindigkeit](request-building.md#inference-speed). `WithSpeed` behält Modell und Denkaufwand bei; `Processing` meldet den tatsächlich verwendeten Modus. Fast ist für unterstützte Kombinationen kostenpflichtig.
 
 ## Warum diese Optionen verwenden?
 
@@ -138,11 +146,11 @@ Quellenfelder können `null` sein, wenn der Anbieter keinen Wert liefert. `Respo
 
 | Integrierter Anbieter | Benannte Reasoning-Stufen | Änderung mit Cache-Erhalt | Websuche | Dateisuche |
 | --- | --- | --- | --- | --- |
-| OpenAI | Unterstützte Reasoning-Modelle; Stufen sind modellabhängig | GPT-6 Astra Standard im Einzelagentenmodus | Unterstützte Responses-Modelle | Unterstützte Responses-Modelle, vorhandene Vektorspeicher |
-| Anthropic | Modelle mit nativer Effort-Steuerung | Unterstützte Opus 5 / Fable 5.1 / Mythos 5.1 mit Anbieter-Beta | Unterstützte Claude-Modelle | Kein nativer Speicheradapter; RAG verwenden |
+| OpenAI | Unterstützte Reasoning-Modelle; Stufen sind modellabhängig | GPT-6 Astra / Sol / Luna Standard im Einzelagentenmodus | Unterstützte Responses-Modelle | Unterstützte Responses-Modelle, vorhandene Vektorspeicher |
+| Anthropic | Modelle mit nativer Effort-Steuerung | Unterstützte Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 mit Anbieter-Beta | Unterstützte Claude-Modelle | Kein nativer Speicheradapter; RAG verwenden |
 | Google | Gemini-3-Stufen; Gemini 2.5 behält anbieterspezifische Budgets | Nicht unterstützt | Unterstützte Gemini-Textmodelle | Unterstützte Gemini-Textmodelle, vorhandene Dateisuchspeicher |
-| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; Zuordnung zu nativem Low/High/Max | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
+| xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; Zuordnung zu nativem Low/High/Max | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
 | Perplexity | `Auto` oder modellabhängig `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`; kein expliziter Effort für Sonar | Nicht unterstützt | Agent `web_search` | Kein gemeinsamer Adapter |
 | Andere Services | Bestehende anbieterspezifische Einstellungen bleiben verfügbar; gemeinsame Optionen benötigen einen Adapter | Von diesen Adaptern nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
 

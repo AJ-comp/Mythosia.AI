@@ -16,6 +16,16 @@ var store = new InMemoryVectorStore();
 
 **Hybrid search tích hợp**: RRF (Reciprocal Rank Fusion) hợp nhất điểm cosine similarity và BM25 keyword.
 
+### Sử dụng đồng thời và sửa bản ghi
+
+Khi cập nhật kho dùng chung trong lúc truy vấn, nội dung và chỉ mục từ khóa phải thuộc cùng một phiên bản. `InMemoryVectorStore` đồng bộ hóa ghi, xóa và đọc để mỗi truy vấn vector, văn bản hoặc hybrid thấy một trạng thái nhất quán. Hai nhánh của truy vấn hybrid cũng dùng cùng trạng thái đó.
+
+Kho sao chép các bản ghi đầu vào, gồm cả mảng vector và metadata, đồng thời trả về bản sao độc lập khi lấy bản ghi, tìm kiếm và chẩn đoán. Sửa đối tượng đầu vào hoặc bản ghi trả về không làm đổi dữ liệu đã lưu; hãy gọi lại `UpsertAsync` để lưu thay đổi. Không sửa bản ghi, vector hoặc metadata đầu vào trong khi lời gọi đang sao chép hoặc đọc chúng.
+
+`CancellationToken` được truyền vào có thể hủy lời gọi trong khi chờ thao tác khác nhả khóa kho dữ liệu. Việc hủy chờ tự nó không dừng thao tác đang sử dụng kho. Sau khi bắt đầu cập nhật một bản ghi, việc hủy không ngắt cập nhật giữa phần nội dung và chỉ mục.
+
+Hủy một batch có thể giữ lại các bản ghi đã ghi. `ReplaceByFilterAsync` vẫn thực hiện xóa rồi chèn batch theo thứ tự mà không có transaction: truy vấn khác có thể thấy khoảng trống giữa hai bước, và lỗi hoặc hủy không hoàn tác các lần ghi đã xong.
+
 ### Diagnostics
 
 ```csharp

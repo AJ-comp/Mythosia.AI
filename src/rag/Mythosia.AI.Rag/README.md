@@ -2,7 +2,11 @@
 
 Ground answers in documents your application manages. `Mythosia.AI.Rag` adds `.WithRag()` to an `IAIService` and handles document loading, splitting, embeddings, retrieval and context assembly. Use Agentic RAG tools when the model should decide when to search again.
 
-The package depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.0.0** and **Mythosia.AI.Rag.Abstractions 6.2.0**.
+The published 8.0.0 package depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.0.0** and **Mythosia.AI.Rag.Abstractions 6.2.0**. The pending source changes below require matching source builds of the changed contracts.
+
+> **Source checkout / unreleased changes:** This README also covers the pending request-based retriever, configurable hybrid search, indexing and embedding safeguards, and processing-speed integration. These additions and fixes are not part of the published 8.0.0 package; use matching source builds of the changed contract and implementation packages. See the [pending release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#unreleased). The next release versions have not been assigned.
+
+Unreleased: `RagEnabledService.WithSpeed(InferenceSpeed.Fast)` can request paid low-latency processing for the next answer when the inner provider/model supports it. It preserves retrieval settings and keeps internal query rewriting separate. Read `LastProcessing` or `(await run.Result).Processing` for reported applied modes; missing information remains unknown. See [speed selection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
 ## Current release: 8.0.0
 
@@ -39,6 +43,12 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 That's it. Documents are automatically loaded, chunked, embedded, and indexed on the first query (lazy initialization).
 
 To choose model controls before starting RAG, inspect the concrete inner `AIService` or its request builder. Model capabilities describe the model connection; they do not describe retrieval-store features or add capability methods to the RAG wrapper. [Capability guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/model-capabilities.md).
+
+## Answer about an attachment using your documents
+
+To explain a product photo using your manual, pass a `Message` containing the question and image to `RagEnabledService.GetCompletionAsync(Message)` or `StartRunAsync(Message)`. Both preserve non-text attachments in the request sent to the inner AI service. Retrieval uses the message text; attachments are not automatically indexed or embedded. The selected provider and model must support the attachment type. Retrieved context is added only to the outgoing request: it does not overwrite the original `Message` or replace the user's text in conversation history.
+
+When an answer needs both a manual and live inventory, combine RAG with your registered tools. During `GetCompletionAsync` tool rounds, retrieved context stays on the initial input and each subsequent tool result is sent to the model unchanged. The original user input remains in conversation history.
 
 ## Start a RAG run
 
@@ -90,6 +100,40 @@ If the provider already manages your document index, [hosted file search](https:
 )
 ```
 
+### Files with the same name
+
+Separate document roots often contain the same names, such as `company-a/docs/faq.txt` and `company-b/docs/faq.txt`. Both must stay indexed. The built-in `PlainTextDocumentLoader` and `DirectoryDocumentLoader` now use the normalized absolute file path (`Path.GetFullPath`) as `Source` and the automatic document ID. Registering the same normalized path again reuses the ID; files in different directories remain separate. Explicit `AddText` IDs, `RagDocument.Id` and custom loader `Source` rules are unchanged.
+
+The default RAG storage flow assigns document IDs before writing to a vector store and replaces records matching `document_id`. The PostgreSQL (pgvector) implementation follows this ID filter rather than inspecting original file paths. Previously, directory registration reduced both files above to `faq.txt`, causing replacement of the first document by the second. This fix preserves the full path in the automatic ID; the PostgreSQL schema is unchanged. A custom `full_path` filter uses caller-supplied metadata and does not automatically make document or record IDs unique.
+
+Default citations may now show an absolute path. Use `filename`, or `relative_path` from the default directory loader, for display. Existing relative-path IDs are not automatically migrated or removed: prefer a new collection, reindex all documents, verify it, then switch the application. See [document identity and existing indexes](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#document-identity) for path limits and scoped cleanup when reusing a collection.
+
+To keep updates and deletions limited to the intended document, `document_id` is reserved by the pipeline. Before persistence, each record receives the actual `RagDocument.Id`, even if input metadata supplies another value. The input document's and splitter's metadata dictionaries are not modified; custom persistence callbacks also receive the normalized records. Use a different key for an application-specific ID.
+
+This does not repair previously stored records with an incorrect `document_id`. Rebuild from trusted source documents into a new collection, or identify and clean up only the affected records before reindexing. Reindexing the correct ID alone cannot reliably find records stored under another ID.
+
+Registering the same file through a relative path and an absolute path must update one document, while same-named files in different folders must stay separate. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` and `PdfDocumentLoader` now set `DoclingDocument.Source` to the normalized absolute file path, as the built-in TXT loaders do. RAG derives automatic document IDs from this value; explicit IDs remain caller-controlled. Default citations may therefore show absolute paths.
+
+Previously stored relative-path IDs are not migrated or deleted automatically. Identify the old document ID, explicitly remove only that document from the relevant store and reindex it. Alternatively, index the complete source set into a new empty collection, validate it and switch the application to it. Reindexing only the new absolute-path ID in the existing collection leaves the old records behind. Do not delete unrelated documents. See [document identity and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#document-identity).
+
+### Protect existing documents when indexing fails
+
+An invalid custom splitter or embedding response must not silently replace a searchable document with incomplete or mismatched content. The pipeline checks each document before it starts persistence, including when you use `onDocumentEmbedded`.
+
+Before embedding, storage or the persistence callback, a null, empty or whitespace-only `RagDocument.Id` throws `ArgumentException`. Invalid splitter output throws `InvalidOperationException`: a null chunk list or chunk, null `Content` or `Metadata`, a blank chunk ID, or repeated chunk IDs within that document. Duplicate IDs use `StringComparer.Ordinal` (case-sensitive). Chunk values and metadata are copied before the first embedding call.
+
+Valid custom IDs are retained exactly as supplied. There is no automatic ID generation, trimming or repair, and collisions between custom chunk IDs belonging to different documents are not detected globally. Use IDs that are unique in the target collection, such as the [custom splitter example](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/text-splitters.md). The reserved `document_id` is normalized only on the copy used for storage; source metadata remains unchanged.
+
+Invalid IDs, splitter failures and invalid embedding batches leave that document's previous records intact and do not invoke the persistence callback. All of its batches must pass [embedding validation](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md#embedding-validation) before storage starts. This does not roll back documents already completed earlier in the operation; rollback after storage starts depends on the store or callback.
+
+### Empty document updates
+
+Clearing a retired policy must also remove its old searchable text. With default RAG storage, successful splitting with zero chunks replaces records matching the same `document_id` with an empty set, without calling embeddings or changing other document IDs. Reuse the stored document ID; an omitted document or an empty loader result does not identify anything to delete. Loading/parsing/splitting exceptions and cancellation observed before the storage call preserve that document's current records; rollback after storage starts depends on the store. Batches do not roll back earlier completed documents.
+
+With custom persistence through `onDocumentEmbedded`, zero chunks still skip the callback and the default store. The application must explicitly delete the known ID in its own storage, or use `DeleteDocumentAsync` for the pipeline's store. See [empty document updates](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#empty-document-updates) for an example and failure handling.
+
+`EmbeddingBatchSize` must be positive. The pipeline validates and captures it at the start of each document-indexing call, before embedding or replacing stored records. This prevents empty-batch loops and keeps a setting change during an awaited call from skipping chunks. Later indexing calls can use the new setting. See [batch sizing](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md) for configuration.
+
 ## Search Settings
 
 ```csharp
@@ -102,52 +146,74 @@ If the provider already manages your document index, [hosted file search](https:
 )
 ```
 
+## Choose document chunks
+
+A search result needs enough surrounding text to answer the question. Use `RecursiveTextSplitter(500, 50)` for prose, or `MarkdownTextSplitter(500)` when headings, table rows and fenced code must stay together. Select the splitter explicitly with `.WithTextSplitter(...)` or per document; the default remains `CharacterTextSplitter(300, 30)`, including for `.md` files.
+
+Character/Recursive sizes count UTF-16 code units, with overlap adjusted to text boundaries. Invalid sizes and negative overlaps fail before processing; overlap at least as large as the size disables overlap. Surrogate pairs are not cut, so a pair needs 2 units even when the limit is 1. There is no extra trailing chunk containing only repeated overlap.
+
+Markdown takes a single size argument and has no overlap option. Its content budget excludes repeated heading breadcrumbs; complete fenced code blocks or a table header plus one row may exceed it. Original headings remain when `IncludeHeadingBreadcrumb = false`, heading-only content is retained, and GFM tables support optional outer pipes. This is a rule-based splitter, not a complete Markdown parser. Table conditions and code indentation retain their meaning; excessive repeated Markdown context fails explicitly before it can expand without a bound.
+
+Repeated headings and table headers must not turn a small document into an unbounded amount of text to embed. Markdown therefore has a separate per-document output budget of `max(65536, 32 × document.Content.Length)` UTF-16 code units, summed across all final chunks, including repeated breadcrumbs, table headers and labels. It checks the budget before constructing excessive repeated output and throws `InvalidOperationException` if it would be exceeded; it neither truncates content nor returns a partial result. `ChunkSize` and its atomic-block exceptions still apply within this overall limit. In the default RAG indexing flow, this splitting failure occurs before embedding or storage replacement, so the document's existing index is left unchanged. This is a text-output limit, not a model-token or process-memory limit. The budget applies to each `Split` call and grows with input length; it is not a fixed maximum document size.
+
+`TokenTextSplitter` counts whitespace-separated units rather than model tokens. For a strict embedding limit, count the final text—including repeated headers—with the target model's tokenizer. See the [splitter guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/text-splitters.md) for examples and limits.
+
+These fixes change chunk boundaries and IDs for affected documents. Rebuild the index for the same document IDs so obsolete chunks are replaced, then refresh embedding caches and retrieval evaluation baselines as applicable. Existing persisted chunks are not rewritten automatically.
+
+## Choose a retrieval mode
+
+Use keyword search for lexical matches, semantic search for different wording with similar meaning, and hybrid search to combine them. The selected retriever prepares the query representation it needs instead of always creating a query embedding first.
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
+RagStore store = await RagStore.BuildAsync(rag => rag
+    .AddDocument("manual.txt")
+    .UseKeywordSearch());
+
+RagProcessedQuery result = await store.QueryAsync("refund policy");
+```
+
+`UseKeywordSearch()` skips query embeddings, not document embeddings. Existing ingestion still splits and embeds documents for the vector store, including lazy initialization on the first query. Use `UseVectorSearch()` for the default semantic mode.
+
 ## Hybrid Search
 
-Combine dense vector similarity with BM25 keyword matching using **Reciprocal Rank Fusion (RRF)**. Documents that rank highly in both keyword and semantic search are boosted to the top.
-
-For stores that support native hybrid storage/search, the recommended model is:
-
-- store both dense and sparse/keyword-searchable data at write time
-- choose retrieval mode at query time
-  - `SearchAsync` for vector-only retrieval
-  - `HybridSearchAsync` for hybrid retrieval
-
-If a store does not support native hybrid retrieval, the RAG layer falls back to application-level fusion automatically.
-
 ```csharp
-.WithRag(rag => rag
-    .AddDocument("docs.txt")
-    .UseHybridSearch()            // Enable hybrid search (default weight: 0.5)
-)
+.UseHybridSearch(new HybridSearchOptions
+{
+    VectorWeight = 0.7f,
+    CandidateMultiplier = 4,
+    RrfK = 60
+})
 ```
 
-Adjust the balance between vector and keyword search:
+`VectorWeight` contributes to weighted Reciprocal Rank Fusion; the text weight is `1 - VectorWeight`. `CandidateMultiplier` controls candidates per active leg and `RrfK` controls rank smoothing. The existing `.UseHybridSearch(vectorWeight: 0.7f)` overload remains available. Unsupported modes or options fail explicitly instead of silently falling back or discarding settings.
 
-```csharp
-.UseHybridSearch(vectorWeight: 0.7f)  // 70% vector, 30% keyword
-```
+| Store | Keyword mode | Configurable weighted RRF |
+| --- | --- | --- |
+| InMemory | BM25 | Supported |
+| PostgreSQL | Configured full-text or trigram search | Supported |
+| Qdrant | Sparse index | Supported |
+| Pinecone | Unsupported by this adapter | Mixed configuration unsupported; the vector-only endpoint remains available, and default `UseHybridSearch()` retains legacy native fusion on compatible `dotproduct` indexes |
 
-### How It Works
+New configurable hybrid results use normalized weighted RRF, including one active leg or no text matches. Pure vector and pure keyword modes retain native scores; these scores are not interchangeable. Direct legacy Qdrant `HybridSearchAsync` retains its configured server fusion. Existing backend adapters keep their analyzers and indexes; exact `C#`/`C++` distinctions remain dependent on the selected search implementation.
 
-| Store Type | Behavior |
-| --- | --- |
-| **InMemoryVectorStore** | Application-level BM25 index + vector search, merged via RRF |
-| **PostgresStore** | Native parallel `tsvector` full-text + `pgvector` similarity, merged via RRF |
-| **QdrantStore** | Native sparse-dense prefetch + Qdrant's built-in RRF fusion |
-| **PineconeStore** | Native dense + sparse server-side fusion on `dotproduct` indexes |
+### Compare local neural search with PIXIE
 
-The strategy is selected automatically based on the store — no configuration needed.
+When questions and documents use different wording, learned sparse retrieval can add related vocabulary. The optional **`Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview** package provides local ONNX document/query encoding and `PixieInMemoryStore`. Connect it through `.UseStore(searchStore)`, retain the existing `.UseEmbedding(embeddings)`, and select `.UseHybridSearch(options)` or `.UseKeywordSearch()`.
 
-To revert to pure vector search:
+The package bundles a pinned tokenizer and derived 8-bit quantized model. PIXIE does not require a Python server or API key; other RAG providers keep their own execution requirements. The index is memory-only, must be rebuilt after restart, and does not migrate PostgreSQL, Qdrant or Pinecone. The caller disposes the encoder after all store operations finish. Existing search remains the default until you choose to switch after comparison. See the [full PIXIE guide and example](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pixie-search.md).
 
-```csharp
-.UseVectorSearch()  // Explicit pure vector mode (same as default)
-```
+## Custom retrieval
+
+Implement `IRagRetriever.RetrieveAsync(RagRetrievalRequest, CancellationToken)` and register it with `.UseRetriever(retriever)`. The request carries the full `Query`, optional lexical `TextQuery`, `TopK`, `Filter` and `ProgressAsync`. Built-in retrievers use the full query when `TextQuery` is null; an empty override skips the text leg. Custom retrievers own preparation and must enforce the supplied filter, result limit and cancellation, and return records suitable for reranking and context assembly. See the [complete custom retriever example](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pipeline.md#custom-retriever).
+
+Runtime configuration is available through `RagPipeline.SetRetriever(...)`, `RagStore.UpdateRetriever(...)`, `RagStore.UseKeywordSearch()` and `RagStore.UpdateRetrievalStrategy(HybridSearchOptions)`. `UpdateRetriever(null)` resets to vector retrieval. Existing `IRetrievalStrategy` implementations and `SetRetrievalStrategy(...)` keep their dense-input behavior through a compatibility adapter. Agentic RAG uses the same selected retrieval path.
 
 ## Re-ranking
 
-Re-rank search results after retrieval for improved relevance. Works with both pure vector and hybrid search.
+Re-rank search results after retrieval for improved relevance. Works with vector, keyword, hybrid and custom retrieval. Native keyword scores such as BM25 and `ts_rank` are not calibrated against reranker scores; prefer the default `RerankerOnly` policy unless you have calibrated the inputs to `WeightedBlend`.
 
 When a reranker is configured, the pipeline automatically fetches a wider candidate pool (`TopK × TopKMultiplier`) and then the reranker selects the best `TopK` results. This ensures the reranker has enough diversity to work with.
 
@@ -187,6 +253,8 @@ var scorer = new OpenAIService(apiKey, httpClient, AIModel.OpenAI_Gpt4oMini);
     .WithReranker(new LlmReranker(scorer))
 )
 ```
+
+To keep each assessment's question and documents separate from earlier assessments and the service conversation, `LlmReranker` uses a stateless request for every evaluation. It neither reads nor appends conversation history or stored conversation summaries, and it does not trigger automatic summarization of the existing conversation. Service defaults and your calling code remain unchanged. Evaluations by rerankers sharing the same AI service are processed sequentially.
 
 ### vLLM Reranker
 
@@ -254,6 +322,8 @@ For context-sensitive chunks, `PerplexityContextualizedEmbeddingProvider` preser
 // Custom provider
 .UseEmbedding(new MyCustomEmbeddingProvider())
 ```
+
+`text-embedding-ada-002` is fixed at 1536 dimensions. `OpenAIEmbeddingProvider` omits the unsupported `dimensions` field from its single/batch requests and rejects other configured sizes with `ArgumentOutOfRangeException` before calling the API. `text-embedding-3-small` and `text-embedding-3-large` continue to send the configured size. See [OpenAI embedding dimensions](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md#openai-dimensions).
 
 ## Vector Stores
 
@@ -327,6 +397,8 @@ var result = await service.RetrieveAsync("Tell me more about that");
 Console.WriteLine(result.RewrittenQuery);  // "Tell me more about OPM"
 ```
 
+To temporarily disable rewriting or replace its implementation without rebuilding the index, use `store.SetQueryRewriter(null)` or `store.SetQueryRewriter(rewriter)`. When you call `RagStore.QueryAsync` directly through the overload accepting `conversationHistory`, it captures the selected rewriter as the query begins. That query keeps the same instance even if rewriting is disabled or replaced while progress reporting or rewriting is awaiting; later queries use the new setting. This behavior applies to direct store queries and does not update a rewriter already captured by a `RagEnabledService` wrapper.
+
 ## Streaming
 
 ```csharp
@@ -339,17 +411,30 @@ await foreach (var chunk in ragService.StreamAsync("How do I use this product?")
 }
 ```
 
+## Query vector protection
+
+A reused provider buffer must not change one question into another while progress reporting or search is awaiting. Built-in dense query retrieval, including the adapter for `IRetrievalStrategy`, requires positive `Dimensions`, a non-null vector of exactly that length and finite values. Invalid output throws `InvalidOperationException` before search. The accepted vector is copied immediately after the provider returns, before subsequent progress callbacks or search. Providers must keep returned data stable while it is being read; a custom `IRagRetriever` owns its own query preparation and validation.
+
+`OllamaEmbeddingProvider` also validates response shape, exact vector count, dimensions and finite values on direct single/batch calls. Malformed JSON or vectors throw `InvalidOperationException` rather than silently producing incomplete output. The caller retains ownership of the supplied `HttpClient`; disposing individual HTTP requests/responses does not dispose that client.
+
+Document and query vectors must use the same model and dimensions. `OllamaEmbeddingProvider` sends its configured `dimensions` to `/api/embed` and validates that every returned vector has that length. The provider still defaults to `qwen3-embedding:4b` with **1024 requested dimensions**; the model's native output has 2560 dimensions. The Ollama server and selected model must support the requested size. An unsupported request or a response that ignores it fails instead of silently changing `Dimensions` or resizing vectors locally.
+
+If you change the model or dimensions, rebuild document embeddings with the same settings used for queries and configure the vector store accordingly. Existing vectors are not converted automatically.
+
 ## Document Indexing Callback
 
-`BuildAsync` accepts an optional `onDocumentEmbedded` callback invoked after each document's embedding is complete. When omitted, the pipeline automatically calls `ReplaceByFilterAsync(Where("document_id", docId), records)` — which deletes all existing chunks for that document and inserts the new ones atomically. When provided, the callback replaces this default behavior entirely — you decide how to persist the records.
+`BuildAsync` accepts an optional `onDocumentEmbedded` callback invoked after a document's nonempty chunks have been embedded. When omitted, the pipeline calls `ReplaceByFilterAsync(Where("document_id", docId), records)` to replace the document's existing chunks, including removal when splitting succeeds with zero chunks. When provided, the callback replaces this default behavior entirely — you decide how to persist the records. A zero-chunk result invokes neither the callback nor the default store; handle deletion explicitly using the known document ID. See [empty document updates](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#empty-document-updates).
 
 On `PostgresStore`, `ReplaceByFilterAsync` wraps DELETE + INSERT in a single transaction — queries always see either the old data or the new data, never an empty gap. Other stores (InMemory, Qdrant, Pinecone) perform sequential delete + insert via the default interface method.
 
 ### Custom Processing
 
-Use the callback for logging, validation, or routing to different stores:
+When a document becomes shorter, upserting its new chunks alone leaves old tail chunks searchable. `onDocumentEmbedded` completely replaces default persistence, so use the normalized `document_id` supplied in the records to replace the entire document. The callback receives one validated nonempty document at a time:
 
 ```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
 var store = await RagStore.BuildAsync(config => config
     .AddDocuments("./docs/")
     .UseOpenAIEmbedding(apiKey)
@@ -357,10 +442,22 @@ var store = await RagStore.BuildAsync(config => config
     onDocumentEmbedded: async records =>
     {
         Console.WriteLine($"Indexed {records.Count} chunks");
-        await vectorStore.UpsertBatchAsync(records);
-    }
-);
+        var documentId = records[0].Metadata["document_id"];
+        await vectorStore.ReplaceByFilterAsync(
+            new VectorFilter().Where("document_id", documentId), records, cancellationToken);
+    },
+    cancellationToken: cancellationToken);
 ```
+
+<a id="url-documents"></a>
+
+## Read URL documents safely
+
+A server may compress a text document for transport. `AddUrl` decodes `gzip`, `deflate` and Brotli (`br`) before reading text and checks that the compressed stream is complete. A successful HTTP transfer is not enough: truncated compressed data, decompression errors or failed checksum checks in formats that provide a checksum abort loading before embedding or persistence, preserving that document's previous records. Unsupported or stacked `Content-Encoding` values are also rejected before embedding or persistence.
+
+Gzip/deflate stream completeness and checksum validation use SharpZipLib 1.4.2; Brotli uses the standard decoder.
+
+Pass `cancellationToken` to `RagStore.BuildAsync` to stop waiting for a slow URL document. The token reaches the HTTP request, response-body reading and decompression. Cancellation is cooperative and does not undo previously completed document writes.
 
 ## Agentic RAG
 

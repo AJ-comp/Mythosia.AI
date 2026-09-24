@@ -243,6 +243,15 @@ namespace Mythosia.VectorDb.Qdrant
 
         #endregion
 
+        /// <summary>Addresses one literal payload key rather than interpreting dots as nested paths.</summary>
+        internal static string QuotePayloadKey(string key)
+        {
+            // Qdrant quoted JSON-path components do not support embedded quote/backslash escapes.
+            if (key.IndexOf('"') >= 0 || key.IndexOf('\\') >= 0)
+                throw new NotSupportedException("Qdrant cannot filter literal metadata keys containing quotes or backslashes.");
+            return "\"" + key + "\"";
+        }
+
         #region Payload Indexes
 
         /// <summary>
@@ -258,14 +267,16 @@ namespace Mythosia.VectorDb.Qdrant
             var indexedFields = new HashSet<string>(StringComparer.Ordinal);
             foreach (var indexOption in options.GetAllPayloadIndexes())
             {
-                if (!indexedFields.Add(indexOption.Field))
+                var field = indexOption.Field.StartsWith(PayloadMetadataPrefix, StringComparison.Ordinal)
+                    ? QuotePayloadKey(indexOption.Field) : indexOption.Field;
+                if (!indexedFields.Add(field))
                     continue;
 
                 try
                 {
                     await client.CreatePayloadIndexAsync(
                         collectionName,
-                        indexOption.Field,
+                        field,
                         indexOption.SchemaType,
                         cancellationToken: cancellationToken);
                 }

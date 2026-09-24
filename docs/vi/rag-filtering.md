@@ -1,6 +1,8 @@
 # Lọc kết quả
 
-> 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → **`Lọc`** → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → [Xây dựng context](rag-context-build.md)
+> 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → **`Lọc`** → [Embedding (khi cần)](rag-embedding.md) → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → [Xây dựng context](rag-context-build.md)
+
+Giai đoạn câu hỏi `Embedding` phụ thuộc bộ truy xuất; tìm từ khóa không báo giai đoạn này. Bộ tùy chỉnh có thể báo giai đoạn qua `request.ProgressAsync`. Embedding tài liệu không đổi.
 
 ## Lọc là gì?
 

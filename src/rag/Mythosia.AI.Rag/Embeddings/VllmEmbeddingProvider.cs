@@ -38,6 +38,7 @@ namespace Mythosia.AI.Rag.Embeddings
 
         public async Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var inputList = texts.ToList();
             if (inputList.Count == 0)
                 return Array.Empty<float[]>();
@@ -52,79 +53,23 @@ namespace Mythosia.AI.Rag.Embeddings
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/embeddings")
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/embeddings")
             {
                 Content = content
             };
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
                 throw new InvalidOperationException(
-                    $"vLLM embeddings request failed ({(int)response.StatusCode}): {errorContent}");
+                    $"vLLM embeddings request failed (HTTP {(int)response.StatusCode}).");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
-            return ParseEmbeddingResponse(responseJson, inputList.Count);
-        }
-
-        private IReadOnlyList<float[]> ParseEmbeddingResponse(string responseJson, int expectedCount)
-        {
-            using var doc = JsonDocument.Parse(responseJson);
-            var root = doc.RootElement;
-
-            if (!root.TryGetProperty("data", out var data))
-                throw new InvalidOperationException("vLLM embeddings response did not contain a 'data' field.");
-
-            var indexedResults = new List<(int Index, float[] Vector)>(data.GetArrayLength());
-            foreach (var item in data.EnumerateArray())
-            {
-                var index = item.TryGetProperty("index", out var indexElement) ? indexElement.GetInt32() : indexedResults.Count;
-                var embedding = item.GetProperty("embedding");
-                indexedResults.Add((index, ParseVector(embedding)));
-            }
-
-            var ordered = indexedResults
-                .OrderBy(item => item.Index)
-                .Select(item => item.Vector)
-                .ToList();
-
-            if (ordered.Count != expectedCount)
-            {
-                throw new InvalidOperationException(
-                    $"vLLM embeddings response count mismatch. Expected {expectedCount}, got {ordered.Count}.");
-            }
-
-            EnsureDimensions(ordered);
-            return ordered;
-        }
-
-        private static float[] ParseVector(JsonElement embeddingArray)
-        {
-            var vector = new float[embeddingArray.GetArrayLength()];
-            var i = 0;
-            foreach (var val in embeddingArray.EnumerateArray())
-            {
-                vector[i++] = val.GetSingle();
-            }
-            return vector;
-        }
-
-        private void EnsureDimensions(IReadOnlyList<float[]> vectors)
-        {
-            if (vectors.Count == 0)
-                return;
-
-            var actualDimensions = vectors[0].Length;
-            if (_dimensions != actualDimensions)
-            {
-                throw new InvalidOperationException(
-                    $"Embedding dimension mismatch: requested {_dimensions} but the server returned {actualDimensions}. " +
-                    $"The vLLM server may not support the 'dimensions' parameter for this model. " +
-                    $"Set dimensions to {actualDimensions} to match the model output, " +
-                    $"or use a model that supports Matryoshka embeddings.");
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return IndexedEmbeddingResponseParser.Parse(responseJson, inputList.Count, Dimensions,
+                "vLLM", allowMissingIndices: true);
         }
     }
 }

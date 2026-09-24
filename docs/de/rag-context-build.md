@@ -1,6 +1,8 @@
 # Kontextaufbau
 
-> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → [Filtering](rag-filtering.md) → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → **`Kontextaufbau`**
+> 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → [Filtering](rag-filtering.md) → [Embedding (bei Bedarf)](rag-embedding.md) → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → **`Kontextaufbau`**
+
+Die Anfragephase `Embedding` hängt nun vom Retriever ab; Stichwortsuche meldet sie nicht. Eigene Retriever können passende Phasen über `request.ProgressAsync` melden. Dokument-Embeddings bleiben unverändert.
 
 ## Was ist Kontextaufbau?
 

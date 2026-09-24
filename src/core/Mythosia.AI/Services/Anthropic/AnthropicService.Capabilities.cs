@@ -68,6 +68,9 @@ namespace Mythosia.AI.Services.Anthropic
             if (KnownClaudeModels.Contains(model)) return true;
             if (!HasClaudeSnapshotDate(model)) return false;
             var alias = model.Substring(0, model.Length - 9);
+            // Opus 5.5 is a fixed ID; Anthropic does not publish date-suffixed snapshots for it.
+            if (string.Equals(alias, AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase))
+                return false;
             return !HasClaudeSnapshotDate(alias) && KnownClaudeModels.Contains(alias);
         }
 

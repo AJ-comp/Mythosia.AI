@@ -1,5 +1,11 @@
 # 推論の深さを選び、出典のある回答を得る
 
+> Grok 4.7 は未リリースの追加機能です。[モデル選択・推論・処理速度](providers.md#grok-47)を参照してください。
+
+> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)を参照してください。
+
+[Claude Opus 5.5](providers.md#claude-opus-55) は未公開の追加機能です。推論は常時有効、既定の effort は medium、表示は省略です。読める進行状況は明示的に指定します。既定値とモデル binding は Fable 5.1 と異なります。
+
 設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
 
 > これらの API は `Mythosia.AI` 7.1.0 以降で利用でき、`Mythosia.AI.Abstractions` 3.1.0 以降を含みます。RAG の例には `Mythosia.AI.Rag` 7.6.0 以降が必要です。
@@ -7,6 +13,8 @@
 > `CreateRequest`の例には現在開発中のリリースが必要です。Runと共通リクエスト機能を導入した旧7.1リリースにはビルダーがありません。旧パッケージでは既存のサービスオーバーロードを使えます。
 
 [Claude Fable 5.1](fable-5-1.md) は `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から進捗更新、ターン限定指示、thinking binding 診断を利用できます。Mythos 5.1 は招待制です。両モデルともツール選択の強制を拒否します。
+
+待ち時間が重要なリクエストでは[処理速度](request-building.md#inference-speed)を選べます。`WithSpeed` はモデルと推論レベルを保持し、`Processing` は実際に適用されたモードを示します。Fast は対応する組み合わせで使う有料設定です。
 
 ## これらの設定が必要な理由
 
@@ -138,11 +146,11 @@ string answer = (await run.Result).Text;
 
 | 統合プロバイダー | 名前付き推論レベル | キャッシュを保持する変更 | Web 検索 | ファイル検索 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 対応する推論モデル。レベルはモデルごとに異なる | GPT-6 Astra Standard、単一エージェントモード | 対応する Responses モデル | 対応する Responses モデル、既存のベクトルストア |
-| Anthropic | ネイティブの effort 制御に対応するモデル | 対応する Opus 5 / Fable 5.1 / Mythos 5.1 とプロバイダーのベータ機能 | 対応する Claude モデル | ネイティブストアのアダプターなし。RAG を使用 |
+| OpenAI | 対応する推論モデル。レベルはモデルごとに異なる | GPT-6 Astra / Sol / Luna Standard、単一エージェントモード | 対応する Responses モデル | 対応する Responses モデル、既存のベクトルストア |
+| Anthropic | ネイティブの effort 制御に対応するモデル | 対応する Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 とプロバイダーのベータ機能 | 対応する Claude モデル | ネイティブストアのアダプターなし。RAG を使用 |
 | Google | Gemini 3 のレベル。Gemini 2.5 ではプロバイダー固有の予算を維持 | 非対応 | 対応する Gemini テキストモデル | 対応する Gemini テキストモデル、既存のファイル検索ストア |
-| xAI | Grok 4.6: `Auto`、`Low`、`Medium`、`High`、`XHigh` | 非対応 | 共通アダプターなし | 共通アダプターなし |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; ネイティブ Low/High/Max へ対応付け | 未対応 | 共通アダプターなし | 共通アダプターなし |
+| xAI | Grok 4.7 / 4.6: `Auto`、`Low`、`Medium`、`High`、`XHigh` | 非対応 | 共通アダプターなし | 共通アダプターなし |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; ネイティブ Low/High/Max へ対応付け | 未対応 | 共通アダプターなし | 共通アダプターなし |
 | Perplexity | `Auto` またはモデルが対応する `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`。Sonar の明示的な effort は未対応 | 未対応 | Agent `web_search` | 共通アダプターなし |
 | その他のサービス | 従来のプロバイダー固有設定は引き続き利用可能。共通設定にはアダプターが必要 | 今回のアダプター群では非対応 | 共通アダプターなし | 共通アダプターなし |
 

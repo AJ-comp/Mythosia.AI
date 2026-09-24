@@ -339,55 +339,89 @@ public abstract partial class AIServiceTestBase
     [TestMethod]
     public async Task StreamingCancellationWithMetadataTest()
     {
+        if (AI is not Mythosia.AI.Services.Base.AIService aiService)
+        {
+            Assert.Inconclusive("Metadata streaming requires AIService base class");
+            return;
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        var eventTypes = new System.Collections.Concurrent.ConcurrentQueue<StreamingContentType>();
+        var metadataCount = 0;
+        var naturallyCompleted = false;
+        var pendingAtCancellation = false;
+        OperationCanceledException? observedCancellation = null;
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var message = new Message(ActorRole.User,
+            "Write 500 numbered paragraphs explaining computing concepts. " +
+            "Give each paragraph at least 50 words. Start with paragraph 1 and continue without a summary.");
+
+        async Task ConsumeAsync()
+        {
+            await foreach (var content in aiService.StreamAsync(
+                message, StreamOptions.FullOptions, cancellationToken: cancellation.Token))
+            {
+                eventTypes.Enqueue(content.Type);
+                if (content.Metadata != null)
+                    Interlocked.Increment(ref metadataCount);
+                Assert.AreNotEqual(StreamingContentType.Error, content.Type,
+                    $"Streaming failed before cancellation verification: {content.Content}; " +
+                    $"metadata={System.Text.Json.JsonSerializer.Serialize(content.Metadata)}");
+            }
+
+            Volatile.Write(ref naturallyCompleted, true);
+        }
+
+        // Start the actual iterator before the deadline. Chunk counts and coalescing do not
+        // determine cancellation, and a wrapper's cancelled wait cannot satisfy this test.
+        var consumer = ConsumeAsync();
         try
         {
-            if (AI is not Mythosia.AI.Services.Base.AIService aiService)
+            await Task.WhenAny(consumer, Task.Delay(TimeSpan.FromSeconds(2)));
+            if (consumer.IsCompleted)
             {
-                Assert.Inconclusive("Metadata streaming requires AIService base class");
-                return;
+                await consumer; // Preserve provider/errors instead of misclassifying them as skips.
+                Assert.Inconclusive("The stream completed before cancellation could be requested; cancellation was not verified.");
             }
 
-            var options = StreamOptions.FullOptions;
-            var cts = new CancellationTokenSource();
-
-            var collectedMetadata = new List<Dictionary<string, object>>();
-            int chunksBeforeCancellation = 0;
-
+            pendingAtCancellation = !consumer.IsCompleted;
+            cancellation.Cancel();
             try
             {
-                var message = new Message(ActorRole.User, "Write a very long essay about computing");
-
-                await foreach (var content in aiService.StreamAsync(message, options, cancellationToken: cts.Token))
-                {
-                    chunksBeforeCancellation++;
-
-                    if (content.Metadata != null)
-                    {
-                        collectedMetadata.Add(content.Metadata);
-                    }
-
-                    if (chunksBeforeCancellation >= 5)
-                    {
-                        cts.Cancel();
-                        break;
-                    }
-                }
+                // This timeout must fail independently; it must never manufacture the OCE.
+                await consumer.WaitAsync(TimeSpan.FromSeconds(10));
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException exception) when (cancellation.IsCancellationRequested)
             {
-                Console.WriteLine("[Cancellation] Stream cancelled as expected");
+                observedCancellation = exception;
             }
 
-            Console.WriteLine($"[Cancellation Results]");
-            Console.WriteLine($"  Chunks before cancellation: {chunksBeforeCancellation}");
-            Console.WriteLine($"  Metadata entries collected: {collectedMetadata.Count}");
+            if (Volatile.Read(ref naturallyCompleted) || eventTypes.Contains(StreamingContentType.Completion))
+                Assert.Inconclusive("The stream completed before cancellation took effect; cancellation was not verified.");
 
-            Assert.AreEqual(5, chunksBeforeCancellation);
+            Assert.IsTrue(pendingAtCancellation, "Cancellation must be requested while the stream is in flight.");
+            Assert.IsTrue(cancellation.IsCancellationRequested);
+            Assert.IsNotNull(observedCancellation, "The stream itself must throw OperationCanceledException.");
+            Assert.AreEqual(cancellation.Token, observedCancellation.CancellationToken,
+                "Streaming cancellation must preserve the caller's requested token.");
+            Assert.IsFalse(Volatile.Read(ref naturallyCompleted));
+            Assert.IsFalse(eventTypes.Contains(StreamingContentType.Completion));
         }
-        catch (Exception ex)
+        finally
         {
-            Console.WriteLine($"[Cancellation Metadata Error] {ex.Message}");
-            Assert.Fail(ex.Message);
+            Console.WriteLine("LIVE_STREAM_CANCELLATION_DIAGNOSTIC " + System.Text.Json.JsonSerializer.Serialize(new
+            {
+                model = AI.Model,
+                elapsedMilliseconds = stopwatch.ElapsedMilliseconds,
+                cancellationDeadlineMilliseconds = 2000,
+                pendingAtCancellation,
+                cancellationRequested = cancellation.IsCancellationRequested,
+                observedCancellation = observedCancellation != null,
+                callerTokenPreserved = observedCancellation?.CancellationToken == cancellation.Token,
+                naturallyCompleted = Volatile.Read(ref naturallyCompleted),
+                eventCounts = eventTypes.GroupBy(type => type.ToString()).ToDictionary(group => group.Key, group => group.Count()),
+                metadataCount = Volatile.Read(ref metadataCount)
+            }));
         }
     }
 

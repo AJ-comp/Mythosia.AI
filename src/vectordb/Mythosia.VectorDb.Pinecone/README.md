@@ -208,3 +208,7 @@ var store = new PineconeStore(options, httpClient);
 ## API Key Note
 
 Set your Pinecone API key securely (for example, environment variables or secret manager). Do not hardcode secrets in source code.
+
+## RAG retrieval capability boundary
+
+This adapter keeps its native dense+sparse hybrid path on compatible `dotproduct` indexes. `UseHybridSearch()` with legacy default settings remains usable. The adapter does not implement `ITextSearchStore` or `IConfigurableHybridSearchStore`; keyword-only requests and custom mixed RRF settings fail explicitly rather than using dummy dense vectors or ignoring weights. `UseVectorSearch()` remains supported. Query-mode selection does not change dense+sparse document ingestion.

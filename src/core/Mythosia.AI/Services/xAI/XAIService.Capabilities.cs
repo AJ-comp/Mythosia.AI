@@ -10,7 +10,7 @@ namespace Mythosia.AI.Services.xAI
     {
         private static readonly HashSet<string> KnownGrokChatModels = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            AIModels.xAI.Grok4_6, AIModels.xAI.Grok4_5, AIModels.xAI.Grok4_5Latest, AIModels.xAI.GrokBuildLatest,
+            AIModels.xAI.Grok4_7, AIModels.xAI.Grok4_6, AIModels.xAI.Grok4_5, AIModels.xAI.Grok4_5Latest, AIModels.xAI.GrokBuildLatest,
             AIModels.xAI.Grok4_3, AIModels.xAI.Grok4_3Latest, AIModels.xAI.GrokLatest,
             AIModels.xAI.Grok4_20Reasoning, AIModels.xAI.Grok4_20NonReasoning, AIModels.xAI.GrokBuild0_1
         };
@@ -26,8 +26,8 @@ namespace Mythosia.AI.Services.xAI
             return new AIModelCapabilities(
                 provider: Provider, model: GetRunRequestedModel(), streaming: support, functionCalling: support,
                 asyncFunctionCalling: CapabilitySupport.Unsupported, steering: CapabilitySupport.Unsupported,
-                reasoning: family == GrokModelFamily.Grok4_6 ? support : CapabilitySupport.Unsupported,
-                reasoningLevels: known && family == GrokModelFamily.Grok4_6 ? levels : Array.Empty<ReasoningLevel>(),
+                reasoning: IsGrok46Or47(family) ? support : CapabilitySupport.Unsupported,
+                reasoningLevels: known && IsGrok46Or47(family) ? levels : Array.Empty<ReasoningLevel>(),
                 nativeReasoning: nativeReasoning, nativeReasoningLevels: levels,
                 thinkingToggle: known ? (family == GrokModelFamily.Grok4_3 ? CapabilitySupport.Supported : CapabilitySupport.Unsupported)
                     : CapabilitySupport.Unknown,
@@ -35,8 +35,8 @@ namespace Mythosia.AI.Services.xAI
                 reasoningCachePreservation: CapabilitySupport.Unsupported,
                 imageInput: known && family == GrokModelFamily.GrokBuild ? CapabilitySupport.Unknown : support,
                 structuredOutput: support, temperature: support,
-                // Only Grok 4.6 adds top_p to the shared function request body.
-                topP: ShouldUseFunctions && family != GrokModelFamily.Grok4_6
+                // Grok 4.6 and 4.7 add top_p to the shared function request body.
+                topP: ShouldUseFunctions && !IsGrok46Or47(family)
                     ? CapabilitySupport.Unsupported : support,
                 frequencyPenalty: RejectsPenaltyParameters(family) ? CapabilitySupport.Unsupported : CapabilitySupport.Unknown,
                 presencePenalty: RejectsPenaltyParameters(family) ? CapabilitySupport.Unsupported : CapabilitySupport.Unknown,
@@ -47,6 +47,7 @@ namespace Mythosia.AI.Services.xAI
         {
             switch (family)
             {
+                case GrokModelFamily.Grok4_7:
                 case GrokModelFamily.Grok4_6:
                     return new[] { ReasoningLevel.Auto, ReasoningLevel.Low, ReasoningLevel.Medium, ReasoningLevel.High, ReasoningLevel.XHigh };
                 case GrokModelFamily.Grok4_5:

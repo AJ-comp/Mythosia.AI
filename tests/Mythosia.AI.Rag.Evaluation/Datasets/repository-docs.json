@@ -1,0 +1,390 @@
+{
+  "schemaVersion": 1,
+  "id": "repository-docs",
+  "version": "1",
+  "description": "Hand-authored Korean developer-documentation sanity benchmark. Relevance labels identify documentation pages, not exhaustive human judgments. This is not a paper-quality held-out evaluation.",
+  "documents": [
+    {
+      "id": "docs/ko/rag-filtering.md",
+      "path": "docs/ko/rag-filtering.md"
+    },
+    {
+      "id": "docs/ko/rag-hybrid-search.md",
+      "path": "docs/ko/rag-hybrid-search.md"
+    },
+    {
+      "id": "docs/ko/rag-query-rewriting.md",
+      "path": "docs/ko/rag-query-rewriting.md"
+    },
+    {
+      "id": "docs/ko/rag-reranking.md",
+      "path": "docs/ko/rag-reranking.md"
+    },
+    {
+      "id": "docs/ko/rag-embedding.md",
+      "path": "docs/ko/rag-embedding.md"
+    },
+    {
+      "id": "docs/ko/rag-context-build.md",
+      "path": "docs/ko/rag-context-build.md"
+    },
+    {
+      "id": "docs/ko/rag-pipeline.md",
+      "path": "docs/ko/rag-pipeline.md"
+    },
+    {
+      "id": "docs/ko/rag-agentic.md",
+      "path": "docs/ko/rag-agentic.md"
+    },
+    {
+      "id": "docs/ko/text-splitters.md",
+      "path": "docs/ko/text-splitters.md"
+    },
+    {
+      "id": "docs/ko/document-loaders.md",
+      "path": "docs/ko/document-loaders.md"
+    },
+    {
+      "id": "docs/ko/request-building.md",
+      "path": "docs/ko/request-building.md"
+    },
+    {
+      "id": "docs/ko/function-calling.md",
+      "path": "docs/ko/function-calling.md"
+    },
+    {
+      "id": "docs/ko/streaming.md",
+      "path": "docs/ko/streaming.md"
+    },
+    {
+      "id": "docs/ko/completions.md",
+      "path": "docs/ko/completions.md"
+    },
+    {
+      "id": "docs/ko/structured-output.md",
+      "path": "docs/ko/structured-output.md"
+    },
+    {
+      "id": "docs/ko/model-capabilities.md",
+      "path": "docs/ko/model-capabilities.md"
+    },
+    {
+      "id": "docs/ko/vector-filter.md",
+      "path": "docs/ko/vector-filter.md"
+    },
+    {
+      "id": "docs/ko/token-usage.md",
+      "path": "docs/ko/token-usage.md"
+    },
+    {
+      "id": "docs/ko/conversation.md",
+      "path": "docs/ko/conversation.md"
+    },
+    {
+      "id": "docs/ko/agent.md",
+      "path": "docs/ko/agent.md"
+    },
+    {
+      "id": "docs/ko/request-profiles.md",
+      "path": "docs/ko/request-profiles.md"
+    },
+    {
+      "id": "docs/ko/vectordb-backends.md",
+      "path": "docs/ko/vectordb-backends.md"
+    }
+  ],
+  "cases": [
+    {
+      "id": "tenant-paraphrase",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "여러 회사가 서비스를 함께 쓰는데 다른 회사의 문서가 검색되지 않게 하려면?",
+      "judgments": {
+        "docs/ko/rag-filtering.md": 1,
+        "docs/ko/vector-filter.md": 1
+      }
+    },
+    {
+      "id": "filter-api",
+      "category": "identifier",
+      "language": "ko",
+      "query": "StoreFilter와 쿼리별 메타데이터 조건은 어떻게 합쳐지나요?",
+      "judgments": {
+        "docs/ko/rag-filtering.md": 1
+      }
+    },
+    {
+      "id": "hybrid-weight",
+      "category": "identifier",
+      "language": "ko",
+      "query": "VectorWeight가 0 또는 1이면 어느 검색이 실행되나요?",
+      "judgments": {
+        "docs/ko/rag-hybrid-search.md": 1
+      }
+    },
+    {
+      "id": "hybrid-paraphrase",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "문장의 뜻이 비슷한 자료와 단어가 정확히 일치하는 자료를 함께 찾고 싶어요.",
+      "judgments": {
+        "docs/ko/rag-hybrid-search.md": 1
+      }
+    },
+    {
+      "id": "rewrite-context",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "사용자가 그것의 가격은요라고만 물었을 때 앞 대화를 반영해 검색하려면?",
+      "judgments": {
+        "docs/ko/rag-query-rewriting.md": 1
+      }
+    },
+    {
+      "id": "rewrite-gate",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "인사처럼 문서 검색이 필요 없는 질문이 들어오면 검색을 건너뛸 수 있나요?",
+      "judgments": {
+        "docs/ko/rag-query-rewriting.md": 1
+      }
+    },
+    {
+      "id": "rerank-purpose",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "검색으로 가져온 문서의 순서를 질문과 더 관련 있는 순서로 다시 정렬하고 싶어요.",
+      "judgments": {
+        "docs/ko/rag-reranking.md": 1
+      }
+    },
+    {
+      "id": "rerank-blend",
+      "category": "identifier",
+      "language": "ko",
+      "query": "WeightedBlend에서 검색 점수와 재순위 점수를 섞는 방법",
+      "judgments": {
+        "docs/ko/rag-reranking.md": 1
+      }
+    },
+    {
+      "id": "embed-local",
+      "category": "identifier",
+      "language": "ko",
+      "query": "LocalEmbeddingProvider는 API 키 없이 어떻게 임베딩하나요?",
+      "judgments": {
+        "docs/ko/rag-embedding.md": 1
+      }
+    },
+    {
+      "id": "embedding-purpose",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "문서 내용을 숫자 벡터로 바꾸는 공급자는 어디에서 지정하나요?",
+      "judgments": {
+        "docs/ko/rag-embedding.md": 1
+      }
+    },
+    {
+      "id": "context-template",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "찾아낸 자료를 답변 모델에 전달할 프롬프트 형태를 직접 정하고 싶어요.",
+      "judgments": {
+        "docs/ko/rag-context-build.md": 1,
+        "docs/ko/rag-pipeline.md": 1
+      }
+    },
+    {
+      "id": "custom-retriever",
+      "category": "identifier",
+      "language": "ko",
+      "query": "IRagRetriever를 구현해서 자체 검색 엔진을 연결하려면?",
+      "judgments": {
+        "docs/ko/rag-pipeline.md": 1
+      }
+    },
+    {
+      "id": "rag-agent",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "모델이 답을 찾을 때까지 필요한 문서를 여러 번 스스로 검색하게 할 수 있나요?",
+      "judgments": {
+        "docs/ko/rag-agentic.md": 1
+      }
+    },
+    {
+      "id": "split-tables",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "긴 표를 여러 조각으로 나누더라도 각 조각에 열 제목이 남게 하려면?",
+      "judgments": {
+        "docs/ko/text-splitters.md": 1
+      }
+    },
+    {
+      "id": "split-markdown",
+      "category": "identifier",
+      "language": "ko",
+      "query": "MarkdownTextSplitter가 코드 펜스와 제목 구조를 보존하나요?",
+      "judgments": {
+        "docs/ko/text-splitters.md": 1
+      }
+    },
+    {
+      "id": "load-formats",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "PDF와 워드 엑셀 파일에서 내용을 읽어 검색에 넣는 방법",
+      "judgments": {
+        "docs/ko/document-loaders.md": 1
+      }
+    },
+    {
+      "id": "request-isolation",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "같은 AI 서비스를 공유하면서 요약과 창작의 온도 설정이 서로 섞이지 않게 하고 싶어요.",
+      "judgments": {
+        "docs/ko/request-building.md": 1
+      }
+    },
+    {
+      "id": "request-builder",
+      "category": "identifier",
+      "language": "ko",
+      "query": "AIRequestBuilder의 WithTemperature는 원본 빌더를 수정하나요?",
+      "judgments": {
+        "docs/ko/request-building.md": 1
+      }
+    },
+    {
+      "id": "async-objects",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "모델이 호출하는 비동기 도구에서 JSON 문자열 대신 객체를 그대로 반환하고 싶어요.",
+      "judgments": {
+        "docs/ko/function-calling.md": 1
+      }
+    },
+    {
+      "id": "tool-cancel",
+      "category": "identifier",
+      "language": "ko",
+      "query": "비동기 함수 핸들러에 CancellationToken을 전달하는 방법",
+      "judgments": {
+        "docs/ko/function-calling.md": 1
+      }
+    },
+    {
+      "id": "stream-output",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "답변이 완성되기 전에 생성되는 문장을 화면에 조금씩 표시하려면?",
+      "judgments": {
+        "docs/ko/streaming.md": 1
+      }
+    },
+    {
+      "id": "stream-diagnostics",
+      "category": "identifier",
+      "language": "ko",
+      "query": "StreamDiagnostics로 스트리밍 실패 원인을 진단하는 방법",
+      "judgments": {
+        "docs/ko/streaming.md": 1
+      }
+    },
+    {
+      "id": "completion-cancel",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "일반 응답을 기다리는 동안 사용자가 취소 버튼을 누르면 우리 쪽 작업을 어떻게 끝내나요?",
+      "judgments": {
+        "docs/ko/completions.md": 1
+      }
+    },
+    {
+      "id": "structured-type",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "모델의 답변을 자유로운 문장 대신 내가 정의한 C# 타입으로 받고 싶어요.",
+      "judgments": {
+        "docs/ko/structured-output.md": 1
+      }
+    },
+    {
+      "id": "capabilities",
+      "category": "identifier",
+      "language": "ko",
+      "query": "GetCapabilities로 선택한 모델의 추론과 도구 지원 여부를 확인하려면?",
+      "judgments": {
+        "docs/ko/model-capabilities.md": 1
+      }
+    },
+    {
+      "id": "filter-notin",
+      "category": "identifier",
+      "language": "ko",
+      "query": "WhereNotIn과 WhereNotExists의 차이",
+      "judgments": {
+        "docs/ko/vector-filter.md": 1
+      }
+    },
+    {
+      "id": "token-usage",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "답변을 생성하면서 입력과 출력에 토큰을 얼마나 썼는지 확인하고 싶어요.",
+      "judgments": {
+        "docs/ko/token-usage.md": 1,
+        "docs/ko/streaming.md": 1
+      }
+    },
+    {
+      "id": "conversation",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "대화 기록이 길어졌을 때 요약하거나 초기화하는 방법",
+      "judgments": {
+        "docs/ko/conversation.md": 1
+      }
+    },
+    {
+      "id": "agent-rounds",
+      "category": "identifier",
+      "language": "ko",
+      "query": "MaxRounds와 도구를 반복 호출하는 에이전트 실행",
+      "judgments": {
+        "docs/ko/agent.md": 1
+      }
+    },
+    {
+      "id": "request-profile",
+      "category": "paraphrase",
+      "language": "ko",
+      "query": "여러 요청에서 반복해서 사용하는 생성 설정을 미리 정의하고 재사용하고 싶어요.",
+      "judgments": {
+        "docs/ko/request-profiles.md": 1
+      }
+    },
+    {
+      "id": "database-options",
+      "category": "identifier",
+      "language": "ko",
+      "query": "PostgreSQL pgvector와 Qdrant 저장소는 어떤 차이가 있나요?",
+      "judgments": {
+        "docs/ko/vectordb-backends.md": 1
+      }
+    },
+    {
+      "id": "filter-symbols",
+      "category": "punctuation",
+      "language": "ko",
+      "query": "hello ! 메타데이터 필터링은 어떻게 하나요???",
+      "judgments": {
+        "docs/ko/rag-filtering.md": 1,
+        "docs/ko/vector-filter.md": 1
+      }
+    }
+  ]
+}

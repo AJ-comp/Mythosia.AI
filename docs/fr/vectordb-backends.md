@@ -16,6 +16,16 @@ var store = new InMemoryVectorStore();
 
 **Recherche hybride intégrée** : RRF (Reciprocal Rank Fusion) fusionne les scores de similarité cosinus et BM25.
 
+### Accès simultanés et modification des enregistrements
+
+Lorsqu’un stockage partagé est mis à jour pendant une requête, le texte et l’index de mots-clés doivent correspondre à la même révision. `InMemoryVectorStore` synchronise les écritures, suppressions et lectures pour que chaque recherche vectorielle, textuelle ou hybride consulte un état cohérent. Les deux branches d’une recherche hybride utilisent ce même état.
+
+Le stockage copie les enregistrements entrants, y compris les tableaux de vecteurs et les métadonnées. Les consultations, recherches et diagnostics renvoient aussi des copies indépendantes. Modifier un objet d’entrée ou un enregistrement retourné ne modifie pas les données stockées ; appelez de nouveau `UpsertAsync` pour enregistrer le changement. Ne modifiez pas les enregistrements, vecteurs ou métadonnées d’entrée pendant que l’appel les copie ou les lit.
+
+Un `CancellationToken` fourni peut annuler un appel pendant qu’il attend qu’une autre opération libère le verrou du stockage. L’annulation de cette attente n’interrompt pas à elle seule l’opération qui utilise déjà le stockage. Une fois la mise à jour d’un enregistrement commencée, l’annulation ne l’interrompt pas entre le texte et l’index.
+
+L’annulation d’un lot peut conserver les enregistrements déjà écrits. `ReplaceByFilterAsync` effectue toujours la suppression puis l’insertion par lot sans transaction : une autre requête peut observer l’intervalle vide, et un échec ou une annulation n’annule pas les écritures terminées.
+
 ### Diagnostics
 
 ```csharp

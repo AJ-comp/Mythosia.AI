@@ -1,6 +1,8 @@
 # 過濾
 
-> 📍 **問答檢索管線：** [查詢改寫](rag-query-rewriting.md) → [嵌入](rag-embedding.md) → **`過濾`** → [檢索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → [上下文構建](rag-context-build.md)
+> 📍 **問答檢索管線：** [查詢改寫](rag-query-rewriting.md) → **`過濾`** → [嵌入（按需）](rag-embedding.md) → [檢索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → [上下文構建](rag-context-build.md)
+
+問題的 `Embedding` 階段依檢索器需要執行，關鍵字搜尋不會回報此階段。自訂檢索器可透過 `request.ProgressAsync` 回報實際階段。文件嵌入不變。
 
 ## 什麼是過濾？
 

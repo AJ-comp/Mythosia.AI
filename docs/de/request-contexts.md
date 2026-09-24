@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("Habe ich Anspruch auf eine Rüc
 
 ### RequestMessageOverride
 
-Ersetzt die Nachricht des Benutzers für diese Anfrage vollständig. Der ursprüngliche Prompt wird ignoriert:
+`RequestMessageOverride` ersetzt beim Senden an das Modell nur die ursprüngliche Eingabe der aktuellen logischen Anfrage. Die ursprüngliche Eingabe bleibt im Gesprächsverlauf; spätere Tool-Aufrufe und Ergebnisse innerhalb derselben Anfrage bleiben erhalten:
 
 ```csharp
 var context = new AIRequestContext

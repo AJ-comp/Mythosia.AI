@@ -26,6 +26,16 @@
 
 </div>
 
+For TXT and Markdown, [choose a rule-based splitter](docs/text-splitters.md) according to the document structure. Size validation, overlap and Unicode boundaries are checked; Markdown preserves headings, fenced code and table rows. Character/word counts are not model token limits. Table conditions and code indentation retain their meaning; excessive repeated Markdown context fails explicitly before it can expand without a bound.
+
+To prevent an apparently successful index from overwriting chunks or pairing them with the wrong vectors, [indexing validation](docs/rag-pipeline.md#indexing-validation) rejects invalid IDs and embedding batches before persistence; custom splitters must provide unique IDs and inherit document metadata.
+
+Stable [file identities](docs/document-loaders.md#file-source-identity), validated [query vectors](docs/rag-embedding.md#query-embedding-validation), document-scoped [persistence callbacks and URL cancellation](docs/rag-pipeline.md#custom-persistence) prevent duplicate registrations, invalid searches and stale chunks.
+
+To compare local neural sparse retrieval with the existing search, use the optional `Mythosia.AI.Rag.Search.Pixie` preview. It keeps your dense embedding provider and uses an in-memory PIXIE index; it does not migrate persistent stores or replace the default search. [PIXIE setup and comparison guide](docs/rag-pixie-search.md).
+
+The [retrieval evaluation infrastructure](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md) supports reusable datasets, search adapters, persistent run reports and regression checks. Extend the same evaluator for new search methods and your own document collections.
+
 Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
 
 > Package versions documented here: [Mythosia.AI 8.0.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v800), [Abstractions 4.0.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v400), [Alibaba 3.0.0](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300), [RAG 8.0.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800), [MCP 0.1.0-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v010-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
@@ -48,10 +58,23 @@ dotnet add package Mythosia.VectorDb.Postgres     # optional: when you need a pr
 
 Prepare different settings without changing another request: `CreateRequest(...).WithTemperature(...).GetCompletionAsync()` uses an independent, reusable request builder. See the [request settings guide](docs/request-building.md) for Before/After examples, runs, profiles, and shared-conversation limits.
 
+For requests where waiting time matters, use [processing speed](docs/request-building.md#inference-speed): `WithSpeed` keeps the model and reasoning effort, while `Processing` reports what the provider actually applied. Fast is a paid option on supported combinations.
+
 ## Architecture
+
+<a href="docs/assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
+    <img src="docs/assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+  </picture>
+</a>
+
+<details>
+<summary>Package dependency details</summary>
 
 ```mermaid
 graph TD
+    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
         Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.0.0</i>"]
     end
@@ -69,13 +92,17 @@ graph TD
         VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
     end
 
+    subgraph "🧩 Tool Integration"
+        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.0-preview</i>"]
+    end
+
     subgraph "📄 Document Loaders"
         Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.0</i>"]
         Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.1</i>"]
     end
 
     subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRetrievalStrategy · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
+        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.2.0</i>"]
     end
 
     subgraph "🗄️ Vector Stores — pick one or more"
@@ -102,6 +129,7 @@ graph TD
 
     %% Provider packages → core
     Alibaba --> AI
+    Mcp --> AI
 
     %% Composite → Foundation
     RagAbs --> VdbAbs
@@ -112,10 +140,14 @@ graph TD
 
     %% VectorStores → Foundation
     InMem --> VdbAbs
+    InMem --> RagAbs
     Pine --> VdbAbs
     Pg --> VdbAbs
     Qd --> VdbAbs
+    Pixie --> VdbAbs
 ```
+
+</details>
 
 ## Demo / Test Bed (Chat UI)
 
@@ -211,7 +243,7 @@ When a slow lookup is running, the model may still have useful independent work,
 such as explaining general packing advice before a weather forecast arrives.
 Set `FunctionDefinition.AllowAsync = true`, or use `FunctionBuilder.WithAsync()`,
 to let a supported model continue while that function runs. The default is `false`.
-GPT-6 Astra uses this option through the Responses API; unsupported models keep the
+GPT-6 Astra / Sol / Luna use this option through the Responses API; unsupported models keep the
 same handler and wait for its result without sending the unsupported API option.
 This is separate from C# `async` handlers and parallel handler scheduling. See
 [async tool calling](docs/function-calling.md#async-tool-calling) for the example
@@ -238,6 +270,8 @@ await File.WriteAllBytesAsync("pavilion.png", generated.Images[0].Data);
 ```
 
 See the [provider guide](docs/providers.md#image-generation) for generation and editing, or [typed image options and migration](docs/providers.md#image-options-migration) for the major API change. xAI uses `ImageOutputFormat.Auto`; choose the output extension from `GeneratedImage.MediaType`.
+
+Google image presets are model-specific: Flash supports 512/1K/2K/4K, Flash-Lite currently allows 1K, and Pro supports 1K/2K/4K. Flash/Lite offer 14 ratios; Pro offers the 10 standard ratios. All accept `Auto`. Inspect `GetImageCapabilities(model)` before presenting choices; unsupported explicit sizes or ratios fail before HTTP in generation and editing. See the [model matrix and Flash-Lite documentation discrepancy](docs/providers.md#google-image-options).
 
 ### Structured Output (Basic)
 
@@ -297,6 +331,8 @@ policy.LoadSummary(saved);
 
 ### RAG (Retrieval-Augmented Generation)
 
+Choose keyword, semantic or hybrid retrieval without imposing query embeddings on every search. `UseKeywordSearch()` skips query embeddings; `UseRetriever(...)` connects an external index; `UseHybridSearch(HybridSearchOptions)` forwards explicit weights and candidate settings. Document ingestion still creates vectors. See [retrieval modes and store support](docs/rag-hybrid-search.md).
+
 ```bash
 dotnet add package Mythosia.AI.Rag
 ```
@@ -318,13 +354,19 @@ For agent-controlled retrieval, register the store with `WithAgenticRag(...)` an
 
 ## Supported Providers
 
+> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](docs/providers.md#grok-47).
+
+> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](docs/providers.md#gpt-6-sol-luna).
+
+> Claude Opus 5.5 requires matching unreleased core and abstractions builds; see [configuration and migration](docs/providers.md#claude-opus-55).
+
 | Provider | Package | Models |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](docs/providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.6, Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
-| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash) |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Agent API presets and `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 variants |
 
@@ -339,6 +381,10 @@ For visual drafts or combining references, use [Grok Imagine Image 2.0](docs/pro
 For quick visual drafts, choose Flare; for precise revisions, choose Sunburst. [GPT Image 2.5 generation and editing](docs/providers.md#gpt-image-25) uses the existing image API with explicit per-request model selection; the OpenAI default remains GPT Image 2.
 
 For chart and screenshot analysis, local tool calls, or a quick answer followed by deeper review, use [DeepSeek Flash](docs/providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Thinking stays off by default; enable it with `WithDeepSeekReasoning(...)` or per-request `WithReasoning(...)`.
+
+Select `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) for text-only work; Flash remains the default and supports images. Both expose Low/High/Max thinking and the same output ceiling. To use DeepSeek Responses with the existing completion, streaming, Run and local-function APIs, set `UseResponsesApi = true` before creating the request. The default stays `false` so existing applications keep Chat Completions; the choice is captured for the whole request and its tool rounds. Responses resends full conversation and native reasoning history instead of relying on server-stored response IDs.
+
+Reuse an uploaded image across Flash questions with `DeepSeekImageFileContent` through Chat Completions or Responses; text-only V4 Pro rejects images. These V4 Pro, Responses and Files additions require matching unreleased core and abstractions builds and are absent from published 8.0.0 / 4.0.0. See [image uploads, reuse and limits](docs/providers.md#deepseek-deepseekservice).
 
 > Claude Fable 5 and Claude Mythos 5 require 30-day data retention and are not eligible for zero-data-retention arrangements. Their adaptive thinking is always on; Mythosia uses low effort with summarized reasoning omitted when callers request reasoning off. Mythos 5 is limited to approved Project Glasswing customers.
 
@@ -436,6 +482,16 @@ For quick drafts followed by deeper review, or answers grounded in current infor
 - [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md)  RAG pipeline usage and custom implementations
 - [Document Loaders](docs/document-loaders.md)
 - [Release Notes](src/core/Mythosia.AI/RELEASE_NOTES.md)
+
+## Validate processing speed against real providers
+
+From the repository root, run:
+
+```powershell
+./build/test-inference-speed-live.ps1
+```
+
+The paid suite uses the existing test Key Vault setup and synthetic prompts. It checks Anthropic Opus 5.5, OpenAI GPT-6 Astra, Gemini 3.8 Flash and Grok 4.6 across ProviderDefault/Standard/Fast and completion/Run paths: 24 cases. Account access errors, absent applied-mode reporting and server downgrades do not count as successful Fast validation; every case must pass without skips. Reports go to `artifacts/test-results/inference-speed-live`. Use `-NoBuild` only after building the current Release tests. This command documents how to run the suite, not a claim that the current account has passed it.
 
 ## License
 

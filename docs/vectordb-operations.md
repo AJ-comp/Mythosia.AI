@@ -95,6 +95,25 @@ How hybrid search works per backend:
 | **Pinecone** | Sparse + dense vectors merged server-side |
 | **Postgres** | Vector similarity + `tsvector`/`trigram` scores merged in SQL |
 
+### Text-only and configurable hybrid search (Unreleased)
+
+The overload above uses each backend's existing hybrid behavior. In the current source checkout, InMemory, PostgreSQL and Qdrant also implement `ITextSearchStore` and `IConfigurableHybridSearchStore`. These optional APIs are **Unreleased**; Pinecone does not implement them.
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "order #12345 status", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "order #12345 status",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` needs no dense query vector. The configurable overload uses normalized weighted RRF scores in `[0, 1]`; weight `0` skips dense search and weight `1` skips text search. Metadata filters restrict candidates before top-K, and `MinScore` applies after fusion. Native text/vector score scales differ, so choose thresholds for each mode. Qdrant's `HybridFusionStrategy` controls only the existing overload above.
+
 ## Get by ID
 
 Retrieve a specific record by its ID:
@@ -142,7 +161,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## Replace by Filter
 
-Atomically delete all records matching a filter and insert a new set. Useful for re-indexing a document without leaving stale chunks.
+Delete all records matching a filter and insert a new set. Useful for re-indexing a document without leaving stale chunks. Atomicity depends on the backend.
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -158,7 +177,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> On Postgres this runs inside a transaction, making it fully atomic.
+> Postgres uses a database transaction. InMemory uses sequential deletion and batch insertion, so another query can observe the gap. Failure or cancellation can leave a partial replacement; completed writes are not rolled back. Synchronizing each operation keeps records and the BM25 index consistent, but does not make the whole replacement transactional.
 
 ## Count
 

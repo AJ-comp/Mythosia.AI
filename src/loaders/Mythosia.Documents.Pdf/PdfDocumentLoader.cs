@@ -10,6 +10,7 @@ namespace Mythosia.Documents.Pdf
 {
     /// <summary>
     /// Loads PDF documents via DoclingDocument → MarkdownSerializer.
+    /// Source is the normalized absolute file path, used as the automatic RAG document ID.
     /// </summary>
     public class PdfDocumentLoader : IDocumentLoader
     {
@@ -32,11 +33,13 @@ namespace Mythosia.Documents.Pdf
             if (!File.Exists(source))
                 throw new FileNotFoundException($"Document file not found: {source}", source);
 
+            // Capture identity before awaiting the parser, without changing custom parser inputs.
+            var fullPath = Path.GetFullPath(source);
             if (!_parser.CanParse(source))
                 throw new NotSupportedException($"Parser '{_parser.GetType().Name}' cannot parse '{source}'.");
 
             var doclingDoc = await _parser.ParseAsync(source, ct);
-            doclingDoc.Source = source;
+            doclingDoc.Source = fullPath;
             doclingDoc.Metadata["type"] = "pdf";
             doclingDoc.Metadata["filename"] = Path.GetFileName(source);
             doclingDoc.Metadata["extension"] = Path.GetExtension(source).ToLowerInvariant();

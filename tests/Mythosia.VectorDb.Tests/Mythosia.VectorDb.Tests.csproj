@@ -17,6 +17,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Pinecone\Mythosia.VectorDb.Pinecone.csproj" />
+    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.InMemory\Mythosia.VectorDb.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Qdrant\Mythosia.VectorDb.Qdrant.csproj" />
     <ProjectReference Include="..\..\src\vectordb\Mythosia.VectorDb.Postgres\Mythosia.VectorDb.Postgres.csproj" />
   </ItemGroup>
 

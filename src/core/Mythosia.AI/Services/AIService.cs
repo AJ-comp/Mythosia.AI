@@ -211,11 +211,14 @@ namespace Mythosia.AI.Services.Base
             var requestMessageOverride = _currentRequestContext.Value?.RequestMessageOverride;
             if (requestMessageOverride != null && messages.Count > 0)
             {
-                // A run keeps its original input override anchored while tool results and
-                // later steering instructions are appended. Legacy requests retain their contract.
+                // Keep augmentation on the logical request's original input while tool
+                // results, format repairs, or steering instructions are appended. The
+                // fallback is only for custom request paths without a captured input.
                 var overrideTargetId = GetRequestMessageOverrideTargetId();
                 var overrideIndex = overrideTargetId == null ? messages.Count - 1
-                    : messages.FindIndex(message => message.Id == overrideTargetId);
+                    // A caller may reuse the same Message in a later turn. Its newest
+                    // occurrence is this request's input; earlier history stays intact.
+                    : messages.FindLastIndex(message => message.Id == overrideTargetId);
                 if (overrideIndex >= 0)
                 {
                     // Retain protocol metadata anchored to the original user input, including
@@ -240,7 +243,8 @@ namespace Mythosia.AI.Services.Base
         }
 
         /// <summary>Identifies the user input replaced by request context while tool rounds append messages.</summary>
-        protected virtual string? GetRequestMessageOverrideTargetId() => _runRequestMessageId;
+        protected virtual string? GetRequestMessageOverrideTargetId()
+            => _runRequestMessageId ?? CurrentFeatureRequestMessage?.Id;
 
         /// <summary>
         /// Ensures the message list starts with a User message.

@@ -1,5 +1,7 @@
 # Control ongoing AI tasks with Run
 
+> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](providers.md#gpt-6-sol-luna).
+
 Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
 
 For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
@@ -7,6 +9,8 @@ For independent settings and reusable variations, use [the request builder](requ
 > Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](#run-result).
 
 > `CreateRequest` examples require Mythosia.AI 8.0.0 / Abstractions 4.0.0; they are not available in the earlier 7.1 release that introduced Run and common request features. Earlier packages can keep their existing service overloads.
+
+For requests where waiting time matters, use [processing speed](request-building.md#inference-speed): `WithSpeed` keeps the model and reasoning effort, while `Processing` reports what the provider actually applied. Fast is a paid option on supported combinations.
 
 ## Why control a task while it is running?
 
@@ -195,9 +199,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-Mid-turn steering is available for GPT-6 Astra over the Responses WebSocket connection. Other providers and unsupported models can use normal runs, but `CanSteer` is false and steering reports unsupported behavior instead of silently creating an ordinary next turn. `CanSteer` is not a guarantee that the run will still be active when a later call is made.
+Mid-turn steering is available for GPT-6 Astra / Sol / Luna over the Responses WebSocket connection. Other providers and unsupported models can use normal runs, but `CanSteer` is false and steering reports unsupported behavior instead of silently creating an ordinary next turn. `CanSteer` is not a guarantee that the run will still be active when a later call is made.
 
-Astra runs open a dedicated socket; the supplied `HttpClient` and its message handlers continue to serve HTTP calls and do not intercept this socket. Custom transports can override `OpenAIService.ConnectRunWebSocketAsync`.
+GPT-6 runs open a dedicated socket; the supplied `HttpClient` and its message handlers continue to serve HTTP calls and do not intercept this socket. Custom transports can override `OpenAIService.ConnectRunWebSocketAsync`.
 
 A successful `SteerAsync` means the server accepted the input into its queue, not that the model has already applied it. Continue observing the same run or awaiting its result through the continuation. Already-delivered text and completed actions are not undone, and tools that have started are not cancelled merely because steering was submitted. The library handles continuation and tool-result correlation on the same connection. See OpenAI's [mid-turn steering guide](https://developers.openai.com/api/docs/guides/steering) and [WebSocket mode](https://developers.openai.com/api/docs/guides/websocket-mode). Connection-local queued input does not survive a disconnect by assumption; do not blindly resubmit an accepted instruction.
 

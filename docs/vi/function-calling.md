@@ -1,5 +1,7 @@
 # Gọi hàm (Function Calling)
 
+> GPT-6 Sol/Luna là phần bổ sung chưa phát hành. Xem [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna).
+
 Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
 
 Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
@@ -288,7 +290,7 @@ var answer = await service.GetCompletionAsync(
     "Kiểm tra thời tiết minh họa của Seoul. Trong lúc chờ, hãy liệt kê ba vật dụng cần thiết cho chuyến đi.");
 ```
 
-Mythosia gửi `async: true` cho GPT-6 Astra qua Responses API. Với mô hình và API chưa hỗ trợ, thư viện bỏ trường này và chờ kết quả của cùng handler, không thay đổi `AllowAsync`. Nhà cung cấp cũng phải đánh dấu lời gọi thực tế là bất đồng bộ (`FunctionCall.IsAsync`); bật quyền không đảm bảo lúc nào cũng chạy bất đồng bộ.
+Mythosia gửi `async: true` cho GPT-6 Astra / Sol / Luna qua Responses API. Với mô hình và API chưa hỗ trợ, thư viện bỏ trường này và chờ kết quả của cùng handler, không thay đổi `AllowAsync`. Nhà cung cấp cũng phải đánh dấu lời gọi thực tế là bất đồng bộ (`FunctionCall.IsAsync`); bật quyền không đảm bảo lúc nào cũng chạy bất đồng bộ.
 
 `WithFunctionAsync` đăng ký handler bất đồng bộ của .NET, còn `FunctionExecutionMode.Parallel` điều khiển cách chạy handler cục bộ. Cả hai đều không tự bật quyền này. `AllowAsync` cho phép mô hình tiếp tục trước khi nhận kết quả của hàm. `FunctionExecutionMode` vẫn điều khiển các lời gọi thông thường. Công việc bất đồng bộ được cho phép có thể chạy chồng nhau ngay cả ở chế độ `Sequential`, và toàn bộ nhóm công việc riêng này dùng chung giới hạn `MaxConcurrency`.
 

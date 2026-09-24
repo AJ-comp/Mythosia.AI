@@ -1,5 +1,7 @@
 # Streaming
 
+> Grok 4.7 is an unreleased addition; see [model selection, reasoning and processing speed](providers.md#grok-47).
+
 Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](execution-api-transition.md#run-result).
 
 

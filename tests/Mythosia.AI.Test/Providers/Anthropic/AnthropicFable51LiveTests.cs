@@ -108,14 +108,31 @@ public class AnthropicFable51LiveTests
         StringAssert.Contains(first.Text, persistent);
         StringAssert.Contains(first.Text, temporary);
         var second = await probe.ExecuteAsync("Reply with Updated. Follow currently active instructions, without quoting the previous reply.", mode);
-        StringAssert.Contains(second.Text, persistent);
-        Assert.IsFalse(second.Text.Contains(temporary, StringComparison.Ordinal), "The old turn-scoped instruction must have cleared.");
-        var scoped = Messages(probe.Requests[0]).Single(message => message["clear_at"]?.GetValue<string>() == "next_user_message");
-        Assert.IsTrue(Messages(probe.Requests[1]).Any(message => JsonNode.DeepEquals(scoped, message)),
+        var firstMessages = Messages(probe.Requests[0]);
+        var secondMessages = Messages(probe.Requests[1]);
+        var currentUserIndex = Array.FindLastIndex(secondMessages, message => message["role"]?.GetValue<string>() == "user");
+        Console.WriteLine("LIVE_FABLE_TURN_CLEAR_METADATA " + JsonSerializer.Serialize(new
+        {
+            mode,
+            requestCount = probe.Requests.Count,
+            statusCodes = probe.Requests.Select(request => request.StatusCode).ToArray(),
+            scopedMessageCountFirst = firstMessages.Count(message => message["clear_at"]?.GetValue<string>() == "next_user_message"),
+            scopedMessageCountSecond = secondMessages.Count(message => message["clear_at"]?.GetValue<string>() == "next_user_message"),
+            currentUserIndex,
+            scopedMessagesAfterCurrentUser = secondMessages.Skip(currentUserIndex + 1).Count(message => message["clear_at"] != null),
+            prefixUnchanged = secondMessages.Length >= firstMessages.Length && firstMessages.Select((message, index) => JsonNode.DeepEquals(message, secondMessages[index])).All(value => value),
+            topSystemUnchanged = JsonNode.DeepEquals(probe.Requests[0].Body["system"], probe.Requests[1].Body["system"]),
+            firstTemporaryPresent = first.Text.Contains(temporary, StringComparison.Ordinal),
+            secondTemporaryPresent = second.Text.Contains(temporary, StringComparison.Ordinal)
+        }));
+        var scoped = firstMessages.Single(message => message["clear_at"]?.GetValue<string>() == "next_user_message");
+        Assert.IsTrue(secondMessages.Any(message => JsonNode.DeepEquals(scoped, message)),
             "Clearing must retain the original instruction in the wire history.");
         AssertPrefixUnchanged(probe.Requests[0], probe.Requests[1]);
         Assert.AreEqual(0, probe.Service.LastInputTransformations.Count);
         AssertSuccessful(probe, mode, AnthropicFableLiveProbe.BindingBeta, AnthropicFableLiveProbe.TurnBeta);
+        StringAssert.Contains(second.Text, persistent);
+        Assert.IsFalse(second.Text.Contains(temporary, StringComparison.Ordinal), "The old turn-scoped instruction must have cleared.");
         Console.WriteLine($"LIVE_FABLE_OK feature=turn-clear-and-persistent-instruction mode={mode}");
     }
 

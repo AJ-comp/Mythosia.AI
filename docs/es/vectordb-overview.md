@@ -78,7 +78,7 @@ Los resultados de búsqueda combinan un registro con su puntuación de similitud
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0.0–1.0 (mayor = más similar)
+    public double Score { get; set; }  // Escala dependiente del backend y del modo de búsqueda; mayor es mejor
 }
 ```
 

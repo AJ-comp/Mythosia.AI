@@ -99,7 +99,12 @@ namespace Mythosia.VectorDb.InMemory
         /// <param name="topK">Maximum number of results to return.</param>
         /// <returns>BM25 results sorted by score descending.</returns>
         public IReadOnlyList<Bm25Result> Search(string query, int topK)
+            => Search(query, topK, eligibleIds: null);
+
+        internal IReadOnlyList<Bm25Result> Search(string query, int topK, IReadOnlyCollection<string>? eligibleIds)
         {
+            if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
+            if (eligibleIds?.Count == 0) return Array.Empty<Bm25Result>();
             var queryTokens = Bm25Tokenizer.Tokenize(query);
             if (queryTokens.Count == 0)
                 return Array.Empty<Bm25Result>();
@@ -126,7 +131,9 @@ namespace Mythosia.VectorDb.InMemory
                 if (booleanQuery.Clauses.Count == 0)
                     return Array.Empty<Bm25Result>();
 
-                var topDocs = searcher.Search(booleanQuery, topK);
+                var filter = eligibleIds == null ? null : new FieldCacheTermsFilter(IdField, eligibleIds.ToArray());
+                var sort = new Sort(SortField.FIELD_SCORE, new SortField(IdField, SortFieldType.STRING));
+                var topDocs = searcher.Search(booleanQuery, filter, topK, sort, doDocScores: true, doMaxScore: false);
                 var results = new List<Bm25Result>(topDocs.ScoreDocs.Length);
                 foreach (var scoreDoc in topDocs.ScoreDocs)
                 {

@@ -29,14 +29,14 @@ namespace Mythosia.AI.Services.Base
         /// <summary>
         /// Returns the effective system message, composed from (in order):
         /// the per-request <see cref="AIRequestContext.SystemMessagePrefix"/>,
-        /// the conversation summary (if any), <see cref="Models.ChatBlock.SystemMessage"/>,
+        /// the conversation summary (for stateful requests), <see cref="Models.ChatBlock.SystemMessage"/>,
         /// and the per-request <see cref="AIRequestContext.SystemMessageSuffix"/>.
         /// Use this instead of ActivateChat.SystemMessage when building request bodies.
         /// </summary>
         internal string GetEffectiveSystemMessage()
         {
             var baseMsg = RequestSystemMessage;
-            var summary = ConversationPolicy?.CurrentSummary;
+            var summary = RequestStatelessMode ? null : ConversationPolicy?.CurrentSummary;
             var ctx = _currentRequestContext.Value;
 
             if (!string.IsNullOrEmpty(summary))
@@ -139,9 +139,9 @@ namespace Mythosia.AI.Services.Base
             _isSummarizing = true;
 
             // The summary is the library's own request, not a continuation of the caller's turn.
-            // Left attached, the caller's per-request context would rewrite it: RequestMessageOverride
-            // replaces the last message of every outgoing request (see GetLatestMessages), and this
-            // request is one message long — the summarization prompt. What came back would be an
+            // Left attached, the caller's per-request context could rewrite the internal request:
+            // the summary has its own input scope, so RequestMessageOverride could replace the
+            // summarization prompt. What came back would be an
             // ordinary answer to the caller's question, stored as the conversation summary while the
             // messages it was supposed to summarize get deleted.
             var restoreContext = SuppressRequestContext();

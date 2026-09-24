@@ -8,10 +8,10 @@
     <Version>4.1.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>In-memory vector store implementation for Mythosia VectorDb. Provides InMemoryVectorStore with cosine similarity TopK search, metadata filtering, upsert/delete operations, GetBatchAsync, CountAsync, IDisposable, Bm25Index keyword search, and normalized hybrid RRF scoring.</Description>
+    <Description>In-memory vector and BM25 text search for Mythosia VectorDb. Provides cosine similarity, text-only retrieval, configurable normalized weighted RRF, metadata filtering, upsert/delete operations, batch retrieval and counts. Filters candidates before truncation, synchronizes record and keyword-index access, and returns independent record copies. Supports cancellation while waiting for access and between batch records; batch and document replacement operations do not provide transactional rollback.</Description>
     <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v4.1.0: Removed obsolete namespace parameter from diagnostic methods (ListAllRecordsAsync, ScoredListAsync). Use VectorFilter for filtering instead.</PackageReleaseNotes>
+    <PackageReleaseNotes>Unreleased (next version not assigned): Adds text-only BM25 search and configurable normalized weighted RRF. Applies filtering before candidate truncation and honors vector weight, candidate multiplier and RRF smoothing. Synchronizes records and keyword indexes across reads/writes, copies input/output records and observes cancellation while waiting and between batch records. Completed records remain consistent, but batch writes and sequential replacement are not transactional. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#unreleased. Previous version notes: v4.1.0: Removed obsolete namespace parameter from diagnostic methods (ListAllRecordsAsync, ScoredListAsync). Use VectorFilter for filtering instead.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

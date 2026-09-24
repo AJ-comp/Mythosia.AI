@@ -3,6 +3,8 @@
 > `CreateRequest`範例需要Mythosia.AI 8.0.0 / Abstractions 4.0.0。最初引入Run和共通請求功能的舊7.1版本不包含建構器；舊套件可繼續使用原有服務多載。
 
 <a id="image-options-migration"></a>
+處理模式及回傳的資訊取決於供應商、模型和 API。使用[共用速度選項](request-building.md#inference-speed)並檢查 capability，區分要求 Fast 與實際套用 Fast。
+
 ## 圖片選項型別遷移
 
 透過列舉自動完成選擇品質與格式，並區分精確像素和解析度級距。這能減少字串拼字錯誤，避免指定像素尺寸被悄悄轉成其他解析度。
@@ -71,13 +73,47 @@ var presetRequest = new ImageGenerationRequest
 
 天氣查詢較慢時，模型仍可先介紹不依賴天氣結果的一般旅行用品。模型原生非同步工具呼叫用於在這種等待期間繼續獨立工作；依賴查詢結果的判斷仍應等結果傳回後再進行。
 
-透過 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可選擇允許 GPT-6 Astra 在 Responses API 中非同步呼叫工具。預設值為 `false`；不支援的模型仍等待同一個處理常式的結果。範例與請求生命週期請參見[函式呼叫指南](function-calling.md)。
+透過 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可選擇允許 GPT-6 Astra / Sol / Luna 在 Responses API 中非同步呼叫工具。預設值為 `false`；不支援的模型仍等待同一個處理常式的結果。範例與請求生命週期請參見[函式呼叫指南](function-calling.md)。
 
 若要跨供應商設定推理等級，並使用最新資訊或已索引文件作為依據，請參閱[推理與搜尋指南](reasoning-and-search.md)，其中列出模型支援、快取保留及組合限制。
 
+<a id="gpt-6-sol-luna"></a>
+
+### GPT-6 Sol / Luna（尚未發布）
+
+複雜的程式設計、工具呼叫和代理工作可選擇 GPT-6 Sol；需要以低成本大量處理文字或影像輸入時可選擇 Luna。兩者沿用現有的完整回應、串流回應和 Run API，切換模型不需要改變應用程式的呼叫流程。
+
+> 這是尚未發布的新增功能，需要配套的 core 與 abstractions 建置。已發布的 Mythosia.AI 8.0.0 / Abstractions 4.0.0 不含 `Gpt6Sol`、`Gpt6Luna` 或 `Gpt6Reasoning.None`。既有 Astra 功能的最低版本與服務預設模型不變。
+
+使用 `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) 或 `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`) 選擇模型。兩者支援文字、影像輸入與文字輸出，上下文為 1,050,000 token，輸入上限 922,000，輸出上限 128,000。輸入、推理與輸出的總量仍須符合上下文限制。`MaxTokens` 設定要求的輸出預算，而非上下文大小。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6Sol);
+await using var run = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(onText: text => Console.Write(text));
+var result = await run.Result;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Luna);
+string answer = await service.CreateRequest("Summarize this paragraph.")
+    .WithReasoning(ReasoningLevel.None)
+    .WithTemperature(0.2f)
+    .GetCompletionAsync();
+```
+
+`Auto` 對應 `Medium`。Sol/Luna 支援 `None`、`Low`、`Medium`、`High`、`XHigh`、`Max`，不支援 `Minimal`。請求層級可用 `WithReasoning(ReasoningLevel.None)`，`WithGpt6Parameters` 可用 `Gpt6Reasoning.None`。只有 Sol/Luna 的 `None` 會傳送 `Temperature` / `TopP`，啟用推理時省略它們。Astra 始終需要推理並省略取樣參數。`AIRequestProfile.DisableReasoning` 在 Sol/Luna 中使用 `None`，在 Astra 中使用 Standard 模式的 `Low`，並省略推理摘要。
+
+`Gpt6ReasoningMode.Standard` 和 `.Pro` 使用同一個所選模型 ID。三個 GPT-6 模型都支援 Responses 工具呼叫、可選非同步工具、WebSocket Run 的追加指令，以及 Standard 單一代理模式下保留快取的推理變更。追加指令前請檢查 `run.CanSteer`；接收成功不會撤回既有輸出。`WithSpeed(InferenceSpeed.Fast)` 獨立於推理強度要求付費 Fast 處理；透過 `result.Processing` 檢查實際模式。帳戶權限與伺服器降級處理不由本地能力檢查保證。
+
+[GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) · [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) · [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
+
 ### 推理強度
 
-GPT-6 Astra 和 GPT-5.1–5.6 支援調整推理強度，以平衡回應速度和分析深度：
+GPT-6 Astra / Sol / Luna 和 GPT-5.1–5.6 支援調整推理強度，以平衡回應速度和分析深度：
 
 ```csharp
 using Mythosia.AI.Models;
@@ -200,6 +236,52 @@ await File.WriteAllBytesAsync("pavilion-cutout.png", edited.Images[0].Data);
 
 [Claude Fable 5.1](fable-5-1.md) 的進度更新、單回合指令與 thinking 綁定診斷從 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 開始提供。Mythos 5.1 需要邀請存取，兩個模型都拒絕強制工具選擇。
 
+<a id="claude-opus-55"></a>
+
+### Claude Opus 5.5：顯示長時間工具工作的進度
+
+需要多輪工具呼叫的程式碼審查或文件調查可以使用 Opus 5.5。仍然使用現有 completion 和 Run API，但預設不顯示進度，保留推理時也需要注意歷史變更。此支援屬於尚未發布的工作區新增功能，不包含在已發布的 8.0.0 / 4.0.0 套件中。
+
+`ClaudeOpus5_5` 選擇 `claude-opus-5-5`，支援文字和影像輸入、文字輸出，提供 1M 上下文和最多 128K 輸出 token。2026-09-24 核實的標準輸入／輸出價格為每百萬 token $4/$20；特殊模式和工具另行計費。 [官方模型資訊](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+未更改服務設定時，`Auto` 使用 `Medium` effort，並省略可讀推理。Adaptive thinking 始終啟用。可明確選擇 `Low`、`Medium`、`High`、`XHigh` 或 `Max`；共用 `ReasoningLevel.None` 和 `Minimal` 會被拒絕。服務預設模型保持不變。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeOpus5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.Medium, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.StartRunAsync(
+    "Review the migration plan using the registered tools.",
+    options: StreamOptions.FullOptions);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+範例要求 `Updates` 並觀察 `StreamingContentType.Reasoning`。`Summarized` 顯示推理摘要，`Omitted` 隱藏顯示。`WithAdaptiveThinkingParameters(effort)` 的顯示參數仍預設為 `Summarized`，與未設定的服務不同。一般 completion 完成後讀取 `LastThinkingContent`。不保證按固定間隔產生進度。
+
+舊的正數 `ThinkingBudget` 對應為 high/xhigh/max effort，不是精確 token 預算；零或負數也無法關閉推理。停用推理的 profile 會使用 low effort 並省略可讀推理。`MaxTokens` 包括隱藏推理和回答，因此移轉時應重新評估輸出限制和成本。
+
+Mythosia 在對話輪次和工具結果之間保留簽章 thinking 區塊，包括內容為空的區塊。請繼續使用同一個服務和對話；若要保留推理，不要重寫先前訊息、system 或 tools。可使用 `WithTurnInstruction`、`WithConversationInstruction` 和 `CachePreservation.Required`。透過 `WithThinkingBinding` 選擇 `Error` / `DropBlock`，並用 `LastInputTransformations` 查看回報的捨棄；Drop 表示推理被捨棄。[歷史指南](fable-5-1.md)說明共用控制，預設值及模型相容性則遵循 Opus 5.5 的規則。
+
+不要設定 `ForceFunctionName`；支援一般工具選擇和 `FunctionsDisabled`。拒絕 assistant prefill，並省略 sampling 參數。Opus 5.5 無法讀取 Fable/Mythos 的 thinking，但 Claude API 上的 Fable 5.1 和 Mythos 5.1 可讀取 Opus 5.5 的 thinking。切換模型可能失去先前推理。此新增功能未開放 原生 computer toolset、task budget、對話中工具變更、伺服器壓縮或自動伺服器 fallback。 [移轉要求](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) · [原生功能範圍](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5).
+
+在 Opus 5.5 中直接修改已儲存的 assistant 回應內容，會在 HTTP 請求前引發 `InvalidOperationException`；`DropBlock` 也不允許重寫簽章回應。請透過新的使用者輸入提交更正，或開始新對話。對先前 user/system 內容的修改則遵循供應商的前綴綁定政策。
+
+Opus 5.5 fast mode 可透過 [WithSpeed](request-building.md#inference-speed) 在有權限的直接 Claude API 上使用。它保持所選推理層級並要求額外收費的模式。
+
 ### Token 計數（原生 API）
 
 Anthropic 的實作呼叫官方 `messages/count_tokens` 端點，回傳**精確**的 Token 數量：
@@ -236,9 +318,61 @@ string review = await gemini
 
 初步檢查可使用 `Low`，複雜審查可使用 `High`；更多推理可能增加延遲和 token 用量。兩種模型都支援 `Low`、`Medium`、`High`，不支援 `Minimal` 或 `None`。`GeminiThinkingLevel.Auto` 不傳送覆寫值，3.8 的供應商預設值為 `Medium`。`ThinkingLevel` 設定服務基準，`WithReasoning(...)` 只覆寫一個邏輯請求。適配器不傳送這兩種模型的 `temperature`、`topP`、`topK`。供應商上限為輸入 1,048,576 token、輸出 65,536 token。 [Gemini 3.7 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash), [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash).
 
+<a id="google-image-options"></a>
+
+### Google 影像模型的解析度與長寬比
+
+| 模型 | `Resolutions` | `AspectRatios` |
+| --- | --- | --- |
+| `gemini-3.1-flash-image` | `Auto`, `FiveTwelve` (512), `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 14 + `Auto` |
+| `gemini-3.1-flash-lite-image` | `Auto`, `OneK` (1K) | 14 + `Auto` |
+| `gemini-3-pro-image` | `Auto`, `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 10 + `Auto` |
+
+10種標準比例為 `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`。14種比例集合另加 `1:4`, `4:1`, `1:8`, `8:1`。所有模型也允許 `ImageAspectRatio.Auto`。
+
+使用 `ImageSize.Auto` 或 `ImageSize.Preset(resolution, aspectRatio)`。`Auto` 省略對應選項。`GetImageCapabilities(model)` 與 `GenerateImagesAsync` / `EditImagesAsync` 使用相同的模型專屬選項。不支援的明確值會在 HTTP 前擲出 `NotSupportedException`，不會調整尺寸或傳送替代請求。未知的自訂模型 ID 維持 `Unknown`，通過供應商通用選項驗證後原樣傳遞。
+
+Flash-Lite 的[模型頁面](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image)和指南正文指定 1K，但[指南表格](https://ai.google.dev/gemini-api/docs/generate-content/image-generation#aspect_ratios_and_image_size)也有 512 欄。在驗證此差異前，程式庫保守地僅允許 1K；這不表示已實測伺服器會拒絕 512。
+
 ---
 
 ## xAI (XAIService)
+
+<a id="grok-47"></a>
+
+### Grok 4.7
+
+需要先快速起草、再仔細審查程式碼或文件時，可以選擇 Grok 4.7，並依請求調整推理強度。繼續使用現有的一般回應、串流、Run、本機工具、結構化輸出與圖片輸入 API。`grok-4.7` 接受文字與圖片輸入，回傳文字，上下文視窗為 500,000 token。此整合需要相符的未發布 core 與 abstractions 建置，已發布的 8.0.0 / 4.0.0 套件不包含它。服務預設模型仍為 Grok 4.5。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.xAI;
+
+var grok = new XAIService(apiKey, httpClient);
+grok.ChangeModel(AIModels.xAI.Grok4_7);
+grok.WithGrokReasoning(GrokReasoning.Low);
+
+var request = grok.CreateRequest("Review this deployment plan and its rollback risks.")
+    .WithReasoning(ReasoningLevel.XHigh)
+    .WithSpeed(InferenceSpeed.Fast);
+
+await using var run = await request.StartRunAsync();
+await foreach (var content in run.StreamAsync())
+    Console.Write(content.Content);
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (var processing in result.Processing)
+    Console.WriteLine(processing.AppliedSpeed);
+```
+
+支援 `Low`、`Medium`、`High` 與 `XHigh`。原生 `GrokReasoning.Auto` 省略 `reasoning_effort`，採用供應商預設的 `High`；共通 `ReasoningLevel.Auto` 也會省略該欄位，在本次請求中使用供應商預設值 `High`。`None`、`Minimal` 與 `Max` 會在傳送前遭拒。`WithReasoning(...)` 套用到整個邏輯請求，包括工具回合與結構化輸出修復；`WithGrokReasoning(...)` 設定服務基礎值。內部 `DisableReasoning` 設定使用 `Low`。選擇性提供的推理摘要並非完整的內部推理過程。
+
+`WithSpeed(InferenceSpeed.Standard)` 傳送 `service_tier: "default"`；`Fast` 在支援的 xAI 端點傳送 `"priority"`，可能增加費用。`ProviderDefault` 不覆寫設定。伺服器可能降為一般處理，請透過 `result.Processing` 查看回報的實際等級。這是 `grok-4.7` 的優先處理，並非 Cursor/Grok Build 專用的獨立「Grok 4.7 Fast」變體；該變體沒有公開 API 模型 ID。
+
+`GetCapabilities()` 在本機描述所選請求的支援情況，不檢查帳戶權限。此整合使用 Chat Completions。本次未連接 Responses 專用的加密推理、託管 Web/X 搜尋、原生非同步工具、保留快取的更新與 `SteerAsync`。用戶端函式繼續使用現有的本機工具迴圈；`run.CanSteer` 為 false。
+
+[Grok 4.7](https://docs.x.ai/developers/grok-4-7) · [reasoning_effort](https://docs.x.ai/developers/model-capabilities/text/reasoning) · [Priority Processing](https://docs.x.ai/developers/advanced-api-usage/priority-processing)
 
 ### 為任務選擇推理強度
 
@@ -331,7 +465,7 @@ xAI使用`ImageSize.Auto`或`ImageSize.Preset(ImageResolution.OneK, ImageAspectR
 
 xAI僅支援新的共用預設值`ImageOutputFormat.Auto`。它無法選擇輸出編碼，因此明確的`Jpeg`、`Png`、`WebP`會在傳送前拒絕。請依`GeneratedImage.MediaType`選擇副檔名，程式庫不會轉碼。品質支援`ImageQuality.Auto`、`Low`、`Medium`，背景僅支援`ImageBackground.Auto`；不支援明確壓縮或獨立的`Mask`。
 
-Google使用`ImageSize.Auto`或模型支援的`ImageResolution.Auto`、`FiveTwelve`、`OneK`、`TwoK`、`FourK`之`Preset`。輸出支援`ImageOutputFormat.Auto`或明確的`Jpeg`，拒絕`Png`/`WebP`。Google和xAI拒絕`Pixels`，OpenAI支援`Auto`/`Pixels`並拒絕`Preset`。參見[遷移範例](#image-options-migration)。
+Google 使用 `ImageSize.Auto` 或模型專屬解析度與比例的 `Preset`。[Google 模型專屬影像選項](#google-image-options).輸出支援`ImageOutputFormat.Auto`或明確的`Jpeg`，拒絕`Png`/`WebP`。Google和xAI拒絕`Pixels`，OpenAI支援`Auto`/`Pixels`並拒絕`Preset`。參見[遷移範例](#image-options-migration)。
 
 [Grok Imagine Image 2.0](https://docs.x.ai/developers/models/grok-imagine-image-2.0) · [Image API](https://docs.x.ai/developers/rest-api-reference/inference/images)
 
@@ -340,6 +474,46 @@ Google使用`ImageSize.Auto`或模型支援的`ImageResolution.Auto`、`FiveTwel
 ## DeepSeek (DeepSeekService)
 
 需要快速回答後深入審查，或解釋圖表、截圖時，可使用 DeepSeek Flash。`AIModels.DeepSeek.Flash` (`deepseek-flash`) 選擇2026年9月10日發布、原生支援視覺理解的 V4.1 Flash。沿用補全、串流、Run、函式呼叫和 RAG API，從 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 起支援。
+
+> 已發布的 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 已包含 Flash 基本支援。`AIModels.DeepSeek.V4Pro`、`UseResponsesApi`、Files API 和 `DeepSeekImageFileContent` 是原始碼中尚未發布的新增功能，需要從原始碼建置相互對應的核心與抽象套件；上述已發布套件不包含這些功能。[尚未發布的更新說明](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased)。
+
+純文字任務可選擇 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)。預設模型 Flash 支援影像，兩者均提供 Low/High/Max 推理和相同輸出上限。若要透過既有補全、串流、Run 和本機函式 API 使用 Responses，請在建立請求前設定 `UseResponsesApi = true`。預設仍為 `false`，以保留既有應用程式的 Chat Completions 行為；設定會固定到該請求及後續工具輪次。Responses 重送完整對話和原始推理歷史，不依賴伺服器儲存的回應 ID。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+同一影像需要用於多個問題或對話時，可先上傳一次。`UploadFileAsync` 接受路徑，或呼叫端擁有的串流和檔名；purpose 固定為 `user_data`。JPEG、PNG、GIF、WebP 上傳上限為 64 MiB。`DeepSeekImageFileContent` 在兩種傳輸方式的 Flash 中參照該影像，並非 PDF 或文件輸入，V4 Pro 會拒絕。省略到期時間表示永久保留，`expiresAfterSeconds` 範圍為 3600–2592000 秒。請在所有參照它的對話結束後再刪除檔案。
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+`GetFileAsync` 查詢中繼資料；`ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` 取得一頁；`DeleteFileAsync` 刪除檔案。`HasMore` 為 true 時將回傳的 `LastId` 用作下一頁 `After`，也可使用 `Descending`。官方文件未列出檔案內容下載端點。Chat UI 提供 Flash 和 V4 Pro，重寫模型選擇器使用目前目錄；舊儲存值 `DeepSeekChat` 遷移為 Flash，任意模型 ID 保持不變。
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -368,7 +542,7 @@ string review = (await run.Result).Text;
 
 程式庫的 `ThinkingEnabled` 預設仍為 `false`。`WithDeepSeekReasoning(...)` 開啟推理並設定持續生效的 `ReasoningEffort` (`Auto`, `Low`, `High`, `Max`)；原生 `Auto` 省略 effort，使用供應商預設 `High`。共用 `WithReasoning(...)` 僅覆寫一個邏輯請求及工具輪次：`None` 關閉推理，`Minimal`/`Low` 對應 `Low`，`Medium`/`High`/`XHigh` 對應 `High`，`Max` 對應 `Max`。共用 `Auto` 保留目前預設設定。增加推理可能提高回應時間和權杖用量。 只修改 `ReasoningEffort` 屬性不會開啟推理。
 
-透過 `WithFunction(...)` 註冊本地函式，讓模型透過應用程式碼查詢資料或執行操作。推理與非推理均支援工具，但推理模式拒絕強制/必選工具，應使用自動選擇。配接器保留原生 `reasoning_content` 和呼叫 ID，供後續工具輪次重播。Run 與原有串流 API 啟用 `StreamOptions.WithReasoning()` 後，以 `StreamingContentType.Reasoning` 輸出推理；觀察選項本身不會開啟推理。用量包含供應商回報的快取和推理權杖。 自動上下文復原使用共用串流迴圈。工具需要先前的原生推理歷史時，為保留歷史會阻止自動壓縮，並傳遞超限錯誤。
+透過 `WithFunction(...)` 註冊本地函式，讓模型透過應用程式碼查詢資料或執行操作。推理與非推理均支援工具。Chat Completions 在推理時拒絕強制/必選工具，應使用自動選擇。設定 `UseResponsesApi = true` 後，推理時也可透過 `ForceFunctionName` 指定函式；配接器將 `type` 和 `name` 直接放在 Responses 的 `tool_choice` 中。這不會啟用原生非同步工具。配接器保留原生 `reasoning_content` 和呼叫 ID，供後續工具輪次重播。Run 與原有串流 API 啟用 `StreamOptions.WithReasoning()` 後，以 `StreamingContentType.Reasoning` 輸出推理；觀察選項本身不會開啟推理。用量包含供應商回報的快取和推理權杖。 自動上下文復原使用共用串流迴圈。工具需要先前的原生推理歷史時，為保留歷史會阻止自動壓縮，並傳遞超限錯誤。
 
 圖表或截圖可透過現有訊息型別傳入影像位元組：
 
@@ -383,9 +557,9 @@ var message = new Message(ActorRole.User, new List<MessageContent>
 string description = await deepseek.GetCompletionAsync(message);
 ```
 
-`ImageContent` 接收 JPEG、PNG、GIF、WebP 位元組或由供應商取得的公開 HTTP(S) URL。範例使用使用者訊息。目前 API 也接受工具訊息中的影像，但註冊函式處理器仍透過共用結果契約回傳文字。手動建立 `ActorRole.Function` 影像訊息時，須透過 `MessageMetadataKeys.FunctionId` 提供相符的呼叫 ID（wire 中的 `tool_call_id`）。影像大小和總量限制請參閱最新官方視覺指南。未整合 `file_id`、Files API 或影像生成。
+`ImageContent` 接收 JPEG、PNG、GIF、WebP 位元組或由供應商取得的公開 HTTP(S) URL。範例使用使用者訊息。目前 API 也接受工具訊息中的影像，但註冊函式處理器仍透過共用結果契約回傳文字。手動建立 `ActorRole.Function` 影像訊息時，須透過 `MessageMetadataKeys.FunctionId` 提供相符的呼叫 ID（wire 中的 `tool_call_id`）。影像大小和總量限制請參閱最新官方視覺指南。 仍不支援影像生成。
 
-供應商標示上下文1M、輸出最多384K (`393216`)權杖；程式庫預設請求預算仍為8,000。推理模式省略 temperature/penalty，`top_p` 至少0.95；非推理模式省略 `top_p`。配接器使用 Chat Completions，未整合 Responses、託管搜尋、`CachePreservation.Required`、原生非同步工具或 `SteerAsync`。本地 RAG 和一般工具輪次仍可使用。
+兩種模型均提供 1M 上下文和最多 384K (`393216`) 輸出權杖，預設請求預算仍為 8,000。推理模式省略 temperature/penalty，`top_p` 至少 0.95；非推理模式省略 `top_p`。Responses 的原生 JSON schema 使用既有型別化輸出 API。不支援背景執行、伺服器 `store`/`previous_response_id`、託管搜尋、`CachePreservation.Required`、原生非同步工具、`SteerAsync` 或影像生成。本地 RAG 和一般工具輪次仍可使用。
 
 `V4Flash`、`Chat`、`Reasoner` 保留原始 wire ID，標記為僅警告的 obsolete 常量。供應商暫時將已退役的 `deepseek-v4-flash` 路由至 V4.1 Flash；程式庫不會改寫常量。新程式碼請明確選擇 `Flash`。`UseReasonerModel()` 選擇 Flash 並啟用 `High` 推理。
 

@@ -38,6 +38,7 @@ namespace Mythosia.AI.Services.Base
                 if (copy.Reasoning != null) _pendingRequestFeatures.Reasoning = copy.Reasoning;
                 if (copy.WebSearch != null) _pendingRequestFeatures.WebSearch = copy.WebSearch;
                 if (copy.FileSearch != null) _pendingRequestFeatures.FileSearch = copy.FileSearch;
+                if (copy.Speed.HasValue) _pendingRequestFeatures.Speed = copy.Speed;
             }
         }
 
@@ -45,13 +46,14 @@ namespace Mythosia.AI.Services.Base
         {
             AIRequestFeatures features;
             lock (_featureGate) features = _pendingRequestFeatures.Clone();
+            ValidateRequestSpeed(features);
             ValidateRequestFeatures(features);
         }
 
         /// <summary>Reject unsupported features before any network request or history mutation.</summary>
         protected virtual void ValidateRequestFeatures(AIRequestFeatures features)
         {
-            if (!features.IsEmpty)
+            if (features.Reasoning != null || features.WebSearch != null || features.FileSearch != null)
                 throw new NotSupportedException($"{Provider} model '{Model}' does not support the requested reasoning or hosted search settings.");
         }
 
@@ -75,7 +77,7 @@ namespace Mythosia.AI.Services.Base
         IDisposable Services.IAIRequestFeatureService.BeginRequestFeaturesScope(Message message)
             => BeginRequestFeaturesScope(message);
 
-        private RequestFeatureExecution CaptureRequestFeatures(Message message)
+        private RequestFeatureExecution CaptureRequestFeatures(Message message, bool publishObservations = true)
         {
             var previous = _requestFeatureExecution.Value;
             AIRequestFeatures features;
@@ -87,10 +89,11 @@ namespace Mythosia.AI.Services.Base
                 // A failed request consumes its options too, so they cannot affect an unrelated later call.
                 _pendingRequestFeatures = new AIRequestFeatures();
             }
-            var execution = new RequestFeatureExecution(features, message);
-            _lastFeatureExecution = execution;
+            var execution = new RequestFeatureExecution(features, message, isAuxiliary: previous?.IsAuxiliary == true);
+            if (publishObservations) _lastFeatureExecution = execution;
             execution.ProviderOptions = previous != null ? previous.ProviderOptions : CaptureProviderRequestOptions(message);
             ValidateProviderRequestOptions(execution.ProviderOptions, message);
+            ValidateRequestSpeed(features);
             ValidateRequestFeatures(features);
             return execution;
         }
@@ -104,7 +107,7 @@ namespace Mythosia.AI.Services.Base
 
         // Summary/query-rewrite work must neither consume pending options nor inherit hosted tools.
         private IDisposable SuppressRequestFeatures(Message? message = null)
-            => UseRequestFeatureExecution(new RequestFeatureExecution(new AIRequestFeatures(), message));
+            => UseRequestFeatureExecution(new RequestFeatureExecution(new AIRequestFeatures(), message, isAuxiliary: true));
 
         /// <summary>Retains a provider source even if callers do not consume stream events.</summary>
         protected void RecordCitation(AICitation citation)
@@ -115,6 +118,8 @@ namespace Mythosia.AI.Services.Base
 
         private static void ValidateFeatureValues(AIRequestFeatures features)
         {
+            if (features.Speed.HasValue && !Enum.IsDefined(typeof(InferenceSpeed), features.Speed.Value))
+                throw new ArgumentOutOfRangeException(nameof(features), "Unknown inference speed.");
             if (features.Reasoning != null && (!Enum.IsDefined(typeof(ReasoningLevel), features.Reasoning.Level) ||
                 !Enum.IsDefined(typeof(CachePreservation), features.Reasoning.Cache)))
                 throw new ArgumentOutOfRangeException(nameof(features), "Unknown reasoning level or cache preservation policy.");
@@ -135,11 +140,15 @@ namespace Mythosia.AI.Services.Base
         {
             internal AIRequestFeatures Features { get; }
             internal Message? Message { get; }
+            internal bool IsAuxiliary { get; }
             internal object? ProviderOptions { get; set; }
             private readonly List<AICitation> _citations = new List<AICitation>();
-            internal RequestFeatureExecution(AIRequestFeatures features, Message? message, object? providerOptions = null)
+            internal readonly List<ProcessingObservation> Processing = new List<ProcessingObservation>();
+            internal RequestFeatureExecution(AIRequestFeatures features, Message? message, object? providerOptions = null,
+                bool isAuxiliary = false)
             {
                 Features = features;
+                IsAuxiliary = isAuxiliary;
                 Message = message;
                 ProviderOptions = providerOptions;
             }
@@ -155,6 +164,10 @@ namespace Mythosia.AI.Services.Base
                 }
             }
             internal IReadOnlyList<AICitation> Snapshot() { lock (_citations) return _citations.Select(c => c.Clone()).ToArray(); }
+            internal IReadOnlyList<AIProcessingInfo> ProcessingSnapshot()
+            {
+                lock (Processing) return Array.AsReadOnly(Processing.Select(item => item.Snapshot()).ToArray());
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 # Xây dựng ngữ cảnh
 
-> 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → [Lọc](rag-filtering.md) → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → **`Xây dựng ngữ cảnh`**
+> 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → [Lọc](rag-filtering.md) → [Embedding (khi cần)](rag-embedding.md) → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → **`Xây dựng ngữ cảnh`**
+
+Giai đoạn câu hỏi `Embedding` phụ thuộc bộ truy xuất; tìm từ khóa không báo giai đoạn này. Bộ tùy chỉnh có thể báo giai đoạn qua `request.ProgressAsync`. Embedding tài liệu không đổi.
 
 ## Xây dựng ngữ cảnh là gì?
 

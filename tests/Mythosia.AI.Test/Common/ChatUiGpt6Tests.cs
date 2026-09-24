@@ -10,6 +10,72 @@ namespace Mythosia.AI.Tests.Common;
 public class ChatUiGpt6Tests
 {
     [TestMethod]
+    [DataRow(nameof(AIModels.OpenAI.Gpt6Sol), AIModels.OpenAI.Gpt6Sol)]
+    [DataRow(nameof(AIModels.OpenAI.Gpt6Luna), AIModels.OpenAI.Gpt6Luna)]
+    public void ModelCatalogue_ExposesSolAndLunaWithNoneWithoutInventingAliases(string name, string id)
+    {
+        var catalogue = JsonSerializer.SerializeToElement(ChatUiModelHelpers.BuildModelCatalogue());
+        var model = catalogue.EnumerateArray().Single(group => group.GetProperty("provider").GetString() == "OpenAI")
+            .GetProperty("models").EnumerateArray().Single(item => item.GetProperty("name").GetString() == name);
+        Assert.AreEqual(id, model.GetProperty("description").GetString());
+        Assert.AreEqual(128000, model.GetProperty("maxOutputTokens").GetInt32());
+        Assert.IsFalse(model.GetProperty("sampling").GetProperty("temperature").GetBoolean());
+        Assert.IsFalse(model.GetProperty("sampling").GetProperty("topP").GetBoolean());
+        var reasoning = model.GetProperty("reasoning");
+        Assert.AreEqual("gpt6", reasoning.GetProperty("type").GetString());
+        CollectionAssert.AreEqual(new[] { "Auto", "None", "Low", "Medium", "High", "XHigh", "Max" },
+            reasoning.GetProperty("levels").EnumerateArray().Select(level => level.GetString()).ToArray());
+        Assert.AreEqual(id, ChatUiModelHelpers.FindModelValueByName($"  {name}  "));
+        Assert.AreEqual(id, ChatUiModelHelpers.FindModelValueByName(id));
+    }
+
+    [TestMethod]
+    [DataRow(AIModels.OpenAI.Gpt6Sol)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    public void SolAndLuna_NoneSettingsDisableReasoningAndRefreshSamplingAndSnippet(string model)
+    {
+        var service = CreateService();
+        service.ChangeModel(model);
+        service.Gpt6ReasoningEffort = Gpt6Reasoning.High;
+        service.Gpt6ReasoningSummary = ReasoningSummary.Detailed;
+        ChatUiSettingsHelpers.ApplyReasoningSettings(service, CreateSettingsRequest(true, "None"));
+        Assert.AreEqual(Gpt6Reasoning.None, service.Gpt6ReasoningEffort);
+        Assert.IsNull(service.Gpt6ReasoningSummary);
+        var state = JsonSerializer.SerializeToElement(ChatUiSettingsHelpers.GetReasoningState(service));
+        Assert.IsFalse(state.GetProperty("alwaysOn").GetBoolean());
+        Assert.AreEqual("None", state.GetProperty("effort").GetString());
+        var sampling = JsonSerializer.SerializeToElement(ChatUiModelHelpers.GetSamplingControls(service.GetCapabilities()));
+        Assert.IsTrue(sampling.GetProperty("temperature").GetBoolean());
+        Assert.IsTrue(sampling.GetProperty("topP").GetBoolean());
+        var snippet = ChatUiUtilityHelpers.GenerateCodeSnippet(service, "OpenAI", model, "hello");
+        StringAssert.Contains(snippet, "service.Gpt6ReasoningEffort = Gpt6Reasoning.None;");
+        StringAssert.Contains(snippet, "service.Temperature =");
+        StringAssert.Contains(snippet, "service.TopP =");
+
+        ChatUiSettingsHelpers.ApplyReasoningSettings(service, CreateSettingsRequest(true, "High"));
+        Assert.AreEqual(Gpt6Reasoning.High, service.Gpt6ReasoningEffort);
+        sampling = JsonSerializer.SerializeToElement(ChatUiModelHelpers.GetSamplingControls(service.GetCapabilities()));
+        Assert.IsFalse(sampling.GetProperty("temperature").GetBoolean());
+        Assert.IsFalse(sampling.GetProperty("topP").GetBoolean());
+    }
+
+    [TestMethod]
+    [DataRow(AIModels.OpenAI.Gpt6Sol)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    public void SolAndLuna_DisableUsesNoneAndClearsProAndSummary(string model)
+    {
+        var service = CreateService();
+        service.ChangeModel(model);
+        service.Gpt6ReasoningMode = Gpt6ReasoningMode.Pro;
+        service.Gpt6ReasoningEffort = Gpt6Reasoning.Max;
+        service.Gpt6ReasoningSummary = ReasoningSummary.Detailed;
+        ChatUiSettingsHelpers.ApplyReasoningSettings(service, CreateSettingsRequest(false, null));
+        Assert.AreEqual(Gpt6Reasoning.None, service.Gpt6ReasoningEffort);
+        Assert.AreEqual(Gpt6ReasoningMode.Standard, service.Gpt6ReasoningMode);
+        Assert.IsNull(service.Gpt6ReasoningSummary);
+    }
+
+    [TestMethod]
     public void ModelCatalogue_ExposesAstraWithSupportedControls()
     {
         var catalogue = JsonSerializer.SerializeToElement(ChatUiModelHelpers.BuildModelCatalogue());

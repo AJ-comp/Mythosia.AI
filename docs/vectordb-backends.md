@@ -16,6 +16,16 @@ var store = new InMemoryVectorStore();
 
 **Built-in hybrid search**: RRF (Reciprocal Rank Fusion) merges cosine similarity and BM25 keyword scores.
 
+### Concurrent use and record ownership
+
+When a shared store is updated during a query, the stored text and keyword index must describe the same revision. `InMemoryVectorStore` synchronizes writes, deletes and reads so each vector, text or hybrid query sees a consistent state. Both parts of a hybrid query use that same state.
+
+The store copies incoming records, including vector arrays and metadata, and returns independent copies from lookups, searches and diagnostics. Editing an input or returned record does not change stored data; call `UpsertAsync` again to save the change. Keep input records, vectors and metadata unchanged until the call finishes copying or reading them.
+
+A supplied `CancellationToken` can cancel a call while it waits for another operation to release the store lock. Canceling that wait does not itself abort the operation currently using the store. Cancellation does not split a record’s body/index update once that update has begun.
+
+A canceled batch can retain records already written. `ReplaceByFilterAsync` still performs deletion followed by batch insertion without a transaction: another query can observe the gap, and failures or cancellation do not roll back earlier writes.
+
 ### Diagnostics
 
 ```csharp

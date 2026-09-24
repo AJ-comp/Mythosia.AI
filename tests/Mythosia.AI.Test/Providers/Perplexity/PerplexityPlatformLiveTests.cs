@@ -198,9 +198,9 @@ public class PerplexityPlatformLiveTests
     public async Task PublicMcp_ExecutesOnlyTheReadOnlyDeepWikiAllowlist()
     {
         await using var probe = await PlatformProbe.CreateAsync("mcp");
-        probe.Service.AgentOptions.Tools = [PerplexityHostedTools.Mcp("deepwiki", new Uri("https://mcp.deepwiki.com/mcp"), ["ask_question"])];
+        probe.Service.AgentOptions.Tools = [PerplexityHostedTools.Mcp("deepwiki", new Uri("https://mcp.deepwiki.com/mcp"), ["ask_wiki_question"])];
         var answer = await probe.Service.GetCompletionAsync(
-            "Use DeepWiki ask_question exactly once to ask which license the public fastapi/fastapi repository uses. Report only the license name.").WaitAsync(probe.Token);
+            "Use DeepWiki ask_wiki_question exactly once to ask which license the public fastapi/fastapi repository uses. Report only the license name.").WaitAsync(probe.Token);
         Assert.IsTrue(answer.Contains("MIT", StringComparison.OrdinalIgnoreCase));
         var response = probe.Submissions.Single().Response()!;
         var calls = Output(response, "mcp_call").ToArray();
@@ -208,11 +208,11 @@ public class PerplexityPlatformLiveTests
         foreach (var call in calls)
         {
             Assert.AreEqual("deepwiki", call["server_label"]!.GetValue<string>());
-            Assert.AreEqual("ask_question", call["name"]!.GetValue<string>());
+            Assert.AreEqual("ask_wiki_question", call["name"]!.GetValue<string>());
             Assert.IsNull(call["error"]);
             Assert.IsFalse(string.IsNullOrWhiteSpace(call["output"]?.GetValue<string>()));
         }
-        Assert.AreEqual("ask_question", probe.Submissions.Single().Body!["tools"]![0]!["allowed_tools"]![0]!.GetValue<string>());
+        Assert.AreEqual("ask_wiki_question", probe.Submissions.Single().Body!["tools"]![0]!["allowed_tools"]![0]!.GetValue<string>());
         probe.AssertTransport();
     }
 

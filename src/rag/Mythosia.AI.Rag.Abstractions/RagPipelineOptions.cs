@@ -18,7 +18,9 @@ namespace Mythosia.AI.Rag
         public string? PromptTemplate { get; set; }
 
         /// <summary>
-        /// Maximum number of texts to embed in a single batch call.
+        /// Maximum number of texts to embed in a single batch call. Must be positive.
+        /// Each indexing operation validates and captures this value before loading or splitting;
+        /// subsequent option changes apply only to later operations.
         /// </summary>
         public int EmbeddingBatchSize { get; set; } = 100;
 

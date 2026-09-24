@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("我是否有资格退款？", c
 
 ### RequestMessageOverride
 
-完全替换本次请求的用户消息。原始提示词被忽略：
+`RequestMessageOverride` 只在发送给模型时替换当前逻辑请求的最初输入。对话历史保留原始输入，同一请求内后续的工具调用及其结果均保持不变：
 
 ```csharp
 var context = new AIRequestContext

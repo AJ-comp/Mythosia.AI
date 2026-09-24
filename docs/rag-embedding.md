@@ -1,6 +1,8 @@
 # Embedding
 
-> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → **`Embedding`** → [Filtering](rag-filtering.md) → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → [Context Build](rag-context-build.md)
+> 📍 **Question Answering Pipeline:** [Query Rewriting](rag-query-rewriting.md) → [Filtering](rag-filtering.md) → **`Embedding (when needed)`** → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → [Context Build](rag-context-build.md)
+
+The query’s `Embedding` stage now depends on the retriever; keyword retrieval does not report it. Custom retrievers can report relevant stages through `request.ProgressAsync`. Document embeddings are unchanged.
 
 ## What is Embedding?
 
@@ -49,6 +51,10 @@ You can also use the fluent builder shorthand:
 )
 ```
 
+<a id="openai-dimensions"></a>
+
+`text-embedding-ada-002` has a fixed size of **1536 dimensions**. The provider omits the unsupported `dimensions` field from single and batch requests; configuring another size throws `ArgumentOutOfRangeException` before any API call. For `text-embedding-3-small` and `text-embedding-3-large`, requests continue to include the configured `dimensions`.
+
 ### Ollama (Local)
 
 Run embeddings locally without sending data to the cloud. Requires [Ollama](https://ollama.com/) running on your machine:
@@ -61,6 +67,12 @@ var embedder = new OllamaEmbeddingProvider(
     baseUrl: "http://localhost:11434"    // default
 );
 ```
+
+<a id="ollama-dimensions"></a>
+
+Document and query vectors must use the same model and dimensions. `OllamaEmbeddingProvider` sends its configured `dimensions` to `/api/embed` and validates that every returned vector has that length. The provider still defaults to `qwen3-embedding:4b` with **1024 requested dimensions**; the model's native output has 2560 dimensions. The Ollama server and selected model must support the requested size. An unsupported request or a response that ignores it fails instead of silently changing `Dimensions` or resizing vectors locally.
+
+If you change the model or dimensions, rebuild document embeddings with the same settings used for queries and configure the vector store accordingly. Existing vectors are not converted automatically.
 
 ### vLLM (Self-hosted)
 
@@ -100,6 +112,26 @@ pipeline.Options = options;
 
 A larger batch size means fewer API calls but higher memory usage per call. If you're hitting API rate limits or memory issues, try reducing this value.
 
+`EmbeddingBatchSize` must be positive. The pipeline validates and captures it at the start of each document-indexing call, before embedding or replacing stored records. This prevents empty-batch loops and keeps a setting change during an awaited call from skipping chunks. Later indexing calls can use the new setting.
+
+<a id="embedding-validation"></a>
+
+## Keep each vector matched to its chunk
+
+A successful HTTP response can still contain missing vectors or the wrong order. That would pair text with another chunk's meaning. A custom `IEmbeddingProvider` must return exactly one non-null `float[]` per input, in input order, with a positive `Dimensions` value. Every vector must have that many elements, all finite (no `NaN` or infinity).
+
+During document indexing, the pipeline rejects invalid dimensions, response counts or vectors with `InvalidOperationException` before storage or `onDocumentEmbedded`. It copies each accepted vector before requesting the next batch, so reusing a provider buffer in a later batch cannot change earlier chunks. Keep returned data stable while the caller reads it; concurrent mutation during validation or copying is not supported. Existing records for that document are preserved when validation fails.
+
+`OpenAIEmbeddingProvider` requires a valid, unique `index` for every response item and restores input order. `VllmEmbeddingProvider` does the same when indices are present; for compatibility it also accepts responses where every item omits `index`, using response order. Mixed indexed/index-free responses, duplicate or out-of-range indices are rejected. A custom or index-free provider remains responsible for correct order; shape checks cannot verify a vector's meaning.
+
+<a id="query-embedding-validation"></a>
+
+## Protect the query vector before search
+
+A reused provider buffer must not change one question into another while progress reporting or search is awaiting. Built-in dense query retrieval, including the adapter for `IRetrievalStrategy`, requires positive `Dimensions`, a non-null vector of exactly that length and finite values. Invalid output throws `InvalidOperationException` before search. The accepted vector is copied immediately after the provider returns, before subsequent progress callbacks or search. Providers must keep returned data stable while it is being read; a custom `IRagRetriever` owns its own query preparation and validation.
+
+`OllamaEmbeddingProvider` also validates response shape, exact vector count, dimensions and finite values on direct single/batch calls. Malformed JSON or vectors throw `InvalidOperationException` rather than silently producing incomplete output. The caller retains ownership of the supplied `HttpClient`; disposing individual HTTP requests/responses does not dispose that client.
+
 ## Dimensions
 
 The `Dimensions` property controls the size of each embedding vector. This is critical because:
@@ -113,10 +145,11 @@ Common dimension sizes:
 | Provider | Model | Default Dimensions |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
 | Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 (32–2560) |
+| Ollama | qwen3-embedding:4b | 1024 requested (native: 2560) |
 | vLLM | Qwen/Qwen3-Embedding-0.6B | 1024 (32–1024) |
 | vLLM | Qwen/Qwen3-Embedding-4B | 2560 (32–2560) |
 | Local | (feature hashing) | 1024 |

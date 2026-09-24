@@ -14,6 +14,8 @@ namespace Mythosia.AI.Rag
     /// </summary>
     public class RagStore
     {
+        private IQueryRewriter? _queryRewriter;
+
         /// <summary>
         /// The underlying RAG pipeline used for query processing.
         /// </summary>
@@ -28,13 +30,13 @@ namespace Mythosia.AI.Rag
         /// The query rewriter used to rewrite queries into retrieval-ready form for
         /// multi-turn conversations, or null if disabled.
         /// </summary>
-        internal IQueryRewriter? QueryRewriter { get; private set; }
+        internal IQueryRewriter? QueryRewriter => Volatile.Read(ref _queryRewriter);
 
         internal RagStore(IRagPipeline pipeline, IVectorStore vectorStore, IQueryRewriter? queryRewriter = null)
         {
             Pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
             VectorStore = vectorStore ?? throw new ArgumentNullException(nameof(vectorStore));
-            QueryRewriter = queryRewriter;
+            _queryRewriter = queryRewriter;
         }
 
         #region Query
@@ -90,19 +92,25 @@ namespace Mythosia.AI.Rag
             RagQueryOptions? options,
             CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            // Runtime changes apply to subsequent requests, including while this
+            // request is waiting for a progress callback or a rewrite to complete.
+            var queryRewriter = QueryRewriter;
             string searchQuery = query;
             string? rewrittenQuery = null;
             bool searchSkipped = false;
             QueryRewriteResult? rewriteResult = null;
 
             long rewriteElapsedMs = 0;
-            if (QueryRewriter != null)
+            if (queryRewriter != null)
             {
                 if (options?.ProgressAsync != null)
                     await options.ProgressAsync(RagProgressStage.QueryRewrite);
 
+                cancellationToken.ThrowIfCancellationRequested();
                 var sw = Stopwatch.StartNew();
-                var result = await QueryRewriter.RewriteAsync(query, conversationHistory, cancellationToken);
+                var result = await queryRewriter.RewriteAsync(query, conversationHistory, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 rewriteElapsedMs = sw.ElapsedMilliseconds;
                 rewriteResult = result;
 
@@ -159,10 +167,12 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Sets or clears the query rewriter at runtime.
         /// Pass null to disable query rewriting and retrieval keyword derivation.
+        /// Requests that have already selected a rewriter keep using that instance;
+        /// subsequent requests use the new setting.
         /// </summary>
         public void SetQueryRewriter(IQueryRewriter? queryRewriter)
         {
-            QueryRewriter = queryRewriter;
+            Volatile.Write(ref _queryRewriter, queryRewriter);
         }
 
         #endregion
@@ -176,9 +186,9 @@ namespace Mythosia.AI.Rag
         /// <code>
         /// store.UpdateOptions(opt =>
         /// {
-        ///     opt.TopK = 8;
-        ///     opt.MinScore = 0.4;
-        ///     opt.RetrievalMultiplier = 3;
+        ///     opt.DefaultQuery.FinalFilter.TopK = 8;
+        ///     opt.DefaultQuery.FinalFilter.MinScore = 0.4;
+        ///     opt.DefaultQuery.RetrievalDerivation.TopKMultiplier = 3;
         ///     opt.PromptTemplate = "Based on:\n{context}\n\nQuestion: {question}";
         /// });
         /// </code>
@@ -202,7 +212,7 @@ namespace Mythosia.AI.Rag
         /// without rebuilding the entire pipeline or re-indexing documents.
         /// Returns false if the underlying pipeline does not support runtime updates.
         /// </summary>
-        /// <param name="useHybridSearch">True to enable hybrid (vector + BM25) search, false for vector-only.</param>
+        /// <param name="useHybridSearch">True to enable hybrid (vector + text) search, false for vector-only.</param>
         /// <param name="vectorWeight">Weight for vector similarity [0, 1] when hybrid is enabled. 0.5 = equal weight.</param>
         public bool UpdateRetrievalStrategy(bool useHybridSearch, float vectorWeight = 0.5f)
         {
@@ -212,15 +222,42 @@ namespace Mythosia.AI.Rag
 
             if (useHybridSearch)
             {
-                var bm25Index = new Bm25Index();
-                ragPipeline.SetRetrievalStrategy(
-                    new HybridRetrievalStrategy(VectorStore, vectorWeight, bm25Index));
+                if (float.IsNaN(vectorWeight) || float.IsInfinity(vectorWeight))
+                    throw new ArgumentOutOfRangeException(nameof(vectorWeight));
+                ragPipeline.SetRetriever(new RagRetrievers.Hybrid(ragPipeline.EmbeddingProvider,
+                    VectorStore, new HybridSearchOptions { VectorWeight = Math.Max(0f, Math.Min(1f, vectorWeight)) },
+                    allowLegacyDefaults: true));
             }
             else
             {
                 ragPipeline.SetRetrievalStrategy(null);
             }
 
+            return true;
+        }
+
+        /// <summary>Changes the request-based retriever without rebuilding the index. Null restores vector search.</summary>
+        public bool UpdateRetriever(IRagRetriever? retriever)
+        {
+            if (!(Pipeline is RagPipeline pipeline)) return false;
+            pipeline.SetRetriever(retriever);
+            return true;
+        }
+
+        /// <summary>Switches to keyword-only querying of the existing index, with no query embedding.</summary>
+        public bool UseKeywordSearch()
+        {
+            if (!(Pipeline is RagPipeline pipeline)) return false;
+            pipeline.SetRetriever(new RagRetrievers.Keyword(VectorStore));
+            return true;
+        }
+
+        /// <summary>Applies a snapshot of weighted RRF settings to subsequent queries.</summary>
+        public bool UpdateRetrievalStrategy(HybridSearchOptions options)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            if (!(Pipeline is RagPipeline pipeline)) return false;
+            pipeline.SetRetriever(new RagRetrievers.Hybrid(pipeline.EmbeddingProvider, VectorStore, options));
             return true;
         }
 
@@ -240,23 +277,31 @@ namespace Mythosia.AI.Rag
         ///     .UseOpenAIEmbedding(apiKey)
         /// );
         ///
-        /// // With callback: replace vectors atomically per document
-        /// var ragStore = await RagStore.BuildAsync(config => config
+        /// // With callback: replace by the document identity supplied on every record.
+        /// // Atomic replacement/rollback depends on the chosen vector store.
+        /// var customStore = await RagStore.BuildAsync(config => config
         ///     .AddDocuments(loader, filePath)
         ///     .UseEmbedding(embeddingProvider)
         ///     .UseStore(vectorStore),
         ///     onDocumentEmbedded: records =>
         ///         vectorStore.ReplaceByFilterAsync(
-        ///             VectorFilter.ByMetadata("full_path", filePath), records),
-        /// );
+        ///             new VectorFilter().Where("document_id", records[0].Metadata["document_id"]),
+        ///             records, cancellationToken),
+        ///     cancellationToken: cancellationToken);
+        /// // The callback is only invoked for nonempty, validated document record lists.
+        /// // For an empty document, custom persistence must explicitly delete using its known ID.
+        /// // Omit the callback to let default persistence handle empty-document deletion too.
         /// </code>
         /// </example>
         /// <param name="configure">Configuration delegate for the RAG builder.</param>
         /// <param name="onDocumentEmbedded">
         /// Optional callback invoked after each document's embedding is complete.
-        /// When provided, replaces the default <c>UpsertBatchAsync</c> call — the callback
-        /// receives the generated <see cref="VectorRecord"/> list and decides how to persist them.
-        /// When omitted, records are saved to the configured store automatically.
+        /// When provided, replaces default persistence — the callback receives the generated
+        /// <see cref="VectorRecord"/> list and decides how to persist it. Zero-chunk documents
+        /// do not invoke this callback or modify the configured store; custom persistence must
+        /// handle their removal explicitly using the document identity it owns.
+        /// When omitted, records replace the document's previous chunks in the configured store,
+        /// including removal of previous chunks when a document successfully produces zero chunks.
         /// </param>
         /// <param name="cancellationToken">Cancellation token.</param>
         public static async Task<RagStore> BuildAsync(

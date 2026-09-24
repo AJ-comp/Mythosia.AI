@@ -1,5 +1,7 @@
 # 関数呼び出し
 
+> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)を参照してください。
+
 完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
 
 設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
@@ -285,7 +287,7 @@ var answer = await service.GetCompletionAsync(
     "ソウルのサンプル天気を確認して。待っている間に旅行の持ち物を三つ説明して。");
 ```
 
-Mythosia は GPT-6 Astra の Responses API で `async: true` を送信します。未対応のモデルや API ではこのフィールドを省略し、同じハンドラーの結果を待ちます。設定した `AllowAsync` の値は変更しません。実際の呼び出しもプロバイダーが非同期として返す必要があります（`FunctionCall.IsAsync`）。許可を有効にしても非同期実行が保証されるわけではありません。
+Mythosia は GPT-6 Astra / Sol / Luna の Responses API で `async: true` を送信します。未対応のモデルや API ではこのフィールドを省略し、同じハンドラーの結果を待ちます。設定した `AllowAsync` の値は変更しません。実際の呼び出しもプロバイダーが非同期として返す必要があります（`FunctionCall.IsAsync`）。許可を有効にしても非同期実行が保証されるわけではありません。
 
 `WithFunctionAsync` は .NET の非同期ハンドラーを登録し、`FunctionExecutionMode.Parallel` はローカルでのハンドラー実行方法を制御します。どちらもこの許可を自動的には有効にしません。`AllowAsync` は、関数の結果が届く前にモデルが作業を続けるための設定です。 `FunctionExecutionMode` は引き続き通常の呼び出しに適用されます。許可された非同期ジョブは `Sequential` モードでも重複して実行でき、専用のジョブプール全体に `MaxConcurrency` の上限が適用されます。
 

@@ -1,69 +1,86 @@
 # ハイブリッド検索
 
-> 📍 **質問応答パイプライン:** [クエリ書き換え](rag-query-rewriting.md) → 埋め込み → フィルタリング → **`検索`** → [再ランキング](rag-reranking.md) → コンテキスト構築
+商品コードにはキーワード検索、文書と異なる表現の質問には意味検索が適しています。選んだ検索器が必要な処理だけを行い、キーワード検索の前に質問を埋め込む必要がなくなります。
 
-## 2つの検索方式を理解する
-
-RAGでドキュメントを検索する方法は大きく2つあります。それぞれの長所と短所を理解すると、ハイブリッド検索の必要性が自然にわかります。
-
-### ベクター検索（意味ベース）
-
-テキストの**意味**を把握して検索します。「サブスクリプションの解約」を検索すると、「メンバーシップの終了」のように単語が違っても意味が同じドキュメントも見つけ出します。
-
-- ✅ 同じ意味の異なる表現もマッチ
-- ❌ 「ERR-4012」のような正確なコードや固有名詞を見逃す可能性
-
-### キーワード検索（BM25）
-
-テキストに含まれる**単語そのもの**を基準に検索します。従来の検索エンジンと同じ方式です。
-
-- ✅ 正確な用語、エラーコード、製品名のマッチングに強い
-- ❌ 表現が違えば、意味が同じでも見逃す
-
-## ハイブリッド検索とは？
-
-**ハイブリッド検索はこの2つを組み合わせます**。意味的な理解と正確なキーワードマッチングを同時に活用し、どちらか一方だけでは見落とす結果もカバーします。
-
-たとえば「ERR-4012の解決方法は？」という質問では：
-- `ERR-4012`はキーワード検索（BM25）が正確にヒットし
-- 「解決方法」という意味はベクター検索が関連ドキュメントを見つけます
-
-## 設定方法
-
-1つのメソッド呼び出しで簡単に有効化できます：
+## 組み込みの検索方法
 
 ```csharp
-.WithRag(rag => rag
-    .UseHybridSearch(vectorWeight: 0.6f)  // 60%ベクター、40% BM25
-    .AddDocument("knowledge-base.txt")
-)
+// 意味検索（既定）
+.UseVectorSearch()
+
+// 質問を埋め込まないキーワード検索
+.UseKeywordSearch()
+
+// 重み付きハイブリッド検索
+.UseHybridSearch(new HybridSearchOptions
+{
+    VectorWeight = 0.7f,
+    CandidateMultiplier = 4,
+    RrfK = 60
+})
 ```
 
-`vectorWeight`はベクター検索の比重を意味します：
-- **1.0** → ベクター検索のみ（純粋な意味検索）
-- **0.0** → BM25のみ（純粋なキーワード検索）
-- **0.5〜0.7** → ほとんどの場合に良い出発点
+`HybridSearchOptions`: `using Mythosia.VectorDb;`
 
-## シナリオ別推奨ウェイト
+`UseKeywordSearch()` は質問の埋め込みを省略します。文書登録では引き続き既存のベクターストア向けに分割と埋め込みを行います。テキストだけの索引作成APIではありません。遅延初期化で初回の質問時に文書を登録すると、文書の埋め込みは発生します。
 
-ユースケースに応じて適切なバランスは変わります：
+## キーワードと意味検索の結果を組み合わせる
 
-| シナリオ | 推奨ウェイト | 理由 |
-| --- | --- | --- |
-| 自然言語による一般的なQ&A | 0.7–0.8（ベクター寄り） | ユーザーが自然な文で質問 |
-| 特定用語が多い技術文書 | 0.4–0.5（バランス型） | 専門用語と文脈の両方が重要 |
-| コード/エラーコード検索 | 0.2–0.3（BM25寄り） | 正確なコードマッチングが核心 |
+`VectorWeight` はベクターの比重（0–1）、キーワードの比重は `1 - VectorWeight` です。`CandidateMultiplier` は各検索の候補数、`RrfK` は重み付きReciprocal Rank Fusionの順位平滑化を制御します。RAG再ランカーの候補倍率とは別です。実際の文書と質問で評価してください。
 
-## 例
+ベクター・キーワード単独モードは固有のスコアを維持します。設定可能なハイブリッドは片方だけでも正規化した重み付きRRFを使い、ベクター比重0では質問を埋め込みません。スコアは確率ではありません。`WeightedBlend` は検索と再ランカーのスコアを補正せず合成するため、入力を較正していないキーワード検索には既定の `RerankerOnly` を推奨します。
 
 ```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseHybridSearch(vectorWeight: 0.5f)
-        .AddDocument("product-catalog.txt")
-        .AddDocument("error-codes.txt")
-    );
+        .AddDocument("manual.txt")
+        .UseHybridSearch(new HybridSearchOptions
+        {
+            VectorWeight = 0.7f,
+            CandidateMultiplier = 4,
+            RrfK = 60
+        }));
 
-// "ERR-4012"はBM25で、「解決方法」という意味はベクターでマッチ
-var answer = await service.GetCompletionAsync("ERR-4012の解決方法は？");
+string answer = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+## ストアの対応範囲と互換性
+
+InMemory、PostgreSQL、Qdrantは新しいキーワード検索と設定可能な重み付きRRFに対応します。テキストスコアにはInMemoryのBM25、PostgreSQLの設定した全文検索またはtrigram、Qdrantの疎索引を使います。エンジン間でスコアを同一視できません。
+
+Pineconeは対応する `dotproduct` 索引で既定設定の `UseHybridSearch()` による従来のネイティブ検索を維持します。このアダプターはキーワードモードと両検索を混合する設定可能な重み付きRRFには対応しません。他のストアも該当する追加インターフェイスが必要です。非対応のモードや設定は、ベクター検索への切り替えや重みの無視ではなく、明示的なエラーになります。
+
+標準のInMemory、PostgreSQL、Qdrantアダプターはニューラルモデルの導入や索引移行を行いません。`C#` と `C++` の区別は各解析器に依存します。以下のPIXIEオプションでも識別子の厳密な一致を評価する必要があります。
+
+[検索方法とストア対応](rag.md#retrieval-modes)、[独自検索器](rag-pipeline.md#custom-retriever)を参照してください。
+
+<a id="pixie-search"></a>
+
+## PIXIEでローカルのニューラル検索を比較する
+
+質問と文書の表現が異なる場合、学習済み疎検索は単語の一致だけでは見つからない関連語を補えます。任意の `Mythosia.AI.Rag.Search.Pixie` パッケージは文書と質問の両方をローカルのPIXIEでエンコードし、既存の密ベクトル検索と組み合わせます。PIXIEの実行にPythonサーバーやAPIキーは不要です。選択した密埋め込み・回答生成プロバイダーは外部APIを利用する場合があります。
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Search.Pixie;
+using Mythosia.VectorDb;
+
+using var encoder = new PixieSparseEncoder(new PixieOptions());
+var searchStore = new PixieInMemoryStore(encoder);
+RagStore rag = await RagStore.BuildAsync(builder => builder
+    .UseEmbedding(embeddings)
+    .UseStore(searchStore)
+    .AddDocument("manual.txt")
+    .UseHybridSearch(new HybridSearchOptions { VectorWeight = 0.7f }));
+
+RagProcessedQuery result = await rag.QueryAsync("refund policy");
+```
+
+このストアでは `UseKeywordSearch()` がニューラル疎検索を選択します。密ベクトル用の質問埋め込みは省略しますが、PIXIEの質問推論は実行します。RAGの文書登録では引き続き密埋め込みを生成します。`UseHybridSearch(...)` は疎ベクトルの内積と密ベクトルのコサイン類似度の順位を、設定した重み付きRRFで統合します。
+
+このプレビューの `PixieInMemoryStore` はメモリ内索引です。PostgreSQL、Qdrant、PineconeへのPIXIE接続は追加しません。再起動やモデル・設定変更後は再索引してください。ストアの全処理が終わるまでエンコーダーを維持し、その後に破棄します。既存検索が既定のままなので、同じ文書と正解付き質問で比較してから切り替えてください。`C#` と `C++` の厳密な区別や除外条件は保証されません。
+
+[PIXIEの接続と比較ガイド（英語）](../rag-pixie-search.md).

@@ -1,6 +1,8 @@
 # Embedding
 
-> 📍 **Pipeline de Pergunta e Resposta:** [Reescrita de Consulta](rag-query-rewriting.md) → **`Embedding`** → [Filtragem](rag-filtering.md) → [Recuperação](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → [Construção de Contexto](rag-context-build.md)
+> 📍 **Pipeline de Pergunta e Resposta:** [Reescrita de Consulta](rag-query-rewriting.md) → [Filtragem](rag-filtering.md) → **`Embedding (quando necessário)`** → [Recuperação](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → [Construção de Contexto](rag-context-build.md)
+
+A etapa de consulta `Embedding` depende do recuperador; busca lexical não a reporta. Um recuperador personalizado pode reportar etapas por `request.ProgressAsync`. Embeddings de documentos permanecem iguais.
 
 ## O que é Embedding?
 
@@ -45,6 +47,10 @@ Ou com o builder fluente:
 )
 ```
 
+<a id="openai-dimensions"></a>
+
+`text-embedding-ada-002` tem um tamanho fixo de **1536 dimensões**. O provedor omite o campo `dimensions`, não compatível com esse modelo, nas solicitações individuais e em lote; configurar outro tamanho gera uma `ArgumentOutOfRangeException` antes de qualquer chamada à API. As solicitações para `text-embedding-3-small` e `text-embedding-3-large` continuam incluindo o valor configurado de `dimensions`.
+
 ### Ollama (Local)
 
 Execute embeddings localmente sem enviar dados para a nuvem:
@@ -57,6 +63,12 @@ var embedder = new OllamaEmbeddingProvider(
     baseUrl: "http://localhost:11434"
 );
 ```
+
+<a id="ollama-dimensions"></a>
+
+Os vetores dos documentos e das consultas devem usar o mesmo modelo e as mesmas dimensões. `OllamaEmbeddingProvider` envia as `dimensions` configuradas para `/api/embed` e verifica o comprimento de cada vetor recebido. O provedor mantém `qwen3-embedding:4b` com **1024 dimensões solicitadas** como padrão; a saída nativa do modelo tem 2560 dimensões. O servidor Ollama e o modelo escolhido devem suportar o tamanho solicitado. Uma solicitação não suportada ou uma resposta que a ignore falha, sem alterar `Dimensions` silenciosamente nem redimensionar vetores localmente.
+
+Se alterar o modelo ou as dimensões, recrie os embeddings dos documentos com as mesmas configurações usadas nas consultas e ajuste o armazenamento vetorial. Os vetores existentes não são convertidos automaticamente.
 
 ### vLLM (Auto-hospedado)
 
@@ -80,6 +92,36 @@ Um provedor leve baseado em hashing de features. **Não recomendado para produç
 )
 ```
 
+## Processamento em lotes
+
+Ao indexar documentos, o pipeline agrupa os fragmentos para não enviar todos em uma chamada. Ajuste o lote conforme os limites do provedor e a memória disponível.
+
+```csharp
+var options = pipeline.Options.Clone();
+options.EmbeddingBatchSize = 100;
+pipeline.Options = options;
+```
+
+`EmbeddingBatchSize` deve ser positivo. O pipeline valida e captura o valor no início de cada chamada de indexação de documento, antes do embedding ou da substituição dos registros. Isso evita ciclos de lotes vazios e que mudanças durante uma espera assíncrona pulem fragmentos. Chamadas posteriores podem usar o novo valor.
+
+<a id="embedding-validation"></a>
+
+## Manter cada vetor associado ao fragmento correto
+
+Mesmo uma resposta HTTP bem-sucedida pode conter vetores ausentes ou em ordem incorreta, associando o texto ao significado de outro fragmento. Um `IEmbeddingProvider` personalizado deve devolver exatamente um `float[]` não nulo por entrada, na ordem de entrada, e fornecer um valor positivo de `Dimensions`. Cada vetor deve ter esse comprimento e conter apenas valores finitos, sem `NaN` ou infinito.
+
+Durante a indexação, o pipeline rejeita dimensões, quantidades de respostas ou vetores inválidos com `InvalidOperationException` antes do armazenamento ou de `onDocumentEmbedded`. Cada vetor aceito é copiado antes da solicitação do próximo lote, impedindo que a reutilização posterior de um buffer do provedor altere os fragmentos anteriores. Mantenha os dados retornados estáveis durante a leitura; alterações simultâneas durante a validação ou cópia não são suportadas. Se a validação falhar, os registros existentes desse documento são preservados.
+
+`OpenAIEmbeddingProvider` exige um `index` válido e único para cada item de resposta e restaura a ordem de entrada. `VllmEmbeddingProvider` segue a mesma regra quando há índices; por compatibilidade, também aceita respostas em que todos os itens omitem `index`, usando a ordem da resposta. Índices parcialmente ausentes, duplicados ou fora do intervalo são rejeitados. Um provedor personalizado ou sem índices continua responsável pela ordem correta; a validação estrutural não verifica o significado do vetor.
+
+<a id="query-embedding-validation"></a>
+
+## Proteger o vetor da pergunta antes da busca
+
+A reutilização de um buffer não deve alterar a pergunta enquanto notificações ou buscas aguardam. A busca densa integrada, incluindo o adaptador `IRetrievalStrategy`, exige `Dimensions` positivas, um vetor não nulo com esse comprimento exato e valores finitos. Resultados inválidos geram `InvalidOperationException` antes da busca. O vetor aceito é copiado imediatamente após o retorno, antes das notificações ou buscas seguintes. O provedor deve manter os dados estáveis durante a leitura; um `IRagRetriever` personalizado cuida de sua própria preparação e validação.
+
+`OllamaEmbeddingProvider` também valida estrutura, quantidade exata de vetores, dimensões e valores finitos nas chamadas diretas individuais ou em lote. JSON ou vetores inválidos geram `InvalidOperationException` em vez de resultados incompletos. O `HttpClient` fornecido continua pertencendo ao chamador; descartar requisições e respostas HTTP não descarta esse cliente.
+
 ## Dimensões
 
 A propriedade `Dimensions` controla o tamanho de cada vetor de embedding. O vector store deve ter a mesma dimensão configurada.
@@ -87,10 +129,11 @@ A propriedade `Dimensions` controla o tamanho de cada vetor de embedding. O vect
 | Provedor | Modelo | Dimensões Padrão |
 | --- | --- | --- |
 | OpenAI | text-embedding-3-small | 1536 |
+| OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
 | Perplexity | pplx-embed-v1-4b | 2560 |
 | OpenAI | text-embedding-3-large | 3072 |
-| Ollama | qwen3-embedding:4b | 1024 |
+| Ollama | qwen3-embedding:4b | 1024 solicitadas (nativas: 2560) |
 | Local | (hashing de features) | 1024 |
 
 ## Provedor de Embedding Personalizado

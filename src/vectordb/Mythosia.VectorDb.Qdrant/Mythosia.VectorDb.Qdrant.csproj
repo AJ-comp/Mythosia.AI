@@ -8,10 +8,10 @@
     <Version>4.1.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Qdrant vector store implementation for Mythosia VectorDb. Single-collection architecture with payload-based logical isolation via Metadata. Supports Cosine, Euclidean, and Dot Product similarity search, metadata filtering, automatic collection provisioning, native hybrid search with sparse-dense fusion, GetBatchAsync, CountAsync, and connection verification.</Description>
+    <Description>Qdrant storage for Mythosia VectorDb with Cosine, Euclidean and Dot Product similarity, metadata filtering and automatic collection provisioning. Supports sparse-only text retrieval, configurable normalized weighted RRF and direct native sparse/dense hybrid fusion with server RRF or DBSF. Uses a single collection with metadata-based logical isolation and provides batch retrieval, counts and connection verification.</Description>
     <PackageTags>VectorDB;VectorStore;Qdrant;Cosine;Euclidean;DotProduct;gRPC;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v4.1.1: Recompiled against System.IO.Hashing 10.0.6. No behavioral changes.</PackageReleaseNotes>
+    <PackageReleaseNotes>Unreleased (next version not assigned): Adds sparse-only text queries and configurable normalized weighted RRF while retaining configured server RRF/DBSF for direct legacy hybrid calls. Treats flat metadata keys literally and excludes missing fields from Ne/NotIn. New text/configurable-hybrid paths support equality, membership, existence and nested groups; unsupported string range/LIKE filters and unrepresentable keys fail explicitly. No stored payload migration is required. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Qdrant/RELEASE_NOTES.md#unreleased. Previous version notes: v4.1.1: Recompiled against System.IO.Hashing 10.0.6. No behavioral changes.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <UserSecretsId>36819fe4-a0b6-41e3-9bdb-7cdfd9d51aa5</UserSecretsId>
   </PropertyGroup>

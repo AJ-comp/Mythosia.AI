@@ -1,5 +1,7 @@
 # 진행 중인 AI 작업 제어하기
 
+> GPT-6 Sol/Luna는 미배포 추가 기능입니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)을 참고하세요.
+
 완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
 
 요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
@@ -7,6 +9,8 @@
 > 완성된 답변과 사용량·출처를 함께 받아야 한다면 `await run.Result`가 반환하는 `AIRunResult`를 사용하세요. 문자열은 `result.Text`에 있으며 스트림을 읽지 않아도 결과를 모읍니다. Mythosia.AI 8.0.0의 API 변경이며 `GetCompletionAsync`와 타입 지정 `StructuredStreamRun<T>.Result`의 반환형은 유지합니다. [Run 결과와 전환 안내](#run-result).
 
 > `CreateRequest` 예제는 Mythosia.AI 8.0.0 / Abstractions 4.0.0의 기능입니다. Run과 공통 요청 기능이 처음 추가된 이전 7.1 버전에는 빌더가 없습니다. 이전 패키지에서는 기존 서비스 오버로드를 사용하세요.
+
+사용자가 기다리는 시간을 줄여야 하는 요청에는 [처리 속도](request-building.md#inference-speed)를 선택할 수 있습니다. `WithSpeed`는 모델과 추론 수준을 유지하고, `Processing`은 공급자가 실제 적용한 모드를 보여줍니다. Fast는 지원 조합에서 사용하는 유료 옵션입니다.
 
 ## 작업이 끝나기 전에 제어가 필요한 이유
 
@@ -195,9 +199,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-작업 중 추가 지시는 Responses WebSocket 연결을 사용하는 GPT-6 Astra에서 지원합니다. 다른 provider와 미지원 모델도 일반 run은 사용할 수 있지만 `CanSteer`는 false이고, 추가 지시를 일반적인 다음 대화로 바꾸어 보내지 않고 지원 불가를 알립니다. `CanSteer`가 true라고 나중에 호출하는 시점까지 작업이 실행 중이라는 보장은 없습니다.
+작업 중 추가 지시는 Responses WebSocket 연결을 사용하는 GPT-6 Astra / Sol / Luna에서 지원합니다. 다른 provider와 미지원 모델도 일반 run은 사용할 수 있지만 `CanSteer`는 false이고, 추가 지시를 일반적인 다음 대화로 바꾸어 보내지 않고 지원 불가를 알립니다. `CanSteer`가 true라고 나중에 호출하는 시점까지 작업이 실행 중이라는 보장은 없습니다.
 
-Astra run은 전용 소켓을 엽니다. 전달한 `HttpClient`와 메시지 핸들러는 기존 HTTP 호출에 사용되며 이 소켓을 가로채지 않습니다. 사용자 정의 전송이 필요하면 `OpenAIService.ConnectRunWebSocketAsync`를 재정의할 수 있습니다.
+GPT-6 run은 전용 소켓을 엽니다. 전달한 `HttpClient`와 메시지 핸들러는 기존 HTTP 호출에 사용되며 이 소켓을 가로채지 않습니다. 사용자 정의 전송이 필요하면 `OpenAIService.ConnectRunWebSocketAsync`를 재정의할 수 있습니다.
 
 `SteerAsync` 성공은 서버가 입력을 대기열에 접수했다는 뜻이며 모델이 이미 반영했다는 뜻은 아닙니다. 이어지는 응답까지 같은 run의 출력이나 결과를 기다립니다. 이미 전달한 텍스트와 완료한 행동은 되돌리지 않으며 추가 지시 자체가 실행 중인 도구를 취소하지도 않습니다. 라이브러리가 같은 연결에서 후속 응답과 도구 결과 연결을 처리합니다. OpenAI의 [추가 지시 안내](https://developers.openai.com/api/docs/guides/steering)와 [WebSocket 안내](https://developers.openai.com/api/docs/guides/websocket-mode)를 참고하세요. 연결이 끊겼을 때 대기 중인 지시가 보존되었다고 가정하거나 접수한 지시를 확인 없이 재전송하면 안 됩니다.
 

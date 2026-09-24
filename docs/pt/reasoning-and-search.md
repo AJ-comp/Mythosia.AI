@@ -1,5 +1,11 @@
 # Escolher o esforço de raciocínio e responder com fontes
 
+> Grok 4.7 é uma adição ainda não publicada; veja [seleção do modelo, raciocínio e velocidade](providers.md#grok-47).
+
+> GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
+
+[Claude Opus 5.5](providers.md#claude-opus-55) é uma adição não publicada: raciocínio sempre ativo, esforço medium por padrão e exibição omitida. Solicite progresso legível explicitamente; padrões e regras de vínculo diferem do Fable 5.1.
+
 Para configurações independentes e variações reutilizáveis, use o [builder de solicitações](request-building.md). Chame `CreateRequest(...)` antes de `With...`. Propriedades e métodos fluent do serviço mantêm o comportamento existente.
 
 > Estas APIs exigem `Mythosia.AI` 7.1.0 ou posterior, que inclui `Mythosia.AI.Abstractions` 3.1.0 ou posterior. Os exemplos de RAG exigem `Mythosia.AI.Rag` 7.6.0 ou posterior.
@@ -7,6 +13,8 @@ Para configurações independentes e variações reutilizáveis, use o [builder 
 > Os exemplos com `CreateRequest` exigem a versão atual em desenvolvimento. A versão 7.1 que introduziu Run e as opções comuns não inclui o builder. Pacotes anteriores podem usar as sobrecargas do serviço.
 
 [Claude Fable 5.1](fable-5-1.md) adiciona atualizações de progresso, instruções por turno e diagnósticos de vinculação do raciocínio a partir de `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 exige convite. Ambos rejeitam a seleção forçada de ferramentas.
+
+Para pedidos sensíveis ao tempo de espera, escolha a [velocidade de processamento](request-building.md#inference-speed). `WithSpeed` mantém modelo e esforço; `Processing` informa o modo aplicado. Fast é pago nas combinações suportadas.
 
 ## Por que usar estas opções?
 
@@ -138,11 +146,11 @@ Os campos de citação podem ser `null` quando o provedor não fornece um valor.
 
 | Provedor integrado | Níveis de raciocínio nomeados | Mudança preservando o cache | Busca na Web | Busca de arquivos |
 | --- | --- | --- | --- | --- |
-| OpenAI | Modelos de raciocínio compatíveis; níveis variam por modelo | GPT-6 Astra Standard, modo de agente único | Modelos Responses compatíveis | Modelos Responses compatíveis e repositórios vetoriais existentes |
-| Anthropic | Modelos com controle nativo de esforço | Opus 5 / Fable 5.1 / Mythos 5.1 compatíveis com a versão beta do provedor | Modelos Claude compatíveis | Sem adaptador nativo de repositório; use RAG |
+| OpenAI | Modelos de raciocínio compatíveis; níveis variam por modelo | GPT-6 Astra / Sol / Luna Standard, modo de agente único | Modelos Responses compatíveis | Modelos Responses compatíveis e repositórios vetoriais existentes |
+| Anthropic | Modelos com controle nativo de esforço | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 compatíveis com a versão beta do provedor | Modelos Claude compatíveis | Sem adaptador nativo de repositório; use RAG |
 | Google | Níveis do Gemini 3; Gemini 2.5 mantém os orçamentos específicos do provedor | Não suportado | Modelos de texto Gemini compatíveis | Modelos de texto Gemini compatíveis e repositórios de busca de arquivos existentes |
-| xAI | Grok 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Não suportado | Sem adaptador comum | Sem adaptador comum |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; equivalências nativas Low/High/Max | Não suportado | Sem adaptador comum | Sem adaptador comum |
+| xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Não suportado | Sem adaptador comum | Sem adaptador comum |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; equivalências nativas Low/High/Max | Não suportado | Sem adaptador comum | Sem adaptador comum |
 | Perplexity | `Auto` ou `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max` conforme o modelo; Sonar não aceita esforço explícito | Não suportado | Agent `web_search` | Sem adaptador comum |
 | Outros serviços | As configurações específicas do provedor continuam disponíveis; estas opções comuns exigem um adaptador | Não suportado por estes adaptadores | Sem adaptador comum | Sem adaptador comum |
 

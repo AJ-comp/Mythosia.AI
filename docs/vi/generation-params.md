@@ -1,5 +1,7 @@
 # Tham số tạo nội dung
 
+> Grok 4.7 là phần bổ sung chưa phát hành; xem [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47).
+
 Để có cấu hình độc lập và tái sử dụng biến thể, dùng [builder yêu cầu](request-building.md). Gọi `CreateRequest(...)` trước `With...`. Thuộc tính và phương thức fluent trên dịch vụ giữ nguyên hành vi.
 
 ## Giá trị mặc định và phương thức tương thích
@@ -15,6 +17,8 @@ service.PresencePenalty = 0.0f;    // Phạt token đã xuất hiện
 ```
 
 GPT-6 Astra không hỗ trợ `temperature` hoặc `top_p`; Mythosia bỏ cả hai ngay cả khi được đặt qua thuộc tính chung hoặc hồ sơ yêu cầu. Đầu ra tối đa là 128.000 token. Xem [cấu hình GPT-6](providers.md).
+
+GPT-6 Sol/Luna chỉ gửi `temperature` và `top_p` với `ReasoningLevel.None`; trường hợp khác bỏ cả hai. Astra không hỗ trợ `None`. Xem [chọn và cấu hình mô hình](providers.md#gpt-6-sol-luna).
 
 
 Khi soạn nháp và rà soát cần độ sâu suy luận khác nhau, hãy dùng [thiết lập suy luận chung](reasoning-and-search.md). Hướng dẫn cũng phân biệt thay đổi giữ bộ nhớ đệm với thiết lập thông thường cho một yêu cầu.

@@ -1,12 +1,12 @@
 # Text-Splitter
 
-Text-Splitter teilen Dokumente in Abschnitte auf, bevor sie eingebettet werden. Abschnittsgröße und -überlappung beeinflussen die Retrieval-Qualität erheblich.
+Ein Suchtreffer braucht genügend Kontext für die Antwort, ohne das gesamte Dokument als eine Einheit einzubetten. Chunking steuert diesen Kompromiss. Diese Splitter arbeiten lokal mit Regeln und benötigen kein KI-Modell. Wählen Sie nach der Dokumentstruktur und prüfen Sie die Suche mit eigenen Fragen.
 
 ## Verfügbare Splitter
 
 ### CharacterTextSplitter
 
-Teilt nach Zeichenanzahl. Einfach und schnell, kann aber mitten im Satz trennen:
+Für Klartext, bei dem eine einfache Größenbegrenzung genügt. Der konfigurierte Trenner wird bevorzugt, Sätze können aber geteilt werden. `RagBuilder` verwendet standardmäßig `CharacterTextSplitter(300, 30)`; die Endung `.md` wählt nicht automatisch den Markdown-Splitter.
 
 ```csharp
 .WithTextSplitter(new CharacterTextSplitter(500, 50))
@@ -14,7 +14,9 @@ Teilt nach Zeichenanzahl. Einfach und schnell, kann aber mitten im Satz trennen:
 
 ### RecursiveTextSplitter (empfohlener Standard)
 
-Versucht, an semantisch sinnvollen Grenzen in dieser Reihenfolge zu trennen: Absätze → Sätze → Wörter → Zeichen. Produziert zusammenhängendere Abschnitte:
+Für Fließtext, dessen Absätze und Wörter möglichst zusammenbleiben sollen. Die Standardreihenfolge lautet Leerzeile → Zeilenumbruch → `. ` → Leerzeichen → einzelne Zeichen. Dies sind Textregeln, keine semantische Modellentscheidung; Punkt plus Leerzeichen ist nur eine Annäherung an eine Satzgrenze.
+
+Doppelte Einträge in `Separators` werden in der Reihenfolge ihres ersten Auftretens nur einmal angewendet. Ein mehrfach eingetragener Trenner erzeugt keinen zusätzlichen Durchlauf. Lange Trennerlisten werden ohne tief verschachtelte rekursive Aufrufe verarbeitet.
 
 ```csharp
 .WithTextSplitter(new RecursiveTextSplitter(500, 50))
@@ -22,30 +24,25 @@ Versucht, an semantisch sinnvollen Grenzen in dieser Reihenfolge zu trennen: Abs
 
 ### TokenTextSplitter
 
-Teilt nach Token-Anzahl statt Zeichenanzahl. Genauer für LLM-Kontextfenster-Budgetierung:
+Nur für eine grobe Zählung durch Leerraum getrennter Wörter. Trotz des Namens zählen `MaxTokensPerChunk` und `TokenOverlap` Einheiten nach `TokenSeparators` (standardmäßig Leerzeichen, Tabulatoren und Zeilenumbrüche), keine Modell-Token. Die Ausgabe vereinheitlicht Trenner zu Leerzeichen. Text ohne Leerraum kann eine einzige lange Einheit bleiben; Modell-Tokenlimits werden nicht garantiert.
 
 ```csharp
 .WithTextSplitter(new TokenTextSplitter(256, 32))
 ```
 
-Verwende diesen, wenn das Embedding-Modell strenge Token-Limits hat.
-
 ### MarkdownTextSplitter
 
-Ein strukturbewusster Splitter, der die Markdown-Hierarchie (H1–H6), Code-Fences und Tabellen versteht und Inhalte in semantisch sinnvolle Einheiten aufteilt:
+Für Markdown-Dokumentation oder Markdown aus Office/HWP-Loadern, wenn Überschriftenkontext, Tabellenzeilen und Codeblöcke erhalten bleiben sollen. Erkennt ATX-Überschriften (`#`–`######`), Code-Fences und Tabellen. Es ist ein regelbasierter Splitter, kein vollständiger Markdown-Syntaxbaumparser. Der Konstruktor akzeptiert nur `chunkSize`; Markdown hat keinen Overlap-Parameter.
 
 ```csharp
-.WithTextSplitter(new MarkdownTextSplitter(500, 50))
+.WithTextSplitter(new MarkdownTextSplitter(500))
 ```
-
-Ideal für Dokumentationsdateien, README-Dateien und die Ausgabe von strukturierten Dokument-Loadern wie Office und HWP.
-
-> [!TIP]
-> Dokument-Loader für Word, Excel, PowerPoint und HWP konvertieren Dokumente intern in Markdown. Die Verwendung von `MarkdownTextSplitter` mit diesen Dokumenten stellt sicher, dass Tabellen- und Code-Block-Strukturen während des Chunking-Prozesses erhalten bleiben.
 
 #### Qualität der Tabellenaufteilung
 
-`MarkdownTextSplitter` teilt Markdown-Tabellen **zeilenweise** auf. Eine Zeile wird niemals mittendrin getrennt, und jeder resultierende Chunk enthält automatisch die **Kopfzeile und die Trennlinie**:
+Erkannte GFM-Tabellen werden zwischen Zeilen geteilt; Kopf- und Trennzeile werden in jedem Tabellen-Chunk wiederholt. Äußere Pipes sind optional (`Name | Value` wird unterstützt). Spaltenbezeichnungen bleiben erhalten; die Suchqualität hängt weiterhin von Dokumenten, Embeddings und Fragen ab.
+
+Eine fettgedruckte Tabellenzelle gehört zu ihrer Zeile: `**Keine Erstattung**` bei Firma A darf beispielsweise nicht zur Bedingung für Firma B werden. Tabellenzellen und Codeblöcke werden nie zu wiederholten Textlabels. Eine eigenständige Zeile `**Label**` wird nur am Absatz- oder Textblockanfang nach einer Leerzeile oder Strukturgrenze erkannt. Eine umgebrochene fettgedruckte Zeile innerhalb eines Absatzes erzeugt weder einen neuen Absatz noch ein wiederholtes Label. Ein erkanntes Label darf in den Teilstücken dieses Textblocks wiederholt werden; eine Tabelle, ein Codezaun, eine Überschrift oder das nächste erkannte Label beendet den Geltungsbereich.
 
 ```
 Original-Tabelle:
@@ -67,57 +64,40 @@ Original-Tabelle:
 | Carol  | Design | 45.000 € |
 ```
 
-Jeder Chunk ist eine eigenständige, gültige Tabelle — das garantiert die Qualität von Embedding und Retrieval.
-
 #### Code-Block-Schutz
 
-Code-Fence-Blöcke (`` ``` ``) werden als **atomare Einheiten** behandelt. Ein Code-Block wird niemals aufgeteilt, auch wenn er die Chunk-Größe überschreitet — so bleibt die Code-Semantik erhalten.
+Mit Backticks oder Tilden eingefasste Blöcke bleiben vollständig erhalten. Die schließende Fence muss dasselbe Zeichen verwenden und mindestens so lang wie die öffnende sein. Eine kürzere Fence im Block beendet ihn nicht. Der vollständige Block darf `ChunkSize` überschreiten.
+
+Die Einrückung des öffnenden Codezauns bleibt zusammen mit dem Code erhalten, damit sich dessen gerenderte Einrückung beim Aufteilen nicht verändert. Die Angaben zum öffnenden Zaun werden einmal pro Block gelesen, statt einen langen Zaun für jede Inhaltszeile erneut zu analysieren.
 
 #### Überschriften-Breadcrumb
 
-Jedem Chunk wird automatisch der Überschriftenpfad zu seinem Inhalt vorangestellt, was den Kontext für die Vektorsuche bereichert:
+`IncludeHeadingBreadcrumb` ist standardmäßig `true`: Jeder Chunk wiederholt seinen Überschriftenpfad, damit der Kontext im Suchtreffer erhalten bleibt. `false` schaltet nur diese Wiederholung aus; ursprüngliche Überschriften bleiben erhalten. Auch Abschnitte, die nur eine Überschrift enthalten, werden ausgegeben.
 
+`MinSplitHeadingLevel` akzeptiert 1–6 und legt fest, welche Überschriftenebenen Abschnitte beginnen; Standard ist 1. Wenn sich eine übergeordnete Überschrift ändert, endet der bisherige untergeordnete Abschnitt, damit sein alter Überschriftenpfad nicht auf den neuen Inhalt übertragen wird.
+
+```csharp
+.WithTextSplitter(new MarkdownTextSplitter(500)
+{
+    IncludeHeadingBreadcrumb = false
+})
 ```
-# Produkthandbuch
-## Installationsanleitung
-### Windows
-
-(eigentlicher Inhalt dieses Abschnitts)
-```
-
-Diese Funktion wird über die Eigenschaft `IncludeHeadingBreadcrumb` gesteuert (Standard: `true`).
 
 ## Parameter wählen
 
-| Parameter | Auswirkung |
-|-----------|--------|
-| `chunkSize` (größer) | Mehr Kontext pro Abschnitt, weniger Abschnitte, günstigere Einbettung |
-| `chunkSize` (kleiner) | Höhere Präzision beim Retrieval, mehr Abschnitte, mehr Einbettungen |
-| `chunkOverlap` | Verhindert Informationsverlust an Abschnittsgrenzen |
+`CharacterTextSplitter`, `RecursiveTextSplitter` und `MarkdownTextSplitter` messen UTF-16-Codeeinheiten (`string.Length`), keine Modell-Token oder sichtbaren Schriftzeichen. Surrogatpaare wie Emoji werden nicht geteilt. Bei Größe 1 darf ein Paar mit 2 Einheiten die Grenze überschreiten. Kombinierende Zeichen und vollständige Graphemcluster bleiben nicht garantiert zusammen.
 
-Ein guter Startpunkt: `chunkSize: 500, chunkOverlap: 50`.
+Größen müssen positiv und Overlaps nichtnegativ sein. Ungültige Einstellungen lösen vor der Verarbeitung `ArgumentOutOfRangeException` aus; veränderliche Einstellungen werden beim Teilen erneut geprüft. Ein Overlap größer oder gleich der Größe deaktiviert die Überlappung aus Kompatibilitätsgründen. Bei Character/Recursive ist der Overlap ein Zielwert, angepasst an Trenner, Unicode-Grenzen und freien Platz im nächsten Chunk; `0` bedeutet keine Überlappung. Ein zusätzlicher Chunk nur mit der letzten Überlappung entfällt.
 
-## Chunk-Größe und Token-Anzahl (mehrsprachig)
+Bei Markdown ist `ChunkSize` das Inhaltsbudget **ohne den wiederholten Überschriftenpfad**. Ein ganzer Codeblock oder Tabellenkopf plus eine vollständige Zeile darf es überschreiten. Normaler Text hält die Größe bis auf die genannte Surrogatpaar-Ausnahme ein.
 
-`chunkSize` wird in **Zeichen** gemessen, aber die Limits der Embedding-Modelle gelten für **Token**. Die gleiche Zeichenzahl kann je nach Sprache sehr unterschiedliche Token-Zahlen erzeugen:
+Wiederholte Überschriften und Tabellenköpfe dürfen kleine Dokumente nicht zu unbegrenzt großem Embedding-Text vergrößern. Markdown begrenzt deshalb die gesamte Ausgabe pro Dokument auf `max(65536, 32 × document.Content.Length)` UTF-16-Einheiten. Gezählt wird die Summe aller fertigen Chunks einschließlich wiederholter Breadcrumbs, Tabellenköpfe und Labels. Die Prüfung erfolgt vor dem Erzeugen übermäßiger Wiederholungen; bei Überschreitung wird `InvalidOperationException` ausgelöst, ohne Inhalte abzuschneiden oder Teilergebnisse zurückzugeben. `ChunkSize` und die Ausnahmen für unteilbare Blöcke gelten innerhalb dieses Gesamtlimits. Im normalen RAG-Indizierungsablauf tritt der Fehler vor Embedding oder Datensatzersetzung auf, sodass der bestehende Dokumentindex unverändert bleibt. Dies ist ein Textausgabelimit, kein Modelltoken- oder Prozessspeicherlimit. Das Budget gilt je `Split`-Aufruf und wächst mit der Eingabelänge; es ist keine feste maximale Dokumentgröße.
 
-| Sprache | 1.000 Zeichen ≈ Token | Empfohlene chunkSize |
-|---------|-----------------------|----------------------|
-| Englisch | ~250 Token | 500–2.000 |
-| Koreanisch / Japanisch / Chinesisch | ~800–1.500 Token | 300–1.000 |
+Beginnen Sie etwa mit `RecursiveTextSplitter(500, 50)` für Fließtext oder `MarkdownTextSplitter(500)` für Markdown und messen Sie mit repräsentativen Fragen. Größere Chunks enthalten mehr Umfeld; Overlap wiederholt Inhalt und erhöht den Embedding-Aufwand. Beides garantiert keine bessere Suche.
 
-> [!WARNING]
-> CJK-Text (Koreanisch, Japanisch, Chinesisch) hat ein deutlich höheres Token-pro-Zeichen-Verhältnis als Englisch. Wenn Chunks das Token-Limit des Embedding-Modells überschreiten (z. B. 2.048 Token), tritt ein Fehler auf. Reduzieren Sie `chunkSize` bei CJK-Dokumenten großzügig.
+Für strikte Modelllimits zählen Sie jeden fertigen Chunk einschließlich wiederholter Überschriften und Tabellenköpfe mit dem Tokenizer des Zielmodells. Zeichen-/Wortzahlen und sprachabhängige Umrechnungen sind keine sicheren Tokenbudgets. Implementieren Sie bei Bedarf `ITextSplitter` mit diesem Tokenizer.
 
-Beispiel mit einem Embedding-Modell mit 2.048-Token-Limit:
-
-```csharp
-// Englische Dokumente: 2000 Zeichen ≈ 500 Token → viel Spielraum
-.WithTextSplitter(new MarkdownTextSplitter(2000, 200))
-
-// Koreanische Dokumente: 1000 Zeichen ≈ 1000 Token → sicherer Bereich
-.WithTextSplitter(new MarkdownTextSplitter(1000, 200))
-```
+Die Korrekturen ändern Chunk-Grenzen betroffener Dokumente. Indexieren Sie dieselben Dokument-IDs erneut, um alte Chunks zu ersetzen, und aktualisieren Sie betroffene Embedding-Caches und Bewertungsbaselines. Gespeicherte Chunks werden nicht automatisch umgeschrieben.
 
 ## Splitter pro Dokument
 
@@ -125,7 +105,7 @@ Verschiedene Splitter können pro Dokument im `RagBuilder` angewendet werden:
 
 ```csharp
 .WithRag(rag => rag
-    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600, 60))
+    .AddDocuments(new PlainTextDocumentLoader(), "readme.md", new MarkdownTextSplitter(600))
     .AddDocuments(new PlainTextDocumentLoader(), "daten.txt", new RecursiveTextSplitter(300, 30))
     .WithTextSplitter(new RecursiveTextSplitter(500, 50))  // Standard für den Rest
 )
@@ -135,6 +115,8 @@ Verschiedene Splitter können pro Dokument im `RagBuilder` angewendet werden:
 
 Wenn du ein eigenes Splitter-Modul schreiben und einbinden möchtest, implementiere `ITextSplitter`:
 
+Die Indexierung darf keinen Erfolg melden, während ein Chunk einen anderen überschreibt. Gib jedem Chunk eine nicht leere ID, die innerhalb der Sammlung eindeutig ist, und kopiere die Dokumentmetadaten, damit Firmen- oder Zugriffsfilter erhalten bleiben. Dieses Beispiel kombiniert Dokument-ID und Chunk-Index. Die Pipeline lehnt fehlende IDs und Duplikate innerhalb eines Dokuments ab; sie erzeugt keine Ersatz-IDs. Siehe [Validierung beim Indexieren](rag-pipeline.md#indexing-validation).
+
 ```csharp
 public class SatzSplitter : ITextSplitter
 {
@@ -143,9 +125,11 @@ public class SatzSplitter : ITextSplitter
         var sentences = document.Content.Split(". ");
         return sentences.Select((s, i) => new RagChunk
         {
+            Id = $"{document.Id}_chunk_{i}",
             Content = s,
             Index = i,
-            DocumentId = document.Id
+            DocumentId = document.Id,
+            Metadata = new Dictionary<string, string>(document.Metadata)
         }).ToList();
     }
 }

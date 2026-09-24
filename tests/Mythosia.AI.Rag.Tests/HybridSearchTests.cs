@@ -207,239 +207,121 @@ public class Bm25IndexTests
 
 #endregion
 
-#region 3. RRF Merge & HybridRetrievalStrategy Tests
+#region 3. Production Hybrid and Vector Retrieval Tests
 
 [TestClass]
-public class HybridRetrievalStrategyTests
-{
-    /// <summary>
-    /// When store does not support native hybrid search, HybridRetrievalStrategy should
-    /// use BM25 index + vector search + RRF merge.
-    /// </summary>
-    [TestMethod]
-    public async Task Retrieve_NonHybridStore_UsesBm25AndRrf()
-    {
-        // Arrange: InMemoryVectorStore does not support native hybrid search.
-        var store = new InMemoryVectorStore();
-        var bm25 = new Bm25Index();
-
-        // Insert some records into both stores
-        var records = new[]
-        {
-            new VectorRecord("doc1", GenerateVector(128, 1), "환불 정책 안내 14일 이내"),
-            new VectorRecord("doc2", GenerateVector(128, 2), "배송 정책 안내 무료 배송"),
-            new VectorRecord("doc3", GenerateVector(128, 3), "교환 정책 수령 후 7일"),
-        };
-
-        foreach (var r in records)
-        {
-            await store.UpsertAsync(r);
-            bm25.Index(r.Id, r.Content);
-        }
-
-        var strategy = new HybridRetrievalStrategy(store, 0.5f, bm25);
-
-        // Act: query with a vector close to doc1 + text query matching doc1
-        var queryVector = GenerateVector(128, 1); // similar to doc1
-        var results = await strategy.RetrieveAsync(queryVector, "환불 정책", 3);
-
-        // Assert
-        Assert.IsTrue(results.Count > 0, "Should return results");
-        // doc1 should appear since it matches both vector and keyword
-        Assert.IsTrue(results.Any(r => r.Record.Id == "doc1"),
-            "doc1 should appear in results (matches both vector and keyword)");
-    }
-
-    /// <summary>
-    /// When store supports native hybrid search, HybridRetrievalStrategy should delegate natively.
-    /// </summary>
-    [TestMethod]
-    public async Task Retrieve_HybridCapableStore_DelegatesToNative()
-    {
-        var mockStore = new MockHybridStore();
-        var strategy = new HybridRetrievalStrategy(mockStore, 0.7f, bm25Index: null);
-
-        var results = await strategy.RetrieveAsync(new float[] { 1, 2 }, "test query", 5);
-
-        Assert.IsTrue(mockStore.HybridSearchCalled, "Should delegate to IVectorStore.HybridSearchAsync");
-        Assert.AreEqual("test query", mockStore.LastQuery);
-        Assert.AreEqual(5, mockStore.LastTopK);
-    }
-
-    /// <summary>
-    /// RRF merge: a document appearing in BOTH vector and BM25 results should rank higher
-    /// than a document appearing in only one.
-    /// </summary>
-    [TestMethod]
-    public async Task RrfMerge_DocumentInBothLists_RanksHigher()
-    {
-        var store = new InMemoryVectorStore();
-        var bm25 = new Bm25Index();
-
-        // doc1: appears in both vector and BM25 results
-        // doc2: only in vector results
-        // doc3: only in BM25 results
-        var doc1 = new VectorRecord("doc1", GenerateVector(64, 10), "hybrid search retrieval ranking");
-        var doc2 = new VectorRecord("doc2", GenerateVector(64, 10), "unrelated content different topic"); // same vector as doc1
-        var doc3 = new VectorRecord("doc3", GenerateVector(64, 99), "hybrid search retrieval ranking advanced"); // different vector
-
-        await store.UpsertAsync(doc1);
-        await store.UpsertAsync(doc2);
-        await store.UpsertAsync(doc3);
-
-        bm25.Index("doc1", doc1.Content);
-        bm25.Index("doc2", doc2.Content);
-        bm25.Index("doc3", doc3.Content);
-
-        var strategy = new HybridRetrievalStrategy(store, 0.5f, bm25);
-        var queryVector = GenerateVector(64, 10); // matches doc1/doc2 vectors
-
-        var results = await strategy.RetrieveAsync(queryVector, "hybrid search retrieval ranking", 3);
-
-        Assert.IsTrue(results.Count > 0);
-        // doc1 should rank highest because it matches BOTH vector (rank ~1) and keyword (rank 1)
-        Assert.AreEqual("doc1", results[0].Record.Id,
-            "Document matching both vector and keyword should rank first via RRF");
-    }
-
-    /// <summary>
-    /// Without BM25 index and without native hybrid support, should fall back to pure vector search.
-    /// </summary>
-    [TestMethod]
-    public async Task Retrieve_NoBm25NorHybridCapable_FallsBackToVector()
-    {
-        var store = new InMemoryVectorStore();
-        await store.UpsertAsync(new VectorRecord("doc1", GenerateVector(32, 1), "hello world"));
-
-        // No BM25 index
-        var strategy = new HybridRetrievalStrategy(store, 0.5f, bm25Index: null);
-
-        var results = await strategy.RetrieveAsync(GenerateVector(32, 1), "hello", 5);
-
-        Assert.IsTrue(results.Count > 0, "Should fall back to vector search");
-        Assert.AreEqual("doc1", results[0].Record.Id);
-    }
-
-    /// <summary>
-    /// RRF scores should be descending.
-    /// </summary>
-    [TestMethod]
-    public async Task RrfMerge_ResultsAreDescendingByScore()
-    {
-        var store = new InMemoryVectorStore();
-        var bm25 = new Bm25Index();
-
-        for (int i = 0; i < 10; i++)
-        {
-            var r = new VectorRecord($"doc{i}", GenerateVector(32, i), $"document number {i} keyword search content");
-            await store.UpsertAsync(r);
-            bm25.Index(r.Id, r.Content);
-        }
-
-        var strategy = new HybridRetrievalStrategy(store, 0.5f, bm25);
-        var results = await strategy.RetrieveAsync(GenerateVector(32, 0), "keyword search content", 5);
-
-        for (int i = 1; i < results.Count; i++)
-        {
-            Assert.IsTrue(results[i - 1].Score >= results[i].Score,
-                $"RRF results should be descending: [{i - 1}]={results[i - 1].Score:F6} vs [{i}]={results[i].Score:F6}");
-        }
-    }
-
-    /// <summary>
-    /// Delegated hybrid search currently does not support caller-controlled vector weighting.
-    /// Even with vectorWeight=1.0, the native hybrid implementation may still rank keyword matches first.
-    /// </summary>
-    [TestMethod]
-    public async Task HybridSearch_VectorWeight1_CurrentlyDoesNotOverrideNativeWeighting()
-    {
-        var store = new InMemoryVectorStore();
-        var bm25 = new Bm25Index();
-
-        var doc1 = new VectorRecord("vec-match", GenerateVector(32, 1), "unrelated text");
-        var doc2 = new VectorRecord("kw-match", GenerateVector(32, 99), "specific keyword query terms");
-
-        await store.UpsertAsync(doc1);
-        await store.UpsertAsync(doc2);
-        bm25.Index(doc1.Id, doc1.Content);
-        bm25.Index(doc2.Id, doc2.Content);
-
-        var strategy = new HybridRetrievalStrategy(store, 1.0f, bm25);
-        var results = await strategy.RetrieveAsync(GenerateVector(32, 1), "specific keyword query terms", 2);
-
-        Assert.IsTrue(results.Count > 0);
-        Assert.AreEqual("kw-match", results[0].Record.Id,
-            "Current native hybrid behavior does not apply caller-provided vectorWeight overrides");
-    }
-
-    private static float[] GenerateVector(int dim, int seed)
-    {
-        var rng = new Random(seed);
-        var vec = new float[dim];
-        double norm = 0;
-        for (int i = 0; i < dim; i++)
-        {
-            vec[i] = (float)(rng.NextDouble() - 0.5);
-            norm += vec[i] * vec[i];
-        }
-        norm = Math.Sqrt(norm);
-        for (int i = 0; i < dim; i++)
-            vec[i] /= (float)norm;
-        return vec;
-    }
-}
-
-#endregion
-
-#region 4. VectorRetrievalStrategy Tests
-
-[TestClass]
-public class VectorRetrievalStrategyTests
+public class HybridRetrieverPipelineTests
 {
     [TestMethod]
-    public async Task Retrieve_DelegatesToVectorStore()
+    public async Task Retrieve_TextCapableStoreWithoutNativeHybrid_UsesSharedFusion()
     {
-        var store = new InMemoryVectorStore();
-        await store.UpsertAsync(new VectorRecord("doc1", GenerateUnitVector(64, 42), "test content"));
+        using var memory = new InMemoryVectorStore();
+        var store = new TextOnlyCapabilityStore(memory);
+        await store.UpsertAsync(new VectorRecord("both", new[] { 1f, 0f }, "refund policy"));
+        await store.UpsertAsync(new VectorRecord("dense", new[] { 1f, 0f }, "different topic"));
+        var rag = await RagStore.BuildAsync(b => b.UseStore(store).UseEmbedding(new FixedEmbedding())
+            .UseHybridSearch(new HybridSearchOptions { VectorWeight = .5f }));
 
-        var strategy = new VectorRetrievalStrategy(store);
-        var results = await strategy.RetrieveAsync(
-            GenerateUnitVector(64, 42), "ignored query text", 5);
+        var result = await rag.QueryAsync("refund");
 
-        Assert.IsTrue(results.Count > 0);
-        Assert.AreEqual("doc1", results[0].Record.Id);
+        Assert.AreEqual("both", result.References[0].Record.Id);
+        Assert.AreEqual(1, store.TextCalls);
+        Assert.AreEqual(1.0, result.References[0].Score, 1e-10);
     }
 
     [TestMethod]
-    public async Task Retrieve_IgnoresQueryText()
+    public async Task Retrieve_ConfigurableStore_ForwardsWeightAndQuery()
     {
-        var store = new InMemoryVectorStore();
-        await store.UpsertAsync(new VectorRecord("doc1", GenerateUnitVector(64, 1), "apple banana"));
+        var store = new MockHybridStore();
+        var rag = await RagStore.BuildAsync(b => b.UseStore(store).UseEmbedding(new FixedEmbedding())
+            .WithTopK(5).UseHybridSearch(.7f));
 
-        var strategy = new VectorRetrievalStrategy(store);
+        await rag.QueryAsync("test query");
 
-        // Different query texts with same vector should give same results
-        var results1 = await strategy.RetrieveAsync(GenerateUnitVector(64, 1), "apple", 5);
-        var results2 = await strategy.RetrieveAsync(GenerateUnitVector(64, 1), "completely different", 5);
-
-        Assert.AreEqual(results1.Count, results2.Count);
-        Assert.AreEqual(results1[0].Record.Id, results2[0].Record.Id);
+        Assert.IsTrue(store.HybridSearchCalled);
+        Assert.AreEqual("test query", store.LastQuery);
+        Assert.AreEqual(.7f, store.LastOptions!.VectorWeight);
+        Assert.AreEqual(5, store.LastTopK);
     }
 
-    private static float[] GenerateUnitVector(int dim, int seed)
+    [TestMethod]
+    public async Task Hybrid_DocumentMatchingBothLegs_RanksFirst()
     {
-        var rng = new Random(seed);
-        var vec = new float[dim];
-        double norm = 0;
-        for (int i = 0; i < dim; i++)
+        using var store = new InMemoryVectorStore();
+        await store.UpsertBatchAsync(new[]
         {
-            vec[i] = (float)(rng.NextDouble() - 0.5);
-            norm += vec[i] * vec[i];
-        }
-        norm = Math.Sqrt(norm);
-        for (int i = 0; i < dim; i++)
-            vec[i] /= (float)norm;
-        return vec;
+            new VectorRecord("both", new[] { 1f, 0f }, "hybrid search"),
+            new VectorRecord("dense", new[] { 1f, 0f }, "unrelated content"),
+            new VectorRecord("text", new[] { 0f, 1f }, "hybrid search with extra words")
+        });
+        var rag = await RagStore.BuildAsync(b => b.UseStore(store).UseEmbedding(new FixedEmbedding()).UseHybridSearch());
+        var result = await rag.QueryAsync("hybrid search");
+        Assert.AreEqual("both", result.References[0].Record.Id);
+    }
+
+    [TestMethod]
+    public async Task Hybrid_ResultsAreDescendingAndBounded()
+    {
+        using var store = new InMemoryVectorStore();
+        for (var i = 0; i < 10; i++)
+            await store.UpsertAsync(new VectorRecord("doc-" + i, new[] { 1f, (float)i }, "keyword search " + i));
+        var rag = await RagStore.BuildAsync(b => b.UseStore(store).UseEmbedding(new FixedEmbedding()).WithTopK(5).UseHybridSearch());
+        var result = await rag.QueryAsync("keyword search");
+        Assert.AreEqual(5, result.References.Count);
+        Assert.IsTrue(result.References.All(item => item.Score >= 0 && item.Score <= 1));
+        for (var i = 1; i < result.References.Count; i++)
+            Assert.IsTrue(result.References[i - 1].Score >= result.References[i].Score);
+    }
+
+    [TestMethod]
+    public async Task Hybrid_VectorWeightOne_ActuallyOverridesKeywordPreference()
+    {
+        using var store = new InMemoryVectorStore();
+        await store.UpsertAsync(new VectorRecord("dense", new[] { 1f, 0f }, "unrelated text"));
+        await store.UpsertAsync(new VectorRecord("text", new[] { 0f, 1f }, "specific keyword"));
+        var rag = await RagStore.BuildAsync(b => b.UseStore(store).UseEmbedding(new FixedEmbedding()).UseHybridSearch(1));
+        var result = await rag.QueryAsync("specific keyword");
+        Assert.AreEqual("dense", result.References[0].Record.Id);
+    }
+
+    [TestMethod]
+    public async Task VectorMode_UsesEmbeddingAndIgnoresLexicalOverride()
+    {
+        using var store = new InMemoryVectorStore();
+        await store.UpsertAsync(new VectorRecord("dense", new[] { 1f, 0f }, "unrelated text"));
+        await store.UpsertAsync(new VectorRecord("text", new[] { 0f, 1f }, "specific keyword"));
+        var rag = await RagStore.BuildAsync(b => b.UseStore(store).UseEmbedding(new FixedEmbedding()).UseVectorSearch());
+        var first = await ((RagPipeline)rag.Pipeline).ProcessAsync("semantic", "specific keyword", null);
+        var second = await ((RagPipeline)rag.Pipeline).ProcessAsync("semantic", "unrelated", null);
+        Assert.AreEqual("dense", first.References[0].Record.Id);
+        Assert.AreEqual(first.References[0].Score, second.References[0].Score);
+    }
+
+    private sealed class FixedEmbedding : IEmbeddingProvider
+    {
+        public int Dimensions => 2;
+        public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+            => Task.FromResult(new[] { 1f, 0f });
+        public Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<float[]>>(texts.Select(_ => new[] { 1f, 0f }).ToList());
+    }
+
+    // Deliberately exposes text+vector capabilities without configurable native hybrid,
+    // exercising the real application-level fusion path and its persisted text index.
+    private sealed class TextOnlyCapabilityStore : IVectorStore, ITextSearchStore
+    {
+        private readonly InMemoryVectorStore _inner;
+        public int TextCalls;
+        public TextOnlyCapabilityStore(InMemoryVectorStore inner) => _inner = inner;
+        public Task<IReadOnlyList<VectorSearchResult>> TextSearchAsync(string query, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        { TextCalls++; return _inner.TextSearchAsync(query, topK, filter, cancellationToken); }
+        public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(float[] queryVector, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
+            => _inner.SearchAsync(queryVector, topK, filter, cancellationToken);
+        public Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default) => _inner.UpsertAsync(record, cancellationToken);
+        public Task UpsertBatchAsync(IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default) => _inner.UpsertBatchAsync(records, cancellationToken);
+        public Task<VectorRecord?> GetAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default) => _inner.GetAsync(id, filter, cancellationToken);
+        public Task DeleteAsync(string id, VectorFilter? filter = null, CancellationToken cancellationToken = default) => _inner.DeleteAsync(id, filter, cancellationToken);
+        public Task DeleteByFilterAsync(VectorFilter filter, CancellationToken cancellationToken = default) => _inner.DeleteByFilterAsync(filter, cancellationToken);
     }
 }
 
@@ -461,7 +343,7 @@ public class RagPipelineRerankerTests
         var splitter = new CharacterTextSplitter(500, 50);
         var contextBuilder = new DefaultContextBuilder();
 
-        // No retrieval strategy, no reranker → defaults to VectorRetrievalStrategy
+        // No retrieval strategy, no reranker → defaults to request-based vector retrieval
         var pipeline = new RagPipeline(embedding, store, splitter, contextBuilder,
             new RagPipelineOptions { DefaultQuery = new RagQueryOptions { FinalFilter = new RagFilter { TopK = 3 } } });
 
@@ -513,7 +395,7 @@ public class RagPipelineRerankerTests
     }
 
     /// <summary>
-    /// Pipeline with HybridRetrievalStrategy should combine BM25 and vector search.
+    /// Pipeline with the hybrid retriever should combine BM25 and vector search.
     /// </summary>
     [TestMethod]
     public async Task Pipeline_WithHybridStrategy_CombinesBm25AndVector()
@@ -522,14 +404,11 @@ public class RagPipelineRerankerTests
         var store = new InMemoryVectorStore();
         var splitter = new CharacterTextSplitter(500, 50);
         var contextBuilder = new DefaultContextBuilder();
-        var bm25 = new Bm25Index();
-
-        var strategy = new HybridRetrievalStrategy(store, 0.5f, bm25);
-
         var pipeline = new RagPipeline(
             embedding, store, splitter, contextBuilder,
-            retrievalStrategy: strategy, reranker: null,
+            retrievalStrategy: null, reranker: null,
             options: new RagPipelineOptions { DefaultQuery = new RagQueryOptions { FinalFilter = new RagFilter { TopK = 3 } } });
+        pipeline.SetRetriever(new RagRetrievers.Hybrid(embedding, store, new HybridSearchOptions()));
 
         // Index documents
         var doc = new RagDocument
@@ -537,11 +416,6 @@ public class RagPipelineRerankerTests
             Id = "hybrid-doc", Content = "하이브리드 검색 테스트 문서입니다.", Source = "test.txt"
         };
         await pipeline.IndexDocumentAsync(doc);
-
-        // Also index in BM25
-        var allRecords = await store.ListAllRecordsAsync();
-        foreach (var r in allRecords)
-            bm25.Index(r.Id, r.Content);
 
         var result = await pipeline.QueryAsync("하이브리드 검색");
 
@@ -693,11 +567,20 @@ public class RagBuilderHybridApiTests
 /// <summary>
 /// Mock native-hybrid store for testing strategy branching.
 /// </summary>
-internal class MockHybridStore : IVectorStore
+internal class MockHybridStore : IVectorStore, IConfigurableHybridSearchStore
 {
     public bool HybridSearchCalled { get; private set; }
     public string? LastQuery { get; private set; }
     public int LastTopK { get; private set; }
+    public HybridSearchOptions? LastOptions { get; private set; }
+
+    public Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+        float[] denseVector, string query, HybridSearchOptions options, int topK = 5,
+        VectorFilter? filter = null, CancellationToken cancellationToken = default)
+    {
+        LastOptions = options;
+        return HybridSearchAsync(denseVector, query, topK, filter, cancellationToken);
+    }
 
     public Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
         float[] denseVector, string query, int topK,

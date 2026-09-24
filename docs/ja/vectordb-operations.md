@@ -84,6 +84,25 @@ var results = await store.HybridSearchAsync(
 );
 ```
 
+### テキスト専用検索と設定可能なハイブリッド検索（未リリース）
+
+上のオーバーロードは各バックエンドの既存のハイブリッド動作を使用します。現在のソースでは InMemory、PostgreSQL、Qdrant が `ITextSearchStore` と `IConfigurableHybridSearchStore` も実装しています。これらの任意 API は **未リリース（Unreleased）** で、Pinecone は実装していません。
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "注文 #12345 状態", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "注文 #12345 状態",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` に密なクエリベクターは不要です。設定可能なオーバーロードは `[0, 1]` に正規化した重み付き RRF スコアを使用し、重み `0` はベクター検索、`1` はテキスト検索を省略します。メタデータフィルターは top-K 選択前、`MinScore` は融合後に適用されます。元のテキスト・ベクタースコアは尺度が異なるため、モードごとに閾値を設定してください。Qdrant の `HybridFusionStrategy` は上の既存オーバーロードにのみ適用されます。
+
 ## IDで取得
 
 特定のレコードをIDで検索します:
@@ -120,7 +139,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## フィルターで置換
 
-フィルターに一致するすべてのレコードをアトミックに削除して新しいセットを挿入します。古いチャンクを残さずにドキュメントを再インデックスするのに便利です。
+フィルターに一致するすべてのレコードを削除して新しいセットを挿入します。古いチャンクを残さずにドキュメントを再インデックスするのに便利です。置換全体の原子性はバックエンドによって異なります。
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -136,7 +155,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> Postgresではトランザクション内で実行され、完全にアトミックです。
+> Postgres はデータベーストランザクションを使用します。InMemory は削除とバッチ挿入を順番に実行するため、別の検索がその間の空の状態を参照する可能性があります。失敗やキャンセルで一部だけ置換された状態が残る場合があり、完了済みの書き込みはロールバックされません。各操作の同期はレコードと BM25 インデックスの整合性を保ちますが、置換全体をトランザクションにはしません。
 
 ## カウント
 

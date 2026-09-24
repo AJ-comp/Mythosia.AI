@@ -90,6 +90,7 @@ await modelsModule.link(async name => {
   if (name === './functions-panel.js') return synthetic({ refreshFunctions() {} });
   if (name === './apikey-modal.js') return synthetic({ openKeyModal() {} });
   if (name === './alibaba-settings.js') return synthetic({ openAlibabaSettingsModal() {} });
+  if (name === './rag-rewriter-models.js') return synthetic({ populateRewriterModels() {} });
   throw new Error('Unexpected module: ' + name);
 });
 await modelsModule.evaluate();
@@ -205,4 +206,99 @@ pending[0].resolve({ json: async () => ({ configured: true,
 await oldPoll;
 assert.equal(dom.setTemp.disabled, false, 'An obsolete poll must not undo a newer settings response');
 assert.notEqual(app.modelReasoningInfo, null);
+
+// Opus 5.5 starts at the provider's Medium default; an unrelated settings edit
+// must not silently lower its effort to the first radio option.
+app.selectedProvider = 'Anthropic';
+app.selectedModel = 'ClaudeOpus5_5';
+app.modelReasoningInfo = { type: 'claude_always', levels: ['Low', 'Medium', 'High', 'XHigh', 'Max'], defaultLevel: 'Medium' };
+app.modelSamplingInfo = { temperature: false, topP: false };
+ui.updateReasoningUI();
+ui.updateSamplingUI();
+assert.equal(dom.setReasoning.checked, true);
+assert.equal(dom.setReasoning.disabled, true);
+assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'Medium');
+requests.length = 0;
+fetchOverride = async (url, options) => {
+  requests.push({ url, body: JSON.parse(options.body) });
+  return { ok: true, json: async () => ({ controls: {
+    reasoning: app.modelReasoningInfo, sampling: app.modelSamplingInfo
+  } }) };
+};
+ui.scheduleApplySettings(0);
+await waitTurn();
+assert.equal(requests.at(-1).body.reasoningType, 'claude_always');
+assert.equal(requests.at(-1).body.reasoningEnabled, true);
+assert.equal(requests.at(-1).body.reasoningLevel, 'Medium');
+for (const radio of dom.reasoningLvls.querySelectorAll('input')) radio.checked = radio.value === 'High';
+ui.scheduleApplySettings(0);
+await waitTurn();
+assert.equal(requests.at(-1).body.reasoningLevel, 'High');
+assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'High');
+
+app.modelReasoningInfo = { type: 'claude_always', levels: ['Low', 'Medium', 'High', 'XHigh', 'Max'] };
+ui.updateReasoningUI();
+assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'Low', 'Existing model defaults must remain unchanged');
+
+// GPT-6 Sol/Luna expose None through the same effort controls as Astra. A
+// server-confirmed effort change must refresh sampling without resetting None.
+for (const model of ['Gpt6Sol', 'Gpt6Luna']) {
+  app.selectedProvider = 'OpenAI';
+  app.selectedModel = model;
+  app.modelReasoningInfo = { type: 'gpt6', levels: ['Auto', 'None', 'Low', 'Medium', 'High', 'XHigh', 'Max'] };
+  app.modelSamplingInfo = { temperature: false, topP: false };
+  ui.updateReasoningUI();
+  ui.updateSamplingUI();
+  assert.equal(dom.setReasoning.checked, true);
+  assert.equal(dom.setReasoning.disabled, true);
+  assert.match(dom.reasoningLvls.innerHTML, /None disables reasoning/);
+  assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'Auto');
+  requests.length = 0;
+  fetchOverride = async (url, options) => {
+    const body = JSON.parse(options.body);
+    requests.push({ url, body });
+    const none = body.reasoningLevel === 'None';
+    return { ok: true, json: async () => ({ controls: {
+      reasoning: app.modelReasoningInfo, sampling: { temperature: none, topP: none }
+    } }) };
+  };
+  let selected;
+  for (const radio of dom.reasoningLvls.querySelectorAll('input')) {
+    radio.checked = radio.value === 'None';
+    if (radio.checked) selected = radio;
+  }
+  await selected.fire('change');
+  await waitTurn();
+  assert.equal(requests.at(-1).body.reasoningType, 'gpt6');
+  assert.equal(requests.at(-1).body.reasoningEnabled, true);
+  assert.equal(requests.at(-1).body.reasoningLevel, 'None');
+  assert.equal(requests.at(-1).body.temperature, null, 'Sampling must wait for the active model capability response');
+  assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'None');
+  assert.equal(dom.setTemp.disabled, false);
+  assert.equal(dom.setTopp.disabled, false);
+  dom.setTemp.value = '0.3';
+  dom.setTopp.value = '0.7';
+  ui.scheduleApplySettings(0);
+  await waitTurn();
+  assert.equal(requests.at(-1).body.reasoningLevel, 'None', 'Unrelated settings must retain disabled reasoning');
+  assert.equal(requests.at(-1).body.temperature, 0.3);
+  assert.equal(requests.at(-1).body.topP, 0.7);
+
+  for (const radio of dom.reasoningLvls.querySelectorAll('input')) {
+    radio.checked = radio.value === 'High';
+    if (radio.checked) selected = radio;
+  }
+  await selected.fire('change');
+  await waitTurn();
+  assert.equal(requests.at(-1).body.reasoningLevel, 'High');
+  assert.equal(dom.setTemp.disabled, true);
+  assert.equal(dom.setTopp.disabled, true);
+  assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'High');
+}
+app.selectedModel = 'Gpt6Astra';
+app.modelReasoningInfo = { type: 'gpt6', levels: ['Auto', 'Low', 'Medium', 'High', 'XHigh', 'Max'] };
+ui.updateReasoningUI();
+assert.match(dom.reasoningLvls.innerHTML, /Always on/);
+assert.equal(dom.reasoningLvls.querySelectorAll('input').some(radio => radio.value === 'None'), false,
+  'Sol/Luna controls must not leak a None option to Astra');
 console.log('Connection capability UI regression checks passed, including reversed responses.');

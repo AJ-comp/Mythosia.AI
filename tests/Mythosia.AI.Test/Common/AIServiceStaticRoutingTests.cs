@@ -107,6 +107,7 @@ public class AIServiceStaticRoutingTests
     [DataRow(AIModels.xAI.Grok4_6, typeof(XAIService))]
     [DataRow(AIModels.xAI.Grok4_5, typeof(XAIService))]
     [DataRow(AIModels.DeepSeek.Flash, typeof(DeepSeekService))]
+    [DataRow(AIModels.DeepSeek.V4Pro, typeof(DeepSeekService))]
     [DataRow(AIModels.Perplexity.Sonar, typeof(PerplexityService))]
     public void CreateService_AppliesRequestedModel(string model, Type expectedServiceType)
     {

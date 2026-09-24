@@ -1,5 +1,7 @@
 # 讓每個請求的設定互相獨立
 
+> Grok 4.7 是尚未發布的新增功能；請參閱[模型選擇、推理與處理速度](providers.md#grok-47)。
+
 文件摘要可能需要較低的Temperature，創意草稿則需要較高的值。準備草稿不應悄悄改變已經準備好的摘要請求。不同呼叫需要不同設定，或需要從基礎請求衍生多個版本時，請使用`CreateRequest`。
 
 需要同時取得完整答案、用量與來源時，使用 `await run.Result` 傳回的 `AIRunResult`；字串位於 `result.Text`，不必讀取串流。這是Mythosia.AI 8.0.0 的 API 變更；`GetCompletionAsync` 與 `StructuredStreamRun<T>.Result` 的傳回型別保持不變。 [Run 結果與移轉](execution-api-transition.md#run-result).
@@ -110,3 +112,82 @@ string rewritten = await request.GetCompletionAsync();
 `GetCompletionAsync`與既有服務入口繼續受支援。`BeginMessage()` / `MessageChain`保留原來可變的訊息建構方式，執行層使用新的請求路徑。需要分支重用設定時請選擇`CreateRequest`。建構器API屬於`AIService`及其提供者實作，不會為`IAIService`新增必要成員。只使用抽象介面或RAG包裝器的程式碼繼續使用既有設定檔、上下文和執行API。
 
 [用共用支援定義建立模型功能選項](model-capabilities.md).
+
+<a id="inference-speed"></a>
+
+## 按工作選擇處理速度
+
+使用者正在等待的請求可選擇付費低延遲處理，背景報告可使用一般處理。`WithSpeed` 保持模型和推理層級，只選擇處理模式。此功能尚未發布，需要相符的 core 與 abstractions 變更；已發布的 8.0.0 / 4.0.0 不包含此功能。
+
+`ProviderDefault` 不覆寫現有服務或供應商設定；專案預設值也可能已經是 Fast。`Standard` 明確要求一般處理。`Fast` 請求供應商的付費低延遲模式，可能產生額外費用。請保留回傳的建構器：以下三個分支相互獨立，不修改原始請求。
+
+```csharp
+using Mythosia.AI.Models;
+
+var basis = service.CreateRequest("Explain this report.");
+var providerDefault = basis.WithSpeed(InferenceSpeed.ProviderDefault);
+var standard = basis.WithSpeed(InferenceSpeed.Standard);
+var fast = basis.WithSpeed(InferenceSpeed.Fast);
+```
+
+顯示選項前檢查 `GetSpeedSupport(InferenceSpeed.Fast)`。`StandardSpeed` 和 `FastSpeed` 同樣區分 Supported、Unsupported、Unknown。本機 Supported 不保證帳戶權限、容量或延遲。明確指定 Standard/Fast 在不支援或未知時會失敗，不會悄悄更改模型或推理層級。使用 `ProviderDefault` 保持原有路徑。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
+
+var request = service.CreateRequest("Explain this report.")
+    .WithSpeed(InferenceSpeed.Fast);
+if (request.GetCapabilities().GetSpeedSupport(InferenceSpeed.Fast)
+    != CapabilitySupport.Supported)
+    throw new NotSupportedException("Fast processing is not supported here.");
+
+await using var run = await request.StartRunAsync();
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (AIProcessingInfo processing in result.Processing)
+{
+    Console.WriteLine($"{processing.RequestIndex}: {processing.RequestedSpeed} -> " +
+        $"{processing.AppliedSpeed?.ToString() ?? "unknown"}; " +
+        $"raw={processing.RawAppliedMode}; response={processing.ResponseId}; " +
+        $"downgraded={processing.IsDowngraded}");
+}
+```
+
+`AIRunResult.Processing` 無需讀取串流即可保留不可變的 `AIProcessingInfo`。`RequestIndex` 從 1 開始，識別供應商推理嘗試，包含伺服器 continuation；不等於工具輪次或 HTTP 請求數量；工具後續呼叫、重試及格式修復可能增加記錄。包括失敗嘗試在內，伺服器未回報可識別模式時 `AppliedSpeed` 為 null。`RawAppliedMode` 和 `ResponseId` 保留回報的原始資訊。僅在要求 Fast 而明確回報 Standard 時，`IsDowngraded` 才為 true；false 不能證明已套用 Fast。
+
+一般 completion 完成後立即讀取 `AIService.LastProcessing`；後續邏輯請求會替換此檢視，已取得的記錄保持不可變。服務擴充只設定下一個邏輯請求及其工具往返，不設定永久預設值。輔助摘要、內部查詢改寫和內部 profile 不繼承主請求的速度覆寫，也不混入主請求的觀測記錄。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+string answer = await service
+    .WithSpeed(InferenceSpeed.Standard)
+    .GetCompletionAsync("Explain this report.");
+var processing = service.LastProcessing;
+```
+
+這些值是供應商回報的處理模式，不是每秒 token 數的實測值。OpenAI、xAI、Google 可能在伺服器端降級；Mythosia 不會自動換速度重試。Anthropic fast mode 需要權限，僅限直接 Claude API，切換速度可能使提示快取失效。Gemini Developer API priority 需要 Tier 2/3 資格。請另行確認供應商、模型、API 支援及收費；此設定不適用於影像生成、嵌入或原生 Batch API。 [OpenAI](https://developers.openai.com/api/docs/guides/fast-mode) · [Anthropic](https://platform.claude.com/docs/en/build-with-claude/fast-mode) · [xAI](https://docs.x.ai/developers/advanced-api-usage/priority-processing) · [Gemini](https://ai.google.dev/gemini-api/docs/generate-content/priority-inference)
+
+透過 `IAIService` 參照時，使用 `Mythosia.AI.Extensions` 的 `GetLastProcessing()`。它讀取選用的 `IAIProcessingInfoService`；不支援診斷時回傳空清單。`IAIService` 不增加必要成員。RAG 中 `RagEnabledService.WithSpeed(...)` 設定檢索後的下一次回答，`LastProcessing` 描述該回答；內部查詢改寫保持分離。Run 結果提供相同的 `Processing` 記錄。
+
+本次實作的 Fast 支援清單如下。請透過 `GetSpeedSupport(InferenceSpeed.Standard)` 單獨檢查 Standard。清單外模型、第三方端點和 OpenAI 相容供應商不會自動繼承付費處理支援。
+
+| API | Fast |
+| --- | --- |
+| Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
+| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
+| xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
+| Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |
+
+| API | `Standard` | `Fast` | `RawAppliedMode` |
+| --- | --- | --- | --- |
+| Anthropic — Opus 4.8 / 5 / 5.5 | `speed: "standard"` + `fast-mode-2026-02-01` | `speed: "fast"` + `fast-mode-2026-02-01` | `usage.speed` |
+| Anthropic — 其他已知 Claude 模型，包括 Sonnet 5 | 省略 `speed` 和 fast-mode beta | `Unsupported` | `usage.speed` |
+| OpenAI | `service_tier: "default"` | `service_tier: "fast"` | `service_tier` (`fast` / `priority` → Fast) |
+| xAI | `service_tier: "default"` | `service_tier: "priority"` | `service_tier` |
+| Google | `serviceTier: "standard"` | `serviceTier: "priority"` | `x-gemini-service-tier` / `usageMetadata.serviceTier` |
+
+這些其他 Claude 模型的 Standard 使用原有一般請求。伺服器未回報處理資訊時，`AppliedSpeed` 保持 null，不會僅根據請求值推斷已套用 Standard。

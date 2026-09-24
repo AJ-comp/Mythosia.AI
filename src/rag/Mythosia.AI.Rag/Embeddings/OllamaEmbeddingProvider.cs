@@ -12,6 +12,14 @@ namespace Mythosia.AI.Rag.Embeddings
     /// <summary>
     /// IEmbeddingProvider implementation that calls the local Ollama embeddings API.
     /// </summary>
+    /// <remarks>
+    /// Requests <see cref="Dimensions"/> from the server, validates every returned vector against
+    /// that length, and rejects non-finite coordinates. Accepts both the embeddings array
+    /// and the legacy single embedding shape.
+    /// The selected model and Ollama server must support the requested output dimensions.
+    /// Vectors are never silently resized when the server ignores or rejects the request.
+    /// The caller owns HttpClient; individual request and response messages are disposed.
+    /// </remarks>
     public class OllamaEmbeddingProvider : IEmbeddingProvider
     {
         private readonly HttpClient _httpClient;
@@ -27,7 +35,7 @@ namespace Mythosia.AI.Rag.Embeddings
         /// </summary>
         /// <param name="httpClient">HttpClient instance.</param>
         /// <param name="model">Embedding model name. Default is "qwen3-embedding:4b".</param>
-        /// <param name="dimensions">Expected output vector dimensions. Default is 1024.</param>
+        /// <param name="dimensions">Output vector dimensions requested from the server and required in every response. Default is 1024. The model and server must support the selected dimensions.</param>
         /// <param name="baseUrl">Ollama API base URL. Default is "http://localhost:11434".</param>
         public OllamaEmbeddingProvider(
             HttpClient httpClient,
@@ -49,6 +57,7 @@ namespace Mythosia.AI.Rag.Embeddings
 
         public async Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var inputList = texts.ToList();
             if (inputList.Count == 0)
                 return Array.Empty<float[]>();
@@ -56,47 +65,48 @@ namespace Mythosia.AI.Rag.Embeddings
             var requestBody = new Dictionary<string, object>
             {
                 ["model"] = _model,
-                ["input"] = inputList
+                ["input"] = inputList,
+                ["dimensions"] = _dimensions
             };
 
             var json = JsonSerializer.Serialize(requestBody);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-            var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/embed")
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/embed")
             {
                 Content = content
             };
 
-            var response = await _httpClient.SendAsync(request, cancellationToken);
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
                 throw new InvalidOperationException(
-                    $"Ollama embeddings request failed ({(int)response.StatusCode}): {errorContent}");
+                    $"Ollama embeddings request failed (HTTP {(int)response.StatusCode}).");
             }
 
             var responseJson = await response.Content.ReadAsStringAsync();
+            cancellationToken.ThrowIfCancellationRequested();
             return ParseEmbeddingResponse(responseJson, inputList.Count);
         }
 
         private IReadOnlyList<float[]> ParseEmbeddingResponse(string responseJson, int expectedCount)
         {
-            using var doc = JsonDocument.Parse(responseJson);
+            using var doc = EmbeddingResponseValidation.ParseDocument(responseJson, "Ollama");
             var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                throw EmbeddingResponseValidation.InvalidResponse("Ollama", "The response must be an object.");
 
             if (root.TryGetProperty("embeddings", out var embeddingsArray))
             {
-                var results = new List<float[]>(embeddingsArray.GetArrayLength());
+                if (embeddingsArray.ValueKind != JsonValueKind.Array)
+                    throw EmbeddingResponseValidation.InvalidResponse("Ollama", "The embeddings field must be an array.");
+                if (embeddingsArray.GetArrayLength() != expectedCount)
+                    throw EmbeddingResponseValidation.InvalidResponse("Ollama",
+                        $"The response count does not match the input count: expected {expectedCount}, received {embeddingsArray.GetArrayLength()}.");
+                var results = new List<float[]>(expectedCount);
                 foreach (var embedding in embeddingsArray.EnumerateArray())
-                {
-                    results.Add(ParseVector(embedding));
-                }
-                if (results.Count != expectedCount)
-                {
-                    throw new InvalidOperationException(
-                        $"Ollama embeddings response count mismatch. Expected {expectedCount}, got {results.Count}.");
-                }
-                EnsureDimensions(results);
+                    results.Add(EmbeddingResponseValidation.ReadVector(embedding, _dimensions, "Ollama"));
                 return results;
             }
 
@@ -104,43 +114,14 @@ namespace Mythosia.AI.Rag.Embeddings
             {
                 if (expectedCount != 1)
                 {
-                    throw new InvalidOperationException(
-                        $"Ollama embeddings response returned a single vector for {expectedCount} inputs.");
+                    throw EmbeddingResponseValidation.InvalidResponse("Ollama",
+                        $"The response returned a single vector for {expectedCount} inputs.");
                 }
-                var vector = ParseVector(singleEmbedding);
-                var results = new List<float[]>(expectedCount) { vector };
-                EnsureDimensions(results);
-                return results;
+                return new[] { EmbeddingResponseValidation.ReadVector(singleEmbedding, _dimensions, "Ollama") };
             }
 
-            throw new InvalidOperationException("Ollama embeddings response did not contain an 'embeddings' or 'embedding' field.");
-        }
-
-        private float[] ParseVector(JsonElement embeddingArray)
-        {
-            var vector = new float[embeddingArray.GetArrayLength()];
-            int i = 0;
-            foreach (var val in embeddingArray.EnumerateArray())
-            {
-                vector[i++] = val.GetSingle();
-            }
-            return vector;
-        }
-
-        private void EnsureDimensions(IReadOnlyList<float[]> vectors)
-        {
-            if (vectors.Count == 0)
-                return;
-
-            var actualDimensions = vectors[0].Length;
-            if (_dimensions != actualDimensions)
-            {
-                throw new InvalidOperationException(
-                    $"Embedding dimension mismatch: requested {_dimensions} but the server returned {actualDimensions}. " +
-                    $"The Ollama server may not support the 'dimensions' parameter for this model. " +
-                    $"Set dimensions to {actualDimensions} to match the model output, " +
-                    $"or use a model that supports Matryoshka embeddings.");
-            }
+            throw EmbeddingResponseValidation.InvalidResponse("Ollama",
+                "The response must contain an embeddings or embedding field.");
         }
     }
 }

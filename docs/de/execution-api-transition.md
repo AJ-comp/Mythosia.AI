@@ -1,5 +1,7 @@
 # Laufende KI-Aufgaben mit Run steuern
 
+> GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
+
 Für eine fertige Antwort mit Stoppschaltfläche übergeben Sie `cancellationToken` an `GetCompletionAsync`. Run dient Fortschrittsereignissen oder unterstützten zusätzlichen Anweisungen. Siehe [Completion-Abbruch](completions.md#completion-cancellation).
 
 Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie den [Anfrage-Builder](request-building.md). Rufen Sie `CreateRequest(...)` vor `With...` auf. Service-Eigenschaften und dessen Fluent-Methoden behalten ihr bisheriges Verhalten.
@@ -7,6 +9,8 @@ Für unabhängige Einstellungen und wiederverwendbare Varianten verwenden Sie de
 > Für die fertige Antwort mit Verbrauch und Quellen liefert `await run.Result` eine `AIRunResult`-Momentaufnahme. Die Zeichenfolge steht in `result.Text`; ein Stream-Leser ist unnötig. Diese API-Änderung gehört zu Mythosia.AI 8.0.0. Die Rückgabetypen von `GetCompletionAsync` und `StructuredStreamRun<T>.Result` bleiben erhalten. [Run-Ergebnis und Migration](#run-result).
 
 > Die `CreateRequest`-Beispiele benötigen Mythosia.AI 8.0.0 / Abstractions 4.0.0. Die frühere Version 7.1 mit Run und gemeinsamen Anfrageoptionen enthält den Builder noch nicht. Ältere Pakete können ihre bisherigen Service-Überladungen verwenden.
+
+Für zeitkritische Anfragen wählen Sie die [Verarbeitungsgeschwindigkeit](request-building.md#inference-speed). `WithSpeed` behält Modell und Denkaufwand bei; `Processing` meldet den tatsächlich verwendeten Modus. Fast ist für unterstützte Kombinationen kostenpflichtig.
 
 ## Warum eine laufende Aufgabe steuern?
 
@@ -193,9 +197,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-Zusätzliche Anweisungen während einer Antwort werden für GPT-6 Astra über die Responses-WebSocket-Verbindung unterstützt. Andere Anbieter und nicht unterstützte Modelle können normale Runs verwenden, aber `CanSteer` ist false und ein Steuerungsaufruf meldet fehlende Unterstützung, statt stillschweigend eine gewöhnliche nächste Gesprächsrunde zu starten. `CanSteer` garantiert nicht, dass der Run bei einem späteren Aufruf noch aktiv ist.
+Zusätzliche Anweisungen während einer Antwort werden für GPT-6 Astra / Sol / Luna über die Responses-WebSocket-Verbindung unterstützt. Andere Anbieter und nicht unterstützte Modelle können normale Runs verwenden, aber `CanSteer` ist false und ein Steuerungsaufruf meldet fehlende Unterstützung, statt stillschweigend eine gewöhnliche nächste Gesprächsrunde zu starten. `CanSteer` garantiert nicht, dass der Run bei einem späteren Aufruf noch aktiv ist.
 
-Astra-Runs öffnen einen eigenen Socket. Der übergebene `HttpClient` und seine Nachrichtenhandler bedienen weiterhin HTTP-Aufrufe und fangen diesen Socket nicht ab. Für eigene Transporte kann `OpenAIService.ConnectRunWebSocketAsync` überschrieben werden.
+GPT-6-Runs öffnen einen eigenen Socket. Der übergebene `HttpClient` und seine Nachrichtenhandler bedienen weiterhin HTTP-Aufrufe und fangen diesen Socket nicht ab. Für eigene Transporte kann `OpenAIService.ConnectRunWebSocketAsync` überschrieben werden.
 
 Ein erfolgreicher Aufruf von `SteerAsync` bedeutet, dass der Server die Eingabe in seine Warteschlange aufgenommen hat; das Modell muss sie noch nicht angewendet haben. Beobachte denselben Run auch während der Fortsetzung oder warte sein Ergebnis ab. Bereits ausgegebener Text und abgeschlossene Aktionen werden nicht rückgängig gemacht. Gestartete Werkzeuge werden nicht allein durch das Senden einer zusätzlichen Anweisung abgebrochen. Die Bibliothek verarbeitet Fortsetzung und Zuordnung der Werkzeugergebnisse auf derselben Verbindung. Siehe OpenAIs [Anleitung für zusätzliche Anweisungen](https://developers.openai.com/api/docs/guides/steering) und [WebSocket-Modus](https://developers.openai.com/api/docs/guides/websocket-mode). Gehe bei einem Verbindungsabbruch nicht davon aus, dass verbindungsbezogene Eingaben in der Warteschlange erhalten bleiben, und sende eine angenommene Anweisung nicht ungeprüft erneut.
 

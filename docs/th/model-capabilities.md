@@ -1,8 +1,16 @@
 # แสดงตัวเลือกที่โมเดลที่เลือกสนับสนุน
 
+> Grok 4.7 เป็นความสามารถที่ยังไม่เผยแพร่ ดู[การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+
+> GPT-6 Sol/Luna เป็นส่วนเพิ่มที่ยังไม่เผยแพร่ ดู[การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+
+Capabilities ของ [Claude Opus 5.5](providers.md#claude-opus-55) มี `Low` ถึง `Max` รวม `XHigh` แต่ไม่รองรับ `None`, `Minimal` และ `ThinkingToggle` ค่า `MaxOutputTokens` คือ 128000 การซ่อนข้อความไม่ใช่การปิดการคิด ข้อมูลนี้เป็นของส่วนเพิ่มที่ยังไม่เผยแพร่ ไม่ใช่แพ็กเกจที่เผยแพร่ไปแล้ว
+
 หน้าจอแชตควรแสดงการคิด ค้นหา เครื่องมือ และรูปภาพให้ตรงกับการเชื่อมต่อ การเก็บรายชื่อโมเดลในแต่ละแอปซ้ำกับกฎของไลบรารีและคลาดเคลื่อนได้เมื่อผู้ให้บริการ โปรโตคอล หรือการติดตั้งเปลี่ยน ข้อมูลความสามารถแบบ snapshot ช่วยให้หน้าจอและการตรวจสอบตอนทำงานใช้คำนิยามโมเดลเดียวกัน
 
 API นี้อยู่ในMythosia.AI 8.0.0 เป็นคำอธิบายการรองรับที่ทราบในเครื่องและแก้ไขไม่ได้ ไม่ใช่การตรวจบัญชีหรือเซิร์ฟเวอร์แบบสด ชนิดข้อมูลอยู่ใน `Mythosia.AI.Models.Capabilities`
+
+คำขอที่ต้องคำนึงถึงเวลารอสามารถเลือก[ความเร็วในการประมวลผล](request-building.md#inference-speed) ได้ `WithSpeed` คงโมเดลและระดับการคิด ส่วน `Processing` รายงานโหมดที่ใช้จริง Fast เป็นตัวเลือกเสียเงินสำหรับการผสมที่รองรับ
 
 ## Before / After
 
@@ -44,6 +52,7 @@ string answer = await request.GetCompletionAsync();
 | `Streaming`, `FunctionCalling`, `AsyncFunctionCalling`, `Steering` | สตรีม เครื่องมือ เครื่องมืออะซิงโครนัสของผู้ให้บริการ และคำสั่งระหว่างทำงาน |
 | `WebSearch`, `FileSearch`, `ReasoningCachePreservation`, `ImageInput`, `StructuredOutput` | ค้นหาแบบโฮสต์ การเปลี่ยนการคิดโดยคงแคช ภาพขาเข้า และผลลัพธ์มีโครงสร้าง |
 | `Temperature`, `TopP`, `FrequencyPenalty`, `PresencePenalty`, `MaxOutputTokens` | การสุ่มที่รองรับและเพดานโทเคนขาออกที่ทราบ ซึ่งเป็น null ได้ |
+| `StandardSpeed`, `FastSpeed`, `GetSpeedSupport(...)` | ยังไม่เผยแพร่: โหมด Supported/Unsupported/Unknown ต้องตรวจสิทธิ์บัญชีแยกต่างหาก |
 | `Provider`, `Model` | ผู้ให้บริการและโมเดลที่ส่ง โดยอาจยังไม่ทราบค่า |
 
 `ReasoningLevels` ใช้กับ `WithReasoning` กลาง ส่วน `NativeReasoningLevels` เป็นค่าของผู้ให้บริการ `ThinkingBudgetPresets` เสนอทางเลือกใน UI ไม่ใช่งบประมาณที่ใช้ได้ทั้งหมดหรือช่วงตัวเลขครบถ้วน `AsyncFunctionCalling` หมายถึงเครื่องมืออะซิงโครนัสของผู้ให้บริการ ไม่ใช่เพียง handler ในเครื่องคืน `Task` หรือทำงานขนาน `StructuredOutput` ครอบคลุม API ผลลัพธ์มีชนิดแบบกลาง รวมวิธีใช้ prompt และซ่อมผลลัพธ์ ไม่รับประกันการถอดรหัสแบบจำกัดของผู้ให้บริการโดยตรง รายการระดับทั้งสองใช้ `ReasoningLevel` และงบประมาณแนะนำเป็นจำนวนเต็ม
@@ -68,6 +77,8 @@ int? maximumImages = capabilities.MaxImages;
 ```
 
 `Qualities`, `Backgrounds`, `OutputFormats`, `SizeKinds`, `Resolutions` และ `AspectRatios` เป็นรายการมีชนิดแบบอ่านอย่างเดียว `MaxImages` และ `MaxInputImages` เป็นขีดจำกัดที่ทราบหรือ null ค่าที่อยู่ในรายการไม่ได้รับประกันว่าผสมกันได้ทุกแบบ ยังตรวจขนาด รูปแบบ คุณภาพ mask และโมเดลตามเดิม โมเดลภาพกำหนดเองหรือไม่ทราบจะไม่ถูกตัดสินว่าไม่รองรับ
+
+สำหรับ Google ค่า `Resolutions` และ `AspectRatios` ขึ้นอยู่กับโมเดลภาพที่เลือกและใช้ตรวจสอบการสร้างกับแก้ไขภาพด้วย ดู[ตารางตามโมเดล](providers.md#google-image-options) รวมถึงนโยบายที่อนุญาตเฉพาะ 1K ของ Flash-Lite อย่างระมัดระวัง ค่าที่ระบุชัดเจนแต่ไม่รองรับจะถูกปฏิเสธก่อน HTTP โมเดลกำหนดเองที่ไม่ทราบยังคงเป็น `Unknown` และผ่านการตรวจสอบตัวเลือกทั่วไปของผู้ให้บริการ
 
 `AIService` ที่เขียนเองและมีข้อมูลน่าเชื่อถือสามารถ override protected `ResolveRequestCapabilities()` ค่าเริ่มต้นคือ `AIModelCapabilities.Unknown` การไม่มีในรายการไม่ควรทำให้การติดตั้งกลายเป็นไม่รองรับ ไม่มีสมาชิกบังคับใหม่ใน `IAIService` เมธอดอยู่บน `AIService` และ builder ของมัน
 

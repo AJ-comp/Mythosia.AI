@@ -2,6 +2,14 @@
 
 Dokument-Loader parsen Dateien in strukturierte `DoclingDocument`-Objekte, die dann an die RAG-Pipeline übergeben werden können.
 
+<a id="file-source-identity"></a>
+
+## Eine stabile Identität für jede Datei behalten
+
+Dieselbe Datei muss über relative und absolute Pfade dasselbe Dokument aktualisieren; gleichnamige Dateien in verschiedenen Ordnern müssen getrennt bleiben. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` und `PdfDocumentLoader` setzen `DoclingDocument.Source` wie die integrierten TXT-Loader auf den normalisierten absoluten Dateipfad. RAG leitet daraus automatische Dokument-IDs ab; explizite IDs bleiben unter Kontrolle des Aufrufers. Standardquellenangaben können deshalb absolute Pfade zeigen.
+
+Bereits gespeicherte relative IDs werden nicht automatisch migriert oder gelöscht. Ermitteln Sie die alte Dokument-ID, löschen Sie gezielt nur dieses Dokument im betreffenden Speicher und indexieren Sie es neu. Alternativ indexieren Sie alle Quelldokumente in eine neue leere Sammlung, prüfen diese und stellen dann die Anwendung darauf um. Eine Neuindexierung nur unter der neuen absoluten ID in der vorhandenen Sammlung lässt alte Datensätze stehen. Löschen Sie keine unbeteiligten Dokumente. Siehe [Dokumentidentität und Migration](rag.md#document-identity).
+
 ## Installation
 
 Office- und PDF-Loader sind in `Mythosia.AI.Rag` enthalten. Für die eigenständige Verwendung:
@@ -169,14 +177,14 @@ Da diese drei Stufen entkoppelt sind, beeinflusst das Hinzufügen eines neuen Do
 
 ## Dokument-Loader & Text-Splitter Integration
 
-`MarkdownTextSplitter` ist die effektivste Wahl für Office/HWP-Dokumente:
+Verwenden Sie `MarkdownTextSplitter`, wenn Überschriften, Codeblöcke und Tabellenzeilen erhalten bleiben sollen. Es gibt keinen Overlap-Parameter. Wiederholte Überschriften liegen außerhalb des Inhaltsbudgets; ein ganzer Codeblock oder Tabellenkopf plus eine Zeile darf es überschreiten. Prüfen Sie strikte Tokenlimits am fertigen Chunk mit dem Modell-Tokenizer. Siehe [Text-Splitter](text-splitters.md).
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter` teilt Tabellen zeilenweise auf und fügt automatisch Header in jeden Chunk ein, sodass Tabellendaten in den Suchergebnissen vollständig erhalten bleiben. Weitere Details finden Sie unter [Text-Splitter](text-splitters.md).
+Erkannte GFM-Tabellen werden zwischen Zeilen geteilt; Kopf- und Trennzeile werden in jedem Tabellen-Chunk wiederholt. Äußere Pipes sind optional (`Name | Value` wird unterstützt). Spaltenbezeichnungen bleiben erhalten; die Suchqualität hängt weiterhin von Dokumenten, Embeddings und Fragen ab.

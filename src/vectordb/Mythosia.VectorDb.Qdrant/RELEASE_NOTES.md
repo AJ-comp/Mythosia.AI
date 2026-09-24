@@ -1,5 +1,22 @@
 # Release Notes — Mythosia.VectorDb.Qdrant
 
+## Unreleased
+
+> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+
+### Added
+
+- Sparse-only text queries and configurable normalized weighted RRF, while direct legacy hybrid queries retain configured server RRF/DBSF fusion.
+
+### Fixed
+
+- Filters address flat metadata keys literally instead of treating dots as nested payload paths. New text/configurable-hybrid paths support equality, membership, existence and nested groups; unsupported string range/LIKE filters fail explicitly. Missing fields no longer pass `Ne`/`NotIn`.
+
+### Compatibility
+
+- No stored payload migration is needed. Filter keys containing quotes or backslashes are rejected because they cannot be represented by the supported Qdrant path grammar.
+
+
 ## v4.1.1
 
 ### Internal

@@ -209,6 +209,7 @@ $releasePackages = @(
             "Mythosia.Documents.Pdf" = "1.1.1"
             "Mythosia.AI.Rag.Abstractions" = "6.2.0"
             "Mythosia.VectorDb.InMemory" = "4.1.0"
+            "SharpZipLib" = "1.4.2"
         }
     },
     [pscustomobject]@{

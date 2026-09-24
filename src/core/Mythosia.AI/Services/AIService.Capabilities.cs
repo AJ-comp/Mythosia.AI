@@ -18,7 +18,8 @@ namespace Mythosia.AI.Services.Base
             // must not run those serializers or provider capture hooks.
             using var settingsScope = UseRequestSettings(new Dictionary<string, object?>());
             using var featureScope = UseRequestFeatureExecution(new RequestFeatureExecution(features, null));
-            return ResolveRequestCapabilities();
+            return ResolveRequestCapabilities().WithSpeedSupport(
+                ResolveSpeedSupport(InferenceSpeed.Standard), ResolveSpeedSupport(InferenceSpeed.Fast));
         }
 
         /// <summary>Resolves adapter support using RequestSetting and CurrentRequestFeatures without side effects.</summary>
@@ -48,7 +49,8 @@ namespace Mythosia.AI.Services.Base
                 suppress ? null : request.ProviderOptions));
             var profile = EffectiveProfile(request);
             if (profile != null) ApplyCapabilityRequestProfile(profile);
-            return ResolveRequestCapabilities();
+            return ResolveRequestCapabilities().WithSpeedSupport(
+                ResolveSpeedSupport(InferenceSpeed.Standard), ResolveSpeedSupport(InferenceSpeed.Fast));
         }
     }
 }

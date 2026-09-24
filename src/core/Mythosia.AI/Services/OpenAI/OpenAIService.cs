@@ -225,8 +225,10 @@ namespace Mythosia.AI.Services.OpenAI
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
+            var processing = BeginProcessingObservation();
             using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
+            CaptureProcessing(processing, responseContent);
 
             if (!response.IsSuccessStatusCode)
                 throw AIHttpErrorFactory.FromHttp((int)response.StatusCode, response.ReasonPhrase, responseContent);
@@ -600,13 +602,13 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// GPT-6 reasoning effort level. Auto uses the library default of Medium.
-        /// Reasoning cannot be disabled; Low is the minimum supported effort.
+        /// Sol and Luna also support None. Astra always reasons and requires at least Low.
         /// </summary>
         public Gpt6Reasoning Gpt6ReasoningEffort { get; set; } = Gpt6Reasoning.Auto;
 
         /// <summary>
         /// GPT-6 reasoning summary mode. Defaults to Auto.
-        /// Set to null to omit summaries while keeping reasoning enabled.
+        /// Set to null to omit summaries. Summaries are also omitted when reasoning is None.
         /// </summary>
         public ReasoningSummary? Gpt6ReasoningSummary { get; set; } = ReasoningSummary.Auto;
 
@@ -750,7 +752,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// Sets GPT-6 specific parameters.
-        /// Reasoning effort: Low, Medium (library default), High, XHigh, Max.
+        /// Reasoning effort: Low, Medium (library default), High, XHigh, Max; Sol and Luna also support None.
         /// Verbosity: Low, Medium (default), High.
         /// Pro is a reasoning mode and does not change the selected model ID.
         /// </summary>
@@ -799,7 +801,8 @@ namespace Mythosia.AI.Services.OpenAI
             SetExecutionSetting(nameof(Gpt5_6ReasoningEffort), Gpt5_6Reasoning.None);
             SetExecutionSetting<ReasoningSummary?>(nameof(Gpt5_6ReasoningSummary), null);
             SetExecutionSetting(nameof(Gpt5_6ReasoningMode), global::Mythosia.AI.Models.Gpt5_6ReasoningMode.Standard);
-            SetExecutionSetting(nameof(Gpt6ReasoningEffort), Gpt6Reasoning.Low);
+            SetExecutionSetting(nameof(Gpt6ReasoningEffort), IsGpt6OptionalReasoningModel(RequestModel)
+                ? Gpt6Reasoning.None : Gpt6Reasoning.Low);
             SetExecutionSetting<ReasoningSummary?>(nameof(Gpt6ReasoningSummary), null);
             SetExecutionSetting(nameof(Gpt6ReasoningMode), global::Mythosia.AI.Models.Gpt6ReasoningMode.Standard);
 
@@ -813,9 +816,10 @@ namespace Mythosia.AI.Services.OpenAI
                 (profile.Purpose == AIRequestPurpose.Summarization ||
                  profile.Purpose == AIRequestPurpose.QueryRewrite) &&
                 profile.MaxTokens.HasValue &&
-                (RequestModel.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase) || IsGpt6Model(RequestModel)))
+                (RequestModel.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase) ||
+                 IsOpenAIModelOrSnapshot(RequestModel, AIModels.OpenAI.Gpt6Astra)))
             {
-                // gpt-5-pro and GPT-6 always reason. Library-owned profiles that try
+                // gpt-5-pro and GPT-6 Astra always reason. Library-owned profiles that try
                 // to disable reasoning (for example summarization and query rewriting)
                 // still count hidden reasoning against the same output budget and can
                 // finish as `incomplete` before producing text. Reserve enough room only

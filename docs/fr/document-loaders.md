@@ -2,6 +2,14 @@
 
 Les chargeurs de documents analysent les fichiers en objets `DoclingDocument` structurés, qui peuvent ensuite être transmis au pipeline RAG.
 
+<a id="file-source-identity"></a>
+
+## Conserver une identité stable pour chaque fichier
+
+Un même fichier enregistré par un chemin relatif ou absolu doit mettre à jour un seul document, tandis que les fichiers homonymes de dossiers différents doivent rester distincts. `WordDocumentLoader`, `ExcelDocumentLoader`, `PowerPointDocumentLoader` et `PdfDocumentLoader` définissent désormais `DoclingDocument.Source` avec le chemin absolu normalisé, comme les chargeurs TXT intégrés. RAG en dérive les ID automatiques ; les ID explicites restent sous votre contrôle. Les citations par défaut peuvent donc afficher un chemin absolu.
+
+Les anciens ID relatifs ne sont ni migrés ni supprimés automatiquement. Identifiez l’ancien ID, supprimez explicitement ce seul document dans le stockage concerné, puis réindexez-le. Vous pouvez aussi indexer toutes les sources dans une nouvelle collection vide, la valider, puis y basculer l’application. Réindexer uniquement le nouvel ID absolu dans la collection existante laisse les anciens enregistrements. Ne supprimez pas les documents sans rapport. Voir [identité et migration](rag.md#document-identity).
+
 ## Installation
 
 Les chargeurs Office et PDF sont inclus dans `Mythosia.AI.Rag`. Pour une utilisation autonome :
@@ -169,14 +177,14 @@ Ces trois étapes étant découplées, l'ajout d'un nouveau chargeur de document
 
 ## Intégration chargeurs de documents et découpeurs de texte
 
-`MarkdownTextSplitter` est le choix le plus efficace pour les documents Office/HWP :
+Utilisez `MarkdownTextSplitter` pour conserver titres, blocs de code et lignes de tableau. Il n’a pas d’argument de chevauchement. Les titres répétés sont hors budget ; un bloc entier ou l’en-tête avec une ligne peut le dépasser. Vérifiez les limites strictes avec le tokenizer du modèle sur les fragments finaux. Voir [Découpeurs de texte](text-splitters.md).
 
 ```csharp
 var service = new AnthropicService(apiKey, http)
     .WithRag(rag => rag
-        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000, 100))
-        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000, 100))
+        .AddDocuments(new WordDocumentLoader(), "manual.docx", new MarkdownTextSplitter(1000))
+        .AddDocuments(new ExcelDocumentLoader(), "data.xlsx", new MarkdownTextSplitter(1000))
     );
 ```
 
-`MarkdownTextSplitter` découpe les tableaux ligne par ligne et inclut automatiquement les en-têtes dans chaque fragment, garantissant que les données tabulaires restent intactes dans les résultats de recherche. Consultez [Découpeurs de texte](text-splitters.md) pour plus de détails.
+Les tableaux GFM reconnus sont divisés entre les lignes ; l’en-tête et la ligne de séparation sont répétés dans chaque fragment de tableau. Les barres extérieures sont facultatives (`Name | Value` est accepté). Les noms des colonnes sont conservés ; la qualité de recherche dépend toujours des documents, embeddings et questions.

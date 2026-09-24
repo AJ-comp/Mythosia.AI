@@ -82,7 +82,7 @@ var context = new AIRequestContext
 
 ### RequestMessageOverride
 
-Substitui completamente a mensagem do usuário para esta requisição:
+`RequestMessageOverride` substitui apenas a entrada inicial da requisição lógica atual ao enviá-la ao modelo. A entrada original permanece no histórico, e as chamadas de ferramentas e seus resultados posteriores são preservados na mesma requisição:
 
 ```csharp
 var context = new AIRequestContext

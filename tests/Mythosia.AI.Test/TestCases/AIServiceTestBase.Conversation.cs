@@ -92,15 +92,18 @@ public abstract partial class AIServiceTestBase
     [TestMethod]
     public async Task ContextManagementTest()
     {
+        var step = "initialization";
         try
         {
             // 여러 대화 추가
             for (int i = 1; i <= 5; i++)
             {
+                step = $"remember-{i}";
                 await AI.GetCompletionAsync($"Remember number {i}");
             }
 
             // 컨텍스트 확인
+            step = "recall-with-context";
             var contextResponse = await AI.GetCompletionWithContextAsync(
                 "What numbers did I mention?",
                 contextMessages: 5
@@ -115,8 +118,10 @@ public abstract partial class AIServiceTestBase
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[Context Management Error] {ex.Message}");
-            Assert.Fail(ex.Message);
+            Console.WriteLine($"[Context Management Error] step={step}, model={AI.Model}: {ex.Message}");
+            if (ex is Mythosia.AI.Exceptions.AIServiceException serviceError)
+                Console.WriteLine($"[Context Management ErrorDetails] {serviceError.ErrorDetails}");
+            throw; // Preserve provider details and the original stack; a refusal is still a failure.
         }
     }
 }

@@ -11,15 +11,16 @@ namespace Mythosia.AI.Rag.Splitters
     /// </summary>
     public class RecursiveTextSplitter : ITextSplitter
     {
-        /// <summary>Maximum number of characters per chunk.</summary>
+        /// <summary>Maximum UTF-16 code units per chunk. A surrogate pair is kept intact even with a size of one.</summary>
         public int ChunkSize { get; set; } = 1000;
 
-        /// <summary>Number of overlapping characters between consecutive chunks.</summary>
+        /// <summary>Target overlap in UTF-16 code units, aligned to split boundaries. Values at least as large as ChunkSize disable overlap.</summary>
         public int ChunkOverlap { get; set; } = 200;
 
         /// <summary>
         /// Ordered list of separators to try when splitting.
         /// The splitter picks the first separator found in the text.
+        /// Duplicate entries are ignored after their first occurrence; the supplied array is not modified.
         /// An empty string as the last entry enables character-level splitting as a last resort.
         /// </summary>
         public string[] Separators { get; set; } = new[] { "\n\n", "\n", ". ", " ", "" };
@@ -27,6 +28,7 @@ namespace Mythosia.AI.Rag.Splitters
         /// <summary>
         /// When true the separator is kept at the start of the next split so that
         /// paragraph / sentence boundaries are preserved in the chunk text.
+        /// When false, separators are inserted only between pieces merged into the same chunk.
         /// Default: true.
         /// </summary>
         public bool KeepSeparator { get; set; } = true;
@@ -47,6 +49,8 @@ namespace Mythosia.AI.Rag.Splitters
 
         public IReadOnlyList<RagChunk> Split(RagDocument document)
         {
+            if (document == null) throw new ArgumentNullException(nameof(document));
+            ValidateConfiguration();
             if (string.IsNullOrEmpty(document.Content))
                 return Array.Empty<RagChunk>();
 
@@ -87,7 +91,26 @@ namespace Mythosia.AI.Rag.Splitters
         /// </summary>
         public List<string> SplitText(string text)
         {
-            return SplitTextRecursive(text, Separators);
+            if (text == null) throw new ArgumentNullException(nameof(text));
+            ValidateConfiguration();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var separators = new List<string>();
+            foreach (var separator in Separators)
+            {
+                if (seen.Add(separator))
+                    separators.Add(separator);
+            }
+            return SplitTextRecursive(text, separators);
+        }
+
+        private void ValidateConfiguration()
+        {
+            SplitterGuards.ValidateSize(ChunkSize, nameof(ChunkSize));
+            SplitterGuards.ValidateOverlap(ChunkOverlap, nameof(ChunkOverlap));
+            if (Separators == null || Separators.Any(s => s == null))
+                throw new ArgumentException("Separators must be a non-null array of non-null strings.", nameof(Separators));
+            foreach (var separator in Separators)
+                SplitterGuards.ValidateSeparator(separator, nameof(Separators));
         }
 
         /// <summary>
@@ -96,72 +119,73 @@ namespace Mythosia.AI.Rag.Splitters
         /// 3. Merge small splits up to ChunkSize (with overlap).
         /// 4. Recurse on oversized splits with the remaining separators.
         /// </summary>
-        private List<string> SplitTextRecursive(string text, string[] separators)
+        private List<string> SplitTextRecursive(string text, IReadOnlyList<string> separators)
         {
-            // Base case: already small enough
-            if (text.Trim().Length == 0)
-                return new List<string>();
-            if (text.Length <= ChunkSize)
-                return new List<string> { text };
-
-            // Pick the best (first matching) separator
-            string chosenSep = "";
-            string[] remaining = Array.Empty<string>();
-
-            for (int i = 0; i < separators.Length; i++)
-            {
-                var sep = separators[i];
-                if (sep == "" || text.IndexOf(sep, StringComparison.Ordinal) >= 0)
-                {
-                    chosenSep = sep;
-                    if (i + 1 < separators.Length)
-                    {
-                        remaining = new string[separators.Length - i - 1];
-                        Array.Copy(separators, i + 1, remaining, 0, remaining.Length);
-                    }
-                    break;
-                }
-            }
-
-            // Split by the chosen separator
-            var splits = SplitBySeparator(text, chosenSep);
-
-            // Partition into small (≤ ChunkSize) and large (> ChunkSize) pieces.
-            // Small pieces are accumulated and merged; large pieces are recursed.
             var finalChunks = new List<string>();
-            var pending = new List<string>(); // small pieces waiting to be merged
-
-            foreach (var piece in splits)
+            // A negative separator index marks a completed chunk. Explicit work items
+            // retain recursive depth-first ordering without consuming the call stack or
+            // copying the remaining separator array for each oversized piece.
+            var work = new Stack<(string Text, int SeparatorIndex)>();
+            work.Push((text, 0));
+            while (work.Count > 0)
             {
-                if (piece.Length <= ChunkSize)
+                var item = work.Pop();
+                if (item.SeparatorIndex < 0)
                 {
-                    pending.Add(piece);
+                    finalChunks.Add(item.Text);
+                    continue;
                 }
-                else
+                if (string.IsNullOrWhiteSpace(item.Text))
+                    continue;
+                if (item.Text.Length <= ChunkSize)
                 {
-                    // Flush pending small pieces first
+                    finalChunks.Add(item.Text);
+                    continue;
+                }
+
+                string chosenSep = "";
+                int nextSeparator = separators.Count;
+                for (int i = item.SeparatorIndex; i < separators.Count; i++)
+                {
+                    var sep = separators[i];
+                    if (sep == "" || item.Text.IndexOf(sep, StringComparison.Ordinal) >= 0)
+                    {
+                        chosenSep = sep;
+                        nextSeparator = i + 1;
+                        break;
+                    }
+                }
+
+                var nextWork = new List<(string Text, int SeparatorIndex)>();
+                var pending = new List<string>();
+                foreach (var piece in SplitBySeparator(item.Text, chosenSep))
+                {
+                    if (piece.Length <= ChunkSize)
+                    {
+                        pending.Add(piece);
+                        continue;
+                    }
+
                     if (pending.Count > 0)
                     {
-                        finalChunks.AddRange(MergeSplits(pending));
+                        foreach (var chunk in MergeSplits(pending, KeepSeparator ? "" : chosenSep))
+                            nextWork.Add((chunk, -1));
                         pending.Clear();
                     }
 
-                    // Recurse on the oversized piece
-                    if (remaining.Length > 0)
-                    {
-                        finalChunks.AddRange(SplitTextRecursive(piece, remaining));
-                    }
+                    if (nextSeparator < separators.Count)
+                        nextWork.Add((piece, nextSeparator));
                     else
-                    {
-                        // No more separators — hard split by length
-                        finalChunks.AddRange(SplitByLength(piece));
-                    }
+                        foreach (var chunk in SplitByLength(piece))
+                            nextWork.Add((chunk, -1));
                 }
-            }
 
-            // Flush remaining small pieces
-            if (pending.Count > 0)
-                finalChunks.AddRange(MergeSplits(pending));
+                if (pending.Count > 0)
+                    foreach (var chunk in MergeSplits(pending, KeepSeparator ? "" : chosenSep))
+                        nextWork.Add((chunk, -1));
+                for (int i = nextWork.Count - 1; i >= 0; i--)
+                    work.Push(nextWork[i]);
+            }
 
             return finalChunks;
         }
@@ -179,12 +203,24 @@ namespace Mythosia.AI.Rag.Splitters
         {
             if (string.IsNullOrEmpty(separator))
             {
-                // Character-level: each char is a split
+                // Character-level fallback, preserving complete Unicode scalar values.
                 var chars = new List<string>(text.Length);
-                foreach (var c in text)
-                    chars.Add(c.ToString());
+                for (int start = 0; start < text.Length;)
+                {
+                    int end = SplitterGuards.SafeEnd(text, start, 1);
+                    chars.Add(text.Substring(start, end - start));
+                    start = end;
+                }
                 return chars;
             }
+
+            // Splitting one leading occurrence and then keeping the separator would
+            // reconstruct exactly the same string. Reuse it, especially when a long
+            // list of distinct prefixes otherwise copies the same large body at each
+            // level. Like string.Split, look for the next non-overlapping occurrence.
+            if (KeepSeparator && text.StartsWith(separator, StringComparison.Ordinal)
+                && text.IndexOf(separator, separator.Length, StringComparison.Ordinal) < 0)
+                return new List<string> { text };
 
             var rawParts = text.Split(new[] { separator }, StringSplitOptions.None);
             var result = new List<string>();
@@ -214,39 +250,41 @@ namespace Mythosia.AI.Rag.Splitters
         /// splits from the previous chunk (aligned to split boundaries so
         /// words are never cut).
         /// </summary>
-        private List<string> MergeSplits(List<string> splits)
+        private List<string> MergeSplits(List<string> splits, string separator)
         {
             var chunks = new List<string>();
-            var current = new List<string>();
+            var current = new Queue<string>();
             int currentLen = 0;
             int effectiveOverlap = ChunkOverlap >= ChunkSize ? 0 : ChunkOverlap;
 
             foreach (var split in splits)
             {
                 // Would adding this split exceed ChunkSize?
-                if (currentLen + split.Length > ChunkSize && current.Count > 0)
+                if ((long)currentLen + separator.Length + split.Length > ChunkSize && current.Count > 0)
                 {
                     // Emit current chunk
-                    var chunkText = string.Concat(current).Trim();
+                    var chunkText = string.Join(separator, current).Trim();
                     if (chunkText.Length > 0)
                         chunks.Add(chunkText);
 
                     // Retain tail splits for overlap (aligned to split boundaries)
-                    while (currentLen > effectiveOverlap && current.Count > 1)
+                    while (current.Count > 0 && (currentLen > effectiveOverlap
+                        || (long)currentLen + separator.Length + split.Length > ChunkSize))
                     {
-                        currentLen -= current[0].Length;
-                        current.RemoveAt(0);
+                        currentLen -= current.Dequeue().Length;
+                        if (current.Count > 0) currentLen -= separator.Length;
                     }
                 }
 
-                current.Add(split);
+                if (current.Count > 0) currentLen += separator.Length;
+                current.Enqueue(split);
                 currentLen += split.Length;
             }
 
             // Emit final chunk
             if (current.Count > 0)
             {
-                var chunkText = string.Concat(current).Trim();
+                var chunkText = string.Join(separator, current).Trim();
                 if (chunkText.Length > 0)
                     chunks.Add(chunkText);
             }
@@ -261,13 +299,16 @@ namespace Mythosia.AI.Rag.Splitters
         private List<string> SplitByLength(string text)
         {
             var parts = new List<string>();
-            int step = Math.Max(1, ChunkSize - ChunkOverlap);
-            for (int start = 0; start < text.Length; start += step)
+            int overlap = ChunkOverlap >= ChunkSize ? 0 : ChunkOverlap;
+            for (int start = 0; start < text.Length;)
             {
-                int length = Math.Min(ChunkSize, text.Length - start);
-                var segment = text.Substring(start, length);
+                int end = SplitterGuards.SafeEnd(text, start, ChunkSize);
+                var segment = text.Substring(start, end - start);
                 if (segment.Length > 0)
                     parts.Add(segment);
+                if (end == text.Length) break;
+                int next = SplitterGuards.SafeStart(text, Math.Max(start, end - overlap));
+                start = next > start ? next : end;
             }
             return parts;
         }

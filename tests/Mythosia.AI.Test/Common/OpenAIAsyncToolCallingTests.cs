@@ -56,7 +56,10 @@ public class OpenAIAsyncToolCallingTests
     }
 
     [TestMethod]
-    public async Task AsyncCall_ContinuesModelBeforeHandlerFinishesAndReplaysItsResultOnce()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6Sol)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    public async Task AsyncCall_ContinuesModelBeforeHandlerFinishesAndReplaysItsResultOnce(string model)
     {
         var gate = new GatedTool("weather");
         var handler = new ScriptedHandler(
@@ -64,6 +67,7 @@ public class OpenAIAsyncToolCallingTests
             TextResponse("I can explain packing while weather is loading.", phase: "commentary", includeReasoning: true),
             TextResponse("The weather is sunny."));
         var service = CreateService(handler, gate.Definition);
+        service.ChangeModel(model);
         service.ForceFunctionName = "weather";
         var completion = service.GetCompletionAsync("Get the weather and explain packing.");
 
@@ -301,6 +305,8 @@ public class OpenAIAsyncToolCallingTests
     [DataRow(AIModels.OpenAI.Gpt6Astra, false, true, false)]
     [DataRow(AIModels.OpenAI.Gpt5_6Sol, true, true, false)]
     [DataRow("gpt-6-unknown", true, true, false)]
+    [DataRow("gpt-6-sol-experimental", true, true, false)]
+    [DataRow("gpt-6-luna-2026-99-99", true, true, false)]
     public async Task IneligibleCall_PreservesSynchronousExecution(
         string model, bool allowAsync, bool responseAsync, bool expectedRequestPermission)
     {

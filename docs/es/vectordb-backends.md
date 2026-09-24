@@ -16,6 +16,16 @@ var store = new InMemoryVectorStore();
 
 **Hybrid search integrado**: RRF (Reciprocal Rank Fusion) combina similaridad coseno y puntuaciones BM25 de palabras clave.
 
+### Uso concurrente y modificación de registros
+
+Al actualizar un almacén compartido durante una consulta, el texto y el índice de palabras clave deben corresponder a la misma revisión. `InMemoryVectorStore` sincroniza escrituras, eliminaciones y lecturas para que cada búsqueda vectorial, textual o híbrida vea un estado coherente. Las dos ramas de una búsqueda híbrida usan ese mismo estado.
+
+El almacén copia los registros recibidos, incluidos los arrays de vectores y los metadatos, y devuelve copias independientes en consultas, búsquedas y diagnósticos. Modificar un objeto de entrada o un registro devuelto no cambia los datos almacenados; vuelva a llamar a `UpsertAsync` para guardar el cambio. No modifique los registros, vectores ni metadatos de entrada mientras la llamada los copia o lee.
+
+Un `CancellationToken` proporcionado puede cancelar una llamada mientras espera que otra operación libere el bloqueo del almacén. Cancelar esa espera no aborta por sí mismo la operación que ya usa el almacén. Una vez iniciada la actualización de un registro, la cancelación no la interrumpe entre el texto y el índice.
+
+Cancelar un lote puede conservar los registros ya escritos. `ReplaceByFilterAsync` sigue ejecutando la eliminación y después la inserción por lotes sin transacción: otra consulta puede observar el intervalo vacío, y los fallos o la cancelación no revierten las escrituras completadas.
+
 ### Diagnóstico
 
 ```csharp

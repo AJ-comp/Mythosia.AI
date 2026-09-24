@@ -1,5 +1,7 @@
 # Streaming
 
+> Grok 4.7 es una incorporación aún no publicada; consulta [selección del modelo, razonamiento y velocidad](providers.md#grok-47).
+
 Para obtener respuesta, uso y fuentes juntos, `await run.Result` devuelve una instantánea `AIRunResult`. La cadena está en `result.Text`, sin leer el flujo. Es un cambio de Mythosia.AI 8.0.0; `GetCompletionAsync` y `StructuredStreamRun<T>.Result` mantienen sus tipos de retorno. [Resultado Run y migración](execution-api-transition.md#run-result).
 
 

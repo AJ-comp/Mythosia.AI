@@ -47,6 +47,9 @@ jobs:
         shell: pwsh
         run: ./build/test-test-categories.ps1
 
+      - name: Verify DeepSeek RAG rewriter model selection
+        run: node --experimental-vm-modules build/test-deepseek-rewriter-ui.mjs
+
       - name: Build the complete solution
         run: dotnet build Mythosia.AI.slnx --configuration Release --no-restore -p:TreatWarningsAsErrors=true
 
@@ -79,6 +82,62 @@ jobs:
           --project tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj
           --configuration Release
           --no-build
+
+      - name: Run PIXIE deterministic tests without model downloads
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Rag.Search.Pixie.Tests/Mythosia.AI.Rag.Search.Pixie.Tests.csproj
+          --configuration Release
+          --no-build
+          --filter "TestCategory=Unit"
+
+      - name: Verify evaluation test category coverage
+        shell: pwsh
+        run: ./build/test-test-categories.ps1 -TestRoot ./tests/Mythosia.AI.Rag.Evaluation.Tests
+
+      - name: Run deterministic retrieval evaluation tests
+        run: >-
+          dotnet test
+          --project tests/Mythosia.AI.Rag.Evaluation.Tests/Mythosia.AI.Rag.Evaluation.Tests.csproj
+          --configuration Release
+          --no-build
+          --filter "TestCategory=Unit"
+          --minimum-expected-tests 1
+          --report-trx
+          --report-trx-filename evaluation.trx
+          --results-directory artifacts/test-results/retrieval-evaluation
+
+      - name: Run offline retrieval evaluation smoke test
+        shell: pwsh
+        run: >-
+          ./build/test-retrieval-evaluation.ps1
+          -Dataset tests/Mythosia.AI.Rag.Evaluation/Datasets/smoke.json
+          -Methods bm25,dense,hybrid-bm25
+          -Dense local-hash
+          -OutputDirectory artifacts/retrieval-evaluation/ci-smoke
+          -Baseline tests/Mythosia.AI.Rag.Evaluation/Datasets/Baselines/smoke-local-hash.json
+          -MaxRegression 0.02
+          -NoBuild
+
+      - name: Add retrieval smoke results to the workflow summary
+        if: ${{ always() }}
+        shell: pwsh
+        run: |
+          $summary = 'artifacts/retrieval-evaluation/ci-smoke/summary.md'
+          if (Test-Path -LiteralPath $summary -PathType Leaf) {
+            Get-Content -LiteralPath $summary -Raw | Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Upload retrieval evaluation smoke reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: retrieval-evaluation-ci
+          path: |
+            artifacts/retrieval-evaluation/ci-smoke/
+            artifacts/test-results/retrieval-evaluation/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Run document loader tests
         run: >-

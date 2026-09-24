@@ -1,6 +1,8 @@
 # 觀察 Claude Fable 5.1 的長時間工作
 
-> Fable 5.1 控制需要 `Mythosia.AI` 8.0.0 與 `Mythosia.AI.Abstractions` 4.0.0 或更新版本。既有 Run、推理/搜尋及 GPT-6 API 的最低版本仍為 7.1.0 / 3.1.0。
+[Claude Opus 5.5](providers.md#claude-opus-55) 是尚未發布的新增功能：推理始終啟用，預設 effort 為 medium，並省略顯示。可讀進度需明確要求；預設值和模型綁定規則與 Fable 5.1 不同。
+
+> Fable 5.1 控制需要 `Mythosia.AI` 8.0.0 與 `Mythosia.AI.Abstractions` 4.0.0 或更新版本。既有 Run、推理/搜尋及 GPT-6 Astra API 的最低版本仍為 7.1.0 / 3.1.0。
 
 ## 為什麼需要這些控制？
 

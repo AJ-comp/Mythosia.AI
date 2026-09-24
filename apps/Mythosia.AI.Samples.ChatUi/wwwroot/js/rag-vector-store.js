@@ -47,17 +47,13 @@ import { getSelectedEmbeddingProvider, getEmbeddingDefaults, getSelectedEmbeddin
 
 // ── Embedding Snapshot Helper ────────────────────────────────
 function getEmbeddingSnapshot() {
-  try {
-    const provider = getSelectedEmbeddingProvider();
-    const { model } = getEmbeddingDefaults(provider);
-    const dimensions = getSelectedEmbeddingDimensions();
-    const baseUrl = provider === 'vllm'
-      ? ragVllmBaseUrl?.value?.trim() || ''
-      : provider === 'ollama' ? ragEmbeddingBaseUrl?.value?.trim() || '' : '';
-    return { embeddingProvider: provider, embeddingModel: model, embeddingDimensions: dimensions, embeddingBaseUrl: baseUrl };
-  } catch {
-    return {};
-  }
+  const provider = getSelectedEmbeddingProvider();
+  const { model } = getEmbeddingDefaults(provider);
+  const dimensions = getSelectedEmbeddingDimensions();
+  const baseUrl = provider === 'vllm'
+    ? ragVllmBaseUrl?.value?.trim() || ''
+    : provider === 'ollama' ? ragEmbeddingBaseUrl?.value?.trim() || '' : '';
+  return { embeddingProvider: provider, embeddingModel: model, embeddingDimensions: dimensions, embeddingBaseUrl: baseUrl };
 }
 
 // ── Schema Warning Helpers ───────────────────────────────────
@@ -397,26 +393,26 @@ export async function connectPostgres() {
     return;
   }
 
-  const payload = {
-    provider: 'postgres',
-    connectionString: buildConnectionString(),
-    tableName,
-    schemaName,
-    dimension,
-    ensureSchema: !!ragPgEnsureSchema?.checked,
-    ...getEmbeddingCredentials(),
-    ...getEmbeddingSnapshot()
-  };
-  const storagePayload = {
-    ...payload,
-    host: ragPgHost?.value?.trim() || '',
-    port: ragPgPort?.value?.trim() || '',
-    database: ragPgDatabase?.value?.trim() || '',
-    username: ragPgUser?.value?.trim() || '',
-    password: ragPgPassword?.value || ''
-  };
-
   try {
+    const payload = {
+      provider: 'postgres',
+      connectionString: buildConnectionString(),
+      tableName,
+      schemaName,
+      dimension,
+      ensureSchema: !!ragPgEnsureSchema?.checked,
+      ...getEmbeddingCredentials(),
+      ...getEmbeddingSnapshot()
+    };
+    const storagePayload = {
+      ...payload,
+      host: ragPgHost?.value?.trim() || '',
+      port: ragPgPort?.value?.trim() || '',
+      database: ragPgDatabase?.value?.trim() || '',
+      username: ragPgUser?.value?.trim() || '',
+      password: ragPgPassword?.value || ''
+    };
+
     const res = await fetch('/api/rag/vector-store', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -586,28 +582,28 @@ export async function connectQdrant() {
     .replace(/^https?:\/\//i, '')
     .replace(/\/.*$/, '');
   if (ragQdrantHost) ragQdrantHost.value = host;
-  const payload = {
-    provider: 'qdrant',
-    qdrantHost: host,
-    qdrantPort: port,
-    qdrantApiKey: ragQdrantApiKey?.value?.trim() || null,
-    qdrantUseTls: !!ragQdrantUseTls?.checked,
-    dimension,
-    qdrantCollectionName: collectionName,
-    ...getEmbeddingCredentials(),
-    ...getEmbeddingSnapshot()
-  };
-  const storagePayload = {
-    provider: 'qdrant',
-    host: payload.qdrantHost,
-    port: payload.qdrantPort,
-    apiKey: payload.qdrantApiKey,
-    useTls: payload.qdrantUseTls,
-    dimension: payload.dimension,
-    collectionName: payload.qdrantCollectionName
-  };
-
   try {
+    const payload = {
+      provider: 'qdrant',
+      qdrantHost: host,
+      qdrantPort: port,
+      qdrantApiKey: ragQdrantApiKey?.value?.trim() || null,
+      qdrantUseTls: !!ragQdrantUseTls?.checked,
+      dimension,
+      qdrantCollectionName: collectionName,
+      ...getEmbeddingCredentials(),
+      ...getEmbeddingSnapshot()
+    };
+    const storagePayload = {
+      provider: 'qdrant',
+      host: payload.qdrantHost,
+      port: payload.qdrantPort,
+      apiKey: payload.qdrantApiKey,
+      useTls: payload.qdrantUseTls,
+      dimension: payload.dimension,
+      collectionName: payload.qdrantCollectionName
+    };
+
     const res = await fetch('/api/rag/vector-store', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -744,22 +740,22 @@ export async function connectPinecone() {
     return;
   }
 
-  const payload = {
-    provider: 'pinecone',
-    pineconeIndexHost,
-    pineconeApiKey,
-    pineconeNamespace,
-    ...getEmbeddingCredentials(),
-    ...getEmbeddingSnapshot()
-  };
-  const storagePayload = {
-    provider: 'pinecone',
-    indexHost: payload.pineconeIndexHost,
-    apiKey: payload.pineconeApiKey,
-    namespace: payload.pineconeNamespace
-  };
-
   try {
+    const payload = {
+      provider: 'pinecone',
+      pineconeIndexHost,
+      pineconeApiKey,
+      pineconeNamespace,
+      ...getEmbeddingCredentials(),
+      ...getEmbeddingSnapshot()
+    };
+    const storagePayload = {
+      provider: 'pinecone',
+      indexHost: payload.pineconeIndexHost,
+      apiKey: payload.pineconeApiKey,
+      namespace: payload.pineconeNamespace
+    };
+
     const res = await fetch('/api/rag/vector-store', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

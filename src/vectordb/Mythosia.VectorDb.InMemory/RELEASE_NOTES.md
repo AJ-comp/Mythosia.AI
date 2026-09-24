@@ -1,5 +1,23 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## Unreleased
+
+> This section describes unreleased source changes. The next release version has not been assigned; versioned entries below retain their original release history.
+
+### Added
+
+- Text-only BM25 search and configurable normalized weighted RRF through the optional text/hybrid interfaces.
+
+### Changed
+
+- Filtering is applied before candidate truncation; hybrid fusion honors vector weight, candidate multiplier and RRF smoothing, and no longer changes to raw cosine scores when text has no matches.
+
+### Fixed
+
+- Synchronize record storage and the BM25 index during concurrent writes, deletes and reads. Vector, text and hybrid queries see a consistent state; both hybrid search legs share it.
+- Copy input and returned records, including vectors and metadata, so caller mutations cannot silently change stored data or bypass keyword indexing. Save changes through `UpsertAsync`.
+- Observe cancellation while waiting for the store lock, before writes and between batch records. Canceling a waiting call does not itself abort the operation holding the lock; cancellation does not split a record’s body/index update once it has begun. Completed records remain consistent if a batch stops; batch writes and the default sequential `ReplaceByFilterAsync` still do not provide rollback or transactional replacement. Public signatures and package version are unchanged.
+
 ## v4.1.0
 
 ### Changed

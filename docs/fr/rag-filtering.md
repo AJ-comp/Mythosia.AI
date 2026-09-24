@@ -1,6 +1,8 @@
 # Filtrage
 
-> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → [Embedding](rag-embedding.md) → **`Filtrage`** → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → [Construction du contexte](rag-context-build.md)
+> 📍 **Pipeline questions-réponses :** [Réécriture de requête](rag-query-rewriting.md) → **`Filtrage`** → [Embedding (si nécessaire)](rag-embedding.md) → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → [Construction du contexte](rag-context-build.md)
+
+L’étape de requête `Embedding` dépend désormais du moteur ; la recherche lexicale ne la signale pas. Un moteur personnalisé peut signaler ses étapes via `request.ProgressAsync`. Les embeddings des documents ne changent pas.
 
 ## Qu'est-ce que le filtrage ?
 

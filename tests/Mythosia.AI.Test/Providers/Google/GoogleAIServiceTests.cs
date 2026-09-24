@@ -44,6 +44,10 @@ public abstract class GoogleAIServiceTestsBase : AIServiceTestBase
     protected override bool SupportsWebSearch() => false;
     protected override bool SupportsReasoning() => true;
     protected override string? GetAlternativeModel() => AIModels.Google.Gemini2_5Flash;
+    protected override uint ConfigurationMaxTokens =>
+        string.Equals(ModelToTest, AIModels.Google.Gemini2_5Pro, StringComparison.OrdinalIgnoreCase)
+            ? 8192u
+            : base.ConfigurationMaxTokens;
 
     protected override void ConfigureRequiredFunctionCall(string functionName)
     {

@@ -27,6 +27,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         protected override void ValidateRequestFeatures(AIRequestFeatures features)
         {
+            if (IsGpt6Model(RequestModel)) ValidateGpt6Settings(features);
             if (ActivateChat.Messages.Count == 0 ||
                 (_preservedReasoning.TryGetValue(ActivateChat, out var unaccepted) && !unaccepted.AcceptedResponse &&
                  !ActivateChat.Messages.Any(message => message.Role == ActorRole.Assistant)))
@@ -40,7 +41,7 @@ namespace Mythosia.AI.Services.OpenAI
                     if (preservation == CapabilitySupport.Unsupported ||
                         (preservation == CapabilitySupport.Unknown &&
                          (!SupportsAsyncFunctionCalls || RequestGpt6ReasoningMode != Gpt6ReasoningMode.Standard)))
-                        throw new NotSupportedException("Cache-preserving reasoning changes require GPT-6 Astra in Standard mode.");
+                        throw new NotSupportedException("Cache-preserving reasoning changes require GPT-6 Astra, Sol, or Luna in Standard mode.");
                     if (RequestStatelessMode)
                         throw new NotSupportedException("Cache-preserving reasoning changes require conversation history.");
                     if (!_preservedReasoning.TryGetValue(ActivateChat, out _) &&
@@ -101,7 +102,8 @@ namespace Mythosia.AI.Services.OpenAI
             var model = RequestModel.ToLowerInvariant();
             bool supported;
             if (IsGpt6Model(model))
-                supported = Enum.TryParse(level.ToString(), out Gpt6Reasoning effort) && Enum.IsDefined(typeof(Gpt6Reasoning), effort);
+                supported = Enum.TryParse(level.ToString(), out Gpt6Reasoning effort) && Enum.IsDefined(typeof(Gpt6Reasoning), effort) &&
+                    (level != ReasoningLevel.None || IsGpt6OptionalReasoningModel(model));
             else if (IsGpt5_6Model(model))
                 supported = Enum.TryParse(level.ToString(), out Gpt5_6Reasoning effort) && Enum.IsDefined(typeof(Gpt5_6Reasoning), effort);
             else if (IsGpt5_5Model(model) || IsGpt5_4Model(model) || IsGpt5_3Model(model) || IsGpt5_2Model(model))
@@ -145,6 +147,8 @@ namespace Mythosia.AI.Services.OpenAI
                 request["reasoning"] = reasoning;
             }
 
+            ApplyGpt6ReasoningDependentParameters(request);
+
             if (features.WebSearch == null && features.FileSearch == null) return;
             var tools = request.TryGetValue("tools", out var registered)
                 ? JsonSerializer.Deserialize<List<object>>(JsonSerializer.Serialize(registered))!
@@ -162,8 +166,65 @@ namespace Mythosia.AI.Services.OpenAI
             if (!request.ContainsKey("tool_choice")) request["tool_choice"] = "auto";
         }
 
-        private string ConfiguredAstraEffort => (RequestGpt6ReasoningEffort == Gpt6Reasoning.Auto
+        private string ConfiguredGpt6Effort => (RequestGpt6ReasoningEffort == Gpt6Reasoning.Auto
             ? Gpt6Reasoning.Medium : RequestGpt6ReasoningEffort).ToString().ToLowerInvariant();
+
+        private string EffectiveGpt6Effort()
+        {
+            var option = CurrentRequestFeatures.Reasoning;
+            if (option != null && option.Level != ReasoningLevel.Auto)
+                return option.Level.ToString().ToLowerInvariant();
+            var configured = ConfiguredGpt6Effort;
+            // A required cache-preserving update persists across later requests. It may
+            // differ from the initial effort kept on the wire to preserve the cache.
+            if (option == null && !RequestStatelessMode &&
+                _preservedReasoning.TryGetValue(ActivateChat, out var state) && state.Preserving &&
+                string.Equals(state.Model, RequestModel, StringComparison.OrdinalIgnoreCase) &&
+                state.ConfiguredEffort == configured)
+                return state.PersistentEffort;
+            return configured;
+        }
+
+        private bool SupportsGpt6Sampling() =>
+            IsGpt6OptionalReasoningModel(RequestModel) && EffectiveGpt6Effort() == "none";
+
+        private void ValidateGpt6Settings(AIRequestFeatures features)
+        {
+            if (!Enum.IsDefined(typeof(Gpt6ReasoningMode), RequestGpt6ReasoningMode))
+                throw new ArgumentOutOfRangeException(nameof(Gpt6ReasoningMode));
+            if (RequestGpt6Verbosity.HasValue && !Enum.IsDefined(typeof(Verbosity), RequestGpt6Verbosity.Value))
+                throw new ArgumentOutOfRangeException(nameof(Gpt6Verbosity));
+            if (RequestGpt6ReasoningSummary.HasValue && !Enum.IsDefined(typeof(ReasoningSummary), RequestGpt6ReasoningSummary.Value))
+                throw new ArgumentOutOfRangeException(nameof(Gpt6ReasoningSummary));
+            if (features.Reasoning == null || features.Reasoning.Level == ReasoningLevel.Auto)
+            {
+                if (!Enum.IsDefined(typeof(Gpt6Reasoning), RequestGpt6ReasoningEffort))
+                    throw new ArgumentOutOfRangeException(nameof(Gpt6ReasoningEffort));
+                if (RequestGpt6ReasoningEffort == Gpt6Reasoning.None && !IsGpt6OptionalReasoningModel(RequestModel))
+                    throw new NotSupportedException($"Reasoning level None is not supported by OpenAI model {RequestModel}.");
+            }
+        }
+
+        private void ApplyGpt6ReasoningDependentParameters(Dictionary<string, object> request)
+        {
+            if (!IsGpt6Model(RequestModel)) return;
+            if (SupportsGpt6Sampling())
+            {
+                request["temperature"] = RequestTemperature;
+                request["top_p"] = RequestTopP;
+            }
+            else
+            {
+                request.Remove("temperature");
+                request.Remove("top_p");
+                request.Remove("logprobs");
+                request.Remove("top_logprobs");
+            }
+            if (request.TryGetValue("reasoning", out var value) && value is IDictionary<string, object> reasoning &&
+                (EffectiveGpt6Effort() == "none" ||
+                 (reasoning.TryGetValue("effort", out var serializedEffort) && serializedEffort.ToString() == "none")))
+                reasoning.Remove("summary");
+        }
 
         private void PreparePreservedReasoning()
         {
@@ -179,7 +240,7 @@ namespace Mythosia.AI.Services.OpenAI
                     Previous = _preservedReasoning.TryGetValue(ActivateChat, out var previous) ? previous.Copy() : null
                 };
             var option = CurrentRequestFeatures.Reasoning;
-            var configured = ConfiguredAstraEffort;
+            var configured = ConfiguredGpt6Effort;
             var desired = option == null || option.Level == ReasoningLevel.Auto
                 ? configured : option.Level.ToString().ToLowerInvariant();
 

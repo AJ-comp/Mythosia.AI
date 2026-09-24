@@ -3,6 +3,8 @@
 > ตัวอย่าง `CreateRequest` ต้องใช้Mythosia.AI 8.0.0 / Abstractions 4.0.0 รุ่น 7.1 เดิมที่เพิ่ม Run และตัวเลือกคำขอทั่วไปยังไม่มี builder แพ็กเกจเดิมใช้ overload ของ service ต่อได้
 
 <a id="image-options-migration"></a>
+โหมดและข้อมูลที่คืนมาขึ้นกับผู้ให้บริการ โมเดล และ API ตรวจ[ตัวเลือกความเร็วร่วม](request-building.md#inference-speed) กับ capabilities และแยกการขอ Fast ออกจากการได้รับ Fast จริง
+
 ## ย้ายไปใช้ตัวเลือกภาพแบบระบุชนิด
 
 เลือกคุณภาพและรูปแบบด้วย enum และการเติมคำอัตโนมัติ พร้อมแยกขนาดพิกเซลที่แน่นอนออกจากระดับความละเอียด เพื่อลดการพิมพ์ผิดและป้องกันการแปลงขนาดไปเป็นระดับอื่นโดยไม่แจ้ง
@@ -69,13 +71,47 @@ var presetRequest = new ImageGenerationRequest
 
 > การรองรับ GPT-6 Astra และการเรียกเครื่องมือแบบอะซิงโครนัสเริ่มใน `Mythosia.AI` 7.1.0 โดยชนิดข้อมูลร่วมอยู่ใน `Mythosia.AI.Abstractions` 3.1.0
 
-หากเครื่องมือใช้เวลานานในการดึงข้อมูล GPT-6 Astra สามารถอธิบายหรือทำส่วนอื่นของงานที่ไม่ขึ้นกับผลนั้นต่อได้ระหว่างรอ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md)
+หากเครื่องมือใช้เวลานานในการดึงข้อมูล GPT-6 Astra / Sol / Luna สามารถอธิบายหรือทำส่วนอื่นของงานที่ไม่ขึ้นกับผลนั้นต่อได้ระหว่างรอ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra / Sol / Luna ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md)
 
 ดูวิธีตั้งระดับการให้เหตุผลข้ามผู้ให้บริการและใช้ข้อมูลใหม่หรือเอกสารที่จัดทำดัชนีแล้วใน[คู่มือการให้เหตุผลและการค้นหา](reasoning-and-search.md) ซึ่งระบุโมเดลที่รองรับ การรักษาแคช และข้อจำกัดการใช้ตัวเลือกร่วมกัน
 
+<a id="gpt-6-sol-luna"></a>
+
+### GPT-6 Sol / Luna (ยังไม่เผยแพร่)
+
+เลือก GPT-6 Sol สำหรับงานเขียนโค้ดซับซ้อน การใช้เครื่องมือ และงานเอเจนต์ หรือเลือก Luna เมื่อต้องประมวลผลข้อความหรือภาพจำนวนมากโดยควบคุมต้นทุน ทั้งคู่ใช้ API คำตอบสมบูรณ์ สตรีม และ Run เดิม จึงเปลี่ยนโมเดลได้โดยไม่เปลี่ยนลำดับการเรียกของแอป
+
+> ส่วนเพิ่มนี้ยังไม่เผยแพร่ และต้องใช้บิลด์ core กับ abstractions ที่ตรงกัน แพ็กเกจ Mythosia.AI 8.0.0 / Abstractions 4.0.0 ที่เผยแพร่แล้วไม่มี `Gpt6Sol`, `Gpt6Luna` หรือ `Gpt6Reasoning.None` รุ่นขั้นต่ำของฟีเจอร์ Astra เดิมและโมเดลเริ่มต้นของบริการไม่เปลี่ยน
+
+ใช้ `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) หรือ `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`) ทั้งคู่รับข้อความและภาพและส่งออกข้อความ มีบริบท 1,050,000 โทเคน อินพุตสูงสุด 922,000 และเอาต์พุตสูงสุด 128,000 โทเคน อินพุต การให้เหตุผล และเอาต์พุตรวมกันต้องอยู่ในขีดจำกัดบริบท `MaxTokens` กำหนดงบเอาต์พุตที่ขอ ไม่ใช่ขนาดบริบท
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6Sol);
+await using var run = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(onText: text => Console.Write(text));
+var result = await run.Result;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Luna);
+string answer = await service.CreateRequest("Summarize this paragraph.")
+    .WithReasoning(ReasoningLevel.None)
+    .WithTemperature(0.2f)
+    .GetCompletionAsync();
+```
+
+`Auto` ใช้ `Medium` โดย Sol/Luna รองรับ `None`, `Low`, `Medium`, `High`, `XHigh`, `Max` แต่ไม่รองรับ `Minimal` ใช้ `WithReasoning(ReasoningLevel.None)` ต่อคำขอ หรือ `Gpt6Reasoning.None` ใน `WithGpt6Parameters` เฉพาะ Sol/Luna ที่ใช้ `None` เท่านั้นที่ส่ง `Temperature` / `TopP` เมื่อเปิดการให้เหตุผลจะละทั้งสองฟิลด์ Astra ต้องใช้การให้เหตุผลเสมอและไม่ส่งค่าการสุ่ม `AIRequestProfile.DisableReasoning` เลือก `None` สำหรับ Sol/Luna และ `Low` ในโหมด Standard สำหรับ Astra โดยไม่ส่งสรุปการให้เหตุผล
+
+`Gpt6ReasoningMode.Standard` และ `.Pro` ใช้รหัสโมเดลเดิมที่เลือกไว้ GPT-6 ทั้งสามรุ่นรองรับเครื่องมือผ่าน Responses เครื่องมือแบบอะซิงโครนัสที่เลือกเปิดได้ คำสั่งเพิ่มผ่าน WebSocket Run และการเปลี่ยนระดับการให้เหตุผลโดยรักษาแคชในโหมด Standard เอเจนต์เดียว ตรวจ `run.CanSteer` ก่อนส่งคำสั่ง การรับคำสั่งไม่ย้อนคืนเอาต์พุตก่อนหน้า `WithSpeed(InferenceSpeed.Fast)` ขอการประมวลผล Fast แบบเสียค่าใช้จ่ายแยกจากระดับการให้เหตุผล ดูโหมดที่ใช้จริงใน `result.Processing` สิทธิ์บัญชีและการลดระดับโดยเซิร์ฟเวอร์แยกจากข้อมูลความสามารถในไลบรารี
+
+[GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) · [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) · [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
+
 ### ระดับ Reasoning
 
-GPT-6 Astra และ GPT-5.1–5.6 ปรับระดับการใช้เหตุผลได้ เพื่อเลือกสมดุลระหว่างความเร็วและความลึกของคำตอบ:
+GPT-6 Astra / Sol / Luna และ GPT-5.1–5.6 ปรับระดับการใช้เหตุผลได้ เพื่อเลือกสมดุลระหว่างความเร็วและความลึกของคำตอบ:
 
 ```csharp
 using Mythosia.AI.Models;
@@ -202,6 +238,52 @@ await File.WriteAllBytesAsync("pavilion-cutout.png", edited.Images[0].Data);
 
 [Claude Fable 5.1](fable-5-1.md) เพิ่มข้อความความคืบหน้า คำสั่งเฉพาะเทิร์น และการวินิจฉัย thinking binding ตั้งแต่ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 ส่วน Mythos 5.1 ต้องได้รับเชิญ และทั้งสองรุ่นไม่รองรับการบังคับเลือกเครื่องมือ
 
+<a id="claude-opus-55"></a>
+
+### Claude Opus 5.5: แสดงความคืบหน้าของงานที่เรียกเครื่องมือหลายรอบ
+
+ใช้ Opus 5.5 เมื่อต้องตรวจโค้ดหรือค้นคว้าเอกสารโดยเรียกเครื่องมือหลายรอบ ยังคงใช้ API completion และ Run เดิม แต่ค่าเริ่มต้นซ่อนความคืบหน้า และต้องระวังการแก้ประวัติหากต้องการเก็บการให้เหตุผลไว้ การรองรับนี้ยังไม่เผยแพร่และไม่มีในแพ็กเกจ 8.0.0 / 4.0.0 ที่เผยแพร่แล้ว
+
+`ClaudeOpus5_5` เลือก `claude-opus-5-5` รับข้อความ/รูปภาพและส่งออกข้อความ มีบริบท 1M และเอาต์พุตสูงสุด 128K โทเค็น ราคาปกติที่ตรวจสอบเมื่อ 2026-09-24 คืออินพุต/เอาต์พุต $4/$20 ต่อหนึ่งล้านโทเค็น ส่วนโหมดพิเศษและเครื่องมือคิดราคาแยก [ข้อมูลโมเดลทางการ](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+เมื่อไม่เปลี่ยนการตั้งค่าบริการ `Auto` ใช้ effort ระดับ `Medium` และละข้อความการให้เหตุผลที่อ่านได้ การคิดแบบ adaptive เปิดตลอดเวลา เลือก `Low`, `Medium`, `High`, `XHigh` หรือ `Max` ได้ ส่วนค่ากลาง `ReasoningLevel.None` และ `Minimal` จะถูกปฏิเสธ โมเดลเริ่มต้นของบริการไม่เปลี่ยน
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeOpus5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.Medium, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.StartRunAsync(
+    "Review the migration plan using the registered tools.",
+    options: StreamOptions.FullOptions);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+ตัวอย่างร้องขอ `Updates` และอ่าน `StreamingContentType.Reasoning` ใช้ `Summarized` เพื่อรับสรุปการให้เหตุผล หรือ `Omitted` เพื่อซ่อน พารามิเตอร์การแสดงผลของ `WithAdaptiveThinkingParameters(effort)` ยังมีค่าเริ่มต้นเป็น `Summarized` ซึ่งต่างจากบริการที่ไม่ได้ตั้งค่า สำหรับ completion ปกติ ให้อ่าน `LastThinkingContent` หลังเรียกเสร็จ ไม่รับประกันการอัปเดตตามช่วงเวลาคงที่
+
+`ThinkingBudget` แบบเดิมที่เป็นบวกจะถูกแปลงเป็น effort high/xhigh/max ไม่ใช่งบโทเค็นที่แน่นอน ค่า 0 หรือค่าลบไม่สามารถปิดการคิดได้ โปรไฟล์ที่ปิดการให้เหตุผลจะใช้ effort ต่ำและซ่อนข้อความที่อ่านได้ `MaxTokens` รวมทั้งการคิดที่ซ่อนอยู่และคำตอบ จึงควรประเมินขีดจำกัดเอาต์พุตและค่าใช้จ่ายใหม่เมื่อย้ายโมเดล
+
+Mythosia เก็บบล็อก thinking ที่มีลายเซ็น รวมถึงบล็อกว่าง ระหว่างรอบสนทนาและผลเครื่องมือ ใช้บริการและแชตเดิมต่อ และอย่าเขียนข้อความก่อนหน้า system หรือ tools ใหม่หากต้องการรักษาการให้เหตุผล ใช้ `WithTurnInstruction`, `WithConversationInstruction` และ `CachePreservation.Required` ได้ `WithThinkingBinding` เลือก `Error` หรือ `DropBlock` และ `LastInputTransformations` แสดงรายการที่เซิร์ฟเวอร์รายงานว่าถูกทิ้ง Drop คือการทิ้งการให้เหตุผล [คู่มือประวัติ](fable-5-1.md) อธิบายการควบคุมร่วม ส่วนค่าเริ่มต้นและความเข้ากันได้ให้ใช้กฎของ Opus 5.5
+
+อย่าตั้ง `ForceFunctionName` การเลือกเครื่องมือปกติและ `FunctionsDisabled` ยังรองรับอยู่ Assistant prefill ถูกปฏิเสธและไม่ส่งพารามิเตอร์ sampling Opus 5.5 อ่าน thinking ของ Fable/Mythos ไม่ได้ แต่ Fable 5.1 และ Mythos 5.1 บน Claude API อ่าน thinking ของ Opus 5.5 ได้ การสลับโมเดลจึงอาจสูญเสียการให้เหตุผลเดิม ส่วนเพิ่มนี้ไม่ได้เปิด API สำหรับ computer toolset แบบเนทีฟ, task budget, การเปลี่ยนเครื่องมือระหว่างสนทนา, การบีบอัดฝั่งเซิร์ฟเวอร์ หรือ fallback ฝั่งเซิร์ฟเวอร์อัตโนมัติ [เงื่อนไขการย้าย](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) · [ขอบเขตฟีเจอร์เนทีฟ](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5).
+
+สำหรับ Opus 5.5 การแก้เนื้อหาคำตอบ assistant ที่บันทึกไว้โดยตรงจะเกิด `InvalidOperationException` ก่อนส่ง HTTP แม้ใช้ `DropBlock` ก็ไม่อนุญาตให้เขียนคำตอบที่มีลายเซ็นใหม่ ให้ส่งคำแก้ไขเป็นอินพุตผู้ใช้ใหม่หรือเริ่มบทสนทนาใหม่ ส่วนการแก้เนื้อหา user/system ก่อนหน้าจะใช้กฎการผูกส่วนต้นของผู้ให้บริการ
+
+Opus 5.5 fast mode ใช้ผ่าน [WithSpeed](request-building.md#inference-speed) บน Claude API โดยตรงได้เมื่อมีสิทธิ์ คงระดับการให้เหตุผลเดิมและขอโหมดที่คิดราคาพรีเมียม
+
 ### การนับ Token (Native API)
 
 `GetInputTokenCountAsync` ใช้ได้กับทุก provider (ดู [การสร้างข้อความ](completions.md#การนบ-token)) การ implement ของ Anthropic เรียก endpoint `messages/count_tokens` โดยตรง คืนค่า **จำนวน token ที่แม่นยำ** ไม่ใช่การประมาณ:
@@ -238,9 +320,61 @@ string review = await gemini
 
 ใช้ `Low` สำหรับการตรวจเบื้องต้น และ `High` สำหรับการวิเคราะห์ที่ซับซ้อน การใช้เหตุผลมากขึ้นอาจเพิ่มเวลาและจำนวนโทเค็น ทั้งสองโมเดลรองรับ `Low`, `Medium`, `High` แต่ไม่รองรับ `Minimal` หรือ `None` ค่า `GeminiThinkingLevel.Auto` จะไม่ส่งค่าทับค่าเริ่มต้น ซึ่งผู้ให้บริการกำหนดเป็น `Medium` สำหรับ 3.8 ส่วน `ThinkingLevel` ตั้งค่าพื้นฐานของบริการ และ `WithReasoning(...)` ใช้ทับเฉพาะคำขอเชิงตรรกะหนึ่งครั้ง อะแดปเตอร์ไม่ส่ง `temperature`, `topP`, `topK` ขีดจำกัดของผู้ให้บริการคืออินพุต 1,048,576 และเอาต์พุต 65,536 โทเค็น [Gemini 3.7 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash), [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash).
 
+<a id="google-image-options"></a>
+
+### ความละเอียดและอัตราส่วนตามโมเดลภาพ Google
+
+| โมเดล | `Resolutions` | `AspectRatios` |
+| --- | --- | --- |
+| `gemini-3.1-flash-image` | `Auto`, `FiveTwelve` (512), `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 14 + `Auto` |
+| `gemini-3.1-flash-lite-image` | `Auto`, `OneK` (1K) | 14 + `Auto` |
+| `gemini-3-pro-image` | `Auto`, `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 10 + `Auto` |
+
+อัตราส่วนมาตรฐาน 10 แบบคือ `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9` ชุด 14 แบบเพิ่ม `1:4`, `4:1`, `1:8`, `8:1` ทุกโมเดลยังรับ `ImageAspectRatio.Auto` ด้วย
+
+ใช้ `ImageSize.Auto` หรือ `ImageSize.Preset(resolution, aspectRatio)` โดย `Auto` จะไม่ส่งตัวเลือกนั้น `GetImageCapabilities(model)` และ `GenerateImagesAsync` / `EditImagesAsync` ใช้ตัวเลือกตามโมเดลชุดเดียวกัน ค่าที่ระบุชัดเจนแต่ไม่รองรับจะทำให้เกิด `NotSupportedException` ก่อน HTTP โดยไม่มีการปรับขนาดหรือส่งคำขอทดแทน ID โมเดลกำหนดเองที่ไม่ทราบยังคงเป็น `Unknown` และส่งค่าตามเดิมหลังตรวจสอบตัวเลือกทั่วไปของผู้ให้บริการ
+
+สำหรับ Flash-Lite [หน้าโมเดล](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image) และข้อความในคู่มือระบุ 1K แต่[ตาราง](https://ai.google.dev/gemini-api/docs/generate-content/image-generation#aspect_ratios_and_image_size) มีคอลัมน์ 512 ด้วย ระหว่างรอตรวจสอบความแตกต่างนี้ ไลบรารีอนุญาตเฉพาะ 1K อย่างระมัดระวัง ไม่ได้ยืนยันว่าได้ทดสอบพบว่าเซิร์ฟเวอร์ปฏิเสธ 512
+
 ---
 
 ## xAI (XAIService)
+
+<a id="grok-47"></a>
+
+### Grok 4.7
+
+เมื่อต้องการร่างคำตอบอย่างรวดเร็วแล้วตรวจโค้ดหรือเอกสารอย่างละเอียด ให้เลือก Grok 4.7 และปรับระดับการให้เหตุผลในแต่ละคำขอ ใช้ API เดิมสำหรับคำตอบ สตรีม Run เครื่องมือภายใน ผลลัพธ์แบบมีโครงสร้าง และภาพขาเข้าได้ `grok-4.7` รับข้อความและภาพ คืนข้อความ และมีบริบท 500,000 โทเคน ต้องใช้บิลด์ core และ abstractions ที่ยังไม่เผยแพร่และตรงกัน แพ็กเกจ 8.0.0 / 4.0.0 ที่เผยแพร่แล้วไม่มีส่วนนี้ โมเดลเริ่มต้นยังเป็น Grok 4.5
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.xAI;
+
+var grok = new XAIService(apiKey, httpClient);
+grok.ChangeModel(AIModels.xAI.Grok4_7);
+grok.WithGrokReasoning(GrokReasoning.Low);
+
+var request = grok.CreateRequest("Review this deployment plan and its rollback risks.")
+    .WithReasoning(ReasoningLevel.XHigh)
+    .WithSpeed(InferenceSpeed.Fast);
+
+await using var run = await request.StartRunAsync();
+await foreach (var content in run.StreamAsync())
+    Console.Write(content.Content);
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (var processing in result.Processing)
+    Console.WriteLine(processing.AppliedSpeed);
+```
+
+รองรับ `Low`, `Medium`, `High` และ `XHigh` โดย `GrokReasoning.Auto` แบบเนทีฟละ `reasoning_effort` เพื่อใช้ค่าเริ่มต้น `High` ของผู้ให้บริการ ส่วน `ReasoningLevel.Auto` แบบรวมก็ละฟิลด์นี้เพื่อใช้ค่าเริ่มต้น `High` ของผู้ให้บริการในคำขอนั้น `None`, `Minimal` และ `Max` ถูกปฏิเสธก่อนส่ง `WithReasoning(...)` ใช้กับคำขอเชิงตรรกะรวมรอบเครื่องมือและการแก้ผลลัพธ์แบบมีโครงสร้าง ส่วน `WithGrokReasoning(...)` ตั้งค่าพื้นฐานของบริการ โปรไฟล์ภายใน `DisableReasoning` ใช้ `Low` สรุปการให้เหตุผลที่อาจส่งมาไม่ใช่กระบวนการคิดภายในทั้งหมด
+
+`WithSpeed(InferenceSpeed.Standard)` ส่ง `service_tier: "default"` ส่วน `Fast` ส่ง `"priority"` ไปยัง endpoint xAI ที่รองรับและอาจมีค่าใช้จ่ายเพิ่ม `ProviderDefault` ไม่เขียนทับค่า เซิร์ฟเวอร์อาจลดเป็นการประมวลผลปกติ จึงควรอ่านระดับที่รายงานจาก `result.Processing` นี่คือการจัดลำดับความสำคัญของ `grok-4.7` ไม่ใช่รุ่น “Grok 4.7 Fast” ที่ใช้เฉพาะ Cursor/Grok Build ซึ่งไม่มี ID โมเดลสำหรับ API สาธารณะ
+
+`GetCapabilities()` อธิบายความสามารถของคำขอที่เลือกจากข้อมูลภายใน ไม่ได้ตรวจสิทธิ์บัญชี การเชื่อมต่อนี้ใช้ Chat Completions ยังไม่เชื่อมการให้เหตุผลแบบเข้ารหัสของ Responses การค้นหา Web/X ที่โฮสต์ เครื่องมืออะซิงโครนัสเนทีฟ การเปลี่ยนค่าที่รักษาแคช หรือ `SteerAsync` ฟังก์ชันฝั่งไคลเอนต์ใช้ลูปเครื่องมือภายในเดิม และ `run.CanSteer` เป็น false
+
+[Grok 4.7](https://docs.x.ai/developers/grok-4-7) · [reasoning_effort](https://docs.x.ai/developers/model-capabilities/text/reasoning) · [Priority Processing](https://docs.x.ai/developers/advanced-api-usage/priority-processing)
 
 ### เลือกระดับการให้เหตุผลให้เหมาะกับงาน
 
@@ -333,7 +467,7 @@ await File.WriteAllBytesAsync("combined" + extensionEdited, imageEdited.Data);
 
 xAI รองรับเพียงค่าเริ่มต้นร่วมใหม่ `ImageOutputFormat.Auto` ไม่มีตัวเลือก codec ดังนั้น `Jpeg`, `Png`, `WebP` ที่ระบุชัดเจนจะถูกปฏิเสธก่อนส่ง เลือกนามสกุลจาก `GeneratedImage.MediaType` ไลบรารีไม่แปลงรหัส คุณภาพรองรับ `ImageQuality.Auto`, `Low`, `Medium` พื้นหลังรองรับเพียง `ImageBackground.Auto` ไม่รองรับการระบุการบีบอัดหรือ `Mask` แยก
 
-Google รับ `ImageSize.Auto` หรือ `Preset` ด้วย `ImageResolution.Auto`, `FiveTwelve`, `OneK`, `TwoK`, `FourK` ตามโมเดล รูปแบบคือ `ImageOutputFormat.Auto` หรือ `Jpeg` โดยปฏิเสธ `Png`/`WebP` Google และ xAI ปฏิเสธ `Pixels` ส่วน OpenAI รับ `Auto`/`Pixels` และปฏิเสธ `Preset` ดู[ตัวอย่างการย้าย](#image-options-migration)
+Google รับ `ImageSize.Auto` หรือ `Preset` ที่มีความละเอียดและอัตราส่วนตามโมเดล ดู[ตัวเลือกภาพตามโมเดล Google](#google-image-options). รูปแบบคือ `ImageOutputFormat.Auto` หรือ `Jpeg` โดยปฏิเสธ `Png`/`WebP` Google และ xAI ปฏิเสธ `Pixels` ส่วน OpenAI รับ `Auto`/`Pixels` และปฏิเสธ `Preset` ดู[ตัวอย่างการย้าย](#image-options-migration)
 
 [Grok Imagine Image 2.0](https://docs.x.ai/developers/models/grok-imagine-image-2.0) · [Image API](https://docs.x.ai/developers/rest-api-reference/inference/images)
 
@@ -342,6 +476,46 @@ Google รับ `ImageSize.Auto` หรือ `Preset` ด้วย `ImageResol
 ## DeepSeek (DeepSeekService)
 
 ใช้ DeepSeek Flash เมื่อต้องการคำตอบเร็วแล้วตรวจทานให้ละเอียด หรืออธิบายกราฟและภาพหน้าจอ `AIModels.DeepSeek.Flash` (`deepseek-flash`) เลือก V4.1 Flash ที่เปิดตัววันที่ 10 กันยายน 2026 พร้อมความเข้าใจภาพในตัว ใช้ API completion, streaming, Run, ฟังก์ชัน และ RAG เดิมได้ ตั้งแต่ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0
+
+> แพ็กเกจที่เผยแพร่แล้ว `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 รองรับ Flash พื้นฐานแล้ว ส่วน `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, Files API และ `DeepSeekImageFileContent` เป็นส่วนเพิ่มในซอร์สโค้ดที่ยังไม่เผยแพร่ ต้องใช้บิลด์ core และ abstractions จากซอร์สโค้ดรุ่นที่ตรงกัน และยังไม่มีในแพ็กเกจที่เผยแพร่ข้างต้น [บันทึกการเปลี่ยนแปลงที่ยังไม่เผยแพร่](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased)
+
+งานข้อความล้วนเลือก `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) ได้ Flash ยังเป็นค่าเริ่มต้นและรองรับภาพ ทั้งสองรองรับเหตุผล Low/High/Max และขีดจำกัดเอาต์พุตเดียวกัน ตั้ง `UseResponsesApi = true` ก่อนสร้างคำขอเพื่อใช้ Responses ผ่าน API completion, streaming, Run และฟังก์ชันภายในเดิม ค่าเริ่มต้นยังเป็น `false` เพื่อคง Chat Completions ของแอปเดิม และจะเก็บตัวเลือกนี้ตลอดคำขอรวมรอบเครื่องมือ Responses ส่งประวัติสนทนาและเหตุผลต้นฉบับทั้งหมดซ้ำ โดยไม่พึ่ง ID คำตอบที่เก็บบนเซิร์ฟเวอร์
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+อัปโหลดภาพครั้งเดียวเมื่อจะใช้ซ้ำในหลายคำถามหรือบทสนทนา `UploadFileAsync` รับพาธ หรือ stream ที่ผู้เรียกเป็นเจ้าของพร้อมชื่อไฟล์ โดย purpose เป็น `user_data` รองรับ JPEG, PNG, GIF, WebP สูงสุด 64 MiB `DeepSeekImageFileContent` อ้างอิงภาพบน Flash ผ่านการส่งทั้งสองแบบ ไม่ใช่อินพุต PDF/เอกสาร และ V4 Pro จะปฏิเสธ หากไม่กำหนดอายุจะเก็บถาวร ส่วน `expiresAfterSeconds` รับ 3600–2592000 วินาที เก็บไฟล์ไว้จนทุกบทสนทนาที่อ้างอิงจบลง
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+`GetFileAsync` อ่าน metadata, `ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` อ่านหนึ่งหน้า และ `DeleteFileAsync` ลบไฟล์ เมื่อ `HasMore` เป็น true ใช้ `LastId` เป็น `After` ของหน้าถัดไป และรองรับ `Descending` ด้วย ไม่มี endpoint ดาวน์โหลดเนื้อหาไฟล์ที่ประกาศไว้ Chat UI มี Flash และ V4 Pro และใช้แค็ตตาล็อกปัจจุบันสำหรับเขียนคำถามใหม่ ค่าเก่าที่บันทึกเป็น `DeepSeekChat` จะเปลี่ยนเป็น Flash โดยคง ID โมเดลที่กำหนดเอง
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -370,7 +544,7 @@ string review = (await run.Result).Text;
 
 `ThinkingEnabled` ยังคงเป็น `false` โดยค่าเริ่มต้น `WithDeepSeekReasoning(...)` เปิดการใช้เหตุผลและตั้ง `ReasoningEffort` ถาวร (`Auto`, `Low`, `High`, `Max`) โดย `Auto` นี้ละ effort เพื่อใช้ค่าเริ่มต้นผู้ให้บริการ `High` ส่วน `WithReasoning(...)` ร่วมมีผลต่อหนึ่งคำขอเชิงตรรกะรวมรอบเครื่องมือ: `None` ปิด, `Minimal`/`Low` → `Low`, `Medium`/`High`/`XHigh` → `High`, `Max` → `Max` ค่า `Auto` ร่วมรักษาการตั้งค่าเดิม การเพิ่มเหตุผลอาจเพิ่มเวลาและโทเคน การเปลี่ยนเฉพาะ `ReasoningEffort` ไม่ได้เปิดการใช้เหตุผล
 
-ลงทะเบียนฟังก์ชันภายในด้วย `WithFunction(...)` เพื่อให้โมเดลค้นข้อมูลหรือทำงานผ่านโค้ดของคุณ เครื่องมือใช้ได้ทั้งเปิดและปิดเหตุผล แต่เมื่อเปิดจะปฏิเสธการบังคับ/กำหนดเครื่องมือว่าต้องเรียก จึงควรใช้การเลือกอัตโนมัติ อะแดปเตอร์เก็บ `reasoning_content` และ ID การเรียกไว้สำหรับรอบถัดไป Run และ streaming แสดง `StreamingContentType.Reasoning` เมื่อเปิด `StreamOptions.WithReasoning()` ซึ่งเป็นเพียงการสังเกต ไม่ได้เปิดการใช้เหตุผลเอง สถิติรวมแคชและเหตุผลเมื่อผู้ให้บริการรายงาน การกู้คืนบริบทอัตโนมัติใช้ลูป streaming ร่วม หากเครื่องมือต้องใช้ประวัติการให้เหตุผลดั้งเดิมก่อนหน้า จะปิดกั้นการย่ออัตโนมัติเพื่อรักษาประวัติและส่งข้อผิดพลาดบริบทเกินต่อไป
+ลงทะเบียนฟังก์ชันภายในด้วย `WithFunction(...)` เพื่อให้โมเดลค้นข้อมูลหรือทำงานผ่านโค้ดของคุณ เครื่องมือใช้ได้ทั้งเปิดและปิดเหตุผล Chat Completions ปฏิเสธการบังคับ/กำหนดเครื่องมือว่าต้องเรียกเมื่อเปิดเหตุผล จึงให้ใช้การเลือกอัตโนมัติสำหรับการส่งแบบนี้ เมื่อตั้ง `UseResponsesApi = true` จะระบุฟังก์ชันด้วย `ForceFunctionName` ได้แม้เปิดเหตุผล โดยอะแดปเตอร์ส่ง `type` และ `name` ตรงใน `tool_choice` ของ Responses ทั้งนี้ไม่ได้เปิดเครื่องมืออะซิงโครนัสเนทีฟ อะแดปเตอร์เก็บ `reasoning_content` และ ID การเรียกไว้สำหรับรอบถัดไป Run และ streaming แสดง `StreamingContentType.Reasoning` เมื่อเปิด `StreamOptions.WithReasoning()` ซึ่งเป็นเพียงการสังเกต ไม่ได้เปิดการใช้เหตุผลเอง สถิติรวมแคชและเหตุผลเมื่อผู้ให้บริการรายงาน การกู้คืนบริบทอัตโนมัติใช้ลูป streaming ร่วม หากเครื่องมือต้องใช้ประวัติการให้เหตุผลดั้งเดิมก่อนหน้า จะปิดกั้นการย่ออัตโนมัติเพื่อรักษาประวัติและส่งข้อผิดพลาดบริบทเกินต่อไป
 
 ส่งกราฟหรือภาพหน้าจอผ่านชนิดข้อความที่มีอยู่:
 
@@ -385,9 +559,9 @@ var message = new Message(ActorRole.User, new List<MessageContent>
 string description = await deepseek.GetCompletionAsync(message);
 ```
 
-`ImageContent` รับไบต์ JPEG, PNG, GIF, WebP หรือ URL HTTP(S) สาธารณะที่ผู้ให้บริการดาวน์โหลด ตัวอย่างใช้ข้อความผู้ใช้ API ปัจจุบันรับภาพในข้อความเครื่องมือด้วย แต่ handler ที่ลงทะเบียนยังคืนข้อความผ่านสัญญาผลลัพธ์ร่วม หากสร้างข้อความภาพ `ActorRole.Function` เอง ต้องใส่ ID การเรียกที่ตรงกันใน `MessageMetadataKeys.FunctionId` (`tool_call_id` บนเครือข่าย) ดูขีดจำกัดขนาดและผลรวมในคู่มือภาพล่าสุด ไม่ได้รวม `file_id`, Files API หรือการสร้างภาพ
+`ImageContent` รับไบต์ JPEG, PNG, GIF, WebP หรือ URL HTTP(S) สาธารณะที่ผู้ให้บริการดาวน์โหลด ตัวอย่างใช้ข้อความผู้ใช้ API ปัจจุบันรับภาพในข้อความเครื่องมือด้วย แต่ handler ที่ลงทะเบียนยังคืนข้อความผ่านสัญญาผลลัพธ์ร่วม หากสร้างข้อความภาพ `ActorRole.Function` เอง ต้องใส่ ID การเรียกที่ตรงกันใน `MessageMetadataKeys.FunctionId` (`tool_call_id` บนเครือข่าย) ดูขีดจำกัดขนาดและผลรวมในคู่มือภาพล่าสุด ยังไม่รองรับการสร้างภาพ
 
-ผู้ให้บริการระบุบริบท 1M และเอาต์พุตสูงสุด 384K (`393216`) โทเคน งบเริ่มต้นของไลบรารียังคง 8,000 เมื่อเปิดเหตุผลจะละ temperature/penalty และใช้ `top_p` อย่างน้อย 0.95 เมื่อปิดจะละ `top_p` อะแดปเตอร์ใช้ Chat Completions ไม่ได้รวม Responses การค้นหาที่โฮสต์ `CachePreservation.Required` เครื่องมืออะซิงโครนัสแบบเนทีฟ หรือ `SteerAsync` ส่วน RAG ภายในและรอบเครื่องมือทั่วไปยังใช้ได้
+ทั้งสองมีบริบท 1M และเอาต์พุตสูงสุด 384K (`393216`) โทเคน งบเริ่มต้นยังเป็น 8,000 เมื่อใช้เหตุผลจะละ temperature/penalty และใช้ `top_p` อย่างน้อย 0.95 เมื่อปิดจะละ `top_p` Responses ใช้ API เอาต์พุตมีชนิดเดิมสำหรับ JSON schema เนทีฟ ไม่รองรับงานเบื้องหลัง `store`/`previous_response_id` บนเซิร์ฟเวอร์ การค้นหาที่โฮสต์ `CachePreservation.Required` เครื่องมืออะซิงโครนัสเนทีฟ `SteerAsync` หรือการสร้างภาพ ส่วน RAG ภายในและรอบเครื่องมือปกติยังใช้ได้
 
 `V4Flash`, `Chat`, `Reasoner` ยังคงเป็นค่าคงที่ obsolete ที่แจ้งเตือนและรักษา wire ID เดิม ผู้ให้บริการเปลี่ยนเส้นทาง alias ที่เลิกใช้ `deepseek-v4-flash` ไป V4.1 Flash ชั่วคราว ไลบรารีไม่ได้เขียนค่าคงที่ใหม่ โค้ดใหม่ควรเลือก `Flash` ส่วน `UseReasonerModel()` เลือก Flash พร้อมเหตุผล `High`
 

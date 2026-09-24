@@ -1,5 +1,11 @@
 # 选择推理强度，并获得附带来源的回答
 
+> Grok 4.7 是尚未发布的新增功能；请参阅[模型选择、推理与处理速度](providers.md#grok-47)。
+
+> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](providers.md#gpt-6-sol-luna)。
+
+[Claude Opus 5.5](providers.md#claude-opus-55) 是尚未发布的新增功能：推理始终启用，默认 effort 为 medium，并省略显示。可读进度需显式请求；默认值和模型绑定规则与 Fable 5.1 不同。
+
 如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
 
 > 这些 API 需要 `Mythosia.AI` 7.1.0 或更高版本，其中包含 `Mythosia.AI.Abstractions` 3.1.0 或更高版本。RAG 示例需要 `Mythosia.AI.Rag` 7.6.0 或更高版本。
@@ -7,6 +13,8 @@
 > `CreateRequest`示例需要当前开发中的版本。最初引入Run和公共请求功能的旧7.1版本不包含构建器；旧包可继续使用原有服务重载。
 
 [Claude Fable 5.1](fable-5-1.md) 的进度更新、单轮指令和 thinking 绑定诊断从 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 开始提供。Mythos 5.1 需要邀请访问，两个模型都拒绝强制工具选择。
+
+对等待时间敏感的请求可选择[处理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理级别，`Processing` 显示供应商实际应用的模式。Fast 是受支持组合上的付费选项。
 
 ## 为什么需要这些设置？
 
@@ -138,11 +146,11 @@ string answer = (await run.Result).Text;
 
 | 已集成的提供商 | 命名推理级别 | 保留缓存的变更 | 网页搜索 | 文件搜索 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 支持的推理模型；级别因模型而异 | GPT-6 Astra Standard，单代理模式 | 支持的 Responses 模型 | 支持的 Responses 模型及已有向量存储 |
-| Anthropic | 具有原生 effort 控制的模型 | 支持的 Opus 5 / Fable 5.1 / Mythos 5.1，使用提供商测试版功能 | 支持的 Claude 模型 | 没有原生存储适配器；请使用 RAG |
+| OpenAI | 支持的推理模型；级别因模型而异 | GPT-6 Astra / Sol / Luna Standard，单代理模式 | 支持的 Responses 模型 | 支持的 Responses 模型及已有向量存储 |
+| Anthropic | 具有原生 effort 控制的模型 | 支持的 Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1，使用提供商测试版功能 | 支持的 Claude 模型 | 没有原生存储适配器；请使用 RAG |
 | Google | Gemini 3 的级别；Gemini 2.5 保留提供商专用预算 | 不支持 | 支持的 Gemini 文本模型 | 支持的 Gemini 文本模型及已有文件搜索存储 |
 | xAI | Grok 4.6：`Auto`、`Low`、`Medium`、`High`、`XHigh` | 不支持 | 没有通用适配器 | 没有通用适配器 |
-| DeepSeek | Flash: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`；映射到原生 Low/High/Max | 不支持 | 无共用适配器 | 无共用适配器 |
+| DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`；映射到原生 Low/High/Max | 不支持 | 无共用适配器 | 无共用适配器 |
 | Perplexity | `Auto` 或模型支持的 `Minimal`/`Low`/`Medium`/`High`/`XHigh`/`Max`；Sonar 不支持显式 effort | 不支持 | Agent `web_search` | 无共用适配器 |
 | 其他服务 | 原有提供商专用设置仍然可用；这些通用选项需要适配器 | 本组适配器不支持 | 没有通用适配器 | 没有通用适配器 |
 

@@ -85,7 +85,8 @@ internal static class ChatUiSettingsHelpers
             return new { type = "gemini3", alwaysOn = true, effort = gemini.ThinkingLevel.ToString() };
 
         if (service is XAIService grok &&
-            grok.Model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase))
+            (grok.Model.Equals(AIModels.xAI.Grok4_7, StringComparison.OrdinalIgnoreCase) ||
+             grok.Model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase)))
             return new { type = "grok_always", alwaysOn = true, effort = grok.ReasoningEffort.ToString(), defaultEffort = "High" };
 
         if (service is not OpenAIService gpt ||
@@ -95,7 +96,7 @@ internal static class ChatUiSettingsHelpers
         return new
         {
             type = "gpt6",
-            alwaysOn = true,
+            alwaysOn = !gpt.GetCapabilities().NativeReasoningLevels.Contains(ReasoningLevel.None),
             effort = gpt.Gpt6ReasoningEffort.ToString(),
             summary = gpt.Gpt6ReasoningSummary?.ToString(),
             mode = gpt.Gpt6ReasoningMode.ToString(),
@@ -114,9 +115,12 @@ internal static class ChatUiSettingsHelpers
             {
                 case "gpt6":
                     if (Enum.TryParse<Gpt6Reasoning>(reasoningLevel, out var g6) &&
-                        Enum.IsDefined(g6))
+                        Enum.IsDefined(g6) &&
+                        Enum.TryParse<ReasoningLevel>(reasoningLevel, out var commonLevel) &&
+                        gpt.GetCapabilities().NativeReasoningLevels.Contains(commonLevel))
                         gpt.Gpt6ReasoningEffort = g6;
-                    gpt.Gpt6ReasoningSummary = ReasoningSummary.Detailed;
+                    gpt.Gpt6ReasoningSummary = gpt.Gpt6ReasoningEffort == Gpt6Reasoning.None
+                        ? null : ReasoningSummary.Detailed;
                     break;
                 case "o3":
                     if (Enum.TryParse<Gpt5Reasoning>(reasoningLevel, out var o3))
@@ -218,8 +222,9 @@ internal static class ChatUiSettingsHelpers
             gptOff.Gpt5_6ReasoningEffort = Gpt5_6Reasoning.None;
             gptOff.Gpt5_6ReasoningSummary = null;
             gptOff.Gpt5_6ReasoningMode = Gpt5_6ReasoningMode.Standard;
-            // GPT-6 cannot disable reasoning; use its lowest effort and omit the summary.
-            gptOff.Gpt6ReasoningEffort = Gpt6Reasoning.Low;
+            // Astra retains its lowest effort; Sol and Luna can disable reasoning.
+            gptOff.Gpt6ReasoningEffort = gptOff.GetCapabilities().NativeReasoningLevels.Contains(ReasoningLevel.None)
+                ? Gpt6Reasoning.None : Gpt6Reasoning.Low;
             gptOff.Gpt6ReasoningSummary = null;
             gptOff.Gpt6ReasoningMode = Gpt6ReasoningMode.Standard;
         }
@@ -228,7 +233,8 @@ internal static class ChatUiSettingsHelpers
             claudeOff.ThinkingBudget = -1;
             claudeOff.AdaptiveThinkingEffort =
                 claudeOff.Model.Contains("fable-5", StringComparison.OrdinalIgnoreCase) ||
-                claudeOff.Model.Contains("mythos-5", StringComparison.OrdinalIgnoreCase)
+                claudeOff.Model.Contains("mythos-5", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(claudeOff.Model, AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase)
                 ? ClaudeReasoningEffort.Low
                 : ClaudeReasoningEffort.Auto;
             claudeOff.AdaptiveThinkingDisplay = ClaudeThinkingDisplay.Omitted;
@@ -236,7 +242,8 @@ internal static class ChatUiSettingsHelpers
         else if (service is XAIService grokOff)
         {
             var model = grokOff.Model ?? string.Empty;
-            if (model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase) ||
+            if (model.Equals(AIModels.xAI.Grok4_7, StringComparison.OrdinalIgnoreCase) ||
+                model.Equals(AIModels.xAI.Grok4_6, StringComparison.OrdinalIgnoreCase) ||
                 model.Equals(AIModels.xAI.Grok4_5, StringComparison.OrdinalIgnoreCase) ||
                 model.Equals(AIModels.xAI.Grok4_5Latest, StringComparison.OrdinalIgnoreCase) ||
                 model.Equals(AIModels.xAI.GrokBuildLatest, StringComparison.OrdinalIgnoreCase))

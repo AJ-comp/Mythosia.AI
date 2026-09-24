@@ -103,6 +103,11 @@ export function getSelectedEmbeddingDimensions() {
   else if (provider === 'vllm') input = ragVllmDimensions;
   else if (provider === 'openai') input = ragOpenAiDimensions;
   else if (provider === 'perplexity') input = ragPerplexityDimensions;
+  if (provider === 'openai' && ragOpenAiModel?.value?.trim() === 'text-embedding-ada-002') {
+    const value = Number(input?.value);
+    validateOpenAiEmbeddingDimensions('text-embedding-ada-002', value);
+    return value;
+  }
   if (provider === 'perplexity') {
     const value = Number(input?.value);
     const maximum = getEmbeddingDefaults(provider).dims;
@@ -113,6 +118,12 @@ export function getSelectedEmbeddingDimensions() {
   }
   const val = parseInt(input?.value, 10);
   return Number.isFinite(val) && val > 0 ? val : getEmbeddingDefaults(provider).dims;
+}
+
+export function validateOpenAiEmbeddingDimensions(model, dimensions) {
+  if (model === 'text-embedding-ada-002' && dimensions !== 1536) {
+    throw new Error('text-embedding-ada-002 requires exactly 1536 dimensions. Select the model again to reset its dimensions, and use a 1536-dimensional vector store.');
+  }
 }
 
 export function setEmbeddingDimensions(provider, dims) {
@@ -135,6 +146,7 @@ export function updateEmbeddingUI(resetDimensions = false) {
   const hasPerplexityKey = !!providerKeys?.Perplexity;
   const providerLabel = provider ? provider.toUpperCase() : 'N/A';
   const openAiModel = ragOpenAiModel?.value?.trim() || '';
+  const isAda = openAiModel === 'text-embedding-ada-002';
   const ollamaModel = ragOllamaModel?.value?.trim() || '';
   const vllmModel = ragVllmModel?.value?.trim() || '';
   const embeddingModel = provider === 'ollama'
@@ -169,6 +181,11 @@ export function updateEmbeddingUI(resetDimensions = false) {
 
   if (ragOpenAiModelRow) {
     ragOpenAiModelRow.classList.toggle('hidden', provider !== 'openai');
+  }
+  if (ragOpenAiDimensions) {
+    ragOpenAiDimensions.disabled = isAda;
+    ragOpenAiDimensions.min = isAda ? '1536' : '1';
+    ragOpenAiDimensions.max = isAda ? '1536' : '';
   }
 
   if (ragEmbeddingBaseRow) {
@@ -239,6 +256,13 @@ export function updateEmbeddingUI(resetDimensions = false) {
   try {
     if (ragPerplexityDimensions && !ragPerplexityDimensions.value?.trim()) ragPerplexityDimensions.value = getEmbeddingDefaults('perplexity').dims;
   } catch { /* ignore */ }
+
+  if (provider === 'openai' && isAda && ragEmbeddingHint) {
+    ragEmbeddingHint.textContent += ' Ada uses a fixed size of 1536 dimensions.';
+    if (Number(ragOpenAiDimensions?.value) !== 1536) {
+      ragEmbeddingHint.textContent += ' Saved dimensions are invalid. Select the model again to reset them before continuing.';
+    }
+  }
 
   // Set vector store dimension defaults (only if empty)
   const embDims = getEmbeddingDefaults(provider).dims;

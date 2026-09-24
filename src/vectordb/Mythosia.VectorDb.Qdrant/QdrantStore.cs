@@ -14,7 +14,7 @@ namespace Mythosia.VectorDb.Qdrant
     /// Uses a single Qdrant collection (configured via <see cref="QdrantOptions.CollectionName"/>)
     /// with payload-based metadata filtering for logical isolation.
     /// </summary>
-    public class QdrantStore : IVectorStore, IDisposable
+    public class QdrantStore : IVectorStore, ITextSearchStore, IConfigurableHybridSearchStore, IDisposable
     {
         private readonly QdrantOptions _options;
         private readonly QdrantClient _client;
@@ -361,6 +361,203 @@ namespace Mythosia.VectorDb.Qdrant
 
         #endregion
 
+        #region Independent Text Search and Configurable Hybrid Search
+
+        /// <summary>
+        /// Searches the named sparse index without requiring a dense query vector.
+        /// Uses the same lexical analyzer as document ingestion.
+        /// </summary>
+        /// <remarks>
+        /// Equality, set membership, and key-existence filters are supported. Other metadata
+        /// operators are rejected before sending a request rather than silently omitted.
+        /// </remarks>
+        public async Task<IReadOnlyList<VectorSearchResult>> TextSearchAsync(
+            string query,
+            int topK = 5,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (query == null) throw new ArgumentNullException(nameof(query));
+            if (topK <= 0) throw new ArgumentOutOfRangeException(nameof(topK));
+            cancellationToken.ThrowIfCancellationRequested();
+            var queryFilter = BuildStrictSearchFilter(filter);
+            var (indices, values) = BuildSparseVector(query);
+            if (indices.Length == 0)
+                return Array.Empty<VectorSearchResult>();
+
+            await EnsureCollectionAsync(cancellationToken);
+            var sparse = new SparseVector();
+            sparse.Indices.AddRange(indices);
+            sparse.Values.AddRange(values);
+            var results = await QueryNamedVectorAsync(
+                new VectorInput { Sparse = sparse }, QdrantOptions.SparseVectorName,
+                queryFilter, topK, cancellationToken);
+            return ApplyMinScoreFilter(results, filter);
+        }
+
+        /// <summary>
+        /// Searches independent dense and sparse candidate lists and combines them with
+        /// normalized weighted reciprocal-rank fusion using every supplied option.
+        /// </summary>
+        /// <remarks>
+        /// This overload uses the portable weighted RRF contract. The legacy overload
+        /// continues to use <see cref="QdrantOptions.HybridFusionStrategy"/> on the server.
+        /// Minimum score applies to the final fused score, not individual candidate lists.
+        /// </remarks>
+        public async Task<IReadOnlyList<VectorSearchResult>> HybridSearchAsync(
+            float[] denseVector,
+            string query,
+            HybridSearchOptions options,
+            int topK = 5,
+            VectorFilter? filter = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (options == null) throw new ArgumentNullException(nameof(options));
+            var settings = options.Snapshot();
+            int candidates = settings.GetCandidateCount(topK);
+            if (settings.VectorWeight > 0 && (denseVector == null || denseVector.Length == 0))
+                throw new ArgumentException("A dense vector is required when VectorWeight is greater than zero.", nameof(denseVector));
+            if (settings.VectorWeight < 1 && query == null)
+                throw new ArgumentNullException(nameof(query));
+            cancellationToken.ThrowIfCancellationRequested();
+            var queryFilter = BuildStrictSearchFilter(filter);
+
+            Task<List<VectorSearchResult>> denseTask = Task.FromResult(new List<VectorSearchResult>());
+            Task<List<VectorSearchResult>> sparseTask = Task.FromResult(new List<VectorSearchResult>());
+            var (indices, values) = settings.VectorWeight < 1
+                ? BuildSparseVector(query) : (Array.Empty<uint>(), Array.Empty<float>());
+            if (settings.VectorWeight > 0 || indices.Length > 0)
+                await EnsureCollectionAsync(cancellationToken);
+
+            if (settings.VectorWeight > 0)
+            {
+                var dense = new DenseVector();
+                dense.Data.AddRange(denseVector);
+                denseTask = QueryNamedVectorAsync(new VectorInput { Dense = dense },
+                    QdrantOptions.DenseVectorName, queryFilter, candidates, cancellationToken);
+            }
+            if (settings.VectorWeight < 1 && indices.Length > 0)
+            {
+                var sparse = new SparseVector();
+                sparse.Indices.AddRange(indices);
+                sparse.Values.AddRange(values);
+                sparseTask = QueryNamedVectorAsync(new VectorInput { Sparse = sparse },
+                    QdrantOptions.SparseVectorName, queryFilter, candidates, cancellationToken);
+            }
+
+            await Task.WhenAll(denseTask, sparseTask);
+            cancellationToken.ThrowIfCancellationRequested();
+            return HybridSearchFusion.Merge(await denseTask, await sparseTask, settings, topK, filter?.MinScore);
+        }
+
+        private async Task<List<VectorSearchResult>> QueryNamedVectorAsync(
+            VectorInput vector,
+            string vectorName,
+            Filter filter,
+            int topK,
+            CancellationToken cancellationToken)
+        {
+            var points = await _client.QueryAsync(
+                _options.CollectionName,
+                query: new Query { Nearest = vector },
+                usingVector: vectorName,
+                filter: filter,
+                limit: (ulong)topK,
+                payloadSelector: new WithPayloadSelector { Enable = true },
+                vectorsSelector: new WithVectorsSelector { Enable = true },
+                cancellationToken: cancellationToken);
+            return points.Select(point => new VectorSearchResult(
+                QdrantHelpers.ToVectorRecord(point), point.Score)).ToList();
+        }
+
+        private static Filter BuildStrictSearchFilter(VectorFilter? filter)
+        {
+            var result = new Filter();
+            if (filter != null)
+            {
+                foreach (var condition in filter.Conditions)
+                    result.Must.Add(BuildStrictSearchCondition(condition));
+            }
+            // The schema marker is infrastructure, never a search document.
+            result.MustNot.Add(new Condition
+            {
+                Field = new FieldCondition
+                {
+                    Key = QdrantHelpers.PayloadKeyId,
+                    Match = new Match { Keyword = QdrantHelpers.SchemaMarkerId }
+                }
+            });
+            return result;
+        }
+
+        private static Condition BuildStrictSearchCondition(FilterCondition condition)
+        {
+            if (condition is FilterGroup group)
+            {
+                var nested = new Filter();
+                foreach (var child in group.Conditions)
+                {
+                    var translated = BuildStrictSearchCondition(child);
+                    if (group.Logic == FilterLogic.And) nested.Must.Add(translated);
+                    else nested.Should.Add(translated);
+                }
+                return new Condition { Filter = nested };
+            }
+            if (!(condition is MetadataCondition metadata))
+                throw new NotSupportedException("The metadata filter condition is not supported by Qdrant search.");
+
+            string key = QdrantHelpers.QuotePayloadKey(QdrantHelpers.PayloadMetadataPrefix + metadata.Key);
+            var empty = new Condition { IsEmpty = new IsEmptyCondition { Key = key } };
+            if (metadata.Operator == FilterOperator.NotExists)
+                return empty;
+            if (metadata.Operator == FilterOperator.Exists)
+            {
+                var exists = new Filter();
+                exists.MustNot.Add(empty);
+                return new Condition { Filter = exists };
+            }
+            Condition match;
+            switch (metadata.Operator)
+            {
+                case FilterOperator.Eq:
+                case FilterOperator.Ne:
+                    match = new Condition
+                    {
+                        Field = new FieldCondition { Key = key, Match = new Match { Keyword = metadata.Value! } }
+                    };
+                    break;
+                case FilterOperator.In:
+                case FilterOperator.NotIn:
+                    var any = new Filter();
+                    foreach (var value in metadata.Values!)
+                        any.Should.Add(new Condition
+                        {
+                            Field = new FieldCondition { Key = key, Match = new Match { Keyword = value } }
+                        });
+                    // An empty IN set must match nothing; an empty Qdrant filter matches everything.
+                    if (metadata.Values!.Count == 0)
+                    {
+                        any.Must.Add(empty);
+                        any.MustNot.Add(empty);
+                    }
+                    match = new Condition { Filter = any };
+                    break;
+                default:
+                    throw new NotSupportedException(
+                        $"Metadata operator '{metadata.Operator}' cannot be represented by Qdrant search with string metadata.");
+            }
+            if (metadata.Operator == FilterOperator.Ne || metadata.Operator == FilterOperator.NotIn)
+            {
+                var negated = new Filter();
+                negated.MustNot.Add(empty);
+                negated.MustNot.Add(match);
+                return new Condition { Filter = negated };
+            }
+            return match;
+        }
+
+        #endregion
+
         #region Private Helpers — Search Scoring
 
         private static Fusion MapFusion(QdrantHybridFusionStrategy strategy)
@@ -473,75 +670,13 @@ namespace Mythosia.VectorDb.Qdrant
             {
                 if (condition is MetadataCondition mc)
                 {
-                    var fieldKey = $"{QdrantHelpers.PayloadMetadataPrefix}{mc.Key}";
-                    switch (mc.Operator)
+                    // Keep the legacy operator set while sharing literal-key and missing-key semantics.
+                    if (mc.Operator == FilterOperator.Eq || mc.Operator == FilterOperator.Ne ||
+                        mc.Operator == FilterOperator.In || mc.Operator == FilterOperator.NotIn)
                     {
-                        case FilterOperator.Eq:
-                        {
-                            var cond = new Condition
-                            {
-                                Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = mc.Value! } }
-                            };
-                            if (logic == FilterLogic.And) filter.Must.Add(cond);
-                            else filter.Should.Add(cond);
-                            break;
-                        }
-                        case FilterOperator.Ne:
-                        {
-                            var inner = new Condition
-                            {
-                                Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = mc.Value! } }
-                            };
-                            if (logic == FilterLogic.And)
-                            {
-                                filter.MustNot.Add(inner);
-                            }
-                            else
-                            {
-                                // OR context: wrap NOT condition in a nested filter
-                                var nested = new Filter();
-                                nested.MustNot.Add(inner);
-                                filter.Should.Add(new Condition { Filter = nested });
-                            }
-                            break;
-                        }
-                        case FilterOperator.In:
-                        {
-                            // Express as a nested OR of keyword matches
-                            var nested = new Filter();
-                            foreach (var val in mc.Values!)
-                                nested.Should.Add(new Condition
-                                {
-                                    Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = val } }
-                                });
-                            var cond = new Condition { Filter = nested };
-                            if (logic == FilterLogic.And) filter.Must.Add(cond);
-                            else filter.Should.Add(cond);
-                            break;
-                        }
-                        case FilterOperator.NotIn:
-                        {
-                            // NOT (val IN values) expressed as MustNot { Should [...] }
-                            var shouldFilter = new Filter();
-                            foreach (var val in mc.Values!)
-                                shouldFilter.Should.Add(new Condition
-                                {
-                                    Field = new FieldCondition { Key = fieldKey, Match = new Match { Keyword = val } }
-                                });
-                            if (logic == FilterLogic.And)
-                            {
-                                filter.MustNot.Add(new Condition { Filter = shouldFilter });
-                            }
-                            else
-                            {
-                                var nested = new Filter();
-                                nested.MustNot.Add(new Condition { Filter = shouldFilter });
-                                filter.Should.Add(new Condition { Filter = nested });
-                            }
-                            break;
-                        }
-                        // Gt, Gte, Lt, Lte, Like, Exists, NotExists: not supported by Qdrant filter API
-                        // Skipped here; MatchesFilter handles post-retrieval for GetAsync/GetBatchAsync
+                        var translated = BuildStrictSearchCondition(mc);
+                        if (logic == FilterLogic.And) filter.Must.Add(translated);
+                        else filter.Should.Add(translated);
                     }
                 }
                 else if (condition is FilterGroup group)

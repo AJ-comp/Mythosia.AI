@@ -1,5 +1,7 @@
 # プロバイダー固有設定アーキテクチャ
 
+> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#gpt-6-sol-luna)を参照してください。
+
 回答・使用量・出典をまとめて取得するには、`await run.Result` が返す `AIRunResult` を使用します。文字列は `result.Text` で取得でき、ストリームを読む必要はありません。Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 の API 変更です。`GetCompletionAsync` と `StructuredStreamRun<T>.Result` の戻り値型は維持します。 [Run の結果と移行](../../../../../docs/ja/execution-api-transition.md#run-result).
 
 
@@ -19,7 +21,7 @@
 | **プロバイダー固有** | 各サービスクラス | ThinkingLevel/ThinkingBudget (Gemini), ReasoningEffort (GPT) 等 |
 | **関数ごとの実行許可** | `FunctionDefinition` | `AllowAsync`（既定値 `false`） |
 
-`AllowAsync` は呼び出し側が選ぶ許可であり、モデルと API の対応状況はサービスが内部で判断します。`FunctionBuilder.WithAsync()` と `[AiFunction("lookup", "データを取得", AllowAsync = true)]` でも同じ許可を有効にできます。GPT-6 Astra では Responses で使用し、未対応のモデルでは API オプションを省略して同じハンドラーの結果を待ちます。設定した許可の値は変更しません。
+`AllowAsync` は呼び出し側が選ぶ許可であり、モデルと API の対応状況はサービスが内部で判断します。`FunctionBuilder.WithAsync()` と `[AiFunction("lookup", "データを取得", AllowAsync = true)]` でも同じ許可を有効にできます。GPT-6 Astra / Sol / Luna では Responses で使用し、未対応のモデルでは API オプションを省略して同じハンドラーの結果を待ちます。設定した許可の値は変更しません。
 
 ## 現在の実装: サービスレベル
 
@@ -100,11 +102,53 @@ await File.WriteAllBytesAsync("pavilion" + extension, image.Data);
 
 xAIは新しい共通既定値`ImageOutputFormat.Auto`のみサポートします。出力コーデックを選択できないため、明示的な`Jpeg`、`Png`、`WebP`は送信前に拒否されます。拡張子は`GeneratedImage.MediaType`で決めてください。ライブラリは画像変換を行いません。品質は`ImageQuality.Auto`、`Low`、`Medium`、背景は`ImageBackground.Auto`のみ。圧縮指定と独立した`Mask`は非対応です。
 
-Googleでは`ImageSize.Auto`またはモデルが対応する`ImageResolution.Auto`、`FiveTwelve`、`OneK`、`TwoK`、`FourK`の`Preset`を使用します。出力は`ImageOutputFormat.Auto`または`Jpeg`で、`Png`/`WebP`は拒否されます。GoogleとxAIは`Pixels`を拒否し、OpenAIは`Auto`/`Pixels`を受け付けて`Preset`を拒否します。[移行例](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#image-options-migration)を参照してください。
+Google は `ImageSize.Auto` またはモデル別の解像度・比率の `Preset` を使用します。[Google モデル別の画像オプション](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#google-image-options).出力は`ImageOutputFormat.Auto`または`Jpeg`で、`Png`/`WebP`は拒否されます。GoogleとxAIは`Pixels`を拒否し、OpenAIは`Auto`/`Pixels`を受け付けて`Preset`を拒否します。[移行例](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#image-options-migration)を参照してください。
+
+Google の `Resolutions` と `AspectRatios` は選択した画像モデルに応じて変わり、生成・編集の検証にも適用されます。Flash-Lite の保守的な 1K 方針を含む[モデル別の表](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#google-image-options)を参照してください。非対応の明示的な値は HTTP 前に拒否され、不明な独自モデルは `Unknown` とプロバイダー共通のオプション検証を維持します。
 
 ### DeepSeek Flash
 
 素早い回答の後に詳しく検証したり、グラフやスクリーンショットを説明したりする場合に DeepSeek Flash を使えます。`AIModels.DeepSeek.Flash` (`deepseek-flash`) は、2026年9月10日公開の視覚理解対応 V4.1 Flash を選択します。既存の補完・ストリーミング・Run・関数呼び出し・RAG API を使用し、`Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から利用できます。
+
+> 公開済みの `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 は Flash の基本機能に対応しています。`AIModels.DeepSeek.V4Pro`、`UseResponsesApi`、Files API、`DeepSeekImageFileContent` はソースに追加された未リリース機能であり、対応するコアと抽象化のソースビルドが必要です。これらは上記の公開済みパッケージには含まれません。[未リリースの変更履歴](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased)。
+
+テキスト処理には `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) を選択できます。既定の Flash は画像にも対応し、両モデルで Low/High/Max 推論と同じ出力上限を使えます。既存の補完・ストリーミング・Run・ローカル関数 API で Responses を使う場合は、リクエスト作成前に `UseResponsesApi = true` を設定します。既存アプリの Chat Completions を維持するため既定値は `false` で、設定は後続のツールラウンドまで固定されます。Responses は保存済み応答 ID に依存せず、会話と元の推論履歴をすべて再送します。
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+複数の質問や会話で同じ画像を使う場合は一度アップロードします。`UploadFileAsync` はパス、または呼び出し元所有のストリームとファイル名を受け取り、purpose は `user_data` です。JPEG・PNG・GIF・WebP は最大 64 MiB。`DeepSeekImageFileContent` は両方の通信方式の Flash で画像を参照します。PDF・文書入力ではなく、V4 Pro では拒否されます。期限省略時は永久保存され、`expiresAfterSeconds` は 3600〜2592000 秒です。参照する会話がすべて終了するまでファイルを保持してください。
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+`GetFileAsync` はメタデータ取得、`ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` はページ取得、`DeleteFileAsync` は削除です。`HasMore` が true の間は `LastId` を次の `After` に渡します。`Descending` も使えます。公式文書にはファイル内容のダウンロード用エンドポイントが記載されていません。Chat UI の Flash・V4 Pro と書き換えモデルは現在のカタログに従います。保存済みの旧 UI 名 `DeepSeekChat` のみ Flash に移行し、任意のモデル ID は保持します。
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -133,9 +177,9 @@ string review = (await run.Result).Text;
 
 ライブラリの `ThinkingEnabled` は既定で `false` です。`WithDeepSeekReasoning(...)` は推論を有効にし、継続的な `ReasoningEffort` (`Auto`, `Low`, `High`, `Max`) を設定します。ネイティブの `Auto` は effort を省略し、提供元の既定値 `High` を使います。共通 `WithReasoning(...)` はツールラウンドを含む一つの論理リクエストだけを変更します。`None` は無効化、`Minimal`/`Low` は `Low`、`Medium`/`High`/`XHigh` は `High`、`Max` は `Max` に対応します。共通の `Auto` は設定済みの基本動作を保ちます。推論量を増やすと待ち時間やトークン使用量が増える場合があります。 `ReasoningEffort` プロパティの変更だけでは推論は有効になりません。
 
-`WithFunction(...)` でローカル関数を登録し、アプリのコードからデータ取得や処理を行えます。ツールは推論の有無にかかわらず使えますが、推論中は強制・必須のツール選択を拒否するため自動選択を使ってください。後続ラウンドに備え、ネイティブの `reasoning_content` と呼び出し ID を保持します。Run と既存ストリーミングでは `StreamOptions.WithReasoning()` により `StreamingContentType.Reasoning` を観察できます。この観察設定自体は推論を有効にしません。使用量には提供元が報告したキャッシュ・推論トークンも含まれます。 自動コンテキスト復旧は共通ストリーミングループを使います。ツールに過去のネイティブ推論履歴が必要な場合は、その履歴を保つため自動圧縮を禁止し、超過エラーを返します。
+`WithFunction(...)` でローカル関数を登録し、アプリのコードからデータ取得や処理を行えます。ツールは推論の有無にかかわらず利用できます。Chat Completions では推論中の強制・必須選択が拒否されるため、自動選択を使ってください。`UseResponsesApi = true` では推論中でも `ForceFunctionName` で関数を指定でき、Responses の `tool_choice` の直下に `type` と `name` を送ります。ネイティブ非同期ツールが有効になるわけではありません。後続ラウンドに備え、ネイティブの `reasoning_content` と呼び出し ID を保持します。Run と既存ストリーミングでは `StreamOptions.WithReasoning()` により `StreamingContentType.Reasoning` を観察できます。この観察設定自体は推論を有効にしません。使用量には提供元が報告したキャッシュ・推論トークンも含まれます。 自動コンテキスト復旧は共通ストリーミングループを使います。ツールに過去のネイティブ推論履歴が必要な場合は、その履歴を保つため自動圧縮を禁止し、超過エラーを返します。
 
-提供元の上限はコンテキスト1M、出力384K (`393216`)トークンで、ライブラリの既定予算は8,000です。推論中は temperature・penalty を省略し、`top_p` は0.95以上、非推論では `top_p` を省略します。通信は Chat Completions を使用します。Responses、ホスト型検索、`CachePreservation.Required`、ネイティブ非同期ツール、`SteerAsync` は未対応です。ローカル RAG と通常のツールラウンドは使えます。
+両モデルの上限はコンテキスト 1M、出力 384K (`393216`) トークンで、既定予算は 8,000 です。推論中は temperature・penalty を省略し、`top_p` は 0.95 以上、非推論では `top_p` を省略します。Responses のネイティブ JSON schema は既存の型付き出力 API から利用できます。バックグラウンド実行、サーバー側 `store`/`previous_response_id`、ホスト型検索、`CachePreservation.Required`、ネイティブ非同期ツール、`SteerAsync`、画像生成は未対応です。ローカル RAG と通常のツールラウンドは利用できます。
 
 ### Perplexity Agent API
 

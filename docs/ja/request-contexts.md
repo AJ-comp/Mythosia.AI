@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("返金対象ですか？", cont
 
 ### RequestMessageOverride
 
-このリクエストのユーザーメッセージを完全に置き換えます。元のプロンプトは無視されます:
+`RequestMessageOverride`は、現在の論理リクエストの最初の入力だけをモデルへの送信時に置き換えます。会話履歴には元の入力を残し、同じリクエスト内で後から発生するツール呼び出しと結果は保持します:
 
 ```csharp
 var context = new AIRequestContext

@@ -8,7 +8,8 @@ namespace Mythosia.AI.Rag
     public class RagChunk
     {
         /// <summary>
-        /// Unique identifier for this chunk.
+        /// Nonblank identifier unique across the target store. Include the document identity
+        /// and chunk index when generating IDs. RAG indexing does not generate or rewrite this value.
         /// </summary>
         public string Id { get; set; } = string.Empty;
 

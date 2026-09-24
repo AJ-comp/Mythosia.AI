@@ -1,6 +1,8 @@
 # Query Rewriting
 
-> 📍 **Question Answering Pipeline:** **`Query Rewriting`** → Embedding → Filtering → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Context Build
+> 📍 **Question Answering Pipeline:** **`Query Rewriting`** → Filtering → Embedding (when needed) → [Retrieval](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Context Build
+
+The query’s `Embedding` stage now depends on the retriever; keyword retrieval does not report it. Custom retrievers can report relevant stages through `request.ProgressAsync`. Document embeddings are unchanged.
 
 ## Why Query Rewriting?
 
@@ -44,6 +46,12 @@ var result = await store.QueryAsync(
 ```
 
 The rewriter sees the full history and rewrites "Are there any exceptions to that?" into something like "exceptions to the digital product non-refundable policy", producing far better retrieval results.
+
+<a id="runtime-query-rewriter"></a>
+
+## Change rewriting while serving queries
+
+To temporarily disable rewriting or replace its implementation without rebuilding the index, use `store.SetQueryRewriter(null)` or `store.SetQueryRewriter(rewriter)`. When you call `RagStore.QueryAsync` directly through the overload accepting `conversationHistory`, it captures the selected rewriter as the query begins. That query keeps the same instance even if rewriting is disabled or replaced while progress reporting or rewriting is awaiting; later queries use the new setting. This behavior applies to direct store queries and does not update a rewriter already captured by a `RagEnabledService` wrapper.
 
 ## How the Search Gate Works
 

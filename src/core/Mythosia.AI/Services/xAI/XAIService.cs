@@ -22,7 +22,7 @@ namespace Mythosia.AI.Services.xAI
         /// <summary>
         /// Reasoning effort for configurable Grok models. Auto leaves the provider default intact.
         /// Grok 4.3 accepts None, Low, Medium, and High; Grok 4.5 accepts Low, Medium, and High.
-        /// Grok 4.6 also accepts XHigh and defaults to High when Auto is selected.
+        /// Grok 4.6 and 4.7 also accept XHigh and default to High when Auto is selected.
         /// </summary>
         public GrokReasoning ReasoningEffort { get; set; } = GrokReasoning.Auto;
 
@@ -34,9 +34,9 @@ namespace Mythosia.AI.Services.xAI
 
         protected override uint GetModelMaxOutputTokens()
         {
-            // Grok 4.6 shares its 500,000-token context between input and output.
+            // Grok 4.6 and 4.7 share their 500,000-token context between input and output.
             // The server validates the remaining budget for each actual request.
-            if (GetModelFamily() == GrokModelFamily.Grok4_6) return 500000;
+            if (IsGrok46Or47(GetModelFamily())) return 500000;
             var model = RequestModel?.ToLower() ?? "";
             if (model.Contains("grok-4")) return 131072;
             if (model.Contains("grok-3")) return 131072;
@@ -125,8 +125,10 @@ namespace Mythosia.AI.Services.xAI
                 ? CreateFunctionMessageRequest()
                 : CreateMessageRequest();
 
+            var processing = BeginProcessingObservation();
             using var response = await HttpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             var responseContent = await ReadCompletionResponseBodyAsync(response, cancellationToken);
+            CaptureProcessing(processing, responseContent);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -270,7 +272,7 @@ namespace Mythosia.AI.Services.xAI
         }
 
         /// <summary>
-        /// Switches to Grok 4.5 for compatibility. To use Grok 4.6, select AIModels.xAI.Grok4_6.
+        /// Switches to Grok 4.5 for compatibility. To use Grok 4.7, select AIModels.xAI.Grok4_7.
         /// </summary>
         public XAIService UseGrok4Model()
         {

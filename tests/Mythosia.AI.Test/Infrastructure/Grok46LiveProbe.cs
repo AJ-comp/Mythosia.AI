@@ -14,13 +14,17 @@ internal sealed class Grok46LiveProbe : IDisposable
 {
     private readonly CaptureHandler _handler = new();
     private readonly HttpClient _http;
+    private readonly string _model;
+    private readonly string _logPrefix;
     public XAIService Service { get; }
     public IReadOnlyList<RequestRecord> Requests => _handler.Requests;
 
-    private Grok46LiveProbe(string key)
+    private Grok46LiveProbe(string key, string model)
     {
+        _model = model;
+        _logPrefix = model == "grok-4.7" ? "LIVE_GROK47" : "LIVE_GROK46";
         _http = new HttpClient(_handler) { Timeout = TimeSpan.FromMinutes(4) };
-        Service = new XAIService(key, AIModels.xAI.Grok4_6, _http)
+        Service = new XAIService(key, model, _http)
         {
             MaxTokens = 4096,
             StructuredOutputMaxRetries = 0
@@ -30,7 +34,8 @@ internal sealed class Grok46LiveProbe : IDisposable
         Service.ActivateChat.SystemMessage = "Follow the task precisely. Keep final answers concise.";
     }
 
-    public static async Task<Grok46LiveProbe> CreateAsync() => new(await LiveTestSecrets.GetAsync("xai-secret"));
+    public static async Task<Grok46LiveProbe> CreateAsync(string model = AIModels.xAI.Grok4_6)
+        => new(await LiveTestSecrets.GetAsync("xai-secret"), model);
 
     public async Task<ObservedAnswer> ExecuteAsync(string prompt, Grok46ExecutionMode mode)
     {
@@ -70,7 +75,7 @@ internal sealed class Grok46LiveProbe : IDisposable
         var publicReasoning = string.Concat(events.Where(item => item.Type == StreamingContentType.Reasoning).Select(item => item.Content));
         Assert.AreEqual(providerReasoning, publicReasoning,
             "Every reasoning delta actually emitted by xAI must reach the requested public event stream.");
-        Console.WriteLine($"LIVE_GROK46_EVENTS mode={mode} reasoning={events.Count(item => item.Type == StreamingContentType.Reasoning)}");
+        Console.WriteLine($"{_logPrefix}_EVENTS mode={mode} reasoning={events.Count(item => item.Type == StreamingContentType.Reasoning)}");
         return new(text.ToString(), events);
     }
 
@@ -85,7 +90,7 @@ internal sealed class Grok46LiveProbe : IDisposable
             Assert.AreEqual("/v1/chat/completions", request.Path);
             Assert.IsTrue(request.HasBearerAuthentication);
             Assert.IsFalse(request.HasQueryAuthentication);
-            Assert.AreEqual(AIModels.xAI.Grok4_6, request.Body["model"]?.GetValue<string>());
+            Assert.AreEqual(_model, request.Body["model"]?.GetValue<string>());
             Assert.AreEqual(200, request.StatusCode, "Every real request must succeed without model substitution or hidden retries.");
             if (streaming.HasValue) Assert.AreEqual(streaming.Value, request.Streaming);
             Assert.AreEqual(queryRewriteFirst && index == 0 ? 1024 : 4096, request.Body["max_tokens"]?.GetValue<int>(),
@@ -110,12 +115,13 @@ internal sealed class Grok46LiveProbe : IDisposable
         for (var index = 0; index < Requests.Count; index++)
         {
             var request = Requests[index];
-            Console.WriteLine("LIVE_GROK46_REQUEST " + JsonSerializer.Serialize(new
+            Console.WriteLine(_logPrefix + "_REQUEST " + JsonSerializer.Serialize(new
             {
                 index, model = request.Body["model"]?.GetValue<string>(), request.StatusCode, request.Streaming,
                 maxTokens = request.Body["max_tokens"]?.GetValue<int>(),
                 topP = request.Body["top_p"]?.GetValue<float>(),
                 reasoningEffort = request.Body["reasoning_effort"]?.GetValue<string>(),
+                serviceTier = request.Body["service_tier"]?.GetValue<string>(),
                 responseFormat = request.Body["response_format"]?["type"]?.GetValue<string>(),
                 nativeCallIds = request.NativeCallIds().Count,
                 reasoningParts = request.Choices().Count(choice =>

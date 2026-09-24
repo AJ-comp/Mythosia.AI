@@ -1,5 +1,7 @@
 # Giữ cấu hình của từng yêu cầu độc lập
 
+> Grok 4.7 là phần bổ sung chưa phát hành; xem [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47).
+
 Bản tóm tắt có thể cần nhiệt độ thấp, còn bản nháp sáng tạo cần giá trị cao hơn. Chuẩn bị bản nháp không được làm đổi cấu hình của yêu cầu tóm tắt đã chuẩn bị. Dùng `CreateRequest` để đặt cấu hình riêng cho từng lần gọi hoặc tạo nhiều biến thể từ một yêu cầu cơ sở.
 
 Để nhận câu trả lời, mức sử dụng và nguồn cùng lúc, dùng bản chụp `AIRunResult` do `await run.Result` trả về. Chuỗi ở `result.Text`; không cần đọc luồng. Đây là thay đổi của Mythosia.AI 8.0.0; kiểu trả về của `GetCompletionAsync` và `StructuredStreamRun<T>.Result` giữ nguyên. [Kết quả Run và chuyển đổi](execution-api-transition.md#run-result).
@@ -110,3 +112,82 @@ Builder không phải hội thoại riêng. Nó dùng hội thoại đang hoạt
 `GetCompletionAsync` và các điểm gọi hiện có vẫn được hỗ trợ. `BeginMessage()` / `MessageChain` giữ cách tạo tin nhắn có thể thay đổi, nhưng thực thi qua luồng yêu cầu mới. Dùng `CreateRequest` để phân nhánh cấu hình. API thuộc `AIService` và các triển khai nhà cung cấp; không thêm thành viên bắt buộc vào `IAIService`. Mã chỉ dùng interface trừu tượng hoặc wrapper RAG tiếp tục dùng API profile, ngữ cảnh và thực thi hiện có.
 
 [Tạo tùy chọn mô hình bằng định nghĩa hỗ trợ dùng chung](model-capabilities.md).
+
+<a id="inference-speed"></a>
+
+## Chọn tốc độ xử lý theo tác vụ
+
+Yêu cầu có người dùng đang chờ có thể cần xử lý trả phí với độ trễ thấp; báo cáo nền có thể dùng xử lý thường. `WithSpeed` chọn chế độ nhưng giữ nguyên mô hình và mức suy luận. Đây là chức năng chưa phát hành, cần các thay đổi core và abstractions tương ứng; gói 8.0.0 / 4.0.0 đã công bố chưa có.
+
+`ProviderDefault` không ghi đè mà giữ thiết lập dịch vụ/nhà cung cấp; mặc định dự án có thể đã là Fast. `Standard` yêu cầu xử lý thường một cách rõ ràng. `Fast` yêu cầu chế độ trả phí độ trễ thấp và có thể tăng chi phí. Giữ builder trả về: ba nhánh độc lập, yêu cầu gốc không đổi.
+
+```csharp
+using Mythosia.AI.Models;
+
+var basis = service.CreateRequest("Explain this report.");
+var providerDefault = basis.WithSpeed(InferenceSpeed.ProviderDefault);
+var standard = basis.WithSpeed(InferenceSpeed.Standard);
+var fast = basis.WithSpeed(InferenceSpeed.Fast);
+```
+
+Kiểm tra `GetSpeedSupport(InferenceSpeed.Fast)` trước khi hiển thị lựa chọn. `StandardSpeed` và `FastSpeed` cũng phân biệt Supported, Unsupported, Unknown. Supported cục bộ không xác minh quyền tài khoản, năng lực máy chủ hay độ trễ. Standard/Fast được yêu cầu rõ nhưng không hỗ trợ hoặc chưa biết sẽ thất bại, không âm thầm đổi mô hình hay mức suy luận. Dùng `ProviderDefault` để giữ đường gọi cũ.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
+
+var request = service.CreateRequest("Explain this report.")
+    .WithSpeed(InferenceSpeed.Fast);
+if (request.GetCapabilities().GetSpeedSupport(InferenceSpeed.Fast)
+    != CapabilitySupport.Supported)
+    throw new NotSupportedException("Fast processing is not supported here.");
+
+await using var run = await request.StartRunAsync();
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (AIProcessingInfo processing in result.Processing)
+{
+    Console.WriteLine($"{processing.RequestIndex}: {processing.RequestedSpeed} -> " +
+        $"{processing.AppliedSpeed?.ToString() ?? "unknown"}; " +
+        $"raw={processing.RawAppliedMode}; response={processing.ResponseId}; " +
+        $"downgraded={processing.IsDowngraded}");
+}
+```
+
+`AIRunResult.Processing` giữ `AIProcessingInfo` bất biến ngay cả khi không đọc luồng. `RequestIndex` bắt đầu từ 1, chỉ lần thử suy luận của nhà cung cấp, gồm cả continuation máy chủ, không phải số vòng công cụ hay số yêu cầu HTTP; lời gọi tiếp theo, thử lại và sửa định dạng có thể thêm bản ghi. `AppliedSpeed` là null nếu máy chủ không báo chế độ nhận diện được, kể cả lần thử lỗi. `RawAppliedMode` và `ResponseId` giữ giá trị được báo. `IsDowngraded` chỉ true khi yêu cầu Fast và được báo Standard rõ ràng; false không xác nhận đã dùng Fast.
+
+Sau completion thông thường, đọc ngay `AIService.LastProcessing`; yêu cầu logic sau sẽ thay thế khung nhìn này. Bản ghi đã lấy vẫn bất biến. Phương thức mở rộng dịch vụ áp dụng cho yêu cầu logic kế tiếp và các vòng công cụ, không đặt mặc định vĩnh viễn. Tóm tắt phụ trợ, viết lại truy vấn nội bộ và profile nội bộ không kế thừa ghi đè tốc độ hay trộn quan sát vào yêu cầu chính.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+
+string answer = await service
+    .WithSpeed(InferenceSpeed.Standard)
+    .GetCompletionAsync("Explain this report.");
+var processing = service.LastProcessing;
+```
+
+Các giá trị mô tả chế độ của nhà cung cấp, không phải số token mỗi giây đo được. OpenAI, xAI, Google có thể hạ cấp ở máy chủ; Mythosia không tự thử lại với tốc độ khác. Anthropic fast mode cần quyền trên Claude API trực tiếp; đổi tốc độ có thể vô hiệu hóa cache prompt. Gemini Developer API priority cần Tier 2/3. Kiểm tra riêng mô hình, API, quyền và giá. Tùy chọn này không cấu hình tạo ảnh, embedding hay Batch API gốc. [OpenAI](https://developers.openai.com/api/docs/guides/fast-mode) · [Anthropic](https://platform.claude.com/docs/en/build-with-claude/fast-mode) · [xAI](https://docs.x.ai/developers/advanced-api-usage/priority-processing) · [Gemini](https://ai.google.dev/gemini-api/docs/generate-content/priority-inference)
+
+Khi giữ tham chiếu `IAIService`, dùng `GetLastProcessing()` trong `Mythosia.AI.Extensions`. Nó đọc `IAIProcessingInfoService` tùy chọn và trả danh sách rỗng nếu không có chẩn đoán. `IAIService` không thêm thành viên bắt buộc. Với RAG, `RagEnabledService.WithSpeed(...)` cấu hình câu trả lời kế tiếp sau truy xuất; `LastProcessing` mô tả câu trả lời đó. Viết lại truy vấn nội bộ được tách riêng và Run trả cùng các bản ghi `Processing`.
+
+Danh sách Fast được triển khai nằm dưới đây. Kiểm tra Standard riêng bằng `GetSpeedSupport(InferenceSpeed.Standard)`. Mô hình ngoài danh sách, endpoint bên thứ ba và nhà cung cấp tương thích OpenAI không tự kế thừa chế độ trả phí.
+
+| API | Fast |
+| --- | --- |
+| Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
+| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
+| xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
+| Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |
+
+| API | `Standard` | `Fast` | `RawAppliedMode` |
+| --- | --- | --- | --- |
+| Anthropic — Opus 4.8 / 5 / 5.5 | `speed: "standard"` + `fast-mode-2026-02-01` | `speed: "fast"` + `fast-mode-2026-02-01` | `usage.speed` |
+| Anthropic — các mô hình Claude đã biết khác, gồm Sonnet 5 | bỏ `speed` và beta fast-mode | `Unsupported` | `usage.speed` |
+| OpenAI | `service_tier: "default"` | `service_tier: "fast"` | `service_tier` (`fast` / `priority` → Fast) |
+| xAI | `service_tier: "default"` | `service_tier: "priority"` | `service_tier` |
+| Google | `serviceTier: "standard"` | `serviceTier: "priority"` | `x-gemini-service-tier` / `usageMetadata.serviceTier` |
+
+Với các mô hình Claude còn lại này, Standard dùng yêu cầu thường hiện có. Nếu máy chủ không báo siêu dữ liệu xử lý, `AppliedSpeed` vẫn là null; thư viện không suy ra Standard từ giá trị yêu cầu.

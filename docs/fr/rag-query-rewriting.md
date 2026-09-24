@@ -1,6 +1,8 @@
 # Réécriture de requête
 
-> 📍 **Pipeline questions-réponses :** **`Réécriture de requête`** → Embedding → Filtrage → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Construction du contexte
+> 📍 **Pipeline questions-réponses :** **`Réécriture de requête`** → Filtrage → Embedding (si nécessaire) → [Recherche](rag-hybrid-search.md) → [Re-ranking](rag-reranking.md) → Construction du contexte
+
+L’étape de requête `Embedding` dépend désormais du moteur ; la recherche lexicale ne la signale pas. Un moteur personnalisé peut signaler ses étapes via `request.ProgressAsync`. Les embeddings des documents ne changent pas.
 
 ## Pourquoi réécrire les requêtes ?
 
@@ -44,6 +46,12 @@ var result = await store.QueryAsync(
 ```
 
 Le réécriveur voit l'historique complet et reformule « Y a-t-il des exceptions à ça ? » en quelque chose comme « exceptions à la politique de non-remboursement des produits numériques », produisant des résultats de récupération bien meilleurs.
+
+<a id="runtime-query-rewriter"></a>
+
+## Modifier la réécriture pendant le traitement des requêtes
+
+Pour désactiver temporairement la réécriture ou changer son implémentation sans reconstruire l’index, utilisez `store.SetQueryRewriter(null)` ou `store.SetQueryRewriter(rewriter)`. Un appel direct à la surcharge de `RagStore.QueryAsync` acceptant `conversationHistory` conserve le réécrivain sélectionné au début de la requête. Même si la configuration change pendant l’attente d’une notification de progression ou de la réécriture, cette requête continue d’utiliser la même instance ; les suivantes utilisent le nouveau réglage. Ce comportement concerne les appels directs au stockage et ne met pas à jour un réécrivain déjà conservé par un wrapper `RagEnabledService`.
 
 ## Fonctionnement du filtre de recherche
 

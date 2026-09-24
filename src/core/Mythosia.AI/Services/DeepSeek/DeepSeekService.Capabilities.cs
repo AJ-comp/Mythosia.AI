@@ -23,7 +23,8 @@ namespace Mythosia.AI.Services.DeepSeek
         protected override AIModelCapabilities ResolveRequestCapabilities()
         {
             // Retired aliases and arbitrary deployment names do not establish remote capabilities.
-            var known = string.Equals(RequestModel, AIModels.DeepSeek.Flash, StringComparison.OrdinalIgnoreCase);
+            var isPro = string.Equals(RequestModel, AIModels.DeepSeek.V4Pro, StringComparison.OrdinalIgnoreCase);
+            var known = isPro || string.Equals(RequestModel, AIModels.DeepSeek.Flash, StringComparison.OrdinalIgnoreCase);
             var support = known ? CapabilitySupport.Supported : CapabilitySupport.Unknown;
             var thinking = IsEffectiveDeepSeekThinkingEnabled(CurrentRequestFeatures);
             return new AIModelCapabilities(
@@ -35,8 +36,7 @@ namespace Mythosia.AI.Services.DeepSeek
                 nativeReasoningLevels: known ? new[] { ReasoningLevel.Auto, ReasoningLevel.Low, ReasoningLevel.High, ReasoningLevel.Max } : Array.Empty<ReasoningLevel>(),
                 thinkingToggle: support, webSearch: CapabilitySupport.Unsupported, fileSearch: CapabilitySupport.Unsupported,
                 reasoningCachePreservation: CapabilitySupport.Unsupported,
-                imageInput: string.Equals(RequestModel, "deepseek-v4-pro", StringComparison.OrdinalIgnoreCase)
-                    ? CapabilitySupport.Unsupported : support,
+                imageInput: isPro ? CapabilitySupport.Unsupported : support,
                 structuredOutput: support, temperature: thinking ? CapabilitySupport.Unsupported : support,
                 topP: thinking ? support : CapabilitySupport.Unsupported,
                 frequencyPenalty: CapabilitySupport.Unsupported, presencePenalty: CapabilitySupport.Unsupported,

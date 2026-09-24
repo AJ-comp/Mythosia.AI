@@ -3,6 +3,8 @@
 > Los ejemplos con `CreateRequest` requieren Mythosia.AI 8.0.0 / Abstractions 4.0.0. La versión 7.1 que introdujo Run y las opciones comunes no incluye el builder. Los paquetes anteriores pueden usar las sobrecargas del servicio.
 
 <a id="image-options-migration"></a>
+Los modos y metadatos dependen del proveedor, modelo y API. Revise la [opción común de velocidad](request-building.md#inference-speed) y las capabilities; solicitar Fast no confirma que se haya aplicado.
+
 ## Migración a opciones de imagen tipadas
 
 Elige calidad y formato con enums y autocompletado, y distingue píxeles exactos de niveles de resolución. Así se evitan errores de escritura y conversiones silenciosas a otro tamaño.
@@ -71,11 +73,45 @@ Para evitar guardar una salida interrumpida como imagen terminada, la generació
 
 Una consulta lenta no tiene por qué detener toda la respuesta. Mientras se cargan los datos del tiempo, por ejemplo, el modelo puede explicar consejos generales de viaje que no dependen del resultado.
 
-`FunctionDefinition.AllowAsync = true` o `FunctionBuilder.WithAsync()` permite habilitar llamadas asíncronas para GPT-6 Astra mediante Responses. El valor predeterminado es `false`; los modelos no compatibles esperan el resultado del mismo manejador. Consulta ejemplos y el ciclo de vida de la solicitud en la [guía de llamadas a funciones](function-calling.md).
+`FunctionDefinition.AllowAsync = true` o `FunctionBuilder.WithAsync()` permite habilitar llamadas asíncronas para GPT-6 Astra / Sol / Luna mediante Responses. El valor predeterminado es `false`; los modelos no compatibles esperan el resultado del mismo manejador. Consulta ejemplos y el ciclo de vida de la solicitud en la [guía de llamadas a funciones](function-calling.md).
+
+<a id="gpt-6-sol-luna"></a>
+
+### GPT-6 Sol / Luna (sin publicar)
+
+Elige GPT-6 Sol para programación compleja, herramientas y tareas de agentes, o Luna para procesar grandes volúmenes de texto o imágenes con menor coste. Ambos usan las API existentes de respuesta completa, streaming y Run; cambiar de modelo no cambia el flujo de la aplicación.
+
+> Esta incorporación aún no está publicada y requiere compilaciones compatibles de core y abstractions. Mythosia.AI 8.0.0 / Abstractions 4.0.0 publicados no contienen `Gpt6Sol`, `Gpt6Luna` ni `Gpt6Reasoning.None`. Se conservan las versiones mínimas de Astra y el modelo predeterminado del servicio.
+
+Usa `AIModels.OpenAI.Gpt6Sol` (`gpt-6-sol`) o `AIModels.OpenAI.Gpt6Luna` (`gpt-6-luna`). Ambos admiten texto e imágenes de entrada y generan texto, con contexto de 1.050.000 tokens, entrada máxima de 922.000 y salida máxima de 128.000. La suma de entrada, razonamiento y salida debe respetar el contexto. `MaxTokens` configura el presupuesto de salida solicitado, no el tamaño del contexto.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6Sol);
+await using var run = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(onText: text => Console.Write(text));
+var result = await run.Result;
+
+service.ChangeModel(AIModels.OpenAI.Gpt6Luna);
+string answer = await service.CreateRequest("Summarize this paragraph.")
+    .WithReasoning(ReasoningLevel.None)
+    .WithTemperature(0.2f)
+    .GetCompletionAsync();
+```
+
+`Auto` equivale a `Medium`. Sol/Luna admiten `None`, `Low`, `Medium`, `High`, `XHigh` y `Max`; no admiten `Minimal`. Usa `WithReasoning(ReasoningLevel.None)` por solicitud o `Gpt6Reasoning.None` en `WithGpt6Parameters`. Solo Sol/Luna con `None` envían `Temperature` / `TopP`; se omiten con razonamiento activo. Astra siempre requiere razonamiento y omite el muestreo. `AIRequestProfile.DisableReasoning` selecciona `None` para Sol/Luna y `Low` en modo Standard para Astra, omitiendo los resúmenes del razonamiento.
+
+`Gpt6ReasoningMode.Standard` y `.Pro` conservan el mismo ID de modelo. Los tres GPT-6 admiten herramientas mediante Responses, herramientas asíncronas opcionales, instrucciones durante un Run WebSocket y cambios de razonamiento que conservan la caché en modo Standard de un solo agente. Comprueba `run.CanSteer`; aceptar la instrucción no retira la salida anterior. `WithSpeed(InferenceSpeed.Fast)` solicita procesamiento Fast de pago sin cambiar el esfuerzo de razonamiento. Comprueba el modo aplicado en `result.Processing`; los permisos de cuenta y las reducciones de nivel del servidor son independientes del soporte local.
+
+[GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol) · [GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna) · [Reasoning](https://developers.openai.com/api/docs/guides/reasoning) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
 
 ### Nivel de Esfuerzo de Reasoning
 
-GPT-6 Astra y GPT-5.1–5.6 permiten ajustar el esfuerzo de razonamiento para equilibrar velocidad y profundidad:
+GPT-6 Astra / Sol / Luna y GPT-5.1–5.6 permiten ajustar el esfuerzo de razonamiento para equilibrar velocidad y profundidad:
 
 ```csharp
 using Mythosia.AI.Models;
@@ -200,6 +236,52 @@ Consulta la [guía oficial de imágenes](https://developers.openai.com/api/docs/
 
 [Claude Fable 5.1](fable-5-1.md) añade actualizaciones de progreso, instrucciones por turno y diagnósticos de vinculación del pensamiento desde `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requiere invitación. Ambos rechazan la selección forzada de herramientas.
 
+<a id="claude-opus-55"></a>
+
+### Claude Opus 5.5: mostrar el progreso de tareas largas con herramientas
+
+Use Opus 5.5 para revisar código o investigar documentos con varias rondas de herramientas. Se mantienen las API de completion y Run, pero el progreso se oculta por defecto y conservar el razonamiento exige cuidar el historial. Esta incorporación aún no está publicada ni incluida en los paquetes publicados 8.0.0 / 4.0.0.
+
+`ClaudeOpus5_5` selecciona `claude-opus-5-5`: entrada de texto/imágenes, salida de texto, contexto de 1M y salida máxima de 128K tokens. A fecha 2026-09-24, los precios estándar de entrada/salida son $4/$20 por millón de tokens; los modos especiales y las herramientas tienen tarifas propias. [Información oficial](https://platform.claude.com/docs/en/models/opus-5-5/overview).
+
+Sin modificar el servicio, `Auto` usa esfuerzo `Medium` y omite el razonamiento legible. El razonamiento adaptativo siempre está activo. Elija `Low`, `Medium`, `High`, `XHigh` o `Max`; se rechazan los valores comunes `ReasoningLevel.None` y `Minimal`. El modelo predeterminado del servicio no cambia.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeOpus5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.Medium, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.StartRunAsync(
+    "Review the migration plan using the registered tools.",
+    options: StreamOptions.FullOptions);
+
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+El ejemplo solicita `Updates` y observa `StreamingContentType.Reasoning`. Use `Summarized` para resúmenes de razonamiento u `Omitted` para ocultarlos. El argumento de visualización de `WithAdaptiveThinkingParameters(effort)` sigue siendo `Summarized` por defecto, distinto del servicio sin configurar. Tras una completion normal, lea `LastThinkingContent`. No se garantizan intervalos regulares de progreso.
+
+Un `ThinkingBudget` antiguo positivo se convierte en esfuerzo high/xhigh/max, no en un presupuesto exacto de tokens. Cero o valores negativos no desactivan el razonamiento. Un perfil que lo desactiva usa esfuerzo bajo y oculta su texto. `MaxTokens` incluye razonamiento oculto y respuesta; vuelva a evaluar límites y coste al migrar.
+
+Mythosia conserva los bloques thinking firmados, incluso vacíos, entre turnos y resultados de herramientas. Continúe con el mismo servicio y chat; no reescriba mensajes anteriores, sistema o herramientas si espera conservar el razonamiento. `WithTurnInstruction`, `WithConversationInstruction` y `CachePreservation.Required` usan los controles existentes. `WithThinkingBinding` elige `Error` o `DropBlock`; `LastInputTransformations` informa de descartes. Drop descarta el razonamiento. La [guía del historial](fable-5-1.md) explica estos controles comunes; los valores por defecto y compatibilidad son los de Opus 5.5.
+
+Deje `ForceFunctionName` sin asignar; se admiten la selección normal de herramientas y `FunctionsDisabled`. Se rechaza el prefill del asistente y se omiten parámetros de sampling. Opus 5.5 no lee thinking de Fable/Mythos; en Claude API, Fable 5.1 y Mythos 5.1 sí leen el de Opus 5.5. Cambiar de modelo puede perder razonamiento anterior. Esta incorporación no expone computer toolset nativo, task budgets, cambios de herramientas en la conversación, compactación nativa ni fallback automático del servidor. [Requisitos de migración](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide) · [Funciones nativas](https://platform.claude.com/docs/en/models/opus-5-5/whats-new-opus-5-5).
+
+En Opus 5.5, editar directamente el contenido de una respuesta assistant guardada produce `InvalidOperationException` antes de HTTP; `DropBlock` tampoco permite reescribir una respuesta firmada. Envíe la corrección como una nueva entrada del usuario o inicie otra conversación. Las modificaciones de contenido user/system anterior siguen la política de vinculación del prefijo del proveedor.
+
+Opus 5.5 fast mode está disponible con [WithSpeed](request-building.md#inference-speed) en Claude API directa con los permisos necesarios. Conserva el esfuerzo seleccionado y solicita tarifa premium.
+
 ### Conteo de Tokens (API Nativa)
 
 La implementación de Anthropic llama al endpoint oficial `messages/count_tokens`, devolviendo conteos **exactos** de tokens:
@@ -236,9 +318,61 @@ string review = await gemini
 
 Usa `Low` para una primera revisión ligera y `High` para un análisis exigente; más razonamiento puede aumentar la latencia y los tokens. Ambos modelos aceptan `Low`, `Medium` y `High`, pero no `Minimal` ni `None`. `GeminiThinkingLevel.Auto` omite la configuración; el valor del proveedor para 3.8 es `Medium`. `ThinkingLevel` establece la base del servicio y `WithReasoning(...)` la sustituye para una solicitud lógica. El adaptador omite `temperature`, `topP` y `topK` en ambos modelos. Los límites del proveedor son 1.048.576 tokens de entrada y 65.536 de salida. [Gemini 3.7 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.7-flash), [Gemini 3.8 Flash](https://ai.google.dev/gemini-api/docs/models/gemini-3.8-flash).
 
+<a id="google-image-options"></a>
+
+### Resoluciones y proporciones por modelo de imagen de Google
+
+| Modelo | `Resolutions` | `AspectRatios` |
+| --- | --- | --- |
+| `gemini-3.1-flash-image` | `Auto`, `FiveTwelve` (512), `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 14 + `Auto` |
+| `gemini-3.1-flash-lite-image` | `Auto`, `OneK` (1K) | 14 + `Auto` |
+| `gemini-3-pro-image` | `Auto`, `OneK` (1K), `TwoK` (2K), `FourK` (4K) | 10 + `Auto` |
+
+Las 10 proporciones estándar son `1:1`, `2:3`, `3:2`, `3:4`, `4:3`, `4:5`, `5:4`, `9:16`, `16:9`, `21:9`. El conjunto de 14 añade `1:4`, `4:1`, `1:8`, `8:1`. Todos los modelos admiten también `ImageAspectRatio.Auto`.
+
+Usa `ImageSize.Auto` o `ImageSize.Preset(resolution, aspectRatio)`. `Auto` omite el selector correspondiente. `GetImageCapabilities(model)` y `GenerateImagesAsync` / `EditImagesAsync` usan las mismas opciones por modelo. Los valores explícitos no admitidos lanzan `NotSupportedException` antes de HTTP; no se redimensiona ni se envía una solicitud alternativa. Los ID de modelos personalizados desconocidos conservan `Unknown` y se transmiten sin cambios tras validar las opciones generales del proveedor.
+
+Para Flash-Lite, la [página del modelo](https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite-image) y el texto de la guía indican 1K, pero la [tabla](https://ai.google.dev/gemini-api/docs/generate-content/image-generation#aspect_ratios_and_image_size) también incluye una columna de 512. Hasta verificar esta discrepancia, la biblioteca solo permite 1K por precaución; esto no afirma que se haya observado un rechazo de 512 por el servidor.
+
 ---
 
 ## xAI (XAIService)
+
+<a id="grok-47"></a>
+
+### Grok 4.7
+
+Para pasar de un borrador rápido a una revisión exigente de código o documentos, selecciona Grok 4.7 y ajusta el esfuerzo por solicitud. Se mantienen las API de respuesta, streaming, Run, herramientas locales, salida estructurada e imágenes de entrada. `grok-4.7` recibe texto e imágenes, devuelve texto y tiene una ventana de contexto de 500.000 tokens. Requiere compilaciones no publicadas compatibles de core y abstractions; los paquetes publicados 8.0.0 / 4.0.0 no lo incluyen. Grok 4.5 sigue siendo el modelo predeterminado.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.xAI;
+
+var grok = new XAIService(apiKey, httpClient);
+grok.ChangeModel(AIModels.xAI.Grok4_7);
+grok.WithGrokReasoning(GrokReasoning.Low);
+
+var request = grok.CreateRequest("Review this deployment plan and its rollback risks.")
+    .WithReasoning(ReasoningLevel.XHigh)
+    .WithSpeed(InferenceSpeed.Fast);
+
+await using var run = await request.StartRunAsync();
+await foreach (var content in run.StreamAsync())
+    Console.Write(content.Content);
+var result = await run.Result;
+Console.WriteLine(result.Text);
+foreach (var processing in result.Processing)
+    Console.WriteLine(processing.AppliedSpeed);
+```
+
+Admite `Low`, `Medium`, `High` y `XHigh`. El ajuste nativo `GrokReasoning.Auto` omite `reasoning_effort` y usa el valor predeterminado `High` del proveedor; el común `ReasoningLevel.Auto` también omite el campo y usa el valor predeterminado `High` del proveedor para esa solicitud. `None`, `Minimal` y `Max` se rechazan antes del envío. `WithReasoning(...)` se aplica a la solicitud lógica, incluidas las rondas de herramientas y las correcciones de salida estructurada; `WithGrokReasoning(...)` establece la base del servicio. El perfil interno `DisableReasoning` usa `Low`. Los resúmenes opcionales no son el razonamiento interno completo.
+
+`WithSpeed(InferenceSpeed.Standard)` envía `service_tier: "default"`; `Fast` envía `"priority"` en los endpoints xAI compatibles y puede costar más. `ProviderDefault` no sobrescribe nada. Consulta el nivel declarado en `result.Processing`, pues el servidor puede reducirlo al procesamiento ordinario. Es procesamiento prioritario de `grok-4.7`, no la variante «Grok 4.7 Fast» exclusiva de Cursor/Grok Build, que no tiene ID de modelo de API pública.
+
+`GetCapabilities()` describe localmente la solicitud seleccionada, sin comprobar los permisos de la cuenta. Esta integración usa Chat Completions. No conecta el razonamiento cifrado exclusivo de Responses, búsqueda web/X alojada, herramientas asíncronas nativas, cambios que conservan la caché ni `SteerAsync`. Las funciones del cliente usan el bucle local existente; `run.CanSteer` es false.
+
+[Grok 4.7](https://docs.x.ai/developers/grok-4-7) · [reasoning_effort](https://docs.x.ai/developers/model-capabilities/text/reasoning) · [Priority Processing](https://docs.x.ai/developers/advanced-api-usage/priority-processing)
 
 ### Elegir el esfuerzo según la tarea
 
@@ -331,7 +465,7 @@ Para xAI, usa `ImageSize.Auto` o `ImageSize.Preset(ImageResolution.OneK, ImageAs
 
 xAI solo admite el nuevo valor predeterminado común `ImageOutputFormat.Auto`. No permite elegir códec; `Jpeg`, `Png` y `WebP` explícitos se rechazan antes de enviar. Elige la extensión según `GeneratedImage.MediaType`; la biblioteca no transcodifica. Calidad: `ImageQuality.Auto`, `Low`, `Medium`; fondo: solo `ImageBackground.Auto`. No admite compresión explícita ni `Mask` independiente.
 
-Google acepta `ImageSize.Auto` o `Preset` con `ImageResolution.Auto`, `FiveTwelve`, `OneK`, `TwoK`, `FourK`, según el modelo. Formatos: `ImageOutputFormat.Auto` o `Jpeg`; rechaza `Png`/`WebP`. Google y xAI rechazan `Pixels`; OpenAI acepta `Auto`/`Pixels` y rechaza `Preset`. Consulta la [migración](#image-options-migration).
+Google acepta `ImageSize.Auto` o `Preset` con resoluciones y proporciones según el modelo; consulta [Opciones de imagen por modelo de Google](#google-image-options). Formatos: `ImageOutputFormat.Auto` o `Jpeg`; rechaza `Png`/`WebP`. Google y xAI rechazan `Pixels`; OpenAI acepta `Auto`/`Pixels` y rechaza `Preset`. Consulta la [migración](#image-options-migration).
 
 [Grok Imagine Image 2.0](https://docs.x.ai/developers/models/grok-imagine-image-2.0) · [Image API](https://docs.x.ai/developers/rest-api-reference/inference/images)
 
@@ -340,6 +474,46 @@ Google acepta `ImageSize.Auto` o `Preset` con `ImageResolution.Auto`, `FiveTwelv
 ## DeepSeek (DeepSeekService)
 
 Usa DeepSeek Flash para pasar de una respuesta rápida a una revisión profunda o interpretar gráficos y capturas. `AIModels.DeepSeek.Flash` (`deepseek-flash`) selecciona V4.1 Flash, publicado el 10 de septiembre de 2026 con visión nativa. Se conservan las API de completions, streaming, Run, funciones y RAG desde `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0.
+
+> Los paquetes publicados `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 ya incluyen el soporte básico de Flash. `AIModels.DeepSeek.V4Pro`, `UseResponsesApi`, la API Files y `DeepSeekImageFileContent` son adiciones al código fuente aún no publicadas y requieren compilar versiones compatibles del núcleo y las abstracciones; no están incluidas en esos paquetes. [Notas pendientes de publicación](../../src/core/Mythosia.AI/RELEASE_NOTES.md#unreleased).
+
+Para tareas solo de texto, selecciona `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813). Flash sigue siendo el modelo predeterminado y admite imágenes; ambos ofrecen razonamiento Low/High/Max y el mismo límite de salida. Configura `UseResponsesApi = true` antes de crear la solicitud para usar Responses con las API existentes de completado, streaming, Run y funciones locales. El valor predeterminado sigue en `false` para conservar Chat Completions en aplicaciones existentes; se captura para toda la solicitud y sus rondas. Responses reenvía el historial completo de conversación y razonamiento nativo sin depender de IDs de respuesta almacenados.
+
+```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.DeepSeek;
+
+var pro = new DeepSeekService(apiKey, AIModels.DeepSeek.V4Pro, httpClient)
+{
+    UseResponsesApi = true
+};
+pro.WithDeepSeekReasoning(DeepSeekReasoning.High);
+string answer = await pro.CreateRequest("Review this deployment plan.").GetCompletionAsync();
+```
+
+Sube una imagen una vez para reutilizarla en varias preguntas o conversaciones. `UploadFileAsync` acepta una ruta o un stream del llamador con nombre de archivo; purpose es `user_data`. JPEG, PNG, GIF y WebP tienen un límite de 64 MiB. `DeepSeekImageFileContent` referencia la imagen en Flash con ambos transportes; no es entrada de PDF/documentos y V4 Pro la rechaza. Sin vencimiento se conserva permanentemente; `expiresAfterSeconds` admite 3600–2592000 segundos. Mantén el archivo hasta que terminen las conversaciones que lo usan.
+
+```csharp
+using Mythosia.AI.Models.Messages;
+
+var vision = new DeepSeekService(apiKey, AIModels.DeepSeek.Flash, httpClient)
+{
+    UseResponsesApi = true
+};
+var file = await vision.UploadFileAsync("chart.png", expiresAfterSeconds: 3600);
+var question = new Message(ActorRole.User, new List<MessageContent>
+{
+    new TextContent("Explain the trend in this chart."),
+    new DeepSeekImageFileContent(file.Id)
+});
+string uploadedDescription = await vision.GetCompletionAsync(question);
+var metadata = await vision.GetFileAsync(file.Id);
+```
+
+`GetFileAsync` consulta metadatos, `ListFilesAsync(new DeepSeekFileListOptions { After = lastId, Limit = 20, Order = DeepSeekFileOrder.Ascending })` obtiene una página y `DeleteFileAsync` elimina el archivo. Mientras `HasMore` sea true, usa `LastId` como siguiente `After`; también se admite `Descending`. No hay un endpoint documentado de descarga del contenido. Chat UI ofrece Flash y V4 Pro y reutiliza el catálogo actual para la reescritura; el antiguo valor guardado `DeepSeekChat` migra a Flash y los IDs arbitrarios se conservan.
+
+[Responses](https://api-docs.deepseek.com/guides/responses_api/) · [Files](https://api-docs.deepseek.com/guides/files_api/) · [Models and limits](https://api-docs.deepseek.com/quick_start/pricing/)
 
 ```csharp
 using Mythosia.AI.Extensions;
@@ -368,7 +542,7 @@ string review = (await run.Result).Text;
 
 `ThinkingEnabled` sigue en `false` por defecto. `WithDeepSeekReasoning(...)` activa el razonamiento y fija `ReasoningEffort` persistente (`Auto`, `Low`, `High`, `Max`); su `Auto` omite el esfuerzo y usa el valor del proveedor `High`. El `WithReasoning(...)` común afecta una solicitud lógica y sus rondas: `None` desactiva, `Minimal`/`Low` se asigna a `Low`, `Medium`/`High`/`XHigh` a `High`, y `Max` a `Max`. El `Auto` común mantiene la configuración. Más esfuerzo puede aumentar latencia y tokens. Cambiar solo `ReasoningEffort` no activa el razonamiento.
 
-Registra funciones locales con `WithFunction(...)` para consultar datos o actuar mediante tu código. Las herramientas funcionan con y sin razonamiento; con razonamiento se rechaza la selección forzada/obligatoria, por lo que debes usar selección automática. El adaptador conserva `reasoning_content` e IDs de llamadas para rondas posteriores. Run y streaming exponen `StreamingContentType.Reasoning` con `StreamOptions.WithReasoning()`; observar no activa el razonamiento. El uso incluye caché y razonamiento cuando el proveedor los informa. La recuperación automática del contexto usa el bucle común de streaming. Si las herramientas requieren el historial nativo de razonamiento, se bloquea la compactación para conservarlo y se comunica el error de desbordamiento.
+Registra funciones locales con `WithFunction(...)` para consultar datos o actuar mediante tu código. Las herramientas funcionan con y sin razonamiento. Chat Completions rechaza la selección forzada/obligatoria durante el razonamiento; usa selección automática en ese transporte. Con `UseResponsesApi = true`, `ForceFunctionName` puede elegir una función incluso con razonamiento; el adaptador envía `type` y `name` directamente en `tool_choice` de Responses. Esto no activa herramientas asíncronas nativas. El adaptador conserva `reasoning_content` e IDs de llamadas para rondas posteriores. Run y streaming exponen `StreamingContentType.Reasoning` con `StreamOptions.WithReasoning()`; observar no activa el razonamiento. El uso incluye caché y razonamiento cuando el proveedor los informa. La recuperación automática del contexto usa el bucle común de streaming. Si las herramientas requieren el historial nativo de razonamiento, se bloquea la compactación para conservarlo y se comunica el error de desbordamiento.
 
 Envía gráficos o capturas con los tipos de mensaje existentes:
 
@@ -383,9 +557,9 @@ var message = new Message(ActorRole.User, new List<MessageContent>
 string description = await deepseek.GetCompletionAsync(message);
 ```
 
-`ImageContent` acepta bytes JPEG, PNG, GIF o WebP, o una URL HTTP(S) pública obtenida por el proveedor. El ejemplo usa un mensaje de usuario. La API actual también acepta imágenes en mensajes de herramientas, pero los handlers registrados siguen devolviendo texto mediante el contrato común. Un mensaje de imagen manual `ActorRole.Function` debe incluir el ID correspondiente en `MessageMetadataKeys.FunctionId` (`tool_call_id` enviado). Consulta los límites de tamaño y totales en la guía de visión actual. No se integran `file_id`, Files API ni generación de imágenes.
+`ImageContent` acepta bytes JPEG, PNG, GIF o WebP, o una URL HTTP(S) pública obtenida por el proveedor. El ejemplo usa un mensaje de usuario. La API actual también acepta imágenes en mensajes de herramientas, pero los handlers registrados siguen devolviendo texto mediante el contrato común. Un mensaje de imagen manual `ActorRole.Function` debe incluir el ID correspondiente en `MessageMetadataKeys.FunctionId` (`tool_call_id` enviado). Consulta los límites de tamaño y totales en la guía de visión actual. La generación de imágenes sigue sin estar disponible.
 
-El proveedor anuncia 1M de contexto y hasta 384K (`393216`) tokens de salida; el presupuesto predeterminado sigue en 8.000. En razonamiento se omiten temperature/penalty y `top_p` es al menos 0,95; sin razonamiento se omite `top_p`. El adaptador usa Chat Completions. No integra Responses, búsqueda alojada, `CachePreservation.Required`, herramientas asíncronas nativas ni `SteerAsync`. RAG local y rondas normales siguen disponibles.
+Ambos modelos ofrecen contexto de 1M y hasta 384K (`393216`) tokens de salida; el presupuesto predeterminado sigue en 8.000. El razonamiento omite temperature/penalty y usa `top_p` de al menos 0,95; sin razonamiento se omite `top_p`. Responses usa las API existentes de salida tipada para JSON schema nativo. No se admiten ejecución en segundo plano, `store`/`previous_response_id` del servidor, búsqueda alojada, `CachePreservation.Required`, herramientas asíncronas nativas, `SteerAsync` ni generación de imágenes. RAG local y rondas normales siguen disponibles.
 
 `V4Flash`, `Chat` y `Reasoner` siguen como constantes obsolete con advertencia e IDs originales. El proveedor redirige temporalmente el alias retirado `deepseek-v4-flash` a V4.1 Flash; la biblioteca no reescribe la constante. Elige `Flash` en código nuevo. `UseReasonerModel()` selecciona Flash con razonamiento `High`.
 

@@ -1,9 +1,12 @@
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Messages;
 using Mythosia.AI.Services;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -14,10 +17,16 @@ namespace Mythosia.AI.Rag.Reranking
     /// <summary>
     /// Re-ranker that uses an existing LLM (AIService) to score and reorder search results.
     /// Sends a prompt asking the LLM to rate each document's relevance on a 0–10 scale.
+    /// Each evaluation is stateless. Evaluations sharing the same AI service run sequentially.
     /// </summary>
     public class LlmReranker : IReranker
     {
+        // Providers temporarily select a separate chat during stateless execution.
+        // Key by service so separate rerankers cannot race that selection or its restoration.
+        private static readonly ConditionalWeakTable<IAIService, SemaphoreSlim> EvaluationGates =
+            new ConditionalWeakTable<IAIService, SemaphoreSlim>();
         private readonly IAIService _aiService;
+        private readonly SemaphoreSlim _evaluationGate;
 
         /// <summary>
         /// Creates an LLM-based re-ranker using the provided AI service.
@@ -28,6 +37,7 @@ namespace Mythosia.AI.Rag.Reranking
         public LlmReranker(IAIService aiService)
         {
             _aiService = aiService ?? throw new ArgumentNullException(nameof(aiService));
+            _evaluationGate = EvaluationGates.GetValue(_aiService, _ => new SemaphoreSlim(1, 1));
         }
 
         public async Task<IReadOnlyList<VectorSearchResult>> RerankAsync(
@@ -59,8 +69,21 @@ namespace Mythosia.AI.Rag.Reranking
                 sb.AppendLine();
             }
 
-            // Get LLM response
-            var response = await _aiService.GetCompletionAsync(sb.ToString(), cancellationToken: cancellationToken);
+            string response;
+            await _evaluationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                // The Message overload avoids summarizing the service's existing conversation
+                // before the stateless profile is applied by the completion implementation.
+                response = await _aiService.GetCompletionAsync(
+                    new Message(ActorRole.User, sb.ToString()),
+                    new AIRequestProfile { Stateless = true },
+                    cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                _evaluationGate.Release();
+            }
             cancellationToken.ThrowIfCancellationRequested();
 
             // Parse scores

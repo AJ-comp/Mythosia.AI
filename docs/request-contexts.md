@@ -111,7 +111,7 @@ var response = await service.GetCompletionAsync("Am I eligible for a refund?", c
 
 ### RequestMessageOverride
 
-Completely replaces the user's message for this request. The original prompt is ignored:
+`RequestMessageOverride` replaces only the initial input of the current logical request when sending it to the model. The original input remains in conversation history, and later tool calls and results are preserved throughout the same request:
 
 ```csharp
 var context = new AIRequestContext

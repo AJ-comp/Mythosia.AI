@@ -78,7 +78,7 @@ Les résultats de recherche associent un enregistrement à son score de similari
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0,0–1,0 (plus élevé = plus similaire)
+    public double Score { get; set; }  // Échelle selon le backend et le mode de recherche ; plus élevé = meilleur
 }
 ```
 

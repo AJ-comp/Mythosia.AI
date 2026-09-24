@@ -8,10 +8,10 @@
     <Version>4.0.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Core abstractions for vector storage: IVectorStore, VectorRecord, VectorFilter, VectorSearchResult, HybridSearchAsync, GetBatchAsync, CountAsync, VerifyConnectionAsync, Bm25Tokenizer. Framework-agnostic contracts consumed by RAG pipelines, custom vector DB adapters, and more.</Description>
+    <Description>Framework-agnostic vector-storage contracts for RAG pipelines and custom database adapters. Defines IVectorStore, records, search results, metadata filters, batch retrieval, counts and connection verification. Optional ITextSearchStore and IConfigurableHybridSearchStore support text-only and explicitly configured hybrid queries. HybridSearchOptions and shared fusion helpers provide validated, normalized weighted RRF with top-K and score thresholds; existing vector-store contracts remain available.</Description>
     <PackageTags>VectorDB;VectorStore;Abstractions;Embedding;CosineSimilarity;HybridSearch;BM25;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v4.0.1: Fix stale XML doc comments referencing removed Namespace/Scope concepts.</PackageReleaseNotes>
+    <PackageReleaseNotes>Unreleased (next version not assigned): Adds optional ITextSearchStore and IConfigurableHybridSearchStore capabilities, validated HybridSearchOptions and shared normalized weighted-RRF fusion with final top-K and score thresholds. Existing IVectorStore implementations and direct hybrid calls remain available. Native keyword/vector scores remain distinct from weighted-RRF scores. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased. Previous version notes: v4.0.1: Fix stale XML doc comments referencing removed Namespace/Scope concepts.</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

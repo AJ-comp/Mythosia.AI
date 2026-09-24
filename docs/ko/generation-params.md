@@ -1,5 +1,7 @@
 # 생성 파라미터
 
+> Grok 4.7은 미배포 추가 기능입니다. [모델 선택·추론·처리 속도](providers.md#grok-47)를 참고하세요.
+
 요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
 
 ## 서비스 기본값과 기존 호환 메서드
@@ -15,6 +17,8 @@ service.PresencePenalty = 0.0f;    // 이미 등장한 토큰 패널티
 ```
 
 GPT-6 Astra는 `temperature`와 `top_p`를 지원하지 않습니다. 공통 속성이나 요청 프로파일에서 설정해도 Mythosia가 전송 시 두 필드를 생략합니다. 최대 출력은 128,000토큰입니다. 추론 수준과 응답 상세도는 [GPT-6 설정](providers.md#추론-수준)을 참고하세요.
+
+GPT-6 Sol/Luna는 `ReasoningLevel.None`일 때만 `temperature`와 `top_p`를 전송하며, 나머지는 두 필드를 생략합니다. Astra는 `None`을 지원하지 않습니다. [모델 선택과 설정](providers.md#gpt-6-sol-luna)을 참고하세요.
 
 
 ## 플루언트 확장 메서드

@@ -26,9 +26,16 @@ public class OpenAIGpt6RequestShapeTests
         """;
 
     [TestMethod]
-    public void ReasoningOptions_ExcludeUnsupportedNoneEffort()
+    [DataRow(nameof(Gpt6Reasoning.Auto), 0)]
+    [DataRow(nameof(Gpt6Reasoning.Low), 1)]
+    [DataRow(nameof(Gpt6Reasoning.Medium), 2)]
+    [DataRow(nameof(Gpt6Reasoning.High), 3)]
+    [DataRow(nameof(Gpt6Reasoning.XHigh), 4)]
+    [DataRow(nameof(Gpt6Reasoning.Max), 5)]
+    [DataRow(nameof(Gpt6Reasoning.None), 6)]
+    public void ReasoningOptions_PreserveExistingValuesWhenAddingNone(string name, int value)
     {
-        Assert.IsFalse(Enum.GetNames<Gpt6Reasoning>().Contains("None"));
+        Assert.AreEqual(value, (int)Enum.Parse<Gpt6Reasoning>(name));
     }
 
     [TestMethod]

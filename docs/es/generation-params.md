@@ -1,5 +1,7 @@
 # Parámetros de Generación
 
+> Grok 4.7 es una incorporación aún no publicada; consulta [selección del modelo, razonamiento y velocidad](providers.md#grok-47).
+
 Para ajustes independientes y variantes reutilizables, use el [builder de solicitudes](request-building.md). Llame a `CreateRequest(...)` antes de `With...`. Las propiedades y métodos fluent del servicio conservan su comportamiento.
 
 ## Valores predeterminados y métodos de compatibilidad
@@ -15,6 +17,8 @@ service.PresencePenalty = 0.0f;    // Penaliza tokens ya presentes
 ```
 
 GPT-6 Astra no admite `temperature` ni `top_p`; Mythosia omite ambos incluso si se configuran mediante las propiedades comunes o un perfil de solicitud. La salida máxima es de 128.000 tokens. Consulta la [configuración de GPT-6](providers.md).
+
+GPT-6 Sol/Luna solo envían `temperature` y `top_p` con `ReasoningLevel.None`; en otros casos omiten ambos. Astra no admite `None`. Consulta [selección y configuración del modelo](providers.md#gpt-6-sol-luna).
 
 
 Elija el esfuerzo de razonamiento y las fuentes de una tarea con las [opciones comunes de razonamiento y búsqueda](reasoning-and-search.md); los parámetros existentes del proveedor se conservan.

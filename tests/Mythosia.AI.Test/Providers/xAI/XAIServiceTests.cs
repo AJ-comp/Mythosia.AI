@@ -72,6 +72,11 @@ public abstract class XAIServiceTestsBase : AIServiceTestBase
         ConfigureRequiredFunctionCall("test_function");
     }
 
+    protected override void ConfigureFunctionChainingStreamTest()
+    {
+        ConfigureRequiredFunctionCall("get_user_id");
+    }
+
     protected override void ConfigureRequiredFunctionCall(string functionName)
     {
         AI.ForceFunctionName = functionName;

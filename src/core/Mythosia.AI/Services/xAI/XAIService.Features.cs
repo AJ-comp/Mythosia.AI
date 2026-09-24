@@ -10,7 +10,7 @@ namespace Mythosia.AI.Services.xAI
         {
             var family = GetModelFamily();
             if (features.WebSearch != null || features.FileSearch != null ||
-                (features.Reasoning != null && family != GrokModelFamily.Grok4_6))
+                (features.Reasoning != null && !IsGrok46Or47(family)))
             {
                 base.ValidateRequestFeatures(features);
                 return;
@@ -22,7 +22,7 @@ namespace Mythosia.AI.Services.xAI
                     throw new NotSupportedException("Grok does not support cache-preserving reasoning changes.");
                 GetReasoningEffortParameter(family, MapCommonReasoning(features.Reasoning.Level));
             }
-            else if (family == GrokModelFamily.Grok4_6 || RequestSetting(nameof(ReasoningEffort), ReasoningEffort) == GrokReasoning.XHigh)
+            else if (IsGrok46Or47(family) || RequestSetting(nameof(ReasoningEffort), ReasoningEffort) == GrokReasoning.XHigh)
             {
                 GetReasoningEffortParameter(family, RequestSetting(nameof(ReasoningEffort), ReasoningEffort));
             }
@@ -31,14 +31,14 @@ namespace Mythosia.AI.Services.xAI
         private GrokReasoning GetEffectiveReasoningEffort()
         {
             var reasoning = CurrentRequestFeatures.Reasoning;
-            return reasoning != null && GetModelFamily() == GrokModelFamily.Grok4_6
+            return reasoning != null && IsGrok46Or47(GetModelFamily())
                 ? MapCommonReasoning(reasoning.Level)
                 : RequestSetting(nameof(ReasoningEffort), ReasoningEffort);
         }
 
         private GrokReasoning MapCommonReasoning(ReasoningLevel level)
         {
-            if (GetNativeGrokReasoningLevels(GrokModelFamily.Grok4_6).Contains(level) &&
+            if (GetNativeGrokReasoningLevels(GetModelFamily()).Contains(level) &&
                 Enum.TryParse<GrokReasoning>(level.ToString(), out var effort))
                 return effort;
             throw new NotSupportedException($"{RequestModel} does not support reasoning level '{level}'.");

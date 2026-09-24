@@ -1,5 +1,7 @@
 # Runで実行中のAIタスクを制御する
 
+> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)を参照してください。
+
 完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
 
 設定をリクエストごとに分離し、共通設定から分岐するには[リクエストビルダー](request-building.md)を使います。`CreateRequest(...)`の後に`With...`をつなぎます。サービスのプロパティとfluentメソッドは従来の動作を維持します。
@@ -7,6 +9,8 @@
 > 回答・使用量・出典をまとめて取得するには、`await run.Result` が返す `AIRunResult` を使用します。文字列は `result.Text` で取得でき、ストリームを読む必要はありません。Mythosia.AI 8.0.0 の API 変更です。`GetCompletionAsync` と `StructuredStreamRun<T>.Result` の戻り値型は維持します。 [Run の結果と移行](#run-result).
 
 > `CreateRequest`の例にはMythosia.AI 8.0.0 / Abstractions 4.0.0が必要です。Runと共通リクエスト機能を導入した旧7.1リリースにはビルダーがありません。旧パッケージでは既存のサービスオーバーロードを使えます。
+
+待ち時間が重要なリクエストでは[処理速度](request-building.md#inference-speed)を選べます。`WithSpeed` はモデルと推論レベルを保持し、`Processing` は実際に適用されたモードを示します。Fast は対応する組み合わせで使う有料設定です。
 
 ## なぜ実行中のタスクを制御するのか？
 
@@ -195,9 +199,9 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-実行途中の追加指示は、Responses WebSocket接続を使用するGPT-6 Astraで利用できます。他のプロバイダーや非対応モデルでも通常のRunを利用できますが、`CanSteer`は`false`となり、追加指示は非対応として報告されます。通常の次のターンを黙って作成することはありません。`CanSteer`は、後で呼び出す時点でもRunが実行中であることまでは保証しません。
+実行途中の追加指示は、Responses WebSocket接続を使用するGPT-6 Astra / Sol / Lunaで利用できます。他のプロバイダーや非対応モデルでも通常のRunを利用できますが、`CanSteer`は`false`となり、追加指示は非対応として報告されます。通常の次のターンを黙って作成することはありません。`CanSteer`は、後で呼び出す時点でもRunが実行中であることまでは保証しません。
 
-AstraのRunは専用ソケットを開きます。渡した`HttpClient`とメッセージハンドラーは引き続きHTTP呼び出しで使われ、このソケットには介在しません。独自のトランスポートが必要な場合は`OpenAIService.ConnectRunWebSocketAsync`をオーバーライドできます。
+GPT-6のRunは専用ソケットを開きます。渡した`HttpClient`とメッセージハンドラーは引き続きHTTP呼び出しで使われ、このソケットには介在しません。独自のトランスポートが必要な場合は`OpenAIService.ConnectRunWebSocketAsync`をオーバーライドできます。
 
 `SteerAsync`の成功は、サーバーが入力をキューに受け入れたことを意味し、モデルへの適用完了を意味しません。継続処理も同じRunで観測するか、その結果を待ちます。すでに配信したテキストや完了した操作は取り消されず、追加指示だけを理由に開始済みのツールがキャンセルされることもありません。ライブラリが同じ接続で継続処理とツール結果の対応付けを行います。OpenAIの[実行途中の追加指示ガイド](https://developers.openai.com/api/docs/guides/steering)と[WebSocketモード](https://developers.openai.com/api/docs/guides/websocket-mode)も参照してください。キュー内の入力は接続に属し、切断後も残るとは想定できません。受け入れ済みの指示を無条件で再送しないでください。
 

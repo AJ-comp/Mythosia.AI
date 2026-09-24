@@ -1,5 +1,7 @@
 # 函数调用
 
+> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](providers.md#gpt-6-sol-luna)。
+
 只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](completions.md#completion-cancellation)。
 
 如需分离每个请求的设置并派生多个版本，请使用[请求构建器](request-building.md)。先调用`CreateRequest(...)`，再连接`With...`。服务属性和服务上的fluent方法保持原有行为。
@@ -288,7 +290,7 @@ var answer = await service.GetCompletionAsync(
     "查询首尔的示例天气。等待时请介绍三件旅行必备物品。");
 ```
 
-Mythosia 在 GPT-6 Astra 的 Responses API 中发送 `async: true`。对于不支持的模型和 API，会省略该字段并等待同一个处理器的结果，不会修改用户设置的 `AllowAsync` 值。提供商还必须将实际调用标为异步（`FunctionCall.IsAsync`）；开启许可不代表一定异步执行。
+Mythosia 在 GPT-6 Astra / Sol / Luna 的 Responses API 中发送 `async: true`。对于不支持的模型和 API，会省略该字段并等待同一个处理器的结果，不会修改用户设置的 `AllowAsync` 值。提供商还必须将实际调用标为异步（`FunctionCall.IsAsync`）；开启许可不代表一定异步执行。
 
 `WithFunctionAsync` 用于注册 .NET 异步处理器，`FunctionExecutionMode.Parallel` 控制本地处理器调度，两者都不会自动开启此选项。`AllowAsync` 允许模型在函数结果返回前继续工作。 `FunctionExecutionMode` 仍控制普通调用。允许的异步任务即使在 `Sequential` 模式下也可重叠执行，并在独立任务池内共享 `MaxConcurrency` 上限。
 

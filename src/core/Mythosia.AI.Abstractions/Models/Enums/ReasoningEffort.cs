@@ -117,7 +117,8 @@ namespace Mythosia.AI.Models
     /// <summary>
     /// Reasoning effort level for GPT-6 models.
     /// Auto uses the library default (Medium).
-    /// GPT-6 supports low, medium, high, xhigh, and max; reasoning cannot be disabled.
+    /// GPT-6 supports low, medium, high, xhigh, and max. Sol and Luna also support None;
+    /// Astra always reasons and does not support None.
     /// </summary>
     public enum Gpt6Reasoning
     {
@@ -126,7 +127,9 @@ namespace Mythosia.AI.Models
         Medium,
         High,
         XHigh,
-        Max
+        Max,
+        /// <summary>Disables reasoning on GPT-6 Sol and Luna. Not supported by Astra.</summary>
+        None
     }
 
     /// <summary>
@@ -142,6 +145,7 @@ namespace Mythosia.AI.Models
     /// <summary>
     /// Adaptive-thinking effort for current Claude models.
     /// Auto preserves the legacy <c>ThinkingBudget</c>-to-effort mapping.
+    /// With explicit adaptive thinking on Opus 5.5, Auto uses its medium default.
     /// </summary>
     public enum ClaudeReasoningEffort
     {
@@ -177,7 +181,7 @@ namespace Mythosia.AI.Models
     /// <summary>
     /// Reasoning effort for xAI Grok models.
     /// Auto omits the provider parameter. Grok 4.3 supports None through High;
-    /// Grok 4.5 supports Low through High; Grok 4.6 also supports XHigh.
+    /// Grok 4.5 supports Low through High; Grok 4.6 and 4.7 also support XHigh.
     /// Grok 4.5 and 4.6 cannot disable reasoning.
     /// </summary>
     public enum GrokReasoning

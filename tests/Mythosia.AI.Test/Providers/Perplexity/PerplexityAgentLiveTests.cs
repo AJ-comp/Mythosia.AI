@@ -206,10 +206,19 @@ public class PerplexityAgentLiveTests
             .UseLocalEmbedding(64).WithQueryRewriter(512));
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(8));
         var observed = new StringBuilder();
-        await using var run = await rag.StartRunAsync("What is the exact delivery reference for the Seoul warehouse? Copy it verbatim.",
+        await using var run = await rag.StartRunAsync("Search the indexed document for the exact delivery reference for the Seoul warehouse and copy it verbatim.",
             part => observed.Append(part), cancellationToken: timeout.Token);
         await foreach (var item in run.StreamAsync(timeout.Token)) Assert.AreNotEqual(StreamingContentType.Error, item.Type);
         var answer = (await run.Result).Text;
+        var rewriteText = probe.Requests.FirstOrDefault()?.AnswerText();
+        Console.WriteLine("LIVE_PERPLEXITY_AGENT_RAG_DIAGNOSTIC " + JsonSerializer.Serialize(new
+        {
+            requestCount = probe.Requests.Count,
+            rewriteText,
+            rewriteNeedsSearch = rewriteText == null ? (bool?)null : !rewriteText.Contains("[PASS]", StringComparison.OrdinalIgnoreCase),
+            finalRequestContainsReference = probe.Requests.LastOrDefault()?.Body.ToJsonString().Contains(reference, StringComparison.Ordinal) ?? false,
+            answerContainsReference = answer.Contains(reference, StringComparison.Ordinal)
+        }));
         StringAssert.Contains(answer, reference);
         Assert.AreEqual(answer, observed.ToString());
         Assert.HasCount(2, probe.Requests);

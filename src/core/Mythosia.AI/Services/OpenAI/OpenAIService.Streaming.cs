@@ -22,6 +22,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         protected override void OnStreamRoundStarting()
         {
+            _speedStreamState.Value = new SpeedStreamState();
             ResetCurrentStreamOutputItems();
             ResetNativeStreamState();
         }
@@ -112,6 +113,10 @@ namespace Mythosia.AI.Services.OpenAI
 
             using var doc = JsonDocument.Parse(jsonData);
             var root = doc.RootElement;
+            if (_openAIRunSession.Value == null)
+                CaptureProcessing(_speedStreamState.Value?.Observation, root);
+            else
+                _openAIRunSession.Value.CaptureProcessing(root);
             CaptureNativeStreamEvent(root);
 
             if (root.TryGetProperty("error", out var errorElement) &&

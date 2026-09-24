@@ -16,6 +16,16 @@ var store = new InMemoryVectorStore();
 
 **Eingebaute Hybridsuche**: RRF (Reciprocal Rank Fusion) kombiniert Kosinus-Ähnlichkeit und BM25-Schlüsselwortbewertungen.
 
+### Gleichzeitige Nutzung und Änderungen an Datensätzen
+
+Wird ein gemeinsam genutzter Store während einer Abfrage aktualisiert, müssen Text und Schlüsselwortindex denselben Stand abbilden. `InMemoryVectorStore` synchronisiert Schreiben, Löschen und Lesen, sodass jede Vektor-, Text- oder Hybridabfrage einen konsistenten Zustand sieht. Beide Suchpfade einer Hybridabfrage verwenden denselben Zustand.
+
+Der Store kopiert eingehende Datensätze einschließlich Vektorarrays und Metadaten. Abrufe, Suchabfragen und Diagnosen liefern ebenfalls unabhängige Kopien. Änderungen an Eingabeobjekten oder zurückgegebenen Datensätzen ändern die gespeicherten Daten nicht; speichern Sie Änderungen erneut mit `UpsertAsync`. Ändern Sie Eingabedatensätze, Vektoren und Metadaten nicht, während der Aufruf sie kopiert oder liest.
+
+Ein übergebenes `CancellationToken` kann einen Aufruf auch abbrechen, während er auf die Freigabe der Store-Sperre durch eine andere Operation wartet. Dieser Abbruch beendet nicht von sich aus die Operation, die den Store gerade verwendet. Sobald die Aktualisierung eines Datensatzes begonnen hat, unterbricht ein Abbruch sie nicht zwischen Text und Index.
+
+Beim Abbruch eines Batches können bereits geschriebene Datensätze erhalten bleiben. `ReplaceByFilterAsync` führt weiterhin Löschen und Batch-Einfügen nacheinander ohne Transaktion aus: Eine andere Abfrage kann die Lücke sehen, und Fehler oder Abbruch setzen abgeschlossene Schreibvorgänge nicht zurück.
+
 ### Diagnose
 
 ```csharp

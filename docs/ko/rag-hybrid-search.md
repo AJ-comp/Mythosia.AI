@@ -1,69 +1,86 @@
 # 하이브리드 검색
 
-> 📍 **질문 응답 파이프라인:** [쿼리 재작성](rag-query-rewriting.md) → 임베딩 → 필터링 → **`검색`** → [재순위](rag-reranking.md) → 컨텍스트 구성
+상품 코드는 키워드 검색이 유리하고, 문서와 표현이 다른 질문은 의미 검색이 필요합니다. 선택한 검색기는 각 방식에 필요한 처리만 실행합니다. 키워드 검색을 위해 질문 임베딩부터 만들 필요가 없습니다.
 
-## 두 가지 검색 방식 이해하기
-
-RAG에서 문서를 검색하는 방식은 크게 두 가지가 있습니다. 각각의 장단점을 이해하면 하이브리드 검색이 왜 필요한지 자연스럽게 알 수 있습니다.
-
-### 벡터 검색 (의미 기반)
-
-텍스트의 **의미**를 파악해서 검색합니다. "구독 취소"를 검색하면 "멤버십 해지"처럼 단어는 다르지만 의미가 같은 문서도 찾아냅니다.
-
-- ✅ 같은 의미의 다른 표현도 매칭
-- ❌ "ERR-4012" 같은 정확한 코드나 고유명사를 놓칠 수 있음
-
-### 키워드 검색 (BM25)
-
-텍스트에 포함된 **단어 자체**를 기준으로 검색합니다. 전통적인 검색 엔진의 방식이죠.
-
-- ✅ 정확한 용어, 오류 코드, 상품명 매칭에 강함
-- ❌ 표현이 다르면 의미가 같아도 놓침
-
-## 하이브리드 검색이란?
-
-**하이브리드 검색은 이 두 가지를 결합**합니다. 의미적 이해와 정확한 키워드 매칭을 동시에 활용해서, 어느 한쪽만으로는 놓칠 수 있는 결과까지 잡아냅니다.
-
-예를 들어 "ERR-4012를 어떻게 해결하나요?"라는 질문에서:
-- `ERR-4012`는 키워드 검색(BM25)이 정확히 찾아내고
-- "해결 방법"이라는 의미는 벡터 검색이 관련 문서를 찾아냅니다
-
-## 설정 방법
-
-하나의 메서드 호출로 간단하게 활성화할 수 있습니다:
+## 내장 검색 방식
 
 ```csharp
-.WithRag(rag => rag
-    .UseHybridSearch(vectorWeight: 0.6f)  // 60% 벡터, 40% BM25
-    .AddDocument("knowledge-base.txt")
-)
+// 의미 검색 (기본값)
+.UseVectorSearch()
+
+// 질문 임베딩 없는 키워드 검색
+.UseKeywordSearch()
+
+// 가중 하이브리드 검색
+.UseHybridSearch(new HybridSearchOptions
+{
+    VectorWeight = 0.7f,
+    CandidateMultiplier = 4,
+    RrfK = 60
+})
 ```
 
-`vectorWeight`는 벡터 검색의 비중을 의미합니다:
-- **1.0** → 벡터 검색만 사용 (순수 의미 검색)
-- **0.0** → BM25만 사용 (순수 키워드 검색)
-- **0.5~0.7** → 대부분의 상황에서 좋은 출발점
+`HybridSearchOptions`: `using Mythosia.VectorDb;`
 
-## 상황별 권장 가중치
+`UseKeywordSearch()`는 질문 임베딩을 생략합니다. 문서 등록은 여전히 기존 벡터 저장소를 위해 청크를 나누고 임베딩을 생성합니다. 문서까지 키워드만으로 저장하는 API는 아닙니다. 지연 초기화로 첫 질문에서 문서를 등록하면 문서 임베딩 호출이 발생할 수 있습니다.
 
-사용 사례에 따라 적절한 비중이 달라집니다:
+## 키워드와 의미 검색 결과 결합하기
 
-| 시나리오 | 권장 가중치 | 이유 |
-| --- | --- | --- |
-| 자연어 기반 일반 Q&A | 0.7–0.8 (벡터 중심) | 사용자가 자연스러운 문장으로 질문 |
-| 특정 용어가 많은 기술 문서 | 0.4–0.5 (균형) | 전문 용어와 맥락 모두 중요 |
-| 코드/오류 코드 조회 | 0.2–0.3 (BM25 중심) | 정확한 코드 매칭이 핵심 |
+`VectorWeight`는 벡터 검색 비중(0–1)이며 키워드 비중은 `1 - VectorWeight`입니다. `CandidateMultiplier`는 각 검색의 후보 수를 조절하며 `RrfK`는 가중 Reciprocal Rank Fusion의 순위 보정값입니다. RAG 재랭커의 후보 배수와는 별개입니다. 실제 문서와 질문으로 설정을 비교하세요.
 
-## 예제
+벡터·키워드 단독 모드는 저장소 고유 점수를 유지합니다. 설정 가능한 하이브리드는 한쪽 검색만 실행해도 정규화된 가중 RRF 점수를 사용하며 벡터 비중이 0이면 질문 임베딩을 생략합니다. 점수는 확률이 아닙니다. `WeightedBlend`는 검색 점수와 재랭커 점수를 보정 없이 합칩니다. 입력 점수를 보정하지 않았다면 키워드 검색에는 기본값인 `RerankerOnly`를 권합니다.
 
 ```csharp
+using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+
 var service = new OpenAIService(apiKey, http)
     .WithRag(rag => rag
-        .UseHybridSearch(vectorWeight: 0.5f)
-        .AddDocument("product-catalog.txt")
-        .AddDocument("error-codes.txt")
-    );
+        .AddDocument("manual.txt")
+        .UseHybridSearch(new HybridSearchOptions
+        {
+            VectorWeight = 0.7f,
+            CandidateMultiplier = 4,
+            RrfK = 60
+        }));
 
-// "ERR-4012"는 BM25로, "해결 방법"이라는 의미는 벡터로 매칭
-var answer = await service.GetCompletionAsync("ERR-4012를 어떻게 해결하나요?");
+string answer = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+## 저장소 지원 범위와 호환성
+
+InMemory, PostgreSQL, Qdrant는 새 키워드 검색과 설정 가능한 가중 RRF를 지원합니다. 텍스트 점수는 InMemory의 BM25, PostgreSQL의 설정된 전문 검색 또는 trigram, Qdrant의 희소 색인으로 계산합니다. 엔진 간 점수는 같은 의미가 아닙니다.
+
+Pinecone은 호환되는 `dotproduct` 인덱스에서 기본 설정의 `UseHybridSearch()`를 통한 기존 네이티브 하이브리드 검색을 유지합니다. 이 어댑터는 키워드 모드와 두 검색을 결합하는 설정 가능한 가중 RRF를 지원하지 않습니다. 다른 저장소도 해당 선택 인터페이스를 구현해야 합니다. 지원하지 않는 모드나 옵션은 오류로 알리며 벡터 검색으로 몰래 전환하거나 가중치를 무시하지 않습니다.
+
+기본 InMemory·PostgreSQL·Qdrant 어댑터는 신경망 모델을 설치하거나 기존 색인을 변환하지 않습니다. `C#`·`C++` 같은 기호 구별은 각 분석기에 달려 있습니다. 아래의 별도 PIXIE 방식도 식별자 구분 성능을 실제로 검증해야 합니다.
+
+[검색 방식과 저장소 지원 범위](rag.md#retrieval-modes), [커스텀 검색기](rag-pipeline.md#custom-retriever)를 확인하세요.
+
+<a id="pixie-search"></a>
+
+## PIXIE로 로컬 신경망 검색 비교하기
+
+질문과 문서의 표현이 다르면 단어의 단순 일치만으로 관련 자료를 놓칠 수 있습니다. 선택 패키지 `Mythosia.AI.Rag.Search.Pixie`는 질문과 문서를 모두 로컬 PIXIE 모델로 분석해 관련 단어와 가중치를 만들고, 기존 의미 벡터 검색과 결합합니다. PIXIE 실행에는 Python 서버나 API 키가 필요하지 않습니다. 선택한 의미 임베딩·답변 생성 공급자는 여전히 외부 API를 사용할 수 있습니다.
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Search.Pixie;
+using Mythosia.VectorDb;
+
+using var encoder = new PixieSparseEncoder(new PixieOptions());
+var searchStore = new PixieInMemoryStore(encoder);
+RagStore rag = await RagStore.BuildAsync(builder => builder
+    .UseEmbedding(embeddings)
+    .UseStore(searchStore)
+    .AddDocument("manual.txt")
+    .UseHybridSearch(new HybridSearchOptions { VectorWeight = 0.7f }));
+
+RagProcessedQuery result = await rag.QueryAsync("refund policy");
+```
+
+이 저장소에서 `UseKeywordSearch()`는 신경망 희소 검색을 선택합니다. 의미 벡터용 질문 임베딩은 생략하지만 PIXIE의 질문 분석은 실행합니다. RAG 문서 등록은 여전히 의미 임베딩을 생성합니다. `UseHybridSearch(...)`는 희소 벡터 내적 순위와 의미 벡터 코사인 유사도 순위를 설정한 가중 RRF로 합칩니다.
+
+이 프리뷰는 메모리에 색인을 보관하는 `PixieInMemoryStore`를 제공합니다. PostgreSQL·Qdrant·Pinecone에 PIXIE를 연결하거나 기존 색인을 변환하지는 않습니다. 재시작하거나 모델·설정을 바꾸면 문서를 다시 색인하세요. 저장소의 모든 작업이 끝날 때까지 인코더를 유지하고, 이후 직접 해제합니다. 기존 검색은 기본값으로 유지되므로 같은 문서와 정답이 지정된 질문으로 비교한 뒤 전환하세요. PIXIE가 `C#`·`C++`의 정확한 구분이나 제외 조건을 보장하는 것은 아닙니다.
+
+[PIXIE 연결과 비교 안내](rag-pixie-search.md).

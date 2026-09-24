@@ -78,7 +78,7 @@ Suchergebnisse verbinden einen Datensatz mit seiner Ähnlichkeitsbewertung:
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0,0–1,0 (höher = ähnlicher)
+    public double Score { get; set; }  // Skala abhängig von Backend und Suchmodus; höher ist besser
 }
 ```
 

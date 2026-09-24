@@ -95,6 +95,25 @@ Cómo funciona el hybrid search por backend:
 | **Pinecone** | Vectores sparse + dense fusionados en servidor |
 | **Postgres** | Similitud vectorial + puntuaciones `tsvector`/`trigram` fusionadas en SQL |
 
+### Búsqueda de texto e híbrida configurable (sin publicar)
+
+La sobrecarga anterior usa el comportamiento híbrido existente de cada backend. En el código fuente actual, InMemory, PostgreSQL y Qdrant también implementan `ITextSearchStore` e `IConfigurableHybridSearchStore`. Estas API opcionales están **sin publicar (Unreleased)**; Pinecone no las implementa.
+
+```csharp
+using Mythosia.VectorDb;
+
+var filter = new VectorFilter().Where("tenant", "acme");
+var textResults = await ((ITextSearchStore)store).TextSearchAsync(
+    "pedido #12345 estado", topK: 5, filter: filter);
+
+var hybridResults = await ((IConfigurableHybridSearchStore)store).HybridSearchAsync(
+    queryVector, "pedido #12345 estado",
+    new HybridSearchOptions { VectorWeight = 0.7f, CandidateMultiplier = 4, RrfK = 60 },
+    topK: 5, filter: filter);
+```
+
+`TextSearchAsync` no necesita un vector denso de consulta. La sobrecarga configurable usa puntuaciones RRF ponderadas normalizadas a `[0, 1]`; el peso `0` omite la búsqueda vectorial y `1` omite la de texto. Los filtros de metadatos se aplican antes de seleccionar top-K, y `MinScore` después de la fusión. Las puntuaciones nativas de texto y vector tienen escalas distintas; ajuste los umbrales por modo. `HybridFusionStrategy` de Qdrant solo controla la sobrecarga anterior.
+
 ## Obtener por ID
 
 Recupera un registro específico por su ID:
@@ -142,7 +161,7 @@ await store.DeleteByFilterAsync(filter);
 
 ## Reemplazar por Filtro
 
-Elimina atómicamente todos los registros que coinciden con un filtro e inserta un nuevo conjunto. Útil para re-indexar un documento sin dejar chunks desactualizados.
+Elimina todos los registros que coinciden con un filtro e inserta un nuevo conjunto. Útil para re-indexar un documento sin dejar chunks desactualizados. La atomicidad del reemplazo completo depende del backend.
 
 ```csharp
 var filter = new VectorFilter().Where("source", "manual-v1.pdf");
@@ -158,7 +177,7 @@ var newRecords = newChunks.Select(c => new VectorRecord
 await store.ReplaceByFilterAsync(filter, newRecords);
 ```
 
-> En Postgres esto se ejecuta dentro de una transacción, haciéndolo completamente atómico.
+> Postgres usa una transacción de base de datos. InMemory ejecuta la eliminación y la inserción por lotes en secuencia, por lo que otra consulta puede observar el intervalo vacío. Un fallo o una cancelación puede dejar un reemplazo parcial; las escrituras completadas no se revierten. Sincronizar cada operación mantiene la coherencia entre los registros y el índice BM25, pero no convierte el reemplazo completo en una transacción.
 
 ## Contar
 

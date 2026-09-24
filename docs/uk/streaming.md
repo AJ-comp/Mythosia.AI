@@ -1,5 +1,7 @@
 # Потокова передача
 
+> Grok 4.7 — ще не опубліковане доповнення; див. [вибір моделі, міркування та швидкість обробки](providers.md#grok-47).
+
 Для відповіді, витрат і джерел разом використовуйте знімок `AIRunResult`, який повертає `await run.Result`. Рядок міститься в `result.Text`; читати потік не потрібно. Це зміна Mythosia.AI 8.0.0; типи повернення `GetCompletionAsync` і `StructuredStreamRun<T>.Result` збережено. [Результат Run і міграція](execution-api-transition.md#run-result).
 
 

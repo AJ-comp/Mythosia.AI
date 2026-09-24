@@ -78,7 +78,7 @@ var record = new VectorRecord
 public class VectorSearchResult
 {
     public VectorRecord Record { get; set; }
-    public double Score { get; set; }  // 0.0–1.0 (높을수록 더 유사)
+    public double Score { get; set; }  // 백엔드와 검색 모드에 따라 점수 척도가 다름; 높을수록 적합
 }
 ```
 

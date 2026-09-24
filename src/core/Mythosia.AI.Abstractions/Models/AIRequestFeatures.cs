@@ -57,13 +57,16 @@ namespace Mythosia.AI.Models
     /// <summary>Provider-neutral request options. A service copies these options before using them.</summary>
     public sealed class AIRequestFeatures
     {
+        /// <summary>Optional provider processing-mode override, captured for one logical request.</summary>
+        public InferenceSpeed? Speed { get; set; }
         public ReasoningOptions? Reasoning { get; set; }
         public WebSearchOptions? WebSearch { get; set; }
         public FileSearchOptions? FileSearch { get; set; }
-        public bool IsEmpty => Reasoning == null && WebSearch == null && FileSearch == null;
+        public bool IsEmpty => Reasoning == null && WebSearch == null && FileSearch == null &&
+            (!Speed.HasValue || Speed == InferenceSpeed.ProviderDefault);
         public AIRequestFeatures Clone() => new AIRequestFeatures
         {
-            Reasoning = Reasoning?.Clone(), WebSearch = WebSearch?.Clone(), FileSearch = FileSearch?.Clone()
+            Reasoning = Reasoning?.Clone(), WebSearch = WebSearch?.Clone(), FileSearch = FileSearch?.Clone(), Speed = Speed
         };
     }
 }

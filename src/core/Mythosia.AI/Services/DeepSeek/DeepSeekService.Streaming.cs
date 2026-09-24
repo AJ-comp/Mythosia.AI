@@ -65,15 +65,15 @@ namespace Mythosia.AI.Services.DeepSeek
             {
                 if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:", StringComparison.Ordinal)) continue;
                 var json = line.Substring(5).Trim();
-                if (json == "[DONE]") { done = true; break; }
+                if (json == "[DONE]") { done = !RequestUsesResponsesApi; break; }
                 List<StreamingContent>? chunks = null;
                 Exception? failure = null;
                 try
                 {
-                    chunks = ParseDeepSeekStreamEvent(json, state, options);
+                    chunks = RequestUsesResponsesApi ? ParseDeepSeekResponsesStreamEvent(json, state, options) : ParseDeepSeekStreamEvent(json, state, options);
                     diagnostics.DataLinesProcessed++;
                 }
-                catch (Exception exception) when (exception is JsonException || exception is InvalidOperationException || exception is AIServiceException)
+                catch (Exception exception) when (exception is JsonException || exception is InvalidOperationException || exception is KeyNotFoundException || exception is AIServiceException)
                 {
                     diagnostics.ParseFailures++;
                     failure = exception;
@@ -89,11 +89,12 @@ namespace Mythosia.AI.Services.DeepSeek
                         diagnostics.AccumulatedTextLength += chunk.Content?.Length ?? 0;
                     yield return chunk;
                 }
+                if (RequestUsesResponsesApi && state.FinishReason != null) { done = true; break; }
             }
 
             if (!done)
             {
-                yield return DeepSeekStreamError("incomplete_stream", "DeepSeek stream ended without [DONE]; no incomplete assistant turn or tool batch was saved.");
+                yield return DeepSeekStreamError("incomplete_stream", "DeepSeek stream ended without its successful terminal event; no incomplete assistant turn or tool batch was saved.");
                 yield break;
             }
 
@@ -218,6 +219,8 @@ namespace Mythosia.AI.Services.DeepSeek
             public string? Model { get; set; }
             public TokenUsage? Usage { get; set; }
             public SortedDictionary<int, DeepSeekStreamCall> Calls { get; } = new SortedDictionary<int, DeepSeekStreamCall>();
+            public long? ResponseSequence { get; set; }
+            public Dictionary<int, DeepSeekStreamCall> ResponseCalls { get; } = new Dictionary<int, DeepSeekStreamCall>();
         }
 
         private sealed class DeepSeekStreamCall
