@@ -68,6 +68,9 @@
 
 ### Internal
 
+- **Cross-platform retrieval evaluation:** use explicit LF JSON formatting for reports and compatibility fingerprints so identical Windows/Linux corpora, vectors and settings compare against the same baseline. Refresh the smoke fingerprint after verifying identical results and add a regression test against the committed baseline; retrieval scores and strict mismatch checks are unchanged.
+- **Package dependency validation:** include `Mythosia.VectorDb.Abstractions`, `Mythosia.AI.Rag.Abstractions` and `Mythosia.VectorDb.InMemory` in the explicit, dependency-ordered package set alongside the existing six packages. Isolated consumers resolve the new RAG contracts from the same build instead of incompatible published dependencies. Add README/release-note/symbol packaging and provenance metadata to these dependencies. Version numbers remain unchanged pending release preparation; existing-version and source-commit publication guards remain enforced. PIXIE and the other document/vector providers are outside this publication set.
+
 - **Claude failure diagnostics:** preserve context-test failure steps, provider details and original exception stacks; record synthetic context exchanges without authentication headers or thinking blocks, and retain Anthropic speed error details. Add four context-history/refusal regression cases. A focused live recheck passed the original context scenario and confirmed zero Fast quota on both completion and Run; this does not establish a fix for the initial intermittent refusal. See the [follow-up record](tests/Mythosia.AI.Test/validation/2026-09-24-claude-errors.md).
 
 ## v8.0.0

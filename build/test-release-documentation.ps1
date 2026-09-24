@@ -72,6 +72,30 @@ $releasePackages = @(
         ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v300"
     },
     [pscustomobject]@{
+        Id = "Mythosia.VectorDb.Abstractions"
+        Version = "4.0.1"
+        Project = "src/vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj"
+        Readme = "src/vectordb/Mythosia.VectorDb.Abstractions/README.md"
+        ReleaseNotes = "src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased"
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.AI.Rag.Abstractions"
+        Version = "6.2.0"
+        Project = "src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj"
+        Readme = "src/rag/Mythosia.AI.Rag.Abstractions/README.md"
+        ReleaseNotes = "src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased"
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.VectorDb.InMemory"
+        Version = "4.1.0"
+        Project = "src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj"
+        Readme = "src/vectordb/Mythosia.VectorDb.InMemory/README.md"
+        ReleaseNotes = "src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#unreleased"
+    },
+    [pscustomobject]@{
         Id = "Mythosia.AI.Rag"
         Version = "8.0.0"
         Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
@@ -165,8 +189,9 @@ foreach ($package in $releasePackages) {
     # Check the current release independently: a historical migration link is not
     # sufficient guidance for the new image, completion, Run and tool contracts.
     $currentRelease = [regex]::Match($releaseNotesText, '(?ms)^## v[^\r\n]+\r?\n(?<body>.*?)(?=^## v|\z)').Groups['body'].Value
-    # The independent vLLM control-plane client has no core v8 API migration.
-    if ($package.Id -ne "Mythosia.AI.Serving.Vllm" -and
+    # Only the five packages in the coordinated core v8 migration need this guide.
+    # The independent vLLM and RAG/vector dependency packages retain their own history.
+    if ($package.Id -in @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba", "Mythosia.AI.Rag", "Mythosia.AI.Mcp") -and
         -not $currentRelease.Contains("https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md")) {
         Add-Issue "$($package.ReleaseNotes) current release does not link to the v8 migration guide."
     }

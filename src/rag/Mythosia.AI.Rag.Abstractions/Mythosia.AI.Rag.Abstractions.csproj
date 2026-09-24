@@ -10,7 +10,13 @@
     <Company>Mythosia</Company>
     <Description>Shared contracts for Mythosia RAG loading, splitting, embeddings, retrieval, reranking and context building. IRagRetriever and RagRetrievalRequest support query text, lexical overrides, top-K, filters, progress and cancellation without requiring a query embedding. Retains IRetrievalStrategy for existing dense-input implementations. Includes self-contained RagDocument, RagChunk and cloneable pipeline/query options for per-query configuration.</Description>
     <PackageTags>AI;RAG;Abstractions;VectorStore;Embedding;TextSplitter;HybridSearch;Reranking;MetadataFilter</PackageTags>
-    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag.Abstractions</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReleaseNotes>Unreleased (next version not assigned): Adds IRagRetriever and RagRetrievalRequest for request-based retrieval without mandatory query embeddings. Requests carry full/lexical query text, top-K, filters and optional progress; RetrieveAsync accepts cancellation. Existing IRetrievalStrategy implementations remain supported. Built-in retrievers use the full query for a null lexical override and skip text search for an empty override. Full pending notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased. Previous version notes: v6.2.0: Added Clone() to RagPipelineOptions, RagQueryOptions, RagFilter, RagRetrievalDerivation, and RagFinalSelectionOptions for snapshot-style runtime updates and safe per-query overrides on top of RagPipelineOptions.DefaultQuery without losing fields like ProgressAsync or StoreFilter.</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
@@ -24,6 +30,7 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>

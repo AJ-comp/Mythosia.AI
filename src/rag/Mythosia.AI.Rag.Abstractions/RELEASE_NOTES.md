@@ -12,6 +12,10 @@
 
 - `IRetrievalStrategy` remains available; existing implementations are not required to implement the new contract. New built-in retrievers use the full query for a null lexical override and skip text search for an empty override.
 
+### Internal
+
+- Include this package and its vector contracts in coordinated package validation so isolated RAG consumers resolve the new retrieval contracts from the same source build. Pack the README, release notes and symbols with repository provenance. The next release version is still unassigned.
+
 
 ## v6.2.0
 

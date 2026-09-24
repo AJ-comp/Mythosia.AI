@@ -89,6 +89,9 @@ $expectedIds = @(
     "Mythosia.AI.Abstractions",
     "Mythosia.AI",
     "Mythosia.AI.Providers.Alibaba",
+    "Mythosia.VectorDb.Abstractions",
+    "Mythosia.AI.Rag.Abstractions",
+    "Mythosia.VectorDb.InMemory",
     "Mythosia.AI.Rag",
     "Mythosia.AI.Mcp",
     "Mythosia.AI.Serving.Vllm"
@@ -242,8 +245,8 @@ function Invoke-PackageConsumer {
 function Get-ReleasePackageSourceMapping {
     param([string[]]$PackageIds)
 
-    # Pin only this release set locally. Unchanged dependencies such as
-    # Mythosia.AI.Rag.Abstractions must still resolve from nuget.org.
+    # Pin the complete explicit release set locally, including changed RAG contracts.
+    # Unchanged dependencies such as document loaders still resolve from nuget.org.
     return ($PackageIds | ForEach-Object {
         $escapedId = [System.Security.SecurityElement]::Escape($_)
         "      <package pattern=`"$escapedId`" />"
@@ -521,6 +524,7 @@ namespace PackageSmoke
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
 
 var store = await RagStore.BuildAsync(builder => builder
     .AddText("PACKAGE_SMOKE_SHIPPING takes three days.", id: "package-smoke")
@@ -531,6 +535,17 @@ var result = await store.QueryAsync("PACKAGE_SMOKE_SHIPPING");
 if (!result.HasReferences || !result.RequestMessageContent.Contains("PACKAGE_SMOKE_SHIPPING takes three days."))
     throw new InvalidOperationException("The packaged RAG pipeline did not retrieve its local document.");
 
+if (!store.UseKeywordSearch())
+    throw new InvalidOperationException("The packaged RAG pipeline did not accept keyword retrieval.");
+var keywordResult = await store.QueryAsync("PACKAGE_SMOKE_SHIPPING");
+if (!keywordResult.HasReferences || !keywordResult.RequestMessageContent.Contains("PACKAGE_SMOKE_SHIPPING takes three days."))
+    throw new InvalidOperationException("The packaged keyword retriever did not retrieve its local document.");
+if (!store.UpdateRetrievalStrategy(new HybridSearchOptions { VectorWeight = 0.25f, CandidateMultiplier = 2, RrfK = 10 }))
+    throw new InvalidOperationException("The packaged RAG pipeline did not accept configurable hybrid retrieval.");
+var hybridResult = await store.QueryAsync("PACKAGE_SMOKE_SHIPPING");
+if (!hybridResult.HasReferences || !hybridResult.RequestMessageContent.Contains("PACKAGE_SMOKE_SHIPPING takes three days."))
+    throw new InvalidOperationException("The packaged hybrid retriever did not retrieve its local document.");
+
 // Compile the new wrapper surface without invoking any hosted service.
 Func<RagEnabledService, RagEnabledService> configure = service => service
     .WithReasoning(ReasoningLevel.High, CachePreservation.None)
@@ -538,11 +553,13 @@ Func<RagEnabledService, RagEnabledService> configure = service => service
     .WithFileSearch(new FileSearchStore("OpenAI", "vs_package_smoke"));
 Func<RagEnabledService, Task<AIRun>> start = service => service.StartRunAsync("package smoke");
 Func<RagEnabledService, int> citationCount = service => service.LastCitations.Count;
-GC.KeepAlive(new Delegate[] { configure, start, citationCount });
+Func<IRagRetriever, Task<IReadOnlyList<VectorSearchResult>>> retrieve = retriever =>
+    retriever.RetrieveAsync(new RagRetrievalRequest("package smoke", topK: 1));
+GC.KeepAlive(new Delegate[] { configure, start, citationCount, retrieve });
 if (typeof(RagEnabledService).Assembly.GetName().Name != "Mythosia.AI.Rag")
     throw new InvalidOperationException("The packaged RAG assembly did not load.");
 
-Console.WriteLine("RAG-only consumer retrieval and public API smoke test passed.");
+Console.WriteLine("RAG-only consumer dense, keyword, hybrid and public API smoke tests passed.");
 '@
     Invoke-PackageConsumer `
         -Name "RagConsumer" `
@@ -551,6 +568,9 @@ Console.WriteLine("RAG-only consumer retrieval and public API smoke test passed.
         -Program $ragProgram `
         -ExpectedLibraries @(
             "Mythosia.AI.Rag/$($versions['Mythosia.AI.Rag'])",
+            "Mythosia.VectorDb.Abstractions/$($versions['Mythosia.VectorDb.Abstractions'])",
+            "Mythosia.AI.Rag.Abstractions/$($versions['Mythosia.AI.Rag.Abstractions'])",
+            "Mythosia.VectorDb.InMemory/$($versions['Mythosia.VectorDb.InMemory'])",
             "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")
 
@@ -558,6 +578,8 @@ Console.WriteLine("RAG-only consumer retrieval and public API smoke test passed.
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Rag;
+using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -573,6 +595,16 @@ namespace PackageSmoke
 
         public static IReadOnlyList<AICitation> ReadCitations(RagEnabledService service)
             => service.LastCitations;
+
+        public static Task<IReadOnlyList<VectorSearchResult>> CompileRetriever(IRagRetriever retriever)
+            => retriever.RetrieveAsync(new RagRetrievalRequest("package smoke", topK: 1));
+
+        public static RagBuilder CompileRetrievalSelection(RagBuilder builder)
+            => builder.UseHybridSearch(new HybridSearchOptions { VectorWeight = 0.25f }).UseKeywordSearch();
+
+        public static ITextSearchStore CompileTextStore(InMemoryVectorStore store) => store;
+
+        public static IConfigurableHybridSearchStore CompileHybridStore(InMemoryVectorStore store) => store;
     }
 }
 '@
@@ -583,6 +615,9 @@ namespace PackageSmoke
         -Program $ragNetStandardProgram `
         -ExpectedLibraries @(
             "Mythosia.AI.Rag/$($versions['Mythosia.AI.Rag'])",
+            "Mythosia.VectorDb.Abstractions/$($versions['Mythosia.VectorDb.Abstractions'])",
+            "Mythosia.AI.Rag.Abstractions/$($versions['Mythosia.AI.Rag.Abstractions'])",
+            "Mythosia.VectorDb.InMemory/$($versions['Mythosia.VectorDb.InMemory'])",
             "Mythosia.AI.Abstractions/$($versions['Mythosia.AI.Abstractions'])") `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*") `
         -TargetFramework "netstandard2.1" `

@@ -13,6 +13,10 @@
 
 - Existing `IVectorStore` implementations and direct hybrid calls remain available without implementing the new optional capabilities. Native keyword/vector scores remain distinct from weighted-RRF scores.
 
+### Internal
+
+- Include these contracts in coordinated package validation instead of resolving older published assemblies that lack the new hybrid types. Pack the README, release notes and symbols with repository provenance. The next release version is still unassigned.
+
 
 ## v4.0.1
 

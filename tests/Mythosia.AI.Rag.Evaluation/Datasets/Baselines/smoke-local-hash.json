@@ -1,10 +1,10 @@
 {
   "schemaVersion": 2,
-  "description": "Deterministic smoke baseline with actual chunk content included in compatibility checks. Metrics unchanged after the chunking fix. Regenerate only after reviewing changed rankings and dataset/metric changes. This is not a model quality benchmark.",
+  "description": "Deterministic smoke baseline with explicit LF JSON formatting for cross-platform fingerprints. Windows and Linux corpora, vectors and metrics were verified identical; only fingerprint serialization changed. Regenerate only after reviewing changed rankings and dataset/metric changes. This is not a model quality benchmark.",
   "datasetId": "smoke",
   "datasetVersion": "1",
   "metricsBaseline": {
-    "compatibilityFingerprint": "76055ae52cf76f008f1034c55be9f62c75f833d5fbf967e7dd1681f085a064de",
+    "compatibilityFingerprint": "bc02998f4ea1d69486418c244b4e6c66d6ca0ee95361b0ce36f7fdd3103ce6d7",
     "methods": {
       "bm25": {
         "caseCount": 10,

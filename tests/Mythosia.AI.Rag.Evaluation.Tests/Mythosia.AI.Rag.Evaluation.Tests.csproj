@@ -13,4 +13,8 @@
     <ProjectReference Include="../Mythosia.AI.Rag.Evaluation/Mythosia.AI.Rag.Evaluation.csproj" />
     <Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="../Mythosia.AI.Rag.Evaluation/Datasets/smoke.json" Link="Fixtures/smoke.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../Mythosia.AI.Rag.Evaluation/Datasets/Baselines/smoke-local-hash.json" Link="Fixtures/smoke-local-hash.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

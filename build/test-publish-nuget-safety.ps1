@@ -55,12 +55,83 @@ Assert-True ($null -ne $releaseSetAssignment -and $null -ne $consumerIdsAssignme
     "Both publication and consumer validation must declare their explicit release set."
 $releaseDefinitions = @(Invoke-Expression $releaseSetAssignment.Right.Extent.Text)
 $consumerIds = @(Invoke-Expression $consumerIdsAssignment.Right.Extent.Text)
-$expectedReleaseIds = @("Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba", "Mythosia.AI.Rag", "Mythosia.AI.Mcp", "Mythosia.AI.Serving.Vllm")
+$expectedReleaseIds = @(
+    "Mythosia.AI.Abstractions", "Mythosia.AI", "Mythosia.AI.Providers.Alibaba",
+    "Mythosia.VectorDb.Abstractions", "Mythosia.AI.Rag.Abstractions", "Mythosia.VectorDb.InMemory",
+    "Mythosia.AI.Rag", "Mythosia.AI.Mcp", "Mythosia.AI.Serving.Vllm")
 $releaseIds = @($releaseDefinitions | ForEach-Object { [string]$_.Id })
 Assert-True (($releaseIds -join '|') -ceq ($expectedReleaseIds -join '|')) `
-    "Publication must include exactly the six dependency-ordered release packages, including RAG, MCP and vLLM serving."
+    "Publication must include exactly the nine dependency-ordered release packages, including the changed RAG contracts and in-memory store."
 Assert-True (($consumerIds -join '|') -ceq ($releaseIds -join '|')) `
     "Package consumers must validate the same explicit release set that publication packs."
+$precedingReleaseIds = @{}
+foreach ($definition in $releaseDefinitions) {
+    Assert-True (-not $precedingReleaseIds.ContainsKey([string]$definition.Id)) `
+        "The release set must not repeat package $($definition.Id)."
+    foreach ($dependency in $definition.Dependencies.GetEnumerator()) {
+        Assert-True ($dependency.Key -ceq $dependency.Value -and
+            $precedingReleaseIds.ContainsKey([string]$dependency.Value)) `
+            "$($definition.Id) must depend on an earlier matching package in the release set: $($dependency.Key)."
+    }
+    foreach ($dependencyId in $definition.FixedDependencies.Keys) {
+        Assert-True ($releaseIds -notcontains $dependencyId) `
+            "$($definition.Id) must use the release version for $dependencyId instead of a fixed published version."
+    }
+    $precedingReleaseIds[[string]$definition.Id] = $true
+}
+$expectedRagDependencies = @{
+    'Mythosia.AI.Rag.Abstractions' = @('Mythosia.VectorDb.Abstractions')
+    'Mythosia.VectorDb.InMemory' = @('Mythosia.VectorDb.Abstractions', 'Mythosia.AI.Rag.Abstractions')
+    'Mythosia.AI.Rag' = @('Mythosia.AI.Abstractions', 'Mythosia.AI.Rag.Abstractions', 'Mythosia.VectorDb.InMemory')
+}
+foreach ($packageId in $expectedRagDependencies.Keys) {
+    $definition = @($releaseDefinitions | Where-Object { $_.Id -eq $packageId })[0]
+    $expectedDependencies = @($expectedRagDependencies[$packageId])
+    Assert-True ($definition.Dependencies.Count -eq $expectedDependencies.Count) `
+        "$packageId must use the complete source-built RAG dependency set."
+    foreach ($dependencyId in $expectedDependencies) {
+        Assert-True ($definition.Dependencies[$dependencyId] -ceq $dependencyId) `
+            "$packageId must validate $dependencyId against the version packed in this release."
+    }
+}
+$luceneWarningExceptions = @{
+    'Mythosia.VectorDb.Abstractions' = '4.0.1'
+    'Mythosia.VectorDb.InMemory' = '4.1.0'
+}
+foreach ($definition in $releaseDefinitions) {
+    [xml]$projectXml = Get-Content -Raw -LiteralPath (Join-Path $repoRoot $definition.Project)
+    $warningExceptions = @($projectXml.SelectNodes('/Project/PropertyGroup/WarningsNotAsErrors') |
+        Where-Object { $_.InnerText -match '(?i)(^|;)NU5104(;|$)' })
+    $suppressedWarnings = @($projectXml.SelectNodes('/Project/PropertyGroup/NoWarn') |
+        Where-Object { $_.InnerText -match '(?i)(^|;)NU5104(;|$)' })
+    Assert-True ($suppressedWarnings.Count -eq 0) `
+        "$($definition.Id) must not hide the stable-package/prerelease-dependency warning."
+    if ($luceneWarningExceptions.ContainsKey([string]$definition.Id)) {
+        $version = $luceneWarningExceptions[[string]$definition.Id]
+        $expectedCondition = "'`$(Version)' == '$version'"
+        Assert-True ($warningExceptions.Count -eq 1 -and
+            $warningExceptions[0].InnerText -ceq '$(WarningsNotAsErrors);NU5104' -and
+            $warningExceptions[0].Condition -ceq $expectedCondition -and
+            [string]$projectXml.Project.PropertyGroup.Version -ceq $version) `
+            "$($definition.Id) may only keep NU5104 nonfatal for its existing version $version."
+        Assert-True ($definition.FixedDependencies.Count -eq 2 -and
+            $definition.FixedDependencies['Lucene.Net'] -ceq '4.8.0-beta00016' -and
+            $definition.FixedDependencies['Lucene.Net.Analysis.Common'] -ceq '4.8.0-beta00016') `
+            "$($definition.Id) must retain only the reviewed pinned Lucene prerelease dependencies."
+        $packageReferences = @($projectXml.Project.ItemGroup.PackageReference | Where-Object { $null -ne $_ })
+        Assert-True ($packageReferences.Count -eq 2) `
+            "$($definition.Id) must not extend the NU5104 exception to other package references."
+        foreach ($reference in $packageReferences) {
+            Assert-True (@('Lucene.Net', 'Lucene.Net.Analysis.Common') -contains [string]$reference.Include -and
+                [string]$reference.Version -ceq '4.8.0-beta00016') `
+                "$($definition.Id) must use the reviewed Lucene IDs and versions for its NU5104 exception."
+        }
+    }
+    else {
+        Assert-True ($warningExceptions.Count -eq 0) `
+            "$($definition.Id) must not inherit the Lucene-specific NU5104 exception."
+    }
+}
 $mcpRelease = @($releaseDefinitions | Where-Object { $_.Id -eq 'Mythosia.AI.Mcp' })
 Assert-True ($mcpRelease.Count -eq 1 -and $mcpRelease[0].Dependencies.Count -eq 1 -and
     $mcpRelease[0].Dependencies['Mythosia.AI'] -eq 'Mythosia.AI' -and
@@ -83,7 +154,7 @@ Invoke-Expression $mappingFunction.Extent.Text
 [xml]$mappingXml = '<mapping>' + (Get-ReleasePackageSourceMapping -PackageIds $consumerIds) + '</mapping>'
 $mappedIds = @($mappingXml.mapping.package | ForEach-Object { [string]$_.pattern })
 Assert-True (($mappedIds -join '|') -ceq ($releaseIds -join '|')) `
-    "Each released package must map to local artifacts by exact ID, allowing unchanged RAG dependencies from NuGet."
+    "Each released package, including RAG contracts, must map to local artifacts by exact ID; only unchanged dependencies may come from NuGet."
 Assert-True ($consumerText.Contains('Get-ReleasePackageSourceMapping -PackageIds $expectedIds') -and
     [regex]::IsMatch($consumerText, '<packageSource key="release-artifacts">\r?\n\$releasePackageSourceMapping')) `
     "The generated exact-ID source mapping must be used in the consumer NuGet.config."
@@ -98,8 +169,11 @@ foreach ($consumerName in @('RagConsumer', 'RagNetStandardConsumer')) {
     Assert-True ($ragConsumers.Count -eq 1 -and
         $ragConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Rag"') -and
         $ragConsumers[0].Extent.Text.Contains('"Mythosia.AI.Abstractions/$($versions[''Mythosia.AI.Abstractions''])"') -and
+        $ragConsumers[0].Extent.Text.Contains('"Mythosia.VectorDb.Abstractions/$($versions[''Mythosia.VectorDb.Abstractions''])"') -and
+        $ragConsumers[0].Extent.Text.Contains('"Mythosia.AI.Rag.Abstractions/$($versions[''Mythosia.AI.Rag.Abstractions''])"') -and
+        $ragConsumers[0].Extent.Text.Contains('"Mythosia.VectorDb.InMemory/$($versions[''Mythosia.VectorDb.InMemory''])"') -and
         $ragConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")')) `
-        "$consumerName must consume the RAG package with the released abstractions and without the core implementation."
+        "$consumerName must consume the RAG package with every changed dependency from this release and without the core implementation."
 }
 foreach ($consumerName in @('McpConsumer', 'McpNetStandardConsumer')) {
     $mcpConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
@@ -176,6 +250,36 @@ catch {
 }
 Assert-True $developmentManifestRejected `
     "Push mode must reject development-validation manifests."
+
+$duplicateVersionGuard = $publishAst.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.IfStatementAst] -and
+        $node.Extent.Text.StartsWith('if ($publishedCount -gt 0 -and -not $AllowPartialResume)')
+}, $true)
+Assert-True ($null -ne $duplicateVersionGuard) `
+    "Publication must reject existing versions before attempting any package push."
+foreach ($packageId in @('Mythosia.VectorDb.Abstractions', 'Mythosia.AI.Rag.Abstractions', 'Mythosia.VectorDb.InMemory')) {
+    $publicationState = @([pscustomobject]@{
+        Package = [pscustomobject]@{ Id = $packageId; Version = '1.0.0' }
+        Exists = $true
+    })
+    $publishedCount = 1
+    $AllowPartialResume = $false
+    $existingVersionRejected = $false
+    try {
+        Invoke-Expression $duplicateVersionGuard.Extent.Text
+    }
+    catch {
+        if ($_.Exception.Message -like "A target package version already exists*$packageId*") {
+            $existingVersionRejected = $true
+        }
+        else {
+            throw
+        }
+    }
+    Assert-True $existingVersionRejected `
+        "Packing $packageId from source must not permit republishing an existing version."
+}
 
 $symbolResumeFunction = $functions |
     Where-Object { $_.Name -eq "Push-VerifiedResumeSymbols" } |
@@ -298,6 +402,8 @@ Assert-True ($mainPushCommands.Count -eq 1) `
     "Expected exactly one main-package push command."
 Assert-True (-not $mainPushCommands[0].Extent.Text.Contains('--skip-duplicate')) `
     "Main-package pushes must never skip a duplicate before provenance verification."
+Assert-True ($duplicateVersionGuard.Extent.EndOffset -lt $mainPushCommands[0].Extent.StartOffset) `
+    "Every existing-version check must complete before the first main-package push."
 
 $conflictRecoveryStart = $publishText.IndexOf(
     'if ($AllowPartialResume -and (Test-IsNuGetConflictOutput -Output $pushOutput))',
@@ -333,7 +439,7 @@ $workflowText = ($workflowPaths | ForEach-Object {
 }) -join [Environment]::NewLine
 foreach ($workflowPath in $workflowPaths | Select-Object -First 2) {
     Assert-True ([System.IO.File]::ReadAllText($workflowPath).Contains('./build/test-nuget-packages.ps1 -ArtifactsDirectory ./artifacts')) `
-        "CI and NuGet publication must run the shared six-package consumer validation."
+        "CI and NuGet publication must run the shared nine-package consumer validation."
 }
 
 $actionReferences = [regex]::Matches(

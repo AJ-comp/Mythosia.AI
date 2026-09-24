@@ -196,6 +196,44 @@ $releasePackages = @(
         }
     },
     [pscustomobject]@{
+        Id = "Mythosia.VectorDb.Abstractions"
+        Project = "src/vectordb/Mythosia.VectorDb.Abstractions/Mythosia.VectorDb.Abstractions.csproj"
+        Assembly = "Mythosia.VectorDb.Abstractions.dll"
+        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#unreleased"
+        Dependencies = @{}
+        FixedDependencies = @{
+            "Lucene.Net" = "4.8.0-beta00016"
+            "Lucene.Net.Analysis.Common" = "4.8.0-beta00016"
+        }
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.AI.Rag.Abstractions"
+        Project = "src/rag/Mythosia.AI.Rag.Abstractions/Mythosia.AI.Rag.Abstractions.csproj"
+        Assembly = "Mythosia.AI.Rag.Abstractions.dll"
+        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI/tree/main/src/rag/Mythosia.AI.Rag.Abstractions"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#unreleased"
+        Dependencies = @{
+            "Mythosia.VectorDb.Abstractions" = "Mythosia.VectorDb.Abstractions"
+        }
+        FixedDependencies = @{}
+    },
+    [pscustomobject]@{
+        Id = "Mythosia.VectorDb.InMemory"
+        Project = "src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj"
+        Assembly = "Mythosia.VectorDb.InMemory.dll"
+        ProjectUrl = "https://github.com/AJ-comp/Mythosia.AI"
+        ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#unreleased"
+        Dependencies = @{
+            "Mythosia.VectorDb.Abstractions" = "Mythosia.VectorDb.Abstractions"
+            "Mythosia.AI.Rag.Abstractions" = "Mythosia.AI.Rag.Abstractions"
+        }
+        FixedDependencies = @{
+            "Lucene.Net" = "4.8.0-beta00016"
+            "Lucene.Net.Analysis.Common" = "4.8.0-beta00016"
+        }
+    },
+    [pscustomobject]@{
         Id = "Mythosia.AI.Rag"
         Project = "src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj"
         Assembly = "Mythosia.AI.Rag.dll"
@@ -203,12 +241,12 @@ $releasePackages = @(
         ReleaseNotesUrl = "https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800"
         Dependencies = @{
             "Mythosia.AI.Abstractions" = "Mythosia.AI.Abstractions"
+            "Mythosia.AI.Rag.Abstractions" = "Mythosia.AI.Rag.Abstractions"
+            "Mythosia.VectorDb.InMemory" = "Mythosia.VectorDb.InMemory"
         }
         FixedDependencies = @{
             "Mythosia.Documents.Office" = "1.1.0"
             "Mythosia.Documents.Pdf" = "1.1.1"
-            "Mythosia.AI.Rag.Abstractions" = "6.2.0"
-            "Mythosia.VectorDb.InMemory" = "4.1.0"
             "SharpZipLib" = "1.4.2"
         }
     },

@@ -36,6 +36,34 @@ public sealed class RunnerTests
     }
 
     [TestMethod]
+    public async Task CommittedSmokeBaseline_PassesAcrossOperatingSystems()
+    {
+        // The committed baseline was verified against the Linux CI corpus. Comparing
+        // two freshly generated reports on one OS would miss platform-dependent hashes.
+        var fixtures = Path.Combine(AppContext.BaseDirectory, "Fixtures");
+        var options = new EvaluationOptions
+        {
+            Root = root,
+            Dataset = Path.Combine(fixtures, "smoke.json"),
+            Baseline = Path.Combine(fixtures, "smoke-local-hash.json"),
+            Output = NewOutput(),
+            EmbeddingCache = Path.Combine(root, "cache"),
+            Methods = ["bm25", "dense", "hybrid-bm25"],
+            Dense = "local-hash",
+            Warmup = 0
+        };
+
+        var result = await EvaluationRunner.RunAsync(options);
+
+        Assert.IsTrue(result.Passed,
+            "The committed smoke corpus, vectors and settings must match the same baseline on Windows and Linux.");
+        using var report = Report(options);
+        Assert.AreEqual("92521819fdec8d56a85c6e26e58ab5795f4f2586d131bebd7a293f6c8a0ce228",
+            report.RootElement.GetProperty("chunkFingerprint").GetString());
+        Assert.IsTrue(report.RootElement.GetProperty("regression").GetProperty("isCompatible").GetBoolean());
+    }
+
+    [TestMethod]
     public async Task ChangedRetrievalSettings_CannotPassBaselineGate()
     {
         var original = Options();

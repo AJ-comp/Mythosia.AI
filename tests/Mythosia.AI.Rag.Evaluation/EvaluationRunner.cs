@@ -22,6 +22,8 @@ public static class EvaluationRunner
     internal static readonly JsonSerializerOptions Json = new()
     {
         WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true,
+        // Fingerprints must not depend on the operating system's JSON formatting.
+        NewLine = "\n",
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
