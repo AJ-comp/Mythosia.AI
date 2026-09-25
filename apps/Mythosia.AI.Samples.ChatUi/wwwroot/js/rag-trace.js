@@ -74,11 +74,11 @@ export function renderTrace(ragTrace, trace) {
   ragTrace.innerHTML = `
     <div class="rag-summary">
       <div class="rag-summary-stats">
-        <div><strong>${trace.summary.documentCount}</strong> docs</div>
-        <div><strong>${trace.summary.chunkCount}</strong> chunks</div>
-        <div><strong>${trace.summary.embeddingCount}</strong> embeddings</div>
-        <div><strong>${trace.summary.recordCount}</strong> records</div>
-        <div><strong>${trace.summary.dimensions}</strong> dims</div>
+        <div><strong>${trace.summary.documentCount}</strong> <span data-ui-localize>Documents</span></div>
+        <div><strong>${trace.summary.chunkCount}</strong> <span data-ui-localize>Chunks</span></div>
+        <div><strong>${trace.summary.embeddingCount}</strong> <span data-ui-localize>Embeddings</span></div>
+        <div><strong>${trace.summary.recordCount}</strong> <span data-ui-localize>Vector Record</span></div>
+        <div><strong>${trace.summary.dimensions}</strong> <span data-ui-localize>Dimension</span></div>
       </div>
       <div class="rag-summary-actions" id="rag-summary-actions"></div>
     </div>

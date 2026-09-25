@@ -51,7 +51,20 @@ Bộ viết lại xem toàn bộ lịch sử và viết lại "Có ngoại lệ 
 
 ## Đổi cấu hình viết lại khi đang xử lý truy vấn
 
-Để tạm tắt tính năng viết lại hoặc đổi cách triển khai mà không xây dựng lại chỉ mục, hãy dùng `store.SetQueryRewriter(null)` hoặc `store.SetQueryRewriter(rewriter)`. Khi gọi trực tiếp overload của `RagStore.QueryAsync` nhận `conversationHistory`, truy vấn giữ bộ viết lại được chọn lúc bắt đầu. Dù cấu hình bị tắt hoặc thay đổi trong khi chờ thông báo tiến độ hay bước viết lại, truy vấn đó vẫn dùng cùng một thể hiện; các truy vấn sau dùng cấu hình mới. Hành vi này áp dụng cho truy vấn trực tiếp vào kho và không cập nhật bộ viết lại mà wrapper `RagEnabledService` đã giữ trước đó.
+> Cần `Mythosia.AI.Rag` 8.1.1 trở lên để thay đổi bộ viết lại trong lúc chạy có hiệu lực với các wrapper `WithRag(store)` đã kết nối. [Ghi chú bản vá](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+
+Để thêm hoặc thay bộ viết lại mà không xây dựng lại chỉ mục, dùng `store.SetQueryRewriter(rewriter)`; dùng `store.SetQueryRewriter(null)` để tắt việc viết lại và trích xuất từ khóa tìm kiếm. Cả overload của `RagStore.QueryAsync` nhận `conversationHistory` lẫn các wrapper đã kết nối qua `service.WithRag(store)` đều chọn bộ viết lại hiện tại của kho cho từng yêu cầu. Yêu cầu giữ nguyên thể hiện đã chọn trong lúc chờ thông báo tiến độ hoặc bước viết lại. Việc thêm, thay hoặc tắt chỉ tác động đến các yêu cầu sau, bao gồm truy xuất, tạo câu trả lời, streaming và Run qua các wrapper đó.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("Chính sách hoàn tiền có những ngoại lệ nào?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("Chính sách hoàn tiền có những ngoại lệ nào?");
+```
+
+`LlmQueryRewriter` mặc định được bật bằng `WithQueryRewriter()` chỉ được tạo một lần khi khởi tạo trì hoãn; sau khi tắt, nó không tự tạo lại ở yêu cầu tiếp theo. Các overload của kho không nhận `conversationHistory` vẫn bỏ qua bước viết lại, tương tự Agentic RAG, nơi agent tự tạo truy vấn tìm kiếm.
 
 ## Cách search gate hoạt động
 

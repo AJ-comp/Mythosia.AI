@@ -1,5 +1,34 @@
 # Mythosia.AI workspace release notes
 
+## v8.1.1
+
+This workspace patch includes only `Mythosia.AI.Rag` 8.1.1 and `Mythosia.VectorDb.Postgres` 10.8.1. The core `Mythosia.AI` package remains at **8.1.0**; all other package versions remain unchanged. The heading identifies the workspace patch, not a new core AI package version.
+
+| Package | Previous version | Release version | Full notes |
+| --- | --- | --- | --- |
+| Mythosia.AI.Rag | 8.1.0 | **8.1.1** | [RAG](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811) |
+| Mythosia.VectorDb.Postgres | 10.8.0 | **10.8.1** | [PostgreSQL](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081) |
+
+### Changed
+
+- **Apply runtime rewriter changes to existing RAG wrappers:** `SetQueryRewriter` additions, replacements and clears now affect subsequent requests through existing `WithRag(store)` wrappers as well as direct store queries accepting conversation history. Each request keeps its selected rewriter while awaiting work. Lazy initialization creates the automatic default once and publishes the fully configured store; clearing the rewriter does not recreate it. Plain store queries and Agentic RAG retain their intentional rewriting bypass. See [runtime query rewriting](docs/rag-query-rewriting.md#runtime-query-rewriter).
+- **Honor PostgreSQL tuning in mixed hybrid search:** the vector leg now applies the configured `HnswIndexOptions.EfSearch` or `IvfFlatIndexOptions.Probes` on the same connection and transaction as the hybrid query. Vector-only hybrid search retains the same settings; text-only search does not apply vector tuning. Per-request runtime overrides remain specific to `SearchAsync`. See [PostgreSQL configuration](docs/vectordb-backends.md).
+
+### Compatibility
+
+- Public signatures, package dependencies and stored index formats are unchanged. These fixes do not require reindexing. Approximate search and filters can still produce fewer than `topK` results.
+
+### Playground sample
+
+- Refreshed the local Chat UI with a light console, searchable model catalogue, responsive model/inspector panels and keyboard-accessible dialogs. The header shows loaded assembly versions.
+- Added 13 interface languages with remembered selection and in-place switching that preserves conversation, request settings and original content. All seven provider groups are initially visible, with a clear-search action to remove model filters.
+- Connected supported processing-speed settings to request builders, added Stop with partial-output preservation, updated exported C# examples and retained RAG skip/empty diagnostics. Provider timeouts and stream errors are visible, and text/tool output keeps its arrival order.
+- Sanitized model Markdown with a pinned local sanitizer and added console, stream/cancellation and rendering regression checks to CI. The sample is not a published NuGet package; its changes do not change the publication set above. See the [Playground guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md).
+
+### Internal
+
+- Added regression coverage for existing-wrapper rewriter changes, in-flight selection and automatic-default initialization, plus PostgreSQL HNSW candidate limits and IVFFlat settings inside the search transaction. Ordinary CI provisions PostgreSQL with pgvector and retains the VectorDb test report. Local database checks require `MYTHOSIA_PG_CONN`; skipped checks are not database validation. See [release validation](build/RELEASE.md).
+
 ## v8.1.0
 
 This coordinated release adds provider controls and models, request-based retrieval, optional local neural search, and indexing safeguards while preserving the existing public APIs. Upgrade the related packages together using the versions below. Review the document identity and reindexing guidance before updating an existing index.

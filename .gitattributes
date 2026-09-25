@@ -1,3 +1,4 @@
 # Keep hash-pinned upstream assets byte-for-byte across Windows/Linux checkouts.
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/pixie/tokenizer.json -text
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/pixie/LICENSE -text -whitespace
+apps/Mythosia.AI.Samples.ChatUi/wwwroot/lib/purify.min.js -text

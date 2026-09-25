@@ -308,6 +308,10 @@ var opts = new HnswSearchRuntimeOptions
 var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
+> Для применения заданных настроек векторного поиска при двух активных ветвях гибридного поиска требуется `Mythosia.VectorDb.Postgres` 10.8.1 или новее. [Примечания к исправлению](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081).
+
+Область поиска векторных кандидатов при гибридном поиске задаётся через `HnswIndexOptions.EfSearch` или `IvfFlatIndexOptions.Probes` в `PostgresOptions.Index`. Эти значения по умолчанию применяются к обычному векторному поиску и векторной части гибридного поиска в той же транзакции, что и поисковый запрос. Показанные выше переопределения параметров для отдельного запроса доступны только в `SearchAsync`. Приближённый поиск и фильтры по-прежнему могут возвращать меньше `topK` результатов.
+
 ### Все параметры
 
 ```csharp

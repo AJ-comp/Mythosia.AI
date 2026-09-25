@@ -15,6 +15,8 @@ import { initCustomSelects } from './custom-select.js';
 import { initFunctionsPanel } from './functions-panel.js';
 import { initRagReference } from './rag-reference.js';
 import { initRagDiagnostics } from './rag-diagnostics.js';
+import { initConsole } from './console.js';
+import { initI18n } from './i18n.js';
 
 // ── Scroll tracking ──────────────────────────────────────────
 chatMessages.addEventListener('scroll', () => {
@@ -22,6 +24,8 @@ chatMessages.addEventListener('scroll', () => {
 });
 
 // ── Boot ─────────────────────────────────────────────────────
+// Capture template labels before feature modules begin rendering dynamic content.
+initI18n();
 // Load API keys BEFORE module init so that auto-reconnect flows
 // (e.g., Postgres vector-store) can include the OpenAI key.
 loadKeysFromStorage();
@@ -37,5 +41,6 @@ initCustomSelects();
 initFunctionsPanel();
 initRagReference();
 initRagDiagnostics();
+initConsole();
 
 loadModels();

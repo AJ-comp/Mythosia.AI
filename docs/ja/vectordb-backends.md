@@ -281,3 +281,7 @@ var opts = new HnswSearchRuntimeOptions
 
 var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
+
+> ハイブリッド検索の両方の検索経路が有効な場合にベクトル検索設定を適用するには、`Mythosia.VectorDb.Postgres` 10.8.1 以降が必要です。[パッチノート](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081)。
+
+ハイブリッド検索のベクトル候補の探索範囲は、`PostgresOptions.Index` の `HnswIndexOptions.EfSearch` または `IvfFlatIndexOptions.Probes` で設定します。この既定値は通常のベクトル検索とハイブリッド検索のベクトル側の両方に、検索クエリと同じトランザクション内で適用されます。上記のリクエスト単位のランタイム上書きは `SearchAsync` 専用です。近似検索やフィルターにより、結果数が `topK` 未満になる場合はあります。

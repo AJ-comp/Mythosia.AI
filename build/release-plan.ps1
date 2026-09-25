@@ -45,10 +45,38 @@ function Assert-ReleasePlanStructure {
         $seen[$package.Id] = $true
     }
     foreach ($consumer in @($Plan.ConsumerOnlyPackages)) {
-        if ($seen.ContainsKey($consumer.Id) -or [string]::IsNullOrWhiteSpace($consumer.Version)) {
+        if ($consumer.Id -notmatch '^Mythosia\.[A-Za-z0-9.]+$' -or $seen.ContainsKey($consumer.Id) -or
+            $consumer.Version -notmatch '^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$') {
             throw "Consumer-only package must be distinct from publication targets: $($consumer.Id)."
         }
         $seen[$consumer.Id] = $true
+    }
+    $consumerVersions = Get-ReleaseConsumerVersions -Plan $Plan
+    foreach ($package in $Plan.Packages) {
+        foreach ($edge in $package.FixedDependencies.GetEnumerator()) {
+            if ($consumerVersions.ContainsKey($edge.Key) -and $consumerVersions[$edge.Key] -cne $edge.Value) {
+                throw "$($package.Id) fixed dependency $($edge.Key) must match its consumer-only version."
+            }
+        }
+    }
+}
+
+function Get-ReleaseConsumerVersions {
+    param([System.Collections.IDictionary]$Plan)
+    $versions = @{}
+    foreach ($package in @($Plan.Packages) + @($Plan.ConsumerOnlyPackages)) {
+        if ($versions.ContainsKey($package.Id)) { throw "Duplicate consumer package: $($package.Id)." }
+        $versions[$package.Id] = $package.Version
+    }
+    return $versions
+}
+
+function Assert-ReleaseConsumerVersionCoverage {
+    param([System.Collections.IDictionary]$Versions, [string[]]$RequiredIds)
+    foreach ($id in $RequiredIds) {
+        if (-not $Versions.Contains($id) -or [string]::IsNullOrWhiteSpace($Versions[$id])) {
+            throw "Consumer probe package is missing an explicit version: $id."
+        }
     }
 }
 

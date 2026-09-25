@@ -6,10 +6,10 @@ Compare local neural sparse search with your existing RAG retrieval when questio
 
 ## Installation
 
-Install the preview with `Mythosia.AI.Rag` 8.1.0. Its neural search contracts require `Mythosia.VectorDb.Abstractions` 4.1.0 or later. For local builds, follow the [model preparation and package validation instructions](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pixie-search.md#building-the-model-bundled-package-from-source).
+Install the preview with `Mythosia.AI.Rag` 8.1.1 to include the runtime query rewriter fixes. Its neural search contracts require `Mythosia.VectorDb.Abstractions` 4.1.0 or later. For local builds, follow the [model preparation and package validation instructions](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-pixie-search.md#building-the-model-bundled-package-from-source).
 
 ```bash
-dotnet add package Mythosia.AI.Rag --version 8.1.0
+dotnet add package Mythosia.AI.Rag --version 8.1.1
 dotnet add package Mythosia.AI.Rag.Search.Pixie --version 0.1.0-preview
 ```
 

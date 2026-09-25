@@ -1,5 +1,21 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v8.1.1
+
+### Changed
+
+- Existing `RagEnabledService` wrappers now honor `RagStore.SetQueryRewriter` additions, replacement and clearing. Each request captures the current rewriter once after initialization; requests already using a rewriter retain that instance and its search decision, rewritten query and keywords. Later requests use the new setting, matching the history-taking direct store overloads.
+- Lazy initialization configures the automatic rewriter before publishing the store to concurrent requests. A custom rewriter is preserved, the automatic default is created only once, and explicitly clearing it does not recreate it on a later request.
+
+### Internal
+
+- Added 11 regression cases covering existing shared wrappers, replacement, clearing, in-flight requests and custom/automatic lazy defaults. The complete RAG test suite passes all 938 tests without external LLM API calls.
+
+### Compatibility
+
+- No public API changes, index migration or reindexing are required when upgrading from 8.1.0. Dependency requirements remain unchanged; use `Mythosia.AI` 8.1.0 for the current provider integrations.
+- Earlier document-identity and chunk-boundary migration guidance in the 8.1.0 notes still applies when upgrading affected indexes from older versions.
+
 ## v8.1.0
 
 ### Added

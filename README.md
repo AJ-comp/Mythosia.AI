@@ -38,7 +38,9 @@ The [retrieval evaluation infrastructure](https://github.com/AJ-comp/Mythosia.AI
 
 Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
 
-> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [complete release matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for retrieval, document and vector packages.
+> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [current patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 patch](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): existing RAG wrappers now observe runtime query-rewriter changes, and mixed PostgreSQL hybrid search honors configured vector-search settings. Core `Mythosia.AI` remains at 8.1.0.
 
 ---
 
@@ -76,7 +78,7 @@ For requests where waiting time matters, use [processing speed](docs/request-bui
 graph TD
     Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
     end
 
     subgraph "⚡ Core AI"
@@ -108,7 +110,7 @@ graph TD
     subgraph "🗄️ Vector Stores — pick one or more"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
     end
 
@@ -151,7 +153,9 @@ graph TD
 
 ## Demo / Test Bed (Chat UI)
 
-This repository includes a sample Chat UI built on Mythosia.AI — launch Mythosia.AI.Samples.ChatUi to test the library in action.
+Search models by name or provider and adjust settings on the left, chat in the center, and review returned processing details in the right-hand Inspector before integrating a model into your app. Use Stop to stop waiting for the active response; explicit speed choices are enabled only for supported model and endpoint combinations, and Fast may cost extra. On smaller screens, Models and Inspector open as drawers; see the [Chat UI guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) for local setup, documents and pipeline settings.
+
+Use the language selector in the header to switch between 13 interface languages without losing your input or settings. All seven providers are visible as collapsed groups; expand one or search for a model.
 
 ### Run the sample
 
@@ -161,6 +165,8 @@ Run **`Mythosia.AI.Samples.ChatUi`** to try it locally:
 # from repo root
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
+
+*The video below shows an earlier interface; the current screen may differ.*
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 

@@ -18,6 +18,21 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
 
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_DB: mythosia_tests
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: mythosia_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d mythosia_tests"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -28,6 +43,13 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.301
+
+      - name: Setup Node for UI regression tests
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: build/ui-tests/package-lock.json
 
       - name: Setup pinned model preparation runtime
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -72,6 +94,19 @@ jobs:
 
       - name: Verify DeepSeek RAG rewriter model selection
         run: node --experimental-vm-modules build/test-deepseek-rewriter-ui.mjs
+
+      - name: Install locked UI test dependencies
+        run: npm ci --prefix build/ui-tests --ignore-scripts --registry=https://registry.npmjs.org/ --no-fund
+
+      - name: Verify Chat UI controls, cancellation and safe Markdown rendering
+        run: |
+          node --experimental-vm-modules build/test-model-capabilities-ui.mjs
+          node --experimental-vm-modules build/test-perplexity-agent-ui.mjs
+          node --experimental-vm-modules build/test-perplexity-embedding-ui.mjs
+          node --experimental-vm-modules build/test-chat-cancellation-ui.mjs
+          node --experimental-vm-modules build/test-chat-markdown-ui.mjs
+          node --experimental-vm-modules build/test-console-ui.mjs
+          node --experimental-vm-modules build/test-i18n-ui.mjs
 
       - name: Prepare and verify model assets including cache hits
         run: |
@@ -195,11 +230,42 @@ jobs:
           --no-build
 
       - name: Run vector database tests
+        env:
+          MYTHOSIA_PG_CONN: Host=localhost;Port=5432;Database=mythosia_tests;Username=postgres;Password=mythosia_ci
         run: >-
           dotnet test
           --project tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj
           --configuration Release
           --no-build
+          --minimum-expected-tests 1
+          --report-trx
+          --report-trx-filename vectordb.trx
+          --results-directory artifacts/test-results/vectordb
+
+      - name: Require PostgreSQL regressions to execute
+        shell: pwsh
+        run: |
+          [xml]$report = Get-Content -LiteralPath artifacts/test-results/vectordb/vectordb.trx -Raw
+          $counters = $report.TestRun.ResultSummary.Counters
+          if ([int]$counters.total -lt 1 -or [int]$counters.passed -ne [int]$counters.total) {
+            throw 'VectorDb validation requires every test to pass; skipped or inconclusive database checks are not accepted.'
+          }
+          $regressions = @($report.TestRun.Results.UnitTestResult | Where-Object {
+            $_.testName -like 'Hybrid_UsesConfiguredHnswEfSearch_*' -or
+            $_.testName -eq 'Hybrid_UsesConfiguredIvfflatProbes_InItsOwnTransaction'
+          })
+          if ($regressions.Count -lt 3 -or @($regressions | Where-Object outcome -ne 'Passed').Count -ne 0) {
+            throw 'The HNSW and IVFFlat runtime-setting regressions must execute and pass.'
+          }
+
+      - name: Upload vector database regression results
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vectordb-regressions
+          path: artifacts/test-results/vectordb/
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Pack and validate release packages
         shell: pwsh

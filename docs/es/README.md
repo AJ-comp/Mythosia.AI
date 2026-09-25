@@ -37,7 +37,9 @@ La versión preliminar opcional `Mythosia.AI.Rag.Search.Pixie` permite comparar 
 
 Configure solicitudes independientes, detenga trabajo en curso y obtenga respuestas con consumo y fuentes. La [guía de migración a v8](v8-migration.md) reúne seis cambios de arquitectura, ejemplos y alcance de validación.
 
-> Versiones de paquetes documentadas aquí: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> Versiones de paquetes documentadas aquí: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+
+> [Parche RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): los contenedores RAG existentes reflejan los cambios del reescritor en tiempo de ejecución y la búsqueda híbrida mixta de PostgreSQL respeta la configuración vectorial. El paquete principal `Mythosia.AI` permanece en 8.1.0.
 
 ---
 
@@ -75,7 +77,7 @@ Para peticiones donde importa la espera, elija la [velocidad de procesamiento](r
 graph TD
     Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
     end
 
     subgraph "⚡ Core AI"
@@ -107,7 +109,7 @@ graph TD
     subgraph "🗄️ Vector Stores — elige uno o más"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
     end
 
@@ -139,7 +141,9 @@ graph TD
 
 ## Demo / Pruébalo (Chat UI)
 
-Este repositorio incluye un ejemplo de Chat UI construido con Mythosia.AI — ejecuta `Mythosia.AI.Samples.ChatUi` para probar la biblioteca directamente.
+Busca modelos por nombre o proveedor y ajusta la solicitud a la izquierda, conversa en el centro y revisa la información de procesamiento en Inspector a la derecha antes de integrar un modelo en tu aplicación. Usa Stop para dejar de esperar la respuesta; las opciones de velocidad solo se habilitan para modelos y endpoints compatibles, y Fast puede tener un coste adicional. En pantallas pequeñas, Models e Inspector se abren como paneles deslizantes; consulta la [guía de Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) para la ejecución local, los documentos y la configuración del proceso de recuperación.
+
+El selector de idioma de la cabecera permite cambiar entre 13 idiomas sin perder los datos introducidos ni la configuración. Los siete proveedores aparecen como grupos contraídos; expande uno o busca un modelo.
 
 ### Ejecutar el ejemplo
 
@@ -149,6 +153,8 @@ Inicia **`Mythosia.AI.Samples.ChatUi`** en tu máquina:
 # desde el directorio raíz del repositorio
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
+
+*El vídeo siguiente muestra una interfaz anterior; la pantalla actual puede ser diferente.*
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 

@@ -18,6 +18,7 @@ export const chatMessages   = $('#chat-messages');
 export const chatForm       = $('#chat-form');
 export const chatInput      = $('#chat-input');
 export const btnSend        = $('#btn-send');
+export const btnStop        = $('#btn-stop');
 export const btnClear       = $('#btn-clear');
 export const btnDocReference = $('#btn-doc-reference');
 export const btnRagSettings = $('#btn-rag-settings');

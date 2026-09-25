@@ -51,7 +51,20 @@ The rewriter sees the full history and rewrites "Are there any exceptions to tha
 
 ## Change rewriting while serving queries
 
-To temporarily disable rewriting or replace its implementation without rebuilding the index, use `store.SetQueryRewriter(null)` or `store.SetQueryRewriter(rewriter)`. When you call `RagStore.QueryAsync` directly through the overload accepting `conversationHistory`, it captures the selected rewriter as the query begins. That query keeps the same instance even if rewriting is disabled or replaced while progress reporting or rewriting is awaiting; later queries use the new setting. This behavior applies to direct store queries and does not update a rewriter already captured by a `RagEnabledService` wrapper.
+> Requires `Mythosia.AI.Rag` 8.1.1 or later for runtime changes to reach existing `WithRag(store)` wrappers. [Patch notes](../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+
+To add or replace a rewriter without rebuilding the index, use `store.SetQueryRewriter(rewriter)`; use `store.SetQueryRewriter(null)` to disable rewriting and keyword derivation. Both the `RagStore.QueryAsync` overload accepting `conversationHistory` and wrappers already attached through `service.WithRag(store)` select the store's current rewriter for each request. A request keeps its selected instance while progress reporting or rewriting is awaiting; adding, replacing or clearing the setting affects subsequent requests, including retrieval, completion, streaming and runs through those wrappers.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("What are the refund policy exceptions?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("What are the refund policy exceptions?");
+```
+
+The default `LlmQueryRewriter` enabled by `WithQueryRewriter()` is created once during lazy initialization; clearing it does not recreate it on the next request. Store overloads without `conversationHistory` continue to bypass rewriting, as does Agentic RAG, where the agent constructs the search query.
 
 ## How the Search Gate Works
 

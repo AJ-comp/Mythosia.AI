@@ -309,6 +309,10 @@ var opts = new HnswSearchRuntimeOptions
 var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
+> Se necesita `Mythosia.VectorDb.Postgres` 10.8.1 o posterior para aplicar la configuración vectorial cuando ambas vías de búsqueda híbrida están activas. [Notas del parche](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081).
+
+Para ajustar la exploración de candidatos vectoriales en la búsqueda híbrida, configure `HnswIndexOptions.EfSearch` o `IvfFlatIndexOptions.Probes` en `PostgresOptions.Index`. Estos valores predeterminados se aplican a la búsqueda vectorial normal y a la rama vectorial de la búsqueda híbrida, en la misma transacción que la consulta. Las opciones de ejecución por solicitud mostradas arriba solo se aplican a `SearchAsync`. La búsqueda aproximada y los filtros aún pueden devolver menos de `topK` resultados.
+
 ### Todas las Opciones
 
 ```csharp

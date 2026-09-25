@@ -47,7 +47,20 @@ var result = await store.QueryAsync(
 
 ## Cambiar la reescritura durante las consultas
 
-Para desactivar temporalmente la reescritura o cambiar su implementación sin reconstruir el índice, use `store.SetQueryRewriter(null)` o `store.SetQueryRewriter(rewriter)`. Al llamar directamente a la sobrecarga de `RagStore.QueryAsync` que acepta `conversationHistory`, se conserva el reescritor seleccionado al comenzar la consulta. Aunque se desactive o reemplace mientras se espera una notificación de progreso o la reescritura, esa consulta sigue usando la misma instancia; las posteriores usan la nueva configuración. Esto se aplica a consultas directas al almacén y no actualiza un reescritor ya guardado por un contenedor `RagEnabledService`.
+> Se necesita `Mythosia.AI.Rag` 8.1.1 o posterior para que los cambios en tiempo de ejecución lleguen a los contenedores `WithRag(store)` existentes. [Notas del parche](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+
+Para añadir o sustituir un reescritor sin reconstruir el índice, use `store.SetQueryRewriter(rewriter)`; use `store.SetQueryRewriter(null)` para desactivar la reescritura y la extracción de términos de búsqueda. Tanto la sobrecarga de `RagStore.QueryAsync` que acepta `conversationHistory` como los contenedores ya conectados mediante `service.WithRag(store)` seleccionan el reescritor actual del almacén en cada solicitud. Una solicitud conserva la instancia seleccionada mientras espera una notificación de progreso o la reescritura. Añadir, sustituir o quitar el reescritor afecta a las solicitudes posteriores, incluidas la búsqueda, la generación de respuestas, el streaming y los runs mediante esos contenedores.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("¿Qué excepciones tiene la política de reembolsos?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("¿Qué excepciones tiene la política de reembolsos?");
+```
+
+El `LlmQueryRewriter` predeterminado activado por `WithQueryRewriter()` se crea una sola vez durante la inicialización diferida; al quitarlo, no se vuelve a crear en la siguiente solicitud. Las sobrecargas del almacén sin `conversationHistory` siguen omitiendo la reescritura, al igual que Agentic RAG, donde el agente formula la consulta de búsqueda.
 
 ## Cómo Funciona el Gate de Búsqueda
 

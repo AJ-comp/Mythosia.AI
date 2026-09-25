@@ -17,13 +17,17 @@ function openCodeModal(userMessage) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ userMessage })
   })
-  .then(r => r.json())
+  .then(async response => {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Could not generate code.');
+    return data;
+  })
   .then(data => {
     codeModalContent.textContent = data.code || 'No code available';
     hljs.highlightElement(codeModalContent);
   })
-  .catch(() => {
-    codeModalContent.textContent = '// Failed to load code snippet';
+  .catch(error => {
+    codeModalContent.textContent = `// Failed to load code snippet: ${error.message}`;
   });
 }
 

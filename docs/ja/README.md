@@ -37,7 +37,9 @@ TXT・Markdownには文書構造に合わせた[規則ベースのスプリッ�
 
 リクエストの設定を分け、処理を中止し、回答と使用量・出典をまとめて受け取れます。[v8移行ガイド](v8-migration.md)に6つの構造変更、移行例、検証範囲をまとめました。
 
-> このドキュメントの対象バージョン: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> このドキュメントの対象バージョン: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 パッチ](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): 既存の RAG ラッパーに実行中の書き換え器の変更を反映し、PostgreSQL の混合ハイブリッド検索にもベクトル検索設定を適用します。コアの `Mythosia.AI` は 8.1.0 のままです。
 
 ---
 
@@ -75,7 +77,7 @@ dotnet add package Mythosia.VectorDb.Postgres     # 任意: 本番用ベクト�
 graph TD
     Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
     end
 
     subgraph "⚡ Core AI"
@@ -107,7 +109,7 @@ graph TD
     subgraph "🗄️ Vector Stores — 1 つ以上を選択"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
     end
 
@@ -150,7 +152,9 @@ graph TD
 
 ## デモ / テストベッド (Chat UI)
 
-このリポジトリには Mythosia.AI で構築されたサンプル Chat UI が含まれています。Mythosia.AI.Samples.ChatUi を起動して、ライブラリの動作を実際に確認できます。
+左側でモデル名やプロバイダーによる検索とリクエスト設定を行い、中央で会話しながら右側の Inspector で処理情報を確認して、アプリへの組み込み前に試せます。Stop で応答の待機を中止でき、速度を選べるのは対応するモデルと接続先のみで、Fast には追加料金がかかる場合があります。狭い画面では Models と Inspector が引き出し式パネルになり、ローカル起動・文書登録・パイプライン設定の詳細は [Chat UI ガイド](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md)で確認できます。
+
+ヘッダーの言語選択で、入力内容や設定を保ったまま13言語に切り替えられます。モデル一覧には7つのプロバイダーが折りたたまれた状態で表示され、展開するかモデル名で検索できます。
 
 ### サンプルの実行
 
@@ -160,6 +164,8 @@ graph TD
 # リポジトリのルートから
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
+
+*以下の動画は以前の UI を使用しており、現在の画面とは異なる場合があります。*
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 

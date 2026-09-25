@@ -63,7 +63,20 @@ var result = await store.QueryAsync(
 
 ## クエリの処理中に書き換え設定を変更する
 
-索引を再構築せずに書き換えを一時的に無効化したり実装を交換したりするには、`store.SetQueryRewriter(null)` または `store.SetQueryRewriter(rewriter)` を使います。`conversationHistory` を受け取るオーバーロードで `RagStore.QueryAsync` を直接呼び出すと、クエリ開始時に選択された書き換え器を保持します。進捗通知や書き換えの待機中に設定を無効化・交換しても、そのクエリは同じインスタンスを使い続け、以後のクエリから新しい設定を使います。これはストアへの直接クエリの動作であり、`RagEnabledService` ラッパーが既に保持している書き換え器は更新しません。
+> 既存の `WithRag(store)` ラッパーに実行中の書き換え器の変更を反映するには、`Mythosia.AI.Rag` 8.1.1 以降が必要です。[パッチノート](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811)。
+
+索引を再構築せずに書き換え器を追加・交換するには `store.SetQueryRewriter(rewriter)` を、書き換えと検索キーワードの抽出を無効にするには `store.SetQueryRewriter(null)` を使います。`conversationHistory` を受け取る `RagStore.QueryAsync` オーバーロードと、`service.WithRag(store)` で既に接続したラッパーは、リクエストごとにストアの現在の書き換え器を選択します。進捗通知や書き換えの待機中も、そのリクエストは選択済みのインスタンスを使い続けます。設定の追加・交換・解除は以後のリクエストに反映され、ラッパー経由の検索、応答生成、ストリーミング、Run にも同じ規則が適用されます。
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("返金ポリシーの例外は何ですか？");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("返金ポリシーの例外は何ですか？");
+```
+
+`WithQueryRewriter()` で有効にした既定の `LlmQueryRewriter` は遅延初期化時に一度だけ生成され、解除後の次のリクエストで自動的に再生成されることはありません。`conversationHistory` を受け取らないストアのオーバーロードは、引き続き書き換えを行いません。Agentic RAG でも、エージェントが検索クエリを作るため書き換え器を使用しません。
 
 ## 検索ゲートの仕組み
 

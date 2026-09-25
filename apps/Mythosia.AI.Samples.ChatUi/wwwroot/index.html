@@ -1,9 +1,10 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mythosia.AI - Chat UI Sample</title>
+  <title>Mythosia.AI · Playground</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -16,22 +17,51 @@
   <link rel="stylesheet" href="/css/rag.css" />
   <link rel="stylesheet" href="/css/diagnostics.css" />
   <link rel="stylesheet" href="/css/responsive.css" />
+  <link rel="stylesheet" href="/css/console.css" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" />
 </head>
 <body>
+  <a class="skip-link" href="#chat-input">Skip to message</a>
+  <header class="workspace-header">
+    <a class="workspace-brand" href="/" aria-label="Mythosia.AI Playground home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M7 24V8l9 9 9-9v16M7 8l9 16 9-16" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+      <span>Mythosia<span class="brand-ai">.AI</span></span>
+    </a>
+    <span class="workspace-divider" aria-hidden="true">/</span>
+    <span class="workspace-name">Playground</span>
+    <span class="workspace-badge">Local workspace</span>
+    <div class="workspace-links">
+      <label class="language-picker"><span class="sr-only">Interface language</span><select id="ui-language" aria-label="Interface language" translate="no"><option value="en">English</option><option value="ko">한국어</option><option value="ja">日本語</option><option value="zh-Hans">简体中文</option><option value="zh-Hant">繁體中文</option><option value="de">Deutsch</option><option value="es">Español</option><option value="fr">Français</option><option value="pt">Português</option><option value="ru">Русский</option><option value="uk">Українська</option><option value="vi">Tiếng Việt</option><option value="th">ไทย</option></select></label>
+      <span id="workspace-version" class="workspace-version" title="Versions loaded by this application">Library connected</span>
+      <a href="https://aj-comp.github.io/Mythosia.AI/" target="_blank" rel="noopener noreferrer">Docs <span aria-hidden="true">↗</span></a>
+    </div>
+  </header>
+  <p id="language-status" class="language-status" role="status" hidden></p>
   <div class="app">
 
     <!-- ═══ LEFT: Model Selector ═══ -->
-    <aside id="sidebar-left" class="sidebar sidebar-left">
+    <aside id="sidebar-left" class="sidebar sidebar-left" aria-label="Models and request settings">
       <div class="sidebar-header">
-        <h2>Models</h2>
+        <div><span class="section-eyebrow">CONFIGURATION</span><h2>Choose a model</h2></div>
+        <button type="button" class="btn-icon drawer-close" data-close-drawer aria-label="Close model panel">×</button>
       </div>
+      <div class="model-search-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><input id="model-search" type="search" aria-label="Search models or providers" placeholder="Search models…" autocomplete="off" /><kbd>⌘ / Ctrl K</kbd></div>
+      <button id="model-search-clear" class="model-search-clear" type="button" aria-label="Clear model search" hidden>Clear search</button>
+      <p id="model-count" class="model-count" role="status">Loading model catalogue…</p>
       <div id="model-list" class="model-list"></div>
+      <p id="model-search-empty" class="model-search-empty hidden">No matching models. Try a provider name.</p>
 
       <!-- Settings (scrollable bottom section, max 50% of sidebar) -->
       <div class="sidebar-bottom">
       <div id="settings-area" class="settings-area hidden">
-        <h3>Settings</h3>
+        <h3>Request settings</h3>
+        <div class="setting-group">
+          <label for="set-speed">Response speed</label>
+          <select id="set-speed"><option value="ProviderDefault">Provider default</option><option value="Standard">Standard</option><option value="Fast">Fast · premium</option></select>
+          <p id="speed-help" class="setting-help"></p>
+        </div>
+        <div id="model-capabilities" class="model-capabilities"></div>
+        <p id="settings-error" role="alert" class="hidden"></p>
         <div class="setting-row">
           <label>System Message</label>
           <textarea id="set-system" rows="2" placeholder="You are a helpful assistant."></textarea>
@@ -147,28 +177,40 @@
       </div><!-- /.sidebar-bottom -->
 
       <div class="sidebar-footer">
-        <span class="brand">Mythosia.AI v4.6</span>
+        <span class="local-dot" aria-hidden="true"></span><span class="brand">Your keys. Your models.</span>
       </div>
     </aside>
 
     <!-- ═══ CENTER: Chat ═══ -->
     <main class="chat-area">
+      <nav class="workspace-toolbar" aria-label="Workspace tools">
+        <div class="workspace-tabs"><span class="workspace-tab active" aria-current="page"><span aria-hidden="true">⌘</span> Chat</span><button type="button" class="workspace-tab" data-open-documents>Documents <span id="document-status-dot" class="tab-status-dot" aria-hidden="true"></span></button><button type="button" class="workspace-tab" data-open-pipeline>Pipeline</button></div>
+        <div class="panel-toggles"><button id="toggle-models" type="button" class="btn btn-secondary btn-sm" aria-controls="sidebar-left" aria-expanded="false">Models</button><button id="toggle-inspector" type="button" class="btn btn-secondary btn-sm" aria-controls="sidebar-right" aria-expanded="false">Inspector</button></div>
+      </nav>
       <div class="chat-header">
         <div class="chat-status-stack">
-          <span id="chat-status" class="chat-status">No model selected</span>
+          <span class="section-eyebrow">CONVERSATION</span>
+          <span id="chat-status" class="chat-status" role="status">Choose a model to get started</span>
         </div>
         <div class="chat-actions">
-          <button id="btn-rag-diagnose" class="btn btn-ghost btn-sm" title="RAG diagnostics" disabled>🔍 Diagnose</button>
-          <button id="btn-rag-settings" class="btn btn-ghost btn-sm" title="RAG pipeline settings">RAG Pipeline Settings</button>
-          <button id="btn-clear" class="btn btn-ghost btn-sm" title="Clear conversation">Clear</button>
+          <button id="btn-rag-diagnose" type="button" class="btn btn-ghost btn-sm" title="RAG diagnostics" disabled>Diagnose</button>
+          <button id="btn-rag-settings" type="button" class="btn btn-ghost btn-sm" title="RAG pipeline settings">Pipeline settings</button>
+          <button id="btn-clear" type="button" class="btn btn-ghost btn-sm" title="Clear conversation">New chat</button>
         </div>
       </div>
       <div id="chat-messages" class="chat-messages">
-        <div class="empty-state">
-          <div class="empty-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <div class="empty-state welcome-state">
+          <div class="welcome-symbol" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 32 32" fill="none"><path d="M7 24V8l9 9 9-9v16M7 8l9 16 9-16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <span class="section-eyebrow">THE MYTHOSIA PLAYGROUND</span>
+          <h1>One workspace.<br />Every model, within reach.</h1>
+          <p class="welcome-description">Explore a model. Ground an answer in your documents.<br class="desktop-break" /> See what happens at every step.</p>
+          <button type="button" class="btn btn-primary welcome-start" data-choose-model>Choose a model <span aria-hidden="true">→</span></button>
+          <div class="welcome-cards">
+            <button type="button" class="welcome-card" data-choose-model><span class="welcome-card-number">01 / CONNECT</span><strong>Start a conversation <span aria-hidden="true">↗</span></strong><span>Choose a provider and add your API key.</span></button>
+            <button type="button" class="welcome-card" data-open-documents><span class="welcome-card-number">02 / GROUND</span><strong>Bring your documents <span aria-hidden="true">↗</span></strong><span>Index files and explore answers with sources.</span></button>
+            <button type="button" class="welcome-card" data-open-pipeline><span class="welcome-card-number">03 / EXPERIMENT</span><strong>Tune your pipeline <span aria-hidden="true">↗</span></strong><span>Adjust retrieval, rewriting and reranking.</span></button>
           </div>
-          <p>Select a model and enter your API key to start chatting.</p>
+          <p class="welcome-footnote">Start with a model. Add documents when you need context.</p>
         </div>
       </div>
       <form id="chat-form" class="chat-input-area">
@@ -183,28 +225,32 @@
           </button>
         </div>
         <div class="chat-input-wrap">
-          <textarea id="chat-input" rows="1" placeholder="Type a message..." disabled></textarea>
-          <button id="btn-send" class="btn btn-primary" disabled>
+          <textarea id="chat-input" rows="1" aria-label="Message" placeholder="Connect a model to start exploring…" disabled></textarea>
+          <button id="btn-stop" type="button" class="btn btn-secondary hidden" aria-label="Stop response">Stop</button>
+          <button id="btn-send" type="submit" class="btn btn-primary" aria-label="Send message" disabled>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
       </form>
+      <div class="composer-footer"><span>Enter to send <span aria-hidden="true">·</span> Shift + Enter for a new line</span><span>Powered by Mythosia.AI</span></div>
     </main>
 
     <!-- ═══ RIGHT: Internal State ═══ -->
-    <aside id="sidebar-right" class="sidebar sidebar-right">
+    <aside id="sidebar-right" class="sidebar sidebar-right" aria-label="Session inspector">
       <div class="sidebar-header">
-        <h2>Internal State</h2>
-        <button id="btn-refresh-state" class="btn-icon" title="Refresh">
+        <div><span class="section-eyebrow">OBSERVABILITY</span><h2>Session inspector</h2></div>
+        <div class="inspector-actions"><button id="btn-refresh-state" type="button" class="btn-icon" title="Refresh" aria-label="Refresh session state">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
-        </button>
+        </button><button type="button" class="btn-icon drawer-close" data-close-drawer aria-label="Close inspector">×</button></div>
       </div>
+      <p class="inspector-intro">The details behind your conversation.<span>Settings, usage and tool activity update here.</span></p>
       <div id="state-container" class="state-container">
-        <div class="empty-state"><p>No service configured yet.</p></div>
+        <div class="inspector-empty"><div class="inspector-empty-icon" aria-hidden="true">{ }</div><h3>Ready when you are</h3><p>Connect a model to inspect the session.</p><div class="inspector-outline"><span>Model &amp; configuration</span><span>Conversation &amp; token usage</span><span>Tool calls &amp; processing</span></div></div>
       </div>
     </aside>
 
   </div>
+  <button id="workspace-backdrop" class="workspace-backdrop hidden" type="button" aria-label="Close side panel" tabindex="-1"></button>
 
   <!-- ═══ API Key Modal ═══ -->
   <div id="apikey-modal" class="modal-overlay hidden">
@@ -1137,6 +1183,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+  <script src="/lib/purify.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/csharp.min.js"></script>
   <script src="/lib/html2canvas.min.js"></script>

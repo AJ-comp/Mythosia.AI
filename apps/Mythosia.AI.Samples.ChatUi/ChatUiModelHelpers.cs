@@ -129,7 +129,9 @@ namespace Mythosia.AI.Samples.ChatUi
                 var reasoning = GetReasoningLevels(entry.Value, capabilities);
                 var maxOutputTokens = capabilities.MaxOutputTokens;
                 var sampling = GetSamplingControls(capabilities);
-                groups[provider].Add(new { name = entry.Name, description, reasoning, maxOutputTokens, sampling });
+                groups[provider].Add(new { name = entry.Name, description, reasoning, maxOutputTokens, sampling,
+                    speed = GetSpeedControls(capabilities, InferenceSpeed.ProviderDefault),
+                    capabilities = GetCapabilityControls(capabilities) });
             }
 
             return groups.Select(g => (object)new { provider = g.Key, models = g.Value }).ToList();
@@ -179,16 +181,42 @@ namespace Mythosia.AI.Samples.ChatUi
         public static object? GetReasoningLevels(string model)
             => GetReasoningLevels(model, GetModelCapabilities(model));
 
-        internal static object GetModelControls(AIService service)
+        internal static object GetModelControls(AIService service, InferenceSpeed speed = InferenceSpeed.ProviderDefault)
         {
             var capabilities = service.GetCapabilities();
             return new
             {
                 reasoning = GetReasoningLevels(capabilities.Model ?? service.Model, capabilities),
                 sampling = GetSamplingControls(capabilities),
-                maxOutputTokens = capabilities.MaxOutputTokens
+                maxOutputTokens = capabilities.MaxOutputTokens,
+                currentMaxTokens = service.MaxTokens,
+                speed = GetSpeedControls(capabilities, speed),
+                capabilities = GetCapabilityControls(capabilities)
             };
         }
+
+        internal static object GetSpeedControls(AIModelCapabilities capabilities, InferenceSpeed selected)
+            => new
+            {
+                selected = selected.ToString(),
+                standard = capabilities.StandardSpeed.ToString(),
+                fast = capabilities.FastSpeed.ToString()
+            };
+
+        // Availability is reported separately from which features this playground enables.
+        internal static object GetCapabilityControls(AIModelCapabilities capabilities)
+            => new
+            {
+                streaming = capabilities.Streaming.ToString(),
+                functionCalling = capabilities.FunctionCalling.ToString(),
+                asyncFunctionCalling = capabilities.AsyncFunctionCalling.ToString(),
+                steering = capabilities.Steering.ToString(),
+                reasoning = capabilities.NativeReasoning.ToString(),
+                imageInput = capabilities.ImageInput.ToString(),
+                webSearch = capabilities.WebSearch.ToString(),
+                fileSearch = capabilities.FileSearch.ToString(),
+                structuredOutput = capabilities.StructuredOutput.ToString()
+            };
 
         private static object? GetReasoningLevels(string model, AIModelCapabilities capabilities)
         {

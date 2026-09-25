@@ -75,7 +75,7 @@ export function autoScroll() {
 // ── Chat input helpers ───────────────────────────────────────
 export function enableChatInput() {
   chatInput.disabled = false;
-  btnSend.disabled = false;
+  btnSend.disabled = app.isSending;
   chatInput.focus();
 }
 
@@ -87,4 +87,5 @@ export function disableChatInput() {
 // ── Sidebar disable during streaming ─────────────────────────
 export function updateSidebarDisabled(disabled) {
   sidebarLeft.classList.toggle('disabled', disabled);
+  sidebarLeft.inert = disabled;
 }

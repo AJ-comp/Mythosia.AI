@@ -86,7 +86,14 @@ function renderState(s) {
     row('Freq Penalty', s.frequencyPenalty?.toFixed(2)),
     row('Pres Penalty', s.presencePenalty?.toFixed(2)),
     row('Stream', s.stream, 'bool'),
+    row('Requested speed', s.controls?.speed?.selected === 'ProviderDefault'
+      ? 'Provider default (omitted)' : s.controls?.speed?.selected),
   ]);
+
+  if (s.processing?.length) {
+    html += section('Reported processing', s.processing.map(info => row(`Attempt ${info.requestIndex}`,
+      `${info.applied || 'Not reported'}${info.downgraded ? ' · Fast request used Standard' : ''}`)));
+  }
 
   if (s.reasoning?.type === 'perplexity') {
     html += section('Perplexity Research', [

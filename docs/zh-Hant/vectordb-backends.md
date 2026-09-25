@@ -308,6 +308,10 @@ var opts = new HnswSearchRuntimeOptions
 var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
+> 若要在混合檢索的兩條搜尋路徑皆啟用時套用設定的向量搜尋參數，需要 `Mythosia.VectorDb.Postgres` 10.8.1 或更新版本。[修補說明](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081)。
+
+若要調整混合檢索中向量候選的搜尋範圍，請在 `PostgresOptions.Index` 中設定 `HnswIndexOptions.EfSearch` 或 `IvfFlatIndexOptions.Probes`。這些預設值會在搜尋查詢的同一交易內套用至一般向量搜尋和混合搜尋的向量分支。上方的逐請求執行階段覆寫僅適用於 `SearchAsync`。近似搜尋和篩選仍可能使結果數少於 `topK`。
+
 ### 全部選項
 
 ```csharp

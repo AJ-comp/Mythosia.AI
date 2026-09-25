@@ -250,7 +250,7 @@ export async function savePipelineSettings() {
       ragSettingsStatus.textContent = 'Settings saved locally.';
       setStatusState(ragSettingsStatus, 'success');
       setTimeout(() => {
-        if (ragSettingsStatus.textContent === 'Settings saved locally.') {
+        if (ragSettingsStatus.classList.contains('rag-status-success')) {
           ragSettingsStatus.textContent = '';
           setStatusState(ragSettingsStatus, null);
         }

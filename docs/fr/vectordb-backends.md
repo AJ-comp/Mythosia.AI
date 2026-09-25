@@ -309,6 +309,10 @@ var opts = new HnswSearchRuntimeOptions
 var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
 
+> `Mythosia.VectorDb.Postgres` 10.8.1 ou ultérieur est nécessaire pour appliquer les paramètres vectoriels configurés lorsque les deux voies de recherche hybride sont actives. [Notes du correctif](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081).
+
+Pour régler l'exploration des candidats vectoriels dans la recherche hybride, configurez `HnswIndexOptions.EfSearch` ou `IvfFlatIndexOptions.Probes` dans `PostgresOptions.Index`. Ces valeurs par défaut s'appliquent à la recherche vectorielle classique et à la branche vectorielle de la recherche hybride, dans la même transaction que la requête. Les surcharges d'exécution par requête présentées ci-dessus concernent uniquement `SearchAsync`. La recherche approchée et les filtres peuvent toujours renvoyer moins de `topK` résultats.
+
 ### Toutes les options
 
 ```csharp

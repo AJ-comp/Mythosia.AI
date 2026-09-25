@@ -93,9 +93,14 @@ if ($packages.Count -ne $expectedIds.Count) {
 }
 
 $versions = @{}
+$plannedVersions = Get-ReleaseConsumerVersions -Plan $releasePlan
 foreach ($package in $packages) {
     if (-not ($expectedIds -contains [string]$package.id)) {
         throw "Unexpected package in release manifest: $($package.id)"
+    }
+    if ($versions.ContainsKey([string]$package.id) -or
+        [string]$package.version -cne $plannedVersions[[string]$package.id]) {
+        throw "Duplicate package or version mismatch with the release plan: $($package.id) $($package.version)."
     }
 
     $packagePath = Join-Path $artifactsDir ([string]$package.file)
@@ -251,8 +256,8 @@ function Invoke-PackageConsumer {
 function Get-ReleasePackageSourceMapping {
     param([string[]]$PackageIds)
 
-    # Pin the complete explicit release set locally, including changed RAG contracts.
-    # Unchanged contracts and the consumer-only vLLM package resolve from nuget.org.
+    # Only publication targets resolve locally. All unchanged compatibility probes
+    # and fixed dependencies resolve from the official NuGet feed.
     return ($PackageIds | ForEach-Object {
         $escapedId = [System.Security.SecurityElement]::Escape($_)
         "      <package pattern=`"$escapedId`" />"
@@ -880,9 +885,9 @@ finally {
     }
 }
 
-foreach ($id in $expectedIds) {
+foreach ($id in $plannedVersions.Keys) {
     if (-not $verifiedLibraries.Contains("$id/$($versions[$id])")) {
-        throw "The release plan package $id $($versions[$id]) was not exercised by an isolated consumer."
+        throw "The release plan or consumer-only package $id $($versions[$id]) was not exercised by an isolated consumer."
     }
 }
 Write-Host "All isolated package consumer smoke tests passed."

@@ -15,13 +15,21 @@ function create(id, tag = '') {
   const listeners = new Map(), classes = new Set(), children = [];
   let innerHTML = '', radio;
   return {
+    tagName: tag.match(/^<([a-z]+)/i)?.[1]?.toUpperCase() || '', dataset: {},
     id, value: tag.match(/\bvalue="([^"]*)"/)?.[1] || '', checked: /\bchecked\b/.test(tag),
     disabled: /\bdisabled\b/.test(tag), textContent: '', title: '',
     classList: { add: name => classes.add(name), remove: name => classes.delete(name),
       contains: name => classes.has(name), toggle(name, on) { if (on ?? !classes.has(name)) classes.add(name); else classes.delete(name); } },
     addEventListener(type, action) { listeners.set(type, [...(listeners.get(type) || []), action]); },
     async fire(type) { for (const action of listeners.get(type) || []) await action(); },
-    appendChild(child) { children.push(child); }, contains() { return false; },
+    appendChild(child) { children.push(child); return child; },
+    append(...items) { children.push(...items); },
+    replaceChildren(...items) { children.splice(0, children.length, ...items); },
+    setAttribute(name, value) { this[name] = String(value); },
+    removeAttribute(name) { delete this[name]; },
+    contains() { return false; },
+    get options() { return children.filter(child => child.tagName === 'OPTION'); },
+    get selectedOptions() { return this.options.filter(option => option.value === this.value); },
     get innerHTML() { return innerHTML; },
     set innerHTML(value) {
       innerHTML = value; children.length = 0;
@@ -29,14 +37,23 @@ function create(id, tag = '') {
       radio = input ? create('', input) : null;
     },
     querySelectorAll() { return children.map(child => child.querySelector('input')).filter(Boolean); },
-    querySelector(selector) { return selector.includes(':checked') ? this.querySelectorAll().find(item => item.checked) : radio; }
+    querySelector(selector) {
+      if (selector === 'details') return children.find(child => child.tagName === 'DETAILS') || null;
+      return selector.includes(':checked') ? this.querySelectorAll().find(item => item.checked) : radio;
+    }
   };
 }
 function node(id) {
   if (elements.has(id)) return elements.get(id);
   const tag = html.match(new RegExp(`<[^>]+\\bid="${id}"[^>]*>`))?.[0];
   assert.ok(tag, `Missing actual HTML control ${id}`);
-  const value = create(id, tag); elements.set(id, value); return value;
+  const value = create(id, tag);
+  if (value.tagName === 'SELECT') {
+    const selectHtml = html.match(new RegExp(`<select\\b[^>]*\\bid="${id}"[^>]*>([\\s\\S]*?)</select>`))?.[1] || '';
+    for (const option of selectHtml.matchAll(/<option\b[^>]*>/g)) value.appendChild(create('', option[0]));
+    value.value ||= value.options[0]?.value || '';
+  }
+  elements.set(id, value); return value;
 }
 const dom = {};
 const modelsSource = fs.readFileSync(path.join(web, 'js/models.js'), 'utf8');
@@ -56,7 +73,7 @@ const connectionControls = { reasoning: null, sampling: { temperature: false, to
 let polledState;
 let fetchOverride;
 const document = {
-  getElementById: node, createElement: () => create(''), activeElement: null,
+  getElementById: node, createElement: tag => create('', `<${tag}>`), activeElement: null,
   querySelector: () => null
 };
 const context = vm.createContext({
@@ -301,4 +318,42 @@ ui.updateReasoningUI();
 assert.match(dom.reasoningLvls.innerHTML, /Always on/);
 assert.equal(dom.reasoningLvls.querySelectorAll('input').some(radio => radio.value === 'None'), false,
   'Sol/Luna controls must not leak a None option to Astra');
-console.log('Connection capability UI regression checks passed, including reversed responses.');
+
+// Speed is opt-in, model/endpoint-derived, and round-trips through the real settings handler.
+const speedControls = {
+  reasoning: app.modelReasoningInfo, sampling: { temperature: false, topP: false },
+  speed: { selected: 'ProviderDefault', standard: 'Supported', fast: 'Supported' },
+  capabilities: { streaming: 'Supported', functionCalling: 'Supported', steering: 'Unknown' }
+};
+ui.updateModelControls(speedControls);
+const speedSelect = node('set-speed');
+assert.equal(speedSelect.value, 'ProviderDefault');
+assert.match(node('speed-help').textContent, /No speed override/);
+assert.equal(speedSelect.options.find(option => option.value === 'Fast').disabled, false);
+const capabilityDetails = node('model-capabilities').querySelector('details');
+capabilityDetails.open = true;
+ui.updateModelControls(speedControls);
+assert.equal(node('model-capabilities').querySelector('details'), capabilityDetails,
+  'Polling identical capabilities must preserve the disclosure and focus');
+assert.equal(capabilityDetails.open, true);
+ui.initSettings();
+fetchOverride = async (url, options) => {
+  const body = JSON.parse(options.body);
+  requests.push({ url, body });
+  return { ok: true, json: async () => ({ controls: { ...speedControls,
+    speed: { ...speedControls.speed, selected: body.speed } } }) };
+};
+speedSelect.value = 'Fast';
+await speedSelect.fire('change');
+await waitTurn();
+assert.equal(requests.at(-1).body.speed, 'Fast');
+assert.equal(speedSelect.value, 'Fast');
+assert.match(node('speed-help').textContent, /cost more/);
+ui.updateModelControls({ ...speedControls, speed: { selected: 'ProviderDefault', standard: 'Supported', fast: 'Unsupported' } });
+assert.equal(speedSelect.value, 'ProviderDefault');
+assert.equal(speedSelect.options.find(option => option.value === 'Fast').disabled, true);
+assert.match(speedSelect.options.find(option => option.value === 'Fast').textContent, /unavailable/);
+ui.updateModelControls({ ...speedControls, speed: { selected: 'ProviderDefault', standard: 'Unknown', fast: 'Unknown' } });
+assert.equal(speedSelect.options.find(option => option.value === 'Standard').disabled, true);
+assert.match(speedSelect.options.find(option => option.value === 'Fast').textContent, /not verified/);
+console.log('Connection capability UI regression checks passed, including reversed responses and speed controls.');

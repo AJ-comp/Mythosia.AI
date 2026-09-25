@@ -51,7 +51,20 @@ Le réécriveur voit l'historique complet et reformule « Y a-t-il des exception
 
 ## Modifier la réécriture pendant le traitement des requêtes
 
-Pour désactiver temporairement la réécriture ou changer son implémentation sans reconstruire l’index, utilisez `store.SetQueryRewriter(null)` ou `store.SetQueryRewriter(rewriter)`. Un appel direct à la surcharge de `RagStore.QueryAsync` acceptant `conversationHistory` conserve le réécrivain sélectionné au début de la requête. Même si la configuration change pendant l’attente d’une notification de progression ou de la réécriture, cette requête continue d’utiliser la même instance ; les suivantes utilisent le nouveau réglage. Ce comportement concerne les appels directs au stockage et ne met pas à jour un réécrivain déjà conservé par un wrapper `RagEnabledService`.
+> `Mythosia.AI.Rag` 8.1.1 ou ultérieur est nécessaire pour appliquer les changements à l’exécution aux wrappers `WithRag(store)` existants. [Notes du correctif](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+
+Pour ajouter ou remplacer un réécrivain sans reconstruire l’index, utilisez `store.SetQueryRewriter(rewriter)` ; utilisez `store.SetQueryRewriter(null)` pour désactiver la réécriture et l’extraction des termes de recherche. La surcharge de `RagStore.QueryAsync` acceptant `conversationHistory` et les wrappers déjà connectés par `service.WithRag(store)` sélectionnent tous le réécrivain actuel du stockage pour chaque requête. Une requête conserve l’instance choisie pendant l’attente d’une notification de progression ou de la réécriture. L’ajout, le remplacement ou la suppression s’applique aux requêtes suivantes, y compris la recherche, la génération de réponses, le streaming et les runs via ces wrappers.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("Quelles sont les exceptions à la politique de remboursement ?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("Quelles sont les exceptions à la politique de remboursement ?");
+```
+
+Le `LlmQueryRewriter` par défaut activé par `WithQueryRewriter()` est créé une seule fois lors de l’initialisation différée ; sa suppression ne le recrée pas à la requête suivante. Les surcharges du stockage sans `conversationHistory` continuent de contourner la réécriture, tout comme Agentic RAG, où l’agent formule la requête de recherche.
 
 ## Fonctionnement du filtre de recherche
 

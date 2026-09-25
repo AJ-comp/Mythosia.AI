@@ -37,7 +37,8 @@ async function applySettings(revision, connectionRevision) {
     systemMessage: setSystem.value || '',
     reasoningEnabled: app.modelReasoningInfo ? setReasoning.checked : null,
     reasoningLevel: null,
-    reasoningType: null
+    reasoningType: null,
+    speed: document.getElementById('set-speed')?.value || 'ProviderDefault'
   };
   if (app.selectedProvider === 'Perplexity') {
     body.perplexityPreset = document.getElementById('set-perplexity-preset').value;
@@ -81,11 +82,15 @@ async function applySettings(revision, connectionRevision) {
     if (revision !== _settingsRevision || app.connectionRevision !== connectionRevision ||
         app.selectedModel !== selectedModel) return;
     if (response.ok) updateModelControls(result.controls);
+    setSettingsError(response.ok ? '' : result.error || 'Could not apply settings.');
     if (app.selectedProvider === 'Perplexity') {
       document.getElementById('perplexity-settings-error').textContent = response.ok ? '' : result.error || 'Could not apply settings.';
     }
     refreshState();
-  } catch (e) { /* ignore */ }
+  } catch (e) {
+    if (revision === _settingsRevision && app.connectionRevision === connectionRevision)
+      setSettingsError(`Could not save settings: ${e.message}`);
+  }
   finally {
     if (revision === _settingsRevision && app.connectionRevision === connectionRevision) {
       app.settingsPending = false;
@@ -181,6 +186,75 @@ export function updateModelControls(controls) {
   }
   app.modelSamplingInfo = controls.sampling ?? null;
   updateSamplingUI();
+  app.modelSpeedInfo = controls.speed ?? null;
+  updateSpeedUI();
+  renderCapabilities(controls.capabilities);
+  if (controls.maxOutputTokens) setMaxTokens.max = controls.maxOutputTokens;
+  else setMaxTokens.removeAttribute('max');
+}
+
+function setSettingsError(message) {
+  const error = document.getElementById('settings-error');
+  if (!error) return;
+  error.textContent = message;
+  error.classList.toggle('hidden', !message);
+}
+
+function updateSpeedUI() {
+  const select = document.getElementById('set-speed');
+  const help = document.getElementById('speed-help');
+  if (!select) return;
+  const info = app.modelSpeedInfo;
+  for (const option of select.options) {
+    if (option.value === 'ProviderDefault') continue;
+    const support = info?.[option.value.toLowerCase()] || 'Unknown';
+    option.disabled = support !== 'Supported';
+    const label = option.value === 'Fast' ? 'Fast · premium' : 'Standard';
+    option.textContent = support === 'Supported' ? label
+      : `${label} · ${support === 'Unknown' ? 'not verified' : 'unavailable'}`;
+  }
+  select.value = info?.selected || 'ProviderDefault';
+  if (select.selectedOptions[0]?.disabled) select.value = 'ProviderDefault';
+  if (help) help.textContent = select.value === 'Fast'
+    ? 'Premium processing may cost more. Availability and latency depend on your provider and account.'
+    : select.value === 'Standard'
+      ? 'Explicitly request standard processing. This does not change the model or reasoning effort.'
+      : 'No speed override is sent. Your provider or project default applies.';
+}
+
+function renderCapabilities(capabilities) {
+  const container = document.getElementById('model-capabilities');
+  if (!container) return;
+  const signature = JSON.stringify(capabilities || null);
+  if (container.dataset.capabilities === signature) return;
+  container.dataset.capabilities = signature;
+  const wasOpen = container.querySelector('details')?.open || false;
+  container.replaceChildren();
+  if (!capabilities) return;
+  const details = document.createElement('details');
+  details.open = wasOpen;
+  const summary = document.createElement('summary');
+  summary.textContent = 'Model capabilities';
+  details.appendChild(summary);
+  const explanation = document.createElement('p');
+  explanation.className = 'setting-help';
+  explanation.textContent = 'Library support for this model and endpoint. Availability does not enable a feature or guarantee account access.';
+  details.appendChild(explanation);
+  const list = document.createElement('dl');
+  list.className = 'capability-list';
+  for (const [key, label] of Object.entries({ streaming: 'Streaming', reasoning: 'Reasoning', functionCalling: 'Tool calling',
+    asyncFunctionCalling: 'Async tools', steering: 'Steering', imageInput: 'Image input',
+    webSearch: 'Native web search', fileSearch: 'Native file search', structuredOutput: 'Structured output' })) {
+    const support = capabilities[key] || 'Unknown';
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const value = document.createElement('dd');
+    value.textContent = support === 'Supported' ? 'Supported' : support === 'Unsupported' ? 'Unavailable' : 'Not verified';
+    value.dataset.support = support.toLowerCase();
+    list.append(term, value);
+  }
+  details.appendChild(list);
+  container.appendChild(details);
 }
 
 export function updateSamplingUI() {
@@ -256,6 +330,12 @@ export function updateSummaryUI(stateData) {
 
 // ── Event listeners ──────────────────────────────────────────
 export function initSettings() {
+  document.getElementById('set-speed')?.addEventListener('change', () => {
+    const select = document.getElementById('set-speed');
+    app.modelSpeedInfo = { ...app.modelSpeedInfo, selected: select.value };
+    updateSpeedUI();
+    scheduleApplySettings(0);
+  });
   for (const id of ['set-perplexity-preset', 'set-perplexity-steps', 'set-perplexity-search']) {
     document.getElementById(id)?.addEventListener('change', () => {
       const preset = document.getElementById('set-perplexity-preset').value !== 'Model';

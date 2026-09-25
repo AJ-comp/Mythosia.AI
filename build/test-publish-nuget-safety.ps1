@@ -56,6 +56,7 @@ Assert-True ($null -ne $releaseSetAssignment -and $null -ne $consumerIdsAssignme
 . (Join-Path $PSScriptRoot 'release-plan.ps1')
 $releasePlan = Get-ReleasePlan
 $releaseDefinitions = @($releasePlan.Packages)
+$consumerVersions = Get-ReleaseConsumerVersions -Plan $releasePlan
 $consumerIds = @(Invoke-Expression $consumerIdsAssignment.Right.Extent.Text)
 $releaseIds = @($releaseDefinitions | ForEach-Object { [string]$_.Id })
 Assert-True ($releaseSetAssignment.Right.Extent.Text.Contains('$releasePlan.Packages') -and
@@ -84,13 +85,23 @@ $expectedRagDependencies = @{
     'Mythosia.AI.Rag' = @('Mythosia.AI.Abstractions', 'Mythosia.AI.Rag.Abstractions', 'Mythosia.VectorDb.InMemory', 'Mythosia.Documents.Office', 'Mythosia.Documents.Pdf')
 }
 foreach ($packageId in $expectedRagDependencies.Keys) {
-    $definition = @($releaseDefinitions | Where-Object { $_.Id -eq $packageId })[0]
+    $matchingDefinitions = @($releaseDefinitions | Where-Object { $_.Id -eq $packageId })
+    if ($matchingDefinitions.Count -eq 0) { continue }
+    $definition = $matchingDefinitions[0]
     $expectedDependencies = @($expectedRagDependencies[$packageId])
-    Assert-True ($definition.Dependencies.Count -eq $expectedDependencies.Count) `
-        "$packageId must use the complete source-built RAG dependency set."
+    $workspaceDependencies = @($definition.Dependencies.Keys) + @($definition.FixedDependencies.Keys | Where-Object { $_ -like 'Mythosia.*' })
+    Assert-True ($workspaceDependencies.Count -eq $expectedDependencies.Count) `
+        "$packageId must retain its complete RAG dependency set."
     foreach ($dependencyId in $expectedDependencies) {
-        Assert-True ($definition.Dependencies[$dependencyId] -ceq $dependencyId) `
-            "$packageId must validate $dependencyId against the version packed in this release."
+        if ($releaseIds -contains $dependencyId) {
+            Assert-True ($definition.Dependencies[$dependencyId] -ceq $dependencyId) `
+                "$packageId must use the current release version of $dependencyId."
+        }
+        else {
+            Assert-True ($consumerVersions.ContainsKey($dependencyId) -and
+                $definition.FixedDependencies[$dependencyId] -ceq $consumerVersions[$dependencyId]) `
+                "$packageId must retain and test the fixed published version of $dependencyId."
+        }
     }
 }
 $luceneWarningExceptions = @{
@@ -132,14 +143,38 @@ foreach ($definition in $releaseDefinitions) {
     }
 }
 $mcpRelease = @($releaseDefinitions | Where-Object { $_.Id -eq 'Mythosia.AI.Mcp' })
-Assert-True ($mcpRelease.Count -eq 1 -and $mcpRelease[0].Dependencies.Count -eq 1 -and
-    $mcpRelease[0].Dependencies['Mythosia.AI'] -eq 'Mythosia.AI' -and
-    $mcpRelease[0].FixedDependencies.Count -eq 0) `
-    "The MCP package must validate its minimum dependency against the core built in the same release."
+if ($mcpRelease.Count -gt 0) {
+    $mcp = $mcpRelease[0]
+    Assert-True (($mcp.Dependencies.Count + $mcp.FixedDependencies.Count) -eq 1 -and
+        (($releaseIds -contains 'Mythosia.AI' -and $mcp.Dependencies['Mythosia.AI'] -ceq 'Mythosia.AI') -or
+         ($releaseIds -notcontains 'Mythosia.AI' -and $mcp.FixedDependencies['Mythosia.AI'] -ceq $consumerVersions['Mythosia.AI']))) `
+        'A released MCP package must validate its only dependency against the planned or fixed published core version.'
+}
 $vllmConsumerOnly = @($releasePlan.ConsumerOnlyPackages | Where-Object { $_.Id -eq 'Mythosia.AI.Serving.Vllm' })
 Assert-True ($releaseIds -notcontains 'Mythosia.AI.Serving.Vllm' -and
     $vllmConsumerOnly.Count -eq 1 -and $vllmConsumerOnly[0].Version -ceq '1.0.0') `
     'The unchanged vLLM package must be tested from NuGet without becoming a publication target.'
+$probeText = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'test-release-package-probes.ps1'))
+$referencedConsumerIds = @([regex]::Matches($consumerText + $probeText, '\$versions\[[''"](?<id>Mythosia\.[A-Za-z0-9.]+)[''"]\]') |
+    ForEach-Object { $_.Groups['id'].Value })
+$probeAst = [System.Management.Automation.Language.Parser]::ParseInput($probeText, [ref]$tokens, [ref]$parseErrors)
+Assert-True (@($parseErrors).Count -eq 0) 'Additional package probes must parse before validation.'
+$loaderAssignment = $probeAst.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+        $node.Left -is [System.Management.Automation.Language.VariableExpressionAst] -and
+        $node.Left.VariablePath.UserPath -eq 'loaderPrograms'
+}, $true)
+$loaderMap = $loaderAssignment.Right.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.HashtableAst]
+}, $true)
+Assert-True ($null -ne $loaderMap) 'Loader probes must expose their explicit package IDs.'
+$referencedConsumerIds += @($loaderMap.KeyValuePairs | ForEach-Object { $_.Item1.SafeGetValue() })
+Assert-ReleaseConsumerVersionCoverage -Versions $consumerVersions -RequiredIds $referencedConsumerIds
+Assert-True ($consumerText.Contains('foreach ($id in $plannedVersions.Keys)') -and
+    $consumerText.Contains('version -cne $plannedVersions')) `
+    'Consumer validation must enforce exact planned versions and exercise unchanged consumer-only packages too.'
 $mappingFunction = $consumerAst.Find({
     param($node)
     $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
@@ -217,6 +252,46 @@ $functions = @($publishAst.FindAll({
     param($node)
     $node -is [System.Management.Automation.Language.FunctionDefinitionAst]
 }, $true))
+function Test-PublishVersionIndexResponses {
+    $existsFunction = $functions | Where-Object Name -eq 'Test-PackageVersionExists' | Select-Object -First 1
+    Assert-True ($null -ne $existsFunction) 'Publication must expose its version-index guard for behavioral fixtures.'
+    Invoke-Expression $existsFunction.Extent.Text
+    function Invoke-RestMethod {
+        param([string]$Uri, [string]$Method, [int]$TimeoutSec)
+        Assert-True ($Uri -ceq 'https://api.nuget.org/v3-flatcontainer/mythosia.example/index.json' -and
+            $Method -ceq 'Get' -and $TimeoutSec -eq 30) 'Publication version checks must use a bounded index request.'
+        if ($responseStatus -ne 200) {
+            $response = [System.Net.Http.HttpResponseMessage]::new([System.Net.HttpStatusCode]$responseStatus)
+            try { throw [Microsoft.PowerShell.Commands.HttpResponseException]::new('Fixture HTTP error', $response) }
+            finally { $response.Dispose() }
+        }
+        return ,$indexResponse
+    }
+    function Assert-PublishIndexRejected {
+        $rejected = $false
+        try { $null = Test-PackageVersionExists 'https://api.nuget.org/v3-flatcontainer/' 'Mythosia.Example' '2.0.0' }
+        catch {
+            if ($_.Exception.Message -notlike 'Failed to query NuGet*') { throw }
+            $rejected = $true
+        }
+        Assert-True $rejected 'Publication must fail closed for malformed indexes and non-404 HTTP failures.'
+    }
+    $responseStatus = 200
+    $indexResponse = '{"versions":["1.0.0","2.0.0-PREVIEW"]}' | ConvertFrom-Json
+    Assert-True (Test-PackageVersionExists 'https://api.nuget.org/v3-flatcontainer/' 'Mythosia.Example' '2.0.0-preview') `
+        'Publication must recognize normalized existing versions.'
+    Assert-True (-not (Test-PackageVersionExists 'https://api.nuget.org/v3-flatcontainer/' 'Mythosia.Example' '2.0.0')) `
+        'A validated version index may establish that the target is absent.'
+    foreach ($body in @('null', '{}', '{"versions":null}', '{"versions":"2.0.0"}', '{"versions":[]}', '{"versions":["invalid"]}', '[{"versions":["2.0.0"]}]')) {
+        $indexResponse = ConvertFrom-Json -InputObject $body -NoEnumerate
+        Assert-PublishIndexRejected
+    }
+    foreach ($responseStatus in @(401, 403, 429, 500, 503)) { Assert-PublishIndexRejected }
+    $responseStatus = 404
+    Assert-True (-not (Test-PackageVersionExists 'https://api.nuget.org/v3-flatcontainer/' 'Mythosia.Example' '2.0.0')) `
+        'Only HTTP404 may establish an absent package ID.'
+}
+Test-PublishVersionIndexResponses
 $manifestFunction = $functions |
     Where-Object { $_.Name -eq "Assert-PublishableManifest" } |
     Select-Object -First 1
@@ -422,6 +497,7 @@ $expectedActions = [ordered]@{
     "actions/checkout" = "3d3c42e5aac5ba805825da76410c181273ba90b1"
     "actions/setup-dotnet" = "a98b56852c35b8e3190ac28c8c2271da59106c68"
     "actions/setup-python" = "5fda3b95a4ea91299a34e894583c3862153e4b97"
+    "actions/setup-node" = "820762786026740c76f36085b0efc47a31fe5020"
     "actions/cache" = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
     "actions/upload-artifact" = "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
     "actions/download-artifact" = "3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c"

@@ -22,7 +22,6 @@ namespace Mythosia.AI.Rag
         private readonly IAIService _innerService;
         private readonly RagBuilder? _builder;
         private RagStore? _ragStore;
-        private IQueryRewriter? _queryRewriter;
         private readonly SemaphoreSlim _initLock = new SemaphoreSlim(1, 1);
 
         /// <summary>
@@ -41,7 +40,6 @@ namespace Mythosia.AI.Rag
         {
             _innerService = innerService ?? throw new ArgumentNullException(nameof(innerService));
             _ragStore = ragStore ?? throw new ArgumentNullException(nameof(ragStore));
-            ResolveQueryRewriter();
         }
 
         /// <summary>
@@ -310,15 +308,18 @@ namespace Mythosia.AI.Rag
             var store = await EnsureInitializedAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Runtime changes affect later requests; this request keeps its selected instance through awaits.
+            var queryRewriter = store.QueryRewriter;
+
             string searchQuery = query;
             string? rewrittenQuery = null;
             bool searchSkipped = false;
             QueryRewriteResult? rewriteResult = null;
 
-            if (_queryRewriter != null)
+            if (queryRewriter != null)
             {
                 var history = GetConversationHistory();
-                var result = await _queryRewriter.RewriteAsync(query, history, cancellationToken);
+                var result = await queryRewriter.RewriteAsync(query, history, cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 rewriteResult = result;
 
@@ -403,44 +404,35 @@ namespace Mythosia.AI.Rag
 
         private async Task<RagStore> EnsureInitializedAsync(CancellationToken cancellationToken = default)
         {
-            if (_ragStore != null)
-                return _ragStore;
+            var store = Volatile.Read(ref _ragStore);
+            if (store != null)
+                return store;
 
             await _initLock.WaitAsync(cancellationToken);
             try
             {
-                if (_ragStore != null)
-                    return _ragStore;
+                store = Volatile.Read(ref _ragStore);
+                if (store != null)
+                    return store;
 
                 if (_builder == null)
                     throw new InvalidOperationException("RagBuilder is null and RagStore is not initialized.");
 
-                _ragStore = await _builder.BuildAsync(onDocumentEmbedded: null, cancellationToken);
-                ResolveQueryRewriter();
-                return _ragStore;
+                store = await _builder.BuildAsync(onDocumentEmbedded: null, cancellationToken);
+                if (store.QueryRewriter == null && _builder.QueryRewriterEnabled)
+                {
+                    // Install the automatic default only during initialization. A later explicit clear
+                    // must remain disabled, and a custom rewriter must never be replaced here.
+                    store.SetQueryRewriter(new LlmQueryRewriter(_innerService, _builder.QueryRewriteMaxTokens));
+                }
+
+                // Publish only the fully configured store, including its automatic rewriter.
+                Volatile.Write(ref _ragStore, store);
+                return store;
             }
             finally
             {
                 _initLock.Release();
-            }
-        }
-
-        private void ResolveQueryRewriter()
-        {
-            if (_ragStore == null) return;
-
-            if (_ragStore.QueryRewriter != null)
-            {
-                // Custom IQueryRewriter was provided via builder
-                _queryRewriter = _ragStore.QueryRewriter;
-            }
-            else if (_builder != null && _builder.QueryRewriterEnabled)
-            {
-                // WithQueryRewriter() was called without a custom implementation;
-                // use the inner AIService as the LLM for rewriting.
-                var rewriter = new LlmQueryRewriter(_innerService, _builder.QueryRewriteMaxTokens);
-                _queryRewriter = rewriter;
-                _ragStore.SetQueryRewriter(rewriter);
             }
         }
 

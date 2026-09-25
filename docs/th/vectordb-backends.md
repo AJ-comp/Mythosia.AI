@@ -188,6 +188,10 @@ var store = new PostgresStore(new PostgresOptions
 | IVFFlat | `IvfFlatIndexOptions` | หน่วยความจำน้อยกว่า เหมาะกับ dataset ขนาดใหญ่ที่นิ่ง |
 | None | `NoIndexOptions` | Sequential scan ใช้เฉพาะ dataset เล็กมาก |
 
+> ต้องใช้ `Mythosia.VectorDb.Postgres` 10.8.1 ขึ้นไป เพื่อใช้การตั้งค่าค้นหาเวกเตอร์เมื่อการค้นหาทั้งสองส่วนของไฮบริดทำงานอยู่ [บันทึกแพตช์](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081)
+
+กำหนดขอบเขตการค้นหาเวกเตอร์ผู้สมัครของ hybrid search ด้วย `HnswIndexOptions.EfSearch` หรือ `IvfFlatIndexOptions.Probes` ใน `PostgresOptions.Index` ค่าเริ่มต้นเหล่านี้ใช้กับทั้ง vector search ปกติและส่วนเวกเตอร์ของ hybrid search ภายใน transaction เดียวกับคำสั่งค้นหา การกำหนด runtime option แยกตามคำขอรองรับเฉพาะ `SearchAsync` การค้นหาโดยประมาณและตัวกรองยังอาจทำให้ได้ผลลัพธ์น้อยกว่า `topK`
+
 ### Text Search Mode
 
 ใช้สำหรับ keyword side ของ hybrid search:

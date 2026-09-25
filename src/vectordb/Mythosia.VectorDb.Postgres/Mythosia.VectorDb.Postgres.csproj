@@ -5,13 +5,13 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Postgres</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>10.8.0</Version>
+    <Version>10.8.1</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>PostgreSQL and pgvector storage for Mythosia VectorDb with Cosine, Euclidean and InnerProduct similarity, jsonb metadata filters, text-only retrieval and configurable normalized weighted RRF. Uses persisted full-text indexing and optional pg_trgm word_similarity for keyword search, including CJK text. Provides batch retrieval, counts, HNSW/IVFFlat/NoIndex settings, connection verification and schema provisioning. What's New in v10.8.0: Text and configurable hybrid search with corrected keyword syntax, trigram ordering and filters.</Description>
+    <Description>PostgreSQL and pgvector storage for Mythosia VectorDb with Cosine, Euclidean and InnerProduct similarity, jsonb metadata filters, text-only retrieval and configurable normalized weighted RRF. Uses persisted full-text indexing and optional pg_trgm word_similarity for keyword search, including CJK text. Provides batch retrieval, counts, HNSW/IVFFlat/NoIndex settings, connection verification and schema provisioning. What's New in v10.8.1: Mixed hybrid search honors configured HNSW EfSearch and IVFFlat Probes on the same connection and transaction as the search query.</Description>
     <PackageTags>VectorDB;VectorStore;PostgreSQL;pgvector;HNSW;IVFFlat;Cosine;Euclidean;InnerProduct;HybridSearch;pg_trgm;Trigram;CJK;Count;BatchGet</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
-    <PackageReleaseNotes>v10.8.0: Adds text-only retrieval and configurable normalized weighted RRF with filters and cancellation on active search legs. Fixes trigram ordering with word_similarity and stable record IDs, prevents dangling tsquery operators in natural-language keyword queries, and excludes missing metadata keys from empty NotIn conditions. Symbol-aware analyzer changes are outside this update. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1080</PackageReleaseNotes>
+    <PackageReleaseNotes>v10.8.1: Fixes mixed hybrid search ignoring configured HNSW EfSearch and IVFFlat Probes. Runtime settings now apply on the same connection and transaction as the search query, matching ordinary vector search without leaking to later pooled-connection queries. Text-only search remains unaffected. Approximate search and filtering can still return fewer than topK results. No public API changes, schema migration or reindexing required when upgrading from 10.8.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>

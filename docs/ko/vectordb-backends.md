@@ -303,3 +303,7 @@ var opts = new HnswSearchRuntimeOptions
 
 var results = await store.SearchAsync(queryVector, topK: 5, filter: null, runtimeOptions: opts);
 ```
+
+> 하이브리드 검색의 두 검색 경로가 모두 활성화된 경우에도 벡터 검색 설정을 적용하려면 `Mythosia.VectorDb.Postgres` 10.8.1 이상이 필요합니다. [패치 노트](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081).
+
+하이브리드 검색에서 벡터 후보를 얼마나 넓게 탐색할지는 `PostgresOptions.Index`의 `HnswIndexOptions.EfSearch` 또는 `IvfFlatIndexOptions.Probes`로 설정합니다. 이 기본값은 일반 벡터 검색과 하이브리드 검색의 벡터 경로 모두에서 검색 쿼리와 같은 트랜잭션에 적용됩니다. 위 예제의 요청별 런타임 재정의는 `SearchAsync`에만 적용됩니다. 근사 검색과 필터링 때문에 결과가 `topK`보다 적을 수는 있습니다.

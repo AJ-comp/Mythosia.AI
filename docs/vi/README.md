@@ -37,7 +37,9 @@ Bản xem trước tùy chọn `Mythosia.AI.Rag.Search.Pixie` cho phép so sánh
 
 Tách cấu hình yêu cầu, dừng tác vụ và nhận câu trả lời cùng mức sử dụng và nguồn. [Hướng dẫn nâng cấp v8](v8-migration.md) tổng hợp sáu thay đổi kiến trúc, ví dụ chuyển đổi và phạm vi xác minh.
 
-> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+
+> [Bản vá RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): các wrapper RAG đã kết nối nhận thay đổi bộ viết lại trong lúc chạy, và tìm kiếm hybrid kết hợp của PostgreSQL áp dụng cấu hình tìm kiếm vector. Gói lõi `Mythosia.AI` vẫn ở phiên bản 8.1.0.
 
 ---
 
@@ -75,7 +77,7 @@ Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử l
 graph TD
     Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
     end
 
     subgraph "⚡ Core AI"
@@ -107,7 +109,7 @@ graph TD
     subgraph "🗄️ Vector Stores — chọn một hoặc nhiều"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
     end
 
@@ -139,7 +141,9 @@ graph TD
 
 ## Demo / Thử nghiệm (Chat UI)
 
-Repository này có ví dụ Chat UI xây dựng trên Mythosia.AI — chạy `Mythosia.AI.Samples.ChatUi` để trải nghiệm thư viện trực tiếp.
+Tìm mô hình theo tên hoặc nhà cung cấp và điều chỉnh yêu cầu ở bên trái, trò chuyện ở giữa và xem thông tin xử lý trong Inspector bên phải trước khi tích hợp vào ứng dụng. Dùng Stop để ngừng chờ phản hồi; chỉ có thể chọn tốc độ với mô hình và điểm kết nối được hỗ trợ, còn Fast có thể phát sinh phí bổ sung. Trên màn hình nhỏ, Models và Inspector mở thành các bảng trượt; xem [hướng dẫn Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) để chạy cục bộ, thêm tài liệu và cấu hình quy trình truy xuất.
+
+Dùng bộ chọn ngôn ngữ ở đầu trang để chuyển giữa 13 ngôn ngữ giao diện mà không mất nội dung đã nhập hoặc cài đặt. Cả bảy nhà cung cấp đều hiển thị dưới dạng nhóm thu gọn; mở một nhóm hoặc tìm kiếm mô hình.
 
 ### Chạy ví dụ
 
@@ -149,6 +153,8 @@ Khởi động **`Mythosia.AI.Samples.ChatUi`** trên máy:
 # từ thư mục gốc repository
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
+
+*Video dưới đây sử dụng giao diện cũ; màn hình hiện tại có thể khác.*
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 

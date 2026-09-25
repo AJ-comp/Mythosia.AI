@@ -3,24 +3,26 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { escapeHtml, renderMarkdown, addCopyButtons } from './utils.js';
-import { chatMessages, chatForm, chatInput, btnSend, btnClear } from './dom.js';
+import { chatMessages, chatForm, chatInput, btnSend, btnStop, btnClear } from './dom.js';
 import { app, autoScroll, updateSidebarDisabled } from './state.js';
 import { refreshState } from './state-panel.js';
 import { addViewCodeButton } from './code-modal.js';
 import { getPipelineSettingsForRequest } from './rag-pipeline.js';
 import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
 
+let activeRequest = null;
+
 // ── Chat form event listeners ────────────────────────────────
 export function initChat() {
   chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    sendMessage();
+    return sendMessage();
   });
 
   chatInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
       e.preventDefault();
-      sendMessage();
+      return sendMessage();
     }
   });
 
@@ -30,23 +32,35 @@ export function initChat() {
   });
 
   btnClear.addEventListener('click', async () => {
-    if (!app.isConnected) return;
+    if (!app.isConnected || app.isSending) return;
     try {
       await fetch('/api/clear', { method: 'POST' });
       chatMessages.innerHTML = '';
       refreshState();
     } catch (e) { /* ignore */ }
   });
+
+  btnStop.addEventListener('click', () => {
+    if (!activeRequest || activeRequest.controller.signal.aborted) return;
+    btnStop.disabled = true;
+    activeRequest.controller.abort();
+  });
 }
 
 // ── Send message (SSE streaming) ─────────────────────────────
 async function sendMessage() {
   const text = chatInput.value.trim();
-  if (!text || app.isSending || !app.isConnected) return;
+  if (!text || activeRequest || app.isSending || !app.isConnected) return;
+
+  const request = { controller: new AbortController(), container: null };
+  activeRequest = request;
 
   app.isSending = true;
   app.shouldAutoScroll = true;
   btnSend.disabled = true;
+  btnClear.disabled = true;
+  btnStop.disabled = false;
+  btnStop.classList.remove('hidden');
   updateSidebarDisabled(true);
 
   appendMessage('user', text);
@@ -60,10 +74,21 @@ async function sendMessage() {
     removeTyping(typingEl);
     typingVisible = false;
   };
+  let thinkingEl = null;
+  let fcCardEl = null;
+  let summaryIndicator = null;
+  let ragProgressEl = null;
+
+  const checkActive = () => {
+    if (activeRequest !== request || request.controller.signal.aborted) {
+      throw new DOMException('The response was stopped.', 'AbortError');
+    }
+  };
 
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
+      signal: request.controller.signal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: text,
@@ -71,6 +96,7 @@ async function sendMessage() {
         vectorStore: getVectorStoreConfigForRequest()
       })
     });
+    checkActive();
 
     const contentType = res.headers.get('Content-Type') || '';
 
@@ -78,6 +104,7 @@ async function sendMessage() {
     if (!contentType.includes('text/event-stream')) {
       stopTyping();
       const data = await res.json();
+      checkActive();
       const el = appendMessage('assistant', res.ok ? (data.response || JSON.stringify(data)) : `Error: ${data.error}`);
       if (res.ok && el) addViewCodeButton(el, text);
       refreshState();
@@ -90,33 +117,28 @@ async function sendMessage() {
     let buffer = '';
     let fullText = '';
     let reasoningText = '';
-    let thinkingEl = null;
     let thinkingContent = null;
     let msgDiv = null;
     let contentSpan = null;
     let gotText = false;
-    let fcCardEl = null;
     let sourcesEl = null;
     let usageEl = null;
     const sourceUrls = new Set();
     let inputTokens = 0;
     let outputTokens = 0;
     let ragInfo = null;
-    let ragProgressEl = null;
-
-    // Summarizing indicator
-    let summaryIndicator = null;
 
     // Response container — events appended in arrival order
     const responseContainer = createResponseContainer();
+    request.container = responseContainer;
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      checkActive();
 
-      buffer += decoder.decode(value, { stream: true });
+      buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop();
+      buffer = done ? '' : lines.pop();
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -125,6 +147,10 @@ async function sendMessage() {
         if (payload === '[DONE]') continue;
         try {
           const parsed = JSON.parse(payload);
+          if (parsed.error && !parsed.type) {
+            parsed.type = 'error';
+            parsed.content = parsed.error;
+          }
           stopTyping();
 
           if (parsed.type === 'summary_start') {
@@ -153,6 +179,9 @@ async function sendMessage() {
             failRagProgressBubble(ragProgressEl, parsed.error, parsed.elapsedMs);
           }
           else if (parsed.type === 'function_call') {
+            // A tool starts a new output segment. Keep earlier text above the tool.
+            contentSpan = null;
+            fullText = '';
             if (thinkingEl) collapseThinking(thinkingEl);
             thinkingEl = null;
             thinkingContent = null;
@@ -178,6 +207,7 @@ async function sendMessage() {
             if (!sourcesEl) {
               sourcesEl = document.createElement('details');
               const title = document.createElement('summary');
+              title.setAttribute('data-ui-localize', '');
               title.textContent = 'Sources';
               sourcesEl.appendChild(title);
               responseContainer.appendChild(sourcesEl);
@@ -196,11 +226,13 @@ async function sendMessage() {
             outputTokens += parsed.usage.OutputTokens ?? parsed.usage.outputTokens ?? 0;
             if (!usageEl) {
               usageEl = document.createElement('small');
+              usageEl.setAttribute('data-ui-localize', '');
               responseContainer.appendChild(usageEl);
             }
             usageEl.textContent = `Tokens: ${inputTokens} input · ${outputTokens} output`;
           }
           else if (parsed.type === 'reasoning' && parsed.content != null) {
+            if (contentSpan) { contentSpan = null; fullText = ''; }
             reasoningText += parsed.content;
             if (!thinkingEl) {
               thinkingEl = createThinkingBubble(responseContainer);
@@ -210,8 +242,8 @@ async function sendMessage() {
             thinkingContent.scrollTop = thinkingContent.scrollHeight;
           }
           else if (parsed.type === 'text' && parsed.content != null) {
-            if (!gotText) {
-              gotText = true;
+            gotText = true;
+            if (!contentSpan) {
               if (thinkingEl) collapseThinking(thinkingEl);
               msgDiv = createMessageElement('assistant', responseContainer);
               contentSpan = msgDiv.querySelector('.msg-content');
@@ -222,7 +254,7 @@ async function sendMessage() {
           }
           else if (parsed.type === 'error') {
             fullText += '\nError: ' + (parsed.content || 'Unknown error');
-            if (!msgDiv) {
+            if (!contentSpan) {
               msgDiv = createMessageElement('assistant', responseContainer);
               contentSpan = msgDiv.querySelector('.msg-content');
             }
@@ -232,6 +264,7 @@ async function sendMessage() {
       }
 
       autoScroll();
+      if (done) break;
     }
 
     stopTyping();
@@ -244,8 +277,6 @@ async function sendMessage() {
       const fallbackSpan = fallbackDiv.querySelector('.msg-content');
       fallbackSpan.innerHTML = renderMarkdown(reasoningText || '(empty response)');
       addViewCodeButton(fallbackDiv, text, ragInfo);
-    } else if (msgDiv && !fullText) {
-      contentSpan.innerHTML = '<p>(empty response)</p>';
     }
     if (msgDiv) addViewCodeButton(msgDiv, text, ragInfo);
     if (thinkingEl) {
@@ -257,13 +288,39 @@ async function sendMessage() {
     refreshState();
   } catch (e) {
     stopTyping();
-    appendMessage('assistant', `Network error: ${e.message}`);
+    if (activeRequest !== request) return;
+    const stopped = request.controller.signal.aborted;
+    if (thinkingEl) collapseThinking(thinkingEl);
+    if (summaryIndicator) failSummaryBubble(summaryIndicator, stopped ? 'Stopped by you.' : e.message);
+    if (ragProgressEl) failRagProgressBubble(ragProgressEl, stopped ? 'Stopped by you.' : e.message);
+    if (fcCardEl) {
+      const status = fcCardEl.querySelector('.fc-status');
+      status.textContent = stopped ? 'Stopped' : 'Interrupted';
+      status.classList.remove('fc-status-running');
+    }
+    if (stopped) {
+      const notice = document.createElement('div');
+      notice.className = 'chat-notice chat-notice-cancelled';
+      notice.setAttribute('role', 'status');
+      notice.textContent = 'Response stopped. Any partial answer is preserved above.';
+      (request.container || chatMessages).appendChild(notice);
+      autoScroll();
+      refreshState();
+    } else {
+      appendMessage('assistant', `Network error: ${e.message}`);
+    }
   } finally {
-    app.isSending = false;
-    app.shouldAutoScroll = true;
-    btnSend.disabled = false;
-    updateSidebarDisabled(false);
-    chatInput.focus();
+    if (activeRequest === request) {
+      activeRequest = null;
+      app.isSending = false;
+      app.shouldAutoScroll = true;
+      btnSend.disabled = !app.isConnected;
+      btnClear.disabled = !app.isConnected;
+      btnStop.disabled = true;
+      btnStop.classList.add('hidden');
+      updateSidebarDisabled(false);
+      if (app.isConnected) chatInput.focus();
+    }
   }
 }
 
@@ -356,12 +413,12 @@ function collapseThinking(el) {
 
 // ── RAG Progress Bubble ───────────────────────────────────
 const ragStageLabels = {
-  QueryRewrite: '쿼리 리라이터(재작성) 중... ',
-  Embedding: '임베딩 생성 중...',
-  Filtering: '필터 적용 중...',
-  Retrieval: '리트리벌/검색 중...',
-  Reranking: '리랭킹 중...',
-  ContextBuild: '컨텍스트 구성 중...'
+  QueryRewrite: 'Query rewriting…',
+  Embedding: 'Generating embeddings…',
+  Filtering: 'Applying filters…',
+  Retrieval: 'Retrieving documents…',
+  Reranking: 'Reranking…',
+  ContextBuild: 'Building context…'
 };
 
 function createRagProgressBubble(target) {
@@ -394,7 +451,7 @@ function completeRagProgressBubble(el, elapsedMs) {
   el.classList.add('done');
   const content = el.querySelector('.rag-progress-content');
   const time = el.querySelector('.rag-progress-time');
-  if (content) content.textContent = 'RAG 완료';
+  if (content) content.textContent = 'RAG complete';
   if (time) time.textContent = elapsedMs != null ? `${elapsedMs}ms` : '';
 }
 
@@ -403,7 +460,7 @@ function failRagProgressBubble(el, error, elapsedMs) {
   el.classList.add('error');
   const content = el.querySelector('.rag-progress-content');
   const time = el.querySelector('.rag-progress-time');
-  if (content) content.textContent = error || 'RAG 처리 실패';
+  if (content) content.textContent = error || 'RAG failed';
   if (time) time.textContent = elapsedMs != null ? `${elapsedMs}ms` : '';
 }
 
@@ -491,7 +548,7 @@ function createSummaryBubble(target) {
       <span>Summarizing</span>
       <span class="summary-arrow open">&#9654;</span>
     </div>
-    <div class="summary-content">Condensing previous messages...</div>`;
+    <div class="summary-content"><span data-ui-localize>Condensing previous messages...</span></div>`;
   (target || chatMessages).appendChild(el);
 
   const hdr = el.querySelector('.summary-header');
@@ -512,7 +569,8 @@ function completeSummaryBubble(el, summary) {
   const hdr = el.querySelector('.summary-header');
   if (hdr) hdr.classList.add('done');
   const content = el.querySelector('.summary-content');
-  content.textContent = summary || '(no summary generated)';
+  if (summary) content.textContent = summary;
+  else content.innerHTML = '<span data-ui-localize>(no summary generated)</span>';
   // Auto-collapse after completion
   content.classList.add('collapsed');
   const arrow = el.querySelector('.summary-arrow');

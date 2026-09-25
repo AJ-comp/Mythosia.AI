@@ -188,6 +188,10 @@ var store = new PostgresStore(new PostgresOptions
 | IVFFlat | `IvfFlatIndexOptions` | Bộ nhớ thấp hơn. Tốt cho tập dữ liệu tĩnh lớn. |
 | None | `NoIndexOptions` | Quét tuần tự. Chỉ dùng cho tập dữ liệu rất nhỏ. |
 
+> Cần `Mythosia.VectorDb.Postgres` 10.8.1 trở lên để áp dụng cấu hình vector khi cả hai nhánh tìm kiếm hybrid hoạt động. [Ghi chú bản vá](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081).
+
+Để điều chỉnh phạm vi tìm ứng viên vector trong tìm kiếm hybrid, đặt `HnswIndexOptions.EfSearch` hoặc `IvfFlatIndexOptions.Probes` trong `PostgresOptions.Index`. Các giá trị mặc định này áp dụng cho tìm kiếm vector thông thường và nhánh vector của tìm kiếm hybrid, trong cùng transaction với truy vấn. Tùy chọn runtime theo từng yêu cầu chỉ có trên `SearchAsync`. Tìm kiếm gần đúng và bộ lọc vẫn có thể trả về ít hơn `topK` kết quả.
+
 ### Chế độ Text Search
 
 Dùng cho phần keyword của hybrid search:

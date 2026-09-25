@@ -43,7 +43,20 @@ var result = await store.QueryAsync(
 
 ## 在處理查詢時變更改寫設定
 
-若要在不重建索引的情況下暫時停用改寫或更換實作，請使用 `store.SetQueryRewriter(null)` 或 `store.SetQueryRewriter(rewriter)`。透過接受 `conversationHistory` 的多載直接呼叫 `RagStore.QueryAsync` 時，會在查詢開始時保留所選改寫器。即使在等待進度通知或改寫期間停用或更換設定，該查詢仍使用同一個執行個體，後續查詢才使用新設定。此行為適用於直接查詢儲存區，不會更新 `RagEnabledService` 包裝器已保留的改寫器。
+> 若要讓執行期間的改寫器變更套用至現有的 `WithRag(store)` 包裝器，需要 `Mythosia.AI.Rag` 8.1.1 或更新版本。[修補說明](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811)。
+
+若要在不重建索引的情況下新增或替換改寫器，請使用 `store.SetQueryRewriter(rewriter)`；使用 `store.SetQueryRewriter(null)` 可停用改寫和搜尋詞擷取。接受 `conversationHistory` 的 `RagStore.QueryAsync` 多載，以及已透過 `service.WithRag(store)` 連接的包裝器，都會為每次要求選取儲存區目前的改寫器。要求在等待進度通知或改寫期間會繼續使用已選定的執行個體；新增、替換或清除設定會影響後續要求，包括透過這些包裝器進行的檢索、產生回答、串流輸出和 Run。
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("退款政策有哪些例外？");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("退款政策有哪些例外？");
+```
+
+`WithQueryRewriter()` 啟用的預設 `LlmQueryRewriter` 只在延遲初始化時建立一次；清除後不會在下次要求時自動重建。不接受 `conversationHistory` 的儲存區多載仍會略過改寫。Agentic RAG 也不使用改寫器，因為搜尋問題由代理自行建立。
 
 ## 搜尋閘道的運作方式
 

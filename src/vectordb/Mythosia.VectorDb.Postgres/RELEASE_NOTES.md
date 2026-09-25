@@ -1,5 +1,21 @@
 # Mythosia.VectorDb.Postgres - Release Notes
 
+## v10.8.1
+
+### Changed
+
+- Mixed vector/text `HybridSearchAsync` now applies the configured `HnswIndexOptions.EfSearch` or `IvfFlatIndexOptions.Probes` on the same connection and transaction as its search query, matching ordinary vector search. Previously, this path could use the database session defaults instead of the configured values.
+- Runtime vector settings remain transaction-local and do not leak into later pooled-connection queries. Text-only search does not apply vector index settings. Hybrid search retains its existing API and does not acquire a per-request `VectorSearchRuntimeOptions` override.
+
+### Internal
+
+- Added three PostgreSQL integration cases covering HNSW with full-text/trigram search and IVFFlat settings observed inside the search transaction. All 167 vector-store tests pass, including these live PostgreSQL cases.
+
+### Compatibility
+
+- No public API changes, schema migration or reindexing are required when upgrading from 10.8.0. Requires `Mythosia.VectorDb.Abstractions` 4.1.0, unchanged from 10.8.0.
+- Configured search breadth can improve recall, but approximate nearest-neighbor search and metadata filtering can still return fewer than `topK` results. This patch does not guarantee a full result count or enable iterative scanning.
+
 ## v10.8.0
 
 ### Added

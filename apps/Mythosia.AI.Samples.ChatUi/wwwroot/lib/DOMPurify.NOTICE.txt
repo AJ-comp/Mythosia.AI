@@ -1,0 +1,18 @@
+DOMPurify 3.4.16
+Copyright Cure53 and other contributors.
+
+This directory includes the unmodified dist/purify.min.js from DOMPurify.
+Upstream: https://github.com/cure53/DOMPurify
+Release: https://github.com/cure53/DOMPurify/releases/tag/3.4.16
+Commit: b9b9d80f7e401771c2ccaef5f45def7eec8f27d7
+Source: https://raw.githubusercontent.com/cure53/DOMPurify/b9b9d80f7e401771c2ccaef5f45def7eec8f27d7/dist/purify.min.js
+SHA-256: 2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2
+
+DOMPurify is available under (MPL-2.0 OR Apache-2.0). This copy is
+redistributed under the Apache License 2.0 in DOMPurify.LICENSE.
+The original copyright and license banner remains in purify.min.js.
+
+The Chat UI uses this local copy to sanitize generated Markdown before
+inserting it into the page. Upgrade the pinned file, source details, and
+integrity assertion in build/test-chat-markdown-ui.mjs together, then run
+the rendering security regression tests.

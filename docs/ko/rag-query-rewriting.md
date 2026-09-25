@@ -63,7 +63,20 @@ var result = await store.QueryAsync(
 
 ## 검색 중에도 재작성 설정 바꾸기
 
-색인을 다시 만들지 않고 재작성을 잠시 끄거나 다른 구현으로 바꾸려면 `store.SetQueryRewriter(null)` 또는 `store.SetQueryRewriter(rewriter)`를 사용하세요. `conversationHistory`를 받는 오버로드로 `RagStore.QueryAsync`를 직접 호출하면 검색 시작 시 선택된 재작성기를 보관합니다. 진행 알림이나 재작성을 기다리는 동안 설정을 끄거나 교체해도 해당 검색은 같은 인스턴스를 계속 사용하고, 이후 검색부터 새 설정을 사용합니다. 이는 저장소를 직접 조회할 때의 동작이며, `RagEnabledService` 래퍼가 이미 보관한 재작성기까지 바꾸지는 않습니다.
+> 기존 `WithRag(store)` 래퍼에 실행 중 재작성기 변경을 반영하려면 `Mythosia.AI.Rag` 8.1.1 이상이 필요합니다. [패치 노트](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+
+색인을 다시 만들지 않고 재작성기를 추가하거나 교체하려면 `store.SetQueryRewriter(rewriter)`를, 재작성과 검색어 추출을 끄려면 `store.SetQueryRewriter(null)`을 사용하세요. `conversationHistory`를 받는 `RagStore.QueryAsync` 오버로드와 `service.WithRag(store)`로 이미 연결한 래퍼 모두 요청마다 저장소의 현재 재작성기를 선택합니다. 진행 알림이나 재작성을 기다리는 요청은 선택한 인스턴스를 계속 사용하고, 설정 추가·교체·해제는 이후 요청부터 반영됩니다. 래퍼의 검색, 응답 생성, 스트리밍, Run에도 같은 규칙이 적용됩니다.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("환불 정책의 예외는 무엇인가요?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("환불 정책의 예외는 무엇인가요?");
+```
+
+`WithQueryRewriter()`로 켠 기본 `LlmQueryRewriter`는 지연 초기화할 때 한 번만 생성하며, 해제한 뒤 다음 요청에서 자동으로 다시 만들지 않습니다. `conversationHistory`를 받지 않는 저장소 오버로드는 계속 재작성을 건너뜁니다. Agentic RAG도 에이전트가 검색 질문을 직접 구성하므로 재작성기를 사용하지 않습니다.
 
 ## 검색 게이트의 동작 방식
 

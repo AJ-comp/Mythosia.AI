@@ -36,6 +36,7 @@ ChatUiConnectionSnapshot? currentConnection = null;
 string? currentProvider = null;
 string? currentModelEnum = null;
 bool streamIncludeReasoning = true;
+InferenceSpeed currentSpeed = InferenceSpeed.ProviderDefault;
 bool presetFunctionsEnabled = true; // Whether preset functions are registered
 var ragState = new RagReferenceState();
 var ragEndpointState = new ChatUiRagEndpointState();
@@ -43,6 +44,7 @@ var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) }
 
 // ── GET /api/models ─────────────────────────────────────────────
 app.MapGet("/api/models", () => Results.Ok(BuildModelCatalogue()));
+app.MapGet("/api/testbed", () => Results.Ok(ChatUiTestbedInfo.Build()));
 
 // ── POST /api/configure ─────────────────────────────────────────
 app.MapPost("/api/configure", async (ConfigureRequest req) =>
@@ -106,8 +108,9 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
         currentService = configuredService;
         currentProvider = provider;
         currentModelEnum = req.Model;
-        currentConnection = new ChatUiConnectionSnapshot(configuredService, provider, req.Model);
-        return Results.Ok(new { provider, model = desc, status = "configured", controls = GetModelControls(configuredService) });
+        currentSpeed = InferenceSpeed.ProviderDefault;
+        currentConnection = new ChatUiConnectionSnapshot(configuredService, provider, req.Model, req.BaseUrl, req.Platform);
+        return Results.Ok(new { provider, model = desc, status = "configured", controls = GetModelControls(configuredService, currentSpeed) });
     }
     catch (Exception ex)
     {
@@ -118,7 +121,9 @@ app.MapPost("/api/configure", async (ConfigureRequest req) =>
 // ── POST /api/chat (streaming SSE) ──────────────────────────────
 app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
 {
-    if (currentService == null)
+    var chatService = currentConnection?.Service;
+    var chatSpeed = currentSpeed;
+    if (chatService == null)
     {
         ctx.Response.StatusCode = 400;
         ctx.Response.ContentType = "application/json";
@@ -245,10 +250,10 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
     try
     {
         // Trigger summary policy before streaming (not called automatically in StreamAsync)
-        var hasPolicy = currentService.ConversationPolicy != null;
-        var isStateless = currentService.StatelessMode;
-        var shouldSummarize = hasPolicy && currentService.ConversationPolicy!.ShouldSummarize(currentService.ActivateChat.Messages);
-        Console.WriteLine($"[Summary Check] Policy={hasPolicy}, StatelessMode={isStateless}, MsgCount={currentService.ActivateChat.Messages.Count}, ShouldSummarize={shouldSummarize}");
+        var hasPolicy = chatService.ConversationPolicy != null;
+        var isStateless = chatService.StatelessMode;
+        var shouldSummarize = hasPolicy && chatService.ConversationPolicy!.ShouldSummarize(chatService.ActivateChat.Messages);
+        Console.WriteLine($"[Summary Check] Policy={hasPolicy}, StatelessMode={isStateless}, MsgCount={chatService.ActivateChat.Messages.Count}, ShouldSummarize={shouldSummarize}");
 
         if (hasPolicy && !isStateless && shouldSummarize)
         {
@@ -259,15 +264,16 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
 
             try
             {
-                await currentService.ApplySummaryPolicyIfNeededAsync();
+                await chatService.ApplySummaryPolicyIfNeededAsync(ctx.RequestAborted);
                 var endPayload = JsonSerializer.Serialize(new
                 {
                     type = "summary_end",
-                    summary = currentService.ConversationPolicy?.CurrentSummary ?? ""
+                    summary = chatService.ConversationPolicy?.CurrentSummary ?? ""
                 });
                 await ctx.Response.WriteAsync($"data: {endPayload}\n\n", ctx.RequestAborted);
                 await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
             }
+            catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { throw; }
             catch (Exception summaryEx)
             {
                 var errPayload = JsonSerializer.Serialize(new
@@ -310,7 +316,7 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             try
             {
                 var ragSettings = effectiveRagSettings;
-                var activeService = currentService;
+                var activeService = chatService;
                 if (ragSettings.QueryRewriterEnabled && activeService != null)
                 {
                     var rewriterService = ragEndpointState.GetOrCreateRewriterService(
@@ -336,13 +342,8 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
                 await ctx.Response.WriteAsync($"data: {ragEndPayload}\n\n", ctx.RequestAborted);
                 await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
 
-                // The library sets RequestMessageContent = OriginalQuery when no references are found,
-                // so the LLM receives a clean query. We still null-out ragProcessed to skip
-                // sending unnecessary RAG diagnostics to the frontend.
-                if (ragProcessed is { HasReferences: false })
-                {
-                    ragProcessed = null;
-                }
+                // Keep no-hit and search-skipped diagnostics. The library already provides
+                // the unmodified original query when there are no references.
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ragEx)
@@ -478,77 +479,18 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         {
             IncludeReasoning = streamIncludeReasoning,
             IncludeMetadata = true,
-            IncludeFunctionCalls = currentService.ShouldUseFunctions,
+            IncludeFunctionCalls = chatService.ShouldUseFunctions,
             TextOnly = false
         };
 
-        var stream = currentService.StreamAsync(message, options, requestContext, ctx.RequestAborted);
-
-        await foreach (var sc in stream)
-        {
-            string? type = sc.Type switch
-            {
-                StreamingContentType.Reasoning => "reasoning",
-                StreamingContentType.Text => "text",
-                StreamingContentType.FunctionCall => "function_call",
-                StreamingContentType.FunctionResult => "function_result",
-                StreamingContentType.Citation => "citation",
-                StreamingContentType.RoundUsage => "usage",
-                StreamingContentType.Error => "error",
-                _ => null
-            };
-            if (type == null) continue;
-
-            // Build payload based on type
-            object payloadObj;
-            if (type == "citation")
-            {
-                payloadObj = new { type, citation = sc.Citation };
-            }
-            else if (type == "usage")
-            {
-                payloadObj = new { type, usage = sc.Usage };
-            }
-            else if (type == "function_call")
-            {
-                // FunctionCall event: Content is null, name is in Metadata
-                var name = sc.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "";
-                payloadObj = new { type, name, content = (string?)null };
-            }
-            else if (type == "function_result")
-            {
-                // FunctionResult event: Content = result, arguments in Metadata
-                var name = sc.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "";
-                var result = sc.Content
-                    ?? sc.Metadata?.GetValueOrDefault("result")?.ToString()
-                    ?? "";
-                var args = sc.Metadata?.GetValueOrDefault("function_arguments")?.ToString() ?? "{}";
-                payloadObj = new { type, name, content = result, arguments = args };
-            }
-            else
-            {
-                // For error types, fall back to metadata if Content is null
-                var content = sc.Content
-                    ?? sc.Metadata?.GetValueOrDefault("error")?.ToString()
-                    ?? "(unknown error)";
-                if (type != "error" && string.IsNullOrEmpty(sc.Content)) continue;
-                payloadObj = new { type, content };
-            }
-
-            var payload = JsonSerializer.Serialize(payloadObj);
-            await ctx.Response.WriteAsync($"data: {payload}\n\n", ctx.RequestAborted);
-            await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
-        }
-
-        await ctx.Response.WriteAsync("data: [DONE]\n\n");
-        await ctx.Response.Body.FlushAsync();
+        var request = ChatUiSettingsHelpers.CreateChatRequest(chatService, message, chatSpeed, requestContext);
+        var run = await request.StartRunAsync(options: options, cancellationToken: ctx.RequestAborted);
+        await ChatUiStreamRelay.WriteAsync(run, ctx);
     }
-    catch (OperationCanceledException) { /* client disconnected */ }
+    catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { /* client disconnected */ }
     catch (Exception ex)
     {
-        var errorPayload = JsonSerializer.Serialize(new { error = ex.Message });
-        await ctx.Response.WriteAsync($"data: {errorPayload}\n\n");
-        await ctx.Response.Body.FlushAsync();
+        await ChatUiStreamRelay.WriteFailureAsync(ex, ctx);
     }
 });
 
@@ -568,6 +510,10 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     if (currentService == null)
         return Results.BadRequest(new { error = "Service not configured" });
 
+    InferenceSpeed selectedSpeed;
+    try { selectedSpeed = ChatUiSettingsHelpers.ResolveSpeed(currentService, req.Speed, currentSpeed); }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+
     if (req.Temperature.HasValue) currentService.Temperature = req.Temperature.Value;
     if (req.TopP.HasValue) currentService.TopP = req.TopP.Value;
     if (req.MaxTokens.HasValue) currentService.MaxTokens = (uint)req.MaxTokens.Value;
@@ -580,8 +526,9 @@ app.MapPost("/api/settings", (SettingsRequest req) =>
     try { ChatUiSettingsHelpers.ApplyReasoningSettings(currentService, req); }
     catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
     if (currentService is PerplexityService) streamIncludeReasoning = true;
+    currentSpeed = selectedSpeed;
 
-    return Results.Ok(new { status = "updated", controls = GetModelControls(currentService) });
+    return Results.Ok(new { status = "updated", controls = GetModelControls(currentService, currentSpeed) });
 });
 
 // ── GET /api/state ──────────────────────────────────────────────
@@ -667,7 +614,15 @@ app.MapGet("/api/state", async () =>
         stream = svc.Stream,
         reasoning = ChatUiSettingsHelpers.GetReasoningState(svc),
         sampling = GetSamplingControls(svc.GetCapabilities()),
-        controls = GetModelControls(svc),
+        controls = GetModelControls(svc, currentSpeed),
+        processing = svc.LastProcessing.Select(info => new
+        {
+            requestIndex = info.RequestIndex,
+            requested = info.RequestedSpeed.ToString(),
+            applied = info.AppliedSpeed?.ToString(),
+            rawAppliedMode = info.RawAppliedMode,
+            downgraded = info.IsDowngraded
+        }),
 
         // Modes
         statelessMode = svc.StatelessMode,
@@ -745,7 +700,8 @@ app.MapPost("/api/code-snippet", (CodeSnippetRequest req) =>
         return Results.BadRequest(new { error = "Service not configured" });
 
     var svc = currentService;
-    var code = GenerateCodeSnippet(svc, currentProvider!, currentModelEnum!, req.UserMessage);
+    var code = GenerateCodeSnippet(svc, currentProvider!, currentModelEnum!, req.UserMessage,
+        currentSpeed, currentConnection?.BaseUrl, currentConnection?.Platform);
     return Results.Ok(new { code });
 });
 
@@ -829,3 +785,108 @@ static Mythosia.AI.Rag.RagFinalSelectionMode? ParseFinalSelectionMode(string? va
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+
+namespace Mythosia.AI.Samples.ChatUi
+{
+    internal static class ChatUiStreamRelay
+    {
+        // Own the run until cleanup completes, including failed or interrupted observation.
+        internal static async Task WriteAsync(Mythosia.AI.Models.Runs.AIRun run, HttpContext ctx)
+        {
+            var errorSent = false;
+            try
+            {
+                await using (run)
+                {
+                    var stream = run.StreamAsync(ctx.RequestAborted);
+
+                    await foreach (var sc in stream)
+                    {
+                        string? type = sc.Type switch
+                        {
+                            StreamingContentType.Reasoning => "reasoning",
+                            StreamingContentType.Text => "text",
+                            StreamingContentType.FunctionCall => "function_call",
+                            StreamingContentType.FunctionResult => "function_result",
+                            StreamingContentType.Citation => "citation",
+                            StreamingContentType.RoundUsage => "usage",
+                            StreamingContentType.Error => "error",
+                            _ => null
+                        };
+                        if (type == null) continue;
+
+                        // Build payload based on type
+                        object payloadObj;
+                        if (type == "citation")
+                        {
+                            payloadObj = new { type, citation = sc.Citation };
+                        }
+                        else if (type == "usage")
+                        {
+                            payloadObj = new { type, usage = sc.Usage };
+                        }
+                        else if (type == "function_call")
+                        {
+                            // FunctionCall event: Content is null, name is in Metadata
+                            var name = sc.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "";
+                            payloadObj = new { type, name, content = (string?)null };
+                        }
+                        else if (type == "function_result")
+                        {
+                            // FunctionResult event: Content = result, arguments in Metadata
+                            var name = sc.Metadata?.GetValueOrDefault("function_name")?.ToString() ?? "";
+                            var result = sc.Content
+                                ?? sc.Metadata?.GetValueOrDefault("result")?.ToString()
+                                ?? "";
+                            var args = sc.Metadata?.GetValueOrDefault("function_arguments")?.ToString() ?? "{}";
+                            payloadObj = new { type, name, content = result, arguments = args };
+                        }
+                        else
+                        {
+                            // For error types, fall back to metadata if Content is null
+                            var content = sc.Content
+                                ?? sc.Metadata?.GetValueOrDefault("error")?.ToString()
+                                ?? "(unknown error)";
+                            if (type != "error" && string.IsNullOrEmpty(sc.Content)) continue;
+                            payloadObj = new { type, content };
+                        }
+
+                        var payload = JsonSerializer.Serialize(payloadObj);
+                        await ctx.Response.WriteAsync($"data: {payload}\n\n", ctx.RequestAborted);
+                        await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+                        if (type == "error") errorSent = true;
+                    }
+
+                    await run.Result;
+                    await ctx.Response.WriteAsync("data: [DONE]\n\n", ctx.RequestAborted);
+                    await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+                }
+            }
+            catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                // AIRun publishes a provider Error event and then faults observation with the
+                // same failure. Keep the first error instead of appending a second SSE message.
+                if (!errorSent) await WriteFailureAsync(ex, ctx);
+            }
+            finally
+            {
+                // Disposal has awaited execution cleanup; observe Result faults even when
+                // enumeration already conveyed the failure to the browser.
+                if (run.Result.IsFaulted) _ = run.Result.Exception;
+            }
+        }
+
+        internal static async Task WriteFailureAsync(Exception exception, HttpContext ctx)
+        {
+            if (ctx.RequestAborted.IsCancellationRequested) return;
+            var content = exception is OperationCanceledException
+                ? $"The provider request was canceled or timed out: {exception.Message}"
+                : exception.Message;
+            var payload = JsonSerializer.Serialize(new { type = "error", content });
+            await ctx.Response.WriteAsync($"data: {payload}\n\n", ctx.RequestAborted);
+            await ctx.Response.Body.FlushAsync(ctx.RequestAborted);
+        }
+    }
+}

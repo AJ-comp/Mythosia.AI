@@ -167,6 +167,8 @@ namespace Mythosia.AI.Rag
         /// <summary>
         /// Sets or clears the query rewriter at runtime.
         /// Pass null to disable query rewriting and retrieval keyword derivation.
+        /// Changes apply to QueryAsync overloads accepting conversation history and to
+        /// existing <see cref="RagEnabledService"/> wrappers using this store.
         /// Requests that have already selected a rewriter keep using that instance;
         /// subsequent requests use the new setting.
         /// </summary>

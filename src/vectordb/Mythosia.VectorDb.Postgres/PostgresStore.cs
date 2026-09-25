@@ -384,6 +384,8 @@ ORDER BY text_score DESC, id COLLATE ""C""";
         using var conn = await OpenConnectionAsync(cancellationToken);
         await using var tx = await conn.BeginTransactionAsync(cancellationToken);
 
+        await ApplySearchRuntimeSettingsAsync(conn, tx, runtimeOptions: null, cancellationToken);
+
         if (_options.TextSearchMode == TextSearchMode.Trigram)
         {
             using (var thresholdCmd = conn.CreateCommand())

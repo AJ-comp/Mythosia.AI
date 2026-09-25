@@ -509,8 +509,8 @@ function Test-PackageVersionExists {
 
     $indexUrl = "$PackageBase$($PackageId.ToLowerInvariant())/index.json"
     try {
-        $result = Invoke-RestMethod -Uri $indexUrl -Method Get
-        return @($result.versions) -contains $Version.ToLowerInvariant()
+        $result = Invoke-RestMethod -Uri $indexUrl -Method Get -TimeoutSec 30
+        return @(Get-ValidatedNuGetVersions -Index $result) -contains $Version.ToLowerInvariant()
     }
     catch {
         $statusCode = $null

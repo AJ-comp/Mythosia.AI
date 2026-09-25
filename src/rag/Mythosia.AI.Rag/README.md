@@ -2,15 +2,15 @@
 
 Ground answers in documents your application manages. `Mythosia.AI.Rag` adds `.WithRag()` to an `IAIService` and handles document loading, splitting, embeddings, retrieval and context assembly. Use Agentic RAG tools when the model should decide when to search again.
 
-Version **8.1.0** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.1.0** and **Mythosia.AI.Rag.Abstractions 6.3.0**.
+Version **8.1.1** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.1.0** and **Mythosia.AI.Rag.Abstractions 6.3.0**.
 
-> **v8.1.0:** Adds request-based retrieval, configurable hybrid search, indexing and embedding safeguards, and processing-speed integration. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810) for changes and index migration guidance.
+> **v8.1.1:** Existing RAG wrappers now honor runtime query rewriter additions, replacement and clearing. In-flight requests keep their selected rewriter, and lazy automatic initialization runs only once. This patch needs no reindexing or migration from 8.1.0. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
 
 In v8.1.0, `RagEnabledService.WithSpeed(InferenceSpeed.Fast)` can request paid low-latency processing for the next answer when the inner provider/model supports it. It preserves retrieval settings and keeps internal query rewriting separate. Read `LastProcessing` or `(await run.Result).Processing` for reported applied modes; missing information remains unknown. See [speed selection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 8.1.0
+## Current release: 8.1.1
 
-The 8.1.0 release adds compatible APIs and fixes; existing retrieval interfaces remain supported. If upgrading from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for the earlier completion and Run contract changes.
+The 8.1.1 patch corrects runtime query rewriter selection without changing public APIs. Request-based retrieval, configurable hybrid search, indexing safeguards and processing-speed integration introduced in [8.1.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810) remain available. Earlier index migration guidance still applies when upgrading from older affected versions. If upgrading from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for the earlier completion and Run contract changes.
 
 Pass `cancellationToken` to stop cooperative retrieval, query rewriting and the inner completion call when a user stops waiting. `WithAgenticRag` forwards tool cancellation into `RagStore.QueryAsync`; search exceptions become failed tool results. Cancellation avoids later model rounds, but cleanup can wait for components that ignore the token and does not guarantee that a provider stops inference or billing. See the [completion contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation) and [tool contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract).
 
@@ -397,7 +397,18 @@ var result = await service.RetrieveAsync("Tell me more about that");
 Console.WriteLine(result.RewrittenQuery);  // "Tell me more about OPM"
 ```
 
-To temporarily disable rewriting or replace its implementation without rebuilding the index, use `store.SetQueryRewriter(null)` or `store.SetQueryRewriter(rewriter)`. When you call `RagStore.QueryAsync` directly through the overload accepting `conversationHistory`, it captures the selected rewriter as the query begins. That query keeps the same instance even if rewriting is disabled or replaced while progress reporting or rewriting is awaiting; later queries use the new setting. This behavior applies to direct store queries and does not update a rewriter already captured by a `RagEnabledService` wrapper.
+To add or replace a rewriter without rebuilding the index, use `store.SetQueryRewriter(rewriter)`; use `store.SetQueryRewriter(null)` to disable rewriting and keyword derivation. Both the `RagStore.QueryAsync` overload accepting `conversationHistory` and wrappers already attached through `service.WithRag(store)` select the store's current rewriter for each request. A request keeps its selected instance while progress reporting or rewriting is awaiting; adding, replacing or clearing the setting affects subsequent requests, including retrieval, completion, streaming and runs through those wrappers.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("What are the refund policy exceptions?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("What are the refund policy exceptions?");
+```
+
+The default `LlmQueryRewriter` enabled by `WithQueryRewriter()` is created once during lazy initialization; clearing it does not recreate it on the next request. Store overloads without `conversationHistory` continue to bypass rewriting, as does Agentic RAG, where the agent constructs the search query.
 
 ## Streaming
 

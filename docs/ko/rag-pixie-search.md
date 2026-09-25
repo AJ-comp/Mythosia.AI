@@ -25,12 +25,12 @@ PIXIE는 ONNX Runtime을 통해 프로그램 내부에서 실행합니다. Pytho
 
 ## 기존 RAG 설정에 연결하기
 
-**패키지 버전:** 이 안내는 `Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview, `Mythosia.AI.Rag` 8.1.0, `Mythosia.VectorDb.Abstractions` 4.1.0을 기준으로 합니다. 선택 프리뷰 패키지에 모델 파일이 포함됩니다. 소스 체크아웃을 검증하려면 이 문서 마지막의 소스 패키지 생성 절차를 따르세요.
+**패키지 버전:** 이 안내는 `Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview, `Mythosia.AI.Rag` 8.1.1, `Mythosia.VectorDb.Abstractions` 4.1.0을 기준으로 합니다. 선택 프리뷰 패키지에 모델 파일이 포함됩니다. 소스 체크아웃을 검증하려면 이 문서 마지막의 소스 패키지 생성 절차를 따르세요.
 
 RAG 패키지와 선택 검색 프리뷰를 설치합니다.
 
 ```bash
-dotnet add package Mythosia.AI.Rag --version 8.1.0
+dotnet add package Mythosia.AI.Rag --version 8.1.1
 dotnet add package Mythosia.AI.Rag.Search.Pixie --version 0.1.0-preview
 ```
 

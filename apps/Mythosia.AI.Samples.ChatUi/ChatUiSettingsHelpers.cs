@@ -1,5 +1,8 @@
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Enums;
+using Mythosia.AI.Models.Capabilities;
+using Mythosia.AI.Models.Messages;
+using Mythosia.AI.Builders;
 using Mythosia.AI.Providers.Alibaba;
 using Mythosia.AI.Services.Anthropic;
 using Mythosia.AI.Services.Base;
@@ -14,6 +17,27 @@ namespace Mythosia.AI.Samples.ChatUi;
 
 internal static class ChatUiSettingsHelpers
 {
+    internal static AIRequestBuilder CreateChatRequest(AIService service, Message message,
+        InferenceSpeed speed, AIRequestContext? context = null)
+    {
+        ResolveSpeed(service, speed.ToString(), InferenceSpeed.ProviderDefault);
+        var request = service.CreateRequest(message);
+        if (speed != InferenceSpeed.ProviderDefault) request = request.WithSpeed(speed);
+        if (context != null) request = request.WithContext(context);
+        return request;
+    }
+
+    internal static InferenceSpeed ResolveSpeed(AIService service, string? requested, InferenceSpeed current)
+    {
+        if (requested == null) return current;
+        if (!Enum.TryParse<InferenceSpeed>(requested, out var speed) || !Enum.IsDefined(speed))
+            throw new ArgumentException("Unknown response speed.");
+        var support = service.GetCapabilities().GetSpeedSupport(speed);
+        if (support != CapabilitySupport.Supported)
+            throw new ArgumentException($"{speed} processing is not verified for this model and endpoint (support: {support}).");
+        return speed;
+    }
+
     internal static void ApplyReasoningSettings(AIService service, SettingsRequest request)
     {
         if (service is PerplexityService perplexity)

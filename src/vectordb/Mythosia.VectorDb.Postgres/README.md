@@ -1,6 +1,6 @@
 # Mythosia.VectorDb.Postgres
 
-> **v10.8.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1080) for compatibility and fixes.
+> **v10.8.1:** Mixed hybrid search now honors configured HNSW `EfSearch` and IVFFlat `Probes` in its own search transaction. No public API changes, schema migration or reindexing are needed from 10.8.0. Approximate search and filtering can still return fewer than `topK` results. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081).
 
 PostgreSQL ([pgvector](https://github.com/pgvector/pgvector)) implementation of `IVectorStore`.
 Single-table design with a `metadata` JSONB column for all filtering including logical isolation.
@@ -256,6 +256,8 @@ For the full operator reference and fluent API examples (`Where`, `WhereNot`, `W
 ## Hybrid Search
 
 `PostgresStore` supports `ITextSearchStore` for text-only queries and `IConfigurableHybridSearchStore` for hybrid queries. With both legs active, the hybrid path uses a single SQL query with CTEs and combines rankings using normalized weighted Reciprocal Rank Fusion. At endpoint weights it queries only the active leg and retains the same normalized fusion score semantics. Metadata filters are applied before candidate limits; `MinScore` applies to the final fused score.
+
+To control how broadly the vector leg explores candidates, configure `HnswIndexOptions.EfSearch` or `IvfFlatIndexOptions.Probes` on `PostgresOptions.Index`. Ordinary vector search and mixed hybrid search apply these defaults on the same connection and transaction as their search query. Text-only search does not apply vector index settings. `HybridSearchAsync` has no per-request `VectorSearchRuntimeOptions` override; those overrides belong to `SearchAsync`. These settings tune recall and latency, but approximate search and filtering can still return fewer than `topK` results.
 
 ```csharp
 var words = await store.TextSearchAsync("hello !", topK: 5, filter: filter);

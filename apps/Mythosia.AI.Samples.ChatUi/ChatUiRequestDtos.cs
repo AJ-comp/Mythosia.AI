@@ -1,6 +1,7 @@
 namespace Mythosia.AI.Samples.ChatUi
 {
-    internal sealed record ChatUiConnectionSnapshot(Mythosia.AI.Services.Base.AIService Service, string Provider, string ModelEnum);
+    internal sealed record ChatUiConnectionSnapshot(Mythosia.AI.Services.Base.AIService Service, string Provider, string ModelEnum,
+        string? BaseUrl = null, string? Platform = null);
     internal record ConfigureRequest(string? ApiKey, string? Model, string? SystemMessage, string? BaseUrl, string? Platform, string? ModelIdOverride);
     internal record ChatRequest(string? Message, RagPipelineSettingsRequest? RagSettings, VectorStoreConfigRequest? VectorStore);
     internal record SettingsRequest(
@@ -16,7 +17,8 @@ namespace Mythosia.AI.Samples.ChatUi
         string? ReasoningType,
         string? PerplexityPreset = null,
         int? PerplexityMaxSteps = null,
-        bool? PerplexityWebSearch = null);
+        bool? PerplexityWebSearch = null,
+        string? Speed = null);
     internal record CodeSnippetRequest(string? UserMessage);
     internal record TogglePresetRequest(bool Enabled);
     internal record SummaryPolicyRequest(bool Enabled, string? TriggerType, int Threshold, int KeepRecent);

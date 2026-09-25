@@ -116,4 +116,32 @@ Assert-ReleaseVersionsAvailable $targets { @('2.0.0') } -AllowPartialResume -Exp
 $badPlan = Import-PowerShellDataFile (Join-Path $PSScriptRoot 'release-plan.psd1')
 $badPlan.Packages[1].Dependencies['Mythosia.AI.Abstractions'] = 'Mythosia.Missing'
 Assert-Rejected { Assert-ReleasePlanStructure $badPlan } '*release dependency must name an earlier package*'
+
+# A partial patch release must use published dependencies without silently republishing them.
+$patchPlan = @{
+    SchemaVersion = 1; PreviousReleaseCommit = $commit; BaselineNote = 'Fixture: preceding release is published.'
+    Packages = @(
+        @{ Id = 'Mythosia.Patch'; Version = '1.0.1'; Project = 'src/rag/Mythosia.Patch/Mythosia.Patch.csproj'
+           TargetFramework = 'netstandard2.1'; LicenseExpression = 'MIT'; ProjectUrl = 'https://example.invalid/'
+           ReleaseNotesUrl = 'https://example.invalid/RELEASE_NOTES.md#v101'; Dependencies = @{}
+           FixedDependencies = @{ 'Mythosia.Unchanged' = '2.0.0' } }
+        @{ Id = 'Mythosia.OtherPatch'; Version = '3.0.1'; Project = 'src/rag/Mythosia.OtherPatch/Mythosia.OtherPatch.csproj'
+           TargetFramework = 'net10.0'; LicenseExpression = 'MIT'; ProjectUrl = 'https://example.invalid/'
+           ReleaseNotesUrl = 'https://example.invalid/RELEASE_NOTES.md#v301'; Dependencies = @{}; FixedDependencies = @{} }
+    )
+    ConsumerOnlyPackages = @(@{ Id = 'Mythosia.Unchanged'; Version = '2.0.0' })
+}
+Assert-ReleasePlanStructure $patchPlan
+$patchVersions = Get-ReleaseConsumerVersions $patchPlan
+Assert-ReleaseConsumerVersionCoverage $patchVersions @('Mythosia.Patch', 'Mythosia.OtherPatch', 'Mythosia.Unchanged')
+if ($patchVersions.Count -ne 3 -or $patchPlan.Packages.Count -ne 2) { throw 'Partial release consumer coverage changed publication scope.' }
+Assert-Rejected { Assert-ReleaseConsumerVersionCoverage $patchVersions @('Mythosia.Missing') } '*missing an explicit version*'
+$patchPlan.ConsumerOnlyPackages[0].Version = '2.1.0'
+Assert-Rejected { Assert-ReleasePlanStructure $patchPlan } '*fixed dependency*must match its consumer-only version*'
+$patchPlan.ConsumerOnlyPackages[0].Version = '2.0.0'
+$patchPlan.ConsumerOnlyPackages += @{ Id = 'Mythosia.Patch'; Version = '1.0.0' }
+Assert-Rejected { Assert-ReleasePlanStructure $patchPlan } '*Consumer-only package must be distinct*'
+$patchPlan.ConsumerOnlyPackages = @(@{ Id = 'Mythosia.Unchanged'; Version = '2.0.0' })
+$patchPlan.Packages[1].FixedDependencies['Mythosia.Patch'] = '1.0.0'
+Assert-Rejected { Assert-ReleasePlanStructure $patchPlan } '*must use the release version*'
 Write-Host 'Release readiness negative fixtures passed (omissions, old versions, metadata, unavailable feeds, and provenance).'

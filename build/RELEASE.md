@@ -18,9 +18,11 @@ The check performs:
 
 The default run uses public package feeds and official NuGet metadata, but does not call paid LLM APIs. Live provider, account-specific and external-database validation remains separate. PostgreSQL tests require `MYTHOSIA_PG_CONN`; their skipped cases are visible in the test reports and do not become a claim of database validation.
 
+The ordinary GitHub CI workflow provisions a disposable `pgvector/pgvector:pg17` service and supplies `MYTHOSIA_PG_CONN` to the VectorDb suite, including the HNSW candidate-budget and IVFFlat transaction-setting regressions. It checks the TRX report to reject skipped or inconclusive tests and missing runtime-setting regressions, then uploads the report as `vectordb-regressions`. For local release validation, supply your own disposable database through the same environment variable to execute those checks instead of skipping them.
+
 ## Prerequisites
 
-Use the .NET SDK in `global.json`, PowerShell 7, Node.js and DocFX 2.78.5. PIXIE requires the exact pinned model assets described in [model preparation](../docs/rag-pixie-search.md). Ordinary builds do not download them; the complete release check rejects missing assets or skipped real-model tests.
+Use the .NET SDK in `global.json`, PowerShell 7, Node.js 24 with npm, and DocFX 2.78.5. The release check installs the locked test-only UI dependencies from the public npm registry with lifecycle scripts disabled, then checks provider controls, cancellation, streamed output, safe Markdown rendering and console navigation. PIXIE requires the exact pinned model assets described in [model preparation](../docs/rag-pixie-search.md). Ordinary builds do not download them; the complete release check rejects missing assets or skipped real-model tests.
 
 If the assets need preparation, supply a Python 3.12 executable from an isolated environment with `build/pixie-model-requirements.txt` installed:
 
@@ -34,7 +36,9 @@ This runs the existing hash-verifying preparation script without regenerating tr
 
 [release-plan.psd1](release-plan.psd1) defines the package versions, dependency order, framework, license and release-note URL. Packing, isolated consumers and release checks use that plan. A package outside the plan is never automatically published merely because its project version changed.
 
-The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. Older unpublished changes discovered by comparing actual NuGet packages must also be reviewed explicitly; the current plan records the HWP and Pinecone cases.
+The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `ce2af19`, confirmed in the preceding release's official NuGet repository metadata. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
+
+`Packages` is the publication allowlist. `ConsumerOnlyPackages` retains exact versions of unchanged packages for the full compatibility checks; those packages resolve from NuGet and are never packed or published by this release. A dependency supplied by the current release belongs in `Dependencies`; an unchanged published dependency keeps its exact version in `FixedDependencies`.
 
 For a quick readiness check without rebuilding:
 
@@ -42,7 +46,7 @@ For a quick readiness check without rebuilding:
 pwsh -NoProfile -File build/test-release-readiness.ps1
 ```
 
-The default check queries NuGet. The offline structural check used in ordinary CI cannot prove that a version is still available for publication. A network failure or inconclusive NuGet response must fail the online check.
+The default check queries NuGet. The offline structural check used in ordinary CI cannot prove that a version is still available for publication. Both readiness and the final publication check reject network failures and malformed or inconclusive NuGet version indexes. Their version-index requests have a 30-second timeout; only HTTP 404 establishes a package ID that does not yet exist.
 
 ## Commit and publish
 
@@ -52,4 +56,4 @@ The local package manifest is marked `development-validation` and is deliberatel
 
 Partial resume is only for packages already published from the **same release commit**. It is not a way to overwrite an old version or bypass a missing version bump. NuGet availability may change after a local check, so the publication workflow repeats the checks.
 
-The v8.1 release contains fifteen packages. The unchanged Serving.Vllm 1.0.0, Documents.Abstractions 1.2.0 and VectorDb.Tools 10.0.3 are outside that publication set. See the [complete version matrix](../RELEASE_NOTES.md#v810).
+The current patch publishes only **Mythosia.AI.Rag 8.1.1** and **Mythosia.VectorDb.Postgres 10.8.1**. Their dependency versions stay unchanged. All existing isolated consumer probes still run, including the unchanged core, loaders, other stores, MCP, vLLM and PIXIE packages from NuGet. The preceding fifteen-package v8.1 release is historical and must not be republished. See the [patch release notes](../RELEASE_NOTES.md#v811).

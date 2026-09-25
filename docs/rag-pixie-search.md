@@ -25,12 +25,12 @@ PIXIE runs in-process through ONNX Runtime and does not need a Python server, AP
 
 ## Add it to an existing RAG configuration
 
-**Package versions:** this guide targets `Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview with `Mythosia.AI.Rag` 8.1.0 and `Mythosia.VectorDb.Abstractions` 4.1.0. The optional preview includes the model assets. To validate a source checkout, follow [building from source](#building-the-model-bundled-package-from-source).
+**Package versions:** this guide targets `Mythosia.AI.Rag.Search.Pixie` 0.1.0-preview with `Mythosia.AI.Rag` 8.1.1 and `Mythosia.VectorDb.Abstractions` 4.1.0. The optional preview includes the model assets. To validate a source checkout, follow [building from source](#building-the-model-bundled-package-from-source).
 
 Install the RAG package and the optional search preview:
 
 ```bash
-dotnet add package Mythosia.AI.Rag --version 8.1.0
+dotnet add package Mythosia.AI.Rag --version 8.1.1
 dotnet add package Mythosia.AI.Rag.Search.Pixie --version 0.1.0-preview
 ```
 

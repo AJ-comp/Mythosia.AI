@@ -20,20 +20,42 @@ export function truncate(str, max) {
 }
 
 // ── Markdown config ──────────────────────────────────────────
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(code, { language: lang }).value;
+if (typeof globalThis.marked?.setOptions === 'function') {
+  globalThis.marked.setOptions({
+    breaks: true,
+    gfm: true,
+    highlight: function(code, lang) {
+      const highlighter = globalThis.hljs;
+      if (!highlighter) return escapeHtml(code);
+      if (lang && highlighter.getLanguage(lang)) {
+        return highlighter.highlight(code, { language: lang }).value;
+      }
+      return highlighter.highlightAuto(code).value;
     }
-    return hljs.highlightAuto(code).value;
-  }
-});
+  });
+}
 
 export function renderMarkdown(raw) {
-  try { return marked.parse(raw); }
-  catch(_) { return escapeHtml(raw); }
+  const text = String(raw ?? '');
+  const parser = globalThis.marked;
+  const sanitizer = globalThis.DOMPurify;
+  // Missing CDN scripts or an unsupported DOM must degrade to literal text.
+  if (typeof parser?.parse !== 'function' || typeof sanitizer?.sanitize !== 'function'
+      || sanitizer.isSupported === false) return escapeHtml(text);
+  try {
+    const parsed = parser.parse(text);
+    if (typeof parsed !== 'string') return escapeHtml(text);
+    return sanitizer.sanitize(parsed, {
+      USE_PROFILES: { html: true },
+      // A model response cannot style the console or impersonate its controls.
+      FORBID_TAGS: ['style', 'form', 'input', 'button', 'textarea', 'select', 'option'],
+      FORBID_ATTR: ['style'],
+      ALLOW_DATA_ATTR: false,
+      SANITIZE_NAMED_PROPS: true
+    });
+  } catch (_) {
+    return escapeHtml(text);
+  }
 }
 
 export function addCopyButtons(container) {
@@ -41,6 +63,7 @@ export function addCopyButtons(container) {
     if (block.parentElement.querySelector('.code-copy-btn')) return;
     const btn = document.createElement('button');
     btn.className = 'code-copy-btn';
+    btn.setAttribute('data-ui-localize', '');
     btn.textContent = 'Copy';
     btn.addEventListener('click', () => {
       navigator.clipboard.writeText(block.textContent).then(() => {

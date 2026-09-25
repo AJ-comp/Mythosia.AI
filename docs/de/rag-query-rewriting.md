@@ -51,7 +51,20 @@ Der Rewriter sieht den vollständigen Verlauf und schreibt „Gibt es dazu Ausna
 
 ## Umschreibung während laufender Abfragen ändern
 
-Mit `store.SetQueryRewriter(null)` oder `store.SetQueryRewriter(rewriter)` können Sie die Umschreibung vorübergehend deaktivieren oder ihre Implementierung wechseln, ohne den Index neu aufzubauen. Ein direkter Aufruf der Überladung von `RagStore.QueryAsync`, die `conversationHistory` akzeptiert, hält den zu Abfragebeginn ausgewählten Rewriter fest. Wird er während einer ausstehenden Fortschrittsmeldung oder Umschreibung deaktiviert oder ersetzt, verwendet diese Abfrage weiterhin dieselbe Instanz; spätere Abfragen nutzen die neue Einstellung. Dies gilt für direkte Store-Abfragen und aktualisiert keinen Rewriter, den ein `RagEnabledService`-Wrapper bereits übernommen hat.
+> Damit Änderungen zur Laufzeit bestehende `WithRag(store)`-Wrapper erreichen, ist `Mythosia.AI.Rag` 8.1.1 oder neuer erforderlich. [Patch-Hinweise](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+
+Mit `store.SetQueryRewriter(rewriter)` können Sie einen Rewriter hinzufügen oder ersetzen, ohne den Index neu aufzubauen; `store.SetQueryRewriter(null)` deaktiviert die Umschreibung und die Ableitung von Suchbegriffen. Sowohl die Überladung von `RagStore.QueryAsync` mit `conversationHistory` als auch bereits über `service.WithRag(store)` verbundene Wrapper wählen für jede Anfrage den aktuellen Rewriter des Stores aus. Während eine Fortschrittsmeldung oder Umschreibung aussteht, behält die Anfrage ihre ausgewählte Instanz. Hinzufügen, Ersetzen oder Entfernen wirkt sich auf nachfolgende Anfragen aus, auch bei Suche, Antwortgenerierung, Streaming und Runs über diese Wrapper.
+
+```csharp
+var rag = service.WithRag(store);
+store.SetQueryRewriter(rewriter);
+var rewritten = await rag.RetrieveAsync("Welche Ausnahmen gelten für die Rückerstattungsrichtlinie?");
+
+store.SetQueryRewriter(null);
+var original = await rag.RetrieveAsync("Welche Ausnahmen gelten für die Rückerstattungsrichtlinie?");
+```
+
+Der mit `WithQueryRewriter()` aktivierte Standard-`LlmQueryRewriter` wird bei der verzögerten Initialisierung einmal erstellt; nach dem Entfernen wird er bei der nächsten Anfrage nicht neu angelegt. Store-Überladungen ohne `conversationHistory` umgehen die Umschreibung weiterhin. Das gilt auch für Agentic RAG, bei dem der Agent die Suchanfrage formuliert.
 
 ## Wie das Such-Gate funktioniert
 

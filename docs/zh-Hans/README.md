@@ -37,7 +37,9 @@ TXT 与 Markdown 应按文档结构选择[规则分割器](text-splitters.md)。
 
 独立管理请求设置，停止进行中的任务，并同时获取答案、用量和来源。[v8 升级指南](v8-migration.md)整理了六项架构变更、迁移示例和验证范围。
 
-> 本文档对应的包版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> 本文档对应的包版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 补丁](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)：现有 RAG 包装器会采用运行时更改的改写器，PostgreSQL 混合检索也会应用配置的向量搜索参数。核心包 `Mythosia.AI` 仍为 8.1.0。
 
 ---
 
@@ -75,7 +77,7 @@ dotnet add package Mythosia.VectorDb.Postgres     # 可选：需要生产级向�
 graph TD
     Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
     end
 
     subgraph "⚡ Core AI"
@@ -107,7 +109,7 @@ graph TD
     subgraph "🗄️ Vector Stores — 选择一个或多个"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
     end
 
@@ -150,7 +152,9 @@ graph TD
 
 ## 演示 / 测试平台 (Chat UI)
 
-本仓库包含一个基于 Mythosia.AI 构建的示例 Chat UI — 启动 Mythosia.AI.Samples.ChatUi 即可体验库的实际效果。
+在接入应用前，可在左侧按模型名称或提供商搜索并调整请求设置，在中央对话，并在右侧 Inspector 中查看处理信息。Stop 可停止等待当前响应；速度选项仅对支持的模型和服务端点启用，Fast 可能产生额外费用。在较窄的屏幕上，Models 和 Inspector 会以抽屉面板打开；本地运行、文档导入和检索流程设置请参阅 [Chat UI 指南](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md)。
+
+使用顶部的语言选择器可在13种界面语言之间切换，并保留输入内容和设置。模型列表默认显示全部7个提供商的折叠分组，可展开分组或搜索模型。
 
 ### 运行示例
 
@@ -160,6 +164,8 @@ graph TD
 # 在仓库根目录下
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
+
+*以下视频展示的是旧版界面，可能与当前画面不同。*
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 

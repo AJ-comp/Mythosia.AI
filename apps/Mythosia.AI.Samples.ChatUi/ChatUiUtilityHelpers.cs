@@ -1,4 +1,8 @@
 using Mythosia.AI.Extensions;
+using Mythosia.AI.Builders;
+using Mythosia.AI.Models;
+using Mythosia.AI.Providers.Alibaba;
+using Mythosia.AI.Services.Anthropic;
 using Mythosia.Documents;
 using Mythosia.Documents.Office.Excel;
 using Mythosia.Documents.Office.PowerPoint;
@@ -17,12 +21,14 @@ using Mythosia.AI.Services.xAI;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace Mythosia.AI.Samples.ChatUi
 {
     internal static class ChatUiUtilityHelpers
     {
-        public static string GenerateCodeSnippet(AIService svc, string provider, string modelEnum, string? userMessage)
+        public static string GenerateCodeSnippet(AIService svc, string provider, string modelEnum, string? userMessage,
+            InferenceSpeed speed = InferenceSpeed.ProviderDefault, string? baseUrl = null, string? platform = null)
         {
             var serviceClass = provider switch
             {
@@ -32,7 +38,8 @@ namespace Mythosia.AI.Samples.ChatUi
                 "DeepSeek" => "DeepSeekService",
                 "xAI" => "XAIService",
                 "Perplexity" => "PerplexityService",
-                _ => "OpenAIService"
+                "Alibaba" => "QwenService",
+                _ => throw new ArgumentException("Unknown service provider.", nameof(provider))
             };
 
             var escapedApiKey = "YOUR_API_KEY";
@@ -41,6 +48,7 @@ namespace Mythosia.AI.Samples.ChatUi
 
             var sb = new StringBuilder();
             sb.AppendLine("using Mythosia.AI;");
+            sb.AppendLine("using Mythosia.AI.Extensions;");
             sb.AppendLine("using Mythosia.AI.Services.OpenAI;");
             sb.AppendLine("using Mythosia.AI.Services.Anthropic;");
             sb.AppendLine("using Mythosia.AI.Services.Google;");
@@ -49,14 +57,22 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine("using Mythosia.AI.Services.Perplexity;");
             sb.AppendLine("using Mythosia.AI.Models;");
             if (svc is PerplexityService) sb.AppendLine("using Mythosia.AI.Models.Perplexity;");
-            if (svc is GoogleAIService)
-                sb.AppendLine("using Mythosia.AI.Models.Enums;");
+            if (svc is QwenService) sb.AppendLine("using Mythosia.AI.Providers.Alibaba;");
+            sb.AppendLine("using Mythosia.AI.Models.Enums;");
             sb.AppendLine("using Mythosia.AI.Models.Messages;");
             sb.AppendLine("using Mythosia.AI.Models.Streaming;");
             sb.AppendLine("using System.Net.Http;");
+            sb.AppendLine("using System.Threading;");
             sb.AppendLine();
             sb.AppendLine($"var httpClient = new HttpClient();");
-            sb.AppendLine($"var service = new {serviceClass}(\"{escapedApiKey}\", httpClient);");
+            if (svc is QwenService && !string.IsNullOrWhiteSpace(baseUrl))
+            {
+                var endpoint = new UriBuilder(baseUrl) { UserName = "", Password = "", Query = "", Fragment = "" };
+                var endpointPlatform = string.Equals(platform, "ollama", StringComparison.OrdinalIgnoreCase) ? "Ollama" : "Vllm";
+                sb.AppendLine($"var service = new QwenService(\"{EscapeSnippetString(endpoint.Uri.AbsoluteUri)}\", EndpointPlatform.{endpointPlatform}, httpClient);");
+            }
+            else
+                sb.AppendLine($"var service = new {serviceClass}(\"{escapedApiKey}\", httpClient);");
             var modelValue = ChatUiModelHelpers.FindModelValueByName(modelEnum) ?? modelEnum;
             sb.AppendLine($"service.ChangeModel(\"{EscapeSnippetString(modelValue)}\");");
             if (svc is PerplexityService perplexity)
@@ -74,6 +90,18 @@ namespace Mythosia.AI.Samples.ChatUi
             }
             if (svc is XAIService grok)
                 sb.AppendLine($"service.ReasoningEffort = GrokReasoning.{grok.ReasoningEffort};");
+            if (svc is QwenService qwen)
+            {
+                sb.AppendLine($"service.ThinkingMode = QwenThinking.{qwen.ThinkingMode};");
+                if (!string.IsNullOrWhiteSpace(qwen.ModelIdOverride))
+                    sb.AppendLine($"service.ModelIdOverride = \"{EscapeSnippetString(qwen.ModelIdOverride)}\";");
+            }
+            if (svc is AnthropicService claude)
+            {
+                sb.AppendLine($"service.ThinkingBudget = {claude.ThinkingBudget};");
+                sb.AppendLine($"service.AdaptiveThinkingEffort = ClaudeReasoningEffort.{claude.AdaptiveThinkingEffort};");
+                sb.AppendLine($"service.AdaptiveThinkingDisplay = ClaudeThinkingDisplay.{claude.AdaptiveThinkingDisplay};");
+            }
 
             if (!string.IsNullOrWhiteSpace(escapedSystem))
                 sb.AppendLine($"service.SystemMessage = \"{escapedSystem}\";");
@@ -84,6 +112,7 @@ namespace Mythosia.AI.Samples.ChatUi
             if (hasFunctions)
             {
                 sb.AppendLine($"// Function calling settings");
+                sb.AppendLine("// Register your tool handlers with service.WithFunctions(...) before creating the request.");
                 sb.AppendLine($"service.EnableFunctions = {svc.EnableFunctions.ToString().ToLower()};");
                 sb.AppendLine($"service.FunctionCallMode = FunctionCallMode.{svc.FunctionCallMode};");
                 if (!string.IsNullOrWhiteSpace(svc.ForceFunctionName))
@@ -99,21 +128,30 @@ namespace Mythosia.AI.Samples.ChatUi
                 sb.AppendLine($"service.Gpt6ReasoningMode = Gpt6ReasoningMode.{gpt.Gpt6ReasoningMode};");
                 sb.AppendLine($"service.Gpt6Verbosity = {(gpt.Gpt6Verbosity.HasValue ? $"Verbosity.{gpt.Gpt6Verbosity}" : "null")};");
             }
-            else if (svc is GoogleAIService gemini && modelValue.StartsWith("gemini-3", StringComparison.OrdinalIgnoreCase))
+            else if (svc is OpenAIService olderGpt)
+            {
+                AppendOpenAiReasoningSettings(sb, olderGpt, modelValue);
+            }
+            else if (svc is GoogleAIService gemini)
             {
                 sb.AppendLine($"service.ThinkingLevel = GeminiThinkingLevel.{gemini.ThinkingLevel};");
+                sb.AppendLine($"service.ThinkingBudget = {gemini.ThinkingBudget};");
             }
             var capabilities = svc.GetCapabilities();
             if (capabilities.Temperature == Mythosia.AI.Models.Capabilities.CapabilitySupport.Supported)
-                sb.AppendLine($"service.Temperature = {svc.Temperature}f;");
+                sb.AppendLine($"service.Temperature = {svc.Temperature.ToString(CultureInfo.InvariantCulture)}f;");
             if (capabilities.TopP == Mythosia.AI.Models.Capabilities.CapabilitySupport.Supported)
-                sb.AppendLine($"service.TopP = {svc.TopP}f;");
+                sb.AppendLine($"service.TopP = {svc.TopP.ToString(CultureInfo.InvariantCulture)}f;");
             sb.AppendLine($"service.MaxTokens = {svc.MaxTokens};");
             sb.AppendLine($"service.StatelessMode = {svc.StatelessMode.ToString().ToLower()};");
             sb.AppendLine();
 
             sb.AppendLine($"// Streaming with reasoning/function chunks");
             sb.AppendLine($"var message = new Message(ActorRole.User, \"{escapedMsg}\");");
+            sb.AppendLine("// Capture independent request settings; RAG ingestion is configured separately.");
+            sb.AppendLine("var request = service.CreateRequest(message);");
+            if (speed != InferenceSpeed.ProviderDefault)
+                sb.AppendLine($"request = request.WithSpeed(InferenceSpeed.{speed});");
             sb.AppendLine($"var options = new StreamOptions");
             sb.AppendLine($"{{");
             sb.AppendLine($"    IncludeReasoning = true,");
@@ -122,7 +160,9 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine($"    TextOnly = false");
             sb.AppendLine($"}};");
             sb.AppendLine();
-            sb.AppendLine($"await foreach (var chunk in service.StreamAsync(message, options))");
+            sb.AppendLine("using var cancellation = new CancellationTokenSource();");
+            sb.AppendLine("await using var run = await request.StartRunAsync(options: options, cancellationToken: cancellation.Token);");
+            sb.AppendLine("await foreach (var chunk in run.StreamAsync(cancellation.Token))");
             sb.AppendLine($"{{");
             sb.AppendLine($"    switch (chunk.Type)");
             sb.AppendLine($"    {{");
@@ -140,18 +180,42 @@ namespace Mythosia.AI.Samples.ChatUi
                 sb.AppendLine($"            break;");
                 sb.AppendLine($"        case StreamingContentType.FunctionResult:");
                 sb.AppendLine($"            var resultName = chunk.Metadata?[\"function_name\"];");
-                sb.AppendLine($"            var result = chunk.Metadata?[\"result\"];");
+                sb.AppendLine($"            var result = chunk.Content ?? chunk.Metadata?[\"result\"]?.ToString();");
                 sb.AppendLine($"            Console.WriteLine($\"[Function Result] {{resultName}}: {{result}}\");");
                 sb.AppendLine($"            break;");
             }
             sb.AppendLine($"    }}");
             sb.AppendLine($"}}");
+            sb.AppendLine("var runResult = await run.Result;");
             sb.AppendLine();
             sb.AppendLine($"// Alternative: Non-streaming (simple)");
-            sb.AppendLine($"// string response = await service.SendAsync(\"{escapedMsg}\");");
+            sb.AppendLine("// string response = await request.GetCompletionAsync(cancellation.Token);");
             sb.AppendLine($"// Console.WriteLine(response);");
 
             return sb.ToString();
+        }
+
+        private static void AppendOpenAiReasoningSettings(StringBuilder sb, OpenAIService service, string model)
+        {
+            (string Prefix, object Effort, ReasoningSummary? Summary, Verbosity? Verbosity)? settings = model.ToLowerInvariant() switch
+            {
+                var id when id.StartsWith("gpt-5.6", StringComparison.Ordinal) => ("Gpt5_6", service.Gpt5_6ReasoningEffort, service.Gpt5_6ReasoningSummary, service.Gpt5_6Verbosity),
+                var id when id.StartsWith("gpt-5.5", StringComparison.Ordinal) => ("Gpt5_5", service.Gpt5_5ReasoningEffort, service.Gpt5_5ReasoningSummary, service.Gpt5_5Verbosity),
+                var id when id.StartsWith("gpt-5.4", StringComparison.Ordinal) => ("Gpt5_4", service.Gpt5_4ReasoningEffort, service.Gpt5_4ReasoningSummary, service.Gpt5_4Verbosity),
+                var id when id.StartsWith("gpt-5.3", StringComparison.Ordinal) => ("Gpt5_3", service.Gpt5_3ReasoningEffort, service.Gpt5_3ReasoningSummary, service.Gpt5_3Verbosity),
+                var id when id.StartsWith("gpt-5.2", StringComparison.Ordinal) => ("Gpt5_2", service.Gpt5_2ReasoningEffort, service.Gpt5_2ReasoningSummary, service.Gpt5_2Verbosity),
+                var id when id.StartsWith("gpt-5.1", StringComparison.Ordinal) => ("Gpt5_1", service.Gpt5_1ReasoningEffort, service.Gpt5_1ReasoningSummary, service.Gpt5_1Verbosity),
+                var id when id.StartsWith("gpt-5", StringComparison.Ordinal) || id.StartsWith("o3", StringComparison.Ordinal) => ("Gpt5", service.Gpt5ReasoningEffort, service.Gpt5ReasoningSummary, null),
+                _ => null
+            };
+            if (!settings.HasValue) return;
+            var value = settings.Value;
+            sb.AppendLine($"service.{value.Prefix}ReasoningEffort = {value.Prefix}Reasoning.{value.Effort};");
+            sb.AppendLine($"service.{value.Prefix}ReasoningSummary = {(value.Summary.HasValue ? $"ReasoningSummary.{value.Summary}" : "null")};");
+            if (value.Prefix != "Gpt5")
+                sb.AppendLine($"service.{value.Prefix}Verbosity = {(value.Verbosity.HasValue ? $"Verbosity.{value.Verbosity}" : "null")};");
+            if (value.Prefix == "Gpt5_6")
+                sb.AppendLine($"service.Gpt5_6ReasoningMode = Gpt5_6ReasoningMode.{service.Gpt5_6ReasoningMode};");
         }
 
         public static string GenerateRagReferenceCodeSnippet(RagReferenceConfig config)
@@ -299,21 +363,32 @@ namespace Mythosia.AI.Samples.ChatUi
             };
         }
 
-        public static void RegisterPresetFunctions(AIService service)
+        private static readonly HttpClient PresetFetchClient = CreatePresetFetchClient();
+
+        private static HttpClient CreatePresetFetchClient()
         {
             var fetchClient = new HttpClient();
             fetchClient.Timeout = TimeSpan.FromSeconds(15);
             fetchClient.DefaultRequestHeaders.Add("User-Agent", "Mythosia.AI-ChatUI/1.0");
+            return fetchClient;
+        }
 
-            service.WithFunction<string, int>(
-                "get_url_content",
-                "Fetches the text content of a web page at the given URL. Returns the extracted text (HTML tags stripped). Use this when the user asks to read, summarize, or analyze a web page.",
-                ("url", "The full URL to fetch (must start with http:// or https://)", true),
-                ("max_length", "Maximum number of characters to return (default: 5000)", false),
-                (url, maxLength) =>
+        public static void RegisterPresetFunctions(AIService service, HttpClient? fetchClient = null)
+        {
+            var client = fetchClient ?? PresetFetchClient;
+            service.WithFunction(FunctionBuilder.Create("get_url_content")
+                .WithDescription("Fetches the text content of a web page at the given URL. Returns the extracted text (HTML tags stripped). Use this when the user asks to read, summarize, or analyze a web page.")
+                .AddParameter("url", "string", "The full URL to fetch (must start with http:// or https://)", true)
+                .AddParameter("max_length", "integer", "Maximum number of characters to return (default: 5000)", false)
+                .WithHandler(async (args, cancellationToken) =>
                 {
+                    var url = args.TryGetValue("url", out var suppliedUrl) ? suppliedUrl?.ToString() : null;
+                    var maxLength = args.TryGetValue("max_length", out var suppliedMax)
+                        && int.TryParse(suppliedMax?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var limit)
+                        ? limit : 5000;
                     try
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (string.IsNullOrWhiteSpace(url))
                             return "{\"error\": \"URL is required\"}";
 
@@ -330,10 +405,10 @@ namespace Mythosia.AI.Samples.ChatUi
 
                         var effectiveMax = maxLength > 0 ? maxLength : 5000;
 
-                        var response = fetchClient.GetAsync(url).GetAwaiter().GetResult();
+                        using var response = await client.GetAsync(url, cancellationToken);
                         response.EnsureSuccessStatusCode();
 
-                        var html = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                        var html = await response.Content.ReadAsStringAsync(cancellationToken);
 
                         // Strip HTML tags to get plain text
                         var text = StripHtml(html);
@@ -348,7 +423,8 @@ namespace Mythosia.AI.Samples.ChatUi
                     {
                         return JsonSerializer.Serialize(new { error = $"HTTP error: {ex.Message}", url });
                     }
-                    catch (TaskCanceledException)
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+                    catch (OperationCanceledException)
                     {
                         return JsonSerializer.Serialize(new { error = "Request timed out (15s)", url });
                     }
@@ -356,7 +432,7 @@ namespace Mythosia.AI.Samples.ChatUi
                     {
                         return JsonSerializer.Serialize(new { error = ex.Message, url });
                     }
-                });
+                }).Build());
         }
 
         /// <summary>

@@ -37,7 +37,9 @@
 
 แยกการตั้งค่าคำขอ หยุดงาน และรับคำตอบพร้อมการใช้โทเค็นและแหล่งที่มา [คู่มือย้ายไป v8](v8-migration.md) รวมการเปลี่ยนสถาปัตยกรรมหกด้าน ตัวอย่าง และขอบเขตการตรวจสอบ
 
-> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+
+> [แพตช์ RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): แรปเปอร์ RAG ที่เชื่อมต่ออยู่แล้วจะรับการเปลี่ยนตัวเขียนคำถามใหม่ระหว่างทำงาน และการค้นหาไฮบริดแบบผสมของ PostgreSQL จะใช้การตั้งค่าค้นหาเวกเตอร์ที่กำหนดไว้ แพ็กเกจหลัก `Mythosia.AI` ยังคงเป็น 8.1.0
 
 ---
 
@@ -75,7 +77,7 @@ dotnet add package Mythosia.VectorDb.Postgres     # เพิ่มเติม:
 graph TD
     Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
     subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.0</i>"]
+        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
     end
 
     subgraph "⚡ Core AI"
@@ -107,7 +109,7 @@ graph TD
     subgraph "🗄️ Vector Stores — เลือกหนึ่งหรือหลายตัว"
         InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
         Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.0</i>"]
+        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
         Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
     end
 
@@ -139,7 +141,9 @@ graph TD
 
 ## Demo / ทดสอบ (Chat UI)
 
-Repository นี้มีตัวอย่าง Chat UI ที่สร้างบน Mythosia.AI — รัน `Mythosia.AI.Samples.ChatUi` เพื่อลองใช้ไลบรารีจริง
+ค้นหาโมเดลตามชื่อหรือผู้ให้บริการและปรับการตั้งค่าทางด้านซ้าย สนทนาตรงกลาง และดูข้อมูลการประมวลผลใน Inspector ทางด้านขวาเพื่อทดลองก่อนนำไปใช้ในแอปพลิเคชัน กด Stop เพื่อหยุดรอคำตอบ โดยจะเลือกความเร็วได้เฉพาะกับโมเดลและจุดเชื่อมต่อที่รองรับ และ Fast อาจมีค่าใช้จ่ายเพิ่มเติม บนหน้าจอขนาดเล็ก Models และ Inspector จะเปิดเป็นแผงเลื่อน ดูวิธีรันในเครื่อง เพิ่มเอกสาร และตั้งค่ากระบวนการค้นคืนได้ใน[คู่มือ Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md)
+
+ใช้ตัวเลือกภาษาด้านบนเพื่อสลับภาษาหน้าจอได้ 13 ภาษา โดยไม่สูญเสียข้อความที่พิมพ์หรือการตั้งค่า ผู้ให้บริการทั้งเจ็ดรายจะแสดงเป็นกลุ่มที่พับไว้ เลือกขยายกลุ่มหรือค้นหาโมเดลได้
 
 ### รันตัวอย่าง
 
@@ -149,6 +153,8 @@ Repository นี้มีตัวอย่าง Chat UI ที่สร้า
 # จาก root ของ repository
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
+
+*วิดีโอด้านล่างใช้หน้าตารุ่นก่อน จึงอาจต่างจากหน้าจอปัจจุบัน*
 
 https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
 
