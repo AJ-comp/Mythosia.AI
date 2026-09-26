@@ -107,6 +107,7 @@ jobs:
           node --experimental-vm-modules build/test-chat-markdown-ui.mjs
           node --experimental-vm-modules build/test-console-ui.mjs
           node --experimental-vm-modules build/test-i18n-ui.mjs
+          node build/test-playground-video-ui.mjs
 
       - name: Prepare and verify model assets including cache hits
         run: |

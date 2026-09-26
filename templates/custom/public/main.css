@@ -487,3 +487,18 @@ article h2 {
 .playground-video-caption[hidden] {
   display: none;
 }
+
+/* Hidden letters keep their space so typing never shifts or rewraps the line. */
+.playground-video-caption-text {
+  display: block;
+}
+
+.playground-video-caption-accessible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
