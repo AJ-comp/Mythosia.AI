@@ -3,24 +3,24 @@
 Use the Playground to compare model options and configure document retrieval before writing application code. This walkthrough shows the current interface in a local workspace, from finding a model to exploring the RAG pipeline settings.
 
 <video class="playground-video" controls playsinline preload="metadata" poster="assets/playground-demo.png" aria-label="Mythosia.AI Playground interface walkthrough">
-  <source src="assets/playground-demo.mp4?v=4" type="video/mp4">
-  <track kind="subtitles" src="assets/playground-demo.vtt?v=4" srclang="en" label="English" default>
-  <track kind="subtitles" src="assets/playground-demo.ko.vtt?v=4" srclang="ko" label="한국어">
-  <track kind="subtitles" src="assets/playground-demo.ja.vtt?v=4" srclang="ja" label="日本語">
-  <track kind="subtitles" src="assets/playground-demo.zh-Hans.vtt?v=4" srclang="zh-Hans" label="简体中文">
-  <track kind="subtitles" src="assets/playground-demo.zh-Hant.vtt?v=4" srclang="zh-Hant" label="繁體中文">
-  <track kind="subtitles" src="assets/playground-demo.de.vtt?v=4" srclang="de" label="Deutsch">
-  <track kind="subtitles" src="assets/playground-demo.fr.vtt?v=4" srclang="fr" label="Français">
-  <track kind="subtitles" src="assets/playground-demo.es.vtt?v=4" srclang="es" label="Español">
-  <track kind="subtitles" src="assets/playground-demo.pt.vtt?v=4" srclang="pt" label="Português">
-  <track kind="subtitles" src="assets/playground-demo.ru.vtt?v=4" srclang="ru" label="Русский">
-  <track kind="subtitles" src="assets/playground-demo.uk.vtt?v=4" srclang="uk" label="Українська">
-  <track kind="subtitles" src="assets/playground-demo.vi.vtt?v=4" srclang="vi" label="Tiếng Việt">
-  <track kind="subtitles" src="assets/playground-demo.th.vtt?v=4" srclang="th" label="ไทย">
-  Your browser does not support embedded video. <a href="assets/playground-demo.mp4?v=4">Download the walkthrough</a>.
+  <source src="assets/playground-demo.mp4?v=6" type="video/mp4">
+  <track kind="subtitles" src="assets/playground-demo.vtt?v=6" srclang="en" label="English" default>
+  <track kind="subtitles" src="assets/playground-demo.ko.vtt?v=6" srclang="ko" label="한국어">
+  <track kind="subtitles" src="assets/playground-demo.ja.vtt?v=6" srclang="ja" label="日本語">
+  <track kind="subtitles" src="assets/playground-demo.zh-Hans.vtt?v=6" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="assets/playground-demo.zh-Hant.vtt?v=6" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="assets/playground-demo.de.vtt?v=6" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="assets/playground-demo.fr.vtt?v=6" srclang="fr" label="Français">
+  <track kind="subtitles" src="assets/playground-demo.es.vtt?v=6" srclang="es" label="Español">
+  <track kind="subtitles" src="assets/playground-demo.pt.vtt?v=6" srclang="pt" label="Português">
+  <track kind="subtitles" src="assets/playground-demo.ru.vtt?v=6" srclang="ru" label="Русский">
+  <track kind="subtitles" src="assets/playground-demo.uk.vtt?v=6" srclang="uk" label="Українська">
+  <track kind="subtitles" src="assets/playground-demo.vi.vtt?v=6" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="assets/playground-demo.th.vtt?v=6" srclang="th" label="ไทย">
+  Your browser does not support embedded video. <a href="assets/playground-demo.mp4?v=6">Download the walkthrough</a>.
 </video>
 
-[Download the video (MP4)](assets/playground-demo.mp4?v=4) · [Read the captions](assets/playground-demo.vtt?v=4)
+[Download the video (MP4)](assets/playground-demo.mp4?v=6) · [Read the captions](assets/playground-demo.vtt?v=6)
 
 The recording has no narration. Subtitles explain each action below the application and start in this page's language. Use the player's captions menu to choose another language or turn them off.
 

@@ -1,53 +1,53 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:05.035 align:center size:92%
+00:00:00.000 --> 00:00:04.802 align:center size:92%
 Explore modelos de siete proveedores de IA en un solo espacio de trabajo.
 
 2
-00:00:05.035 --> 00:00:13.920 align:center size:92%
+00:00:04.802 --> 00:00:11.132 align:center size:92%
 Escriba el nombre de un modelo para ver las coincidencias.
 
 3
-00:00:13.920 --> 00:00:18.525 align:center size:92%
+00:00:11.132 --> 00:00:17.825 align:center size:92%
 También puede buscar por proveedor.
 
 4
-00:00:18.525 --> 00:00:26.133 align:center size:92%
+00:00:17.825 --> 00:00:28.798 align:center size:92%
 Añada aquí la clave API de su proveedor para conectar un modelo y empezar a conversar.
 
 5
-00:00:26.133 --> 00:00:33.656 align:center size:92%
+00:00:28.798 --> 00:00:37.654 align:center size:92%
 Cambie la interfaz a coreano y después vuelva al inglés.
 
 6
-00:00:33.656 --> 00:00:39.680 align:center size:92%
+00:00:37.654 --> 00:00:43.204 align:center size:92%
 Abra «Documents» para preparar sus archivos de referencia.
 
 7
-00:00:39.680 --> 00:00:48.024 align:center size:92%
+00:00:43.204 --> 00:00:57.001 align:center size:92%
 Elija cómo dividir el texto según la estructura de su documento.
 
 8
-00:00:48.024 --> 00:00:58.181 align:center size:92%
+00:00:57.001 --> 00:01:12.359 align:center size:92%
 Elija un proveedor de embeddings para convertir documentos y preguntas en vectores de búsqueda.
 
 9
-00:00:58.181 --> 00:01:03.280 align:center size:92%
+00:01:12.359 --> 00:01:21.985 align:center size:92%
 Elija dónde guardar sus datos de búsqueda.
 
 10
-00:01:03.280 --> 00:01:09.542 align:center size:92%
+00:01:21.985 --> 00:01:27.393 align:center size:92%
 Equilibre palabras clave y similitud semántica en la búsqueda híbrida.
 
 11
-00:01:09.542 --> 00:01:16.400 align:center size:92%
+00:01:27.393 --> 00:01:36.002 align:center size:92%
 Active el reranking para ordenar los candidatos según su relevancia para la pregunta.
 
 12
-00:01:16.400 --> 00:01:21.651 align:center size:92%
+00:01:36.002 --> 00:01:47.049 align:center size:92%
 Revise el límite final de documentos y la puntuación mínima.
 
 13
-00:01:21.651 --> 00:01:26.987 align:center size:92%
+00:01:47.049 --> 00:01:52.400 align:center size:92%
 Conecte sus modelos y documentos y pruebe el Playground por su cuenta.

@@ -1,53 +1,53 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:05.035 align:center size:92%
+00:00:00.000 --> 00:00:04.802 align:center size:92%
 Explore models from seven AI providers in one workspace.
 
 2
-00:00:05.035 --> 00:00:13.920 align:center size:92%
+00:00:04.802 --> 00:00:11.132 align:center size:92%
 Type a model name to see matching models.
 
 3
-00:00:13.920 --> 00:00:18.525 align:center size:92%
+00:00:11.132 --> 00:00:17.825 align:center size:92%
 You can also search by provider.
 
 4
-00:00:18.525 --> 00:00:26.133 align:center size:92%
+00:00:17.825 --> 00:00:28.798 align:center size:92%
 Register your provider's API key here to connect a model and start chatting.
 
 5
-00:00:26.133 --> 00:00:33.656 align:center size:92%
+00:00:28.798 --> 00:00:37.654 align:center size:92%
 Switch the interface to Korean, then back to English.
 
 6
-00:00:33.656 --> 00:00:39.680 align:center size:92%
+00:00:37.654 --> 00:00:43.204 align:center size:92%
 Open Documents to prepare your reference files.
 
 7
-00:00:39.680 --> 00:00:48.024 align:center size:92%
+00:00:43.204 --> 00:00:57.001 align:center size:92%
 Choose how to split the text to match your document's structure.
 
 8
-00:00:48.024 --> 00:00:58.181 align:center size:92%
+00:00:57.001 --> 00:01:12.359 align:center size:92%
 Choose an embedding provider to turn documents and questions into search vectors.
 
 9
-00:00:58.181 --> 00:01:03.280 align:center size:92%
+00:01:12.359 --> 00:01:21.985 align:center size:92%
 Choose where to store your search data.
 
 10
-00:01:03.280 --> 00:01:09.542 align:center size:92%
+00:01:21.985 --> 00:01:27.393 align:center size:92%
 Balance keyword matching and semantic similarity in hybrid search.
 
 11
-00:01:09.542 --> 00:01:16.400 align:center size:92%
+00:01:27.393 --> 00:01:36.002 align:center size:92%
 Enable reranking to reorder search candidates by their relevance to the question.
 
 12
-00:01:16.400 --> 00:01:21.651 align:center size:92%
+00:01:36.002 --> 00:01:47.049 align:center size:92%
 Review the final document limit and minimum score.
 
 13
-00:01:21.651 --> 00:01:26.987 align:center size:92%
+00:01:47.049 --> 00:01:52.400 align:center size:92%
 Connect your models and documents, then try the Playground yourself.

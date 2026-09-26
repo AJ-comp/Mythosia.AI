@@ -3,24 +3,24 @@
 Dùng Playground để so sánh các tùy chọn mô hình và cấu hình truy xuất tài liệu trước khi viết mã ứng dụng. Video này giới thiệu giao diện hiện tại trong môi trường làm việc cục bộ, từ tìm mô hình đến khám phá các thiết lập của quy trình RAG.
 
 <video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Video hướng dẫn giao diện Mythosia.AI Playground">
-  <source src="../assets/playground-demo.mp4?v=4" type="video/mp4">
-  <track kind="subtitles" src="../assets/playground-demo.vtt?v=4" srclang="en" label="English">
-  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=4" srclang="ko" label="한국어">
-  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=4" srclang="ja" label="日本語">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=4" srclang="zh-Hans" label="简体中文">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=4" srclang="zh-Hant" label="繁體中文">
-  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=4" srclang="de" label="Deutsch">
-  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=4" srclang="fr" label="Français">
-  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=4" srclang="es" label="Español">
-  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=4" srclang="pt" label="Português">
-  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=4" srclang="ru" label="Русский">
-  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=4" srclang="uk" label="Українська">
-  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=4" srclang="vi" label="Tiếng Việt" default>
-  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=4" srclang="th" label="ไทย">
-  Trình duyệt của bạn không hỗ trợ video nhúng. <a href="../assets/playground-demo.mp4?v=4">Tải video hướng dẫn</a>.
+  <source src="../assets/playground-demo.mp4?v=6" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=6" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=6" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=6" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=6" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=6" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=6" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=6" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=6" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=6" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=6" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=6" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=6" srclang="vi" label="Tiếng Việt" default>
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=6" srclang="th" label="ไทย">
+  Trình duyệt của bạn không hỗ trợ video nhúng. <a href="../assets/playground-demo.mp4?v=6">Tải video hướng dẫn</a>.
 </video>
 
-[Tải video (MP4)](../assets/playground-demo.mp4?v=4) · [Đọc phụ đề](../assets/playground-demo.vi.vtt?v=4)
+[Tải video (MP4)](../assets/playground-demo.mp4?v=6) · [Đọc phụ đề](../assets/playground-demo.vi.vtt?v=6)
 
 Video không có âm thanh. Phụ đề tự động hiển thị theo ngôn ngữ của trang; bạn có thể đổi ngôn ngữ hoặc tắt phụ đề trong menu của trình phát.
 
