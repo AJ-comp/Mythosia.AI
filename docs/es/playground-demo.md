@@ -20,8 +20,6 @@ Utilice el Playground para comparar las opciones de los modelos y configurar la 
   Su navegador no admite vídeos integrados. <a href="../assets/playground-demo.mp4?v=6">Descargar el recorrido</a>.
 </video>
 
-[Descargar el vídeo (MP4)](../assets/playground-demo.mp4?v=6) · [Leer los subtítulos](../assets/playground-demo.es.vtt?v=6)
-
 El vídeo no tiene sonido. Los subtítulos aparecen automáticamente en el idioma de esta página. Puede cambiar su idioma o desactivarlos desde el menú del reproductor.
 
 ## Qué muestra el recorrido

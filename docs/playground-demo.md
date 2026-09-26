@@ -20,8 +20,6 @@ Use the Playground to compare model options and configure document retrieval bef
   Your browser does not support embedded video. <a href="assets/playground-demo.mp4?v=6">Download the walkthrough</a>.
 </video>
 
-[Download the video (MP4)](assets/playground-demo.mp4?v=6) · [Read the captions](assets/playground-demo.vtt?v=6)
-
 The recording has no narration. Subtitles explain each action below the application and start in this page's language. Use the player's captions menu to choose another language or turn them off.
 
 ## What the walkthrough shows

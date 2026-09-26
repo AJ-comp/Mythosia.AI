@@ -20,8 +20,6 @@ Playground를 사용하면 애플리케이션 코드를 작성하기 전에 모�
   이 브라우저는 삽입된 동영상 재생을 지원하지 않습니다. <a href="../assets/playground-demo.mp4?v=6">사용 안내 영상 다운로드</a>.
 </video>
 
-[영상 다운로드 (MP4)](../assets/playground-demo.mp4?v=6) · [자막 읽기](../assets/playground-demo.ko.vtt?v=6)
-
 이 영상에는 음성이 없습니다. 페이지 언어에 맞는 자막이 자동으로 표시되며, 플레이어 메뉴에서 자막 언어를 바꾸거나 끌 수 있습니다.
 
 ## 영상에서 확인할 수 있는 내용

@@ -20,8 +20,6 @@ Utilisez le Playground pour comparer les options des modèles et configurer la r
   Votre navigateur ne prend pas en charge les vidéos intégrées. <a href="../assets/playground-demo.mp4?v=6">Télécharger la vidéo</a>.
 </video>
 
-[Télécharger la vidéo (MP4)](../assets/playground-demo.mp4?v=6) · [Lire les sous-titres](../assets/playground-demo.fr.vtt?v=6)
-
 La vidéo est sans son. Les sous-titres s'affichent automatiquement dans la langue de cette page. Le menu du lecteur permet de changer leur langue ou de les désactiver.
 
 ## Ce que montre la vidéo

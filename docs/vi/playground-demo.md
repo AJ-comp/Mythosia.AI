@@ -20,8 +20,6 @@ Dùng Playground để so sánh các tùy chọn mô hình và cấu hình truy 
   Trình duyệt của bạn không hỗ trợ video nhúng. <a href="../assets/playground-demo.mp4?v=6">Tải video hướng dẫn</a>.
 </video>
 
-[Tải video (MP4)](../assets/playground-demo.mp4?v=6) · [Đọc phụ đề](../assets/playground-demo.vi.vtt?v=6)
-
 Video không có âm thanh. Phụ đề tự động hiển thị theo ngôn ngữ của trang; bạn có thể đổi ngôn ngữ hoặc tắt phụ đề trong menu của trình phát.
 
 ## Nội dung video

@@ -20,8 +20,6 @@ Use o Playground para comparar as opções dos modelos e configurar a busca de d
   Seu navegador não oferece suporte a vídeos incorporados. <a href="../assets/playground-demo.mp4?v=6">Baixar a demonstração</a>.
 </video>
 
-[Baixar o vídeo (MP4)](../assets/playground-demo.mp4?v=6) · [Ler as legendas](../assets/playground-demo.pt.vtt?v=6)
-
 O vídeo não tem som. As legendas aparecem automaticamente no idioma desta página. No menu do player, você pode mudar o idioma delas ou desativá-las.
 
 ## O que o vídeo mostra

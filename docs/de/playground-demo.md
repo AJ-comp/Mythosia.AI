@@ -20,8 +20,6 @@ Mit dem Playground können Sie Modelloptionen vergleichen und die Dokumentensuch
   Ihr Browser unterstützt keine eingebetteten Videos. <a href="../assets/playground-demo.mp4?v=6">Video herunterladen</a>.
 </video>
 
-[Video herunterladen (MP4)](../assets/playground-demo.mp4?v=6) · [Untertitel lesen](../assets/playground-demo.de.vtt?v=6)
-
 Das Video ist ohne Ton. Die Untertitel erscheinen automatisch in der Sprache dieser Seite. Im Menü des Players können Sie eine andere Sprache wählen oder die Untertitel ausschalten.
 
 ## Was das Video zeigt

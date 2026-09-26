@@ -20,8 +20,6 @@
   你的瀏覽器不支援嵌入式影片。<a href="../assets/playground-demo.mp4?v=6">下載操作指南影片</a>。
 </video>
 
-[下載影片 (MP4)](../assets/playground-demo.mp4?v=6) · [閱讀字幕](../assets/playground-demo.zh-Hant.vtt?v=6)
-
 本影片沒有聲音，字幕會自動使用頁面語言。你可以在播放器選單中切換字幕語言或關閉字幕。
 
 ## 影片展示的內容

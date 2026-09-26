@@ -26,25 +26,40 @@
 
 </div>
 
-For TXT and Markdown, [choose a rule-based splitter](docs/text-splitters.md) according to the document structure. Size validation, overlap and Unicode boundaries are checked; Markdown preserves headings, fenced code and table rows. Character/word counts are not model token limits. Table conditions and code indentation retain their meaning; excessive repeated Markdown context fails explicitly before it can expand without a bound.
+## Demo / Test Bed (Chat UI)
 
-To prevent an apparently successful index from overwriting chunks or pairing them with the wrong vectors, [indexing validation](docs/rag-pipeline.md#indexing-validation) rejects invalid IDs and embedding batches before persistence; custom splitters must provide unique IDs and inherit document metadata.
+Try models and document search in the Playground before writing integration code.
 
-Stable [file identities](docs/document-loaders.md#file-source-identity), validated [query vectors](docs/rag-embedding.md#query-embedding-validation), document-scoped [persistence callbacks and URL cancellation](docs/rag-pipeline.md#custom-persistence) prevent duplicate registrations, invalid searches and stale chunks.
+Watch a walkthrough recorded in the current Playground UI: browse models, switch languages, and explore document and RAG pipeline settings. The video includes English captions.
 
-To compare local neural sparse retrieval with the existing search, use the optional `Mythosia.AI.Rag.Search.Pixie` preview. It keeps your dense embedding provider and uses an in-memory PIXIE index; it does not migrate persistent stores or replace the default search. [PIXIE setup and comparison guide](docs/rag-pixie-search.md).
+https://github.com/user-attachments/assets/4cf90210-b000-41be-8317-a467e93e7504
 
-The [retrieval evaluation infrastructure](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md) supports reusable datasets, search adapters, persistent run reports and regression checks. Extend the same evaluator for new search methods and your own document collections.
+### Run the sample
 
-Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
+Run **`Mythosia.AI.Samples.ChatUi`** to try it locally:
 
-> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [current patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
+```bash
+# from repo root
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
+```
 
-> [RAG 8.1.1 / PostgreSQL 10.8.1 patch](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): existing RAG wrappers now observe runtime query-rewriter changes, and mixed PostgreSQL hybrid search honors configured vector-search settings. Core `Mythosia.AI` remains at 8.1.0.
+<details>
+<summary>Playground controls and languages</summary>
 
----
+Search models by name or provider and adjust settings on the left, chat in the center, and review returned processing details in the right-hand Inspector before integrating a model into your app. Use Stop to stop waiting for the active response; explicit speed choices are enabled only for supported model and endpoint combinations, and Fast may cost extra. On smaller screens, Models and Inspector open as drawers; see the [Chat UI guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) for local setup, documents and pipeline settings.
 
-### What do I need to install?
+Use the language selector in the header to switch between 13 interface languages without losing your input or settings. All seven providers are visible as collapsed groups; expand one or search for a model.
+
+</details>
+
+## Why Mythosia.AI?
+
+- **Switch AI providers through one API** for chat, streaming, tool calls and structured responses.
+- **Build answers from your documents** with loaders, embeddings, retrieval and reranking.
+- **Keep request settings independent** and control ongoing work through a shared Run API.
+- **Choose the packages you need**, from the core library to optional RAG and vector-store integrations.
+
+## What do I need to install?
 
 ```
 dotnet add package Mythosia.AI                    # start here (this is all you need)
@@ -61,114 +76,6 @@ dotnet add package Mythosia.VectorDb.Postgres     # optional: when you need a pr
 Prepare different settings without changing another request: `CreateRequest(...).WithTemperature(...).GetCompletionAsync()` uses an independent, reusable request builder. See the [request settings guide](docs/request-building.md) for Before/After examples, runs, profiles, and shared-conversation limits.
 
 For requests where waiting time matters, use [processing speed](docs/request-building.md#inference-speed): `WithSpeed` keeps the model and reasoning effort, while `Processing` reports what the provider actually applied. Fast is a paid option on supported combinations.
-
-## Architecture
-
-<a href="docs/assets/architecture.svg">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
-    <img src="docs/assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
-  </picture>
-</a>
-
-<details>
-<summary>Package dependency details</summary>
-
-```mermaid
-graph TD
-    Pixie["<b>Mythosia.AI.Rag.Search.Pixie</b><br/>PIXIE SPLADE · ONNX Runtime<br/>PixieInMemoryStore<br/><i>net8.0 · v0.1.0-preview</i>"]
-    subgraph "🔗 Orchestration Layer"
-        Rag["<b>Mythosia.AI.Rag</b><br/>RagPipeline · TextSplitters<br/>EmbeddingProviders · HybridSearch · Reranking<br/><i>netstandard2.1 · v8.1.1</i>"]
-    end
-
-    subgraph "⚡ Core AI"
-        AI["<b>Mythosia.AI</b><br/>OpenAI · Anthropic · Google<br/>xAI · DeepSeek · Perplexity<br/><i>netstandard2.1 · v8.1.0</i>"]
-        AIAbs["<b>Mythosia.AI.Abstractions</b><br/>IAIService · IImageGenerationService<br/>shared models<br/><i>netstandard2.1 · v4.1.0</i>"]
-    end
-
-    subgraph "🔌 Provider Packages"
-        Alibaba["<b>Mythosia.AI.Providers.Alibaba</b><br/>Qwen / Alibaba provider package<br/><i>netstandard2.1 · v3.0.1</i>"]
-    end
-
-    subgraph "🛰️ Serving — Control Plane"
-        VllmServing["<b>Mythosia.AI.Serving.Vllm</b><br/>vLLM management client<br/>models · health · version · metrics<br/><i>netstandard2.1 · v1.0.0</i>"]
-    end
-
-    subgraph "🧩 Tool Integration"
-        Mcp["<b>Mythosia.AI.Mcp</b><br/>Tool discovery · stdio · custom transport<br/><i>netstandard2.1 · v0.1.1-preview</i>"]
-    end
-
-    subgraph "📄 Document Loaders"
-        Office["<b>Mythosia.Documents.Office</b><br/>Word · Excel · PowerPoint<br/><i>netstandard2.1 · v1.1.1</i>"]
-        Pdf["<b>Mythosia.Documents.Pdf</b><br/>PdfPig Parser<br/><i>netstandard2.1 · v1.1.2</i>"]
-    end
-
-    subgraph "📐 Composite Abstractions"
-        RagAbs["<b>Mythosia.AI.Rag.Abstractions</b><br/>ITextSplitter · IEmbeddingProvider<br/>IContextBuilder · IRagRetriever · IReranker<br/>RagDocument<br/><i>netstandard2.1 · v6.3.0</i>"]
-    end
-
-    subgraph "🗄️ Vector Stores — pick one or more"
-        InMem["<b>Mythosia.VectorDb.InMemory</b><br/>Cosine Similarity · TopK · BM25<br/><i>netstandard2.1 · v4.2.0</i>"]
-        Pine["<b>Mythosia.VectorDb.Pinecone</b><br/>Managed Index · Namespace · Scope<br/><i>netstandard2.1 · v4.0.2</i>"]
-        Pg["<b>Mythosia.VectorDb.Postgres</b><br/>pgvector · HNSW · IVFFlat · HybridSearch<br/><i>net10.0 · v10.8.1</i>"]
-        Qd["<b>Mythosia.VectorDb.Qdrant</b><br/>gRPC · Cosine · Euclidean · Dot · HybridSearch<br/><i>netstandard2.1 · v4.2.0</i>"]
-    end
-
-    subgraph "🧱 Foundation Abstractions"
-        LoaderAbs["<b>Mythosia.Documents.Abstractions</b><br/>IDocumentLoader · IDocumentParser<br/>ParsedDocument · DoclingDocument<br/><i>netstandard2.1 · v1.2.0</i>"]
-        VdbAbs["<b>Mythosia.VectorDb.Abstractions</b><br/>IVectorStore · HybridSearchAsync · VectorRecord<br/>VectorFilter · VectorSearchResult · Bm25Tokenizer<br/><i>netstandard2.1 · v4.1.0</i>"]
-    end
-
-    %% Core AI internal
-    AI --> AIAbs
-
-    %% Orchestration → dependencies
-    Rag --> AIAbs
-    Rag --> Office
-    Rag --> Pdf
-    Rag --> RagAbs
-    Rag --> InMem
-
-    %% Provider packages → core
-    Alibaba --> AI
-    Mcp --> AI
-
-    %% Composite → Foundation
-    RagAbs --> VdbAbs
-
-    %% Loaders → Foundation
-    Office --> LoaderAbs
-    Pdf --> LoaderAbs
-
-    %% VectorStores → Foundation
-    InMem --> VdbAbs
-    InMem --> RagAbs
-    Pine --> VdbAbs
-    Pg --> VdbAbs
-    Qd --> VdbAbs
-    Pixie --> VdbAbs
-```
-
-</details>
-
-## Demo / Test Bed (Chat UI)
-
-Search models by name or provider and adjust settings on the left, chat in the center, and review returned processing details in the right-hand Inspector before integrating a model into your app. Use Stop to stop waiting for the active response; explicit speed choices are enabled only for supported model and endpoint combinations, and Fast may cost extra. On smaller screens, Models and Inspector open as drawers; see the [Chat UI guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) for local setup, documents and pipeline settings.
-
-Use the language selector in the header to switch between 13 interface languages without losing your input or settings. All seven providers are visible as collapsed groups; expand one or search for a model.
-
-### Run the sample
-
-Run **`Mythosia.AI.Samples.ChatUi`** to try it locally:
-
-```bash
-# from repo root
-dotnet run --project apps/Mythosia.AI.Samples.ChatUi
-```
-
-Watch a walkthrough recorded in the current Playground UI: browse models, switch languages, and explore document and RAG pipeline settings. Click the image to play.
-
-[![Watch the current Playground walkthrough](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## Quick Start
 
@@ -392,6 +299,126 @@ Select `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) for text-only 
 Reuse an uploaded image across Flash questions with `DeepSeekImageFileContent` through Chat Completions or Responses; text-only V4 Pro rejects images. These V4 Pro, Responses and Files additions require Mythosia.AI 8.1.0 and Abstractions 4.1.0. See [image uploads, reuse and limits](docs/providers.md#deepseek-deepseekservice).
 
 > Claude Fable 5 and Claude Mythos 5 require 30-day data retention and are not eligible for zero-data-retention arrangements. Their adaptive thinking is always on; Mythosia uses low effort with summarized reasoning omitted when callers request reasoning off. Mythos 5 is limited to approved Project Glasswing customers.
+
+## Guides and migration
+
+For TXT and Markdown, [choose a rule-based splitter](docs/text-splitters.md) according to the document structure. Size validation, overlap and Unicode boundaries are checked; Markdown preserves headings, fenced code and table rows. Character/word counts are not model token limits. Table conditions and code indentation retain their meaning; excessive repeated Markdown context fails explicitly before it can expand without a bound.
+
+To prevent an apparently successful index from overwriting chunks or pairing them with the wrong vectors, [indexing validation](docs/rag-pipeline.md#indexing-validation) rejects invalid IDs and embedding batches before persistence; custom splitters must provide unique IDs and inherit document metadata.
+
+Stable [file identities](docs/document-loaders.md#file-source-identity), validated [query vectors](docs/rag-embedding.md#query-embedding-validation), document-scoped [persistence callbacks and URL cancellation](docs/rag-pipeline.md#custom-persistence) prevent duplicate registrations, invalid searches and stale chunks.
+
+To compare local neural sparse retrieval with the existing search, use the optional `Mythosia.AI.Rag.Search.Pixie` preview. It keeps your dense embedding provider and uses an in-memory PIXIE index; it does not migrate persistent stores or replace the default search. [PIXIE setup and comparison guide](docs/rag-pixie-search.md).
+
+The [retrieval evaluation infrastructure](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md) supports reusable datasets, search adapters, persistent run reports and regression checks. Extend the same evaluator for new search methods and your own document collections.
+
+Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
+
+> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [current patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 patch](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): existing RAG wrappers now observe runtime query-rewriter changes, and mixed PostgreSQL hybrid search honors configured vector-search settings. Core `Mythosia.AI` remains at 8.1.0.
+
+---
+
+## Architecture
+
+<a href="docs/assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
+    <img src="docs/assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+  </picture>
+</a>
+
+### Package dependency details
+
+Arrows show direct package references. Shared packages appear in more than one view; vLLM server management is independent.
+
+#### Core AI and extensions
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Extensions["Provider & tool extensions"]
+        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
+        Mcp["Mythosia.AI.Mcp"]:::extension
+    end
+    AI["Mythosia.AI"]:::core
+    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+    subgraph Independent["Independent server management"]
+        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
+    end
+    Alibaba --> AI
+    Mcp --> AI
+    AI --> AIAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### RAG and document loading
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    Rag["Mythosia.AI.Rag"]:::rag
+    subgraph Contracts["AI & RAG contracts"]
+        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    end
+    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+    subgraph Documents["Document loading"]
+        Office["Mythosia.Documents.<br/>Office"]:::documents
+        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
+        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
+        Office --> LoaderAbs
+        Pdf --> LoaderAbs
+    end
+    Rag --> AIAbs
+    Rag --> RagAbs
+    Rag --> InMem
+    Rag --> Office
+    Rag --> Pdf
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### Vector stores and search
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Stores["Vector stores"]
+        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
+        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
+        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
+    end
+    subgraph Search["Optional neural search"]
+        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
+    end
+    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
+    InMem --> RagAbs
+    InMem --> VdbAbs
+    RagAbs --> VdbAbs
+    Pg --> VdbAbs
+    Qd --> VdbAbs
+    Pine --> VdbAbs
+    Pixie --> VdbAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
 
 ## Packages
 

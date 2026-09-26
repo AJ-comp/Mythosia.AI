@@ -1,7 +1,7 @@
 // Run with Node.js: node build/generate-architecture.mjs
 // Optional PNG export: node build/generate-architecture.mjs --png (requires sharp).
 // This is a package map grouped by responsibility, not a dependency graph.
-// The expandable Mermaid in the READMEs retains the exact package references.
+// The always-visible Mermaid views in the READMEs retain exact package references.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
