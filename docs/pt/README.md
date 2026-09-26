@@ -154,10 +154,9 @@ Inicie o **`Mythosia.AI.Samples.ChatUi`** na sua máquina:
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
-*O vídeo abaixo mostra uma interface anterior; a tela atual pode ser diferente.*
+Veja uma demonstração gravada na interface atual do Playground: explore os modelos, alterne entre idiomas e confira as configurações de documentos e do pipeline RAG. Clique na imagem para reproduzir o vídeo.
 
-https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
-
+[![Assistir à demonstração da interface atual do Playground](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## Início Rápido
 

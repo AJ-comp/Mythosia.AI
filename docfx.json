@@ -38,7 +38,9 @@
       {
         "files": [
           "docs/assets/*.svg",
-          "docs/assets/*.png"
+          "docs/assets/*.png",
+          "docs/assets/*.mp4",
+          "docs/assets/*.vtt"
         ]
       }
     ],

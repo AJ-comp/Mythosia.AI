@@ -165,10 +165,9 @@ graph TD
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
-*У відео нижче показано попередній інтерфейс; поточний вигляд може відрізнятися.*
+Перегляньте відео, записане в поточному інтерфейсі Playground: огляд моделей, перемикання мов, налаштування документів і конвеєра RAG. Натисніть на зображення, щоб відтворити відео.
 
-https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
-
+[![Переглянути огляд поточного інтерфейсу Playground](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## Швидкий старт
 

@@ -165,10 +165,9 @@ graph TD
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
-*以下视频展示的是旧版界面，可能与当前画面不同。*
+观看当前 Playground 实际界面的录屏演示，了解如何浏览模型、切换语言，以及查看文档和 RAG 流程设置。点击图片即可播放。
 
-https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
-
+[![观看当前 Playground 操作演示](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## 快速开始
 

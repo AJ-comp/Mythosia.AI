@@ -167,10 +167,9 @@ graph TD
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
-*아래 영상은 이전 UI로 촬영되어 현재 화면과 다를 수 있습니다.*
+현재 Playground의 실제 화면을 녹화한 영상에서 모델 탐색, 언어 전환, 문서 및 RAG 파이프라인 설정을 살펴볼 수 있습니다. 이미지를 클릭하면 영상이 재생됩니다.
 
-https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
-
+[![현재 Playground 사용 영상 보기](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## 빠른 시작
 

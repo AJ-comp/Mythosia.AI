@@ -154,10 +154,9 @@ graph TD
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
-*วิดีโอด้านล่างใช้หน้าตารุ่นก่อน จึงอาจต่างจากหน้าจอปัจจุบัน*
+ชมวิดีโอที่บันทึกจากหน้าจอ Playground เวอร์ชันปัจจุบัน ซึ่งแสดงการเลือกดูโมเดล การสลับภาษา และการตั้งค่าเอกสารกับกระบวนการ RAG คลิกภาพเพื่อเล่นวิดีโอ
 
-https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
-
+[![ชมวิดีโอแนะนำการใช้งาน Playground เวอร์ชันปัจจุบัน](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## เริ่มต้นอย่างรวดเร็ว
 

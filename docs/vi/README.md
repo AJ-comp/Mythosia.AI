@@ -154,10 +154,9 @@ Khởi động **`Mythosia.AI.Samples.ChatUi`** trên máy:
 dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 ```
 
-*Video dưới đây sử dụng giao diện cũ; màn hình hiện tại có thể khác.*
+Xem video được ghi trực tiếp từ giao diện Playground hiện tại: duyệt mô hình, chuyển ngôn ngữ và khám phá các thiết lập tài liệu cùng quy trình RAG. Nhấp vào hình để phát video.
 
-https://github.com/user-attachments/assets/62094afe-9add-4c14-b818-6b31f200dc01
-
+[![Xem video hướng dẫn giao diện Playground hiện tại](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## Bắt đầu nhanh
 
