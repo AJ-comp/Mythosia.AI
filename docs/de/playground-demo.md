@@ -3,24 +3,24 @@
 Mit dem Playground können Sie Modelloptionen vergleichen und die Dokumentensuche konfigurieren, bevor Sie Anwendungscode schreiben. Dieses Video zeigt die aktuelle Oberfläche in einer lokalen Arbeitsumgebung: von der Modellsuche bis zu den Einstellungen der RAG-Pipeline.
 
 <video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Rundgang durch die Oberfläche des Mythosia.AI Playground">
-  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
-  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
-  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어">
-  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文">
-  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch" default>
-  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
-  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español">
-  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
-  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
-  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
-  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
-  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย">
-  Ihr Browser unterstützt keine eingebetteten Videos. <a href="../assets/playground-demo.mp4?v=3">Video herunterladen</a>.
+  <source src="../assets/playground-demo.mp4?v=4" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=4" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=4" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=4" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=4" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=4" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=4" srclang="de" label="Deutsch" default>
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=4" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=4" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=4" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=4" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=4" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=4" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=4" srclang="th" label="ไทย">
+  Ihr Browser unterstützt keine eingebetteten Videos. <a href="../assets/playground-demo.mp4?v=4">Video herunterladen</a>.
 </video>
 
-[Video herunterladen (MP4)](../assets/playground-demo.mp4?v=3) · [Untertitel lesen](../assets/playground-demo.de.vtt?v=3)
+[Video herunterladen (MP4)](../assets/playground-demo.mp4?v=4) · [Untertitel lesen](../assets/playground-demo.de.vtt?v=4)
 
 Das Video ist ohne Ton. Die Untertitel erscheinen automatisch in der Sprache dieser Seite. Im Menü des Players können Sie eine andere Sprache wählen oder die Untertitel ausschalten.
 

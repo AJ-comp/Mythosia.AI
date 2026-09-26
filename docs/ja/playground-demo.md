@@ -3,24 +3,24 @@
 Playground では、アプリケーションのコードを書く前にモデルのオプションを比較し、ドキュメント検索を設定できます。この動画では、ローカルの作業環境で現在の画面を操作し、モデルの検索から RAG パイプラインの設定までを紹介します。
 
 <video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground の画面操作ガイド">
-  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
-  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
-  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어">
-  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語" default>
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文">
-  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch">
-  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
-  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español">
-  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
-  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
-  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
-  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
-  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย">
-  このブラウザーは埋め込み動画に対応していません。<a href="../assets/playground-demo.mp4?v=3">操作ガイドをダウンロード</a>してください。
+  <source src="../assets/playground-demo.mp4?v=4" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=4" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=4" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=4" srclang="ja" label="日本語" default>
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=4" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=4" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=4" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=4" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=4" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=4" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=4" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=4" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=4" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=4" srclang="th" label="ไทย">
+  このブラウザーは埋め込み動画に対応していません。<a href="../assets/playground-demo.mp4?v=4">操作ガイドをダウンロード</a>してください。
 </video>
 
-[動画をダウンロード (MP4)](../assets/playground-demo.mp4?v=3) · [字幕を読む](../assets/playground-demo.ja.vtt?v=3)
+[動画をダウンロード (MP4)](../assets/playground-demo.mp4?v=4) · [字幕を読む](../assets/playground-demo.ja.vtt?v=4)
 
 この動画に音声はありません。ページの言語に合わせた字幕が自動で表示されます。プレーヤーのメニューで字幕の言語を変更したり、字幕をオフにしたりできます。
 

@@ -3,24 +3,24 @@
 ใช้ Playground เพื่อเปรียบเทียบตัวเลือกของโมเดลและตั้งค่าการค้นคืนเอกสารก่อนเขียนโค้ดแอปพลิเคชัน วิดีโอนี้แสดงอินเทอร์เฟซปัจจุบันในพื้นที่ทำงานบนเครื่อง ตั้งแต่การค้นหาโมเดลไปจนถึงการสำรวจการตั้งค่าไปป์ไลน์ RAG
 
 <video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="วิดีโอแนะนำอินเทอร์เฟซ Mythosia.AI Playground">
-  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
-  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
-  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어">
-  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文">
-  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文">
-  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch">
-  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
-  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español">
-  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
-  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
-  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
-  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
-  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย" default>
-  เบราว์เซอร์ของคุณไม่รองรับวิดีโอแบบฝัง <a href="../assets/playground-demo.mp4?v=3">ดาวน์โหลดวิดีโอแนะนำ</a>
+  <source src="../assets/playground-demo.mp4?v=4" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=4" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=4" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=4" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=4" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=4" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=4" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=4" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=4" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=4" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=4" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=4" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=4" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=4" srclang="th" label="ไทย" default>
+  เบราว์เซอร์ของคุณไม่รองรับวิดีโอแบบฝัง <a href="../assets/playground-demo.mp4?v=4">ดาวน์โหลดวิดีโอแนะนำ</a>
 </video>
 
-[ดาวน์โหลดวิดีโอ (MP4)](../assets/playground-demo.mp4?v=3) · [อ่านคำบรรยาย](../assets/playground-demo.th.vtt?v=3)
+[ดาวน์โหลดวิดีโอ (MP4)](../assets/playground-demo.mp4?v=4) · [อ่านคำบรรยาย](../assets/playground-demo.th.vtt?v=4)
 
 วิดีโอไม่มีเสียง คำบรรยายจะแสดงตามภาษาของหน้าเว็บโดยอัตโนมัติ และสามารถเปลี่ยนภาษาหรือปิดคำบรรยายได้ในเมนูของโปรแกรมเล่นวิดีโอ
 

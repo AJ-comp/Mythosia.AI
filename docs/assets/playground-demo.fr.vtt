@@ -1,64 +1,53 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.147 line:80% position:50% align:center size:92%
-Explorez les modèles de sept fournisseurs d'IA
-dans un même espace de travail.
+00:00:00.000 --> 00:00:05.035 align:center size:92%
+Explorez les modèles de sept fournisseurs d'IA dans un même espace de travail.
 
 2
-00:00:03.147 --> 00:00:08.700 line:80% position:50% align:center size:92%
-Saisissez un nom de modèle
-pour afficher les modèles correspondants.
+00:00:05.035 --> 00:00:13.920 align:center size:92%
+Saisissez un nom de modèle pour afficher les modèles correspondants.
 
 3
-00:00:08.700 --> 00:00:11.578 line:80% position:50% align:center size:92%
+00:00:13.920 --> 00:00:18.525 align:center size:92%
 Vous pouvez aussi chercher par fournisseur.
 
 4
-00:00:11.578 --> 00:00:16.333 line:80% position:50% align:center size:92%
-Ajoutez ici la clé API de votre fournisseur
-pour connecter un modèle et discuter.
+00:00:18.525 --> 00:00:26.133 align:center size:92%
+Ajoutez ici la clé API de votre fournisseur pour connecter un modèle et discuter.
 
 5
-00:00:16.333 --> 00:00:21.035 line:80% position:50% align:center size:92%
-Passez l'interface en coréen,
-puis revenez à l'anglais.
+00:00:26.133 --> 00:00:33.656 align:center size:92%
+Passez l'interface en coréen, puis revenez à l'anglais.
 
 6
-00:00:21.035 --> 00:00:24.800 line:80% position:50% align:center size:92%
-Ouvrez « Documents »
-pour préparer vos fichiers de référence.
+00:00:33.656 --> 00:00:39.680 align:center size:92%
+Ouvrez « Documents » pour préparer vos fichiers de référence.
 
 7
-00:00:24.800 --> 00:00:30.015 line:80% position:50% align:center size:92%
-Choisissez un découpage du texte
-adapté à la structure de votre document.
+00:00:39.680 --> 00:00:48.024 align:center size:92%
+Choisissez un découpage du texte adapté à la structure de votre document.
 
 8
-00:00:30.015 --> 00:00:36.363 line:80% position:50% align:center size:92%
-Choisissez un fournisseur d'embeddings pour
-convertir documents et questions en vecteurs.
+00:00:48.024 --> 00:00:58.181 align:center size:92%
+Choisissez un fournisseur d'embeddings pour convertir documents et questions en vecteurs.
 
 9
-00:00:36.363 --> 00:00:39.550 line:80% position:50% align:center size:92%
+00:00:58.181 --> 00:01:03.280 align:center size:92%
 Choisissez où stocker vos données de recherche.
 
 10
-00:00:39.550 --> 00:00:43.464 line:80% position:50% align:center size:92%
-Équilibrez mots-clés et similarité sémantique
-dans la recherche hybride.
+00:01:03.280 --> 00:01:09.542 align:center size:92%
+Équilibrez mots-clés et similarité sémantique dans la recherche hybride.
 
 11
-00:00:43.464 --> 00:00:47.750 line:80% position:50% align:center size:92%
-Activez le reranking pour trier les candidats
-selon leur pertinence pour la question.
+00:01:09.542 --> 00:01:16.400 align:center size:92%
+Activez le reranking pour trier les candidats selon leur pertinence pour la question.
 
 12
-00:00:47.750 --> 00:00:51.032 line:80% position:50% align:center size:92%
-Vérifiez le nombre maximal de documents retenus
-et le score minimal.
+00:01:16.400 --> 00:01:21.651 align:center size:92%
+Vérifiez le nombre maximal de documents retenus et le score minimal.
 
 13
-00:00:51.032 --> 00:00:54.367 line:80% position:50% align:center size:92%
-Connectez vos modèles et vos documents,
-puis essayez le Playground vous-même.
+00:01:21.651 --> 00:01:26.987 align:center size:92%
+Connectez vos modèles et vos documents, puis essayez le Playground vous-même.

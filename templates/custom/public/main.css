@@ -430,12 +430,12 @@ article h2 {
   display: none;
 }
 
-/* Keep walkthrough captions readable in the reserved space below the UI. */
+/* A compact caption strip keeps the walkthrough and native controls unobscured. */
 .playground-video {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 24 / 19;
+  aspect-ratio: 8 / 5;
   border-radius: 12px;
   background: #14352c;
 }
@@ -452,4 +452,38 @@ article h2 {
 
 .playground-video:fullscreen::cue {
   font-size: clamp(16px, min(2vw, 3vh), 36px);
+}
+
+.playground-video--inline-captions {
+  border-radius: 12px 12px 0 0;
+}
+
+/* Track selection still belongs to the browser's subtitle menu. */
+.playground-video--inline-captions::cue {
+  color: transparent;
+  background-color: transparent;
+  text-shadow: none;
+}
+
+.playground-video-caption {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(1.45em + 20px);
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: 0 0 12px 12px;
+  background: #14352c;
+  color: #fff;
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: clamp(14px, 1.5vw, 17px);
+  font-weight: 500;
+  line-height: 1.45;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.playground-video-caption[hidden] {
+  display: none;
 }

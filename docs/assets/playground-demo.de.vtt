@@ -1,65 +1,53 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.147 line:80% position:50% align:center size:92%
-Modelle von sieben KI-Anbietern
-in einer gemeinsamen Oberfläche erkunden.
+00:00:00.000 --> 00:00:05.035 align:center size:92%
+Modelle von sieben KI-Anbietern in einer gemeinsamen Oberfläche erkunden.
 
 2
-00:00:03.147 --> 00:00:08.700 line:80% position:50% align:center size:92%
-Geben Sie einen Modellnamen ein,
-um passende Modelle zu finden.
+00:00:05.035 --> 00:00:13.920 align:center size:92%
+Geben Sie einen Modellnamen ein, um passende Modelle zu finden.
 
 3
-00:00:08.700 --> 00:00:11.578 line:80% position:50% align:center size:92%
+00:00:13.920 --> 00:00:18.525 align:center size:92%
 Sie können auch nach Anbietern suchen.
 
 4
-00:00:11.578 --> 00:00:16.333 line:80% position:50% align:center size:92%
-Hinterlegen Sie hier Ihren API-Schlüssel,
-um ein Modell zu verbinden und zu chatten.
+00:00:18.525 --> 00:00:26.133 align:center size:92%
+Hinterlegen Sie hier Ihren API-Schlüssel, um ein Modell zu verbinden und zu chatten.
 
 5
-00:00:16.333 --> 00:00:21.035 line:80% position:50% align:center size:92%
-Die Oberfläche auf Koreanisch umstellen,
-dann zurück auf Englisch.
+00:00:26.133 --> 00:00:33.656 align:center size:92%
+Die Oberfläche auf Koreanisch umstellen, dann zurück auf Englisch.
 
 6
-00:00:21.035 --> 00:00:24.800 line:80% position:50% align:center size:92%
-Öffnen Sie „Documents“,
-um Ihre Referenzdateien vorzubereiten.
+00:00:33.656 --> 00:00:39.680 align:center size:92%
+Öffnen Sie „Documents“, um Ihre Referenzdateien vorzubereiten.
 
 7
-00:00:24.800 --> 00:00:30.015 line:80% position:50% align:center size:92%
-Wählen Sie eine Textaufteilung,
-die zur Struktur Ihres Dokuments passt.
+00:00:39.680 --> 00:00:48.024 align:center size:92%
+Wählen Sie eine Textaufteilung, die zur Struktur Ihres Dokuments passt.
 
 8
-00:00:30.015 --> 00:00:36.363 line:80% position:50% align:center size:92%
-Ein Embedding-Anbieter wandelt Dokumente
-und Fragen in Suchvektoren um.
+00:00:48.024 --> 00:00:58.181 align:center size:92%
+Ein Embedding-Anbieter wandelt Dokumente und Fragen in Suchvektoren um.
 
 9
-00:00:36.363 --> 00:00:39.550 line:80% position:50% align:center size:92%
-Wählen Sie den Speicherort
-für Ihre Suchdaten.
+00:00:58.181 --> 00:01:03.280 align:center size:92%
+Wählen Sie den Speicherort für Ihre Suchdaten.
 
 10
-00:00:39.550 --> 00:00:43.464 line:80% position:50% align:center size:92%
-Gewichten Sie Schlüsselwörter und semantische
-Ähnlichkeit für die hybride Suche.
+00:01:03.280 --> 00:01:09.542 align:center size:92%
+Gewichten Sie Schlüsselwörter und semantische Ähnlichkeit für die hybride Suche.
 
 11
-00:00:43.464 --> 00:00:47.750 line:80% position:50% align:center size:92%
-Reranking sortiert Suchkandidaten neu
-nach ihrer Relevanz für die Frage.
+00:01:09.542 --> 00:01:16.400 align:center size:92%
+Reranking sortiert Suchkandidaten neu nach ihrer Relevanz für die Frage.
 
 12
-00:00:47.750 --> 00:00:51.032 line:80% position:50% align:center size:92%
-Prüfen Sie das endgültige Dokumentlimit
-und die Mindestpunktzahl.
+00:01:16.400 --> 00:01:21.651 align:center size:92%
+Prüfen Sie das endgültige Dokumentlimit und die Mindestpunktzahl.
 
 13
-00:00:51.032 --> 00:00:54.367 line:80% position:50% align:center size:92%
-Verbinden Sie Modelle und Dokumente
-und probieren Sie den Playground selbst aus.
+00:01:21.651 --> 00:01:26.987 align:center size:92%
+Verbinden Sie Modelle und Dokumente und probieren Sie den Playground selbst aus.

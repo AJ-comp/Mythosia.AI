@@ -1,64 +1,53 @@
 WEBVTT
 
 1
-00:00:00.000 --> 00:00:03.147 line:80% position:50% align:center size:92%
-Explore modelos de siete proveedores de IA
-en un solo espacio de trabajo.
+00:00:00.000 --> 00:00:05.035 align:center size:92%
+Explore modelos de siete proveedores de IA en un solo espacio de trabajo.
 
 2
-00:00:03.147 --> 00:00:08.700 line:80% position:50% align:center size:92%
-Escriba el nombre de un modelo
-para ver las coincidencias.
+00:00:05.035 --> 00:00:13.920 align:center size:92%
+Escriba el nombre de un modelo para ver las coincidencias.
 
 3
-00:00:08.700 --> 00:00:11.578 line:80% position:50% align:center size:92%
+00:00:13.920 --> 00:00:18.525 align:center size:92%
 También puede buscar por proveedor.
 
 4
-00:00:11.578 --> 00:00:16.333 line:80% position:50% align:center size:92%
-Añada aquí la clave API de su proveedor
-para conectar un modelo y empezar a conversar.
+00:00:18.525 --> 00:00:26.133 align:center size:92%
+Añada aquí la clave API de su proveedor para conectar un modelo y empezar a conversar.
 
 5
-00:00:16.333 --> 00:00:21.035 line:80% position:50% align:center size:92%
-Cambie la interfaz a coreano
-y después vuelva al inglés.
+00:00:26.133 --> 00:00:33.656 align:center size:92%
+Cambie la interfaz a coreano y después vuelva al inglés.
 
 6
-00:00:21.035 --> 00:00:24.800 line:80% position:50% align:center size:92%
-Abra «Documents»
-para preparar sus archivos de referencia.
+00:00:33.656 --> 00:00:39.680 align:center size:92%
+Abra «Documents» para preparar sus archivos de referencia.
 
 7
-00:00:24.800 --> 00:00:30.015 line:80% position:50% align:center size:92%
-Elija cómo dividir el texto
-según la estructura de su documento.
+00:00:39.680 --> 00:00:48.024 align:center size:92%
+Elija cómo dividir el texto según la estructura de su documento.
 
 8
-00:00:30.015 --> 00:00:36.363 line:80% position:50% align:center size:92%
-Elija un proveedor de embeddings para convertir
-documentos y preguntas en vectores de búsqueda.
+00:00:48.024 --> 00:00:58.181 align:center size:92%
+Elija un proveedor de embeddings para convertir documentos y preguntas en vectores de búsqueda.
 
 9
-00:00:36.363 --> 00:00:39.550 line:80% position:50% align:center size:92%
+00:00:58.181 --> 00:01:03.280 align:center size:92%
 Elija dónde guardar sus datos de búsqueda.
 
 10
-00:00:39.550 --> 00:00:43.464 line:80% position:50% align:center size:92%
-Equilibre palabras clave y similitud semántica
-en la búsqueda híbrida.
+00:01:03.280 --> 00:01:09.542 align:center size:92%
+Equilibre palabras clave y similitud semántica en la búsqueda híbrida.
 
 11
-00:00:43.464 --> 00:00:47.750 line:80% position:50% align:center size:92%
-Active el reranking para ordenar los candidatos
-según su relevancia para la pregunta.
+00:01:09.542 --> 00:01:16.400 align:center size:92%
+Active el reranking para ordenar los candidatos según su relevancia para la pregunta.
 
 12
-00:00:47.750 --> 00:00:51.032 line:80% position:50% align:center size:92%
-Revise el límite final de documentos
-y la puntuación mínima.
+00:01:16.400 --> 00:01:21.651 align:center size:92%
+Revise el límite final de documentos y la puntuación mínima.
 
 13
-00:00:51.032 --> 00:00:54.367 line:80% position:50% align:center size:92%
-Conecte sus modelos y documentos
-y pruebe el Playground por su cuenta.
+00:01:21.651 --> 00:01:26.987 align:center size:92%
+Conecte sus modelos y documentos y pruebe el Playground por su cuenta.
