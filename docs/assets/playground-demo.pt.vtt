@@ -2,61 +2,63 @@ WEBVTT
 
 1
 00:00:00.000 --> 00:00:03.147 line:80% position:50% align:center size:92%
-Explore models from seven AI providers
-in one workspace.
+Explore modelos de sete provedores de IA
+em um só ambiente de trabalho.
 
 2
 00:00:03.147 --> 00:00:08.700 line:80% position:50% align:center size:92%
-Type a model name to see matching models.
+Digite o nome de um modelo
+para ver os resultados correspondentes.
 
 3
 00:00:08.700 --> 00:00:11.578 line:80% position:50% align:center size:92%
-You can also search by provider.
+Você também pode buscar por provedor.
 
 4
 00:00:11.578 --> 00:00:16.333 line:80% position:50% align:center size:92%
-Register your provider's API key here
-to connect a model and start chatting.
+Adicione aqui a chave de API do seu provedor
+para conectar um modelo e começar a conversar.
 
 5
 00:00:16.333 --> 00:00:21.035 line:80% position:50% align:center size:92%
-Switch the interface to Korean,
-then back to English.
+Mude a interface para coreano
+e depois volte para inglês.
 
 6
 00:00:21.035 --> 00:00:24.800 line:80% position:50% align:center size:92%
-Open Documents to prepare your reference files.
+Abra “Documents”
+para preparar seus arquivos de referência.
 
 7
 00:00:24.800 --> 00:00:30.015 line:80% position:50% align:center size:92%
-Choose how to split the text
-to match your document's structure.
+Escolha como dividir o texto
+de acordo com a estrutura do documento.
 
 8
 00:00:30.015 --> 00:00:36.363 line:80% position:50% align:center size:92%
-Choose an embedding provider to turn
-documents and questions into search vectors.
+Escolha um provedor de embeddings para converter
+documentos e perguntas em vetores de busca.
 
 9
 00:00:36.363 --> 00:00:39.550 line:80% position:50% align:center size:92%
-Choose where to store your search data.
+Escolha onde armazenar seus dados de busca.
 
 10
 00:00:39.550 --> 00:00:43.464 line:80% position:50% align:center size:92%
-Balance keyword matching
-and semantic similarity in hybrid search.
+Equilibre palavras-chave e similaridade semântica
+na busca híbrida.
 
 11
 00:00:43.464 --> 00:00:47.750 line:80% position:50% align:center size:92%
-Enable reranking to reorder search candidates
-by their relevance to the question.
+Ative o reranking para reordenar os candidatos
+pela relevância para a pergunta.
 
 12
 00:00:47.750 --> 00:00:51.032 line:80% position:50% align:center size:92%
-Review the final document limit
-and minimum score.
+Confira o limite final de documentos
+e a pontuação mínima.
 
 13
 00:00:51.032 --> 00:00:54.367 line:80% position:50% align:center size:92%
-Connect your models and documents,
-then try the Playground yourself.
+Conecte seus modelos e documentos
+e experimente o Playground por conta própria.

@@ -2,15 +2,27 @@
 
 Utilice el Playground para comparar las opciones de los modelos y configurar la búsqueda de documentos antes de escribir el código de su aplicación. Este recorrido muestra la interfaz actual en un entorno de trabajo local, desde la búsqueda de un modelo hasta la exploración de los ajustes del pipeline RAG.
 
-<video controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Recorrido por la interfaz del Playground de Mythosia.AI" style="display: block; width: 100%; height: auto; border-radius: 12px;">
-  <source src="../assets/playground-demo.mp4" type="video/mp4">
-  <track kind="captions" src="../assets/playground-demo.vtt" srclang="en" label="English">
-  Su navegador no admite vídeos integrados. <a href="../assets/playground-demo.mp4">Descargar el recorrido</a>.
+<video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Recorrido por la interfaz del Playground de Mythosia.AI">
+  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español" default>
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย">
+  Su navegador no admite vídeos integrados. <a href="../assets/playground-demo.mp4?v=3">Descargar el recorrido</a>.
 </video>
 
-[Descargar el vídeo (MP4)](../assets/playground-demo.mp4) · [Leer los subtítulos](../assets/playground-demo.vtt)
+[Descargar el vídeo (MP4)](../assets/playground-demo.mp4?v=3) · [Leer los subtítulos](../assets/playground-demo.es.vtt?v=3)
 
-La grabación no tiene narración. Las descripciones de los pasos aparecen en inglés debajo de la aplicación. El reproductor también ofrece una pista de subtítulos independiente.
+El vídeo no tiene sonido. Los subtítulos aparecen automáticamente en el idioma de esta página. Puede cambiar su idioma o desactivarlos desde el menú del reproductor.
 
 ## Qué muestra el recorrido
 

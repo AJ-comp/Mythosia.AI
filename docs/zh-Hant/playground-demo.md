@@ -2,15 +2,27 @@
 
 使用 Playground，可以在撰寫應用程式程式碼之前比較模型選項並設定文件檢索。本影片展示本機工作區中的目前介面，帶你從尋找模型開始，逐步了解 RAG 管線設定。
 
-<video controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground 介面操作指南" style="display: block; width: 100%; height: auto; border-radius: 12px;">
-  <source src="../assets/playground-demo.mp4" type="video/mp4">
-  <track kind="captions" src="../assets/playground-demo.vtt" srclang="en" label="English">
-  你的瀏覽器不支援嵌入式影片。<a href="../assets/playground-demo.mp4">下載操作指南影片</a>。
+<video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground 介面操作指南">
+  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文" default>
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย">
+  你的瀏覽器不支援嵌入式影片。<a href="../assets/playground-demo.mp4?v=3">下載操作指南影片</a>。
 </video>
 
-[下載影片 (MP4)](../assets/playground-demo.mp4) · [閱讀英文字幕](../assets/playground-demo.vtt)
+[下載影片 (MP4)](../assets/playground-demo.mp4?v=3) · [閱讀字幕](../assets/playground-demo.zh-Hant.vtt?v=3)
 
-本影片沒有旁白。應用程式介面下方會顯示英文步驟說明，播放器也提供獨立的英文字幕軌。
+本影片沒有聲音，字幕會自動使用頁面語言。你可以在播放器選單中切換字幕語言或關閉字幕。
 
 ## 影片展示的內容
 

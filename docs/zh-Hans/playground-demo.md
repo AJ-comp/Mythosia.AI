@@ -2,15 +2,27 @@
 
 使用 Playground，可以在编写应用程序代码之前比较模型选项并配置文档检索。本视频展示了本地工作区中的当前界面，带你从查找模型开始，逐步了解 RAG 管道设置。
 
-<video controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground 界面操作指南" style="display: block; width: 100%; height: auto; border-radius: 12px;">
-  <source src="../assets/playground-demo.mp4" type="video/mp4">
-  <track kind="captions" src="../assets/playground-demo.vtt" srclang="en" label="English">
-  你的浏览器不支持嵌入式视频。<a href="../assets/playground-demo.mp4">下载操作指南视频</a>。
+<video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground 界面操作指南">
+  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어">
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文" default>
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย">
+  你的浏览器不支持嵌入式视频。<a href="../assets/playground-demo.mp4?v=3">下载操作指南视频</a>。
 </video>
 
-[下载视频 (MP4)](../assets/playground-demo.mp4) · [阅读英文字幕](../assets/playground-demo.vtt)
+[下载视频 (MP4)](../assets/playground-demo.mp4?v=3) · [阅读字幕](../assets/playground-demo.zh-Hans.vtt?v=3)
 
-本视频没有旁白。应用界面下方会显示英文步骤说明，播放器还提供独立的英文字幕轨道。
+本视频没有声音，字幕会自动使用页面语言。你可以在播放器菜单中切换字幕语言或关闭字幕。
 
 ## 视频展示的内容
 

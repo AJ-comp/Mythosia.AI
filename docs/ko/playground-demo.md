@@ -2,15 +2,27 @@
 
 Playground를 사용하면 애플리케이션 코드를 작성하기 전에 모델 옵션을 비교하고 문서 검색을 설정할 수 있습니다. 이 영상은 로컬 작업 공간의 현재 화면에서 모델을 찾고 RAG 파이프라인 설정을 살펴보는 과정을 보여줍니다.
 
-<video controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground 화면 사용 안내 영상" style="display: block; width: 100%; height: auto; border-radius: 12px;">
-  <source src="../assets/playground-demo.mp4" type="video/mp4">
-  <track kind="captions" src="../assets/playground-demo.vtt" srclang="en" label="English">
-  이 브라우저는 삽입된 동영상 재생을 지원하지 않습니다. <a href="../assets/playground-demo.mp4">사용 안내 영상 다운로드</a>.
+<video class="playground-video" controls playsinline preload="metadata" poster="../assets/playground-demo.png" aria-label="Mythosia.AI Playground 화면 사용 안내 영상">
+  <source src="../assets/playground-demo.mp4?v=3" type="video/mp4">
+  <track kind="subtitles" src="../assets/playground-demo.vtt?v=3" srclang="en" label="English">
+  <track kind="subtitles" src="../assets/playground-demo.ko.vtt?v=3" srclang="ko" label="한국어" default>
+  <track kind="subtitles" src="../assets/playground-demo.ja.vtt?v=3" srclang="ja" label="日本語">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hans.vtt?v=3" srclang="zh-Hans" label="简体中文">
+  <track kind="subtitles" src="../assets/playground-demo.zh-Hant.vtt?v=3" srclang="zh-Hant" label="繁體中文">
+  <track kind="subtitles" src="../assets/playground-demo.de.vtt?v=3" srclang="de" label="Deutsch">
+  <track kind="subtitles" src="../assets/playground-demo.fr.vtt?v=3" srclang="fr" label="Français">
+  <track kind="subtitles" src="../assets/playground-demo.es.vtt?v=3" srclang="es" label="Español">
+  <track kind="subtitles" src="../assets/playground-demo.pt.vtt?v=3" srclang="pt" label="Português">
+  <track kind="subtitles" src="../assets/playground-demo.ru.vtt?v=3" srclang="ru" label="Русский">
+  <track kind="subtitles" src="../assets/playground-demo.uk.vtt?v=3" srclang="uk" label="Українська">
+  <track kind="subtitles" src="../assets/playground-demo.vi.vtt?v=3" srclang="vi" label="Tiếng Việt">
+  <track kind="subtitles" src="../assets/playground-demo.th.vtt?v=3" srclang="th" label="ไทย">
+  이 브라우저는 삽입된 동영상 재생을 지원하지 않습니다. <a href="../assets/playground-demo.mp4?v=3">사용 안내 영상 다운로드</a>.
 </video>
 
-[영상 다운로드 (MP4)](../assets/playground-demo.mp4) · [영어 자막 읽기](../assets/playground-demo.vtt)
+[영상 다운로드 (MP4)](../assets/playground-demo.mp4?v=3) · [자막 읽기](../assets/playground-demo.ko.vtt?v=3)
 
-이 영상에는 음성 해설이 없습니다. 애플리케이션 화면 아래에 영어로 단계별 설명이 표시되며, 플레이어에서 별도의 영어 자막도 선택할 수 있습니다.
+이 영상에는 음성이 없습니다. 페이지 언어에 맞는 자막이 자동으로 표시되며, 플레이어 메뉴에서 자막 언어를 바꾸거나 끌 수 있습니다.
 
 ## 영상에서 확인할 수 있는 내용
 

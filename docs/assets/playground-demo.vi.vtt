@@ -1,0 +1,62 @@
+WEBVTT
+
+1
+00:00:00.000 --> 00:00:03.147 line:80% position:50% align:center size:92%
+Khám phá mô hình từ bảy nhà cung cấp AI
+trong cùng một không gian làm việc.
+
+2
+00:00:03.147 --> 00:00:08.700 line:80% position:50% align:center size:92%
+Nhập tên mô hình để xem các kết quả phù hợp.
+
+3
+00:00:08.700 --> 00:00:11.578 line:80% position:50% align:center size:92%
+Bạn cũng có thể tìm theo nhà cung cấp.
+
+4
+00:00:11.578 --> 00:00:16.333 line:80% position:50% align:center size:92%
+Thêm khóa API của nhà cung cấp tại đây
+để kết nối mô hình và bắt đầu trò chuyện.
+
+5
+00:00:16.333 --> 00:00:21.035 line:80% position:50% align:center size:92%
+Chuyển giao diện sang tiếng Hàn,
+rồi trở lại tiếng Anh.
+
+6
+00:00:21.035 --> 00:00:24.800 line:80% position:50% align:center size:92%
+Mở mục Tài liệu để chuẩn bị các tệp tham khảo.
+
+7
+00:00:24.800 --> 00:00:30.015 line:80% position:50% align:center size:92%
+Chọn cách chia nhỏ văn bản
+phù hợp với cấu trúc tài liệu.
+
+8
+00:00:30.015 --> 00:00:36.363 line:80% position:50% align:center size:92%
+Chọn nhà cung cấp embedding để chuyển
+tài liệu và câu hỏi thành vector tìm kiếm.
+
+9
+00:00:36.363 --> 00:00:39.550 line:80% position:50% align:center size:92%
+Chọn nơi lưu trữ dữ liệu tìm kiếm.
+
+10
+00:00:39.550 --> 00:00:43.464 line:80% position:50% align:center size:92%
+Cân bằng từ khóa và độ tương đồng ngữ nghĩa
+trong tìm kiếm kết hợp.
+
+11
+00:00:43.464 --> 00:00:47.750 line:80% position:50% align:center size:92%
+Bật xếp hạng lại để sắp xếp các kết quả
+theo mức độ liên quan đến câu hỏi.
+
+12
+00:00:47.750 --> 00:00:51.032 line:80% position:50% align:center size:92%
+Kiểm tra giới hạn tài liệu cuối cùng
+và điểm tối thiểu.
+
+13
+00:00:51.032 --> 00:00:54.367 line:80% position:50% align:center size:92%
+Kết nối mô hình và tài liệu,
+rồi tự trải nghiệm Playground.

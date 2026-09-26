@@ -270,11 +270,24 @@ foreach ($directory in $guideDirectories) {
         $assetPrefix = if ($directory.FullName -eq $documentationRoot) { 'assets/' } else { '../assets/' }
         foreach ($extension in @('mp4', 'png', 'vtt')) {
             $assetReference = $assetPrefix + 'playground-demo.' + $extension
-            if (-not $playgroundText.Contains('"' + $assetReference + '"')) {
+            if ($playgroundText -notmatch ('"' + [regex]::Escape($assetReference) + '(?:\?[^"\s]*)?"')) {
                 Add-Issue "$(Get-RepositoryRelativePath -Path $playgroundGuidePath) must reference $assetReference in its video player."
             }
             if (-not (Test-Path -LiteralPath (Join-Path $directory.FullName $assetReference) -PathType Leaf)) {
                 Add-Issue "Missing Playground media: $assetReference"
+            }
+        }
+        $captionLocale = if ($directory.FullName -eq $documentationRoot) { 'en' } else { $directory.Name }
+        $subtitleTracks = @([regex]::Matches($playgroundText, '<track\b[^>]*>'))
+        $defaultTracks = @($subtitleTracks | Where-Object { $_.Value -match '\bdefault(?:\s|>)' })
+        if ($defaultTracks.Count -ne 1 -or $defaultTracks[0].Value -notmatch ('srclang="' + [regex]::Escape($captionLocale) + '"')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $playgroundGuidePath) must enable its $captionLocale subtitles by default."
+        }
+        foreach ($track in $subtitleTracks) {
+            $subtitleSource = [regex]::Match($track.Value, 'src="(?<path>[^"?]+)(?:\?[^"\s]*)?"').Groups['path'].Value
+            if ([string]::IsNullOrWhiteSpace($subtitleSource) -or
+                -not (Test-Path -LiteralPath (Join-Path $directory.FullName $subtitleSource) -PathType Leaf)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $playgroundGuidePath) references missing subtitles: $subtitleSource"
             }
         }
     }

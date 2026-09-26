@@ -429,3 +429,27 @@ article h2 {
 [data-layout="landing"] .actionbar {
   display: none;
 }
+
+/* Keep walkthrough captions readable in the reserved space below the UI. */
+.playground-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 24 / 19;
+  border-radius: 12px;
+  background: #14352c;
+}
+
+.playground-video::cue {
+  color: #fff;
+  background-color: rgba(20, 53, 44, .96);
+  font-family: system-ui, "Segoe UI", sans-serif;
+  font-size: clamp(14px, 1.5vw, 22px);
+  line-height: 1.3;
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+}
+
+.playground-video:fullscreen::cue {
+  font-size: clamp(16px, min(2vw, 3vh), 36px);
+}
