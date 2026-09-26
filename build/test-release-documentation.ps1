@@ -259,6 +259,28 @@ foreach ($directory in $guideDirectories) {
         Add-Issue "Missing Run guide: $(Get-RepositoryRelativePath -Path $guidePath)"
     }
     $tocText = Get-Content -Raw -LiteralPath $tocPath
+    # The site redirects documentation URLs to the saved/browser language.
+    # A README link to the English walkthrough therefore needs every locale.
+    $playgroundGuidePath = Join-Path $directory.FullName 'playground-demo.md'
+    if (-not (Test-Path -LiteralPath $playgroundGuidePath -PathType Leaf)) {
+        Add-Issue "Missing Playground walkthrough: $(Get-RepositoryRelativePath -Path $playgroundGuidePath)"
+    }
+    else {
+        $playgroundText = Get-Content -Raw -LiteralPath $playgroundGuidePath
+        $assetPrefix = if ($directory.FullName -eq $documentationRoot) { 'assets/' } else { '../assets/' }
+        foreach ($extension in @('mp4', 'png', 'vtt')) {
+            $assetReference = $assetPrefix + 'playground-demo.' + $extension
+            if (-not $playgroundText.Contains('"' + $assetReference + '"')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $playgroundGuidePath) must reference $assetReference in its video player."
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $directory.FullName $assetReference) -PathType Leaf)) {
+                Add-Issue "Missing Playground media: $assetReference"
+            }
+        }
+    }
+    if ([regex]::Matches($tocText, '(?m)^\s*href:\s*playground-demo\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $tocPath) must link to its local Playground walkthrough exactly once."
+    }
     $migrationGuidePath = Join-Path $directory.FullName 'v8-migration.md'
     if (-not (Test-Path -LiteralPath $migrationGuidePath -PathType Leaf)) {
         Add-Issue "Missing v8 migration guide: $(Get-RepositoryRelativePath -Path $migrationGuidePath)"

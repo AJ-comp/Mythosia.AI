@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: 開始使用
     href: getting-started.md
+  - name: 探索 Playground
+    href: playground-demo.md
   - name: 使用 Run 控制執行中的工作
     href: execution-api-transition.md
 

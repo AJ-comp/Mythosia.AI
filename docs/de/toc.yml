@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: Schnellstart
     href: getting-started.md
+  - name: Den Playground erkunden
+    href: playground-demo.md
   - name: Laufende Aufgaben mit Run steuern
     href: execution-api-transition.md
 

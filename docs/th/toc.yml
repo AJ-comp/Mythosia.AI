@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: เริ่มต้นอย่างรวดเร็ว
     href: getting-started.md
+  - name: สำรวจ Playground
+    href: playground-demo.md
 
   - name: ควบคุมงานที่กำลังทำด้วย Run
     href: execution-api-transition.md

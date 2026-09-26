@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: Primeiros passos
     href: getting-started.md
+  - name: Explorar o Playground
+    href: playground-demo.md
   - name: Controlar tarefas em andamento com Run
     href: execution-api-transition.md
 

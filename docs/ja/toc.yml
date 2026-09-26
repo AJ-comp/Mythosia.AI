@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: クイックスタート
     href: getting-started.md
+  - name: Playground を使ってみる
+    href: playground-demo.md
   - name: Runで実行中のタスクを制御する
     href: execution-api-transition.md
 

@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: Bắt đầu nhanh
     href: getting-started.md
+  - name: Khám phá Playground
+    href: playground-demo.md
   - name: Điều khiển tác vụ đang chạy bằng Run
     href: execution-api-transition.md
 

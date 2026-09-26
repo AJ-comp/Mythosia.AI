@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: Быстрый старт
     href: getting-started.md
+  - name: Знакомство с Playground
+    href: playground-demo.md
 
   - name: Управление текущей задачей (Run)
     href: execution-api-transition.md

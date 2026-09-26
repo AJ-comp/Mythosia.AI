@@ -8,6 +8,8 @@
     href: core-concepts.md
   - name: 빠른 시작
     href: getting-started.md
+  - name: Playground 둘러보기
+    href: playground-demo.md
   - name: 진행 중인 AI 작업 제어하기
     href: execution-api-transition.md
 
