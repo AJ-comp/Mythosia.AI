@@ -458,8 +458,11 @@ article h2 {
   border-radius: 12px 12px 0 0;
 }
 
-/* Track selection still belongs to the browser's subtitle menu. */
+/* Keep native track selection, but suppress painting while the inline row owns
+   rendering. Transparent colors alone can be overridden by caption preferences. */
 .playground-video--inline-captions::cue {
+  visibility: hidden;
+  opacity: 0;
   color: transparent;
   background-color: transparent;
   text-shadow: none;
