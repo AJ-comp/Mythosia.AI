@@ -2,7 +2,59 @@
 
 > 📍 **Fragen & Antworten Pipeline:** [Query-Umschreibung](rag-query-rewriting.md) → [Filtering](rag-filtering.md) → **`Embedding (bei Bedarf)`** → [Retrieval](rag-hybrid-search.md) → [Re-Ranking](rag-reranking.md) → [Kontextaufbau](rag-context-build.md)
 
-Die Anfragephase `Embedding` hängt nun vom Retriever ab; Stichwortsuche meldet sie nicht. Eigene Retriever können passende Phasen über `request.ProgressAsync` melden. Dokument-Embeddings bleiben unverändert.
+Die Anfragephase `Embedding` hängt nun vom Retriever ab; Stichwortsuche meldet sie nicht. Eigene Retriever können passende Phasen über `request.ProgressAsync` melden.
+
+<a id="retrieval-aware-embeddings"></a>
+
+## Dokumentkontext und Suchabsicht erhalten
+
+Ein Abschnitt kann von benachbarten Passagen abhängen; Suchfrage und indiziertes Dokument haben unterschiedliche Aufgaben. RAG 8.2.0 ergänzt kontextuelle Voyage-Embeddings und Gemini Embedding 2 für aus TXT, Markdown und PDF extrahierten Text.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` ist optional; bestehende Anbieter bleiben kompatibel. Die Indizierung übergibt ein unveränderliches `EmbeddingDocument(documentId, chunks, title)` mit sämtlichen Abschnitten in Reihenfolge, unabhängig von `EmbeddingBatchSize`. Der Titel stammt aus `RagDocument.Metadata["title"]`. Vektorsuche und Diagnose rufen `GetQueryEmbeddingAsync` auf; bisherige Anbieter behalten `GetEmbeddingsAsync`-Batches und `GetEmbeddingAsync`-Abfragen. Reine Stichwortsuche erzeugt kein Abfrage-Embedding.
+
+Wählen Sie eine Embedding-Konfiguration pro Store:
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider` verwendet standardmäßig `voyage-context-4` und 1024 Dimensionen (256, 512, 1024 oder 2048). Das gesamte Dokument wird als geordnete Gruppe mit `input_type=document` gesendet, eine einzelne Suchfrage mit `input_type=query`. Automatisches Aufteilen ist deaktiviert. Ein Dokument darf höchstens 16.000 Abschnitte enthalten; Tokenlimits prüft der Dienst. Generische Methoden lassen `input_type` weg und behandeln bis zu 1.000 Texte als unabhängige Einzelgruppen. Dokument-ID und Titel werden nicht gesendet. [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+Generische Batches prüfen beim Einlesen auf Abbruch. Sobald mehr als 1.000 Texte vorliegen, endet das Einlesen und der Batch wird ohne HTTP-Anfrage abgelehnt. Dokumentgruppen bleiben vollständig erhalten.
+
+### Gemini
+
+`GeminiEmbeddingProvider` verwendet standardmäßig `gemini-embedding-2`, 1536 Dimensionen (128–3072) und `maxConcurrency=4`. Jeder Abschnitt erhält über eine eigene HTTP-Anfrage einen Vektor. Sucheingaben verwenden `title: {title} | text: {text}` (fehlender Titel: `none`) oder `task: search result | query: {query}`. Präfixe gelten nur für HTTP-Eingaben; generische Methoden senden unveränderten Text. `embedContentConfig.autoTruncate=false` weist zu lange Eingaben zurück, statt sie zu kürzen. [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+Beide Anbieter erhalten den gespeicherten Quelltext und prüfen Anzahl, Dimensionen und endliche Vektorwerte. Der übergebene `HttpClient` gehört weiterhin dem Aufrufer; seine Einstellungen bleiben unverändert. Voyage stellt Dokument- und Abschnittsreihenfolge anhand geprüfter Indizes wieder her. Fehler enthalten weder Schlüssel noch entfernte Nutzdaten; Abbruch wird weitergegeben, Zeitüberschreitungen erzeugen `TimeoutException`. Voyage setzt `timeout` pro Anfrage um, Gemini für den gesamten Vorgang einschließlich Wartezeiten auf Parallelität; das Clientlimit gilt zusätzlich. Eingaben werden nicht still aufgeteilt oder gekürzt. Fehler vor dem Speichern erhalten das bisherige Dokument; danach hängt Atomarität vom Store oder Callback ab. Nach Änderungen an Modell, Dimensionen oder Suchformat Dokumente neu indizieren und den Store auf denselben Vektorraum einstellen.
+
+### Den tatsächlichen Dienst prüfen
+
+Live-Tests senden synthetischen TXT-, Markdown- und PDF-Text und verursachen API-Kosten. Setzen Sie `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, konfigurieren Sie Zugangsdaten und wählen Sie `All`, `Voyage` oder `Gemini`. Übersprungene oder nicht eindeutige Fälle führen zum Fehlschlag; Offline-Tests bestätigen keine Dienstverfügbarkeit.
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[Den tatsächlichen Dienst prüfen](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## Was ist Embedding?
 
@@ -15,15 +67,15 @@ Im RAG-Pipeline geschieht Embedding an zwei Stellen:
 1. **Dokumentenindexierung** — jeder Chunk wird vektorisiert und gespeichert
 2. **Query-Zeit** — die Benutzerfrage wird vektorisiert für den Ähnlichkeitsvergleich
 
-Diese Seite konzentriert sich auf das Query-Zeit-Embedding (Schritt 2).
-
 ## Integrierte Anbieter
 
 Wählen Sie einen Embedding-Anbieter passend zu Dokumentensprache, Betriebsumgebung und Suchanforderungen.
 
 ### Perplexity
 
-Standard-Embeddings behandeln Abschnitte unabhängig und implementieren `IEmbeddingProvider` für den bestehenden RAG-Builder. Kontextuelle Embeddings behalten Reihenfolge und Dokumentgruppen benachbarter Abschnitte bei. Ihre getrennte API verhindert, dass unabhängige Dokumente zu einer flachen Eingabe werden.
+`PerplexityContextualizedEmbeddingProvider` implementiert jetzt `IRetrievalEmbeddingProvider` und lässt sich mit `.UseEmbedding(contextual)` registrieren. Die bisherige öffentliche Gruppenmethode `GetDocumentEmbeddingsAsync` und Binärmethoden bleiben erhalten. Die neue Einzeldokumentmethode implementiert das Interface explizit, sodass bestehende Aufrufe unverändert bleiben. RAG erhält Dokumentgrenzen und nutzt für Suchfragen dasselbe Kontextmodell und dieselben Dimensionen.
+
+Perplexity akzeptiert bei Float- und Binärbatches bis zu 512 unabhängige Texte oder 512 Kontextdokumente mit insgesamt 16.000 Abschnitten. Beim Einlesen wird auf Abbruch geprüft; bei Überschreitung einer Grenze endet das Einlesen und der Batch wird vor einer HTTP-Anfrage abgelehnt. Dokumentgruppen und Reihenfolge bleiben erhalten. Details stehen im [Perplexity-Leitfaden](perplexity.md).
 
 [Perplexity Agent API, Suche und Embeddings](perplexity.md).
 
@@ -98,7 +150,7 @@ Leichtgewichtiger Anbieter basierend auf Feature-Hashing. Kein API-Schlüssel od
 
 ## Batch-Verarbeitung
 
-Bei der Indexierung werden Chunks in Batches verarbeitet:
+`EmbeddingBatchSize` steuert flache Batches bisheriger `IEmbeddingProvider`-Implementierungen. `IRetrievalEmbeddingProvider` erhält das gesamte Dokument und verwaltet HTTP-Batches selbst; ein kleinerer Wert teilt ein Voyage-Dokument nicht in separate Kontextgruppen.
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -130,6 +182,8 @@ Ein wiederverwendeter Provider-Puffer darf eine Frage während wartender Fortsch
 
 | Anbieter | Modell | Standard-Dimensionen |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
@@ -166,7 +220,7 @@ public class MyEmbeddingProvider : IEmbeddingProvider
 ## Interner Ablauf
 
 ```
-Benutzerfrage (string) → EmbeddingProvider.GetEmbeddingAsync() → Query-Vektor (float[])
+Benutzerfrage (string) → GetQueryEmbeddingAsync() / GetEmbeddingAsync() → Query-Vektor (float[])
 ```
 
 Dieser Vektor wird an die nächste Stufe ([Filtering](rag-filtering.md)) und dann an das [Retrieval](rag-hybrid-search.md) weitergegeben.

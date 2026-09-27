@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "ฉันคืนสินค้าได้ถึงเมื่อไร", cancellationToken);
 ```
 
-ใช้โมเดล จำนวนมิติ และการเข้ารหัสเดียวกันสำหรับเอกสารกับคำค้น `GetQueryEmbeddingAsync` ส่งคำค้นหนึ่งรายการเป็นเอกสารแยกไปยังโมเดล contextual เดิม ผลเก็บลำดับเอกสารและส่วนย่อย ไม่ต่อกับตัวสร้าง RAG อินพุตแบนอัตโนมัติ
+`PerplexityContextualizedEmbeddingProvider` รองรับ `IRetrievalEmbeddingProvider` แล้ว และลงทะเบียนด้วย `.UseEmbedding(contextual)` ได้ API แบบกลุ่ม `GetDocumentEmbeddingsAsync` และเมธอดไบนารีเดิมยังอยู่ เมธอดเอกสารเดี่ยวใหม่เป็น explicit interface implementation จึงรักษาการเรียกเดิม RAG เก็บขอบเขตเอกสารและใช้โมเดลบริบทกับมิติเดียวกันสำหรับคำค้น
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 API float ถอดเวกเตอร์ base64 signed-int8 และ normalize เพื่อคำนวณความคล้าย API binary แบบชัดเจนคืนบิตที่แพ็กและใช้ระยะ Hamming โดยไม่แปลงเป็นพิกัด float เงียบ ๆ มิติเต็มคือ 1024 สำหรับ 0.6B และ 2560 สำหรับ 4B การลดมิติตามข้อจำกัดผู้ให้บริการ ข้อจำกัด batch ความยาว token รวม และอัตราบัญชียังใช้ตามเดิม
 
 API binary คือ `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync` และแบบ contextual `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync` ส่วน `PerplexityBinaryEmbedding` มี `Dimensions`, สำเนา `ToArray()` และ `HammingDistance` ค่ายิ่งน้อยยิ่งคล้าย มิติ binary ต้องหารแปดลงตัว สูงสุด 512 ข้อความมาตรฐาน หรือ 512 เอกสาร/16,000 ส่วน contextual ผู้ให้บริการตรวจขีดจำกัด 32K token ต่อข้อความ/เอกสาร และ 120K รวม
+
+ทั้งเมธอด float และ binary จะตรวจ `cancellationToken` ระหว่างอ่านอินพุต เมื่อจำนวนเกินขีดจำกัดใดก็ตาม ไคลเอนต์จะหยุดอ่านต่อและปฏิเสธแบตช์ก่อนส่งคำขอ HTTP กลุ่มเอกสารและลำดับส่วนข้อความยังคงเดิม และรูปแบบการเรียก API สาธารณะไม่เปลี่ยนแปลง
 
 ## ย้ายโค้ด Sonar เดิม
 

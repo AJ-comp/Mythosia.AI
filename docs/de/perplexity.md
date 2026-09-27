@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "Wie lange kann ich einen Kauf zurückgeben?", cancellationToken);
 ```
 
-Nutzen Sie dasselbe Modell, dieselbe Dimension und Kodierung für Dokumente und Abfragen. `GetQueryEmbeddingAsync` sendet eine Abfrage als eigenes Dokument an dasselbe Kontextmodell. Ergebnisse behalten Dokument- und Abschnittsreihenfolge, ohne automatische Anbindung an den flachen RAG-Builder.
+`PerplexityContextualizedEmbeddingProvider` implementiert jetzt `IRetrievalEmbeddingProvider` und lässt sich mit `.UseEmbedding(contextual)` registrieren. Die bisherige öffentliche Gruppenmethode `GetDocumentEmbeddingsAsync` und Binärmethoden bleiben erhalten. Die neue Einzeldokumentmethode implementiert das Interface explizit, sodass bestehende Aufrufe unverändert bleiben. RAG erhält Dokumentgrenzen und nutzt für Suchfragen dasselbe Kontextmodell und dieselben Dimensionen.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 Float-APIs dekodieren Base64-Signed-int8-Vektoren und normalisieren sie für Ähnlichkeitsberechnungen. Explizite Binär-APIs liefern gepackte Bits mit Hamming-Distanz, niemals stillschweigend Floatkoordinaten. Volle Dimensionen sind 1024 für 0.6B und 2560 für 4B; reduzierte Dimensionen folgen Anbietergrenzen. Batch-, Längen-, Gesamt-Token- und Kontolimits gelten weiterhin.
 
 Binärmethoden: `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync` sowie kontextuell `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`. `PerplexityBinaryEmbedding` bietet `Dimensions`, eine Kopie über `ToArray()` und `HammingDistance`; kleiner bedeutet ähnlicher. Binärdimensionen müssen durch acht teilbar sein. Maximal 512 Standardtexte beziehungsweise 512 Dokumente mit 16.000 Kontextabschnitten. 32K Tokens pro Text/Dokument und 120K insgesamt prüft der Anbieter.
+
+Bei Float- und Binärmethoden prüft der Client `cancellationToken` während des Einlesens. Sobald eine Mengenbegrenzung überschritten wird, liest er nicht weiter und lehnt den Batch vor einer HTTP-Anfrage ab. Dokumentgruppen und Abschnittsreihenfolge bleiben erhalten; öffentliche API-Signaturen ändern sich nicht.
 
 ## Bestehenden Sonar-Code migrieren
 

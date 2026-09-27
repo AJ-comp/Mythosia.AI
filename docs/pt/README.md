@@ -37,7 +37,7 @@ A prévia opcional `Mythosia.AI.Rag.Search.Pixie` permite comparar busca neural 
 
 Isole as configurações, interrompa o trabalho em curso e receba respostas com consumo e fontes. O [guia de migração v8](v8-migration.md) reúne seis mudanças de arquitetura, exemplos e o alcance da validação.
 
-> Versões dos pacotes documentadas aqui: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> Versões dos pacotes documentadas aqui: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 > [Patch RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): os wrappers RAG existentes passam a refletir mudanças do reescritor em tempo de execução, e a busca híbrida mista do PostgreSQL respeita as configurações vetoriais. O pacote principal `Mythosia.AI` permanece em 8.1.0.
 
@@ -309,6 +309,21 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("Qual é a política de reembolso?");
 ```
+
+#### Preservar o contexto do documento e a intenção da consulta
+
+Um fragmento pode depender das passagens vizinhas, e uma pergunta de busca tem um papel diferente do documento indexado. O RAG 8.2.0 adiciona embeddings contextuais Voyage e Gemini Embedding 2 para texto extraído de TXT, Markdown e PDF.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+[Configuração e contratos dos provedores](rag-embedding.md#retrieval-aware-embeddings): `UseVoyageEmbedding(...)`, `UseGeminiEmbedding(...)`, `IRetrievalEmbeddingProvider` / `EmbeddingDocument` (RAG 8.2.0, RAG Abstractions 6.4.0).
 
 ## Providers Suportados
 

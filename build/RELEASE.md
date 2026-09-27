@@ -36,7 +36,7 @@ This runs the existing hash-verifying preparation script without regenerating tr
 
 [release-plan.psd1](release-plan.psd1) defines the package versions, dependency order, framework, license and release-note URL. Packing, isolated consumers and release checks use that plan. A package outside the plan is never automatically published merely because its project version changed.
 
-The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `ce2af19`, confirmed in the preceding release's official NuGet repository metadata. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
+The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `b3b389f`, confirmed in RAG 8.1.1's official NuGet repository metadata. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
 
 `Packages` is the publication allowlist. `ConsumerOnlyPackages` retains exact versions of unchanged packages for the full compatibility checks; those packages resolve from NuGet and are never packed or published by this release. A dependency supplied by the current release belongs in `Dependencies`; an unchanged published dependency keeps its exact version in `FixedDependencies`.
 
@@ -56,4 +56,22 @@ The local package manifest is marked `development-validation` and is deliberatel
 
 Partial resume is only for packages already published from the **same release commit**. It is not a way to overwrite an old version or bypass a missing version bump. NuGet availability may change after a local check, so the publication workflow repeats the checks.
 
-The current patch publishes only **Mythosia.AI.Rag 8.1.1** and **Mythosia.VectorDb.Postgres 10.8.1**. Their dependency versions stay unchanged. All existing isolated consumer probes still run, including the unchanged core, loaders, other stores, MCP, vLLM and PIXIE packages from NuGet. The preceding fifteen-package v8.1 release is historical and must not be republished. See the [patch release notes](../RELEASE_NOTES.md#v811).
+The current feature release publishes only **Mythosia.AI.Rag.Abstractions 6.4.0** and **Mythosia.AI.Rag 8.2.0**, in that dependency order. RAG requires the new contracts; its other dependencies stay unchanged. All existing isolated consumer probes still run, including the unchanged core, loaders, vector stores, MCP, vLLM and PIXIE packages from NuGet. Earlier releases are historical and must not be republished. See the [release notes](../RELEASE_NOTES.md#v820).
+
+## Retrieval embedding live validation
+
+Use the same extraction, indexing and query pipeline with synthetic TXT, Markdown and PDF documents:
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = '1'
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+Select `-Provider Gemini` or `-Provider Voyage` to validate one provider. Calls incur API charges. The runner requires all selected cases and expected HTTP requests to succeed; missing credentials, skipped tests and inconclusive results are failures, not proof of live validation. Voyage also indexes one document containing 101 tiny chunks to verify context survives the default generic batch limit. These checks validate integration rather than retrieval-quality superiority on a benchmark.
+
+For a Voyage account with a low request-rate limit, add `-VoyageRequestIntervalSeconds 22` to space request starts across test cases. This optional integer ranges from 0 to 120 seconds and defaults to 0 (no pacing). The runner temporarily sets `MYTHOSIA_VOYAGE_REQUEST_INTERVAL_SECONDS` for its test process and restores the previous value afterward. Pacing honors cancellation and applies only to the live-test handler; it adds no production retries and retains the eleven expected Voyage requests. It does not reset an existing account rate-limit window or manage token quotas.
+
+- Voyage credentials: `VOYAGE_API_KEY`, then `MYTHOSIA_VOYAGE_API_KEY`, then the existing Key Vault secret named by optional `MYTHOSIA_VOYAGE_SECRET_NAME`. Create a key in the [Voyage dashboard](https://dashboard.voyageai.com/organization/api-keys); do not commit it or include it in commands saved to Git.
+- Gemini credentials: `GEMINI_API_KEY`, then `GOOGLE_API_KEY`, then `MYTHOSIA_GEMINI_API_KEY`, then the existing `gemini-secret` Key Vault credential.
+
+The explicit opt-in is checked before credentials are resolved. Explicit request log entries contain only model/dimension/operation/status metadata. TRX reports also include test diagnostics and stay under ignored `artifacts/test-results/retrieval-embedding-live`. `-NoBuild` reuses an existing isolated Release build; omit it after code changes. These probes do not log credentials or API payloads and use only synthetic documents.

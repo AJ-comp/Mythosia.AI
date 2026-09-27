@@ -2,7 +2,59 @@
 
 > 📍 **问答检索管道：** [查询改写](rag-query-rewriting.md) → [过滤](rag-filtering.md) → **`嵌入（按需）`** → [检索](rag-hybrid-search.md) → [重排序](rag-reranking.md) → [上下文构建](rag-context-build.md)
 
-问题的 `Embedding` 阶段按检索器需要执行，关键词搜索不会报告该阶段。自定义检索器可通过 `request.ProgressAsync` 报告实际阶段。文档嵌入不变。
+问题的 `Embedding` 阶段按检索器需要执行，关键词搜索不会报告该阶段。自定义检索器可通过 `request.ProgressAsync` 报告实际阶段。
+
+<a id="retrieval-aware-embeddings"></a>
+
+## 保留文档上下文和查询用途
+
+分块的含义可能依赖相邻段落，搜索问题与索引文档的用途也不同。RAG 8.2.0 为从 TXT、Markdown 和 PDF 提取的文本提供 Voyage 上下文嵌入和 Gemini Embedding 2。
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` 是可选能力，现有提供者继续工作。索引将所有有序分块放入不可变的 `EmbeddingDocument(documentId, chunks, title)`，不受 `EmbeddingBatchSize` 限制。标题取自 `RagDocument.Metadata["title"]`。向量检索和诊断调用 `GetQueryEmbeddingAsync`；原有提供者继续使用 `GetEmbeddingsAsync` 批次和 `GetEmbeddingAsync` 查询。纯关键词检索不生成查询嵌入。
+
+为每个存储选择一种嵌入配置：
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider` 默认使用 `voyage-context-4`、1024 维，可选 256、512、1024 或 2048 维。整篇文档作为一个有序组以 `input_type=document` 发送，查询单独成组并使用 `input_type=query`。自动分块关闭。每篇文档最多 16,000 个分块，令牌上限由服务端检查。通用方法省略 `input_type`，最多将 1,000 段文本分别作为独立的单分块组处理。文档 ID 和标题不发送。 [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+通用批处理在读取输入时检查取消请求；文本一旦超过 1,000 段，就停止读取并拒绝该批次，不发送 HTTP 请求。文档分组保持完整。
+
+### Gemini
+
+`GeminiEmbeddingProvider` 默认使用 `gemini-embedding-2`、1536 维（128–3072）及 `maxConcurrency=4`。每个分块通过独立 HTTP 请求得到一个向量。检索输入格式为 `title: {title} | text: {text}`（缺少标题时用 `none`）或 `task: search result | query: {query}`。前缀仅用于 HTTP 输入，通用方法发送原文。`embedContentConfig.autoTruncate=false` 会拒绝过长输入，而非静默截断。 [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+两者保留存储的原文，验证向量数量、维度及有限值。传入的 `HttpClient` 仍由调用方拥有，配置不变。Voyage 根据经过验证的响应索引恢复文档和分块顺序。错误不包含密钥或远端响应内容；取消向下传递，超时抛出 `TimeoutException`。Voyage 的 `timeout` 按请求生效，Gemini 则覆盖整个操作及并发等待；客户端超时也仍然生效。不支持的输入不会被静默拆分或截断。持久化前失败会保留旧文档；开始写入后的原子性取决于存储或回调实现。更换模型、维度或检索格式后，应重新索引文档并将存储配置为相同向量空间。
+
+### 验证真实服务
+
+实时测试会发送合成的 TXT、Markdown 和 PDF 文本，并产生 API 费用。设置 `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1` 和凭据，然后选择 `All`、`Voyage` 或 `Gemini`。执行器拒绝跳过或无法判定的案例；离线测试不代表服务当前可用。
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[验证真实服务](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## 什么是嵌入？
 
@@ -15,15 +67,15 @@
 1. **文档索引时** — 每个文本块被向量化并存入向量存储
 2. **查询时** — 用户的问题被向量化，用于相似度搜索
 
-本页重点介绍查询时的嵌入（步骤 2）。
-
 ## 内置嵌入提供者
 
 根据文档语言、部署环境和检索需求选择嵌入提供者。
 
 ### Perplexity
 
-标准嵌入独立处理各段落，并实现 `IEmbeddingProvider`，因此可接入现有构建器。上下文嵌入保留相邻分块顺序和文档分组；为防止把无关文档展平成单一输入，使用单独的 API。
+`PerplexityContextualizedEmbeddingProvider` 现在实现 `IRetrievalEmbeddingProvider`，可用 `.UseEmbedding(contextual)` 注册。现有公开分组方法 `GetDocumentEmbeddingsAsync` 和二进制方法保留。新增的单文档方法采用显式接口实现，保持原有调用兼容。RAG 保留文档边界，查询使用相同上下文模型和维度。
+
+Perplexity 浮点和二进制批次最多接受 512 段独立文本，或 512 个上下文文档、合计 16,000 个分块。读取输入时检查取消，超出限制便停止读取，并在发送 HTTP 请求前拒绝。文档分组和顺序保持不变。详见 [Perplexity 指南](perplexity.md)。
 
 [Perplexity Agent API、搜索与嵌入](perplexity.md).
 
@@ -98,7 +150,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ## 批处理
 
-索引时按批次处理文本块：
+`EmbeddingBatchSize` 控制原有 `IEmbeddingProvider` 实现的平面批次。`IRetrievalEmbeddingProvider` 接收整篇文档并自行管理 HTTP 批次；调小该值不会把 Voyage 文档分成多个上下文组。
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -130,6 +182,8 @@ HTTP 响应成功仍可能缺少向量或顺序错误，导致文本与另一个
 
 | 提供者 | 模型 | 默认维度 |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
@@ -166,7 +220,7 @@ public class MyEmbeddingProvider : IEmbeddingProvider
 ## 内部机制
 
 ```
-用户问题 (string) → EmbeddingProvider.GetEmbeddingAsync() → 查询向量 (float[])
+用户问题 (string) → GetQueryEmbeddingAsync() / GetEmbeddingAsync() → 查询向量 (float[])
 ```
 
 该向量传递到下一步（[过滤](rag-filtering.md)），然后进入[检索](rag-hybrid-search.md)。

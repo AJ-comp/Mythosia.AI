@@ -39,7 +39,7 @@ TXT·Markdown은 문서 구조에 맞게 [규칙 기반 분할기](text-splitter
 
 요청별 설정을 독립적으로 관리하고, 작업을 중지하며, 답변과 사용량·출처를 함께 받으세요. [v8 업그레이드 안내](v8-migration.md)에 여섯 가지 구조 변경, 전환 예제와 검증 범위를 정리했습니다.
 
-> 이 문서의 패키지 기준 버전: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> 이 문서의 패키지 기준 버전: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 > [RAG 8.1.1 / PostgreSQL 10.8.1 패치](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): 기존 RAG 래퍼에 실행 중 재작성기 변경을 반영하고, PostgreSQL 혼합 하이브리드 검색에도 벡터 검색 설정을 적용합니다. 코어 `Mythosia.AI`는 8.1.0을 유지합니다.
 
@@ -307,6 +307,21 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+#### 문서 문맥과 질문의 검색 목적 유지하기
+
+청크를 이해하려면 이웃 문단이 필요할 수 있고, 검색 질문은 색인 문서와 역할이 다릅니다. RAG 8.2.0은 TXT·Markdown·PDF에서 추출한 텍스트에 Voyage 문맥 임베딩과 Gemini Embedding 2를 제공합니다.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+[설정과 제공자 계약](rag-embedding.md#retrieval-aware-embeddings): `UseVoyageEmbedding(...)`, `UseGeminiEmbedding(...)`, `IRetrievalEmbeddingProvider` / `EmbeddingDocument` (RAG 8.2.0, RAG Abstractions 6.4.0).
 
 ## 지원 프로바이더
 

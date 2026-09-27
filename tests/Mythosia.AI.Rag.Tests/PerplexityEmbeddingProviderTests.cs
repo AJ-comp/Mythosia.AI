@@ -80,7 +80,20 @@ public sealed class PerplexityEmbeddingProviderTests
         Assert.AreEqual(PerplexityEmbeddingModels.Context4B, handler.Bodies[1]["model"]!.GetValue<string>());
         Assert.AreEqual("query", handler.Bodies[1]["input"]![0]![0]!.GetValue<string>());
         Assert.HasCount(1, handler.Bodies[1]["input"]!.AsArray());
-        Assert.IsFalse(typeof(IEmbeddingProvider).IsAssignableFrom(typeof(PerplexityContextualizedEmbeddingProvider)));
+        IRetrievalEmbeddingProvider retrievalProvider = provider;
+        var document = await retrievalProvider.GetDocumentEmbeddingsAsync(
+            new EmbeddingDocument("policy", new[] { "first", "second" }));
+        Assert.HasCount(2, document);
+        Assert.HasCount(1, handler.Bodies[2]["input"]!.AsArray());
+        Assert.AreEqual("first", handler.Bodies[2]["input"]![0]![0]!.GetValue<string>());
+        Assert.AreEqual("second", handler.Bodies[2]["input"]![0]![1]!.GetValue<string>());
+
+        IEmbeddingProvider genericProvider = provider;
+        var independent = await genericProvider.GetEmbeddingsAsync(new[] { "unrelated-a", "unrelated-b" });
+        Assert.HasCount(2, independent);
+        Assert.HasCount(2, handler.Bodies[3]["input"]!.AsArray());
+        Assert.HasCount(1, handler.Bodies[3]["input"]![0]!.AsArray());
+        Assert.HasCount(1, handler.Bodies[3]["input"]![1]!.AsArray());
     }
 
     [TestMethod]

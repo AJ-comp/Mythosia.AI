@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "Tôi có thể trả hàng trong bao lâu?", cancellationToken);
 ```
 
-Dùng cùng mô hình, số chiều và mã hóa cho tài liệu và truy vấn. `GetQueryEmbeddingAsync` gửi truy vấn như tài liệu riêng đến cùng mô hình ngữ cảnh. Kết quả giữ thứ tự tài liệu và đoạn; không tự nối vào bộ dựng RAG đầu vào phẳng.
+`PerplexityContextualizedEmbeddingProvider` nay triển khai `IRetrievalEmbeddingProvider` và có thể đăng ký qua `.UseEmbedding(contextual)`. API công khai theo nhóm `GetDocumentEmbeddingsAsync` và phương thức nhị phân vẫn giữ nguyên. Phương thức một tài liệu mới triển khai interface tường minh để bảo toàn lời gọi cũ. RAG giữ ranh giới tài liệu và dùng cùng mô hình ngữ cảnh, số chiều cho truy vấn.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 API float giải mã vector base64 signed-int8 và chuẩn hóa cho tương đồng. API binary tường minh trả bit đóng gói và dùng khoảng cách Hamming, không ngầm coi bit là tọa độ float. Số chiều đầy đủ là 1024 cho 0.6B và 2560 cho 4B; giảm chiều theo giới hạn nhà cung cấp. Giới hạn lô, độ dài, tổng token và tốc độ tài khoản vẫn áp dụng.
 
 API binary gồm `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync` và `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync` theo ngữ cảnh. `PerplexityBinaryEmbedding` có `Dimensions`, bản sao `ToArray()` và `HammingDistance`; khoảng cách nhỏ hơn nghĩa là giống hơn. Số chiều binary phải chia hết cho tám. Tối đa 512 văn bản tiêu chuẩn, hoặc 512 tài liệu/16.000 đoạn ngữ cảnh. Nhà cung cấp kiểm tra 32K token mỗi văn bản/tài liệu và 120K tổng.
+
+Với cả phương thức số thực và nhị phân, máy khách kiểm tra `cancellationToken` trong khi đọc đầu vào. Ngay khi vượt bất kỳ giới hạn số lượng nào, máy khách ngừng đọc và từ chối lô trước khi gửi yêu cầu HTTP. Nhóm tài liệu và thứ tự đoạn được giữ nguyên; chữ ký API công khai không thay đổi.
 
 ## Chuyển mã Sonar hiện có
 

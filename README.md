@@ -264,6 +264,21 @@ var response = await service.GetCompletionAsync("What is the refund policy?");
 
 For agent-controlled retrieval, register the store with `WithAgenticRag(...)` and start work with `service.WithMaxRounds(10).StartRunAsync(...)`. Await `run.Result` or observe `run.StreamAsync()` on the same task. See [Mythosia.AI.Rag README](src/rag/Mythosia.AI.Rag/README.md) for full examples.
 
+#### Keep document context and query intent
+
+A chunk can depend on neighbouring passages, and a search question has a different role from an indexed document. RAG 8.2.0 adds Voyage contextual embeddings and Gemini Embedding 2 for text extracted from TXT, Markdown and PDF files.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+[Configuration and provider contracts](docs/rag-embedding.md#retrieval-aware-embeddings): `UseVoyageEmbedding(...)`, `UseGeminiEmbedding(...)`, `IRetrievalEmbeddingProvider` / `EmbeddingDocument` (RAG 8.2.0, RAG Abstractions 6.4.0).
+
 ## Supported Providers
 
 > Grok 4.7 requires Mythosia.AI 8.1.0 and Abstractions 4.1.0; see [model selection, reasoning and processing speed](docs/providers.md#grok-47).
@@ -314,7 +329,7 @@ The [retrieval evaluation infrastructure](https://github.com/AJ-comp/Mythosia.AI
 
 Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
 
-> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [current patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
+> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [previous patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
 
 > [RAG 8.1.1 / PostgreSQL 10.8.1 patch](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): existing RAG wrappers now observe runtime query-rewriter changes, and mixed PostgreSQL hybrid search honors configured vector-search settings. Core `Mythosia.AI` remains at 8.1.0.
 

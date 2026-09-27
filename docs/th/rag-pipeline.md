@@ -1,5 +1,9 @@
 # การกำหนดค่า Pipeline
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` เป็นความสามารถเสริม ผู้ให้บริการเดิมยังทำงานได้ การทำดัชนีส่ง `EmbeddingDocument(documentId, chunks, title)` ที่แก้ไขไม่ได้และมีข้อความทุกส่วนตามลำดับ โดยไม่ขึ้นกับ `EmbeddingBatchSize` ชื่อเรื่องมาจาก `RagDocument.Metadata["title"]` การค้นหาเวกเตอร์และการวินิจฉัยเรียก `GetQueryEmbeddingAsync` ส่วนผู้ให้บริการเดิมยังใช้แบตช์ `GetEmbeddingsAsync` และคำค้น `GetEmbeddingAsync` การค้นหาด้วยคำสำคัญอย่างเดียวไม่สร้าง embedding ของคำค้น
+
+[การตั้งค่าและสัญญาของผู้ให้บริการ](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## ปกป้องเอกสารเดิมเมื่อการทำดัชนีล้มเหลว

@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "¿Hasta cuándo puedo devolver una compra?", cancellationToken);
 ```
 
-Use el mismo modelo, dimensiones y codificación para documentos y consultas. `GetQueryEmbeddingAsync` envía una consulta como documento individual al mismo modelo contextual. Los resultados conservan el orden documental y de fragmentos, sin conexión automática al constructor RAG de entrada plana.
+`PerplexityContextualizedEmbeddingProvider` ahora implementa `IRetrievalEmbeddingProvider` y se registra con `.UseEmbedding(contextual)`. La API pública agrupada `GetDocumentEmbeddingsAsync` y los métodos binarios se mantienen. El nuevo método para un documento implementa explícitamente la interfaz, preservando las llamadas existentes. RAG mantiene los límites documentales y usa el mismo modelo contextual y dimensiones para las consultas.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 Las API float decodifican los vectores base64 signed-int8 y los normalizan para similitud. Las API binarias explícitas devuelven bits compactados y usan distancia de Hamming; nunca convierten implícitamente esos bits en coordenadas float. Las dimensiones completas son 1024 para 0.6B y 2560 para 4B; la reducción sigue los límites del proveedor. También se aplican límites de lotes, longitud, tokens totales y tasa de cuenta.
 
 Métodos binarios: `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync`, y contextuales `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`. `PerplexityBinaryEmbedding` expone `Dimensions`, una copia mediante `ToArray()` y `HammingDistance`; menor distancia significa mayor similitud. Las dimensiones binarias son múltiplos de ocho. Máximo: 512 textos estándar, o 512 documentos y 16.000 fragmentos contextuales. El proveedor comprueba 32K tokens por texto/documento y 120K totales.
+
+En los métodos de coma flotante y binarios, el cliente comprueba `cancellationToken` mientras lee las entradas. En cuanto se supera algún límite de cantidad, deja de leer y rechaza el lote antes de enviar una solicitud HTTP. Se conservan los grupos de documentos y el orden de los fragmentos; las firmas de la API pública no cambian.
 
 ## Migrar el código Sonar existente
 

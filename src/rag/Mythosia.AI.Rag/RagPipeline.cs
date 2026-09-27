@@ -237,6 +237,8 @@ namespace Mythosia.AI.Rag
             var documentId = document.Id;
             if (string.IsNullOrWhiteSpace(documentId))
                 throw new ArgumentException("The document ID must not be null, empty, or whitespace.", nameof(document));
+            string? documentTitle = null;
+            document.Metadata?.TryGetValue("title", out documentTitle);
 
             // 1. Split. A successful empty result still replaces this document's old chunks.
             IReadOnlyList<RagChunk> chunks = textSplitter.Split(document);
@@ -261,16 +263,22 @@ namespace Mythosia.AI.Rag
             var dimensions = _embeddingProvider.Dimensions;
             if (dimensions <= 0)
                 throw new InvalidOperationException("The embedding provider must declare a positive Dimensions value.");
+            var retrievalEmbeddings = _embeddingProvider as IRetrievalEmbeddingProvider;
+            var embeddingDocument = retrievalEmbeddings == null ? null
+                : new EmbeddingDocument(documentId, chunkTexts, documentTitle);
 
-            // 2. Embed in batches, validating each response before accepting any of it.
+            // 2. Retrieval-aware providers receive the complete document. They own transport
+            // batching and must preserve contextual groups; legacy providers retain flat batches.
             for (int i = 0; i < chunkTexts.Count;)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 // The captured option stays stable across awaits. Advancing by the actual
                 // batch length also prevents overflow for very large configured sizes.
-                var batchCount = Math.Min(embeddingBatchSize, chunkTexts.Count - i);
-                var batch = chunkTexts.GetRange(i, batchCount);
-                var embeddings = await _embeddingProvider.GetEmbeddingsAsync(batch, cancellationToken);
+                var batchCount = retrievalEmbeddings != null ? chunkTexts.Count
+                    : Math.Min(embeddingBatchSize, chunkTexts.Count - i);
+                var embeddings = retrievalEmbeddings != null
+                    ? await retrievalEmbeddings.GetDocumentEmbeddingsAsync(embeddingDocument!, cancellationToken)
+                    : await _embeddingProvider.GetEmbeddingsAsync(chunkTexts.GetRange(i, batchCount), cancellationToken);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (embeddings == null || embeddings.Count != batchCount)
                     throw new InvalidOperationException(

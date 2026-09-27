@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "When can I return a purchase?", cancellationToken);
 ```
 
-Use the same model, dimensions, and encoding for indexed documents and queries. `GetQueryEmbeddingAsync` sends one query as its own document to the same contextual model. Contextualized results retain both document and chunk order; they are not automatically connected to the flat RAG builder.
+`PerplexityContextualizedEmbeddingProvider` now implements `IRetrievalEmbeddingProvider` and can be registered with `.UseEmbedding(contextual)`. Its existing public grouped `GetDocumentEmbeddingsAsync` and binary methods remain available. The new single-document method is an explicit interface implementation, preserving existing calls. RAG retains document boundaries and uses the same contextual model and dimensions for queries.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 Float APIs decode the provider's base64 signed-int8 vectors and normalize them for vector similarity. Explicit binary APIs return packed bits and use Hamming distance; binary data is never silently treated as float coordinates. Full dimensions are 1024 for 0.6B and 2560 for 4B; optional reduced dimensions must follow provider limits. Batch size, document length, total tokens, and account rate limits still apply.
 
 Binary methods are `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync` and contextual `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`. `PerplexityBinaryEmbedding` exposes `Dimensions`, a copied `ToArray()`, and `HammingDistance`; smaller distance means greater similarity. Binary dimensions must be divisible by eight. Standard batches allow up to 512 texts; contextual batches allow 512 documents and 16,000 chunks. The provider checks 32K per-text/per-document and 120K total-token limits.
+
+For float and binary methods, the client checks `cancellationToken` while reading inputs and stops reading as soon as either count limit is exceeded, rejecting the batch before any HTTP request. Document groups and chunk order remain intact; public API signatures are unchanged.
 
 ## Migrate existing Sonar code
 

@@ -5,11 +5,11 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.AI.Rag</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>8.1.1</Version>
+    <Version>8.2.0</Version>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Ground AI answers in application-managed documents with loading, splitting, embeddings, vector/text/hybrid retrieval, reranking and metadata filters. Request-based retrievers support keyword-only queries and configurable weighted RRF while retaining legacy strategies. Provides standard and Agentic RAG, streaming runs, cancellation, provider processing-speed forwarding and optional PIXIE store integration. Validates indexing and embedding output, replaces document-scoped records, and isolates query rewriting and reranking. Includes Perplexity standard/contextualized embeddings and explicit binary vectors. Depends on Mythosia.AI.Abstractions and Mythosia.AI.Rag.Abstractions without referencing the full Mythosia.AI implementation. What's New in v8.1.1: Existing RAG wrappers honor runtime query rewriter additions, replacement and clearing while preserving in-flight requests and one-time automatic initialization.</Description>
-    <PackageTags>AI;RAG;AgenticRag;TextSplitter;Embedding;HybridSearch;BM25;Reranking;MetadataFilter;Run;Streaming;Reasoning;Perplexity;ContextualizedEmbedding;BinaryEmbedding;Cancellation</PackageTags>
+    <Description>Ground AI answers in application-managed documents with loading, splitting, embeddings, vector/text/hybrid retrieval, reranking and metadata filters. Provides standard and Agentic RAG, streaming runs, cancellation and optional PIXIE search. Supports Voyage Context 4, Gemini Embedding 2, OpenAI, Ollama and Perplexity embeddings. Retrieval-aware providers distinguish documents from queries and receive complete ordered document inputs; existing IEmbeddingProvider implementations remain compatible. Validates embedding results before document replacement and isolates query rewriting and reranking. Depends on Mythosia.AI.Abstractions and Mythosia.AI.Rag.Abstractions without referencing the full Mythosia.AI implementation. What's New in v8.2.0: Voyage contextualized and Gemini text embeddings integrated into indexing, retrieval and diagnostics, with configurable dimensions, optional timeouts and cancellation.</Description>
+    <PackageTags>AI;RAG;AgenticRag;TextSplitter;Embedding;HybridSearch;BM25;Reranking;MetadataFilter;Run;Streaming;Voyage;VoyageContext4;GeminiEmbedding2;Perplexity;ContextualizedEmbedding;BinaryEmbedding;Cancellation</PackageTags>
     <PackageProjectUrl>https://aj-comp.github.io/Mythosia.AI/docs/rag.html</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -17,7 +17,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v8.1.1: Fixes stale query rewriter selection in existing RagEnabledService wrappers. Each request captures the store's current rewriter once, so additions, replacement and clearing affect later requests while in-flight requests retain their selected instance. Lazy stores are published only after automatic rewriter initialization; an explicit clear does not recreate it. No public API changes, reindexing or migration required when upgrading from 8.1.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811</PackageReleaseNotes>
+    <PackageReleaseNotes>v8.2.0: Adds VoyageContextualizedEmbeddingProvider and GeminiEmbeddingProvider with document/query-aware RAG integration and fluent builder configuration. Voyage preserves whole-document chunk order and boundaries; Gemini returns one vector per text with retrieval prefixes applied only to API input. Adds dimension/count/index/finite-value validation, disabled truncation, sanitized transport errors and cancellation/timeouts. Voyage generic batches observe cancellation while reading inputs and stop above 1,000 texts before any HTTP request. Perplexity contextualized embeddings now opt into the same RAG contract. Perplexity standard/contextualized float and binary methods observe cancellation during input reading and stop at count limits before HTTP, preserving groups, order and public APIs. Existing IEmbeddingProvider implementations and persisted source text remain compatible. Changing embedding models or retrieval formats requires reindexing. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

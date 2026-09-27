@@ -2,21 +2,21 @@
 
 Ground answers in documents your application manages. `Mythosia.AI.Rag` adds `.WithRag()` to an `IAIService` and handles document loading, splitting, embeddings, retrieval and context assembly. Use Agentic RAG tools when the model should decide when to search again.
 
-Version **8.1.1** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.1.0** and **Mythosia.AI.Rag.Abstractions 6.3.0**.
+Version **8.2.0** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.1.0** and **Mythosia.AI.Rag.Abstractions 6.4.0**.
 
-> **v8.1.1:** Existing RAG wrappers now honor runtime query rewriter additions, replacement and clearing. In-flight requests keep their selected rewriter, and lazy automatic initialization runs only once. This patch needs no reindexing or migration from 8.1.0. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811).
+> **v8.2.0:** Preserve a document's neighbouring chunk context with Voyage, or distinguish documents and search questions with Gemini Embedding 2. The optional `IRetrievalEmbeddingProvider` contract also connects Perplexity contextual embeddings to RAG while retaining existing `IEmbeddingProvider` implementations. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820).
 
 In v8.1.0, `RagEnabledService.WithSpeed(InferenceSpeed.Fast)` can request paid low-latency processing for the next answer when the inner provider/model supports it. It preserves retrieval settings and keeps internal query rewriting separate. Read `LastProcessing` or `(await run.Result).Processing` for reported applied modes; missing information remains unknown. See [speed selection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 8.1.1
+## Current release: 8.2.0
 
-The 8.1.1 patch corrects runtime query rewriter selection without changing public APIs. Request-based retrieval, configurable hybrid search, indexing safeguards and processing-speed integration introduced in [8.1.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v810) remain available. Earlier index migration guidance still applies when upgrading from older affected versions. If upgrading from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) for the earlier completion and Run contract changes.
+Index extracted TXT, Markdown and PDF text with `UseVoyageEmbedding(...)` or `UseGeminiEmbedding(...)`. RAG passes complete documents to the new optional contract, preserving chunk order, and uses explicit query embeddings for dense retrieval and diagnostics. Stored source text remains unchanged. Existing embedding providers and the runtime query-rewriter fixes from [8.1.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811) remain supported. Changing an embedding model, dimensions or retrieval formatting requires reindexing into the same vector space used by queries; merely upgrading the package does not convert stored vectors. For upgrades from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md).
 
 Pass `cancellationToken` to stop cooperative retrieval, query rewriting and the inner completion call when a user stops waiting. `WithAgenticRag` forwards tool cancellation into `RagStore.QueryAsync`; search exceptions become failed tool results. Cancellation avoids later model rounds, but cleanup can wait for components that ignore the token and does not guarantee that a provider stops inference or billing. See the [completion contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation) and [tool contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract).
 
 Keep an `AIRunResult` when the answer needs usage, sources and execution details: `await run.Result` provides that snapshot without a stream reader, and `(await run.Result).Text` provides the string. Usage describes the inner model execution; retrieval and embedding usage are separate. `GetCompletionAsync` remains a string API. See the [Run result migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result).
 
-Perplexity standard 0.6B/4B embeddings plug into the existing RAG builder. Separate contextualized APIs preserve each document's ordered chunks, and packed binary results use an explicit vector type. See the [Perplexity guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md) and [v8.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v800).
+Perplexity standard 0.6B/4B embeddings and contextual embeddings both connect to the RAG builder. The contextual provider preserves each document's ordered chunks through the new interface; its existing public grouped API remains available. Packed binary results still use an explicit vector type. See the [Perplexity guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md).
 
 RAG Run controls, request-scoped reasoning/search forwarding and duplicate-registration filtering were introduced in [v7.6.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760). Use a supporting inner service, such as Mythosia.AI 8.1.0, for the current provider integrations.
 
@@ -132,7 +132,7 @@ Clearing a retired policy must also remove its old searchable text. With default
 
 With custom persistence through `onDocumentEmbedded`, zero chunks still skip the callback and the default store. The application must explicitly delete the known ID in its own storage, or use `DeleteDocumentAsync` for the pipeline's store. See [empty document updates](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag.md#empty-document-updates) for an example and failure handling.
 
-`EmbeddingBatchSize` must be positive. The pipeline validates and captures it at the start of each document-indexing call, before embedding or replacing stored records. This prevents empty-batch loops and keeps a setting change during an awaited call from skipping chunks. Later indexing calls can use the new setting. See [batch sizing](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md) for configuration.
+`EmbeddingBatchSize` must be positive. The pipeline validates and captures it at the start of each document-indexing call, before embedding or replacing stored records. It controls flat batches for legacy `IEmbeddingProvider` implementations; `IRetrievalEmbeddingProvider` receives the whole document and owns HTTP batching. Lowering this value never splits a Voyage document's context. Later legacy indexing calls can use a changed setting. See [batch sizing](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md) for configuration.
 
 ## Search Settings
 
@@ -295,6 +295,41 @@ By default, the pipeline trusts the reranker's scores for final result selection
 
 ## Embedding Providers
 
+A chunk can depend on neighbouring passages, and a search question has a different role from an indexed document. Choose Voyage to embed ordered document chunks together, or Gemini Embedding 2 to apply the model's document/query formatting to independently embedded chunks.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+Choose one embedding configuration for a store:
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` receives one immutable `EmbeddingDocument` containing `DocumentId`, nullable `Title` and all ordered `Chunks`; the title is captured from `RagDocument.Metadata["title"]`. Indexing calls `GetDocumentEmbeddingsAsync` once per nonempty document regardless of `EmbeddingBatchSize`. Dense retrieval and diagnostics use `GetQueryEmbeddingAsync`; existing providers retain generic batch/query calls. Keyword-only retrieval does not embed queries.
+
+`VoyageContextualizedEmbeddingProvider` sends the whole document as one group with `input_type=document`, and queries as singleton groups with `input_type=query`. It defaults to `voyage-context-4` and 1024 dimensions, with 256, 512 and 2048 also supported. Auto chunking is disabled. The local limit is 16,000 chunks per document; the service enforces token limits. Generic methods omit `input_type` and treat up to 1,000 texts as independent singleton groups. IDs and titles are not sent.
+
+Generic batches check cancellation while reading inputs; reading stops and the batch is rejected as soon as it exceeds 1,000 texts, before any HTTP request. Document groups remain intact.
+
+`GeminiEmbeddingProvider` defaults to `gemini-embedding-2`, 1536 dimensions (128–3072), and four concurrent requests across calls to the provider. Each chunk has its own request and vector. Retrieval formats only HTTP input as `title: {title} | text: {text}` (missing title: `none`) or `task: search result | query: {query}`; generic methods send original text. `embedContentConfig.autoTruncate=false` disables silent truncation. Extracted document content and stored chunk text are unchanged.
+
+Both providers validate counts, dimensions and finite coordinates; Voyage validates nested indices and restores input order. The caller owns the supplied `HttpClient`, whose settings remain unchanged. Errors omit keys and remote payloads, caller cancellation propagates, and timeouts throw `TimeoutException`. Voyage's optional `timeout` is per request; Gemini's covers the whole operation including concurrency waits. The client's own timeout also applies. Oversized inputs are not silently resplit or truncated. Failures before persistence preserve the previous document; atomicity after storage begins depends on the store or callback. Reindex after changing the embedding model, dimensions or retrieval formatting. See the [embedding guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md#retrieval-aware-embeddings).
+
+Live API checks use synthetic TXT, Markdown and PDF sources. Explicitly set `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, configure credentials, then run `pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All` (`Voyage` or `Gemini` also supported). These checks incur API charges and fail if selected cases are skipped; see the [live validation instructions](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md). Offline tests do not establish live service availability.
+
 Use Perplexity standard embeddings to index independent passages with the same RAG pipeline. Select `PerplexityEmbeddingModels.Standard0_6B` (1024 dimensions) or `Standard4B` (2560 dimensions); supply a Perplexity key and your application's `HttpClient`.
 
 ```csharp
@@ -303,7 +338,9 @@ var rag = service.WithRag(builder => builder
     .UsePerplexityEmbedding(perplexityApiKey, httpClient));
 ```
 
-For context-sensitive chunks, `PerplexityContextualizedEmbeddingProvider` preserves document groups and their order through `GetDocumentEmbeddingsAsync`; embed queries with its `GetQueryEmbeddingAsync` using the same contextual model. This separate API does not implement the flat `IEmbeddingProvider`. Float methods decode signed-int8 and normalize vectors, while explicit binary methods return packed bits for Hamming distance. See the [Perplexity embedding guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md) for all four models, dimensions, limits, and binary methods.
+For context-sensitive chunks, register `PerplexityContextualizedEmbeddingProvider` with `.UseEmbedding(contextual)`. It implements `IRetrievalEmbeddingProvider` explicitly for single documents while preserving the existing public grouped `GetDocumentEmbeddingsAsync` API. Queries use `GetQueryEmbeddingAsync` and the same contextual model. Float methods decode signed-int8 and normalize vectors; explicit binary methods return packed bits for Hamming distance. See the [Perplexity embedding guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md) for models, limits and binary methods.
+
+Perplexity float and binary batches allow up to 512 independent texts, or 512 contextual documents with 16,000 chunks in total. The client checks cancellation while reading inputs and stops reading at an exceeded limit, rejecting the batch before any HTTP request. Document groups, chunk order and existing public API signatures are preserved.
 
 ```csharp
 // Local feature-hashing (default, no API key required)

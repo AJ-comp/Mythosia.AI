@@ -2,7 +2,59 @@
 
 > 📍 **질문 응답 파이프라인:** [쿼리 재작성](rag-query-rewriting.md) → [필터링](rag-filtering.md) → **`임베딩(필요 시)`** → [검색](rag-hybrid-search.md) → [재순위](rag-reranking.md) → [컨텍스트 구성](rag-context-build.md)
 
-질문의 `Embedding` 단계는 선택한 검색기에 따라 실행됩니다. 키워드 검색은 이 단계를 보고하지 않습니다. 커스텀 검색기는 `request.ProgressAsync`로 실제 단계의 진행 상황을 알릴 수 있습니다. 문서 등록 임베딩은 그대로입니다.
+질문의 `Embedding` 단계는 선택한 검색기에 따라 실행됩니다. 키워드 검색은 이 단계를 보고하지 않습니다. 커스텀 검색기는 `request.ProgressAsync`로 실제 단계의 진행 상황을 알릴 수 있습니다.
+
+<a id="retrieval-aware-embeddings"></a>
+
+## 문서 문맥과 질문의 검색 목적 유지하기
+
+청크를 이해하려면 이웃 문단이 필요할 수 있고, 검색 질문은 색인 문서와 역할이 다릅니다. RAG 8.2.0은 TXT·Markdown·PDF에서 추출한 텍스트에 Voyage 문맥 임베딩과 Gemini Embedding 2를 제공합니다.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider`는 선택 기능이며 기존 제공자는 그대로 동작합니다. 색인은 `EmbeddingBatchSize`와 관계없이 모든 청크를 순서대로 담은 불변 `EmbeddingDocument(documentId, chunks, title)` 하나를 전달합니다. 제목은 `RagDocument.Metadata["title"]`에서 가져옵니다. 벡터 검색과 진단은 `GetQueryEmbeddingAsync`를 호출하고, 기존 제공자는 `GetEmbeddingsAsync` 배치와 `GetEmbeddingAsync` 질문 호출을 유지합니다. 키워드 전용 검색은 질문을 임베딩하지 않습니다.
+
+저장소에 사용할 임베딩 설정 하나를 선택하세요:
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider`의 기본값은 `voyage-context-4`, 1024차원이며 256·512·1024·2048차원을 지원합니다. 문서 전체를 순서가 유지된 한 묶음으로 `input_type=document`와 함께 보내고, 질문은 단독 묶음에 `input_type=query`로 보냅니다. 자동 청킹은 끕니다. 문서당 최대 16,000개 청크이며 토큰 제한은 서버에서 검사합니다. 일반 메서드는 `input_type`을 생략하고 최대 1,000개 텍스트를 각각 독립된 단일 청크 묶음으로 처리합니다. 문서 ID와 제목은 전송하지 않습니다. [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+일반 배치는 입력을 읽는 동안 취소를 확인하며, 텍스트가 1,000개를 넘으면 즉시 읽기를 멈추고 HTTP 요청 없이 거부합니다. 문서 전체 묶음은 그대로 유지합니다.
+
+### Gemini
+
+`GeminiEmbeddingProvider`의 기본값은 `gemini-embedding-2`, 1536차원(128–3072), `maxConcurrency=4`입니다. 청크마다 별도 HTTP 요청으로 벡터 하나를 받습니다. 검색 입력은 `title: {title} | text: {text}`(제목이 없으면 `none`) 또는 `task: search result | query: {query}` 형식입니다. 접두사는 HTTP 입력에만 붙이고 일반 메서드는 원문을 보냅니다. `embedContentConfig.autoTruncate=false`로 크기 초과 입력을 임의로 자르지 않고 실패 처리합니다. [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+두 제공자는 저장할 원문을 유지하고 벡터 개수·차원·유한 값을 검증합니다. 전달한 `HttpClient`의 소유권과 설정은 호출자에게 유지됩니다. Voyage는 검증된 응답 인덱스로 문서·청크 순서를 복원합니다. 오류에는 키나 원격 응답 본문을 포함하지 않으며 취소를 전달하고 시간 초과는 `TimeoutException`으로 알립니다. Voyage의 `timeout`은 요청별, Gemini는 동시 실행 대기를 포함한 임베딩 작업 전체에 적용되며 클라이언트 시간 제한도 적용됩니다. 지원 범위를 넘은 입력을 조용히 재분할하거나 자르지 않습니다. 저장 전 실패는 기존 문서를 보존하고, 저장 시작 후 원자성은 저장소나 콜백 구현에 달려 있습니다. 모델·차원·검색 입력 형식을 바꾸면 같은 설정으로 문서를 다시 색인하고 저장소 차원도 맞추세요.
+
+### 실제 서비스 검증
+
+라이브 테스트는 합성 TXT·Markdown·PDF 텍스트를 보내며 API 요금이 발생합니다. `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`과 인증 정보를 설정한 뒤 `All`, `Voyage`, `Gemini` 중 하나를 선택하세요. 건너뛰거나 판정 불가인 사례는 실행기가 실패로 처리하며, 오프라인 테스트만으로 서비스 가용성을 확인할 수는 없습니다.
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[실제 서비스 검증](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## 임베딩이란?
 
@@ -15,15 +67,15 @@ RAG 파이프라인에서 임베딩은 두 곳에서 사용됩니다:
 1. **문서 인덱싱 시** — 각 청크를 벡터로 변환해 벡터 스토어에 저장
 2. **쿼리 시** — 사용자의 질문을 벡터로 변환해 저장된 청크와 유사도 비교
 
-이 페이지에서는 **쿼리 시점의 임베딩**(2번)을 상세히 설명합니다.
-
 ## 내장 임베딩 프로바이더
 
 문서 언어, 운영 환경, 검색 요구에 맞는 임베딩 프로바이더를 선택하세요.
 
 ### Perplexity
 
-표준 임베딩은 문단을 독립적으로 다루고 `IEmbeddingProvider`를 구현하므로 기존 빌더에 연결됩니다. 문맥 임베딩은 이웃 청크의 순서와 문서별 묶음을 유지합니다. 관련 없는 문서가 하나의 입력으로 합쳐지는 것을 막기 위해 별도 API를 사용합니다.
+`PerplexityContextualizedEmbeddingProvider`는 이제 `IRetrievalEmbeddingProvider`를 구현하므로 `.UseEmbedding(contextual)`로 연결할 수 있습니다. 기존 공개 문서 묶음용 `GetDocumentEmbeddingsAsync`와 이진 메서드는 유지됩니다. 새 단일 문서 메서드는 명시적 인터페이스 구현으로 기존 호출을 보존합니다. RAG는 문서 경계를 유지하며 질문에도 같은 문맥 모델과 차원을 사용합니다.
+
+Perplexity 실수·이진 배치는 독립 텍스트 최대 512개 또는 문맥 문서 최대 512개·총 16,000개 청크를 받습니다. 입력을 읽는 동안 취소를 확인하고 제한 초과 시 읽기를 멈춰 HTTP 요청 전에 거부합니다. 문서 묶음과 순서는 유지됩니다. 자세한 내용은 [Perplexity 가이드](perplexity.md)를 참고하세요.
 
 [Perplexity Agent API, 검색과 임베딩](perplexity.md).
 
@@ -102,7 +154,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ## 배치 처리
 
-문서 인덱싱 시, 파이프라인은 수천 개의 텍스트를 한 번에 보내는 대신 배치 단위로 임베딩합니다. 배치 크기는 설정 가능합니다:
+`EmbeddingBatchSize`는 기존 `IEmbeddingProvider`의 평면 배치를 제어합니다. `IRetrievalEmbeddingProvider`는 문서 전체를 받고 HTTP 배치를 직접 관리하므로, 이 값을 줄여도 Voyage 문서를 여러 문맥 묶음으로 나누지 않습니다.
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -144,6 +196,8 @@ HTTP 요청이 성공해도 벡터가 빠지거나 순서가 바뀌면 텍스트
 
 | 프로바이더 | 모델 | 기본 차원 수 |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
@@ -191,7 +245,7 @@ public class MyEmbeddingProvider : IEmbeddingProvider
 `QueryAsync`가 실행되면 임베딩 단계는 딱 한 가지만 수행합니다:
 
 ```
-사용자 질문 (문자열) → EmbeddingProvider.GetEmbeddingAsync() → 쿼리 벡터 (float[])
+사용자 질문 (문자열) → GetQueryEmbeddingAsync() / GetEmbeddingAsync() → 쿼리 벡터 (float[])
 ```
 
 이 쿼리 벡터는 다음 단계인 [필터링](rag-filtering.md)으로 전달되고, 메타데이터 필터와 함께 [검색](rag-hybrid-search.md)에서 유사도 검색이 수행됩니다.

@@ -2,7 +2,59 @@
 
 > 📍 **Пайплайн вопрос-ответ:** [Переписывание запросов](rag-query-rewriting.md) → [Фильтрация](rag-filtering.md) → **`Эмбеддинг (при необходимости)`** → [Поиск](rag-hybrid-search.md) → [Переранжирование](rag-reranking.md) → [Построение контекста](rag-context-build.md)
 
-Этап запроса `Embedding` зависит от компонента; лексический поиск его не сообщает. Собственный компонент может сообщать этапы через `request.ProgressAsync`. Эмбеддинги документов не меняются.
+Этап запроса `Embedding` зависит от компонента; лексический поиск его не сообщает. Собственный компонент может сообщать этапы через `request.ProgressAsync`.
+
+<a id="retrieval-aware-embeddings"></a>
+
+## Сохранение контекста документа и назначения запроса
+
+Смысл фрагмента может зависеть от соседних абзацев, а поисковый вопрос и индексируемый документ играют разные роли. RAG 8.2.0 добавляет контекстные эмбеддинги Voyage и Gemini Embedding 2 для текста, извлечённого из TXT, Markdown и PDF.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` — необязательная возможность; существующие провайдеры продолжают работать. Индексация передаёт неизменяемый `EmbeddingDocument(documentId, chunks, title)` со всеми фрагментами по порядку независимо от `EmbeddingBatchSize`. Заголовок берётся из `RagDocument.Metadata["title"]`. Векторный поиск и диагностика вызывают `GetQueryEmbeddingAsync`; прежние провайдеры сохраняют пакеты `GetEmbeddingsAsync` и запросы `GetEmbeddingAsync`. Поиск только по ключевым словам не создаёт эмбеддинг запроса.
+
+Выберите одну конфигурацию эмбеддингов для хранилища:
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider` по умолчанию использует `voyage-context-4` и 1024 измерения (256, 512, 1024 или 2048). Документ целиком отправляется одной упорядоченной группой с `input_type=document`, запрос — отдельной группой с `input_type=query`. Автоматическое разбиение отключено. В документе может быть до 16 000 фрагментов; ограничения токенов проверяет сервис. Общие методы не задают `input_type` и обрабатывают до 1 000 текстов как независимые группы по одному фрагменту. ID и заголовок не отправляются. [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+При чтении входных данных общие пакетные методы проверяют отмену. Как только число текстов превышает 1 000, чтение прекращается, а пакет отклоняется без HTTP-запроса. Группы документов сохраняются целиком.
+
+### Gemini
+
+`GeminiEmbeddingProvider` по умолчанию использует `gemini-embedding-2`, 1536 измерений (128–3072) и `maxConcurrency=4`. Каждый фрагмент получает вектор через отдельный HTTP-запрос. Формат поиска: `title: {title} | text: {text}` (без заголовка: `none`) или `task: search result | query: {query}`. Префиксы добавляются только в HTTP-вход; общие методы отправляют исходный текст. `embedContentConfig.autoTruncate=false` отклоняет слишком длинный ввод без обрезки. [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+Оба провайдера сохраняют исходный текст и проверяют количество, размерность и конечность значений векторов. Переданный `HttpClient` остаётся у вызывающего кода с неизменными настройками. Voyage восстанавливает порядок по проверенным индексам ответа. Ошибки не включают ключи и удалённое содержимое; отмена передаётся дальше, тайм-аут вызывает `TimeoutException`. У Voyage `timeout` действует на запрос, у Gemini — на всю операцию, включая ожидание свободного слота; тайм-аут клиента тоже действует. Ввод не разбивается и не обрезается незаметно. Ошибка до сохранения оставляет прежний документ; после начала сохранения атомарность зависит от хранилища или callback. При смене модели, размерности или формата поиска переиндексируйте документы и настройте хранилище на то же векторное пространство.
+
+### Проверка реального сервиса
+
+Live-тесты отправляют синтетический текст TXT, Markdown и PDF и вызывают платные API. Задайте `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, настройте учётные данные и выберите `All`, `Voyage` или `Gemini`. Пропущенные и неопределённые случаи считаются неуспехом; офлайн-тесты не подтверждают доступность сервиса.
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[Проверка реального сервиса](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## Что такое эмбеддинг?
 
@@ -15,15 +67,15 @@
 1. **Индексация документов** — каждый чанк векторизуется и сохраняется в хранилище
 2. **На этапе запроса** — вопрос пользователя векторизуется для поиска по сходству
 
-Эта страница посвящена эмбеддингу запроса (шаг 2).
-
 ## Встроенные провайдеры
 
 Выбирайте провайдера эмбеддингов с учётом языка документов, размещения и требований к поиску.
 
 ### Perplexity
 
-Стандартные эмбеддинги обрабатывают фрагменты независимо и реализуют `IEmbeddingProvider` для существующего RAG-построителя. Контекстные сохраняют порядок соседних фрагментов и группы документов. Отдельный API предотвращает объединение несвязанных документов в плоский вход.
+`PerplexityContextualizedEmbeddingProvider` теперь реализует `IRetrievalEmbeddingProvider` и подключается через `.UseEmbedding(contextual)`. Публичный групповой метод `GetDocumentEmbeddingsAsync` и бинарные методы сохранены. Новый метод одного документа реализован явно через интерфейс, поэтому существующие вызовы не меняются. RAG сохраняет границы документов и использует для запросов ту же контекстную модель и размерность.
+
+Пакеты Perplexity с вещественными и бинарными векторами принимают до 512 независимых текстов либо 512 контекстных документов, содержащих суммарно 16 000 фрагментов. При чтении проверяется отмена; превышение лимита останавливает чтение и отклоняет пакет до HTTP-запроса. Группировка и порядок сохраняются. Подробнее в [руководстве Perplexity](perplexity.md).
 
 [Perplexity Agent API, поиск и эмбеддинги](perplexity.md).
 
@@ -98,7 +150,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ## Пакетная обработка
 
-При индексации чанки обрабатываются пакетами:
+`EmbeddingBatchSize` управляет плоскими пакетами прежних реализаций `IEmbeddingProvider`. `IRetrievalEmbeddingProvider` получает документ целиком и сам управляет HTTP-запросами; уменьшение этого значения не делит документ Voyage на отдельные контекстные группы.
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -130,6 +182,8 @@ pipeline.Options = options;
 
 | Провайдер | Модель | Размерность по умолчанию |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
@@ -166,7 +220,7 @@ public class MyEmbeddingProvider : IEmbeddingProvider
 ## Внутренний механизм
 
 ```
-Вопрос пользователя (string) → EmbeddingProvider.GetEmbeddingAsync() → Вектор запроса (float[])
+Вопрос пользователя (string) → GetQueryEmbeddingAsync() / GetEmbeddingAsync() → Вектор запроса (float[])
 ```
 
 Этот вектор передаётся на следующий этап ([Фильтрация](rag-filtering.md)), а затем в [Поиск](rag-hybrid-search.md).

@@ -1,5 +1,9 @@
 # Personnalisation du pipeline RAG
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` est facultatif ; les fournisseurs existants restent compatibles. L’indexation transmet un `EmbeddingDocument(documentId, chunks, title)` immuable contenant tous les fragments dans leur ordre, indépendamment de `EmbeddingBatchSize`. Le titre provient de `RagDocument.Metadata["title"]`. La recherche vectorielle et les diagnostics appellent `GetQueryEmbeddingAsync` ; les anciens fournisseurs conservent les lots `GetEmbeddingsAsync` et les requêtes `GetEmbeddingAsync`. La recherche lexicale seule ne crée pas d’embedding de requête.
+
+[Configuration et contrats des fournisseurs](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## Protéger les documents existants en cas d’échec d’indexation

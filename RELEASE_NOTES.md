@@ -1,5 +1,30 @@
 # Mythosia.AI workspace release notes
 
+## v8.2.0
+
+This compatible embedding feature release publishes **Mythosia.AI.Rag 8.2.0** and **Mythosia.AI.Rag.Abstractions 6.4.0**. The core `Mythosia.AI` package remains **8.1.0** and PostgreSQL remains **10.8.1**. This heading identifies the workspace release, not a new core AI package.
+
+| Package | Published version | Release version | Full notes |
+| --- | --- | --- | --- |
+| Mythosia.AI.Rag.Abstractions | 6.3.0 | **6.4.0** | [RAG contracts](src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v640) |
+| Mythosia.AI.Rag | 8.1.1 | **8.2.0** | [RAG](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820) |
+
+### Added
+
+- Built-in Voyage Context 4 and Gemini Embedding 2 providers integrate with document loading, splitting, indexing and query retrieval. Applications select a provider, model, key and dimension through `UseVoyageEmbedding` / `UseGeminiEmbedding`, or use the existing `UseEmbedding` extension point.
+- Optional `IRetrievalEmbeddingProvider` and immutable `EmbeddingDocument` distinguish document and query inputs while preserving ordered whole-document context. Existing `IEmbeddingProvider` implementations remain compatible. Perplexity contextualized embeddings also use this integration.
+- Voyage preserves complete contextual document groups beyond generic batch boundaries. Gemini creates one vector per text, applying retrieval instructions only to HTTP inputs. Both providers validate responses, reject truncation or invalid results, support cancellation/timeouts and omit sensitive payloads from diagnostics.
+- Added deterministic provider/integration tests and an opt-in live runner covering extracted TXT, Markdown and PDF text. See the [embedding guide](docs/rag-embedding.md) and [live test instructions](build/RELEASE.md#retrieval-embedding-live-validation).
+
+### Changed
+
+- Perplexity standard and contextualized float/binary embedding methods observe cancellation while reading inputs. Reading stops at the first exceeded count limit and the batch is rejected before HTTP: 512 standard texts, or 512 contextual documents with 16,000 total chunks. Document groups, chunk order and existing public API signatures remain unchanged.
+
+### Compatibility
+
+- No existing embedding interface members are changed. Embedding failures occur before document replacement begins; storage rollback behavior remains specific to each vector store.
+- Changing models, dimensions or retrieval formatting requires reindexing affected data into a compatible vector collection. An unchanged provider does not require reindexing merely because the package was upgraded.
+
 ## v8.1.1
 
 This workspace patch includes only `Mythosia.AI.Rag` 8.1.1 and `Mythosia.VectorDb.Postgres` 10.8.1. The core `Mythosia.AI` package remains at **8.1.0**; all other package versions remain unchanged. The heading identifies the workspace patch, not a new core AI package version.

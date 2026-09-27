@@ -37,7 +37,7 @@
 
 แยกการตั้งค่าคำขอ หยุดงาน และรับคำตอบพร้อมการใช้โทเค็นและแหล่งที่มา [คู่มือย้ายไป v8](v8-migration.md) รวมการเปลี่ยนสถาปัตยกรรมหกด้าน ตัวอย่าง และขอบเขตการตรวจสอบ
 
-> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 > [แพตช์ RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): แรปเปอร์ RAG ที่เชื่อมต่ออยู่แล้วจะรับการเปลี่ยนตัวเขียนคำถามใหม่ระหว่างทำงาน และการค้นหาไฮบริดแบบผสมของ PostgreSQL จะใช้การตั้งค่าค้นหาเวกเตอร์ที่กำหนดไว้ แพ็กเกจหลัก `Mythosia.AI` ยังคงเป็น 8.1.0
 
@@ -309,6 +309,21 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("นโยบายการคืนสินค้าคืออะไร?");
 ```
+
+#### รักษาบริบทของเอกสารและหน้าที่ของคำค้น
+
+ข้อความแต่ละส่วนอาจต้องอาศัยเนื้อหาข้างเคียง และคำถามค้นหามีหน้าที่ต่างจากเอกสารที่ทำดัชนี RAG 8.2.0 เพิ่ม embedding แบบมีบริบทของ Voyage และ Gemini Embedding 2 สำหรับข้อความที่สกัดจาก TXT, Markdown และ PDF
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+[การตั้งค่าและสัญญาของผู้ให้บริการ](rag-embedding.md#retrieval-aware-embeddings): `UseVoyageEmbedding(...)`, `UseGeminiEmbedding(...)`, `IRetrievalEmbeddingProvider` / `EmbeddingDocument` (RAG 8.2.0, RAG Abstractions 6.4.0).
 
 ## Provider ที่รองรับ
 

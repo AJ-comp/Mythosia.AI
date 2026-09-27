@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "購買的商品可以在多久內退貨？", cancellationToken);
 ```
 
-索引文件與查詢應使用相同模型、維度與編碼。`GetQueryEmbeddingAsync` 將單一查詢當成獨立文件，傳給同一情境模型。情境結果保留文件與區塊順序，不會自動接入接收平面輸入的 RAG 建構器。
+`PerplexityContextualizedEmbeddingProvider` 現在實作 `IRetrievalEmbeddingProvider`，可用 `.UseEmbedding(contextual)` 註冊。現有公開群組方法 `GetDocumentEmbeddingsAsync` 和二進位方法保留。新增單一文件方法採用明確介面實作，保持原有呼叫相容。RAG 保留文件邊界，查詢使用相同上下文模型和維度。
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 float API 解碼提供者的 base64 signed-int8 向量，並為向量相似度正規化。明確的 binary API 傳回壓縮位元並使用漢明距離，不會把二進位靜默當成浮點座標。0.6B 的完整維度為 1024，4B 為 2560；選用降維遵守提供者限制。批次、文件長度、總權杖與帳戶速率限制仍適用。
 
 二進位方法包括 `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync`，以及情境的 `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`。`PerplexityBinaryEmbedding` 提供 `Dimensions`、傳回副本的 `ToArray()` 與越小越相似的 `HammingDistance`。二進位維度須為8的倍數。標準批次最多512個文字，情境批次最多512份文件、16,000個區塊。每文字/文件32K及合計120K權杖由提供者檢查。
+
+浮點和二進位方法都會在讀取輸入時檢查 `cancellationToken`；任何數量上限被超過時，立即停止繼續讀取，並在傳送 HTTP 請求前拒絕該批次。文件群組和區塊順序保持不變，公開 API 簽章不變。
 
 ## 遷移既有 Sonar 程式碼
 

@@ -2,7 +2,59 @@
 
 > 📍 **Pipeline Q&A:** [Viết lại truy vấn](rag-query-rewriting.md) → [Lọc](rag-filtering.md) → **`Embedding (khi cần)`** → [Truy xuất](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → [Xây dựng context](rag-context-build.md)
 
-Giai đoạn câu hỏi `Embedding` phụ thuộc bộ truy xuất; tìm từ khóa không báo giai đoạn này. Bộ tùy chỉnh có thể báo giai đoạn qua `request.ProgressAsync`. Embedding tài liệu không đổi.
+Giai đoạn câu hỏi `Embedding` phụ thuộc bộ truy xuất; tìm từ khóa không báo giai đoạn này. Bộ tùy chỉnh có thể báo giai đoạn qua `request.ProgressAsync`.
+
+<a id="retrieval-aware-embeddings"></a>
+
+## Giữ ngữ cảnh tài liệu và mục đích truy vấn
+
+Một đoạn có thể phụ thuộc vào nội dung lân cận, còn câu hỏi tìm kiếm và tài liệu được lập chỉ mục có vai trò khác nhau. RAG 8.2.0 bổ sung embedding ngữ cảnh Voyage và Gemini Embedding 2 cho văn bản trích xuất từ TXT, Markdown và PDF.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` là khả năng tùy chọn; các provider hiện có vẫn hoạt động. Khi lập chỉ mục, pipeline truyền một `EmbeddingDocument(documentId, chunks, title)` bất biến chứa tất cả đoạn theo thứ tự, bất kể `EmbeddingBatchSize`. Tiêu đề lấy từ `RagDocument.Metadata["title"]`. Tìm kiếm vector và chẩn đoán gọi `GetQueryEmbeddingAsync`; provider cũ giữ batch `GetEmbeddingsAsync` và truy vấn `GetEmbeddingAsync`. Tìm kiếm chỉ dùng từ khóa không tạo embedding truy vấn.
+
+Chọn một cấu hình embedding cho mỗi kho:
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider` mặc định dùng `voyage-context-4` và 1024 chiều (256, 512, 1024 hoặc 2048). Toàn bộ tài liệu được gửi thành một nhóm có thứ tự với `input_type=document`; truy vấn là nhóm riêng với `input_type=query`. Tắt tự động chia đoạn. Mỗi tài liệu tối đa 16.000 đoạn; dịch vụ kiểm tra giới hạn token. Các phương thức chung bỏ `input_type` và xử lý tối đa 1.000 văn bản thành các nhóm độc lập, mỗi nhóm một đoạn. Không gửi ID và tiêu đề tài liệu. [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+Các lô chung kiểm tra yêu cầu hủy trong khi đọc đầu vào. Ngay khi vượt quá 1.000 văn bản, việc đọc dừng lại và lô bị từ chối mà không gửi yêu cầu HTTP. Các nhóm tài liệu vẫn được giữ nguyên.
+
+### Gemini
+
+`GeminiEmbeddingProvider` mặc định dùng `gemini-embedding-2`, 1536 chiều (128–3072) và `maxConcurrency=4`. Mỗi đoạn có một yêu cầu HTTP và một vector riêng. Định dạng tìm kiếm là `title: {title} | text: {text}` (không có tiêu đề: `none`) hoặc `task: search result | query: {query}`. Tiền tố chỉ thêm vào đầu vào HTTP; phương thức chung gửi văn bản gốc. `embedContentConfig.autoTruncate=false` từ chối đầu vào quá dài thay vì cắt ngắn. [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+Cả hai provider giữ nguyên văn bản lưu trữ và kiểm tra số vector, số chiều, giá trị hữu hạn. `HttpClient` vẫn thuộc bên gọi và không đổi cấu hình. Voyage khôi phục thứ tự từ chỉ số phản hồi đã kiểm tra. Lỗi không chứa khóa hay nội dung từ xa; hủy được truyền tiếp, hết thời gian gây `TimeoutException`. `timeout` của Voyage áp dụng theo yêu cầu, Gemini áp dụng cho cả thao tác kể cả thời gian chờ đồng thời; giới hạn của client cũng có hiệu lực. Không tự chia lại hoặc cắt bỏ âm thầm. Lỗi trước khi lưu giữ tài liệu cũ; tính nguyên tử sau khi bắt đầu lưu tùy kho hoặc callback. Khi đổi mô hình, số chiều hoặc định dạng tìm kiếm, hãy lập chỉ mục lại tài liệu và cấu hình kho cho cùng không gian vector.
+
+### Kiểm tra dịch vụ thực tế
+
+Kiểm thử trực tiếp gửi văn bản tổng hợp TXT, Markdown và PDF, có phát sinh phí API. Đặt `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, cấu hình thông tin xác thực và chọn `All`, `Voyage` hoặc `Gemini`. Trình chạy từ chối trường hợp bị bỏ qua hoặc chưa kết luận; kiểm thử ngoại tuyến không xác nhận dịch vụ đang khả dụng.
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[Kiểm tra dịch vụ thực tế](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## Embedding là gì?
 
@@ -15,15 +67,15 @@ Trong RAG pipeline, embedding xảy ra tại hai điểm:
 1. **Lập index tài liệu** — mỗi đoạn được embed và lưu vào vector store
 2. **Thời điểm truy vấn** — câu hỏi của user được embed để so sánh với các đoạn đã lưu
 
-Trang này tập trung vào embedding thời điểm truy vấn (bước 2), chuyển đổi câu hỏi của user thành vector để tìm kiếm độ tương đồng.
-
 ## Provider embedding tích hợp
 
 Chọn nhà cung cấp embedding theo ngôn ngữ tài liệu, môi trường triển khai và nhu cầu truy xuất.
 
 ### Perplexity
 
-Embedding tiêu chuẩn xử lý đoạn độc lập và triển khai `IEmbeddingProvider` cho bộ dựng RAG hiện có. Embedding ngữ cảnh giữ thứ tự đoạn và nhóm tài liệu. API riêng ngăn gộp phẳng các tài liệu không liên quan.
+`PerplexityContextualizedEmbeddingProvider` nay triển khai `IRetrievalEmbeddingProvider` và có thể đăng ký qua `.UseEmbedding(contextual)`. API công khai theo nhóm `GetDocumentEmbeddingsAsync` và phương thức nhị phân vẫn giữ nguyên. Phương thức một tài liệu mới triển khai interface tường minh để bảo toàn lời gọi cũ. RAG giữ ranh giới tài liệu và dùng cùng mô hình ngữ cảnh, số chiều cho truy vấn.
+
+Lô số thực và nhị phân của Perplexity nhận tối đa 512 văn bản độc lập, hoặc 512 tài liệu ngữ cảnh với tổng cộng 16.000 đoạn. Việc xác thực kiểm tra hủy trong khi đọc và dừng ngay khi vượt giới hạn, từ chối lô trước khi gửi HTTP. Nhóm và thứ tự tài liệu được giữ nguyên. Xem [hướng dẫn Perplexity](perplexity.md).
 
 [Perplexity Agent API, tìm kiếm và embedding](perplexity.md).
 
@@ -102,7 +154,7 @@ Provider nhẹ không cần cấu hình, dựa trên feature hashing. Không c�
 
 ## Xử lý theo lô
 
-Khi lập index tài liệu, pipeline embed các đoạn theo lô để tránh gửi hàng ngàn văn bản trong một API call. Kích thước lô có thể cấu hình:
+`EmbeddingBatchSize` điều khiển batch phẳng của các triển khai `IEmbeddingProvider` cũ. `IRetrievalEmbeddingProvider` nhận cả tài liệu và tự quản lý HTTP; giảm giá trị này không chia tài liệu Voyage thành nhiều nhóm ngữ cảnh.
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -144,6 +196,8 @@ Kích thước chiều phổ biến:
 
 | Provider | Model | Chiều mặc định |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |

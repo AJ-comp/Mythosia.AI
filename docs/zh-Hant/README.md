@@ -37,7 +37,7 @@ TXT 與 Markdown 應依文件結構選擇[規則式分割器](text-splitters.md)
 
 獨立管理請求設定，停止進行中的工作，並同時取得答案、用量與來源。[v8 升級指南](v8-migration.md)整理了六項架構變更、遷移範例與驗證範圍。
 
-> 本文件對應的套件版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> 本文件對應的套件版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 > [RAG 8.1.1 / PostgreSQL 10.8.1 修補版本](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)：現有 RAG 包裝器會採用執行期間變更的改寫器，PostgreSQL 混合檢索也會套用設定的向量搜尋參數。核心套件 `Mythosia.AI` 仍為 8.1.0。
 
@@ -309,6 +309,21 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+#### 保留文件上下文和查詢用途
+
+區塊的含義可能依賴相鄰段落，搜尋問題與索引文件的用途也不同。RAG 8.2.0 為從 TXT、Markdown 和 PDF 擷取的文字提供 Voyage 上下文嵌入和 Gemini Embedding 2。
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+[設定和提供者契約](rag-embedding.md#retrieval-aware-embeddings): `UseVoyageEmbedding(...)`, `UseGeminiEmbedding(...)`, `IRetrievalEmbeddingProvider` / `EmbeddingDocument` (RAG 8.2.0, RAG Abstractions 6.4.0).
 
 ## 支援的供應商
 

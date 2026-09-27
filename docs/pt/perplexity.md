@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "Até quando posso devolver uma compra?", cancellationToken);
 ```
 
-Use o mesmo modelo, dimensões e codificação para documentos e consultas. `GetQueryEmbeddingAsync` envia uma consulta como documento individual ao mesmo modelo contextual. Os resultados mantêm a ordem de documentos e trechos, sem ligação automática ao construtor RAG de entrada plana.
+`PerplexityContextualizedEmbeddingProvider` agora implementa `IRetrievalEmbeddingProvider` e pode ser registrado com `.UseEmbedding(contextual)`. A API pública agrupada `GetDocumentEmbeddingsAsync` e os métodos binários são mantidos. O novo método para um documento implementa a interface explicitamente, preservando chamadas existentes. O RAG mantém os limites dos documentos e usa o mesmo modelo contextual e dimensões nas consultas.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 APIs float decodificam vetores base64 signed-int8 e os normalizam para similaridade. APIs binárias explícitas retornam bits compactados e usam distância de Hamming; nunca tratam bits implicitamente como coordenadas float. As dimensões completas são 1024 para 0.6B e 2560 para 4B; dimensões reduzidas seguem os limites do provedor. Limites de lotes, tamanho, tokens totais e taxa da conta continuam aplicáveis.
 
 Métodos binários: `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync`, e contextuais `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`. `PerplexityBinaryEmbedding` fornece `Dimensions`, cópia por `ToArray()` e `HammingDistance`; menor distância significa maior similaridade. Dimensões binárias são múltiplos de oito. Máximo de 512 textos padrão ou 512 documentos e 16.000 trechos contextuais. O provedor verifica 32K tokens por texto/documento e 120K no total.
+
+Nos métodos de ponto flutuante e binários, o cliente verifica `cancellationToken` enquanto lê as entradas. Assim que qualquer limite de quantidade é ultrapassado, interrompe a leitura e rejeita o lote antes de enviar uma solicitação HTTP. Os grupos de documentos e a ordem dos trechos são preservados; as assinaturas da API pública permanecem iguais.
 
 ## Migrar o código Sonar existente
 

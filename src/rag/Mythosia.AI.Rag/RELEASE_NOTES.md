@@ -1,5 +1,31 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v8.2.0
+
+### Added
+
+- `VoyageContextualizedEmbeddingProvider` supports `voyage-context-4`, default 1024 dimensions. RAG passes each complete ordered document as one contextual group, independently of the generic embedding batch size. Document and query calls use their respective retrieval input types, without mixing document contexts or silently splitting or truncating an oversized document.
+- `GeminiEmbeddingProvider` supports text with `gemini-embedding-2`, default 1536 dimensions. Each chunk produces an independent vector, with bounded concurrent HTTP requests. Official document-title/text and search-query prefixes are applied only to API inputs; indexed source text remains unchanged. Automatic truncation is disabled.
+- `RagBuilder.UseVoyageEmbedding` and `UseGeminiEmbedding` configure caller-owned HTTP clients, model IDs, dimensions and optional timeouts. Voyage applies its timeout per HTTP request; Gemini applies it to the whole embedding operation, including concurrency waits. Providers validate response shape, input/result association, counts, dimensions and finite values while allowing unused response fields. HTTP errors exclude response bodies and credentials; cancellation reaches request and body transfer.
+
+### Changed
+
+- Indexing, vector/hybrid retrieval, legacy strategy adapters and diagnostics detect optional `IRetrievalEmbeddingProvider`. Indexing supplies `EmbeddingDocument` with snapshotted identity, title and ordered chunk text; query paths use the explicit query method. Keyword-only retrieval still avoids embedding calls.
+- `PerplexityContextualizedEmbeddingProvider` implements the same optional contract. Its existing grouped API and binary APIs remain available. Generic flat embedding methods treat texts as independent groups.
+- Voyage generic batches check cancellation while reading inputs and stop as soon as the 1,000-text limit is exceeded, rejecting the batch before any HTTP request. Complete document groups remain intact.
+- Perplexity standard and contextualized float/binary methods check cancellation while reading inputs and stop at the first exceeded count limit before sending HTTP. Standard batches allow 512 texts; contextual batches allow 512 documents and 16,000 total chunks. Document grouping, chunk order and existing public signatures are preserved.
+
+### Compatibility
+
+- Existing `IEmbeddingProvider` signatures and implementations are unchanged and retain generic batching. Requires `Mythosia.AI.Rag.Abstractions` 6.4.0. No other package upgrade is required by this release.
+- Switching embedding models, dimensions or document/query formatting requires re-embedding affected documents in an appropriate vector collection, even when vector dimensions match. Merely upgrading with an existing provider does not require reindexing.
+- All vectors for one document are validated before its replacement begins. HTTP failures and cancellation during embedding leave that document's stored vectors unchanged; persistence rollback guarantees continue to depend on the vector store's replacement implementation.
+
+### Internal
+
+- Added provider and integration regressions for document grouping beyond the default batch size, separate documents, reordered/malformed responses, buffer ownership, original text preservation, cancellation and timeout/error handling.
+- Added opt-in live TXT/Markdown/PDF extraction, indexing and retrieval checks for both providers, including a 101-chunk Voyage document. The strict runner rejects skipped or inconclusive results; live validation requires provider credentials and incurs API charges.
+
 ## v8.1.1
 
 ### Changed

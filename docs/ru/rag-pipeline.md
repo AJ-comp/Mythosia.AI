@@ -1,5 +1,9 @@
 # Настройка пайплайна RAG
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` — необязательная возможность; существующие провайдеры продолжают работать. Индексация передаёт неизменяемый `EmbeddingDocument(documentId, chunks, title)` со всеми фрагментами по порядку независимо от `EmbeddingBatchSize`. Заголовок берётся из `RagDocument.Metadata["title"]`. Векторный поиск и диагностика вызывают `GetQueryEmbeddingAsync`; прежние провайдеры сохраняют пакеты `GetEmbeddingsAsync` и запросы `GetEmbeddingAsync`. Поиск только по ключевым словам не создаёт эмбеддинг запроса.
+
+[Настройка и контракты провайдеров](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## Защита существующих документов при сбое индексации

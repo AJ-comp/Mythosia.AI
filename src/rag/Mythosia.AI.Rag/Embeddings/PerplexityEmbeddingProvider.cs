@@ -27,7 +27,7 @@ namespace Mythosia.AI.Rag.Embeddings
         public async Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var inputs = PerplexityEmbeddingTransport.ValidateTexts(texts, nameof(texts), 512);
+            var inputs = PerplexityEmbeddingTransport.ValidateTexts(texts, nameof(texts), 512, cancellationToken);
             if (inputs.Length == 0) return Array.Empty<float[]>();
             using var document = await _transport.SendAsync(inputs, false, false, cancellationToken).ConfigureAwait(false);
             return PerplexityEmbeddingTransport.ReadIndexed(document.RootElement, inputs.Length, (item, _) => _transport.ReadNormalized(item));
@@ -40,7 +40,7 @@ namespace Mythosia.AI.Rag.Embeddings
         {
             cancellationToken.ThrowIfCancellationRequested();
             _transport.ValidateBinaryDimensions();
-            var inputs = PerplexityEmbeddingTransport.ValidateTexts(texts, nameof(texts), 512);
+            var inputs = PerplexityEmbeddingTransport.ValidateTexts(texts, nameof(texts), 512, cancellationToken);
             if (inputs.Length == 0) return Array.Empty<PerplexityBinaryEmbedding>();
             using var document = await _transport.SendAsync(inputs, false, true, cancellationToken).ConfigureAwait(false);
             return PerplexityEmbeddingTransport.ReadIndexed(document.RootElement, inputs.Length, (item, _) => _transport.ReadBinary(item));

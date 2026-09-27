@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "購入品はいつまで返品できますか？", cancellationToken);
 ```
 
-文書とクエリには同じモデル、次元、エンコーディングを使います。`GetQueryEmbeddingAsync` は一つのクエリを独立した文書として同じ文脈モデルに送ります。文脈結果は文書とチャンクの順序を維持し、平坦な RAG ビルダーに自動接続されません。
+`PerplexityContextualizedEmbeddingProvider` は `IRetrievalEmbeddingProvider` を実装し、`.UseEmbedding(contextual)` で登録できます。既存の公開グループ版 `GetDocumentEmbeddingsAsync` とバイナリメソッドは維持されます。新しい単一文書メソッドは明示的インターフェイス実装なので既存の呼び出しを保ちます。RAG は文書境界を維持し、クエリにも同じ文脈モデルと次元を使います。
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 float API は base64 の signed-int8 ベクトルを復号し、類似度計算用に正規化します。明示的な binary API は圧縮ビットを返し、ハミング距離を使います。バイナリを float 座標として暗黙に扱いません。全次元は 0.6B が 1024、4B が 2560 で、次元削減は提供元の制限に従います。バッチ、文書長、総トークン、アカウントのレート制限も適用されます。
 
 バイナリ用は `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync` と文脈用 `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync` です。`PerplexityBinaryEmbedding` は `Dimensions`、コピーを返す `ToArray()`、小さいほど類似する `HammingDistance` を提供します。バイナリ次元は8の倍数です。標準バッチは512テキスト、文脈バッチは512文書・16,000チャンクまでです。テキスト/文書当たり32K、総計120Kトークンは提供元が検証します。
+
+浮動小数点・バイナリの両メソッドは入力を読み取る間に `cancellationToken` を確認し、いずれかの件数上限を超えた時点で読み取りを停止して、HTTP リクエスト前にバッチを拒否します。文書のグループとチャンク順序は維持され、公開 API のシグネチャは変わりません。
 
 ## 既存の Sonar コードを移行する
 

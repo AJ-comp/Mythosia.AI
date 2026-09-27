@@ -1,5 +1,9 @@
 # RAG 管線自訂
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` 是選用能力，現有提供者繼續運作。索引將所有依序排列的區塊放入不可變的 `EmbeddingDocument(documentId, chunks, title)`，不受 `EmbeddingBatchSize` 限制。標題取自 `RagDocument.Metadata["title"]`。向量檢索和診斷呼叫 `GetQueryEmbeddingAsync`；原有提供者繼續使用 `GetEmbeddingsAsync` 批次和 `GetEmbeddingAsync` 查詢。純關鍵字檢索不產生查詢嵌入。
+
+[設定和提供者契約](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## 索引失敗時保護既有文件

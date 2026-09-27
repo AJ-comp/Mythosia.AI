@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "구매한 상품은 언제까지 반품할 수 있나요?", cancellationToken);
 ```
 
-색인 문서와 질의에는 같은 모델·차원·인코딩을 사용합니다. `GetQueryEmbeddingAsync`는 질의 하나를 별도 문서로 묶어 같은 문맥 모델에 전달합니다. 문맥 결과는 문서와 청크의 순서를 모두 유지하며, 평면 입력을 받는 RAG 빌더에 자동 연결되지 않습니다.
+`PerplexityContextualizedEmbeddingProvider`는 이제 `IRetrievalEmbeddingProvider`를 구현하므로 `.UseEmbedding(contextual)`로 연결할 수 있습니다. 기존 공개 문서 묶음용 `GetDocumentEmbeddingsAsync`와 이진 메서드는 유지됩니다. 새 단일 문서 메서드는 명시적 인터페이스 구현으로 기존 호출을 보존합니다. RAG는 문서 경계를 유지하며 질문에도 같은 문맥 모델과 차원을 사용합니다.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 float API는 제공자의 base64 signed-int8 벡터를 디코딩하고 벡터 유사도용으로 정규화합니다. 명시적 binary API는 압축된 비트를 반환하며 해밍 거리를 사용합니다. 이진 데이터를 float 좌표로 조용히 변환하지 않습니다. 전체 차원은 0.6B가 1024, 4B가 2560이며 차원 축소는 제공자 제한을 따릅니다. 배치 크기·문서 길이·총 토큰·계정 속도 제한도 적용됩니다.
 
 이진 메서드는 `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync`, 문맥용 `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`입니다. `PerplexityBinaryEmbedding`은 `Dimensions`, 복사본 `ToArray()`, `HammingDistance`를 제공하며 거리가 작을수록 유사합니다. 이진 차원은 8의 배수여야 합니다. 표준 배치는 최대 512개 텍스트, 문맥 배치는 512개 문서·16,000개 청크입니다. 텍스트/문서당 32K와 전체 120K 토큰 제한은 제공자가 검사합니다.
+
+실수·이진 메서드 모두 입력을 읽는 동안 `cancellationToken`을 확인하고, 개수 제한 중 하나라도 초과하면 더 읽지 않고 HTTP 요청 전에 배치를 거부합니다. 문서 묶음과 청크 순서는 유지되며 공개 API 시그니처는 바뀌지 않습니다.
 
 ## 기존 Sonar 코드 이전하기
 

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -32,13 +31,32 @@ namespace Mythosia.AI.Rag.Embeddings
                 throw new ArgumentOutOfRangeException(nameof(dimensions), $"Dimensions must be between 128 and {maximum} for this model.");
         }
 
-        internal static string[] ValidateTexts(IEnumerable<string> texts, string parameter, int maximum)
+        internal static string[] ValidateTexts(IEnumerable<string> texts, string parameter, int maximum,
+            CancellationToken cancellationToken, string? validationMessage = null)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (texts == null) throw new ArgumentNullException(parameter);
-            var inputs = texts.ToArray();
-            if (inputs.Length > maximum || inputs.Any(string.IsNullOrWhiteSpace))
-                throw new ArgumentException($"Provide at most {maximum} nonempty texts.", parameter);
-            return inputs;
+            var message = validationMessage ?? $"Provide at most {maximum} nonempty texts.";
+            var inputs = new List<string>();
+            using (var iterator = texts.GetEnumerator())
+            {
+                while (true)
+                {
+                    // User iterators can cancel in MoveNext, Current or Dispose, including
+                    // when returning no elements. Never read Current beyond the input limit.
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var hasNext = iterator.MoveNext();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!hasNext) break;
+                    if (inputs.Count == maximum) throw new ArgumentException(message, parameter);
+                    var text = iterator.Current;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException(message, parameter);
+                    inputs.Add(text);
+                }
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return inputs.ToArray();
         }
 
         internal void ValidateBinaryDimensions()
@@ -49,6 +67,7 @@ namespace Mythosia.AI.Rag.Embeddings
 
         internal async Task<JsonDocument> SendAsync(object input, bool contextualized, bool binary, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var body = new Dictionary<string, object>
             {
                 ["model"] = Model, ["input"] = input, ["dimensions"] = Dimensions,
@@ -60,6 +79,7 @@ namespace Mythosia.AI.Rag.Embeddings
                 Content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json")
             };
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            cancellationToken.ThrowIfCancellationRequested();
             // Buffer success and error bodies under cancellation; the caller continues to own HttpClient.
             using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();

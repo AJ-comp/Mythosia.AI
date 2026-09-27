@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "购买的商品可以在多久内退货？", cancellationToken);
 ```
 
-索引文档和查询应使用相同的模型、维度和编码。`GetQueryEmbeddingAsync` 将单个查询作为独立文档发给同一个上下文模型。上下文结果保留文档和分块顺序，不会自动接入接收平面输入的 RAG 构建器。
+`PerplexityContextualizedEmbeddingProvider` 现在实现 `IRetrievalEmbeddingProvider`，可用 `.UseEmbedding(contextual)` 注册。现有公开分组方法 `GetDocumentEmbeddingsAsync` 和二进制方法保留。新增的单文档方法采用显式接口实现，保持原有调用兼容。RAG 保留文档边界，查询使用相同上下文模型和维度。
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 float API 解码提供方的 base64 signed-int8 向量，并为向量相似度进行归一化。显式 binary API 返回压缩位并使用汉明距离，不会把二进制静默当作浮点坐标。0.6B 的完整维度是 1024，4B 是 2560；可选降维遵守提供方限制。批量、文档长度、总令牌和账户速率限制仍然适用。
 
 二进制方法包括 `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync`，以及上下文的 `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync`。`PerplexityBinaryEmbedding` 提供 `Dimensions`、返回副本的 `ToArray()` 和越小越相似的 `HammingDistance`。二进制维度须为8的倍数。标准批量最多512个文本，上下文批量最多512个文档、16,000个分块。每文本/文档32K及合计120K令牌由提供方检查。
+
+浮点和二进制方法都会在读取输入时检查 `cancellationToken`；任何数量上限被超过时，立即停止继续读取，并在发送 HTTP 请求前拒绝该批次。文档分组和分块顺序保持不变，公开 API 签名不变。
 
 ## 迁移现有 Sonar 代码
 

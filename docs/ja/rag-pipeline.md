@@ -1,5 +1,9 @@
 # RAGパイプラインのカスタマイズ
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` は任意の機能で、既存のプロバイダーはそのまま動作します。索引作成では `EmbeddingBatchSize` に関係なく、すべてのチャンクを順番に含む不変の `EmbeddingDocument(documentId, chunks, title)` を渡します。タイトルは `RagDocument.Metadata["title"]` から取得します。ベクトル検索と診断は `GetQueryEmbeddingAsync` を呼び、既存のプロバイダーは `GetEmbeddingsAsync` のバッチと `GetEmbeddingAsync` のクエリを維持します。キーワード専用検索はクエリを埋め込みません。
+
+[設定とプロバイダーの契約](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## インデックス作成の失敗から既存文書を守る

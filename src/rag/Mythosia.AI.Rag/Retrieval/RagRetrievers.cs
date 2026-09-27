@@ -8,7 +8,7 @@ namespace Mythosia.AI.Rag.Retrieval
 {
     internal static class RagRetrievers
     {
-        private static async Task<float[]> GetOwnedQueryEmbeddingAsync(
+        internal static async Task<float[]> GetOwnedQueryEmbeddingAsync(
             IEmbeddingProvider provider, string query, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -16,7 +16,9 @@ namespace Mythosia.AI.Rag.Retrieval
             if (dimensions <= 0)
                 throw new InvalidOperationException("The embedding provider must declare a positive Dimensions value.");
 
-            var vector = await provider.GetEmbeddingAsync(query, cancellationToken);
+            var vector = provider is IRetrievalEmbeddingProvider retrievalEmbeddings
+                ? await retrievalEmbeddings.GetQueryEmbeddingAsync(query, cancellationToken)
+                : await provider.GetEmbeddingAsync(query, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             if (vector == null || vector.Length != dimensions)
                 throw new InvalidOperationException(

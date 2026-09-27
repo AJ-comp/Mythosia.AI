@@ -1,4 +1,5 @@
 using Mythosia.VectorDb;
+using Mythosia.AI.Rag.Retrieval;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -153,7 +154,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             var minScore = _pipeline.Options.DefaultQuery.FinalFilter.MinScore;
 
             // Step 1: Embed query
-            var queryVector = await _embeddingProvider.GetEmbeddingAsync(query, cancellationToken);
+            var queryVector = await RagRetrievers.GetOwnedQueryEmbeddingAsync(_embeddingProvider, query, cancellationToken);
 
             // Step 2: Get ALL scores (not just TopK)
             IReadOnlyList<VectorSearchResult> allScored;

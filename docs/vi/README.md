@@ -37,7 +37,7 @@ Bản xem trước tùy chọn `Mythosia.AI.Rag.Search.Pixie` cho phép so sánh
 
 Tách cấu hình yêu cầu, dừng tác vụ và nhận câu trả lời cùng mức sử dụng và nguồn. [Hướng dẫn nâng cấp v8](v8-migration.md) tổng hợp sáu thay đổi kiến trúc, ví dụ chuyển đổi và phạm vi xác minh.
 
-> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.1.1](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
 
 > [Bản vá RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): các wrapper RAG đã kết nối nhận thay đổi bộ viết lại trong lúc chạy, và tìm kiếm hybrid kết hợp của PostgreSQL áp dụng cấu hình tìm kiếm vector. Gói lõi `Mythosia.AI` vẫn ở phiên bản 8.1.0.
 
@@ -309,6 +309,21 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("Chính sách hoàn tiền là gì?");
 ```
+
+#### Giữ ngữ cảnh tài liệu và mục đích truy vấn
+
+Một đoạn có thể phụ thuộc vào nội dung lân cận, còn câu hỏi tìm kiếm và tài liệu được lập chỉ mục có vai trò khác nhau. RAG 8.2.0 bổ sung embedding ngữ cảnh Voyage và Gemini Embedding 2 cho văn bản trích xuất từ TXT, Markdown và PDF.
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+[Cấu hình và hợp đồng provider](rag-embedding.md#retrieval-aware-embeddings): `UseVoyageEmbedding(...)`, `UseGeminiEmbedding(...)`, `IRetrievalEmbeddingProvider` / `EmbeddingDocument` (RAG 8.2.0, RAG Abstractions 6.4.0).
 
 ## Provider được hỗ trợ
 

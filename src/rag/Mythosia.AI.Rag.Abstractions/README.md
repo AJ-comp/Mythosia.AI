@@ -1,6 +1,6 @@
 # Mythosia.AI.Rag.Abstractions
 
-> **v6.3.0:** Adds `IRagRetriever` and `RagRetrievalRequest` for custom request-based retrieval. Use `Mythosia.AI.Rag` 8.1.0 or later for the corresponding builder and pipeline APIs; `IRetrievalStrategy` remains supported. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v630).
+> **v6.4.0:** Adds optional `IRetrievalEmbeddingProvider` and immutable `EmbeddingDocument` so providers can preserve a document's full chunk context and distinguish search questions from documents. Use `Mythosia.AI.Rag` 8.2.0 or later for the corresponding pipeline and Voyage/Gemini integrations. Existing `IEmbeddingProvider`, `IRagRetriever` and `IRetrievalStrategy` implementations remain supported. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v640).
 
 ## Package Summary
 
@@ -13,6 +13,7 @@ This package defines the contracts that all RAG components implement — you onl
 | --- | --- |
 | `IRagPipeline` | Main pipeline contract: `ProcessAsync(query)` → `RagProcessedQuery` |
 | `IEmbeddingProvider` | Text → vector embedding (`GetEmbeddingAsync`, `GetEmbeddingsAsync`) |
+| `IRetrievalEmbeddingProvider` | Optional `IEmbeddingProvider` capability: complete ordered document embeddings and explicit query embeddings |
 | `IVectorStore` | Vector storage & search (`UpsertAsync`, `SearchAsync`, `DeleteAsync`) |
 | `IRagDiagnosticsStore` | Optional diagnostics contract (`ListAllRecordsAsync`, `ScoredListAsync`) |
 | `ITextSplitter` | Document → chunks (`Split(RagDocument)`) |
@@ -26,6 +27,7 @@ This package defines the contracts that all RAG components implement — you onl
 
 | Model | Description |
 | --- | --- |
+| `EmbeddingDocument` | Immutable `DocumentId`, nullable `Title`, and a read-only snapshot of ordered `Chunks` |
 | `RagRetrievalRequest` | Read-only `Query`, nullable `TextQuery`, `TopK`, `Filter`, `ProgressAsync`; null lexical override uses the full query in built-in retrievers |
 | `RagChunk` | A chunk of text with ID, content, document ID, index, and metadata |
 | `RagDocument` | A loaded document with `Id`, `Content`, `Source`, and `Metadata` for the RAG pipeline |
@@ -59,6 +61,23 @@ await pipeline.QueryAsync(query, options);
 Constructing `new RagQueryOptions { FinalFilter = ... }` from scratch silently drops every other field, including any tenant/permission scope on `StoreFilter` and any progress callback on `ProgressAsync`. `Clone()` makes the "inherit defaults, override one field" pattern safe.
 
 ## Custom Implementation Example
+
+If a provider needs neighbouring chunks or retrieval-specific input formatting, implement `IRetrievalEmbeddingProvider` in addition to its inherited generic methods. The pipeline supplies a complete document regardless of `EmbeddingBatchSize`, then calls the query method for dense retrieval and diagnostics. Existing providers keep their flat batches and generic query calls.
+
+```csharp
+IRetrievalEmbeddingProvider embeddings = retrievalEmbeddingProvider;
+var document = new EmbeddingDocument("policy", new[]
+{
+    "Returns are accepted within fourteen days.",
+    "Keep the original receipt."
+}, title: "Refund policy");
+IReadOnlyList<float[]> chunks = await embeddings.GetDocumentEmbeddingsAsync(
+    document, cancellationToken);
+float[] query = await embeddings.GetQueryEmbeddingAsync(
+    "What is the refund period?", cancellationToken);
+```
+
+Return one finite vector of exactly `Dimensions` per original chunk in order. Do not mutate the document or returned vectors while the caller copies them. Contextual providers must preserve the complete group; independent providers may manage HTTP batches or bounded concurrency internally. RAG captures the title from `RagDocument.Metadata["title"]`, copies validated results, and preserves source text when a provider adds retrieval formatting to HTTP input. Invalid responses or cancellation before persistence preserve the previous document; store or callback behavior determines atomicity after persistence starts. Reindex when the model, dimensions or retrieval formatting changes. See the [provider contract and built-in implementations](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md#retrieval-aware-embeddings).
 
 Custom implementations must preserve the association between each document, chunk and vector. A splitter returns non-null chunks with nonblank IDs unique across the target store; include the document ID and chunk index, and copy inherited metadata when access filters depend on it. Indexing rejects blank or duplicate chunk IDs within a document before embedding or persistence and does not invent replacement IDs.
 

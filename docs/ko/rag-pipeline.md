@@ -1,5 +1,9 @@
 # RAG 파이프라인 커스터마이징
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider`는 선택 기능이며 기존 제공자는 그대로 동작합니다. 색인은 `EmbeddingBatchSize`와 관계없이 모든 청크를 순서대로 담은 불변 `EmbeddingDocument(documentId, chunks, title)` 하나를 전달합니다. 제목은 `RagDocument.Metadata["title"]`에서 가져옵니다. 벡터 검색과 진단은 `GetQueryEmbeddingAsync`를 호출하고, 기존 제공자는 `GetEmbeddingsAsync` 배치와 `GetEmbeddingAsync` 질문 호출을 유지합니다. 키워드 전용 검색은 질문을 임베딩하지 않습니다.
+
+[설정과 제공자 계약](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## 색인 실패 시 기존 문서 보호하기

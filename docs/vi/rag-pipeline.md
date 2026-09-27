@@ -1,5 +1,9 @@
 # Cấu hình Pipeline
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` là khả năng tùy chọn; các provider hiện có vẫn hoạt động. Khi lập chỉ mục, pipeline truyền một `EmbeddingDocument(documentId, chunks, title)` bất biến chứa tất cả đoạn theo thứ tự, bất kể `EmbeddingBatchSize`. Tiêu đề lấy từ `RagDocument.Metadata["title"]`. Tìm kiếm vector và chẩn đoán gọi `GetQueryEmbeddingAsync`; provider cũ giữ batch `GetEmbeddingsAsync` và truy vấn `GetEmbeddingAsync`. Tìm kiếm chỉ dùng từ khóa không tạo embedding truy vấn.
+
+[Cấu hình và hợp đồng provider](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## Bảo vệ tài liệu hiện có khi lập chỉ mục thất bại

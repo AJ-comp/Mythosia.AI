@@ -1,5 +1,17 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v6.4.0
+
+### Added
+
+- Optional `IRetrievalEmbeddingProvider : IEmbeddingProvider` separates document embeddings from retrieval-query embeddings. `GetDocumentEmbeddingsAsync` accepts one whole document; `GetQueryEmbeddingAsync` expresses query purpose without applications formatting provider-specific inputs.
+- Immutable `EmbeddingDocument` snapshots document ID, optional title and ordered chunks. Providers return one finite vector per chunk in input order, with their declared dimension. Returned buffers remain stable until RAG validates and copies them.
+
+### Compatibility
+
+- Existing `IEmbeddingProvider` signatures are unchanged. Implementing the new interface is optional, so current custom providers and self-hosted integrations remain supported.
+- `RagPipelineOptions.EmbeddingBatchSize` still applies to legacy providers. Extended providers receive the complete document and own internal transport batching; contextual providers must preserve document boundaries and must not silently split or truncate context to fit an API limit.
+
 ## v6.3.0
 
 ### Added

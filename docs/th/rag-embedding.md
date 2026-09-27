@@ -2,7 +2,59 @@
 
 > 📍 **Q&A Pipeline:** [การเขียนคำถามใหม่](rag-query-rewriting.md) → [การกรอง](rag-filtering.md) → **`Embedding (เมื่อจำเป็น)`** → [การดึงข้อมูล](rag-hybrid-search.md) → [Reranking](rag-reranking.md) → [การสร้าง Context](rag-context-build.md)
 
-ขั้นตอนคำถาม `Embedding` ขึ้นกับตัวค้นหา การค้นหาคำไม่รายงานขั้นตอนนี้ ตัวค้นหาที่กำหนดเองรายงานผ่าน `request.ProgressAsync` ได้ ส่วน embedding เอกสารไม่เปลี่ยนแปลง
+ขั้นตอนคำถาม `Embedding` ขึ้นกับตัวค้นหา การค้นหาคำไม่รายงานขั้นตอนนี้ ตัวค้นหาที่กำหนดเองรายงานผ่าน `request.ProgressAsync` ได้
+
+<a id="retrieval-aware-embeddings"></a>
+
+## รักษาบริบทของเอกสารและหน้าที่ของคำค้น
+
+ข้อความแต่ละส่วนอาจต้องอาศัยเนื้อหาข้างเคียง และคำถามค้นหามีหน้าที่ต่างจากเอกสารที่ทำดัชนี RAG 8.2.0 เพิ่ม embedding แบบมีบริบทของ Voyage และ Gemini Embedding 2 สำหรับข้อความที่สกัดจาก TXT, Markdown และ PDF
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` เป็นความสามารถเสริม ผู้ให้บริการเดิมยังทำงานได้ การทำดัชนีส่ง `EmbeddingDocument(documentId, chunks, title)` ที่แก้ไขไม่ได้และมีข้อความทุกส่วนตามลำดับ โดยไม่ขึ้นกับ `EmbeddingBatchSize` ชื่อเรื่องมาจาก `RagDocument.Metadata["title"]` การค้นหาเวกเตอร์และการวินิจฉัยเรียก `GetQueryEmbeddingAsync` ส่วนผู้ให้บริการเดิมยังใช้แบตช์ `GetEmbeddingsAsync` และคำค้น `GetEmbeddingAsync` การค้นหาด้วยคำสำคัญอย่างเดียวไม่สร้าง embedding ของคำค้น
+
+เลือกการตั้งค่า embedding หนึ่งแบบต่อที่เก็บ:
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider` ใช้ `voyage-context-4` และ 1024 มิติเป็นค่าเริ่มต้น (เลือก 256, 512, 1024 หรือ 2048 ได้) ส่งทั้งเอกสารเป็นกลุ่มเดียวตามลำดับด้วย `input_type=document` และส่งคำค้นเป็นกลุ่มเดี่ยวด้วย `input_type=query` ปิดการแบ่งข้อความอัตโนมัติ เอกสารหนึ่งมีได้ไม่เกิน 16,000 ส่วน และบริการตรวจสอบขีดจำกัดโทเค็น เมธอดทั่วไปละ `input_type` และรองรับไม่เกิน 1,000 ข้อความ โดยแต่ละข้อความเป็นกลุ่มอิสระหนึ่งส่วน ไม่ส่ง ID และชื่อเรื่องของเอกสาร [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+การประมวลผลแบบแบตช์ทั่วไปตรวจสอบการยกเลิกระหว่างอ่านข้อมูลเข้า เมื่อมีข้อความเกิน 1,000 รายการ จะหยุดอ่านทันทีและปฏิเสธแบตช์โดยไม่ส่งคำขอ HTTP โดยยังคงกลุ่มเอกสารไว้ครบถ้วน
+
+### Gemini
+
+`GeminiEmbeddingProvider` ใช้ `gemini-embedding-2`, 1536 มิติ (128–3072) และ `maxConcurrency=4` เป็นค่าเริ่มต้น แต่ละส่วนมีคำขอ HTTP และเวกเตอร์ของตนเอง รูปแบบสำหรับค้นหาคือ `title: {title} | text: {text}` (ไม่มีชื่อเรื่องใช้ `none`) หรือ `task: search result | query: {query}` คำนำหน้าใช้เฉพาะข้อมูล HTTP เมธอดทั่วไปส่งข้อความต้นฉบับ `embedContentConfig.autoTruncate=false` ทำให้ข้อความที่ยาวเกินกำหนดถูกปฏิเสธแทนการตัดทิ้ง [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+ทั้งสองรักษาข้อความต้นฉบับที่จัดเก็บ และตรวจสอบจำนวน มิติ และค่าจำกัดของเวกเตอร์ `HttpClient` ยังเป็นของผู้เรียกและไม่เปลี่ยนการตั้งค่า Voyage คืนลำดับจากดัชนีคำตอบที่ตรวจสอบแล้ว ข้อผิดพลาดไม่เปิดเผยคีย์หรือเนื้อหาคำตอบจากเซิร์ฟเวอร์ การยกเลิกถูกส่งต่อ และหมดเวลาจะเกิด `TimeoutException` ค่า `timeout` ของ Voyage ใช้ต่อคำขอ ส่วน Gemini ใช้กับทั้งงานรวมเวลารอช่องทำงานพร้อมกัน และยังใช้ขีดจำกัดเวลาของ client ด้วย ไม่มีการแบ่งใหม่หรือตัดข้อความโดยไม่แจ้ง ความล้มเหลวก่อนบันทึกจะเก็บเอกสารเดิมไว้ หลังเริ่มบันทึกแล้ว atomicity ขึ้นกับที่เก็บหรือ callback หากเปลี่ยนโมเดล มิติ หรือรูปแบบค้นหา ให้ทำดัชนีเอกสารใหม่และตั้งค่าที่เก็บให้ใช้ปริภูมิเวกเตอร์เดียวกัน
+
+### ตรวจสอบบริการจริง
+
+การทดสอบจริงส่งข้อความสังเคราะห์ TXT, Markdown และ PDF และมีค่าบริการ API ตั้งค่า `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1` พร้อมข้อมูลรับรอง แล้วเลือก `All`, `Voyage` หรือ `Gemini` ตัวเรียกทดสอบไม่ยอมรับกรณีที่ข้ามหรือสรุปผลไม่ได้ การทดสอบออฟไลน์ไม่ได้ยืนยันว่าบริการพร้อมใช้งาน
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[ตรวจสอบบริการจริง](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## Embedding คืออะไร?
 
@@ -15,15 +67,15 @@ Embedding คือการแปลงข้อความเป็น vector
 1. **การ index เอกสาร** — แต่ละ chunk ถูก embed และเก็บใน vector store
 2. **เวลา query** — คำถามของผู้ใช้ถูก embed เพื่อเปรียบเทียบกับ chunk ที่เก็บไว้
 
-หน้านี้เน้น embedding เวลา query (ขั้นตอนที่ 2) ซึ่งแปลงคำถามผู้ใช้เป็น vector สำหรับ similarity search
-
 ## Embedding Provider ที่มาพร้อม
 
 เลือกผู้ให้บริการ embedding ให้เหมาะกับภาษาของเอกสาร สภาพแวดล้อมโฮสต์ และความต้องการค้นคืน
 
 ### Perplexity
 
-Embedding มาตรฐานประมวลผลข้อความแยกและใช้ `IEmbeddingProvider` จึงต่อกับตัวสร้าง RAG ได้ แบบ contextual เก็บลำดับส่วนข้างเคียงและกลุ่มเอกสาร ใช้ API แยกเพื่อไม่แผ่เอกสารที่ไม่เกี่ยวข้องรวมกัน
+`PerplexityContextualizedEmbeddingProvider` รองรับ `IRetrievalEmbeddingProvider` แล้ว และลงทะเบียนด้วย `.UseEmbedding(contextual)` ได้ API แบบกลุ่ม `GetDocumentEmbeddingsAsync` และเมธอดไบนารีเดิมยังอยู่ เมธอดเอกสารเดี่ยวใหม่เป็น explicit interface implementation จึงรักษาการเรียกเดิม RAG เก็บขอบเขตเอกสารและใช้โมเดลบริบทกับมิติเดียวกันสำหรับคำค้น
+
+แบตช์ float และ binary ของ Perplexity รับข้อความอิสระได้สูงสุด 512 ข้อความ หรือเอกสาร contextual 512 เอกสารที่มีส่วนข้อความรวมไม่เกิน 16,000 ส่วน การตรวจอินพุตจะตรวจการยกเลิกระหว่างอ่าน และหยุดอ่านพร้อมปฏิเสธแบตช์ก่อนส่ง HTTP เมื่อเกินขีดจำกัด กลุ่มเอกสารและลำดับยังคงเดิม ดู [คู่มือ Perplexity](perplexity.md)
 
 [Perplexity Agent API การค้นหา และ embedding](perplexity.md).
 
@@ -102,7 +154,7 @@ Provider น้ำหนักเบาแบบ zero-configuration ใช้ fe
 
 ## การประมวลผลแบบ Batch
 
-เมื่อ index เอกสาร pipeline จะ embed chunk เป็น batch เพื่อหลีกเลี่ยงการส่งข้อความพันข้อความในการเรียก API เดียว ขนาด batch ปรับได้:
+`EmbeddingBatchSize` ควบคุมแบตช์แบบแบนของ `IEmbeddingProvider` เดิม ส่วน `IRetrievalEmbeddingProvider` รับทั้งเอกสารและจัดการ HTTP เอง การลดค่านี้จึงไม่แบ่งเอกสาร Voyage ออกเป็นหลายกลุ่มบริบท
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -144,6 +196,8 @@ Property `Dimensions` ควบคุมขนาดของแต่ละ emb
 
 | Provider | Model | Dimensions เริ่มต้น |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |

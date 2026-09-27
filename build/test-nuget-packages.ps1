@@ -536,6 +536,10 @@ using Mythosia.AI.Models;
 using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
+using System.Net;
+using System.Text;
+using System.Text.Json;
 
 var store = await RagStore.BuildAsync(builder => builder
     .AddText("PACKAGE_SMOKE_SHIPPING takes three days.", id: "package-smoke")
@@ -570,7 +574,132 @@ GC.KeepAlive(new Delegate[] { configure, start, citationCount, retrieve });
 if (typeof(RagEnabledService).Assembly.GetName().Name != "Mythosia.AI.Rag")
     throw new InvalidOperationException("The packaged RAG assembly did not load.");
 
-Console.WriteLine("RAG-only consumer dense, keyword, hybrid and public API smoke tests passed.");
+var legacyEmbedding = new LegacyEmbedding();
+await CheckEmbeddingContractAsync(legacyEmbedding);
+if (!legacyEmbedding.BatchSizes.SequenceEqual(new[] { 1, 1, 1 }) || legacyEmbedding.QueryCalls != 1)
+    throw new InvalidOperationException("The packaged pipeline broke custom legacy embedding batches or queries.");
+var retrievalEmbedding = new RetrievalEmbedding();
+await CheckEmbeddingContractAsync(retrievalEmbedding);
+if (retrievalEmbedding.Documents.Count != 1 || retrievalEmbedding.QueryCalls != 1 ||
+    retrievalEmbedding.Documents[0].DocumentId != "contract" || retrievalEmbedding.Documents[0].Title != "Contract title" ||
+    !retrievalEmbedding.Documents[0].Chunks.SequenceEqual(new[] { "alpha", "beta", "gamma" }))
+    throw new InvalidOperationException("The installed retrieval embedding contract lost whole-document identity, title, order or query purpose.");
+
+foreach (var voyage in new[] { true, false })
+{
+    using var handler = new EmbeddingHttp(voyage);
+    using var http = new HttpClient(handler);
+    var remoteStore = await RagStore.BuildAsync(builder =>
+    {
+        builder.AddText("alpha|beta", id: "provider-contract").WithTextSplitter(new OrderedSplitter()).UseInMemoryStore().WithTopK(1);
+        if (voyage) builder.UseVoyageEmbedding("synthetic-key", http, dimensions: 1024);
+        else builder.UseGeminiEmbedding("synthetic-key", http, dimensions: 1536, maxConcurrency: 1);
+    });
+    var remoteResult = await remoteStore.QueryAsync("alpha");
+    var expectedOperations = voyage ? new[] { "document", "query" } : new[] { "document", "document", "query" };
+    if (!remoteResult.HasReferences || remoteResult.References[0].Record.Content != "alpha" ||
+        remoteResult.References[0].Record.Vector.Length != (voyage ? 1024 : 1536) ||
+        !handler.Operations.SequenceEqual(expectedOperations))
+        throw new InvalidOperationException("The installed provider builder did not preserve document/query purpose and original stored text.");
+}
+Console.WriteLine("RAG-only consumer dense, keyword, hybrid, legacy/retrieval embedding and Voyage/Gemini builder smoke tests passed.");
+
+static async Task CheckEmbeddingContractAsync(IEmbeddingProvider embedding)
+{
+    using var vectors = new InMemoryVectorStore();
+    var pipeline = new RagPipeline(embedding, vectors, new OrderedSplitter(), new DefaultContextBuilder(),
+        new RagPipelineOptions { EmbeddingBatchSize = 1 });
+    var document = new RagDocument("contract", "alpha|beta|gamma", "synthetic.txt");
+    document.Metadata["title"] = "Contract title";
+    await pipeline.IndexDocumentAsync(document);
+    var found = await pipeline.QueryAsync("alpha", topK: 1);
+    if (await vectors.CountAsync() != 3 || found.SearchResults.Count != 1 || found.SearchResults[0].Record.Content != "alpha")
+        throw new InvalidOperationException("The installed embedding contract did not index and retrieve original chunk text.");
+}
+
+sealed class OrderedSplitter : ITextSplitter
+{
+    public IReadOnlyList<RagChunk> Split(RagDocument document) => document.Content.Split('|')
+        .Select((text, index) => new RagChunk(document.Id + ":" + index, document.Id, text, index)).ToArray();
+}
+
+sealed class LegacyEmbedding : IEmbeddingProvider
+{
+    public int Dimensions => 2;
+    public List<int> BatchSizes { get; } = new();
+    public int QueryCalls { get; private set; }
+    public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+    { QueryCalls++; return Task.FromResult(EmbeddingHttp.Vector(text, Dimensions)); }
+    public Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
+    {
+        var batch = texts.ToArray();
+        BatchSizes.Add(batch.Length);
+        return Task.FromResult<IReadOnlyList<float[]>>(batch.Select(text => EmbeddingHttp.Vector(text, Dimensions)).ToArray());
+    }
+}
+
+sealed class RetrievalEmbedding : IRetrievalEmbeddingProvider
+{
+    public int Dimensions => 2;
+    public List<EmbeddingDocument> Documents { get; } = new();
+    public int QueryCalls { get; private set; }
+    public Task<IReadOnlyList<float[]>> GetDocumentEmbeddingsAsync(EmbeddingDocument document, CancellationToken cancellationToken = default)
+    {
+        Documents.Add(document);
+        return Task.FromResult<IReadOnlyList<float[]>>(document.Chunks.Select(text => EmbeddingHttp.Vector(text, Dimensions)).ToArray());
+    }
+    public Task<float[]> GetQueryEmbeddingAsync(string query, CancellationToken cancellationToken = default)
+    { QueryCalls++; return Task.FromResult(EmbeddingHttp.Vector(query, Dimensions)); }
+    public Task<float[]> GetEmbeddingAsync(string text, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Retrieval must select the query-specific method.");
+    public Task<IReadOnlyList<float[]>> GetEmbeddingsAsync(IEnumerable<string> texts, CancellationToken cancellationToken = default)
+        => throw new InvalidOperationException("Indexing must retain the complete document.");
+}
+
+// A terminal handler: the package consumer never opens a network connection or reads credentials.
+sealed class EmbeddingHttp(bool voyage) : HttpMessageHandler
+{
+    public List<string> Operations { get; } = new();
+    public static float[] Vector(string text, int dimensions)
+    {
+        var vector = new float[dimensions];
+        vector[text.Contains("alpha", StringComparison.Ordinal) ? 0 : 1] = 1;
+        return vector;
+    }
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        using var json = JsonDocument.Parse(await request.Content!.ReadAsStringAsync(cancellationToken));
+        var body = json.RootElement;
+        object response;
+        if (voyage)
+        {
+            var operation = body.GetProperty("input_type").GetString()!;
+            var inputs = body.GetProperty("inputs");
+            if (request.RequestUri!.AbsoluteUri != "https://api.voyageai.com/v1/contextualizedembeddings" ||
+                body.GetProperty("model").GetString() != "voyage-context-4" || body.GetProperty("output_dimension").GetInt32() != 1024 ||
+                inputs.GetArrayLength() != 1 || inputs[0].GetArrayLength() != (operation == "document" ? 2 : 1) ||
+                body.GetProperty("enable_auto_chunking").GetBoolean())
+                throw new InvalidOperationException("Packaged Voyage request lost its model, dimensions or document grouping.");
+            Operations.Add(operation);
+            response = new { data = new[] { new { index = 0, data = inputs[0].EnumerateArray()
+                .Select((text, index) => new { index, embedding = Vector(text.GetString()!, 1024) }).Reverse().ToArray() } } };
+        }
+        else
+        {
+            var text = body.GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString()!;
+            if (request.RequestUri!.AbsoluteUri != "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent" ||
+                body.GetProperty("embedContentConfig").GetProperty("outputDimensionality").GetInt32() != 1536 ||
+                body.GetProperty("embedContentConfig").GetProperty("autoTruncate").GetBoolean())
+                throw new InvalidOperationException("Packaged Gemini request lost its model, dimensions or truncation policy.");
+            var operation = text.StartsWith("task: search result | query: ", StringComparison.Ordinal) ? "query"
+                : text.StartsWith("title: none | text: ", StringComparison.Ordinal) ? "document" : "generic";
+            Operations.Add(operation);
+            response = new { embedding = new { values = Vector(text, 1536) } };
+        }
+        return new HttpResponseMessage(HttpStatusCode.OK)
+        { Content = new StringContent(JsonSerializer.Serialize(response), Encoding.UTF8, "application/json") };
+    }
+}
 '@
     Invoke-PackageConsumer `
         -Name "RagConsumer" `
@@ -591,9 +720,12 @@ Console.WriteLine("RAG-only consumer dense, keyword, hybrid and public API smoke
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Embeddings;
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
+using System;
 using System.Collections.Generic;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace PackageSmoke
@@ -618,6 +750,22 @@ namespace PackageSmoke
         public static ITextSearchStore CompileTextStore(InMemoryVectorStore store) => store;
 
         public static IConfigurableHybridSearchStore CompileHybridStore(InMemoryVectorStore store) => store;
+
+        public static Task<IReadOnlyList<float[]>> CompileDocumentEmbedding(IRetrievalEmbeddingProvider provider)
+            => provider.GetDocumentEmbeddingsAsync(new EmbeddingDocument("document", new[] { "first", "second" }, "Title"));
+
+        public static Task<float[]> CompileQueryEmbedding(IRetrievalEmbeddingProvider provider)
+            => provider.GetQueryEmbeddingAsync("question");
+
+        public static IRetrievalEmbeddingProvider CompileVoyageProvider(HttpClient http)
+            => new VoyageContextualizedEmbeddingProvider("synthetic-key", http, dimensions: 1024, timeout: TimeSpan.FromSeconds(10));
+
+        public static IRetrievalEmbeddingProvider CompileGeminiProvider(HttpClient http)
+            => new GeminiEmbeddingProvider("synthetic-key", http, dimensions: 1536, timeout: TimeSpan.FromSeconds(10), maxConcurrency: 1);
+
+        public static RagBuilder CompileEmbeddingBuilders(RagBuilder builder, HttpClient http)
+            => builder.UseVoyageEmbedding("synthetic-key", http, dimensions: 1024)
+                .UseGeminiEmbedding("synthetic-key", http, dimensions: 1536, maxConcurrency: 1);
     }
 }
 '@

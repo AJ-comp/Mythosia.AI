@@ -1,5 +1,9 @@
 # RAG-Pipeline-Anpassung
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` ist optional; bestehende Anbieter bleiben kompatibel. Die Indizierung übergibt ein unveränderliches `EmbeddingDocument(documentId, chunks, title)` mit sämtlichen Abschnitten in Reihenfolge, unabhängig von `EmbeddingBatchSize`. Der Titel stammt aus `RagDocument.Metadata["title"]`. Vektorsuche und Diagnose rufen `GetQueryEmbeddingAsync` auf; bisherige Anbieter behalten `GetEmbeddingsAsync`-Batches und `GetEmbeddingAsync`-Abfragen. Reine Stichwortsuche erzeugt kein Abfrage-Embedding.
+
+[Konfiguration und Anbieterverträge](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## Vorhandene Dokumente bei Indexierungsfehlern schützen

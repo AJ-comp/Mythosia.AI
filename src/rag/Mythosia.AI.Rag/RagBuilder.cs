@@ -505,6 +505,22 @@ namespace Mythosia.AI.Rag
             return this;
         }
 
+        /// <summary>Uses Voyage contextualized embeddings while preserving each document's full chunk group.</summary>
+        /// <remarks>The caller owns HttpClient. Oversized documents fail without silent truncation or context splitting.</remarks>
+        public RagBuilder UseVoyageEmbedding(string apiKey, HttpClient httpClient,
+            string model = "voyage-context-4", int dimensions = 1024, TimeSpan? timeout = null)
+        {
+            return UseEmbedding(new VoyageContextualizedEmbeddingProvider(apiKey, httpClient, model, dimensions, timeout));
+        }
+
+        /// <summary>Uses Gemini Embedding 2 text embeddings with distinct document and search-query formats.</summary>
+        /// <remarks>The caller owns HttpClient. Each text produces its own vector; stored text is unchanged.</remarks>
+        public RagBuilder UseGeminiEmbedding(string apiKey, HttpClient httpClient,
+            string model = "gemini-embedding-2", int dimensions = 1536, TimeSpan? timeout = null, int maxConcurrency = 4)
+        {
+            return UseEmbedding(new GeminiEmbeddingProvider(apiKey, httpClient, model, dimensions, timeout, maxConcurrency));
+        }
+
         /// <summary>
         /// Searches the stored text index without creating a query embedding.
         /// Requires ITextSearchStore. Document ingestion still creates vectors for the shared index.

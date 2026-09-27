@@ -2,7 +2,59 @@
 
 > 📍 **質問応答パイプライン:** [クエリ書き換え](rag-query-rewriting.md) → [フィルタリング](rag-filtering.md) → **`埋め込み（必要な場合）`** → [検索](rag-hybrid-search.md) → [再ランキング](rag-reranking.md) → [コンテキスト構築](rag-context-build.md)
 
-質問の `Embedding` ステージは検索器に応じて実行され、キーワード検索では通知されません。独自検索器は `request.ProgressAsync` で実際の処理を通知できます。文書の埋め込みは変わりません。
+質問の `Embedding` ステージは検索器に応じて実行され、キーワード検索では通知されません。独自検索器は `request.ProgressAsync` で実際の処理を通知できます。
+
+<a id="retrieval-aware-embeddings"></a>
+
+## 文書の文脈と検索クエリの役割を保つ
+
+チャンクの理解には隣接する段落が必要な場合があり、検索クエリと索引文書では役割が異なります。RAG 8.2.0 は TXT・Markdown・PDF から抽出したテキストに Voyage の文脈埋め込みと Gemini Embedding 2 を提供します。
+
+```csharp
+using Mythosia.AI.Rag;
+
+var store = await RagStore.BuildAsync(rag => rag
+    .UseVoyageEmbedding(voyageApiKey, httpClient)
+    .AddDocument("policy.pdf"));
+var result = await store.QueryAsync("What is the refund period?");
+```
+
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` は任意の機能で、既存のプロバイダーはそのまま動作します。索引作成では `EmbeddingBatchSize` に関係なく、すべてのチャンクを順番に含む不変の `EmbeddingDocument(documentId, chunks, title)` を渡します。タイトルは `RagDocument.Metadata["title"]` から取得します。ベクトル検索と診断は `GetQueryEmbeddingAsync` を呼び、既存のプロバイダーは `GetEmbeddingsAsync` のバッチと `GetEmbeddingAsync` のクエリを維持します。キーワード専用検索はクエリを埋め込みません。
+
+ストアに使う埋め込み設定を一つ選択します：
+
+```csharp
+rag.UseVoyageEmbedding(voyageApiKey, httpClient,
+    model: "voyage-context-4", dimensions: 1024,
+    timeout: TimeSpan.FromSeconds(60));
+
+rag.UseGeminiEmbedding(geminiApiKey, httpClient,
+    model: "gemini-embedding-2", dimensions: 1536,
+    timeout: TimeSpan.FromSeconds(60), maxConcurrency: 4);
+```
+
+### Voyage
+
+`VoyageContextualizedEmbeddingProvider` の既定値は `voyage-context-4`、1024 次元で、256・512・1024・2048 次元を選べます。文書全体を順序付きの一つのグループとして `input_type=document` で送信し、クエリは単独グループを `input_type=query` で送ります。自動チャンク化は無効です。文書は最大 16,000 チャンクで、トークン制限はサーバーが検査します。汎用メソッドは `input_type` を省略し、最大 1,000 テキストを独立した単一チャンクのグループとして扱います。文書 ID とタイトルは送信しません。 [Voyage API](https://docs.voyageai.com/docs/contextualized-chunk-embeddings).
+
+汎用バッチは入力を読み取る間もキャンセルを確認し、テキストが 1,000 件を超えると直ちに読み取りを止め、HTTP リクエストを送らずに拒否します。文書全体のグループは維持します。
+
+### Gemini
+
+`GeminiEmbeddingProvider` の既定値は `gemini-embedding-2`、1536 次元（128–3072）、`maxConcurrency=4` です。各チャンクは個別の HTTP リクエストから一つのベクトルを取得します。検索入力は `title: {title} | text: {text}`（タイトルなしは `none`）または `task: search result | query: {query}` です。接頭辞は HTTP 入力にだけ適用し、汎用メソッドは原文を送ります。`embedContentConfig.autoTruncate=false` により長すぎる入力は切り捨てず失敗します。 [Gemini API](https://ai.google.dev/gemini-api/docs/embeddings).
+
+両プロバイダーは保存する原文を保ち、ベクトル数・次元・有限値を検証します。`HttpClient` の所有権と設定は呼び出し側に残ります。Voyage は検証済みの応答インデックスから文書とチャンクの順序を復元します。エラーにはキーや応答本文を含めず、キャンセルを伝播し、タイムアウトは `TimeoutException` になります。Voyage の `timeout` はリクエストごと、Gemini は並列実行待ちを含む操作全体に適用され、クライアントの制限も有効です。入力を黙って再分割・切り捨てません。保存前の失敗では既存文書を保ち、保存開始後の原子性はストアやコールバック次第です。モデル・次元・検索形式を変更したら文書を再索引し、ストアも同じベクトル空間に合わせてください。
+
+### 実際のサービスを検証する
+
+ライブテストは合成 TXT・Markdown・PDF テキストを送信し、API 料金が発生します。`MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1` と認証情報を設定し、`All`、`Voyage`、`Gemini` を選びます。スキップや判定不能のケースは失敗扱いです。オフラインテストだけではサービスの利用可否は確認できません。
+
+```powershell
+$env:MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE = "1"
+pwsh -NoProfile -File build/test-retrieval-embedding-live.ps1 -Provider All
+```
+
+[実際のサービスを検証する](https://github.com/AJ-comp/Mythosia.AI/blob/main/build/RELEASE.md#retrieval-embedding-live-validation).
 
 ## 埋め込みとは？
 
@@ -15,15 +67,15 @@ RAGパイプラインでは、埋め込みは2つの場面で使われます：
 1. **ドキュメントのインデックス作成時** — 各チャンクを埋め込みし、ベクターストアに保存
 2. **クエリ時** — ユーザーの質問を埋め込みし、保存されたチャンクとの類似度を比較
 
-このページでは、**クエリ時の埋め込み**（ステップ2）について詳しく説明します。
-
 ## 組み込みの埋め込みプロバイダー
 
 文書の言語、運用環境、検索要件に合う埋め込みプロバイダーを選択してください。
 
 ### Perplexity
 
-標準埋め込みは段落を独立して扱い、`IEmbeddingProvider` を実装するため既存のビルダーに接続できます。文脈埋め込みは隣接チャンクの順序と文書ごとのまとまりを維持します。無関係な文書を一つに平坦化しないよう、別の API を使います。
+`PerplexityContextualizedEmbeddingProvider` は `IRetrievalEmbeddingProvider` を実装し、`.UseEmbedding(contextual)` で登録できます。既存の公開グループ版 `GetDocumentEmbeddingsAsync` とバイナリメソッドは維持されます。新しい単一文書メソッドは明示的インターフェイス実装なので既存の呼び出しを保ちます。RAG は文書境界を維持し、クエリにも同じ文脈モデルと次元を使います。
+
+Perplexity の浮動小数点・バイナリバッチは、独立したテキストを最大 512 件、または文脈文書を最大 512 件・合計 16,000 チャンクまで受け付けます。入力を読み取る間にキャンセルを確認し、上限を超えた時点で読み取りを停止して HTTP リクエスト前に拒否します。文書のグループと順序は維持されます。詳細は [Perplexity ガイド](perplexity.md)を参照してください。
 
 [Perplexity Agent API、検索と埋め込み](perplexity.md).
 
@@ -102,7 +154,7 @@ var embedder = new VllmEmbeddingProvider(
 
 ## バッチ処理
 
-ドキュメントのインデックス作成時、パイプラインはチャンクをバッチ単位で埋め込みます。何千ものテキストを一度のAPI呼び出しで送るのを避けるためです。バッチサイズは設定可能です：
+`EmbeddingBatchSize` は従来の `IEmbeddingProvider` のフラットなバッチを制御します。`IRetrievalEmbeddingProvider` は文書全体を受け取り HTTP バッチを管理するため、この値を下げても Voyage の文書を複数の文脈グループに分割しません。
 
 ```csharp
 var options = pipeline.Options.Clone();
@@ -144,6 +196,8 @@ HTTP 応答が成功でも、ベクトルの欠落や順序の誤りがあると
 
 | プロバイダー | モデル | デフォルト次元数 |
 | --- | --- | --- |
+| Voyage | voyage-context-4 | 1024 |
+| Gemini | gemini-embedding-2 | 1536 |
 | OpenAI | text-embedding-3-small | 1536 |
 | OpenAI | text-embedding-ada-002 | 1536 |
 | Perplexity | pplx-embed-v1-0.6b | 1024 |
@@ -191,7 +245,7 @@ public class MyEmbeddingProvider : IEmbeddingProvider
 `QueryAsync`が実行されると、埋め込みステージは以下の1つの処理だけを行います：
 
 ```
-ユーザーの質問（文字列） → EmbeddingProvider.GetEmbeddingAsync() → クエリベクター（float[]）
+ユーザーの質問（文字列） → GetQueryEmbeddingAsync() / GetEmbeddingAsync() → クエリベクター（float[]）
 ```
 
 このクエリベクターは次のステージ（[フィルタリング](rag-filtering.md)）に渡され、メタデータフィルターと組み合わせた後、[検索](rag-hybrid-search.md)で類似度検索が実行されます。

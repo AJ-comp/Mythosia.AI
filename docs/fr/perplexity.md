@@ -172,11 +172,19 @@ float[] queryVector = await contextual.GetQueryEmbeddingAsync(
     "Pendant combien de temps puis-je retourner un achat ?", cancellationToken);
 ```
 
-Utilisez le même modèle, les mêmes dimensions et le même encodage pour les documents et les requêtes. `GetQueryEmbeddingAsync` transmet une requête comme document individuel au même modèle contextuel. Les résultats gardent l'ordre des documents et des passages, sans connexion automatique au constructeur RAG à entrée plate.
+`PerplexityContextualizedEmbeddingProvider` implémente maintenant `IRetrievalEmbeddingProvider` et se branche avec `.UseEmbedding(contextual)`. L’API publique groupée `GetDocumentEmbeddingsAsync` et les méthodes binaires restent disponibles. La nouvelle méthode pour un document est une implémentation explicite de l’interface, préservant les appels existants. RAG conserve les frontières des documents et utilise le même modèle contextuel et les mêmes dimensions pour les requêtes.
+
+```csharp
+var ragWithContext = service.WithRag(rag => rag
+    .UseEmbedding(contextual)
+    .AddDocument("policy.pdf"));
+```
 
 Les API float décodent les vecteurs base64 signed-int8 et les normalisent pour la similarité. Les API binaires explicites retournent des bits compactés avec distance de Hamming, jamais des coordonnées float implicites. Les dimensions complètes sont 1024 pour 0.6B et 2560 pour 4B ; les dimensions réduites suivent les limites du fournisseur. Les limites de lots, longueur, tokens totaux et débit du compte s'appliquent.
 
 Méthodes binaires : `GetBinaryEmbeddingAsync` / `GetBinaryEmbeddingsAsync`, et `GetBinaryDocumentEmbeddingsAsync` / `GetBinaryQueryEmbeddingAsync` pour le contexte. `PerplexityBinaryEmbedding` expose `Dimensions`, une copie via `ToArray()` et `HammingDistance` ; une distance faible indique davantage de similarité. Les dimensions binaires sont multiples de huit. Maximum : 512 textes standard, ou 512 documents et 16 000 fragments contextuels. Le fournisseur vérifie 32K tokens par texte/document et 120K au total.
+
+Pour les méthodes flottantes et binaires, le client vérifie `cancellationToken` pendant la lecture des entrées. Dès qu'une limite de quantité est dépassée, il cesse de lire et rejette le lot avant toute requête HTTP. Les groupes de documents et l'ordre des fragments sont conservés ; les signatures de l'API publique restent inchangées.
 
 ## Migrer le code Sonar existant
 

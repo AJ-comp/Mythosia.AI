@@ -21,6 +21,8 @@ namespace Mythosia.AI.Rag
         /// Maximum number of texts to embed in a single batch call. Must be positive.
         /// Each indexing operation validates and captures this value before loading or splitting;
         /// subsequent option changes apply only to later operations.
+        /// Applies to legacy IEmbeddingProvider batches. IRetrievalEmbeddingProvider receives
+        /// every chunk of one document together and owns any internal transport batching.
         /// </summary>
         public int EmbeddingBatchSize { get; set; } = 100;
 

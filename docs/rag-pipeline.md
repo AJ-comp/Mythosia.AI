@@ -1,5 +1,9 @@
 # RAG Pipeline Customization
 
+`IRetrievalEmbeddingProvider : IEmbeddingProvider` is optional; existing providers keep working. Indexing passes one immutable `EmbeddingDocument(documentId, chunks, title)` with all ordered chunks, regardless of `EmbeddingBatchSize`. The title comes from `RagDocument.Metadata["title"]` when present. Dense retrieval and diagnostics call `GetQueryEmbeddingAsync`; legacy providers retain `GetEmbeddingsAsync` batches and `GetEmbeddingAsync` queries. Keyword-only retrieval makes no query embedding call.
+
+[Configuration and provider contracts](rag-embedding.md#retrieval-aware-embeddings).
+
 <a id="indexing-validation"></a>
 
 ## Protect existing documents when indexing fails
