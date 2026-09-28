@@ -47,6 +47,7 @@ try {
     Invoke-ReleaseCheck 'model-capabilities-ui' 'node' @('--experimental-vm-modules', 'build/test-model-capabilities-ui.mjs')
     Invoke-ReleaseCheck 'perplexity-agent-ui' 'node' @('--experimental-vm-modules', 'build/test-perplexity-agent-ui.mjs')
     Invoke-ReleaseCheck 'perplexity-embedding-ui' 'node' @('--experimental-vm-modules', 'build/test-perplexity-embedding-ui.mjs')
+    Invoke-ReleaseCheck 'retrieval-embedding-ui' 'node' @('--experimental-vm-modules', 'build/test-retrieval-embedding-ui.mjs')
     Invoke-ReleaseCheck 'chat-cancellation-ui' 'node' @('--experimental-vm-modules', 'build/test-chat-cancellation-ui.mjs')
     Invoke-ReleaseCheck 'chat-markdown-ui' 'node' @('--experimental-vm-modules', 'build/test-chat-markdown-ui.mjs')
     Invoke-ReleaseCheck 'console-ui' 'node' @('--experimental-vm-modules', 'build/test-console-ui.mjs')
@@ -65,6 +66,9 @@ try {
         @{ Name = 'documents'; Project = 'Mythosia.Documents.Tests'; Args = @() },
         @{ Name = 'mcp'; Project = 'Mythosia.AI.Mcp.Tests'; Args = @() },
         @{ Name = 'vllm'; Project = 'Mythosia.AI.Serving.Vllm.Tests'; Args = @() },
+        @{ Name = 'serving-contracts'; Project = 'Mythosia.AI.Serving.Abstractions.Tests'; Args = @() },
+        @{ Name = 'ollama'; Project = 'Mythosia.AI.Serving.Ollama.Tests'; Args = @() },
+        @{ Name = 'llamacpp'; Project = 'Mythosia.AI.Serving.LlamaCpp.Tests'; Args = @() },
         @{ Name = 'vectordb'; Project = 'Mythosia.VectorDb.Tests'; Args = @() }
     )
     foreach ($suite in $suites) {

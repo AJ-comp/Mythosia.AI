@@ -27,23 +27,42 @@
 
 </div>
 
-Для TXT і Markdown обирайте [розділювач за правилами](text-splitters.md) відповідно до структури. Розмір, перекриття та межі Unicode перевіряються; Markdown зберігає заголовки, код і рядки таблиць. Кількість символів чи слів не є лімітом токенів моделі. Умови таблиць і відступи коду зберігають значення; надмірне повторення контексту Markdown зупиняється явним винятком.
+## Демо / тестовий стенд (Chat UI)
 
-Щоб зовні успішна індексація не перезаписувала фрагменти й не пов’язувала їх із неправильними векторами, [перевірка індексації](rag-pipeline.md#indexing-validation) відхиляє некоректні ID та пакети ембеддингів до збереження. Користувацькі розділювачі мають задавати унікальні ID й успадковувати метадані документа.
+Випробуйте моделі й пошук у документах у Playground перед написанням коду інтеграції.
 
-Сталі [ID файлів](document-loaders.md#file-source-identity), перевірені [вектори запитань](rag-embedding.md#query-embedding-validation) і [збереження за документами зі скасуванням URL](rag-pipeline.md#custom-persistence) запобігають дублям, некоректному пошуку й застарілим фрагментам.
+Перегляньте відео з поточного інтерфейсу Playground: вибір моделей, зміна мови, налаштування документів і конвеєра RAG. Відео містить англійські субтитри.
 
-Необов’язкова попередня версія `Mythosia.AI.Rag.Search.Pixie` дає змогу порівняти локальний нейронний розріджений пошук із наявним. Вона зберігає постачальника щільних ембедингів та індекс PIXIE у пам’яті, не переносить постійні сховища й не замінює типовий пошук. [Налаштування PIXIE та порівняння (англійською)](../rag-pixie-search.md).
+https://github.com/user-attachments/assets/4cf90210-b000-41be-8317-a467e93e7504
 
-Налаштовуйте запити незалежно, зупиняйте роботу й отримуйте відповіді з використанням токенів та джерелами. [Посібник переходу на v8](v8-migration.md) містить шість змін, приклади міграції та межі перевірки.
+### Запуск прикладу
 
-> Версії пакетів, описані в цій документації: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+Запустіть **`Mythosia.AI.Samples.ChatUi`** локально:
 
-> [Виправлення RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): наявні обгортки RAG враховують зміну переписувача під час роботи, а змішаний гібридний пошук PostgreSQL застосовує задані параметри векторного пошуку. Основний пакет `Mythosia.AI` залишається на версії 8.1.0.
+```bash
+# з кореня репозиторію
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
+```
 
----
+<details>
+<summary>Елементи керування та мови Playground</summary>
 
-### Які пакети потрібно встановити?
+Ліворуч знайдіть модель за назвою або постачальником і налаштуйте запит, спілкуйтеся в центрі та перевіряйте відомості про обробку в панелі Inspector праворуч перед інтеграцією в застосунок. Кнопка Stop припиняє очікування відповіді; вибір швидкості доступний лише для підтримуваних моделей і точок підключення, а Fast може потребувати додаткової оплати. На невеликих екранах Models та Inspector відкриваються як висувні панелі; локальний запуск, документи й налаштування конвеєра описано в [посібнику Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md).
+
+Панель Pipeline дає змогу налаштувати ключі, розмірність і час очікування для Voyage Context 4, Gemini Embedding 2 та контекстних ембеддингів Perplexity. Documents показує кількість фрагментів і векторів та дає змогу скасувати індексацію. Збережені налаштування, повторне підключення БД і приклади коду використовують вибрану конфігурацію. Після зміни моделі чи розмірності потрібна повторна індексація.
+
+Перемикач угорі сторінки дає змогу вибрати одну з 13 мов інтерфейсу, зберігши введені дані й налаштування. Усі сім постачальників показано згорнутими групами; розгорніть потрібну групу або знайдіть модель через пошук.
+
+</details>
+
+## Чому Mythosia.AI?
+
+- **Змінюйте провайдерів через єдиний API** для чату, стрімінгу, інструментів і структурованих відповідей.
+- **Будуйте відповіді на власних документах** за допомогою завантажувачів, ембеддингів, пошуку й реранкінгу.
+- **Зберігайте незалежність налаштувань запитів** і керуйте поточною роботою через спільний Run API.
+- **Встановлюйте лише потрібні пакети**: основну бібліотеку, RAG та інтеграції векторних сховищ.
+
+## Які пакети потрібно встановити?
 
 ```
 dotnet add package Mythosia.AI                    # почніть звідси (це все, що потрібно)
@@ -61,131 +80,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # опціонально: ко
 
 Для запитів із важливим часом очікування вибирайте [швидкість обробки](request-building.md#inference-speed). `WithSpeed` зберігає модель і зусилля; `Processing` показує застосований режим. Fast є платною опцією для підтримуваних поєднань.
 
-## Архітектура
-
-<a href="../assets/architecture.svg">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
-    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
-  </picture>
-</a>
-
-### Деталі залежностей пакетів
-
-Стрілки позначають прямі посилання між пакетами. Спільні пакети повторюються на кількох схемах; керування сервером vLLM є незалежним.
-
-#### Ядро ШІ та розширення
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    subgraph Extensions["Provider & tool extensions"]
-        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
-        Mcp["Mythosia.AI.Mcp"]:::extension
-    end
-    AI["Mythosia.AI"]:::core
-    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
-    subgraph Independent["Independent server management"]
-        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
-    end
-    Alibaba --> AI
-    Mcp --> AI
-    AI --> AIAbs
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-#### RAG і завантаження документів
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    Rag["Mythosia.AI.Rag"]:::rag
-    subgraph Contracts["AI & RAG contracts"]
-        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
-        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
-    end
-    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
-    subgraph Documents["Document loading"]
-        Office["Mythosia.Documents.<br/>Office"]:::documents
-        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
-        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
-        Office --> LoaderAbs
-        Pdf --> LoaderAbs
-    end
-    Rag --> AIAbs
-    Rag --> RagAbs
-    Rag --> InMem
-    Rag --> Office
-    Rag --> Pdf
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-#### Векторні сховища та пошук
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    subgraph Stores["Vector stores"]
-        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
-        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
-        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
-        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
-    end
-    subgraph Search["Optional neural search"]
-        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
-    end
-    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
-    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
-    InMem --> VdbAbs
-    RagAbs --> VdbAbs
-    Pg --> VdbAbs
-    Qd --> VdbAbs
-    Pine --> VdbAbs
-    Pixie --> VdbAbs
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-## Демо / тестовий стенд (Chat UI)
-
-Ліворуч знайдіть модель за назвою або постачальником і налаштуйте запит, спілкуйтеся в центрі та перевіряйте відомості про обробку в панелі Inspector праворуч перед інтеграцією в застосунок. Кнопка Stop припиняє очікування відповіді; вибір швидкості доступний лише для підтримуваних моделей і точок підключення, а Fast може потребувати додаткової оплати. На невеликих екранах Models та Inspector відкриваються як висувні панелі; локальний запуск, документи й налаштування конвеєра описано в [посібнику Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md).
-
-Перемикач угорі сторінки дає змогу вибрати одну з 13 мов інтерфейсу, зберігши введені дані й налаштування. Усі сім постачальників показано згорнутими групами; розгорніть потрібну групу або знайдіть модель через пошук.
-
-### Запуск прикладу
-
-Запустіть **`Mythosia.AI.Samples.ChatUi`** локально:
-
-```bash
-# з кореня репозиторію
-dotnet run --project apps/Mythosia.AI.Samples.ChatUi
-```
-
-Перегляньте відео, записане в поточному інтерфейсі Playground: огляд моделей, перемикання мов, налаштування документів і конвеєра RAG. Натисніть на зображення, щоб відтворити відео.
-
-[![Переглянути огляд поточного інтерфейсу Playground](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
-
 ## Швидкий старт
 
 ### Базова генерація тексту
 
 ```csharp
-using Mythosia.AI;
+using Mythosia.AI.Services.OpenAI;
 
 var service = new OpenAIService(apiKey, httpClient);
 var response = await service.GetCompletionAsync("Hello!");
@@ -193,13 +93,11 @@ var response = await service.GetCompletionAsync("Hello!");
 
 ### Стрімінг
 
-Ці приклади використовують попередній вхідний `service.StreamAsync`, збережений для сумісності. Для нового коду див. [потоковий вивід через Run](execution-api-transition.md).
-
 ```csharp
-await foreach (var token in service.StreamAsync("Tell me a story"))
-{
-    Console.Write(token);
-}
+await using var run = await service.StartRunAsync(
+    "Tell me a story",
+    onText: text => Console.Write(text));
+string answer = (await run.Result).Text;
 ```
 
 ### Стрімінг з міркуваннями
@@ -207,7 +105,9 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 OpenAI, Claude, Gemini, Grok і DeepSeek Flash передають міркування провайдера за однією схемою стримінгу. Увімкніть міркування в сервісі або запиті, потім спостерігайте через `StreamOptions.WithReasoning()`:
 
 ```csharp
-await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+await using var run = await service.StartRunAsync(
+    message, options: new StreamOptions().WithReasoning());
+await foreach (var content in run.StreamAsync())
 {
     if (content.Type == StreamingContentType.Reasoning)
         Console.Write($"[Think] {content.Content}");
@@ -219,6 +119,9 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 ### Виклик функцій
 
 ```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Services.OpenAI;
+
 var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(
         "get_weather",
@@ -230,9 +133,49 @@ var service = new OpenAIService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
 
-Коли модель може виконувати незалежну частину завдання — наприклад, пояснювати, що взяти в подорож, поки інструмент завантажує погоду, — очікування результату не має блокувати всю відповідь. `FunctionDefinition.AllowAsync = true` або `FunctionBuilder.WithAsync()` дозволяє асинхронні виклики для GPT-6 Astra / Sol / Luna через Responses. За замовчуванням використовується `false`; моделі без підтримки чекають результату того самого обробника. Приклади та життєвий цикл запиту описано в [посібнику з виклику функцій](function-calling.md).
+За замовчуванням виклики з однієї відповіді моделі виконуються послідовно. Якщо зареєстровані функції незалежні, можна явно ввімкнути паралельне виконання з обмеженням кількості обробників:
 
-Якщо відповідь потребує актуальної інформації або документальних підстав, див. [посібник із міркування та пошуку](reasoning-and-search.md). Спільні параметри вмикають вебпошук чи наявне сховище документів і дають змогу отримати джерела відповіді.
+```csharp
+using Mythosia.AI.Models.Functions;
+
+service.DefaultPolicy = new FunctionCallingPolicy
+{
+    ExecutionMode = FunctionExecutionMode.Parallel,
+    MaxConcurrency = 3
+};
+```
+
+Результати звичайного пакета повертаються моделі в початковому порядку викликів провайдера. Скасування пропускає ще не запущені виклики та додає відповідні результати скасування. Запущені інструменти отримують токен, якщо підтримують його, і очікуються до завершення, щоб зберегти пари виклик/результат в історії.
+
+`FunctionCallingPolicy.TimeoutSeconds` охоплює весь цикл раундів стрімінгу, включно із заголовками відповіді та тілом SSE, без скидання між раундами інструментів. Завершення тайм-ауту політики спричиняє `AIServiceException`; скасування з боку викликача залишається `OperationCanceledException`, пов’язаним із його токеном.
+
+Коли модель може виконувати незалежну частину завдання — наприклад, пояснювати, що взяти в подорож, поки інструмент завантажує погоду, — очікування результату не має блокувати всю відповідь. `FunctionDefinition.AllowAsync = true` або `FunctionBuilder.WithAsync()` дозволяє асинхронні виклики для GPT-6 Astra / Sol / Luna через Responses. За замовчуванням використовується `false`; моделі без підтримки чекають результату того самого обробника. Приклади та життєвий цикл запиту описано в [посібнику з виклику функцій](function-calling.md#async-tool-calling).
+
+Це відрізняється від обробників C# `async` і паралельного планування викликів. Моделям без підтримки не надсилається непідтримувана опція API.
+
+### Генерація та редагування зображень
+
+Створюйте візуальні чернетки за текстом або редагуйте зображення через додаткову можливість, спільну для OpenAI, Google та xAI. Модель зображень обирається незалежно від моделі чату:
+
+```csharp
+using Mythosia.AI.Models.Images;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.OpenAI;
+
+IImageGenerationService images = new OpenAIService(apiKey, httpClient);
+var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Prompt = "A glass pavilion at sunrise",
+    Size = ImageSize.Pixels(1024, 1024),
+    OutputFormat = ImageOutputFormat.Png
+});
+
+await File.WriteAllBytesAsync("pavilion.png", generated.Images[0].Data);
+```
+
+Приклади генерації й редагування наведено в [посібнику провайдерів](providers.md#image-generation), а зміни основного API — у [посібнику типізованих параметрів і міграції](providers.md#image-options-migration). Для xAI використовуйте `ImageOutputFormat.Auto` та обирайте розширення файлу за `GeneratedImage.MediaType`.
+
+Параметри Google залежать від моделі: Flash підтримує 512/1K/2K/4K, Flash-Lite поки допускає 1K, Pro — 1K/2K/4K. Flash/Lite пропонують 14 співвідношень сторін, Pro — 10 стандартних. Усі приймають `Auto`. Перед показом варіантів перевіряйте `GetImageCapabilities(model)`; явно задані непідтримувані розміри або пропорції відхиляються до HTTP-запиту під час генерації й редагування. Див. [таблицю моделей і розбіжність у документації Flash-Lite](providers.md#google-image-options).
 
 ### Структурований вивід (базовий)
 
@@ -292,7 +235,7 @@ policy.LoadSummary(saved);
 
 ### RAG (генерація з доповненим вилученням)
 
-Обирайте лексичний, семантичний або гібридний пошук без обов’язкових ембеддингів кожного запиту. [Посібник](rag-hybrid-search.md).
+Обирайте лексичний, семантичний або гібридний пошук без обов’язкового ембеддингу кожного запиту. `UseKeywordSearch()` пропускає ембеддинг запиту; `UseRetriever(...)` підключає зовнішній індекс; `UseHybridSearch(HybridSearchOptions)` передає явні ваги та параметри кандидатів. Під час індексації документів вектори й далі створюються. Див. [режими пошуку та підтримку сховищ](rag-hybrid-search.md).
 
 ```bash
 dotnet add package Mythosia.AI.Rag
@@ -300,6 +243,7 @@ dotnet add package Mythosia.AI.Rag
 
 ```csharp
 using Mythosia.AI.Rag;
+using Mythosia.AI.Services.Anthropic;
 
 var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
@@ -309,6 +253,8 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+Щоб агент сам керував пошуком, підключіть сховище через `WithAgenticRag(...)` і запустіть роботу викликом `service.WithMaxRounds(10).StartRunAsync(...)`. Отримуйте `run.Result` або спостерігайте за `run.StreamAsync()` у межах одного завдання. Повні приклади — у [README Mythosia.AI.Rag](../../src/rag/Mythosia.AI.Rag/README.md).
 
 #### Збереження контексту документа та призначення запиту
 
@@ -353,13 +299,139 @@ var result = await store.QueryAsync("What is the refund period?");
 
 Для швидких візуальних ескізів вибирайте Flare, для точних змін — Sunburst. [Генерація й редагування GPT Image 2.5](providers.md#gpt-image-25) використовують наявний API з явним вибором моделі в запиті; типовою моделлю OpenAI залишається GPT Image 2.
 
-Щоб вибрати допустимі розміри під час створення чи редагування зображень, перевірте [параметри зображень Google за моделями](providers.md#google-image-options). Flash підтримує 512/1K/2K/4K, Flash-Lite наразі 1K, а Pro — 1K/2K/4K. Flash/Lite пропонують 14 співвідношень сторін, Pro — 10 стандартних; усі приймають `Auto`. Явно вказані непідтримувані розміри чи співвідношення відхиляються до HTTP-запиту.
-
 Для аналізу графіків і знімків екрана, локальних функцій або поглибленої перевірки відповіді використовуйте [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Міркування типово вимкнене; вмикайте через `WithDeepSeekReasoning(...)` або `WithReasoning(...)` для запиту.
 
 Для текстових завдань виберіть `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813). Flash залишається типовою моделлю та підтримує зображення; обидві мають Low/High/Max і однакову межу виводу. Установіть `UseResponsesApi = true` перед створенням запиту, щоб використовувати Responses через наявні API відповідей, потоків, Run і локальних функцій. Типове значення `false` зберігає Chat Completions у поточних застосунках. Вибір фіксується для запиту й усіх раундів інструментів. Responses повторно передає всю історію діалогу й нативних міркувань без залежності від збережених сервером ID відповідей.
 
 Повторно використовуйте завантажене зображення в запитаннях до Flash через `DeepSeekImageFileContent` у Chat Completions або Responses; текстова модель V4 Pro відхиляє зображення. Див. [завантаження, повторне використання й обмеження зображень](providers.md#deepseek-deepseekservice). Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0.
+
+> Claude Fable 5 та Claude Mythos 5 вимагають зберігання даних протягом 30 днів і не підтримують угоди про нульове зберігання. Їхнє адаптивне міркування завжди ввімкнене; коли користувач просить вимкнути міркування, Mythosia задає низьке зусилля та не запитує стислий виклад міркувань. Mythos 5 доступний лише схваленим клієнтам Project Glasswing.
+
+## Посібники та міграція
+
+Для TXT і Markdown обирайте [розділювач за правилами](text-splitters.md) відповідно до структури. Розмір, перекриття та межі Unicode перевіряються; Markdown зберігає заголовки, код і рядки таблиць. Кількість символів чи слів не є лімітом токенів моделі. Умови таблиць і відступи коду зберігають значення; надмірне повторення контексту Markdown зупиняється явним винятком.
+
+Щоб зовні успішна індексація не перезаписувала фрагменти й не пов’язувала їх із неправильними векторами, [перевірка індексації](rag-pipeline.md#indexing-validation) відхиляє некоректні ID та пакети ембеддингів до збереження. Користувацькі розділювачі мають задавати унікальні ID й успадковувати метадані документа.
+
+Сталі [ID файлів](document-loaders.md#file-source-identity), перевірені [вектори запитань](rag-embedding.md#query-embedding-validation) і [збереження за документами зі скасуванням URL](rag-pipeline.md#custom-persistence) запобігають дублям, некоректному пошуку й застарілим фрагментам.
+
+Необов’язкова попередня версія `Mythosia.AI.Rag.Search.Pixie` дає змогу порівняти локальний нейронний розріджений пошук із наявним. Вона зберігає постачальника щільних ембедингів та індекс PIXIE у пам’яті, не переносить постійні сховища й не замінює типовий пошук. [Налаштування PIXIE та порівняння (англійською)](../rag-pixie-search.md).
+
+[Інфраструктура оцінювання пошуку](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md) підтримує повторно використовувані набори даних, адаптери пошуку, збережені звіти та перевірки регресій. Розширюйте той самий інструмент для нових методів пошуку й власних колекцій документів.
+
+Налаштовуйте запити незалежно, зупиняйте роботу й отримуйте відповіді з використанням токенів та джерелами. [Посібник переходу на v8](v8-migration.md) містить шість змін, приклади міграції та межі перевірки.
+
+> Версії пакетів, описані в цій документації: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Інші версії пакетів пошуку, документів і векторних сховищ наведено в [матриці попереднього патча](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) та [попередньому узгодженому випуску](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810).
+
+> [Виправлення RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): наявні обгортки RAG враховують зміну переписувача під час роботи, а змішаний гібридний пошук PostgreSQL застосовує задані параметри векторного пошуку. Основний пакет `Mythosia.AI` залишається на версії 8.1.0.
+
+---
+
+## Архітектура
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Архітектура Mythosia.AI: ядро ШІ, оркестрація RAG, завантажувачі документів, векторні сховища, спільні контракти, інтеграція MCP та незалежне керування Ollama, llama.cpp і vLLM." width="1600">
+  </picture>
+</a>
+
+### Деталі залежностей пакетів
+
+Стрілки показують прямі посилання на пакети. Спільні пакети повторюються в різних поданнях; клієнти Serving використовують спільні контракти керування й не залежать від ядра ШІ.
+
+#### Ядро ШІ та розширення
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Extensions["Розширення постачальників та інструментів"]
+        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
+        Mcp["Mythosia.AI.Mcp"]:::extension
+    end
+    AI["Mythosia.AI"]:::core
+    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+    subgraph Independent["Незалежне керування сервером"]
+        ServingAbs["Mythosia.AI.Serving.<br/>Abstractions"]:::contract
+        OllamaServing["Mythosia.AI.<br/>Serving.Ollama"]:::extension
+        LlamaCppServing["Mythosia.AI.<br/>Serving.LlamaCpp"]:::extension
+        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
+        OllamaServing --> ServingAbs
+        LlamaCppServing --> ServingAbs
+        VllmServing --> ServingAbs
+    end
+    Alibaba --> AI
+    Mcp --> AI
+    AI --> AIAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### RAG і завантаження документів
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    Rag["Mythosia.AI.Rag"]:::rag
+    subgraph Contracts["Контракти AI та RAG"]
+        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    end
+    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+    subgraph Documents["Завантаження документів"]
+        Office["Mythosia.Documents.<br/>Office"]:::documents
+        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
+        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
+        Office --> LoaderAbs
+        Pdf --> LoaderAbs
+    end
+    Rag --> AIAbs
+    Rag --> RagAbs
+    Rag --> InMem
+    Rag --> Office
+    Rag --> Pdf
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### Векторні сховища та пошук
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Stores["Векторні сховища"]
+        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
+        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
+        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
+    end
+    subgraph Search["Необов’язковий нейронний пошук"]
+        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
+    end
+    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
+    InMem --> RagAbs
+    InMem --> VdbAbs
+    RagAbs --> VdbAbs
+    Pg --> VdbAbs
+    Qd --> VdbAbs
+    Pine --> VdbAbs
+    Pixie --> VdbAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
 
 ## Пакети
 
@@ -400,11 +472,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 ### Сервінг — площина керування
 
-> Клієнти керування/інтроспекції для середовищ обслуговування моделей. Чат залишається на пакетах провайдерів: `Providers.*` = площина даних чату, `Serving.*` = площина керування сервером.
+Створюйте екрани вибору моделей і стану серверів через спільний API керування запущеними екземплярами Ollama, llama.cpp і vLLM. `IModelServer` отримує відомості про стан, моделі та можливості; під час виявлення моделі не завантажуються в пам'ять і не скачуються. Ці клієнти підключаються до наявних серверів, не розміщують рушії та не надсилають запити чату.
+
+Необов'язкові інтерфейси `IModelLifecycle`, `IModelDownloader` та `IModelMetricsProvider` надають явні операції, коли вони доступні. Перевіряйте можливості підключеного сервера: `Unknown` означає недостатність підтверджень, а не `Unsupported`; значення `Supported` також не гарантує успіху для кожної моделі. Невідомі стани встановлення та завантаження залишаються невідомими.
+
+Перевірки на реальних серверах пройшли для Ollama **0.34.4** (`qwen2.5:0.5b`), llama.cpp **b11146** у режимах Router та однієї моделі (Qwen2.5 0.5B, Q4_K_M), а також vLLM **0.30.0** (невелика модель Qwen). Результати стосуються лише перевірених конфігурацій. Перевірені операції та обмеження рушіїв наведено в [посібнику з керування серверами](serving.md).
 
 | Пакет | NuGet | Опис |
 | --- | --- | --- |
-| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | Клієнт площини керування vLLM — картки моделей (фактично завантажена модель через `root`), перевірка стану, версія сервера, метрики Prometheus |
+| [Mythosia.AI.Serving.Abstractions](../../src/serving/Mythosia.AI.Serving.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Abstractions) | Спільні контракти керування та незмінні знімки серверів, моделей і можливостей. |
+| [Mythosia.AI.Serving.Ollama](../../src/serving/Mythosia.AI.Serving.Ollama/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Ollama.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Ollama) | Перелік і стан Ollama, явне завантаження/вивантаження та потокове скачування. |
+| [Mythosia.AI.Serving.LlamaCpp](../../src/serving/Mythosia.AI.Serving.LlamaCpp/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.LlamaCpp.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.LlamaCpp) | Перевірки llama.cpp, підтверджені команди маршрутизатора й метрики без автозавантаження. |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | Картки моделей, стан, версія й метрики vLLM з мітками; конкретний API збережено. |
 
 ## Структура репозиторію
 
@@ -422,7 +501,10 @@ src/
     Mythosia.AI.Rag/                    # RAG Fluent API та пайплайн
     Mythosia.AI.Rag.Abstractions/       # Інтерфейси та моделі RAG (RagDocument)
   serving/
-    Mythosia.AI.Serving.Vllm/           # Клієнт площини керування vLLM (моделі/стан/версія/метрики)
+    Mythosia.AI.Serving.Abstractions/  # Спільні контракти керування серверами моделей
+    Mythosia.AI.Serving.Ollama/        # Керування Ollama та явне скачування
+    Mythosia.AI.Serving.LlamaCpp/      # Керування llama.cpp в одиночному режимі й маршрутизаторі
+    Mythosia.AI.Serving.Vllm/          # Керування й метрики vLLM
   vectordb/
     Mythosia.VectorDb.Abstractions/     # Контракти векторних сховищ
     Mythosia.VectorDb.InMemory/         # Векторне сховище в пам'яті
@@ -447,11 +529,24 @@ dotnet add package System.Linq.Async
 
 ## Документація
 
+Для швидкої чернетки з подальшою глибшою перевіркою або відповідей на основі актуальної інформації та розміщених документів див. [міркування й пошук із джерелами](reasoning-and-search.md).
+
+- **[📖 Повний сайт документації](https://aj-comp.github.io/Mythosia.AI/)** — документація DocFX про всі можливості, конвеєр RAG, векторні сховища та API
 - [Посібник з основ](getting-started.md)
 - [README Mythosia.AI](../../src/core/Mythosia.AI/README.md)  Повний довідник API: виклик функцій, стрімінг та налаштування моделей
 - [README Mythosia.AI.Rag](../../src/rag/Mythosia.AI.Rag/README.md)  Використання RAG-пайплайну та власні реалізації
 - [Посібник із завантажувачів](document-loaders.md)
 - [Примітки до релізів](../../src/core/Mythosia.AI/RELEASE_NOTES.md)
+
+## Перевірка швидкості обробки в реальних провайдерів
+
+З кореня репозиторію виконайте:
+
+```powershell
+./build/test-inference-speed-live.ps1
+```
+
+Платний набір використовує наявну тестову конфігурацію Key Vault і синтетичні запити. Він перевіряє Anthropic Opus 5.5, OpenAI GPT-6 Astra, Gemini 3.8 Flash та Grok 4.6 у режимах ProviderDefault/Standard/Fast через completion і Run: загалом 24 випадки. Помилки доступу, відсутність відомостей про застосований режим і пониження режиму сервером не вважаються успішною перевіркою Fast; усі випадки мають пройти без пропусків. Звіти зберігаються в `artifacts/test-results/inference-speed-live`. Використовуйте `-NoBuild` лише після збирання актуальних тестів у Release. Команда описує запуск набору, а не стверджує, що поточний обліковий запис уже пройшов перевірку.
 
 ## Ліцензія
 

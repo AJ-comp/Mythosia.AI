@@ -227,7 +227,9 @@ namespace Mythosia.AI.Samples.ChatUi
             sb.AppendLine("using Mythosia.AI.Rag.Splitters;");
             sb.AppendLine("using Mythosia.AI.Services.OpenAI;");
             sb.AppendLine("using System.Net.Http;");
+            sb.AppendLine("using System;");
             sb.AppendLine();
+            sb.AppendLine($"var embeddingHttpClient = new HttpClient {{ Timeout = TimeSpan.FromSeconds({config.EmbeddingTimeoutSeconds}) }};");
             sb.AppendLine("// 1. Create your AI service and enable RAG (extension method)");
             sb.AppendLine("var service = new OpenAIService(\"YOUR_API_KEY\", new HttpClient())");
             sb.AppendLine("    .WithRag(rag => rag");
@@ -247,16 +249,24 @@ namespace Mythosia.AI.Samples.ChatUi
             switch (string.IsNullOrWhiteSpace(config.EmbeddingProvider) ? null : config.EmbeddingProvider.Trim().ToLowerInvariant())
             {
                 case "ollama":
-                    sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
+                    sb.AppendLine($"        .UseEmbedding(new OllamaEmbeddingProvider(embeddingHttpClient, model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
                     break;
                 case "vllm":
-                    sb.AppendLine($"        .UseEmbedding(new VllmEmbeddingProvider(new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
+                    sb.AppendLine($"        .UseEmbedding(new VllmEmbeddingProvider(embeddingHttpClient, model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, baseUrl: \"{EscapeSnippetString(config.EmbeddingBaseUrl)}\"))");
                     break;
                 case "perplexity":
-                    sb.AppendLine($"        .UsePerplexityEmbedding(\"YOUR_PERPLEXITY_API_KEY\", new HttpClient(), model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions})");
+                    var perplexityType = IsPerplexityContextualModel(config.EmbeddingModel)
+                        ? "PerplexityContextualizedEmbeddingProvider" : "PerplexityEmbeddingProvider";
+                    sb.AppendLine($"        .UseEmbedding(new {perplexityType}(\"YOUR_PERPLEXITY_API_KEY\", embeddingHttpClient, model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}))");
+                    break;
+                case "voyage":
+                    sb.AppendLine($"        .UseEmbedding(new VoyageContextualizedEmbeddingProvider(\"YOUR_VOYAGE_API_KEY\", embeddingHttpClient, model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, timeout: TimeSpan.FromSeconds({config.EmbeddingTimeoutSeconds})))");
+                    break;
+                case "gemini":
+                    sb.AppendLine($"        .UseEmbedding(new GeminiEmbeddingProvider(\"YOUR_GEMINI_API_KEY\", embeddingHttpClient, model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}, timeout: TimeSpan.FromSeconds({config.EmbeddingTimeoutSeconds}), maxConcurrency: {config.EmbeddingMaxConcurrency}))");
                     break;
                 case "openai":
-                    sb.AppendLine($"        .UseOpenAIEmbedding(\"YOUR_OPENAI_API_KEY\", model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions})");
+                    sb.AppendLine($"        .UseEmbedding(new OpenAIEmbeddingProvider(\"YOUR_OPENAI_API_KEY\", embeddingHttpClient, model: \"{EscapeSnippetString(config.EmbeddingModel)}\", dimensions: {config.EmbeddingDimensions}))");
                     break;
                 default:
                     throw new InvalidOperationException("Embedding provider is required to generate the code snippet.");
@@ -314,19 +324,71 @@ namespace Mythosia.AI.Samples.ChatUi
         }
 
         public static IEmbeddingProvider BuildRagEmbeddingProvider(string provider, string? openAiApiKey,
-            string? perplexityApiKey, HttpClient httpClient, string model, int dimensions, string baseUrl)
+            string? perplexityApiKey, HttpClient httpClient, string model, int dimensions, string baseUrl,
+            string? voyageApiKey = null, string? geminiApiKey = null,
+            int timeoutSeconds = 120, int maxConcurrency = 4)
         {
-            return provider.Trim().ToLowerInvariant() switch
+            ValidateEmbeddingSettings(provider, model, dimensions, timeoutSeconds, maxConcurrency);
+            var timeout = TimeSpan.FromSeconds(timeoutSeconds);
+            IEmbeddingProvider embedding = provider.Trim().ToLowerInvariant() switch
             {
                 "ollama" => new OllamaEmbeddingProvider(httpClient, model, dimensions, baseUrl),
                 "vllm" => new VllmEmbeddingProvider(httpClient, model, dimensions, baseUrl),
                 "openai" => BuildOpenAiEmbeddingProvider(openAiApiKey, httpClient, model, dimensions),
+                "perplexity" when IsPerplexityContextualModel(model) => new PerplexityContextualizedEmbeddingProvider(
+                    RequireEmbeddingApiKey(perplexityApiKey, "Perplexity"), httpClient, model, dimensions),
                 "perplexity" => new PerplexityEmbeddingProvider(
-                    string.IsNullOrWhiteSpace(perplexityApiKey)
-                        ? throw new InvalidOperationException("Perplexity API key is required.") : perplexityApiKey.Trim(),
+                    RequireEmbeddingApiKey(perplexityApiKey, "Perplexity"),
                     httpClient, model, dimensions),
+                "voyage" => new VoyageContextualizedEmbeddingProvider(
+                    RequireEmbeddingApiKey(voyageApiKey, "Voyage"), httpClient, model, dimensions, timeout),
+                "gemini" => new GeminiEmbeddingProvider(
+                    RequireEmbeddingApiKey(geminiApiKey, "Gemini"), httpClient, model, dimensions, timeout, maxConcurrency),
                 _ => throw new ArgumentException("Unsupported embedding provider: " + provider, nameof(provider))
             };
+            // The native providers already enforce their operation-specific timeout. Legacy
+            // providers use a linked token without changing the shared client's configuration.
+            if (embedding is VoyageContextualizedEmbeddingProvider or GeminiEmbeddingProvider) return embedding;
+            return embedding is IRetrievalEmbeddingProvider retrieval
+                ? new TimedRetrievalEmbeddingProvider(retrieval, timeout)
+                : new TimedEmbeddingProvider(embedding, timeout);
+        }
+
+        internal static bool IsPerplexityContextualModel(string model)
+            => model is PerplexityEmbeddingModels.Context0_6B or PerplexityEmbeddingModels.Context4B;
+
+        private static string RequireEmbeddingApiKey(string? key, string provider)
+            => string.IsNullOrWhiteSpace(key) ? throw new InvalidOperationException(provider + " API key is required.") : key.Trim();
+
+        internal static void ValidateEmbeddingSettings(string provider, string model, int dimensions,
+            int timeoutSeconds, int maxConcurrency)
+        {
+            if (timeoutSeconds is < 1 or > 600) throw new ArgumentOutOfRangeException(nameof(timeoutSeconds), "Embedding timeout must be between 1 and 600 seconds.");
+            if (maxConcurrency is < 1 or > 16) throw new ArgumentOutOfRangeException(nameof(maxConcurrency), "Embedding concurrency must be between 1 and 16.");
+            if (string.IsNullOrWhiteSpace(model)) throw new ArgumentException("Embedding model is required.");
+            if (dimensions <= 0) throw new ArgumentOutOfRangeException(nameof(dimensions), "Embedding dimensions must be positive.");
+            switch (provider.Trim().ToLowerInvariant())
+            {
+                case "voyage":
+                    if (dimensions is not (256 or 512 or 1024 or 2048)) throw new ArgumentException("Voyage dimensions must be 256, 512, 1024, or 2048.");
+                    break;
+                case "gemini":
+                    if (dimensions is < 128 or > 3072) throw new ArgumentException("Gemini dimensions must be between 128 and 3072.");
+                    break;
+                case "perplexity":
+                    if (model is not (PerplexityEmbeddingModels.Standard0_6B or PerplexityEmbeddingModels.Standard4B or PerplexityEmbeddingModels.Context0_6B or PerplexityEmbeddingModels.Context4B))
+                        throw new ArgumentException("Choose a supported Perplexity embedding model.");
+                    var maximum = model is PerplexityEmbeddingModels.Standard0_6B or PerplexityEmbeddingModels.Context0_6B ? 1024 : 2560;
+                    if (dimensions < 128 || dimensions > maximum) throw new ArgumentException($"Perplexity dimensions must be between 128 and {maximum} for this model.");
+                    break;
+                case "openai":
+                    if (model == "text-embedding-ada-002" && dimensions != 1536) throw new ArgumentOutOfRangeException(nameof(dimensions), "text-embedding-ada-002 requires 1536 dimensions.");
+                    if (model == "text-embedding-3-small" && dimensions > 1536 || model == "text-embedding-3-large" && dimensions > 3072) throw new ArgumentException("Dimensions exceed the selected OpenAI model's output size.");
+                    break;
+                case "ollama":
+                case "vllm": break;
+                default: throw new ArgumentException("Unsupported embedding provider: " + provider);
+            }
         }
 
         public static double? ParseOptionalDouble(string? value)

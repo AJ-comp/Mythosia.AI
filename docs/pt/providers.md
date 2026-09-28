@@ -166,6 +166,7 @@ string transcript = await service.TranscribeAudioAsync(
 
 `TranscribeAudioAsync` usa `gpt-transcribe`; sua assinatura pública permanece inalterada.
 
+<a id="image-generation"></a>
 ### Geração de Imagens
 
 #### GPT Image 2.5

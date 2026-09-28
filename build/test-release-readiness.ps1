@@ -13,6 +13,7 @@ if ($Offline -and $AllowPartialResume) { throw 'Partial resume requires online p
 if ($LASTEXITCODE -ne 0) { throw "Missing reviewed release baseline $($plan.PreviousReleaseCommit). Fetch full Git history before readiness validation." }
 
 $projectDirectories = @{}
+$linkedSourcePaths = @{}
 $workspaceProjects = @{}
 foreach ($file in Get-ChildItem -LiteralPath (Join-Path $repoRoot 'src') -Filter '*.csproj' -Recurse -File) {
     [xml]$xml = Get-Content -LiteralPath $file.FullName -Raw
@@ -21,12 +22,14 @@ foreach ($file in Get-ChildItem -LiteralPath (Join-Path $repoRoot 'src') -Filter
     $relative = $file.FullName.Substring($repoRoot.Length + 1).Replace('\', '/')
     $workspaceProjects[$id] = @{ Path = $relative; Xml = $xml; Version = (Get-ReleaseProjectProperty $xml 'Version') }
     $projectDirectories[$id] = $relative.Substring(0, $relative.LastIndexOf('/'))
+    $linkedSourcePaths[$id] = @(Get-ReleaseLinkedCompilePaths -RepositoryRoot $repoRoot -ProjectPath $relative -ProjectXml $xml)
 }
 $changed = @(& git -c core.safecrlf=false -C $repoRoot diff --name-only $plan.PreviousReleaseCommit -- src)
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect production changes against the reviewed baseline.' }
 $untracked = @(& git -C $repoRoot ls-files --others --exclude-standard -- src)
 if ($LASTEXITCODE -ne 0) { throw 'Could not inspect untracked production files.' }
-Assert-ReleaseChangeCoverage -Packages $plan.Packages -ProjectDirectories $projectDirectories -ChangedPaths @($changed + $untracked)
+Assert-ReleaseChangeCoverage -Packages $plan.Packages -ProjectDirectories $projectDirectories `
+    -ChangedPaths @($changed + $untracked) -LinkedSourcePaths $linkedSourcePaths
 $releaseVersions = @{}
 foreach ($package in $plan.Packages) { $releaseVersions[$package.Id] = $package.Version }
 foreach ($package in $plan.Packages) {

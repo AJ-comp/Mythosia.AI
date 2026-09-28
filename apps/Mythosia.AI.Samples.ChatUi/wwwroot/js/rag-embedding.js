@@ -34,12 +34,19 @@ import {
   ragPerplexityKeyInput,
   ragPerplexityKeySave,
   ragPerplexityKeyStatus,
+  ragVoyageModelRow, ragVoyageModel, ragVoyageDimensions,
+  ragVoyageKey, ragVoyageKeyInput, ragVoyageKeySave, ragVoyageKeyStatus,
+  ragGeminiModelRow, ragGeminiModel, ragGeminiDimensions,
+  ragGeminiKey, ragGeminiKeyInput, ragGeminiKeySave, ragGeminiKeyStatus,
+  ragEmbeddingTimeout, ragEmbeddingConcurrency, ragEmbeddingConcurrencyRow,
+  ragEmbeddingReindexWarning,
+  btnRagDiagnose,
   ragPgDimension,
   ragQdrantDimension
 } from './dom.js';
 import { providerKeys, saveKeysToStorage } from './state.js';
 import { refreshProviderGroup } from './models.js';
-import { setStatusState, updateRunState } from './rag-shared.js';
+import { ragState, setStatusState, updateRunState } from './rag-shared.js';
 
 export function getSelectedEmbeddingProvider() {
   const provider = ragEmbeddingProvider?.value?.trim();
@@ -53,9 +60,19 @@ export function getEmbeddingDefaults(provider) {
   const p = provider || getSelectedEmbeddingProvider();
   if (p === 'perplexity') {
     const model = ragPerplexityModel?.value?.trim();
-    const dimsMap = { 'pplx-embed-v1-0.6b': 1024, 'pplx-embed-v1-4b': 2560 };
-    if (!model || !dimsMap[model]) throw new Error('A valid Perplexity standard embedding model must be selected.');
+    const dimsMap = { 'pplx-embed-v1-0.6b': 1024, 'pplx-embed-v1-4b': 2560, 'pplx-embed-context-v1-0.6b': 1024, 'pplx-embed-context-v1-4b': 2560 };
+    if (!model || !dimsMap[model]) throw new Error('A valid Perplexity embedding model must be selected.');
     return { model, dims: dimsMap[model] };
+  }
+  if (p === 'voyage') {
+    const model = ragVoyageModel?.value?.trim();
+    if (model !== 'voyage-context-4') throw new Error('A valid Voyage embedding model must be selected.');
+    return { model, dims: 1024 };
+  }
+  if (p === 'gemini') {
+    const model = ragGeminiModel?.value?.trim();
+    if (model !== 'gemini-embedding-2') throw new Error('A valid Gemini embedding model must be selected.');
+    return { model, dims: 1536 };
   }
   if (p === 'ollama') {
     const model = ragOllamaModel?.value?.trim();
@@ -103,6 +120,18 @@ export function getSelectedEmbeddingDimensions() {
   else if (provider === 'vllm') input = ragVllmDimensions;
   else if (provider === 'openai') input = ragOpenAiDimensions;
   else if (provider === 'perplexity') input = ragPerplexityDimensions;
+  else if (provider === 'voyage') input = ragVoyageDimensions;
+  else if (provider === 'gemini') input = ragGeminiDimensions;
+  if (provider === 'voyage') {
+    const value = Number(input?.value);
+    if (![256, 512, 1024, 2048].includes(value)) throw new Error('Voyage dimensions must be 256, 512, 1024 or 2048.');
+    return value;
+  }
+  if (provider === 'gemini') {
+    const value = Number(input?.value);
+    if (!Number.isInteger(value) || value < 128 || value > 3072) throw new Error('Gemini dimensions must be an integer between 128 and 3072.');
+    return value;
+  }
   if (provider === 'openai' && ragOpenAiModel?.value?.trim() === 'text-embedding-ada-002') {
     const value = Number(input?.value);
     validateOpenAiEmbeddingDimensions('text-embedding-ada-002', value);
@@ -131,19 +160,68 @@ export function setEmbeddingDimensions(provider, dims) {
   else if (provider === 'vllm' && ragVllmDimensions) ragVllmDimensions.value = dims;
   else if (provider === 'openai' && ragOpenAiDimensions) ragOpenAiDimensions.value = dims;
   else if (provider === 'perplexity' && ragPerplexityDimensions) ragPerplexityDimensions.value = dims;
+  else if (provider === 'voyage' && ragVoyageDimensions) ragVoyageDimensions.value = dims;
+  else if (provider === 'gemini' && ragGeminiDimensions) ragGeminiDimensions.value = dims;
 }
 
 export function getEmbeddingCredentials() {
   const provider = getSelectedEmbeddingProvider();
   if (provider === 'openai') return { openAiApiKey: providerKeys?.OpenAI || null };
   if (provider === 'perplexity') return { perplexityApiKey: providerKeys?.Perplexity || null };
+  if (provider === 'voyage') return { voyageApiKey: providerKeys?.Voyage || null };
+  if (provider === 'gemini') return { geminiApiKey: providerKeys?.Google || null };
   return {};
+}
+
+export function getEmbeddingExecutionSettings() {
+  const embeddingTimeoutSeconds = Number(ragEmbeddingTimeout?.value ?? 120);
+  // This field is hidden and unused for other providers. Keep their payloads
+  // valid even when an unfinished Gemini edit remains in the control.
+  const embeddingMaxConcurrency = getSelectedEmbeddingProvider() === 'gemini'
+    ? Number(ragEmbeddingConcurrency?.value ?? 4) : 4;
+  if (!Number.isInteger(embeddingTimeoutSeconds) || embeddingTimeoutSeconds < 1 || embeddingTimeoutSeconds > 600) {
+    throw new Error('Embedding timeout must be an integer between 1 and 600 seconds.');
+  }
+  if (!Number.isInteger(embeddingMaxConcurrency) || embeddingMaxConcurrency < 1 || embeddingMaxConcurrency > 16) {
+    throw new Error('Gemini concurrency must be an integer between 1 and 16.');
+  }
+  return { embeddingTimeoutSeconds, embeddingMaxConcurrency };
+}
+
+export function getEmbeddingIdentity(settings) {
+  const provider = settings?.embeddingProvider || getSelectedEmbeddingProvider();
+  return {
+    provider,
+    model: settings?.embeddingModel || getEmbeddingDefaults(provider).model,
+    dimensions: settings?.embeddingDimensions ?? getSelectedEmbeddingDimensions(),
+    baseUrl: (settings?.embeddingBaseUrl ?? (provider === 'ollama' ? ragEmbeddingBaseUrl?.value : provider === 'vllm' ? ragVllmBaseUrl?.value : '') ?? '').trim().replace(/\/+$/, '')
+  };
+}
+
+export function updateEmbeddingReindexWarning(indexedEmbedding, hasIndex) {
+  if (indexedEmbedding !== undefined) ragState.indexedEmbedding = indexedEmbedding;
+  if (hasIndex !== undefined) ragState.hasIndex = !!hasIndex;
+  const indexed = ragState.indexedEmbedding;
+  let requiresReindex = false;
+  if (ragState.hasIndex && indexed) {
+    try {
+      const selected = getEmbeddingIdentity();
+      requiresReindex = selected.provider !== indexed.provider || selected.model !== indexed.model
+        || selected.dimensions !== indexed.dimensions || selected.baseUrl !== (indexed.baseUrl || '').replace(/\/+$/, '');
+    } catch { requiresReindex = true; }
+  }
+  ragState.requiresReindex = requiresReindex;
+  ragEmbeddingReindexWarning?.classList.toggle('hidden', !requiresReindex);
+  if (btnRagDiagnose) btnRagDiagnose.disabled = !ragState.hasIndex || requiresReindex;
+  return requiresReindex;
 }
 
 export function updateEmbeddingUI(resetDimensions = false) {
   const provider = getSelectedEmbeddingProvider();
   const hasOpenAiKey = !!providerKeys?.OpenAI;
   const hasPerplexityKey = !!providerKeys?.Perplexity;
+  const hasVoyageKey = !!providerKeys?.Voyage;
+  const hasGeminiKey = !!providerKeys?.Google;
   const providerLabel = provider ? provider.toUpperCase() : 'N/A';
   const openAiModel = ragOpenAiModel?.value?.trim() || '';
   const isAda = openAiModel === 'text-embedding-ada-002';
@@ -153,7 +231,26 @@ export function updateEmbeddingUI(resetDimensions = false) {
     ? ollamaModel
     : provider === 'vllm'
       ? vllmModel
-      : provider === 'perplexity' ? ragPerplexityModel?.value?.trim() || '' : openAiModel;
+      : provider === 'perplexity' ? ragPerplexityModel?.value?.trim() || ''
+      : provider === 'voyage' ? ragVoyageModel?.value?.trim() || ''
+      : provider === 'gemini' ? ragGeminiModel?.value?.trim() || '' : openAiModel;
+
+  ragVoyageModelRow?.classList.toggle('hidden', provider !== 'voyage');
+  ragGeminiModelRow?.classList.toggle('hidden', provider !== 'gemini');
+  ragEmbeddingConcurrencyRow?.classList.toggle('hidden', provider !== 'gemini');
+  // Keep dedicated key controls available so an embedding-only key can be replaced.
+  ragVoyageKey?.classList.toggle('hidden', provider !== 'voyage');
+  ragGeminiKey?.classList.toggle('hidden', provider !== 'gemini');
+  if (ragVoyageKeyInput && provider !== 'voyage') ragVoyageKeyInput.value = '';
+  if (ragGeminiKeyInput && provider !== 'gemini') ragGeminiKeyInput.value = '';
+  if (ragVoyageKeyStatus) {
+    ragVoyageKeyStatus.textContent = hasVoyageKey ? 'Voyage key already saved. Enter a new key to replace it.' : 'Stored in localStorage for this browser.';
+    setStatusState(ragVoyageKeyStatus, hasVoyageKey ? 'success' : null);
+  }
+  if (ragGeminiKeyStatus) {
+    ragGeminiKeyStatus.textContent = hasGeminiKey ? 'Using the saved Google key. A replacement also applies to Google chat.' : 'Uses the same Google key as chat. Stored in localStorage for this browser.';
+    setStatusState(ragGeminiKeyStatus, hasGeminiKey ? 'success' : null);
+  }
 
   ragPerplexityModelRow?.classList.toggle('hidden', provider !== 'perplexity');
   ragPerplexityKey?.classList.toggle('hidden', provider !== 'perplexity' || hasPerplexityKey);
@@ -220,11 +317,15 @@ export function updateEmbeddingUI(resetDimensions = false) {
       ragEmbeddingHint.textContent = hasPerplexityKey
         ? `Using stored Perplexity API key (${embeddingModel}).`
         : 'Perplexity API key required. Enter it below.';
+    } else if (provider === 'voyage') {
+      ragEmbeddingHint.textContent = hasVoyageKey ? 'Voyage Context 4 preserves document context for indexing and uses query embeddings for search.' : 'Voyage API key required. Enter it below.';
+    } else if (provider === 'gemini') {
+      ragEmbeddingHint.textContent = hasGeminiKey ? 'Gemini Embedding 2 uses the saved Google API key. Each text chunk gets its own vector.' : 'Google API key required. Enter it below.';
     }
   }
 
   if (ragEmbeddingStatus) {
-    if (provider === 'openai' || provider === 'ollama' || provider === 'vllm' || provider === 'perplexity') {
+    if (embeddingModel) {
       ragEmbeddingStatus.textContent = `Embedding: ${providerLabel} · ${embeddingModel}`;
     } else {
       ragEmbeddingStatus.textContent = `Embedding: ${providerLabel}`;
@@ -242,6 +343,8 @@ export function updateEmbeddingUI(resetDimensions = false) {
       if (provider === 'ollama' && ragOllamaDimensions) ragOllamaDimensions.value = defaults.dims;
       if (provider === 'vllm' && ragVllmDimensions) ragVllmDimensions.value = defaults.dims;
       if (provider === 'perplexity' && ragPerplexityDimensions) ragPerplexityDimensions.value = defaults.dims;
+      if (provider === 'voyage' && ragVoyageDimensions) ragVoyageDimensions.value = defaults.dims;
+      if (provider === 'gemini' && ragGeminiDimensions) ragGeminiDimensions.value = defaults.dims;
     } catch { /* model not yet selected */ }
   }
   try {
@@ -269,6 +372,7 @@ export function updateEmbeddingUI(resetDimensions = false) {
   if (ragPgDimension && !ragPgDimension.value?.trim()) ragPgDimension.value = String(embDims);
   if (ragQdrantDimension && !ragQdrantDimension.value?.trim()) ragQdrantDimension.value = String(embDims);
 
+  updateEmbeddingReindexWarning();
   updateRunState();
 }
 
@@ -406,5 +510,26 @@ export function saveInlinePerplexityKey() {
   refreshProviderGroup('Perplexity');
   ragPerplexityKeyInput.value = '';
   if (ragPerplexityKeySave) ragPerplexityKeySave.disabled = true;
+  updateEmbeddingUI();
+}
+
+export function saveInlineVoyageKey() {
+  const key = ragVoyageKeyInput?.value?.trim();
+  if (!key) return;
+  providerKeys.Voyage = key;
+  saveKeysToStorage();
+  ragVoyageKeyInput.value = '';
+  if (ragVoyageKeySave) ragVoyageKeySave.disabled = true;
+  updateEmbeddingUI();
+}
+
+export function saveInlineGeminiKey() {
+  const key = ragGeminiKeyInput?.value?.trim();
+  if (!key) return;
+  providerKeys.Google = key;
+  saveKeysToStorage();
+  refreshProviderGroup('Google');
+  ragGeminiKeyInput.value = '';
+  if (ragGeminiKeySave) ragGeminiKeySave.disabled = true;
   updateEmbeddingUI();
 }

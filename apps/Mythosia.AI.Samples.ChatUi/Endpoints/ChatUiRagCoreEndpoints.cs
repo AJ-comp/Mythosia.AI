@@ -23,8 +23,25 @@ internal static class ChatUiRagCoreEndpoints
             });
         });
 
-        app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req) =>
+        app.MapPost("/api/rag/vector-store", async (VectorStoreConfigRequest req, CancellationToken ct) =>
         {
+            ct.ThrowIfCancellationRequested();
+            if ((req.Provider?.Trim().ToLowerInvariant() ?? "inmemory") == "inmemory")
+            {
+                ragState.ClearStore();
+                return Results.Ok(new { provider = "inmemory", status = "switched" });
+            }
+            var requestedSettings = MergeEmbeddingSettings(ragState.GetSettings(), req);
+            try { ValidateEmbeddingSettings(requestedSettings.EmbeddingProvider, requestedSettings.EmbeddingModel,
+                requestedSettings.EmbeddingDimensions, requestedSettings.EmbeddingTimeoutSeconds, requestedSettings.EmbeddingMaxConcurrency); }
+            catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+            if (req.Dimension.HasValue && req.Dimension.Value != requestedSettings.EmbeddingDimensions)
+                return Results.BadRequest(new { error = "The vector store dimension must match the embedding dimension. Use a compatible table or collection." });
+            string connectionIdentity;
+            try { connectionIdentity = GetVectorStoreIdentity(req); }
+            catch (ArgumentException) { return Results.BadRequest(new { error = "The vector store connection configuration is invalid." }); }
+            if (connectionIdentity == ragState.ActiveVectorStoreIdentity && ragState.RequiresReindexFor(requestedSettings))
+                return ReindexRequired();
             VectorStoreBuildResult buildResult;
             try
             {
@@ -48,7 +65,12 @@ internal static class ChatUiRagCoreEndpoints
             // Verify the store can actually reach its backend before claiming "connected".
             try
             {
-                await VerifyStoreConnectionAsync(buildResult, req);
+                await VerifyStoreConnectionAsync(buildResult, req, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                if (buildResult.Store is IDisposable canceledStore) canceledStore.Dispose();
+                throw;
             }
             catch (Exception ex)
             {
@@ -61,7 +83,12 @@ internal static class ChatUiRagCoreEndpoints
             List<string> schemaWarnings;
             try
             {
-                schemaWarnings = await ValidateStoreSchemaAsync(buildResult, req);
+                schemaWarnings = await ValidateStoreSchemaAsync(buildResult, req, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                if (buildResult.Store is IDisposable canceledStore) canceledStore.Dispose();
+                throw;
             }
             catch
             {
@@ -71,7 +98,7 @@ internal static class ChatUiRagCoreEndpoints
             // Merge embedding settings from the request into ragState so that
             // TryAutoConnectRagStoreAsync can build the RAG pipeline even when
             // the user hasn't run an embed yet.
-            MergeEmbeddingSettings(ragState, req);
+            ragState.UpdateSettings(requestedSettings);
 
             string? autoConnectWarning;
             try
@@ -81,7 +108,12 @@ internal static class ChatUiRagCoreEndpoints
                     embeddingHttpClient,
                     buildResult.Store,
                     req.OpenAiApiKey,
-                    req.PerplexityApiKey);
+                    req.PerplexityApiKey, req.VoyageApiKey, req.GeminiApiKey, connectionIdentity, ct);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                if (buildResult.Store is IDisposable canceledStore) canceledStore.Dispose();
+                throw;
             }
             catch (Exception ex)
             {
@@ -92,6 +124,7 @@ internal static class ChatUiRagCoreEndpoints
 
             if (autoConnectWarning != null && buildResult.Store is IDisposable warnDisposable)
                 warnDisposable.Dispose();
+            schemaWarnings.Add("Confirm that this database was indexed with the selected embedding provider, model, and dimensions. Existing vector metadata cannot verify the model automatically.");
 
             return buildResult.Provider switch
             {
@@ -257,6 +290,8 @@ internal static class ChatUiRagCoreEndpoints
                 hasIndex,
                 lastUpdated = ragState.LastUpdated,
                 settings,
+                requiresReindex = ragState.RequiresReindex,
+                indexedEmbedding = ragState.IndexedEmbedding,
                 vectorStoreProvider = "inmemory"
             });
         });
@@ -284,6 +319,10 @@ internal static class ChatUiRagCoreEndpoints
                 return Results.BadRequest(new { error = "Embedding model is required." });
             var embeddingDimensions = ParseOptionalPositiveInt(form["embeddingDimensions"]);
             var embeddingBaseUrl = NormalizeOptionalValue(form["embeddingBaseUrl"]) ?? string.Empty;
+            var timeoutText = NormalizeOptionalValue(form["embeddingTimeoutSeconds"]);
+            var concurrencyText = NormalizeOptionalValue(form["embeddingMaxConcurrency"]);
+            var embeddingTimeoutSeconds = timeoutText == null ? 120 : ParseOptionalPositiveInt(timeoutText) ?? 0;
+            var embeddingMaxConcurrency = concurrencyText == null ? 4 : ParseOptionalPositiveInt(concurrencyText) ?? 0;
             var topK = ParseOptionalPositiveInt(form["finalFilterTopK"]);
             if (topK is not > 0)
                 return Results.BadRequest(new { error = "TopK is required." });
@@ -313,6 +352,8 @@ internal static class ChatUiRagCoreEndpoints
             if (!string.IsNullOrWhiteSpace(openAiApiKey))
                 openAiApiKey = openAiApiKey.Trim();
             var perplexityApiKey = NormalizeOptionalValue(form["perplexityApiKey"]);
+            var voyageApiKey = NormalizeOptionalValue(form["voyageApiKey"]);
+            var geminiApiKey = NormalizeOptionalValue(form["geminiApiKey"]);
             var rewriterApiKey = form["rewriterApiKey"].ToString();
             if (!string.IsNullOrWhiteSpace(rewriterApiKey))
                 state.RewriterApiKey = rewriterApiKey.Trim();
@@ -344,7 +385,8 @@ internal static class ChatUiRagCoreEndpoints
             try
             {
                 embeddingProvider = BuildRagEmbeddingProvider(embeddingProviderKey, openAiApiKey, perplexityApiKey,
-                    embeddingHttpClient, embeddingModel, embeddingDimensionsValue, embeddingBaseUrl);
+                    embeddingHttpClient, embeddingModel, embeddingDimensionsValue, embeddingBaseUrl,
+                    voyageApiKey, geminiApiKey, embeddingTimeoutSeconds, embeddingMaxConcurrency);
             }
             catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
             {
@@ -391,9 +433,17 @@ internal static class ChatUiRagCoreEndpoints
                 RerankProvider: rerankProvider,
                 RerankModel: rerankModel ?? string.Empty,
                 RerankBaseUrl: rerankBaseUrl ?? string.Empty,
-                RerankApiKey: rerankApiKey);
+                RerankApiKey: rerankApiKey,
+                EmbeddingTimeoutSeconds: embeddingTimeoutSeconds,
+                EmbeddingMaxConcurrency: embeddingMaxConcurrency);
 
             var vectorStoreRequest = ParseVectorStoreConfig(form);
+            var connectionIdentity = GetVectorStoreIdentity(vectorStoreRequest);
+            if ((NormalizeOptionalValue(vectorStoreRequest.Provider)?.ToLowerInvariant() ?? "inmemory") != "inmemory"
+                && connectionIdentity == ragState.ActiveVectorStoreIdentity
+                && ragState.RequiresReindexFor(requestSettings)) return ReindexRequired();
+            if (vectorStoreRequest.Dimension.HasValue && vectorStoreRequest.Dimension.Value != embeddingDimensionsValue)
+                return Results.BadRequest(new { error = "The vector store dimension must match the embedding dimension. Use a compatible table or collection." });
             VectorStoreBuildResult vectorStoreResult;
             try
             {
@@ -428,7 +478,9 @@ internal static class ChatUiRagCoreEndpoints
                         continue;
 
                     var safeName = Path.GetFileName(file.FileName);
-                    var filePath = Path.Combine(tempRoot, safeName);
+                    var fileDirectory = Path.Combine(tempRoot, savedFiles.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                    Directory.CreateDirectory(fileDirectory);
+                    var filePath = Path.Combine(fileDirectory, safeName);
 
                     await using var stream = File.Create(filePath);
                     await file.CopyToAsync(stream, ctx.RequestAborted);
@@ -439,7 +491,9 @@ internal static class ChatUiRagCoreEndpoints
                 if (savedFiles.Count == 0)
                     return Results.BadRequest(new { error = "Uploaded files were empty." });
 
-                var store = await RagStore.BuildAsync(builder =>
+                // Validate search/reranker configuration before any document is persisted.
+                var store = await BuildQueryStoreAsync(vectorStoreResult.Store, embeddingProvider, requestSettings, ctx.RequestAborted);
+                await RagStore.BuildAsync(builder =>
                 {
                     builder
                         .WithTextSplitter(splitter)
@@ -457,8 +511,6 @@ internal static class ChatUiRagCoreEndpoints
                     if (!string.IsNullOrWhiteSpace(promptTemplate))
                         builder.WithPromptTemplate(promptTemplate);
 
-                    ApplyHybridAndReranker(builder, requestSettings);
-
                     foreach (var entry in savedFiles)
                     {
                         var loader = new TrackingDocumentLoader(
@@ -469,6 +521,9 @@ internal static class ChatUiRagCoreEndpoints
                     }
                 }, onDocumentEmbedded: null, ctx.RequestAborted);
 
+                ctx.RequestAborted.ThrowIfCancellationRequested();
+                // The tracking wrapper is only for ingestion. Search uses the original store
+                // so native hybrid, text-search, and diagnostics capabilities remain visible.
                 var trace = RagReferenceTraceBuilder.Build(DoclingDocumentConverter.ToRagDocuments(documents), chunks, records, embeddingProvider.Dimensions);
                 var config = new RagReferenceConfig(
                     savedFiles.Select(entry => entry.displayName).ToList(),
@@ -481,13 +536,16 @@ internal static class ChatUiRagCoreEndpoints
                     embeddingBaseUrl,
                     requestSettings.FinalFilter,
                     requestSettings.RetrievalDerivation,
-                    promptTemplate);
-                ragState.Update(store, trace, config);
+                    promptTemplate, embeddingTimeoutSeconds, embeddingMaxConcurrency);
+                ctx.RequestAborted.ThrowIfCancellationRequested();
+                ragState.Update(store, trace, config, vectorStoreResult.Store, connectionIdentity, requestSettings,
+                    GetCredentialFingerprint(embeddingProviderKey, openAiApiKey, perplexityApiKey, voyageApiKey, geminiApiKey));
                 ragState.UpdateSettings(requestSettings);
                 ragState.TryApplyQuerySettings(requestSettings);
                 shouldDisposeStore = false;
                 return Results.Ok(trace);
             }
+            catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 return Results.BadRequest(new { error = ex.Message });
@@ -529,29 +587,51 @@ internal static class ChatUiRagCoreEndpoints
         RagReferenceState ragState,
         HttpClient embeddingHttpClient,
         RagPipelineSettings settings,
-        VectorStoreConfigRequest? vectorStoreRequest)
+        VectorStoreConfigRequest? vectorStoreRequest, CancellationToken cancellationToken = default)
     {
-        if (vectorStoreRequest == null)
-            return null;
-
-        var provider = NormalizeOptionalValue(vectorStoreRequest.Provider)?.ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(provider) || provider == "inmemory")
-            return null;
-
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateEmbeddingSettings(settings.EmbeddingProvider, settings.EmbeddingModel, settings.EmbeddingDimensions,
+            settings.EmbeddingTimeoutSeconds, settings.EmbeddingMaxConcurrency);
+        var provider = NormalizeOptionalValue(vectorStoreRequest?.Provider)?.ToLowerInvariant() ?? "inmemory";
+        var identity = vectorStoreRequest == null ? "inmemory" : GetVectorStoreIdentity(vectorStoreRequest);
+        if ((provider == "inmemory" || identity == ragState.ActiveVectorStoreIdentity) && ragState.RequiresReindexFor(settings))
+            throw new RagReindexRequiredException();
         ragState.UpdateSettings(settings);
+        var fingerprint = GetCredentialFingerprint(settings.EmbeddingProvider, vectorStoreRequest?.OpenAiApiKey,
+            vectorStoreRequest?.PerplexityApiKey, vectorStoreRequest?.VoyageApiKey, vectorStoreRequest?.GeminiApiKey);
+        var active = ragState.ActiveSettings;
+        if (identity == ragState.ActiveVectorStoreIdentity && active != null && ragState.HasStore
+            && active.EmbeddingTimeoutSeconds == settings.EmbeddingTimeoutSeconds
+            && active.EmbeddingMaxConcurrency == settings.EmbeddingMaxConcurrency
+            && active.RerankEnabled == settings.RerankEnabled
+            && active.RerankProvider == settings.RerankProvider
+            && active.RerankModel == settings.RerankModel
+            && active.RerankBaseUrl == settings.RerankBaseUrl
+            && active.RerankApiKey == settings.RerankApiKey
+            && fingerprint == ragState.ActiveCredentialFingerprint)
+            return null;
+        if (provider == "inmemory" && (ragState.ActiveVectorStore == null || !ragState.HasStore)) return null;
 
-        var buildResult = BuildVectorStore(vectorStoreRequest);
-        var warning = await TryAutoConnectRagStoreAsync(
-            ragState,
-            embeddingHttpClient,
-            buildResult.Store,
-            vectorStoreRequest.OpenAiApiKey,
-            vectorStoreRequest.PerplexityApiKey);
-
-        if (warning != null && buildResult.Store is IDisposable disposable)
-            disposable.Dispose();
-
-        return warning;
+        var existingBackend = identity == ragState.ActiveVectorStoreIdentity ? ragState.ActiveVectorStore : null;
+        var backend = existingBackend ?? BuildVectorStore(vectorStoreRequest!).Store;
+        if (vectorStoreRequest?.Dimension.HasValue == true && vectorStoreRequest.Dimension != settings.EmbeddingDimensions)
+        {
+            if (existingBackend == null && backend is IDisposable invalidBackend) invalidBackend.Dispose();
+            throw new ArgumentException("The vector store dimension must match the embedding dimension.");
+        }
+        var connected = false;
+        try
+        {
+            var warning = await TryAutoConnectRagStoreAsync(ragState, embeddingHttpClient, backend,
+                vectorStoreRequest?.OpenAiApiKey, vectorStoreRequest?.PerplexityApiKey,
+                vectorStoreRequest?.VoyageApiKey, vectorStoreRequest?.GeminiApiKey, identity, cancellationToken);
+            connected = warning == null;
+            return warning;
+        }
+        finally
+        {
+            if (!connected && existingBackend == null && backend is IDisposable disposable) disposable.Dispose();
+        }
     }
 
     private static VectorStoreConfigRequest ParseVectorStoreConfig(IFormCollection form)
@@ -576,39 +656,59 @@ internal static class ChatUiRagCoreEndpoints
             PineconeNamespace: GetValue("pineconeNamespace"));
     }
 
-    private static async Task VerifyStoreConnectionAsync(VectorStoreBuildResult buildResult, VectorStoreConfigRequest req)
+    private static async Task VerifyStoreConnectionAsync(VectorStoreBuildResult buildResult, VectorStoreConfigRequest req, CancellationToken cancellationToken)
     {
-        await buildResult.Store.VerifyConnectionAsync();
+        await buildResult.Store.VerifyConnectionAsync(cancellationToken);
     }
 
-    private static void MergeEmbeddingSettings(RagReferenceState ragState, VectorStoreConfigRequest req)
+    private static RagPipelineSettings MergeEmbeddingSettings(RagPipelineSettings current, VectorStoreConfigRequest req)
     {
         var ep = NormalizeOptionalValue(req.EmbeddingProvider);
-        if (string.IsNullOrWhiteSpace(ep)) return;
-
-        var model = NormalizeOptionalValue(req.EmbeddingModel);
-        var dims = req.EmbeddingDimensions is > 0 ? req.EmbeddingDimensions.Value : 0;
-        var baseUrl = NormalizeOptionalValue(req.EmbeddingBaseUrl) ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(model) || dims <= 0) return;
-
-        var current = ragState.GetSettings();
-        if (current.EmbeddingProvider == ep
-            && current.EmbeddingModel == model
-            && current.EmbeddingDimensions == dims
-            && current.EmbeddingBaseUrl == baseUrl)
-            return;
-
-        ragState.UpdateSettings(current with
+        return current with
         {
-            EmbeddingProvider = ep,
-            EmbeddingModel = model,
-            EmbeddingDimensions = dims,
-            EmbeddingBaseUrl = baseUrl
-        });
+            EmbeddingProvider = ep?.ToLowerInvariant() ?? current.EmbeddingProvider,
+            EmbeddingModel = NormalizeOptionalValue(req.EmbeddingModel) ?? current.EmbeddingModel,
+            EmbeddingDimensions = req.EmbeddingDimensions ?? current.EmbeddingDimensions,
+            EmbeddingBaseUrl = NormalizeOptionalValue(req.EmbeddingBaseUrl) ?? current.EmbeddingBaseUrl,
+            EmbeddingTimeoutSeconds = req.EmbeddingTimeoutSeconds ?? current.EmbeddingTimeoutSeconds,
+            EmbeddingMaxConcurrency = req.EmbeddingMaxConcurrency ?? current.EmbeddingMaxConcurrency
+        };
     }
 
-    private static async Task<List<string>> ValidateStoreSchemaAsync(VectorStoreBuildResult buildResult, VectorStoreConfigRequest req)
+    internal static IResult ReindexRequired()
+        => Results.Json(new { code = "REINDEX_REQUIRED", error = RagReindexRequiredException.MessageText }, statusCode: StatusCodes.Status409Conflict);
+
+    internal static string GetVectorStoreIdentity(VectorStoreConfigRequest req)
+    {
+        var provider = req.Provider?.Trim().ToLowerInvariant() ?? "inmemory";
+        if (provider == "inmemory") return provider;
+        // Compare the effective dataset, independent of credential rotation, connection
+        // string ordering, and unused settings belonging to another backend.
+        object dataset;
+        if (provider == "postgres")
+        {
+            var connection = new Npgsql.NpgsqlConnectionStringBuilder(req.ConnectionString);
+            dataset = new { provider, host = connection.Host?.Trim().ToLowerInvariant(), port = connection.Port,
+                database = string.IsNullOrEmpty(connection.Database) ? connection.Username : connection.Database,
+                schema = req.SchemaName?.Trim(), table = req.TableName?.Trim() };
+        }
+        else if (provider == "qdrant")
+            dataset = new { provider, host = NormalizeHost(req.QdrantHost)?.ToLowerInvariant(), port = req.QdrantPort ?? 6334,
+                collection = req.QdrantCollectionName?.Trim() };
+        else
+            dataset = new { provider, host = req.PineconeIndexHost?.Trim().TrimEnd('/').ToLowerInvariant(),
+                scope = req.PineconeNamespace?.Trim() ?? string.Empty };
+        var identity = System.Text.Json.JsonSerializer.Serialize(dataset);
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(identity)));
+    }
+
+    private static string GetCredentialFingerprint(string provider, string? openAi, string? perplexity, string? voyage, string? gemini)
+    {
+        var key = provider.Trim().ToLowerInvariant() switch { "openai" => openAi, "perplexity" => perplexity, "voyage" => voyage, "gemini" => gemini, _ => null };
+        return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key?.Trim() ?? string.Empty)));
+    }
+
+    private static async Task<List<string>> ValidateStoreSchemaAsync(VectorStoreBuildResult buildResult, VectorStoreConfigRequest req, CancellationToken cancellationToken)
     {
         var warnings = new List<string>();
         var embeddingDimensions = req.EmbeddingDimensions;
@@ -626,7 +726,7 @@ internal static class ChatUiRagCoreEndpoints
             if (string.IsNullOrWhiteSpace(connectionString)) return warnings;
 
             using var conn = new Npgsql.NpgsqlConnection(connectionString);
-            await conn.OpenAsync();
+            await conn.OpenAsync(cancellationToken);
 
             // Check table existence
             using var existsCmd = conn.CreateCommand();
@@ -637,7 +737,7 @@ WHERE table_schema = @schema AND table_name = @table";
             existsCmd.Parameters.AddWithValue("@schema", buildResult.SchemaName ?? "public");
             existsCmd.Parameters.AddWithValue("@table", buildResult.TableName ?? "vectors");
 
-            var exists = await existsCmd.ExecuteScalarAsync();
+            var exists = await existsCmd.ExecuteScalarAsync(cancellationToken);
             if (exists == null)
             {
                 if (req.EnsureSchema == true)
@@ -658,7 +758,7 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
                 dimCmd.Parameters.AddWithValue("@schema", buildResult.SchemaName ?? "public");
                 dimCmd.Parameters.AddWithValue("@table", buildResult.TableName ?? "vectors");
 
-                var dimResult = await dimCmd.ExecuteScalarAsync();
+                var dimResult = await dimCmd.ExecuteScalarAsync(cancellationToken);
                 if (dimResult is int existingDim)
                 {
                     if (buildResult.Dimension.HasValue && existingDim != buildResult.Dimension.Value)
@@ -678,7 +778,7 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
             if (string.IsNullOrWhiteSpace(collectionName)) return warnings;
 
             using var client = new Qdrant.Client.QdrantClient(host, port, useTls, NormalizeOptionalValue(req.QdrantApiKey));
-            var collections = await client.ListCollectionsAsync();
+            var collections = await client.ListCollectionsAsync(cancellationToken);
             var found = collections.Any(c => c == collectionName);
             if (!found)
             {
@@ -688,7 +788,7 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
             {
                 try
                 {
-                    var info = await client.GetCollectionInfoAsync(collectionName);
+                    var info = await client.GetCollectionInfoAsync(collectionName, cancellationToken: cancellationToken);
                     var existingDim = info.Config.Params.VectorsConfig?.Params?.Size;
                     if (existingDim.HasValue)
                     {
@@ -698,6 +798,7 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
                             warnings.Add($"Dimension mismatch: collection \"{collectionName}\" has vector dimension {existingDim.Value}, but the embedding model produces {embeddingDimensions.Value}-dimensional vectors. Queries will fail at runtime.");
                     }
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch { /* unable to read collection info — skip */ }
             }
         }
@@ -835,77 +936,73 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
     /// Builds a RagStore backed by the provided <see cref="IVectorStore"/>
     /// and sets it on <paramref name="ragState"/>.  Returns a warning string when the
     /// pipeline could not be wired up (e.g. missing embedding key) or when the build
-    /// itself fails.  On failure the previous ragState.Store is cleared so that
-    /// subsequent queries do NOT silently fall back to a stale InMemory store.
+    /// itself fails. Failures preserve the last successful store; callers must block
+    /// the requested query when a warning is returned rather than silently using it.
     /// </summary>
     private static async Task<string?> TryAutoConnectRagStoreAsync(
         RagReferenceState ragState,
         HttpClient embeddingHttpClient,
         IVectorStore vectorStore,
         string? openAiApiKey,
-        string? perplexityApiKey)
+        string? perplexityApiKey, string? voyageApiKey, string? geminiApiKey,
+        string connectionIdentity, CancellationToken cancellationToken)
     {
         var settings = ragState.GetSettings();
         var epKey = NormalizeOptionalValue(settings.EmbeddingProvider)?.ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(epKey))
         {
-            ragState.ClearStore();
             return "Embedding provider is required before connecting an external vector store.";
         }
         if (settings.EmbeddingDimensions <= 0)
         {
-            ragState.ClearStore();
             return "Embedding dimensions are required before connecting an external vector store.";
         }
         if (string.IsNullOrWhiteSpace(settings.EmbeddingModel))
         {
-            ragState.ClearStore();
             return "Embedding model is required before connecting an external vector store.";
         }
 
-        var embeddingKey = epKey == "perplexity" ? perplexityApiKey : openAiApiKey;
-        if ((epKey == "openai" || epKey == "perplexity") && string.IsNullOrWhiteSpace(embeddingKey))
+        var embeddingKey = epKey switch { "perplexity" => perplexityApiKey, "voyage" => voyageApiKey, "gemini" => geminiApiKey, _ => openAiApiKey };
+        if ((epKey is "openai" or "perplexity" or "voyage" or "gemini") && string.IsNullOrWhiteSpace(embeddingKey))
         {
-            // No embedding key → can't query. Clear stale store so queries don't
-            // silently use an old InMemory-backed RagStore.
-            ragState.ClearStore();
+            // A failed reconfiguration must not discard an existing in-memory index.
+            // Callers treat this warning as a blocked query, never a silent fallback.
             return "No API key provided for the embedding provider. "
-                + $"RAG queries will not work until a {(epKey == "perplexity" ? "Perplexity" : "OpenAI")} API key is configured in the Document Reference panel.";
+                + $"RAG queries will not work until a {epKey} API key is configured in the Document Reference panel.";
         }
 
         try
         {
-            var store = await RagStore.BuildAsync(builder =>
-            {
-                builder
-                    .UseStore(vectorStore)
-                    .WithTopK(settings.FinalFilter.TopK);
-
-                builder.WithRetrievalMultiplier(settings.RetrievalDerivation.TopKMultiplier);
-
-                builder.UseEmbedding(BuildRagEmbeddingProvider(epKey, openAiApiKey, perplexityApiKey,
-                    embeddingHttpClient, settings.EmbeddingModel, settings.EmbeddingDimensions, settings.EmbeddingBaseUrl));
-
-                if (settings.FinalFilter.MinScore.HasValue)
-                    builder.WithScoreThreshold(settings.FinalFilter.MinScore.Value);
-                if (settings.FinalFilter.MinScore.HasValue)
-                    builder.WithRetrievalMinScore(
-                        settings.FinalFilter.MinScore.Value / Math.Max(1d, settings.RetrievalDerivation.MinScoreDivider));
-                if (!string.IsNullOrWhiteSpace(settings.PromptTemplate))
-                    builder.WithPromptTemplate(settings.PromptTemplate);
-
-                ApplyHybridAndReranker(builder, settings);
-            });
-            ragState.SetExternalStore(store);
+            var embedding = BuildRagEmbeddingProvider(epKey, openAiApiKey, perplexityApiKey,
+                embeddingHttpClient, settings.EmbeddingModel, settings.EmbeddingDimensions, settings.EmbeddingBaseUrl,
+                voyageApiKey, geminiApiKey, settings.EmbeddingTimeoutSeconds, settings.EmbeddingMaxConcurrency);
+            var store = await BuildQueryStoreAsync(vectorStore, embedding, settings, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            ragState.SetExternalStore(store, settings, vectorStore, connectionIdentity,
+                GetCredentialFingerprint(epKey, openAiApiKey, perplexityApiKey, voyageApiKey, geminiApiKey));
             return null; // success — no warning
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            // Build failed — clear stale store so queries don't use an old InMemory store
-            ragState.ClearStore();
             return $"Vector store connected but RAG pipeline setup failed: {HumanizeRagError(ex.Message)}";
         }
     }
+
+    internal static Task<RagStore> BuildQueryStoreAsync(IVectorStore vectorStore, IEmbeddingProvider embedding,
+        RagPipelineSettings settings, CancellationToken cancellationToken)
+        => RagStore.BuildAsync(builder =>
+        {
+            builder.UseStore(vectorStore).UseEmbedding(embedding).WithTopK(settings.FinalFilter.TopK);
+            builder.WithRetrievalMultiplier(settings.RetrievalDerivation.TopKMultiplier);
+            if (settings.FinalFilter.MinScore.HasValue)
+            {
+                builder.WithScoreThreshold(settings.FinalFilter.MinScore.Value);
+                builder.WithRetrievalMinScore(settings.FinalFilter.MinScore.Value / Math.Max(1d, settings.RetrievalDerivation.MinScoreDivider));
+            }
+            if (!string.IsNullOrWhiteSpace(settings.PromptTemplate)) builder.WithPromptTemplate(settings.PromptTemplate);
+            ApplyHybridAndReranker(builder, settings);
+        }, cancellationToken: cancellationToken);
 
     private static void ApplyHybridAndReranker(RagBuilder builder, RagPipelineSettings settings)
     {
@@ -947,4 +1044,9 @@ WHERE n.nspname = @schema AND c.relname = @table AND a.attname = 'embedding' AND
 
     private static float? ParseOptionalFloat(string? value)
         => float.TryParse(value, out var parsed) ? parsed : null;
+}
+
+internal sealed class RagReindexRequiredException() : InvalidOperationException(MessageText)
+{
+    internal const string MessageText = "The selected embedding provider, model, dimensions, or endpoint differs from the indexed vectors. Re-index the documents before searching. For an external database, use a new table or collection, or restore the original embedding settings; uploading only some documents cannot safely migrate the existing vector space.";
 }

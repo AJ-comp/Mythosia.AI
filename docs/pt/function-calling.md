@@ -251,6 +251,7 @@ Os handlers existentes de um argumento que retornam strings continuam suportados
 
 Isso trata retornos e cancelamento de funções .NET locais, sem exigir o `AllowAsync` nativo do provedor. Parar apenas o leitor `run.StreamAsync(token)` interrompe a observação, não o run. Veja o [guia de Run](execution-api-transition.md) e o [protocolo do provedor](https://developers.openai.com/api/docs/guides/async-tool-calling).
 
+<a id="async-tool-calling"></a>
 ## Chamadas assíncronas de ferramentas
 
 Uma consulta lenta não precisa interromper toda a resposta. Enquanto os dados do clima são carregados, por exemplo, o modelo pode explicar dicas gerais de viagem que não dependem do resultado. As chamadas assíncronas de ferramentas permitem esse trabalho independente; afirmações que precisam do resultado ainda devem aguardá-lo.

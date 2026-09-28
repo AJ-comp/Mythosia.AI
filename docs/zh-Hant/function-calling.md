@@ -253,6 +253,7 @@ var readText = FunctionBuilder.Create("read_text")
 
 這是本機.NET函式的回傳值與取消處理，不依賴提供者原生的`AllowAsync`功能。僅停止`run.StreamAsync(token)`讀取只會停止觀察，run繼續執行。請參閱[Run指南](execution-api-transition.md)與[提供者通訊協定](https://developers.openai.com/api/docs/guides/async-tool-calling)。
 
+<a id="async-tool-calling"></a>
 ## 模型非同步工具呼叫
 
 天氣查詢較慢時，模型仍可先介紹不依賴天氣結果的一般旅行用品。模型原生非同步工具呼叫用於在這種等待期間繼續獨立工作；依賴查詢結果的判斷仍應等結果傳回後再進行。

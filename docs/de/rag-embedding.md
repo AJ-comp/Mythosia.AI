@@ -45,6 +45,16 @@ Generische Batches prüfen beim Einlesen auf Abbruch. Sobald mehr als 1.000 Text
 
 Beide Anbieter erhalten den gespeicherten Quelltext und prüfen Anzahl, Dimensionen und endliche Vektorwerte. Der übergebene `HttpClient` gehört weiterhin dem Aufrufer; seine Einstellungen bleiben unverändert. Voyage stellt Dokument- und Abschnittsreihenfolge anhand geprüfter Indizes wieder her. Fehler enthalten weder Schlüssel noch entfernte Nutzdaten; Abbruch wird weitergegeben, Zeitüberschreitungen erzeugen `TimeoutException`. Voyage setzt `timeout` pro Anfrage um, Gemini für den gesamten Vorgang einschließlich Wartezeiten auf Parallelität; das Clientlimit gilt zusätzlich. Eingaben werden nicht still aufgeteilt oder gekürzt. Fehler vor dem Speichern erhalten das bisherige Dokument; danach hängt Atomarität vom Store oder Callback ab. Nach Änderungen an Modell, Dimensionen oder Suchformat Dokumente neu indizieren und den Store auf denselben Vektorraum einstellen.
 
+<a id="playground-embeddings"></a>
+
+### Embeddings im Playground ausprobieren
+
+Wählen Sie im Playground unter Pipeline → Embedding Voyage Context 4, Gemini Embedding 2 oder kontextuelle Perplexity-Embeddings und geben Sie Anbieterschlüssel und Dimensionen an. Das Zeitlimit der App beträgt standardmäßig 120 Sekunden (1–600), die Gemini-Parallelität 4 (1–16). Diese App-Einstellungen werden im Browser wiederhergestellt und beim erneuten Verbinden einer Vektordatenbank verwendet. Änderungen an Zeitlimit, Parallelität und API-Schlüssel gelten ohne Neuindexierung für nachfolgende Vorgänge.
+
+Öffnen Sie Documents und starten Sie Run Reference, um Dateien zu indexieren, oder brechen Sie einen laufenden Vorgang mit Cancel ab. Prüfen Sie die Abschnitts- und Vektoranzahl je Dokument und exportieren Sie über View Code ein Beispiel mit der gewählten Konfiguration und Schlüsselplatzhaltern. Nach einem Wechsel von Anbieter, Modell oder Dimensionen ist eine Neuindexierung nötig; erneutes Verbinden wandelt gespeicherte Vektoren nicht um. Ein Abbruch macht bereits gespeicherte Dokumente nicht rückgängig.
+
+Modelle können auch bei gleicher Dimensionenzahl unterschiedliche Vektorräume verwenden. Die App lehnt einen Wechsel von Anbieter, Modell oder Dimensionen für die aktuell verbundene externe Tabelle, Collection oder den Namespace ab. Wählen Sie ein neues Speicherziel und indexieren Sie alle benötigten Dokumente mit der neuen Konfiguration. Prüfen Sie den Index nach einem Abbruch vor dem nächsten Versuch.
+
 ### Den tatsächlichen Dienst prüfen
 
 Live-Tests senden synthetischen TXT-, Markdown- und PDF-Text und verursachen API-Kosten. Setzen Sie `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, konfigurieren Sie Zugangsdaten und wählen Sie `All`, `Voyage` oder `Gemini`. Übersprungene oder nicht eindeutige Fälle führen zum Fehlschlag; Offline-Tests bestätigen keine Dienstverfügbarkeit.

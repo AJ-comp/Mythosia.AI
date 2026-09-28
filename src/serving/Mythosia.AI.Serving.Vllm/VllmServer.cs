@@ -2,8 +2,10 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,7 +21,7 @@ namespace Mythosia.AI.Serving.Vllm
     /// stay on Mythosia.AI (e.g. <c>QwenService</c> with <c>EndpointPlatform.Vllm</c>).
     /// </para>
     /// </summary>
-    public class VllmServer
+    public partial class VllmServer
     {
         private readonly HttpClient _httpClient;
         private readonly string? _apiKey;
@@ -142,6 +144,7 @@ namespace Mythosia.AI.Serving.Vllm
         /// </summary>
         public async Task<VllmHealthReport> GetHealthAsync(CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             try
             {
                 using (var request = CreateRequest("health"))
@@ -149,6 +152,7 @@ namespace Mythosia.AI.Serving.Vllm
                     .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                     .ConfigureAwait(false))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     var statusCode = (int)response.StatusCode;
                     if (response.IsSuccessStatusCode)
                         return new VllmHealthReport(VllmHealthStatus.Healthy, statusCode, null);
@@ -198,19 +202,52 @@ namespace Mythosia.AI.Serving.Vllm
 
         private async Task<string> GetStringAsync(string relativePath, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             using (var request = CreateRequest(relativePath))
             using (var response = await _httpClient
                 .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
                 .ConfigureAwait(false))
             {
-                var body = response.Content != null
-                    ? await response.Content.ReadAsStringAsync().ConfigureAwait(false)
-                    : string.Empty;
+                var body = await ReadBodyAsync(response, cancellationToken).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
                     throw VllmException.FromResponse((int)response.StatusCode, response.ReasonPhrase, body);
 
                 return body;
+            }
+        }
+
+        private static async Task<string> ReadBodyAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+        {
+            // ResponseHeadersRead leaves body I/O outside SendAsync's cancellation scope.
+            // Dispose the response as well as passing the token to reads so a blocked body
+            // cannot keep a caller waiting after cancellation on .NET Standard 2.1.
+            using (cancellationToken.Register(response.Dispose))
+            {
+                try
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (response.Content == null) return string.Empty;
+                    var charset = response.Content.Headers.ContentType?.CharSet;
+                    var encoding = string.IsNullOrWhiteSpace(charset)
+                        ? Encoding.UTF8
+                        : Encoding.GetEncoding(charset!.Trim('"'));
+                    using (var stream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false))
+                    using (var reader = new StreamReader(stream, encoding, true))
+                    {
+                        var body = new StringBuilder();
+                        var buffer = new char[4096];
+                        int count;
+                        while ((count = await reader.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) != 0)
+                            body.Append(buffer, 0, count);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return body.ToString();
+                    }
+                }
+                catch (Exception) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(cancellationToken);
+                }
             }
         }
 

@@ -30,6 +30,10 @@ import {
   ragPerplexityDimensions,
   ragPerplexityKeyInput,
   ragPerplexityKeySave,
+  ragVoyageModel, ragVoyageDimensions, ragVoyageKeyInput, ragVoyageKeySave,
+  ragGeminiModel, ragGeminiDimensions, ragGeminiKeyInput, ragGeminiKeySave,
+  ragOpenAiDimensions, ragOllamaDimensions, ragVllmDimensions,
+  ragEmbeddingTimeout, ragEmbeddingConcurrency, ragEmbedCancel,
   ragRun,
   ragViewCode,
   ragTopK,
@@ -72,8 +76,8 @@ import {
   ragTracePanelClose
 } from './dom.js';
 import { ragState, markReferenceStale, setViewCodeEnabled } from './rag-shared.js';
-import { updateEmbeddingUI, testOllamaConnection, testVllmConnection, saveInlineOpenAiKey, saveInlinePerplexityKey } from './rag-embedding.js';
-import { updateFileList, runReference, refreshRagStatus, refreshReferenceHistory, openRagCodeModal, closeTracePanel } from './rag-run.js';
+import { updateEmbeddingUI, updateEmbeddingReindexWarning, testOllamaConnection, testVllmConnection, saveInlineOpenAiKey, saveInlinePerplexityKey, saveInlineVoyageKey, saveInlineGeminiKey } from './rag-embedding.js';
+import { updateFileList, runReference, cancelReference, refreshRagStatus, refreshReferenceHistory, openRagCodeModal, closeTracePanel } from './rag-run.js';
 import { loadPipelineSettings, savePipelineSettings, exportPipelineSettingsPdf, testVllmRerankConnection, updateRewriterUI, updateRewriterOverrideUI, updateHybridUI, updateHybridWeightDisplay, updateRerankUI, updateFinalSelectionUI, updateFinalSelectionWeightDisplay, updateRerankCandidateTopKDisplay, updateRerankDerivedMinScoreDisplay, updateRetrievalParamsDisplay } from './rag-pipeline.js';
 import { updateVectorStoreUI, loadVectorStoreConfig, updatePgConnectState, updateQdrantConnectState, connectPostgres, disconnectPostgres, connectQdrant, disconnectQdrant, updatePineconeConnectState, connectPinecone, disconnectPinecone } from './rag-vector-store.js';
 
@@ -133,7 +137,15 @@ export function initRagReference() {
     updateEmbeddingUI(true);
     markReferenceStale();
   });
-  ragPerplexityDimensions?.addEventListener('input', markReferenceStale);
+  [ragVoyageModel, ragGeminiModel].forEach(model => model?.addEventListener('change', () => {
+    updateEmbeddingUI(true);
+    markReferenceStale();
+  }));
+  [ragOpenAiDimensions, ragOllamaDimensions, ragVllmDimensions, ragPerplexityDimensions, ragVoyageDimensions, ragGeminiDimensions].forEach(input => input?.addEventListener('input', () => {
+    updateEmbeddingReindexWarning();
+    markReferenceStale();
+  }));
+  [ragEmbeddingTimeout, ragEmbeddingConcurrency].forEach(input => input?.addEventListener('input', markReferenceStale));
   ragOllamaModel?.addEventListener('change', () => {
     updateEmbeddingUI(true);
     markReferenceStale();
@@ -144,8 +156,10 @@ export function initRagReference() {
   });
   ragOllamaTest?.addEventListener('click', testOllamaConnection);
   ragVllmTest?.addEventListener('click', testVllmConnection);
-  ragEmbeddingBaseUrl?.addEventListener('input', markReferenceStale);
-  ragVllmBaseUrl?.addEventListener('input', markReferenceStale);
+  [ragEmbeddingBaseUrl, ragVllmBaseUrl].forEach(input => input?.addEventListener('input', () => {
+    updateEmbeddingReindexWarning();
+    markReferenceStale();
+  }));
   ragTopK?.addEventListener('input', () => {
     updateRerankCandidateTopKDisplay();
     updateRetrievalParamsDisplay();
@@ -173,6 +187,7 @@ export function initRagReference() {
     markReferenceStale();
   });
   ragRun.addEventListener('click', runReference);
+  ragEmbedCancel?.addEventListener('click', cancelReference);
   ragViewCode?.addEventListener('click', openRagCodeModal);
   ragChunkSize?.addEventListener('input', markReferenceStale);
   ragChunkOverlap?.addEventListener('input', markReferenceStale);
@@ -187,6 +202,14 @@ export function initRagReference() {
     if (ragPerplexityKeySave) ragPerplexityKeySave.disabled = !ragPerplexityKeyInput.value.trim();
   });
   ragPerplexityKeySave?.addEventListener('click', saveInlinePerplexityKey);
+  ragVoyageKeyInput?.addEventListener('input', () => {
+    if (ragVoyageKeySave) ragVoyageKeySave.disabled = !ragVoyageKeyInput.value.trim();
+  });
+  ragVoyageKeySave?.addEventListener('click', saveInlineVoyageKey);
+  ragGeminiKeyInput?.addEventListener('input', () => {
+    if (ragGeminiKeySave) ragGeminiKeySave.disabled = !ragGeminiKeyInput.value.trim();
+  });
+  ragGeminiKeySave?.addEventListener('click', saveInlineGeminiKey);
 
   // ── Vector Store controls ──────────────────────────────────
   ragVectorStoreProvider?.addEventListener('change', () => {
@@ -215,8 +238,8 @@ export function initRagReference() {
   updateFileList();
   updateEmbeddingUI();
   updateVectorStoreUI();
-  loadVectorStoreConfig();
-  loadPipelineSettings();
+  // Restore the embedding selection before reconnecting a saved external store.
+  loadPipelineSettings().then(() => loadVectorStoreConfig());
   refreshRagStatus();
   refreshReferenceHistory();
 

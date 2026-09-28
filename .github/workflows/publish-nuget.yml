@@ -217,6 +217,14 @@ jobs:
           --configuration Release
           --no-build
 
+      - name: Run serving contracts and additional runtime tests
+        shell: pwsh
+        run: |
+          foreach ($package in @('Abstractions', 'Ollama', 'LlamaCpp')) {
+            dotnet test --project "tests/Mythosia.AI.Serving.$package.Tests/Mythosia.AI.Serving.$package.Tests.csproj" --configuration Release --no-build --minimum-expected-tests 1
+            if ($LASTEXITCODE -ne 0) { throw "Serving $package tests failed." }
+          }
+
       - name: Run vector database tests
         run: >-
           dotnet test

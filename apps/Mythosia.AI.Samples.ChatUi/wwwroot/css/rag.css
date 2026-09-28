@@ -273,6 +273,8 @@ input[type="range"]::-moz-range-thumb {
   z-index: 10;
   background: var(--bg-secondary);
   display: flex;
+  flex-direction: column;
+  overflow-y: auto;
   align-items: center;
   justify-content: center;
   border-radius: var(--radius-lg);
@@ -281,8 +283,11 @@ input[type="range"]::-moz-range-thumb {
 .rag-embed-progress-content {
   width: 100%;
   max-width: 600px;
-  padding: 32px;
+  padding: 24px 32px 12px;
 }
+#rag-embed-cancel { margin: 0 0 24px; flex-shrink: 0; }
+#rag-embedding-reindex-warning { padding: 10px 12px; border: 1px solid currentColor; border-radius: var(--radius-sm); }
+.rag-document-counts { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 12px; color: var(--text-secondary); }
 .rag-modal-card { position: relative; }
 
 /* ── Embedding Result Modal ─────────────────────────────── */

@@ -156,12 +156,54 @@ function Get-ValidatedNuGetVersions {
     }
 }
 
+function Get-ReleaseLinkedCompilePaths {
+    param([string]$RepositoryRoot, [string]$ProjectPath, [xml]$ProjectXml)
+    $root = [IO.Path]::GetFullPath($RepositoryRoot).TrimEnd('\', '/')
+    $separator = [IO.Path]::DirectorySeparatorChar
+    $comparison = if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+        [StringComparison]::OrdinalIgnoreCase
+    } else { [StringComparison]::Ordinal }
+    $project = [IO.Path]::GetFullPath((Join-Path $root $ProjectPath.Replace('\', '/')))
+    if (-not $project.StartsWith($root + $separator, $comparison)) {
+        throw 'Release coverage requires projects inside the repository.'
+    }
+    $projectDirectory = [IO.Path]::GetDirectoryName($project)
+    $linked = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($item in @($ProjectXml.SelectNodes('/Project/ItemGroup/Compile[@Include]'))) {
+        # Conservatively include conditional entries. Do not guess at MSBuild property,
+        # wildcard or item expansion: a new non-literal include requires explicit review.
+        foreach ($include in ([string]$item.Include).Split(';')) {
+            $include = $include.Trim()
+            if ([string]::IsNullOrWhiteSpace($include) -or $include -match '[$@%]\(|[*?]') {
+                throw 'Release coverage requires literal Compile Include paths; review expressions or globs explicitly.'
+            }
+            if ([IO.Path]::IsPathRooted($include)) {
+                throw 'Release coverage requires repository-relative Compile Include paths.'
+            }
+            $source = [IO.Path]::GetFullPath((Join-Path $projectDirectory $include.Replace('\', '/')))
+            if (-not $source.StartsWith($root + $separator, $comparison)) {
+                throw 'Release coverage cannot track a Compile Include outside the repository.'
+            }
+            # Explicit inputs remain source even under a normally excluded docs path.
+            $null = $linked.Add($source.Substring($root.Length + 1).Replace('\', '/'))
+        }
+    }
+    return @($linked | Sort-Object)
+}
+
 function Assert-ReleaseChangeCoverage {
-    param([object[]]$Packages, [System.Collections.IDictionary]$ProjectDirectories, [string[]]$ChangedPaths)
+    param([object[]]$Packages, [System.Collections.IDictionary]$ProjectDirectories, [string[]]$ChangedPaths,
+        [System.Collections.IDictionary]$LinkedSourcePaths = @{})
     $planned = @($Packages | ForEach-Object { [string]$_.Id })
     $missing = @{}
     foreach ($path in $ChangedPaths) {
         $normalized = $path.Replace('\', '/')
+        # Explicit compiled inputs take precedence over documentation exclusions.
+        foreach ($id in $LinkedSourcePaths.Keys) {
+            if (@($LinkedSourcePaths[$id]) -ccontains $normalized -and $planned -notcontains $id) {
+                $missing[$id] = $true
+            }
+        }
         # Documentation content alone does not require a package release. Model/tokenizer
         # data, build targets, licenses, source and project metadata do require coverage.
         if ($normalized -match '(?i)\.md$|(^|/)(docs|documentation)/|(^|/)\.gitignore$') { continue }

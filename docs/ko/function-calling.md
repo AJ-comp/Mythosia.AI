@@ -256,6 +256,7 @@ var readText = FunctionBuilder.Create("read_text")
 
 이 기능은 로컬 .NET 함수의 반환값과 취소 처리입니다. 공급자의 비동기 도구 기능인 `AllowAsync` 지원 여부와 관계없이 사용합니다. `run.StreamAsync(token)` 읽기만 중단하면 관찰만 멈추고 run은 계속됩니다. [Run 사용 안내](execution-api-transition.md)와 [공급자 프로토콜](https://developers.openai.com/api/docs/guides/async-tool-calling)을 참고하세요.
 
+<a id="async-tool-calling"></a>
 ## 모델의 비동기 도구 호출
 
 외부 조회에 몇 초가 걸리더라도, 모델이 그 결과와 무관한 설명까지 기다릴 필요는 없는 경우가 있습니다. 예를 들어 날씨를 조회하는 동안 일반적인 여행 준비물을 먼저 안내할 수 있습니다. 비동기 도구 호출은 이런 독립적인 작업을 진행하고, 조회가 끝나면 결과를 이어서 반영할 수 있게 합니다. 결과에 의존하는 판단은 실제 도구 결과를 받은 뒤에 해야 합니다.

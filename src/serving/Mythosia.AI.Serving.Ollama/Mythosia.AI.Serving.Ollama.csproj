@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageId>Mythosia.AI.Serving.Ollama</PackageId>
+    <Version>1.0.0</Version>
+    <IsPackable>true</IsPackable>
+    <Company>Mythosia</Company>
+    <Authors>JJW</Authors>
+    <PackageTags>AI;LLM;Ollama;Serving;InferenceServer;ControlPlane;ModelManagement</PackageTags>
+    <Description>Prepare models and diagnose readiness on an existing Ollama server independently of chat providers. Discover registered and running models, check health/version, explicitly preload or unload compatible models, and download models with streaming progress. What's New in v1.0.0: shared Serving contracts, distinct installation/load states, cancellation-aware HTTP and validated download completion. Uses a caller-owned HttpClient; targets .NET Standard 2.1 without a Mythosia.AI core dependency. No server hosting or chat API.</Description>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/serving/Mythosia.AI.Serving.Ollama</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>v1.0.0 introduces OllamaServer with health/version discovery, registered/running inventory, explicit preload/unload and NDJSON downloads with terminal-success validation. Shared Serving contracts, caller-owned HTTP, request-local authentication, sanitized errors and cancellation are included. Live checks used Ollama 0.34.4 and qwen2.5:0.5b; see full notes for coverage, the initial pull failure and compatibility limits. Cancellation does not guarantee server-side rollback. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100</PackageReleaseNotes>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mythosia.AI.Serving.Abstractions\Mythosia.AI.Serving.Abstractions.csproj" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <Compile Include="..\Shared\ServingHttpTransport.cs" Link="Internal\ServingHttpTransport.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="README.md" Pack="true" PackagePath="\" />
+    <None Update="RELEASE_NOTES.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+</Project>

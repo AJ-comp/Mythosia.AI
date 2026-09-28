@@ -43,7 +43,7 @@ import {
 } from './dom.js';
 import { ragState, setSelectValue, markReferenceStale, setStatusState, updateRunState } from './rag-shared.js';
 import { refreshRagStatus, updateVectorDbStatus } from './rag-run.js';
-import { getSelectedEmbeddingProvider, getEmbeddingDefaults, getSelectedEmbeddingDimensions, getEmbeddingCredentials } from './rag-embedding.js';
+import { getSelectedEmbeddingProvider, getEmbeddingDefaults, getSelectedEmbeddingDimensions, getEmbeddingCredentials, getEmbeddingExecutionSettings } from './rag-embedding.js';
 
 // ── Embedding Snapshot Helper ────────────────────────────────
 function getEmbeddingSnapshot() {
@@ -53,7 +53,29 @@ function getEmbeddingSnapshot() {
   const baseUrl = provider === 'vllm'
     ? ragVllmBaseUrl?.value?.trim() || ''
     : provider === 'ollama' ? ragEmbeddingBaseUrl?.value?.trim() || '' : '';
-  return { embeddingProvider: provider, embeddingModel: model, embeddingDimensions: dimensions, embeddingBaseUrl: baseUrl };
+  return { embeddingProvider: provider, embeddingModel: model, embeddingDimensions: dimensions, embeddingBaseUrl: baseUrl, ...getEmbeddingExecutionSettings() };
+}
+
+// Embedding credentials have one source of truth in the provider key store.
+// Connection caches retain DB credentials only, so replacing a provider key never
+// leaves a stale copy behind in a saved PostgreSQL/Qdrant/Pinecone configuration.
+function withoutEmbeddingCredentials(config) {
+  const embeddingKeys = new Set(['openaiapikey', 'perplexityapikey', 'voyageapikey', 'geminiapikey']);
+  return Object.fromEntries(Object.entries(config).filter(([key]) => !embeddingKeys.has(key.toLowerCase())));
+}
+
+function readVectorStoreConfig(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    const config = withoutEmbeddingCredentials(parsed);
+    if (Object.keys(config).length !== Object.keys(parsed).length) {
+      localStorage.setItem(storageKey, JSON.stringify(config));
+    }
+    return config;
+  } catch { return null; }
 }
 
 // ── Schema Warning Helpers ───────────────────────────────────
@@ -282,7 +304,7 @@ export function getVectorStoreConfigForRequest() {
       ...getEmbeddingCredentials()
     };
   }
-  return { provider: 'inmemory' };
+  return { provider: 'inmemory', ...getEmbeddingCredentials() };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -354,14 +376,11 @@ function applyPgFields(cfg) {
 }
 
 function savePgToStorage(config) {
-  try { localStorage.setItem(PG_STORAGE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+  try { localStorage.setItem(PG_STORAGE_KEY, JSON.stringify(withoutEmbeddingCredentials(config))); } catch { /* ignore */ }
 }
 
 function loadPgFromStorage() {
-  try {
-    const raw = localStorage.getItem(PG_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  return readVectorStoreConfig(PG_STORAGE_KEY);
 }
 
 export async function connectPostgres() {
@@ -522,14 +541,11 @@ function applyQdrantFields(cfg) {
 }
 
 function saveQdrantToStorage(config) {
-  try { localStorage.setItem(QDRANT_STORAGE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+  try { localStorage.setItem(QDRANT_STORAGE_KEY, JSON.stringify(withoutEmbeddingCredentials(config))); } catch { /* ignore */ }
 }
 
 function loadQdrantFromStorage() {
-  try {
-    const raw = localStorage.getItem(QDRANT_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  return readVectorStoreConfig(QDRANT_STORAGE_KEY);
 }
 
 export async function connectQdrant() {
@@ -709,14 +725,11 @@ function applyPineconeFields(cfg) {
 }
 
 function savePineconeToStorage(config) {
-  try { localStorage.setItem(PINECONE_STORAGE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
+  try { localStorage.setItem(PINECONE_STORAGE_KEY, JSON.stringify(withoutEmbeddingCredentials(config))); } catch { /* ignore */ }
 }
 
 function loadPineconeFromStorage() {
-  try {
-    const raw = localStorage.getItem(PINECONE_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  return readVectorStoreConfig(PINECONE_STORAGE_KEY);
 }
 
 export async function connectPinecone() {

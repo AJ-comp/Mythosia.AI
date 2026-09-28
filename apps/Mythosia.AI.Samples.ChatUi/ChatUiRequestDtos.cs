@@ -45,10 +45,12 @@ namespace Mythosia.AI.Samples.ChatUi
         string? RerankModel,
         string? RerankBaseUrl,
         string? RerankApiKey,
-        FinalSelectionRequest? FinalSelection = null);
+        FinalSelectionRequest? FinalSelection = null,
+        int? EmbeddingTimeoutSeconds = null,
+        int? EmbeddingMaxConcurrency = null);
     internal record FinalSelectionRequest(string? Mode, double? RetrievalWeight);
-    internal record WhyMissingRequest(string? Query, string? ExpectedText);
-    internal record QueryScoresRequest(string? Query, string? ExpectedText);
+    internal record WhyMissingRequest(string? Query, string? ExpectedText, RagPipelineSettingsRequest? RagSettings = null, VectorStoreConfigRequest? VectorStore = null);
+    internal record QueryScoresRequest(string? Query, string? ExpectedText, RagPipelineSettingsRequest? RagSettings = null, VectorStoreConfigRequest? VectorStore = null);
     internal record ExternalChatRequest(string? Message, RagPipelineSettingsRequest? RagSettings, VectorStoreConfigRequest? VectorStore);
     internal record VectorStoreConfigRequest(
         string? Provider,
@@ -70,5 +72,9 @@ namespace Mythosia.AI.Samples.ChatUi
         string? EmbeddingModel = null,
         int? EmbeddingDimensions = null,
         string? EmbeddingBaseUrl = null,
-        string? PerplexityApiKey = null);
+        string? PerplexityApiKey = null,
+        string? VoyageApiKey = null,
+        string? GeminiApiKey = null,
+        int? EmbeddingTimeoutSeconds = null,
+        int? EmbeddingMaxConcurrency = null);
 }

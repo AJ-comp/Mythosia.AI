@@ -29,6 +29,8 @@ internal static class ExternalTestEndpoints
             {
                 hasStore = ragState.Store != null,
                 hasReference = ragState.TryGetSnapshot(out _, out _),
+                requiresReindex = ragState.RequiresReindex,
+                indexedEmbedding = ragState.IndexedEmbedding,
                 historyCount = ragState.GetHistory().Count
             });
         });
@@ -87,7 +89,9 @@ internal static class ExternalTestEndpoints
                 RerankBaseUrl: string.IsNullOrWhiteSpace(ragReq.RerankBaseUrl) ? "" : ragReq.RerankBaseUrl.Trim(),
                 RerankApiKey: ragReq.RerankApiKey,
                 FinalSelectionMode: ParseFinalSelectionMode(ragReq.FinalSelection?.Mode) ?? RagFinalSelectionMode.RerankerOnly,
-                FinalSelectionRetrievalWeight: ragReq.FinalSelection?.RetrievalWeight ?? RagFinalSelectionOptions.DefaultRetrievalWeight);
+                FinalSelectionRetrievalWeight: ragReq.FinalSelection?.RetrievalWeight ?? RagFinalSelectionOptions.DefaultRetrievalWeight,
+                EmbeddingTimeoutSeconds: ragReq.EmbeddingTimeoutSeconds ?? 120,
+                EmbeddingMaxConcurrency: ragReq.EmbeddingMaxConcurrency ?? 4);
 
             if (ragReq.RewriterApiKey != null)
                 ragEndpointState.RewriterApiKey = string.IsNullOrWhiteSpace(ragReq.RewriterApiKey)
@@ -104,10 +108,12 @@ internal static class ExternalTestEndpoints
             try
             {
                 var externalStoreWarning = await ChatUiRagCoreEndpoints.EnsureExternalStoreMatchesSettingsAsync(
-                    ragState, embeddingHttpClient, effectiveRagSettings, req.VectorStore);
+                    ragState, embeddingHttpClient, effectiveRagSettings, req.VectorStore, ct);
                 if (!string.IsNullOrWhiteSpace(externalStoreWarning))
-                    Console.WriteLine($"[TestAPI][RAG] External store refresh warning: {externalStoreWarning}");
+                    return Results.BadRequest(new { error = externalStoreWarning });
             }
+            catch (RagReindexRequiredException) { return ChatUiRagCoreEndpoints.ReindexRequired(); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
             catch (Exception syncEx)
             {
                 return Results.BadRequest(new { error = syncEx.Message });

@@ -40,7 +40,7 @@ InferenceSpeed currentSpeed = InferenceSpeed.ProviderDefault;
 bool presetFunctionsEnabled = true; // Whether preset functions are registered
 var ragState = new RagReferenceState();
 var ragEndpointState = new ChatUiRagEndpointState();
-var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+var embeddingHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(600) };
 
 // ── GET /api/models ─────────────────────────────────────────────
 app.MapGet("/api/models", () => Results.Ok(BuildModelCatalogue()));
@@ -212,7 +212,9 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
         RerankBaseUrl: string.IsNullOrWhiteSpace(requestRagSettings.RerankBaseUrl) ? baseRagSettings.RerankBaseUrl : requestRagSettings.RerankBaseUrl.Trim(),
         RerankApiKey: requestRagSettings.RerankApiKey ?? baseRagSettings.RerankApiKey,
         FinalSelectionMode: ParseFinalSelectionMode(requestRagSettings.FinalSelection?.Mode) ?? baseRagSettings.FinalSelectionMode,
-        FinalSelectionRetrievalWeight: requestRagSettings.FinalSelection?.RetrievalWeight ?? baseRagSettings.FinalSelectionRetrievalWeight);
+        FinalSelectionRetrievalWeight: requestRagSettings.FinalSelection?.RetrievalWeight ?? baseRagSettings.FinalSelectionRetrievalWeight,
+        EmbeddingTimeoutSeconds: requestRagSettings.EmbeddingTimeoutSeconds ?? baseRagSettings.EmbeddingTimeoutSeconds,
+        EmbeddingMaxConcurrency: requestRagSettings.EmbeddingMaxConcurrency ?? baseRagSettings.EmbeddingMaxConcurrency);
 
     if (requestRagSettings?.RewriterApiKey != null)
         ragEndpointState.RewriterApiKey = string.IsNullOrWhiteSpace(requestRagSettings.RewriterApiKey)
@@ -235,10 +237,18 @@ app.MapPost("/api/chat", async (ChatRequest req, HttpContext ctx) =>
             ragState,
             embeddingHttpClient,
             effectiveRagSettings,
-            req.VectorStore);
+            req.VectorStore, ctx.RequestAborted);
         if (!string.IsNullOrWhiteSpace(externalStoreWarning))
-            Console.WriteLine($"[RAG] External store refresh warning: {externalStoreWarning}");
+            throw new InvalidOperationException(externalStoreWarning);
     }
+    catch (RagReindexRequiredException)
+    {
+        ctx.Response.StatusCode = 409;
+        ctx.Response.ContentType = "application/json";
+        await ctx.Response.WriteAsJsonAsync(new { code = "REINDEX_REQUIRED", error = RagReindexRequiredException.MessageText }, ctx.RequestAborted);
+        return;
+    }
+    catch (OperationCanceledException) when (ctx.RequestAborted.IsCancellationRequested) { return; }
     catch (Exception syncEx)
     {
         ctx.Response.StatusCode = 400;
@@ -757,7 +767,7 @@ app.MapPost("/api/functions/toggle-preset", (TogglePresetRequest req) =>
 
 app.MapChatUiRagCoreEndpoints(ragState, ragEndpointState, embeddingHttpClient);
 
-app.MapChatUiRagDiagnosticsEndpoints(ragState);
+app.MapChatUiRagDiagnosticsEndpoints(ragState, embeddingHttpClient);
 
 app.MapExternalTestEndpoints(
     () => currentService,

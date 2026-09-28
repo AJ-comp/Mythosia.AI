@@ -92,3 +92,8 @@
     href: vector-filter.md
   - name: Migration
     href: vectordb-migration.md
+
+- name: การจัดการเซิร์ฟเวอร์โมเดล
+  items:
+  - name: จัดการเซิร์ฟเวอร์โมเดลที่ทำงานอยู่
+    href: serving.md

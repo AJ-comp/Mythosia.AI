@@ -27,23 +27,42 @@
 
 </div>
 
-Với TXT và Markdown, chọn [splitter theo quy tắc](text-splitters.md) theo cấu trúc tài liệu. Kích thước, overlap và ranh giới Unicode được kiểm tra; Markdown giữ tiêu đề, khối mã và hàng bảng. Số ký tự hay từ không phải giới hạn token của mô hình. Điều kiện bảng và thụt lề mã giữ nguyên ý nghĩa; việc lặp ngữ cảnh Markdown quá lớn sẽ dừng bằng ngoại lệ rõ ràng.
+## Demo / Thử nghiệm (Chat UI)
 
-Để tránh lập chỉ mục có vẻ thành công nhưng ghi đè đoạn hoặc ghép nhầm vector, [kiểm tra lập chỉ mục](rag-pipeline.md#indexing-validation) từ chối ID và batch embedding không hợp lệ trước khi lưu. Splitter tùy chỉnh phải cấp ID duy nhất và kế thừa metadata của tài liệu.
+Thử mô hình và tìm kiếm tài liệu trong Playground trước khi viết mã tích hợp.
 
-[Định danh tệp ổn định](document-loaders.md#file-source-identity), [kiểm tra vector câu hỏi](rag-embedding.md#query-embedding-validation) và [lưu theo tài liệu cùng hủy URL](rag-pipeline.md#custom-persistence) giúp tránh đăng ký trùng, tìm kiếm sai và đoạn cũ còn sót.
+Xem video được ghi trong giao diện Playground hiện tại: chọn mô hình, đổi ngôn ngữ và khám phá cấu hình tài liệu cùng pipeline RAG. Video có phụ đề tiếng Anh.
 
-Bản xem trước tùy chọn `Mythosia.AI.Rag.Search.Pixie` cho phép so sánh tìm kiếm thưa bằng nơ-ron cục bộ với cách tìm hiện tại. Nó giữ nhà cung cấp embedding đặc và dùng chỉ mục PIXIE trong bộ nhớ, không chuyển kho bền vững hay thay tìm kiếm mặc định. [Hướng dẫn PIXIE và so sánh (tiếng Anh)](../rag-pixie-search.md).
+https://github.com/user-attachments/assets/4cf90210-b000-41be-8317-a467e93e7504
 
-Tách cấu hình yêu cầu, dừng tác vụ và nhận câu trả lời cùng mức sử dụng và nguồn. [Hướng dẫn nâng cấp v8](v8-migration.md) tổng hợp sáu thay đổi kiến trúc, ví dụ chuyển đổi và phạm vi xác minh.
+### Chạy ví dụ
 
-> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+Khởi động **`Mythosia.AI.Samples.ChatUi`** trên máy:
 
-> [Bản vá RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): các wrapper RAG đã kết nối nhận thay đổi bộ viết lại trong lúc chạy, và tìm kiếm hybrid kết hợp của PostgreSQL áp dụng cấu hình tìm kiếm vector. Gói lõi `Mythosia.AI` vẫn ở phiên bản 8.1.0.
+```bash
+# từ thư mục gốc repository
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
+```
 
----
+<details>
+<summary>Điều khiển và ngôn ngữ của Playground</summary>
 
-### Cài package nào?
+Tìm mô hình theo tên hoặc nhà cung cấp và điều chỉnh yêu cầu ở bên trái, trò chuyện ở giữa và xem thông tin xử lý trong Inspector bên phải trước khi tích hợp vào ứng dụng. Dùng Stop để ngừng chờ phản hồi; chỉ có thể chọn tốc độ với mô hình và điểm kết nối được hỗ trợ, còn Fast có thể phát sinh phí bổ sung. Trên màn hình nhỏ, Models và Inspector mở thành các bảng trượt; xem [hướng dẫn Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) để chạy cục bộ, thêm tài liệu và cấu hình quy trình truy xuất.
+
+Bảng Pipeline hỗ trợ khóa, số chiều và thời gian chờ cho Voyage Context 4, Gemini Embedding 2 cùng embedding ngữ cảnh Perplexity. Documents hiển thị số đoạn, số vector và cho phép hủy lập chỉ mục. Cài đặt đã lưu, kết nối lại cơ sở dữ liệu và ví dụ mã đều dùng cấu hình đã chọn. Lập lại chỉ mục khi đổi mô hình hoặc số chiều.
+
+Dùng bộ chọn ngôn ngữ ở đầu trang để chuyển giữa 13 ngôn ngữ giao diện mà không mất nội dung đã nhập hoặc cài đặt. Cả bảy nhà cung cấp đều hiển thị dưới dạng nhóm thu gọn; mở một nhóm hoặc tìm kiếm mô hình.
+
+</details>
+
+## Vì sao chọn Mythosia.AI?
+
+- **Đổi nhà cung cấp qua một API chung** cho chat, streaming, gọi công cụ và câu trả lời có cấu trúc.
+- **Tạo câu trả lời từ tài liệu của bạn** bằng bộ tải, embedding, truy xuất và xếp hạng lại.
+- **Giữ cấu hình từng yêu cầu độc lập** và điều khiển tác vụ đang chạy qua Run API chung.
+- **Chọn đúng các gói cần dùng**, từ thư viện lõi đến RAG và tích hợp kho vector tùy chọn.
+
+## Cài package nào?
 
 ```
 dotnet add package Mythosia.AI                    # bắt đầu từ đây (chỉ cần cái này)
@@ -61,131 +80,12 @@ Chuẩn bị cấu hình độc lập bằng `CreateRequest(...).WithTemperature
 
 Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử lý](request-building.md#inference-speed). `WithSpeed` giữ mô hình và mức suy luận; `Processing` báo chế độ thực tế. Fast là tùy chọn trả phí trên các tổ hợp được hỗ trợ.
 
-## Kiến trúc
-
-<a href="../assets/architecture.svg">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
-    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
-  </picture>
-</a>
-
-### Chi tiết phụ thuộc của các gói
-
-Mũi tên biểu thị tham chiếu trực tiếp giữa các gói. Các gói dùng chung xuất hiện trong nhiều sơ đồ; quản lý máy chủ vLLM là độc lập.
-
-#### AI cốt lõi và phần mở rộng
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    subgraph Extensions["Provider & tool extensions"]
-        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
-        Mcp["Mythosia.AI.Mcp"]:::extension
-    end
-    AI["Mythosia.AI"]:::core
-    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
-    subgraph Independent["Independent server management"]
-        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
-    end
-    Alibaba --> AI
-    Mcp --> AI
-    AI --> AIAbs
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-#### RAG và nạp tài liệu
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    Rag["Mythosia.AI.Rag"]:::rag
-    subgraph Contracts["AI & RAG contracts"]
-        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
-        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
-    end
-    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
-    subgraph Documents["Document loading"]
-        Office["Mythosia.Documents.<br/>Office"]:::documents
-        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
-        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
-        Office --> LoaderAbs
-        Pdf --> LoaderAbs
-    end
-    Rag --> AIAbs
-    Rag --> RagAbs
-    Rag --> InMem
-    Rag --> Office
-    Rag --> Pdf
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-#### Kho vectơ và tìm kiếm
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    subgraph Stores["Vector stores"]
-        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
-        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
-        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
-        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
-    end
-    subgraph Search["Optional neural search"]
-        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
-    end
-    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
-    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
-    InMem --> VdbAbs
-    RagAbs --> VdbAbs
-    Pg --> VdbAbs
-    Qd --> VdbAbs
-    Pine --> VdbAbs
-    Pixie --> VdbAbs
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-## Demo / Thử nghiệm (Chat UI)
-
-Tìm mô hình theo tên hoặc nhà cung cấp và điều chỉnh yêu cầu ở bên trái, trò chuyện ở giữa và xem thông tin xử lý trong Inspector bên phải trước khi tích hợp vào ứng dụng. Dùng Stop để ngừng chờ phản hồi; chỉ có thể chọn tốc độ với mô hình và điểm kết nối được hỗ trợ, còn Fast có thể phát sinh phí bổ sung. Trên màn hình nhỏ, Models và Inspector mở thành các bảng trượt; xem [hướng dẫn Chat UI](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) để chạy cục bộ, thêm tài liệu và cấu hình quy trình truy xuất.
-
-Dùng bộ chọn ngôn ngữ ở đầu trang để chuyển giữa 13 ngôn ngữ giao diện mà không mất nội dung đã nhập hoặc cài đặt. Cả bảy nhà cung cấp đều hiển thị dưới dạng nhóm thu gọn; mở một nhóm hoặc tìm kiếm mô hình.
-
-### Chạy ví dụ
-
-Khởi động **`Mythosia.AI.Samples.ChatUi`** trên máy:
-
-```bash
-# từ thư mục gốc repository
-dotnet run --project apps/Mythosia.AI.Samples.ChatUi
-```
-
-Xem video được ghi trực tiếp từ giao diện Playground hiện tại: duyệt mô hình, chuyển ngôn ngữ và khám phá các thiết lập tài liệu cùng quy trình RAG. Nhấp vào hình để phát video.
-
-[![Xem video hướng dẫn giao diện Playground hiện tại](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
-
 ## Bắt đầu nhanh
 
 ### Tạo văn bản cơ bản
 
 ```csharp
-using Mythosia.AI;
+using Mythosia.AI.Services.OpenAI;
 
 var service = new OpenAIService(apiKey, httpClient);
 var response = await service.GetCompletionAsync("Xin chào!");
@@ -194,10 +94,10 @@ var response = await service.GetCompletionAsync("Xin chào!");
 ### Streaming
 
 ```csharp
-await foreach (var token in service.StreamAsync("Kể cho tôi nghe một câu chuyện"))
-{
-    Console.Write(token);
-}
+await using var run = await service.StartRunAsync(
+    "Kể cho tôi nghe một câu chuyện",
+    onText: text => Console.Write(text));
+string answer = (await run.Result).Text;
 ```
 
 ### Streaming với reasoning
@@ -205,7 +105,9 @@ await foreach (var token in service.StreamAsync("Kể cho tôi nghe một câu c
 OpenAI, Claude, Gemini, Grok và DeepSeek Flash trả suy luận của nhà cung cấp qua cùng mẫu streaming. Bật suy luận ở dịch vụ hoặc yêu cầu rồi quan sát bằng `StreamOptions.WithReasoning()`:
 
 ```csharp
-await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+await using var run = await service.StartRunAsync(
+    message, options: new StreamOptions().WithReasoning());
+await foreach (var content in run.StreamAsync())
 {
     if (content.Type == StreamingContentType.Reasoning)
         Console.Write($"[Suy luận] {content.Content}");
@@ -217,6 +119,9 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 ### Gọi hàm
 
 ```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Services.OpenAI;
+
 var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(
         "get_weather",
@@ -228,11 +133,51 @@ var service = new OpenAIService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("Thời tiết ở Hà Nội thế nào?");
 ```
 
+Mặc định, các lời gọi trong cùng một phản hồi của mô hình chạy tuần tự. Nếu các hàm đã đăng ký độc lập với nhau, bạn có thể chủ động bật thực thi song song có giới hạn:
+
+```csharp
+using Mythosia.AI.Models.Functions;
+
+service.DefaultPolicy = new FunctionCallingPolicy
+{
+    ExecutionMode = FunctionExecutionMode.Parallel,
+    MaxConcurrency = 3
+};
+```
+
+Kết quả của batch thông thường được gửi lại cho mô hình theo thứ tự gọi ban đầu của nhà cung cấp. Khi hủy, các lời gọi chưa bắt đầu được bỏ qua và nhận kết quả hủy tương ứng. Công cụ đã bắt đầu sẽ nhận token nếu được hỗ trợ và được chờ hoàn tất để lịch sử luôn ghép đúng lời gọi với kết quả.
+
+`FunctionCallingPolicy.TimeoutSeconds` bao phủ toàn bộ vòng lặp các lượt streaming, gồm header phản hồi và phần thân SSE, không đặt lại giữa các lượt công cụ. Hết thời gian của policy gây `AIServiceException`; việc người gọi hủy vẫn gây `OperationCanceledException` gắn với token của người gọi.
+
 Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.
 
-Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
+Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md#async-tool-calling).
 
-Khi câu trả lời cần thông tin mới hoặc căn cứ từ tài liệu, xem [hướng dẫn suy luận và tìm kiếm](reasoning-and-search.md). Các tùy chọn chung cho phép tìm trên web hoặc dùng kho tài liệu hiện có, đồng thời lấy nguồn của câu trả lời.
+Cơ chế này khác với handler C# `async` và việc lập lịch handler song song. Tùy chọn API không được gửi tới mô hình chưa hỗ trợ.
+
+### Tạo và chỉnh sửa hình ảnh
+
+Tạo bản phác thảo từ văn bản hoặc sửa ảnh hiện có bằng khả năng tùy chọn chung cho OpenAI, Google và xAI. Mô hình ảnh được chọn độc lập với mô hình chat:
+
+```csharp
+using Mythosia.AI.Models.Images;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.OpenAI;
+
+IImageGenerationService images = new OpenAIService(apiKey, httpClient);
+var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Prompt = "A glass pavilion at sunrise",
+    Size = ImageSize.Pixels(1024, 1024),
+    OutputFormat = ImageOutputFormat.Png
+});
+
+await File.WriteAllBytesAsync("pavilion.png", generated.Images[0].Data);
+```
+
+Xem [hướng dẫn nhà cung cấp](providers.md#image-generation) để tạo và sửa ảnh, hoặc [tùy chọn ảnh định kiểu và chuyển đổi](providers.md#image-options-migration) cho thay đổi API lớn. xAI dùng `ImageOutputFormat.Auto`; chọn phần mở rộng từ `GeneratedImage.MediaType`.
+
+Preset ảnh Google phụ thuộc vào mô hình: Flash hỗ trợ 512/1K/2K/4K, Flash-Lite hiện cho phép 1K, còn Pro hỗ trợ 1K/2K/4K. Flash/Lite có 14 tỉ lệ khung hình; Pro có 10 tỉ lệ chuẩn. Tất cả chấp nhận `Auto`. Kiểm tra `GetImageCapabilities(model)` trước khi hiển thị lựa chọn; kích thước hoặc tỉ lệ không được hỗ trợ bị từ chối trước HTTP khi tạo và sửa ảnh. Xem [bảng mô hình và khác biệt trong tài liệu Flash-Lite](providers.md#google-image-options).
 
 ### Structured output (cơ bản)
 
@@ -292,7 +237,7 @@ policy.LoadSummary(saved);
 
 ### RAG (Retrieval-Augmented Generation)
 
-Chọn tìm từ khóa, ngữ nghĩa hoặc hybrid không bắt buộc embedding mọi truy vấn. [Hướng dẫn](rag-hybrid-search.md).
+Chọn truy xuất từ khóa, ngữ nghĩa hoặc hybrid mà không bắt mọi truy vấn phải tạo embedding. `UseKeywordSearch()` bỏ qua embedding truy vấn; `UseRetriever(...)` kết nối chỉ mục bên ngoài; `UseHybridSearch(HybridSearchOptions)` chuyển rõ trọng số và cấu hình ứng viên. Quá trình nhập tài liệu vẫn tạo vector. Xem [chế độ truy xuất và khả năng của kho](rag-hybrid-search.md).
 
 ```bash
 dotnet add package Mythosia.AI.Rag
@@ -300,6 +245,7 @@ dotnet add package Mythosia.AI.Rag
 
 ```csharp
 using Mythosia.AI.Rag;
+using Mythosia.AI.Services.Anthropic;
 
 var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
@@ -309,6 +255,8 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("Chính sách hoàn tiền là gì?");
 ```
+
+Để agent điều khiển truy xuất, đăng ký kho bằng `WithAgenticRag(...)` rồi bắt đầu với `service.WithMaxRounds(10).StartRunAsync(...)`. Chờ `run.Result` hoặc theo dõi `run.StreamAsync()` trên cùng tác vụ. Xem ví dụ đầy đủ trong [README Mythosia.AI.Rag](../../src/rag/Mythosia.AI.Rag/README.md).
 
 #### Giữ ngữ cảnh tài liệu và mục đích truy vấn
 
@@ -353,13 +301,139 @@ Dùng Perplexity khi câu trả lời cần thông tin mới và nguồn để n
 
 Chọn Flare cho bản phác thảo nhanh, Sunburst cho chỉnh sửa chính xác. [Tạo và chỉnh sửa ảnh GPT Image 2.5](providers.md#gpt-image-25) dùng API ảnh hiện có với mô hình được chọn rõ theo yêu cầu; mặc định OpenAI vẫn là GPT Image 2.
 
-Để chọn kích thước hợp lệ khi tạo hoặc chỉnh sửa ảnh, xem [tùy chọn ảnh Google theo mô hình](providers.md#google-image-options). Flash hỗ trợ 512/1K/2K/4K, Flash-Lite hiện hỗ trợ 1K và Pro hỗ trợ 1K/2K/4K. Flash/Lite có 14 tỷ lệ khung hình, Pro có 10 tỷ lệ tiêu chuẩn; tất cả chấp nhận `Auto`. Kích thước hoặc tỷ lệ được chỉ định nhưng không hỗ trợ sẽ bị từ chối trước yêu cầu HTTP.
-
 Để phân tích biểu đồ, ảnh chụp, gọi hàm cục bộ hoặc rà soát kỹ câu trả lời, dùng [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash). Suy luận mặc định tắt; bật bằng `WithDeepSeekReasoning(...)` hoặc `WithReasoning(...)` cho từng yêu cầu.
 
 Chọn `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813) cho tác vụ chỉ có văn bản. Flash vẫn là mặc định và hỗ trợ ảnh; cả hai có suy luận Low/High/Max và cùng giới hạn đầu ra. Đặt `UseResponsesApi = true` trước khi tạo yêu cầu để dùng Responses với các API completion, streaming, Run và hàm cục bộ hiện có. Mặc định vẫn là `false` để giữ Chat Completions cho ứng dụng hiện tại; lựa chọn được giữ suốt yêu cầu và các vòng công cụ. Responses gửi lại toàn bộ hội thoại và suy luận gốc thay vì dựa vào ID phản hồi lưu trên máy chủ.
 
 Tái sử dụng ảnh đã tải lên cho nhiều câu hỏi với Flash bằng `DeepSeekImageFileContent`, qua Chat Completions hoặc Responses; V4 Pro chỉ hỗ trợ văn bản nên từ chối ảnh. Xem [tải lên, tái sử dụng và giới hạn ảnh](providers.md#deepseek-deepseekservice). Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0.
+
+> Claude Fable 5 và Claude Mythos 5 yêu cầu lưu dữ liệu 30 ngày và không đủ điều kiện cho thỏa thuận không lưu dữ liệu. Adaptive thinking luôn bật; khi người gọi yêu cầu tắt suy luận, Mythosia dùng mức low và bỏ phần tóm tắt suy luận. Mythos 5 chỉ dành cho khách hàng Project Glasswing được phê duyệt.
+
+## Hướng dẫn và chuyển đổi
+
+Với TXT và Markdown, chọn [splitter theo quy tắc](text-splitters.md) theo cấu trúc tài liệu. Kích thước, overlap và ranh giới Unicode được kiểm tra; Markdown giữ tiêu đề, khối mã và hàng bảng. Số ký tự hay từ không phải giới hạn token của mô hình. Điều kiện bảng và thụt lề mã giữ nguyên ý nghĩa; việc lặp ngữ cảnh Markdown quá lớn sẽ dừng bằng ngoại lệ rõ ràng.
+
+Để tránh lập chỉ mục có vẻ thành công nhưng ghi đè đoạn hoặc ghép nhầm vector, [kiểm tra lập chỉ mục](rag-pipeline.md#indexing-validation) từ chối ID và batch embedding không hợp lệ trước khi lưu. Splitter tùy chỉnh phải cấp ID duy nhất và kế thừa metadata của tài liệu.
+
+[Định danh tệp ổn định](document-loaders.md#file-source-identity), [kiểm tra vector câu hỏi](rag-embedding.md#query-embedding-validation) và [lưu theo tài liệu cùng hủy URL](rag-pipeline.md#custom-persistence) giúp tránh đăng ký trùng, tìm kiếm sai và đoạn cũ còn sót.
+
+Bản xem trước tùy chọn `Mythosia.AI.Rag.Search.Pixie` cho phép so sánh tìm kiếm thưa bằng nơ-ron cục bộ với cách tìm hiện tại. Nó giữ nhà cung cấp embedding đặc và dùng chỉ mục PIXIE trong bộ nhớ, không chuyển kho bền vững hay thay tìm kiếm mặc định. [Hướng dẫn PIXIE và so sánh (tiếng Anh)](../rag-pixie-search.md).
+
+[Hạ tầng đánh giá truy xuất](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md) hỗ trợ bộ dữ liệu tái sử dụng, adapter tìm kiếm, báo cáo lưu lâu dài và kiểm tra hồi quy. Mở rộng cùng bộ đánh giá cho cách tìm kiếm mới và tập tài liệu riêng.
+
+Tách cấu hình yêu cầu, dừng tác vụ và nhận câu trả lời cùng mức sử dụng và nguồn. [Hướng dẫn nâng cấp v8](v8-migration.md) tổng hợp sáu thay đổi kiến trúc, ví dụ chuyển đổi và phạm vi xác minh.
+
+> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Xem [bảng bản vá trước](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) và [đợt phát hành đồng bộ trước](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) để biết phiên bản các gói truy xuất, tài liệu và vector còn lại.
+
+> [Bản vá RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): các wrapper RAG đã kết nối nhận thay đổi bộ viết lại trong lúc chạy, và tìm kiếm hybrid kết hợp của PostgreSQL áp dụng cấu hình tìm kiếm vector. Gói lõi `Mythosia.AI` vẫn ở phiên bản 8.1.0.
+
+---
+
+## Kiến trúc
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Kiến trúc Mythosia.AI: AI cốt lõi, điều phối RAG, bộ nạp tài liệu, kho vector, giao diện chung, tích hợp MCP và quản lý độc lập Ollama, llama.cpp, vLLM." width="1600">
+  </picture>
+</a>
+
+### Chi tiết phụ thuộc của các gói
+
+Mũi tên thể hiện tham chiếu gói trực tiếp. Gói chung xuất hiện ở nhiều sơ đồ; máy khách Serving chia sẻ giao diện quản lý và độc lập với AI cốt lõi.
+
+#### AI cốt lõi và phần mở rộng
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Extensions["Phần mở rộng nhà cung cấp và công cụ"]
+        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
+        Mcp["Mythosia.AI.Mcp"]:::extension
+    end
+    AI["Mythosia.AI"]:::core
+    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+    subgraph Independent["Quản lý máy chủ độc lập"]
+        ServingAbs["Mythosia.AI.Serving.<br/>Abstractions"]:::contract
+        OllamaServing["Mythosia.AI.<br/>Serving.Ollama"]:::extension
+        LlamaCppServing["Mythosia.AI.<br/>Serving.LlamaCpp"]:::extension
+        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
+        OllamaServing --> ServingAbs
+        LlamaCppServing --> ServingAbs
+        VllmServing --> ServingAbs
+    end
+    Alibaba --> AI
+    Mcp --> AI
+    AI --> AIAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### RAG và nạp tài liệu
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    Rag["Mythosia.AI.Rag"]:::rag
+    subgraph Contracts["Hợp đồng AI và RAG"]
+        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    end
+    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+    subgraph Documents["Nạp tài liệu"]
+        Office["Mythosia.Documents.<br/>Office"]:::documents
+        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
+        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
+        Office --> LoaderAbs
+        Pdf --> LoaderAbs
+    end
+    Rag --> AIAbs
+    Rag --> RagAbs
+    Rag --> InMem
+    Rag --> Office
+    Rag --> Pdf
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### Kho vectơ và tìm kiếm
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Stores["Kho vectơ"]
+        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
+        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
+        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
+    end
+    subgraph Search["Tìm kiếm bằng mạng nơ-ron tùy chọn"]
+        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
+    end
+    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
+    InMem --> RagAbs
+    InMem --> VdbAbs
+    RagAbs --> VdbAbs
+    Pg --> VdbAbs
+    Qd --> VdbAbs
+    Pine --> VdbAbs
+    Pixie --> VdbAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
 
 ## Các package
 
@@ -400,11 +474,18 @@ Tái sử dụng ảnh đã tải lên cho nhiều câu hỏi với Flash bằng
 
 ### Serving — Control Plane
 
-> Client quản lý/introspection cho các runtime phục vụ model. Chat vẫn nằm ở các package provider: `Providers.*` = data plane cho chat, `Serving.*` = control plane cho server.
+Xây dựng màn hình chọn mô hình và theo dõi trạng thái máy chủ bằng một API quản lý chung cho các phiên bản Ollama, llama.cpp và vLLM đang chạy. `IModelServer` đọc tình trạng, mô hình và khả năng hỗ trợ; quá trình dò tìm không nạp hay tải xuống mô hình. Các máy khách này kết nối với máy chủ hiện có, không vận hành bộ máy suy luận hay gửi yêu cầu trò chuyện.
+
+Các giao diện tùy chọn `IModelLifecycle`, `IModelDownloader` và `IModelMetricsProvider` cung cấp thao tác tường minh khi khả dụng. Hãy kiểm tra khả năng của máy chủ đang kết nối: `Unknown` nghĩa là chưa đủ bằng chứng, không phải `Unsupported`; `Supported` cũng không bảo đảm thành công với mọi mô hình. Trạng thái cài đặt và nạp chưa xác định được giữ nguyên là chưa xác định.
+
+Kiểm tra trên máy chủ thật đã thành công với Ollama **0.34.4** (`qwen2.5:0.5b`), llama.cpp **b11146** ở chế độ Router và một mô hình (Qwen2.5 0.5B, Q4_K_M), cùng vLLM **0.30.0** (một mô hình Qwen nhỏ). Kết quả chỉ áp dụng cho những cấu hình đã kiểm tra. Xem [hướng dẫn quản lý máy chủ](serving.md) để biết các thao tác đã kiểm tra và giới hạn của từng bộ máy.
 
 | Package | NuGet | Mô tả |
 | --- | --- | --- |
-| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | Client control-plane cho vLLM — model card (model thực sự được nạp qua `root`), health, phiên bản server, metrics Prometheus |
+| [Mythosia.AI.Serving.Abstractions](../../src/serving/Mythosia.AI.Serving.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Abstractions) | Giao diện quản lý chung và ảnh chụp bất biến của máy chủ, mô hình, khả năng. |
+| [Mythosia.AI.Serving.Ollama](../../src/serving/Mythosia.AI.Serving.Ollama/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Ollama.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Ollama) | Danh sách và tình trạng Ollama, nạp/dỡ tường minh và tải xuống dạng luồng. |
+| [Mythosia.AI.Serving.LlamaCpp](../../src/serving/Mythosia.AI.Serving.LlamaCpp/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.LlamaCpp.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.LlamaCpp) | Tra cứu llama.cpp, quản lý bộ định tuyến có xác minh và số liệu không tự nạp. |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | Thẻ mô hình, tình trạng, phiên bản và số liệu có nhãn vLLM; giữ API cụ thể cũ. |
 
 ## Cấu trúc repository
 
@@ -422,7 +503,10 @@ src/
     Mythosia.AI.Rag/                    # RAG Fluent API và pipeline
     Mythosia.AI.Rag.Abstractions/       # Interface và model RAG (RagDocument)
   serving/
-    Mythosia.AI.Serving.Vllm/           # Client control-plane cho vLLM (models/health/version/metrics)
+    Mythosia.AI.Serving.Abstractions/  # Giao diện quản lý máy chủ mô hình chung
+    Mythosia.AI.Serving.Ollama/        # Quản lý Ollama và tải xuống tường minh
+    Mythosia.AI.Serving.LlamaCpp/      # Quản lý llama.cpp một mô hình và bộ định tuyến
+    Mythosia.AI.Serving.Vllm/          # Quản lý và số liệu vLLM
   vectordb/
     Mythosia.VectorDb.Abstractions/     # Contract vector store
     Mythosia.VectorDb.InMemory/         # Vector store trong bộ nhớ
@@ -447,11 +531,24 @@ dotnet add package System.Linq.Async
 
 ## Tài liệu
 
+Để tạo bản nháp nhanh rồi đánh giá kỹ hơn, hoặc trả lời dựa trên thông tin mới và tài liệu được lưu trữ, xem [suy luận và tìm kiếm có nguồn](reasoning-and-search.md).
+
+- **[📖 Trang tài liệu đầy đủ](https://aj-comp.github.io/Mythosia.AI/)** — tài liệu tạo bằng DocFX bao quát mọi tính năng, pipeline RAG, kho vector và tham chiếu API
 - [Hướng dẫn cơ bản](getting-started.md)
 - [README Mythosia.AI](../../src/core/Mythosia.AI/README.md) — Tham chiếu API đầy đủ: gọi hàm, streaming và cấu hình model
 - [README Mythosia.AI.Rag](../../src/rag/Mythosia.AI.Rag/README.md) — Sử dụng RAG pipeline và custom implementation
 - [Hướng dẫn loader](document-loaders.md)
 - [Ghi chú phát hành](../../src/core/Mythosia.AI/RELEASE_NOTES.md)
+
+## Kiểm chứng tốc độ xử lý với nhà cung cấp thực
+
+Chạy từ thư mục gốc repository:
+
+```powershell
+./build/test-inference-speed-live.ps1
+```
+
+Bộ kiểm tra có tính phí dùng cấu hình Key Vault hiện có và prompt tổng hợp. Nó kiểm tra Anthropic Opus 5.5, OpenAI GPT-6 Astra, Gemini 3.8 Flash và Grok 4.6 với ProviderDefault/Standard/Fast qua completion và Run: tổng cộng 24 trường hợp. Lỗi quyền truy cập tài khoản, thiếu thông tin chế độ thực tế hoặc máy chủ hạ chế độ không được tính là Fast thành công; mọi trường hợp phải đạt và không được bỏ qua. Báo cáo nằm trong `artifacts/test-results/inference-speed-live`. Chỉ dùng `-NoBuild` sau khi đã build bộ kiểm tra Release hiện tại. Lệnh này mô tả cách chạy, không khẳng định tài khoản hiện tại đã vượt qua bộ kiểm tra.
 
 ## Giấy phép
 

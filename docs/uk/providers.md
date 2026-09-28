@@ -166,6 +166,7 @@ string transcript = await service.TranscribeAudioAsync(
 
 `TranscribeAudioAsync` використовує `gpt-transcribe`; публічна сигнатура не змінюється.
 
+<a id="image-generation"></a>
 ### Генерація зображень
 
 #### GPT Image 2.5

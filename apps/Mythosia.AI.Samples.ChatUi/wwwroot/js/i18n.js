@@ -21,7 +21,7 @@ const dynamicLabels = [
   '.fc-status', '.fc-section-label', '.thinking-header', '.summary-header', '.rag-progress-title',
   '.rag-progress-content', '.chat-notice-cancelled', '[data-ui-localize]', '.msg-code-btn', '.msg-rag-diagnose-btn',
   '#code-copy-all', '#state-message-json-copy', '#rag-status', '#rag-settings-status', '#rag-settings-alert',
-  '#rag-embedding-hint', '#rag-openai-key-status', '#rag-perplexity-key-status', '#rag-ollama-status',
+  '#rag-embedding-hint', '#rag-openai-key-status', '#rag-perplexity-key-status', '#rag-voyage-key-status', '#rag-gemini-key-status', '#rag-ollama-status',
   '#rag-vllm-status', '#embedding-chat-status', '#vectordb-chat-status', '#rag-chat-status'
 ].join(',');
 
@@ -87,7 +87,7 @@ export function initI18n() {
       const match = source.match(pattern);
       if (match) return formatMessage(catalogue[key], Object.fromEntries(names.map((name, index) => [name, match[index + 1]])));
     }
-    const rag = source.match(/^(RAG: (?:NOT INDEXED|READY|ERROR))( · .+)$/);
+    const rag = source.match(/^(RAG: (?:NOT INDEXED|READY|REINDEX REQUIRED|ERROR))( · .+)$/);
     return rag ? (catalogue[rag[1]] || rag[1]) + rag[2] : source;
   }
 

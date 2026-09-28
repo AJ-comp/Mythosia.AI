@@ -114,10 +114,13 @@ Mythosia.AI                   # 핵심 구현체 (provider 서비스 클래스)
     ↑                    ↑
 Mythosia.AI.Rag        Mythosia.AI.Providers.Alibaba
 
-Mythosia.AI.Serving.Vllm      # vLLM 서버 control-plane 클라이언트 (Newtonsoft.Json만 의존, core 미참조)
+Mythosia.AI.Serving.Abstractions  # 서버 관리 공통 계약 (zero dependency)
+    ↑                 ↑                  ↑
+Serving.Vllm    Serving.Ollama    Serving.LlamaCpp  # HTTP 관리 클라이언트, core 미참조
 ```
 
 - `Mythosia.AI.Rag`는 `Mythosia.AI.Abstractions`에만 의존 (`Mythosia.AI` 직접 참조 없음)
 - `Mythosia.AI.Providers.Alibaba`는 `Mythosia.AI`에 직접 의존
 - **Serving 패밀리 taxonomy**: `Providers.*` = 챗 **data plane** (구체 AI 서비스), `Serving.*` = 모델서버 **control plane** (관리/introspection 클라이언트, 챗 없음). vLLM 챗은 계속 `QwenService(EndpointPlatform.Vllm)`.
-- `Mythosia.AI.Serving.Abstractions`는 **지금 만들지 않는다** — `Serving.Ollama` 구현이 실제로 생길 때 두 concrete에서 추출한다 (FDG: 구현 여러 개로 검증되기 전 추상화 금지). `VllmServer`의 메서드명은 런타임 중립으로, DTO는 `Vllm` 접두로 유지해 추출이 additive(minor)가 되게 한다.
+- `Mythosia.AI.Serving.Abstractions`는 Ollama·llama.cpp·vLLM 구현이 함께 사용하는 독립 계약이다. 기본 `IModelServer`와 선택적 lifecycle/download/metrics 인터페이스를 분리한다. 새 Serving 클라이언트는 core/RAG에 의존하지 않는다.
+- 기존 `VllmServer` 구체 API와 `Vllm` 접두 DTO를 유지하고 공통 반환 계약은 명시적 인터페이스로 추가한다. 서버가 알리지 않는 상태는 `Unknown`/null로 보존하고, 기능 조회를 위해 로드·다운로드를 실행하지 않는다.

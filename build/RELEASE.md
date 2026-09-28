@@ -8,6 +8,10 @@ pwsh -NoProfile -File build/test-release.ps1
 
 This command does not commit, push, rewrite Git history, or publish packages. It stops at the first failure and keeps logs under a unique `artifacts/release-check-*` directory. Only a fully successful run writes `result.json` with `status: passed`.
 
+Keep the 12 translated `docs/<locale>/README.md` files aligned with the root README in the same change. The documentation check compares heading and example order, API/command/dependency structure, guide links and the playable video URL. Comments and prompt strings may be translated. This catches structural omissions, but provider descriptions, requirements and translation meaning still need manual review.
+
+The same structural, example and link checks apply to the 12 translated `serving.md` guides against the English guide. This supplements the per-language public-contract and navigation checks; translated prose and support tables still require semantic review.
+
 The check performs:
 
 1. Release-plan, project, documentation and dependency checks, including changed production packages omitted from the publication list and target versions already present on NuGet.
@@ -36,7 +40,9 @@ This runs the existing hash-verifying preparation script without regenerating tr
 
 [release-plan.psd1](release-plan.psd1) defines the package versions, dependency order, framework, license and release-note URL. Packing, isolated consumers and release checks use that plan. A package outside the plan is never automatically published merely because its project version changed.
 
-The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `b3b389f`, confirmed in RAG 8.1.1's official NuGet repository metadata. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
+The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `e288647`, confirmed in the official NuGet repository metadata for RAG 8.2.0 and RAG.Abstractions 6.4.0. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
+
+Explicit relative `Compile Include` files count as that package's source, including linked files outside its directory and compiled inputs under otherwise excluded documentation paths. For example, changing a shared Serving transport requires every adapter that compiles it to be covered by the release plan. Paths are normalized inside the repository; unresolved MSBuild expressions or globs in explicit includes require review instead of being silently skipped.
 
 `Packages` is the publication allowlist. `ConsumerOnlyPackages` retains exact versions of unchanged packages for the full compatibility checks; those packages resolve from NuGet and are never packed or published by this release. A dependency supplied by the current release belongs in `Dependencies`; an unchanged published dependency keeps its exact version in `FixedDependencies`.
 
@@ -56,7 +62,30 @@ The local package manifest is marked `development-validation` and is deliberatel
 
 Partial resume is only for packages already published from the **same release commit**. It is not a way to overwrite an old version or bypass a missing version bump. NuGet availability may change after a local check, so the publication workflow repeats the checks.
 
-The current feature release publishes only **Mythosia.AI.Rag.Abstractions 6.4.0** and **Mythosia.AI.Rag 8.2.0**, in that dependency order. RAG requires the new contracts; its other dependencies stay unchanged. All existing isolated consumer probes still run, including the unchanged core, loaders, vector stores, MCP, vLLM and PIXIE packages from NuGet. Earlier releases are historical and must not be republished. See the [release notes](../RELEASE_NOTES.md#v820).
+The current feature release publishes these packages in dependency order:
+
+| Package | Version | Change |
+| --- | --- | --- |
+| Mythosia.AI.Serving.Abstractions | 1.0.0 | New shared management contracts with no package dependencies. |
+| Mythosia.AI.Serving.Ollama | 1.0.0 | New Ollama management client. |
+| Mythosia.AI.Serving.LlamaCpp | 1.0.0 | New llama.cpp management client. |
+| Mythosia.AI.Serving.Vllm | 1.1.0 | Compatible common-contract support; existing concrete vLLM APIs remain available. |
+
+Each adapter depends only on Serving.Abstractions 1.0.0 and Newtonsoft.Json 13.0.4. Isolated consumers verify those exact dependency sets, both the original vLLM API and the common contracts, and the new clients through controlled HTTP responses. The previously published **RAG 8.2.0** and **RAG.Abstractions 6.4.0** now resolve from NuGet as consumer-only compatibility checks. The unchanged core, loaders, vector stores, MCP and PIXIE probes still run. Earlier releases must not be republished.
+
+The serving package probes do not start a server or establish live-runtime compatibility. Live management checks against explicitly configured endpoints remain separate; missing runtime endpoints must be reported as unexecuted, not passed.
+
+## Serving live validation
+
+Use the [Serving live runner](../tests/Mythosia.AI.Serving.Live/README.md) against an existing local server or an SSH-forwarded remote endpoint. Its default mode inspects the server. Explicit `-Download`, `-Lifecycle` and `-ModelMetrics` options select additional operations; the last option is a separate llama.cpp Router check against an already loaded model. The runner neither rents nor deletes GPU servers.
+
+```powershell
+pwsh -NoProfile -File build/test-serving-live.ps1 -Runtime ollama -Endpoint http://localhost:11434 -Model qwen2.5:0.5b -Download -Lifecycle -TimeoutSeconds 900
+pwsh -NoProfile -File build/test-serving-live.ps1 -Runtime llamacpp -Endpoint http://localhost:8080 -Model YOUR_LOADED_ROUTER_MODEL -ModelMetrics
+pwsh -NoProfile -File build/test-serving-live.ps1 -Runtime vllm -Endpoint http://localhost:8000 -Model YOUR_SERVED_ALIAS
+```
+
+The documented live profiles cover Ollama 0.34.4, llama.cpp b11146 in Router and single-model modes, and vLLM 0.30.0 with small public Qwen models. They supplement the offline and isolated-package checks; they do not replace the complete release gate or establish every runtime version/model combination. The [shared guide](../docs/serving.md) separates management checks from additional native inference and cancellation probes. Keep failed attempts, unverified operations and setup failures visible in local reports; preserve logs under ignored `artifacts/` and clean up any temporary rented resources.
 
 ## Retrieval embedding live validation
 

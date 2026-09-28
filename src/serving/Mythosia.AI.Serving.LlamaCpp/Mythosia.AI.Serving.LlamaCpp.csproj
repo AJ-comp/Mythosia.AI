@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageId>Mythosia.AI.Serving.LlamaCpp</PackageId>
+    <Version>1.0.0</Version>
+    <IsPackable>true</IsPackable>
+    <Company>Mythosia</Company>
+    <Authors>JJW</Authors>
+    <PackageTags>AI;LLM;llama.cpp;GGUF;Serving;InferenceServer;ControlPlane;ModelManagement;Health;Metrics</PackageTags>
+    <Description>Build model selectors and management tools for an existing llama.cpp server. Inspect models, health and runtime capabilities; explicitly load, unload and download models in router mode; read single-model or model-specific Prometheus metrics without automatic loading. What's New in v1.0.0: common Serving contracts, mode-aware operations, cancellation-aware HTTP and model-matched SSE download completion. Targets .NET Standard 2.1 with a caller-owned HttpClient. No server hosting or Mythosia.AI chat dependency.</Description>
+    <PackageReleaseNotes>v1.0.0 introduces LlamaCppServer: inventory with separate installation/load states, health and mode/capability discovery, router lifecycle and SSE-observed downloads, and label-preserving metrics. Caller-owned HTTP, request-local authentication and sanitized failures are included. Live checks used llama.cpp b11146 in router and single-model modes with a small Qwen GGUF model; see full notes for coverage and limits. Cancellation stops local waiting without promising remote rollback. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/serving/Mythosia.AI.Serving.LlamaCpp</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Mythosia.AI.Serving.Abstractions/Mythosia.AI.Serving.Abstractions.csproj" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <Compile Include="../Shared/ServingHttpTransport.cs" Link="Internal/ServingHttpTransport.cs" />
+    <Compile Include="../Shared/ServingMetricsParser.cs" Link="Internal/ServingMetricsParser.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="README.md" Pack="True" PackagePath="\" />
+    <None Update="RELEASE_NOTES.md" Pack="True" PackagePath="\" />
+  </ItemGroup>
+</Project>

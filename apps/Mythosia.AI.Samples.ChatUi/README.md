@@ -35,6 +35,22 @@ All seven providers appear as collapsed groups so a large OpenAI catalogue does 
 
 Open **Documents** to register and index files. Open **Pipeline** to configure query rewriting, embeddings, retrieval and reranking. Embedding or model calls can incur provider charges. Changes that affect document vectors require indexing again; the panel explains the active configuration.
 
+In **Pipeline → Embedding**, select Voyage Context 4, Gemini Embedding 2 or Perplexity contextual embeddings alongside the existing providers. Save the matching provider key, then choose the model and vector dimensions:
+
+Gemini embeddings share the saved Google key with chat; replacing it updates both. Voyage has its own key entry in the embedding panel.
+
+| Provider | Model | Default dimensions | Allowed dimensions |
+| --- | --- | --- | --- |
+| Voyage | `voyage-context-4` | 1024 | 256, 512, 1024, 2048 |
+| Gemini | `gemini-embedding-2` | 1536 | 128–3072 |
+| Perplexity contextual | `pplx-embed-context-v1-0.6b` / `pplx-embed-context-v1-4b` | 1024 / 2560 | 128–1024 / 128–2560 |
+
+The Playground embedding timeout defaults to **120 seconds**, adjustable from **1 to 600 seconds**. Gemini concurrency defaults to **4 requests**, adjustable from **1 to 16**. These are sample-app settings; the library APIs retain their own defaults. Saved settings are restored in this browser and included when reconnecting a vector database. Timeout, concurrency and API-key changes apply to subsequent operations without reindexing. Database dimensions and existing vectors must match the selected embedding model and dimensions. A reconnect does not convert an existing index.
+
+After changing the provider, model, dimensions or document/query formatting, rebuild the document index with the settings used for queries, even when dimensions match. The app rejects a change of provider, model or dimensions for the currently connected external table, collection or namespace. Choose a new storage target and index all required documents with the new configuration.
+
+Open **Documents**, add files and run **Run Reference**; use **Cancel indexing** to stop an active indexing request. Cancellation is cooperative and does not undo documents already stored or guarantee that a remote provider stops billing. Check the index before retrying; atomic replacement of an individual document follows the selected backend's contract. Inspect the per-document chunk and vector counts, then use **View Code** for an example of the selected configuration. Code examples contain key placeholders rather than saved credentials. See the [embedding guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/rag-embedding.md#playground-embeddings) for provider behavior and reindexing requirements.
+
 The pipeline retains the latest library fixes for query rewriting and PostgreSQL search settings. A skipped search or an empty retrieval result remains visible in the response diagnostics rather than disappearing.
 
 On narrow screens, **Models** and **Inspector** open the same panels as drawers. Dialogs support Escape, keyboard focus containment and focus return. Reduced-motion preferences are respected.

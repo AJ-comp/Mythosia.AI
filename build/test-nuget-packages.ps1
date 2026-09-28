@@ -158,6 +158,7 @@ function Invoke-PackageConsumer {
         [string]$Program,
         [string[]]$ExpectedLibraries,
         [string[]]$UnexpectedLibraries = @(),
+        [switch]$RequireExactLibraries,
         [string]$TargetFramework = "net10.0",
         [switch]$BuildOnly,
         [switch]$Publish,
@@ -212,6 +213,10 @@ function Invoke-PackageConsumer {
         if (@($libraries | Where-Object { $_ -like $unexpectedLibrary }).Count -gt 0) {
             throw "$Name unexpectedly resolved package $unexpectedLibrary."
         }
+    }
+    if ($RequireExactLibraries -and ($libraries.Count -ne $ExpectedLibraries.Count -or
+        @($libraries | Where-Object { $ExpectedLibraries -cnotcontains $_ }).Count -ne 0)) {
+        throw "$Name resolved packages outside its exact dependency contract: $($libraries -join ', ')."
     }
 
     $resolvedPackageFolders = @($assets.packageFolders.PSObject.Properties.Name | ForEach-Object {
@@ -903,6 +908,7 @@ namespace PackageSmoke
         -BuildOnly
 
     $vllmProgram = @'
+using Mythosia.AI.Serving;
 using Mythosia.AI.Serving.Vllm;
 using System.Net;
 
@@ -932,6 +938,19 @@ if (metrics.RunningRequests != 2 || metrics.KvCacheUsage != 0.25 ||
     throw new InvalidOperationException("The packaged vLLM client did not preserve parsed metrics and labels.");
 if (http.DefaultRequestHeaders.Authorization is not null)
     throw new InvalidOperationException("The vLLM client must not mutate shared HTTP default authentication headers.");
+IModelServer common = server;
+IModelMetricsProvider commonMetrics = server;
+handler.HealthStatus = HttpStatusCode.OK;
+var observations = await common.GetModelsAsync(deadline.Token);
+var support = await common.GetCapabilitiesAsync(deadline.Token);
+if ((await common.GetInfoAsync(deadline.Token)).Runtime != "vllm" ||
+    (await common.GetHealthAsync(deadline.Token)).Status != ServerHealthStatus.Healthy ||
+    observations.Count != 1 || observations[0].InstallationState != ModelInstallationState.Unknown ||
+    observations[0].LoadState != ModelLoadState.Unknown || observations[0].ContextLength != 8192 ||
+    support.ModelListing != ServingFeatureSupport.Supported || support.Metrics != ServingFeatureSupport.Supported ||
+    support.ModelLoading != ServingFeatureSupport.Unsupported ||
+    (await commonMetrics.GetMetricsAsync(deadline.Token)).Samples.Count != 2)
+    throw new InvalidOperationException("The packaged vLLM common contracts lost state or metric semantics.");
 using var cancelled = new CancellationTokenSource();
 cancelled.Cancel();
 try
@@ -976,10 +995,13 @@ sealed class LocalVllmHandler : HttpMessageHandler
         -Program $vllmProgram `
         -ExpectedLibraries @(
             "Mythosia.AI.Serving.Vllm/$($versions['Mythosia.AI.Serving.Vllm'])",
+            "Mythosia.AI.Serving.Abstractions/$($versions['Mythosia.AI.Serving.Abstractions'])",
             "Newtonsoft.Json/13.0.4") `
+        -RequireExactLibraries `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*")
 
     $vllmNetStandardProgram = @'
+using Mythosia.AI.Serving;
 using Mythosia.AI.Serving.Vllm;
 using System.Collections.Generic;
 using System.Net.Http;
@@ -1010,6 +1032,13 @@ namespace PackageSmoke
 
         public static Task<VllmMetrics> Metrics(VllmServer server, CancellationToken token)
             => server.GetMetricsAsync(token);
+
+        public static IModelServer Common(VllmServer server) => server;
+        public static IModelMetricsProvider CommonMetrics(VllmServer server) => server;
+        public static Task<ServerInfo> Info(IModelServer server, CancellationToken token)
+            => server.GetInfoAsync(token);
+        public static Task<ServingCapabilities> Capabilities(IModelServer server, CancellationToken token)
+            => server.GetCapabilitiesAsync(token);
     }
 }
 '@
@@ -1020,7 +1049,9 @@ namespace PackageSmoke
         -Program $vllmNetStandardProgram `
         -ExpectedLibraries @(
             "Mythosia.AI.Serving.Vllm/$($versions['Mythosia.AI.Serving.Vllm'])",
+            "Mythosia.AI.Serving.Abstractions/$($versions['Mythosia.AI.Serving.Abstractions'])",
             "Newtonsoft.Json/13.0.4") `
+        -RequireExactLibraries `
         -UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*") `
         -TargetFramework "netstandard2.1" `
         -BuildOnly

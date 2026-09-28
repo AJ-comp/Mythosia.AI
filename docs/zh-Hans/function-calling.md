@@ -259,6 +259,7 @@ var readText = FunctionBuilder.Create("read_text")
 
 这是本地.NET函数的返回值与取消处理，不依赖提供商原生的`AllowAsync`功能。仅停止`run.StreamAsync(token)`读取只会停止观察，run继续执行。参见[Run指南](execution-api-transition.md)和[提供商协议](https://developers.openai.com/api/docs/guides/async-tool-calling)。
 
+<a id="async-tool-calling"></a>
 ## 模型异步工具调用
 
 天气查询较慢时，模型仍可先介绍不依赖天气结果的通用旅行用品。模型原生异步工具调用用于在这种等待期间继续独立工作；依赖查询结果的判断仍应等结果返回后再进行。

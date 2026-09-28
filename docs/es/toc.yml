@@ -92,3 +92,8 @@
     href: vector-filter.md
   - name: Migración
     href: vectordb-migration.md
+
+- name: Administración de servidores de modelos
+  items:
+  - name: Administrar servidores de modelos existentes
+    href: serving.md

@@ -6,7 +6,7 @@ namespace Mythosia.AI.Samples.ChatUi
 {
     internal static class ChatUiRagDiagnosticsEndpoints
     {
-        public static void MapChatUiRagDiagnosticsEndpoints(this WebApplication app, RagReferenceState ragState)
+        public static void MapChatUiRagDiagnosticsEndpoints(this WebApplication app, RagReferenceState ragState, HttpClient embeddingHttpClient)
         {
             app.MapGet("/api/rag/code-snippet", () =>
             {
@@ -42,6 +42,7 @@ namespace Mythosia.AI.Samples.ChatUi
 
             app.MapGet("/api/rag/diagnose/health-check", async (CancellationToken ct) =>
             {
+                if (ragState.RequiresReindex) return ChatUiRagCoreEndpoints.ReindexRequired();
                 if (ragState.Store == null)
                     return Results.BadRequest(new { error = "No RAG index. Run Document Reference first." });
 
@@ -78,6 +79,7 @@ namespace Mythosia.AI.Samples.ChatUi
 
                 try
                 {
+                    await ApplyRequestedSettingsAsync(ragState, embeddingHttpClient, req.RagSettings, req.VectorStore, ct);
                     var session = ragState.Store.Diagnose();
                     var result = await session.WhyMissingAsync(req.Query, req.ExpectedText, cancellationToken: ct);
                     return Results.Ok(new
@@ -96,6 +98,8 @@ namespace Mythosia.AI.Samples.ChatUi
                         report = result.ToReport()
                     });
                 }
+                catch (RagReindexRequiredException) { return ChatUiRagCoreEndpoints.ReindexRequired(); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex)
                 {
                     return Results.BadRequest(new { error = ex.Message });
@@ -112,6 +116,7 @@ namespace Mythosia.AI.Samples.ChatUi
 
                 try
                 {
+                    await ApplyRequestedSettingsAsync(ragState, embeddingHttpClient, req.RagSettings, req.VectorStore, ct);
                     var diag = new RagDiagnostics(ragState.Store);
                     var result = await diag.DiagnoseQueryAsync(req.Query, req.ExpectedText, cancellationToken: ct);
                     return Results.Ok(new
@@ -142,11 +147,41 @@ namespace Mythosia.AI.Samples.ChatUi
                         })
                     });
                 }
+                catch (RagReindexRequiredException) { return ChatUiRagCoreEndpoints.ReindexRequired(); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex)
                 {
                     return Results.BadRequest(new { error = ex.Message });
                 }
             });
+        }
+
+        private static async Task ApplyRequestedSettingsAsync(RagReferenceState state, HttpClient httpClient,
+            RagPipelineSettingsRequest? request, VectorStoreConfigRequest? vectorStore, CancellationToken cancellationToken)
+        {
+            if (request == null)
+            {
+                if (state.RequiresReindex) throw new RagReindexRequiredException();
+                return;
+            }
+            var current = state.GetSettings();
+            var settings = current with
+            {
+                EmbeddingProvider = request.EmbeddingProvider?.Trim().ToLowerInvariant() ?? current.EmbeddingProvider,
+                EmbeddingModel = request.EmbeddingModel?.Trim() ?? current.EmbeddingModel,
+                EmbeddingDimensions = request.EmbeddingDimensions ?? current.EmbeddingDimensions,
+                EmbeddingBaseUrl = request.EmbeddingBaseUrl?.Trim() ?? current.EmbeddingBaseUrl,
+                EmbeddingTimeoutSeconds = request.EmbeddingTimeoutSeconds ?? current.EmbeddingTimeoutSeconds,
+                EmbeddingMaxConcurrency = request.EmbeddingMaxConcurrency ?? current.EmbeddingMaxConcurrency,
+                HybridSearchEnabled = request.HybridSearchEnabled ?? current.HybridSearchEnabled,
+                HybridSearchVectorWeight = request.HybridSearchVectorWeight ?? current.HybridSearchVectorWeight,
+                FinalFilter = request.FinalFilter ?? current.FinalFilter,
+                RetrievalDerivation = request.RetrievalDerivation ?? current.RetrievalDerivation
+            };
+            var warning = await ChatUiRagCoreEndpoints.EnsureExternalStoreMatchesSettingsAsync(state, httpClient, settings, vectorStore, cancellationToken);
+            if (warning != null) throw new InvalidOperationException(warning);
+            state.UpdateSettings(settings);
+            state.TryApplyQuerySettings(settings);
         }
     }
 }

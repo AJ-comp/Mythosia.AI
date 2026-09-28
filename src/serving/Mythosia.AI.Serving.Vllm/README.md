@@ -2,74 +2,134 @@
 
 Find out which model a running vLLM server exposes, check whether it is healthy, and inspect request load before diagnosing an inference problem. `VllmServer` provides a read-only management client for model cards, server version, health and Prometheus metrics.
 
-Use this package for the server's management endpoints. For chat/completions, use `QwenService` with `EndpointPlatform.Vllm` in [Mythosia.AI.Providers.Alibaba](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba). The `Serving.*` family inspects running servers; `Providers.*` supplies AI conversation adapters.
+Use this package for the server's management endpoints. For chat/completions, use `QwenService` with `EndpointPlatform.Vllm` in [Mythosia.AI.Providers.Alibaba](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba). Chat and embedding APIs remain separate from the `Serving.*` management clients.
 
-## Current release: 1.0.0
+## Version and installation
 
-Version 1.0.0 promotes the published 1.0.0-preview client to a stable release. The public API and runtime behavior remain unchanged, so existing preview callers can upgrade without source changes. Stable package metadata includes the MIT license, repository information, symbol package and packaged release notes. See the [v1.0.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+Version 1.1.0 adds the shared `IModelServer` and `IModelMetricsProvider` interfaces while preserving the existing `VllmServer` methods and vLLM-specific return types. Common callers can inspect server information, model observations, health and metrics, and check this server's endpoint capabilities. Response-body reads now honor caller cancellation. See the [v1.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110).
 
-The package targets **.NET Standard 2.1** and depends only on **Newtonsoft.Json 13.0.4**. It has no dependency on the Mythosia.AI core and does not start or host a server. Field and metric availability still depends on the deployed vLLM version; the handling of optional fields is explained below.
-
-## Installation
+The package targets **.NET Standard 2.1** and depends on **Mythosia.AI.Serving.Abstractions 1.0.0** and **Newtonsoft.Json 13.0.4**. It has no dependency on the Mythosia.AI core and does not start or host a server. Field and metric availability still depends on the deployed vLLM version; the handling of optional fields is explained below.
 
 ```bash
-dotnet add package Mythosia.AI.Serving.Vllm
+dotnet add package Mythosia.AI.Serving.Vllm --version 1.1.0
 ```
 
-## Quick Start
+## Inspect model cards, health and metrics
 
 ```csharp
+using System;
+using System.Net.Http;
+using System.Threading;
+using Mythosia.AI.Serving;
 using Mythosia.AI.Serving.Vllm;
 
 // Accepts the server root OR the /v1-suffixed URL you already store for chat clients.
-var server = new VllmServer("http://localhost:8000/v1", httpClient);
+using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+var vllm = new VllmServer("http://localhost:8000/v1", http);
 
-// What model is ACTUALLY running behind the served alias?
-var card = await server.GetModelAsync("my-served-alias");
-Console.WriteLine(card?.DisplayModel);   // e.g. "Lorbus/Qwen3.6-27B-int4-AutoRound"
-Console.WriteLine(card?.MaxModelLen);    // engine-effective context window, e.g. 50000
+var cards = await vllm.GetModelsAsync(cancellation.Token);
+foreach (var card in cards)
+    Console.WriteLine($"{card.Id}: {card.DisplayModel}, context={card.MaxModelLen}");
 
-// Diagnostics
-var version = await server.GetVersionAsync();        // e.g. "0.25.0"
-var health  = await server.GetHealthAsync();         // Healthy / EngineDead / Unauthorized / Unreachable / Unexpected
-var metrics = await server.GetMetricsAsync();
-Console.WriteLine(metrics.KvCacheUsage);             // 0..1
+var version = await vllm.GetVersionAsync(cancellation.Token);
+var health = await vllm.GetHealthAsync(cancellation.Token);
+var metrics = await vllm.GetMetricsAsync(cancellation.Token);
+Console.WriteLine($"vLLM {version}: {health.Status}");
+Console.WriteLine(metrics.KvCacheUsage); // Fraction when the expected metric is present.
 Console.WriteLine(metrics.WaitingRequests);
 ```
 
-## API
+The example uses C# top-level statements and the existing concrete API. A missing optional field or typed metric returns `null`; do not interpret it as zero. Use `GetModelAsync(servedName, cancellationToken)` to look up one configured alias; it returns `null` when absent.
+
+| Input | Configuration |
+|---|---|
+| `endpoint` | Use an HTTP(S) server root or trailing `/v1`. Normalization retains a reverse-proxy path prefix. |
+| `httpClient` | Caller-owned client, kept alive for the serving client's lifetime. The client does not change its base address, default headers or timeout, and does not dispose it. |
+| `apiKey` | Optional third argument; sends a Bearer credential per request. |
+| `cancellationToken` | Optional on every asynchronous operation; propagated through headers and body reads. |
+
+The common model, information and metrics operations below enforce `HttpClient.Timeout` across headers and body reads. Existing concrete body reads honor caller cancellation but retain their legacy timeout behavior; use a cancellation token with a deadline to bound the entire call.
+
+## Shared serving contracts
+
+Use the common interfaces when the application also manages other serving runtimes. They are implemented explicitly where the existing vLLM API already has a method with a runtime-specific return type. Continue the previous example with:
+
+```csharp
+IModelServer server = vllm;
+
+var info = await server.GetInfoAsync(cancellation.Token);
+var commonHealth = await server.GetHealthAsync(cancellation.Token);
+var models = await server.GetModelsAsync(cancellation.Token);
+var capabilities = await server.GetCapabilitiesAsync(cancellation.Token);
+
+Console.WriteLine($"{info.Runtime}: {commonHealth.Status}");
+
+foreach (var model in models)
+    Console.WriteLine($"{model.Id}: {model.DisplayName} ({model.LoadState})");
+
+if (capabilities.Metrics == ServingFeatureSupport.Supported)
+{
+    var commonMetrics = await ((IModelMetricsProvider)server).GetMetricsAsync(cancellation.Token);
+    foreach (var sample in commonMetrics.Samples)
+        Console.WriteLine($"{sample.Name}: {sample.Value}");
+}
+```
+
+`ServerModel.Id` remains the served alias and `DisplayName` uses `root` when present. Alias cards, including LoRA cards, do not establish a local installation or independently verified load state: `InstallationState` and `LoadState` are both `Unknown`. Missing size, memory, locality and native state remain `null`; the reported context length is retained. `ServerInfo.Mode` also remains `Unknown` rather than inferring a mode from the number of aliases.
+
+`GetCapabilitiesAsync()` makes read-only requests to `/v1/models` and `/metrics`. A correctly shaped model list (including an empty list) or valid Prometheus exposition establishes `Supported`. Metadata-only valid exposition may have no samples; empty text or arbitrary comments are not evidence of metrics support. HTTP 404/405/501 gives `Unsupported`; authentication failures, connection failures, timeouts and malformed responses give `Unknown`. Caller cancellation propagates. Capabilities are observations of the endpoint, not a promise that a specific model is healthy or authorized. vLLM exposes neither `IModelLifecycle` nor `IModelDownloader` through this client; loading, unloading and downloading are `Unsupported`.
+
+Common health maps legacy `EngineDead` to `NotReady` and retains the other status distinctions and HTTP status code. Common metrics keep every sample and its labels; inspect labels before aggregating across models or engines. Prometheus `NaN` and infinities are retained and need checking before calculations. Unlike the tolerant legacy methods, common model and metrics reads reject an unrelated or malformed successful response.
+
+Common model, information and metrics requests enforce response-size limits and reject duplicate JSON properties, duplicate model IDs, error envelopes and malformed metric samples or duplicate labels. Existing concrete parsing behavior remains available for compatibility.
+
+## Concrete and common API
+
+The rows below describe the concrete `VllmServer` API. Calls through `IModelServer` or `IModelMetricsProvider` return the common types where indicated.
 
 | Member | Endpoint | Notes |
 | --- | --- | --- |
-| `GetModelsAsync()` | `GET /v1/models` | One card per `--served-model-name` alias (identical `Root`) + one per loaded LoRA adapter. `data[0].Id` is the canonical served name. |
-| `GetModelAsync(servedName)` | `GET /v1/models` | Convenience filter by alias; `card.DisplayModel` = `Root ?? Id`. |
-| `GetVersionAsync()` | `GET /version` | e.g. `"0.25.0"`; `null` when the response has no `version` field. |
-| `IsHealthyAsync()` | `GET /health` | `bool`, never throws on server/network failures. |
-| `GetHealthAsync()` | `GET /health` | Classified: `Healthy` / `EngineDead` (503) / `Unauthorized` (401·403) / `Unreachable` / `Unexpected` — tells a dead engine from a wrong API key from a network problem. |
-| `GetMetricsAsync()` | `GET /metrics` | Label-preserving Prometheus families + typed getters (`RunningRequests`, `WaitingRequests`, `KvCacheUsage`, token counters) + `RawText`. |
+| `GetModelsAsync()` | `GET /v1/models` | Concrete: `VllmModelCard` list. Common: `ServerModel` list with unknown installation/load state. An alias is not independent readiness evidence. |
+| `GetModelAsync(servedName)` | `GET /v1/models` | Convenience filter by alias; `DisplayModel` uses non-empty `Root`, otherwise `Id`. |
+| `GetVersionAsync()` | `GET /version` | Optional version string; legacy parsing can return `null` for an absent field or malformed JSON. |
+| `IsHealthyAsync()` | `GET /health` | `bool`; classifies server/network failures but propagates caller cancellation. |
+| `GetHealthAsync()` | `GET /health` | Concrete: `VllmHealthReport` (`EngineDead` for 503). Common: `ServerHealth` (`NotReady` for 503). Both distinguish unauthorized, unreachable and unexpected results. |
+| `GetMetricsAsync()` | `GET /metrics` | Concrete: `VllmMetrics`, with families and typed getters. Common: `ServerMetrics`, with individual samples. Both retain labels and raw text. |
+| `GetInfoAsync()` | `GET /version` | Common `ServerInfo`, with runtime `vllm`, normalized endpoint and optional version. |
+| `GetCapabilitiesAsync()` | `GET /v1/models`, `GET /metrics` | Observed common capabilities; does not perform lifecycle or download operations. |
 
-Server errors carry vLLM's OpenAI-style error body as a typed `VllmException` (`StatusCode`, `ErrorType`, `ErrorCode`, `ResponseBody`).
+## Errors and cancellation
 
-### Endpoint normalization
+All asynchronous methods accept a cancellation token. Caller cancellation propagates as `OperationCanceledException`; health methods classify server/network failures and capability probes report `Unknown` for inconclusive failures.
+
+Common operations omit raw server payloads and transport messages. Their failures use `ServingException` or its `VllmException` subtype, with status/failure classification when available. The existing concrete APIs retain legacy diagnostics: `VllmException.Message`, `ErrorType`, `ErrorCode`, `ResponseBody`, and health `Detail` can contain server or transport information. Filter those fields before logging. `VllmException` retains its concrete `int StatusCode` property while also deriving from `ServingException`.
+
+## Endpoint normalization
 
 Management routes (`/health`, `/version`, `/metrics`) live at the server **root** while `/v1/models` lives under `/v1`.
 The constructor therefore accepts either form — `http://host:8000` or `http://host:8000/v1` — and normalizes to the root, so you can pass the same endpoint string your chat client uses.
 
-### The `root` field caveat
+## Model-source metadata
 
-The headline feature — resolving a served alias to the **actually loaded model** — reads vLLM's `root` field, which is stable since 2023 but **undocumented** (absent from vLLM's docs and its own OpenAPI schema; it mirrors fields OpenAI removed from its API in 2023). Accordingly:
+`root` is optional server metadata about a model's source, not an independent load-state check:
 
-- `VllmModelCard.Root` is nullable; display `DisplayModel` (= `Root ?? Id`) instead of assuming it.
-- `root` is the raw `--model` CLI value, verbatim. When a model is served from local disk this is a **host filesystem path** — consider masking path-like values in end-user-visible UI.
-- `Created` is regenerated per request — it is not a load timestamp.
+- `VllmModelCard.Root` is optional; `DisplayModel` falls back to `Id` when `Root` is null or empty.
+- `Root` can contain a model repository ID, host filesystem path, or adapter source. Mask path-like values in end-user-visible UI when appropriate.
+- `Created` must not be treated as a load timestamp.
 
-### Metrics stability
+## Metrics stability
 
-Typed metric getters are bound to today's stable v1 names. vLLM has renamed metrics across versions before (`gpu_cache_usage_perc` → `kv_cache_usage_perc`); after such a rename a typed getter returns `null` while `Families` / `RawText` still carry everything the server exposed.
+Typed metric getters use specific metric names. If a deployed version omits or renames one, the getter returns `null`; inspect `Families` / `RawText` for what the server actually exposed. Request/token counters are summed over samples; `KvCacheUsage` is an unweighted average. Select labels directly when the application needs per-model or per-engine values.
 
-## Scope (deliberate)
+## Validation and scope
 
-In: read-only control-plane — models, version, health, metrics.
-Out: chat/embeddings/rerank (stay on `Mythosia.AI` / `Mythosia.AI.Rag`), tokenize/detokenize, LoRA load/unload (env-gated), all `VLLM_SERVER_DEV_MODE` endpoints (sleep/wake etc.).
+The offline regression suite covers concrete API compatibility, common response validation, label preservation, capability uncertainty, authentication isolation, cancellation and body timeouts:
 
-A serving-runtime abstraction (`Mythosia.AI.Serving.Abstractions`) is planned to be **extracted, not invented** — once a second runtime implementation (Ollama) exists. Method names and DTO prefixes here are already chosen to make that extraction additive and non-breaking.
+```bash
+dotnet test --project tests/Mythosia.AI.Serving.Vllm.Tests/Mythosia.AI.Serving.Vllm.Tests.csproj --configuration Release
+```
+
+Separate live checks exercised **vLLM 0.30.0** with **`Qwen/Qwen2.5-0.5B-Instruct`** on one NVIDIA A40: health/info/inventory/capabilities, label-preserving common metrics parsing, pre-cancellation and absence of lifecycle/download interfaces. A small native HTTP inference request succeeded; that check did not exercise `QwenService` or any other Mythosia chat adapter. These checks do not establish a minimum supported runtime version or guarantee every model, metric or deployment.
+
+This package supplies read-only model, version, health and metrics inspection. Model load/unload/download, LoRA mutations, sleep/wake, tokenization, process hosting and inference APIs are outside its scope. See the [serving guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/serving.md) for the cross-runtime support and validation matrix.

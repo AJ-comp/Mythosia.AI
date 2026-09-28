@@ -259,6 +259,7 @@ Handler chuỗi một đối số hiện có vẫn được hỗ trợ. Khi tạ
 
 Đây là xử lý kết quả và hủy hàm .NET cục bộ, không cần tính năng `AllowAsync` gốc của nhà cung cấp. Chỉ dừng đọc `run.StreamAsync(token)` sẽ dừng theo dõi, không dừng run. Xem [hướng dẫn Run](execution-api-transition.md) và [giao thức nhà cung cấp](https://developers.openai.com/api/docs/guides/async-tool-calling).
 
+<a id="async-tool-calling"></a>
 ## Gọi công cụ bất đồng bộ của mô hình
 
 Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.

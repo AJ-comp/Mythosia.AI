@@ -259,6 +259,7 @@ Les gestionnaires de chaînes à un argument restent pris en charge. Une défini
 
 Il s’agit des retours et de l’annulation de fonctions .NET locales, sans dépendance envers le `AllowAsync` natif du fournisseur. Arrêter seulement le lecteur `run.StreamAsync(token)` arrête l’observation, pas le run. Consultez le [guide Run](execution-api-transition.md) et le [protocole du fournisseur](https://developers.openai.com/api/docs/guides/async-tool-calling).
 
+<a id="async-tool-calling"></a>
 ## Appels d’outils asynchrones
 
 Une consultation lente ne doit pas forcément suspendre toute la réponse. Pendant le chargement de la météo, par exemple, le modèle peut déjà formuler des conseils de voyage généraux qui ne dépendent pas du résultat. Les appels d’outils asynchrones permettent ce travail indépendant ; les affirmations qui nécessitent le résultat doivent toujours l’attendre.

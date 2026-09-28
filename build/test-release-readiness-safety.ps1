@@ -30,6 +30,64 @@ foreach ($path in $paths) {
 Assert-ReleaseChangeCoverage @() $directories @('src/rag/Mythosia.Changed/README.md', 'src/rag/Mythosia.Changed/docs/guide.yml')
 Assert-ReleaseChangeCoverage @(@{ Id = 'Mythosia.Changed' }) $directories $paths
 
+# A compiled source outside a package's own directory affects every package that
+# links it. Normalize both slash forms and .. segments without editing any files.
+$fixtureRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$servingDirectories = @{
+    'Mythosia.AI.Serving.Ollama' = 'src/serving/Mythosia.AI.Serving.Ollama'
+    'Mythosia.AI.Serving.LlamaCpp' = 'src/serving/Mythosia.AI.Serving.LlamaCpp'
+    'Mythosia.AI.Serving.Vllm' = 'src/serving/Mythosia.AI.Serving.Vllm'
+}
+$fixtureIncludes = @{
+    'Mythosia.AI.Serving.Ollama' = '..\Shared\ServingHttpTransport.cs'
+    'Mythosia.AI.Serving.LlamaCpp' = '../Shared/./ServingHttpTransport.cs'
+    'Mythosia.AI.Serving.Vllm' = '../Shared/../Shared/ServingHttpTransport.cs'
+}
+$linkedSources = @{}
+foreach ($id in $fixtureIncludes.Keys) {
+    [xml]$compileProject = '<Project><ItemGroup><Compile Include="' + $fixtureIncludes[$id] + '" Link="Internal/ServingHttpTransport.cs" /><Compile Include="Local.cs" /></ItemGroup></Project>'
+    $linkedSources[$id] = @(Get-ReleaseLinkedCompilePaths $fixtureRoot ($servingDirectories[$id] + '/example.csproj') $compileProject)
+    if ($linkedSources[$id].Count -ne 2 -or
+        $linkedSources[$id] -cnotcontains 'src/serving/Shared/ServingHttpTransport.cs' -or
+        $linkedSources[$id] -cnotcontains ($servingDirectories[$id] + '/Local.cs')) {
+        throw 'Explicit compile coverage must normalize relative paths and retain both linked and local sources.'
+    }
+}
+$sharedChange = @('src/serving/Shared/ServingHttpTransport.cs')
+Assert-Rejected { Assert-ReleaseChangeCoverage @() $servingDirectories $sharedChange $linkedSources } '*Changed production packages are omitted*'
+Assert-Rejected {
+    Assert-ReleaseChangeCoverage @(@{ Id = 'Mythosia.AI.Serving.Ollama' }, @{ Id = 'Mythosia.AI.Serving.LlamaCpp' }) $servingDirectories $sharedChange $linkedSources
+} '*omitted*Mythosia.AI.Serving.Vllm*'
+$allServing = @($servingDirectories.Keys | ForEach-Object { @{ Id = $_ } })
+Assert-ReleaseChangeCoverage $allServing $servingDirectories $sharedChange $linkedSources
+Assert-ReleaseChangeCoverage $allServing $servingDirectories @('src\serving\Shared\ServingHttpTransport.cs') $linkedSources
+Assert-ReleaseChangeCoverage @() $servingDirectories @('src/serving/Shared/Unused.cs') $linkedSources
+Assert-Rejected {
+    Assert-ReleaseChangeCoverage @() $servingDirectories @('src/common/docs/Shared.cs') @{
+        'Mythosia.AI.Serving.Ollama' = @('src/common/docs/Shared.cs')
+    }
+} '*omitted*Mythosia.AI.Serving.Ollama*'
+[xml]$internalDocsCompile = '<Project><ItemGroup><Compile Include="docs/Compiled.cs" /></ItemGroup></Project>'
+$internalDocsPaths = @{
+    'Mythosia.AI.Serving.Ollama' = @(Get-ReleaseLinkedCompilePaths $fixtureRoot ($servingDirectories['Mythosia.AI.Serving.Ollama'] + '/example.csproj') $internalDocsCompile)
+}
+$internalDocsChange = @('src/serving/Mythosia.AI.Serving.Ollama/docs/Compiled.cs')
+Assert-Rejected {
+    Assert-ReleaseChangeCoverage @() $servingDirectories $internalDocsChange $internalDocsPaths
+} '*omitted*Mythosia.AI.Serving.Ollama*'
+Assert-ReleaseChangeCoverage @(@{ Id = 'Mythosia.AI.Serving.Ollama' }) $servingDirectories $internalDocsChange $internalDocsPaths
+[xml]$outsideCompile = '<Project><ItemGroup><Compile Include="../../../../outside.cs" /></ItemGroup></Project>'
+Assert-Rejected { Get-ReleaseLinkedCompilePaths $fixtureRoot 'src/serving/Example/Example.csproj' $outsideCompile } '*Compile Include outside the repository*'
+[xml]$dynamicCompile = '<Project><ItemGroup><Compile Include="$(SharedPath)/Transport.cs" /></ItemGroup></Project>'
+Assert-Rejected { Get-ReleaseLinkedCompilePaths $fixtureRoot 'src/serving/Example/Example.csproj' $dynamicCompile } '*literal Compile Include paths*'
+
+# The real readiness entry point must wire the linked-source map into the guard.
+$readinessText = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'test-release-readiness.ps1'))
+if (-not $readinessText.Contains('Get-ReleaseLinkedCompilePaths -RepositoryRoot $repoRoot') -or
+    -not $readinessText.Contains('-LinkedSourcePaths $linkedSourcePaths')) {
+    throw 'Readiness must apply linked-source ownership to release coverage.'
+}
+
 $entry = @{ Id = 'Mythosia.Example'; Version = '2.0.0'; TargetFramework = 'net8.0'; LicenseExpression = 'MIT' }
 [xml]$project = '<Project><PropertyGroup><PackageId>Mythosia.Example</PackageId><Version>2.0.0</Version><TargetFramework>net8.0</TargetFramework><PackageLicenseExpression>MIT</PackageLicenseExpression></PropertyGroup></Project>'
 Assert-ReleaseProjectIdentity $entry $project
@@ -144,4 +202,4 @@ Assert-Rejected { Assert-ReleasePlanStructure $patchPlan } '*Consumer-only packa
 $patchPlan.ConsumerOnlyPackages = @(@{ Id = 'Mythosia.Unchanged'; Version = '2.0.0' })
 $patchPlan.Packages[1].FixedDependencies['Mythosia.Patch'] = '1.0.0'
 Assert-Rejected { Assert-ReleasePlanStructure $patchPlan } '*must use the release version*'
-Write-Host 'Release readiness negative fixtures passed (omissions, old versions, metadata, unavailable feeds, and provenance).'
+Write-Host 'Release readiness negative fixtures passed (omissions, linked sources, old versions, metadata, unavailable feeds, and provenance).'

@@ -62,7 +62,7 @@ const stored = new Map();
 const requests = [];
 let savedKeys = 0;
 const context = vm.createContext({
-  console, Event, FormData, Blob, URL, setTimeout, clearTimeout,
+  console, Event, FormData, Blob, URL, AbortController, DOMException, setTimeout, clearTimeout,
   document: { createElement: () => ({ className: '', textContent: '' }) },
   localStorage: { getItem: name => stored.get(name) ?? null, setItem: (name, value) => stored.set(name, value), removeItem: name => stored.delete(name) },
   fetch: async (url, options) => {
@@ -109,7 +109,8 @@ const run = modules.get('rag-run.js').namespace;
 const el = elements;
 
 const modelSelect = html.match(/<select id="rag-perplexity-model"[^>]*>([\s\S]*?)<\/select>/)[1];
-assert.deepEqual([...modelSelect.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]), ['pplx-embed-v1-0.6b', 'pplx-embed-v1-4b']);
+assert.deepEqual([...modelSelect.matchAll(/<option value="([^"]+)"/g)].map(match => match[1]),
+  ['pplx-embed-v1-0.6b', 'pplx-embed-v1-4b', 'pplx-embed-context-v1-0.6b', 'pplx-embed-context-v1-4b']);
 assert.equal(el.ragPerplexityDimensions.min, '128');
 el.ragEmbeddingProvider.value = 'perplexity';
 el.ragVectorStoreProvider.value = 'inmemory';

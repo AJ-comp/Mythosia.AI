@@ -259,6 +259,7 @@ Bisherige String-Handler mit einem Argument bleiben unterstützt. Direkte Defini
 
 Dies betrifft Rückgaben und Abbruch lokaler .NET-Funktionen und benötigt keine native `AllowAsync`-Funktion des Anbieters. Nur den Leser `run.StreamAsync(token)` zu stoppen beendet die Beobachtung, nicht den Run. Siehe [Run-Anleitung](execution-api-transition.md) und [Anbieterprotokoll](https://developers.openai.com/api/docs/guides/async-tool-calling).
 
+<a id="async-tool-calling"></a>
 ## Asynchrone Tool-Aufrufe
 
 Eine langsame Abfrage muss die Antwort nicht vollständig anhalten. Während etwa Wetterdaten geladen werden, kann das Modell bereits allgemeine Reisetipps formulieren, die nicht vom Ergebnis abhängen. Asynchrone Werkzeugaufrufe erlauben diese unabhängige Arbeit; Aussagen, die das Ergebnis benötigen, müssen weiterhin darauf warten.

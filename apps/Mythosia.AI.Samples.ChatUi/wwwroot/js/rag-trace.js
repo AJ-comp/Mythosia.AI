@@ -36,7 +36,7 @@ export function renderTrace(ragTrace, trace) {
   });
 
   const docNodes = trace.documents
-    .map((doc) => renderDocumentNode(doc, chunksByDoc.get(doc.id) || []))
+    .map((doc) => renderDocumentNode(doc, chunksByDoc.get(doc.id) || [], embeddingsByChunk, recordsByChunk))
     .join('');
 
   const orphanChunks = trace.chunks.filter((chunk) => !docIds.has(chunk.documentId));
@@ -240,14 +240,21 @@ export function renderError(message) {
 
 // ── Internal helpers ─────────────────────────────────────────
 
-function renderDocumentNode(doc, chunks) {
+function renderDocumentNode(doc, chunks, embeddingsByChunk, recordsByChunk) {
   const chunkNodes = chunks.map((chunk) => renderChunkNode(chunk)).join('');
+  const embeddingCount = chunks.reduce((sum, chunk) => sum + (embeddingsByChunk.get(chunk.id)?.length || 0), 0);
+  const recordCount = chunks.reduce((sum, chunk) => sum + (recordsByChunk.get(chunk.id)?.length || 0), 0);
   return `
     <details class="rag-tree-node" open>
       <summary>
         <div>
           <div class="rag-node-title">Document · ${escapeHtml(doc.source || doc.id)}</div>
           <div class="rag-node-meta">${doc.contentLength} chars · ${escapeHtml(doc.id)}</div>
+          <div class="rag-document-counts">
+            <span><strong>${chunks.length}</strong> <span data-ui-localize>Chunks</span></span>
+            <span><strong>${embeddingCount}</strong> <span data-ui-localize>Embeddings</span></span>
+            <span><strong>${recordCount}</strong> <span data-ui-localize>Vector Record</span></span>
+          </div>
         </div>
       </summary>
       <div class="rag-node-body">

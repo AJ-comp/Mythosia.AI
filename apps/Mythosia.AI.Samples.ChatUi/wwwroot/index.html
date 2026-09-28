@@ -543,12 +543,20 @@
                     <button class="rag-select-option" type="button" data-value="perplexity" role="option">
                       <span class="rag-select-option-label">Perplexity</span>
                     </button>
+                    <button class="rag-select-option" type="button" data-value="voyage" role="option">
+                      <span class="rag-select-option-label">Voyage AI</span>
+                    </button>
+                    <button class="rag-select-option" type="button" data-value="gemini" role="option">
+                      <span class="rag-select-option-label">Google Gemini</span>
+                    </button>
                   </div>
                   <select id="rag-embedding-provider" class="rag-select-native" aria-hidden="true">
                     <option value="ollama">Ollama</option>
                     <option value="vllm">vLLM</option>
                     <option value="openai" selected>OpenAI</option>
                     <option value="perplexity">Perplexity</option>
+                    <option value="voyage">Voyage AI</option>
+                    <option value="gemini">Google Gemini</option>
                   </select>
                 </div>
                 <div id="rag-embedding-hint" class="rag-hint">OpenAI embeddings. Select a model below.</div>
@@ -597,15 +605,36 @@
                     <div class="rag-select-menu hidden" role="listbox" aria-label="Perplexity embedding model">
                       <button class="rag-select-option" type="button" data-value="pplx-embed-v1-0.6b" role="option"><span class="rag-select-option-label">pplx-embed-v1-0.6b</span></button>
                       <button class="rag-select-option" type="button" data-value="pplx-embed-v1-4b" role="option"><span class="rag-select-option-label">pplx-embed-v1-4b</span></button>
+                      <button class="rag-select-option" type="button" data-value="pplx-embed-context-v1-0.6b" role="option"><span class="rag-select-option-label">pplx-embed-context-v1-0.6b</span></button>
+                      <button class="rag-select-option" type="button" data-value="pplx-embed-context-v1-4b" role="option"><span class="rag-select-option-label">pplx-embed-context-v1-4b</span></button>
                     </div>
                     <select id="rag-perplexity-model" class="rag-select-native" aria-hidden="true">
                       <option value="pplx-embed-v1-0.6b" selected>pplx-embed-v1-0.6b</option>
                       <option value="pplx-embed-v1-4b">pplx-embed-v1-4b</option>
+                      <option value="pplx-embed-context-v1-0.6b">pplx-embed-context-v1-0.6b</option>
+                      <option value="pplx-embed-context-v1-4b">pplx-embed-context-v1-4b</option>
                     </select>
                   </div>
                   <div class="rag-model-dimensions"><input id="rag-perplexity-dimensions" aria-label="Perplexity embedding dimensions" type="number" value="1024" min="128" max="1024" step="1" /></div>
                 </div>
                 <div class="rag-hint">0.6B: 128–1024 dimensions · 4B: 128–2560. Keep the same model and dimensions for indexing and queries.</div>
+                <div class="rag-hint">Context models preserve each document's chunk order and context. Standard and context models use different vector spaces.</div>
+              </div>
+              <div id="rag-voyage-model-row" class="rag-field rag-field-wide hidden">
+                <label for="rag-voyage-model">Voyage model</label>
+                <div class="rag-model-row">
+                  <select id="rag-voyage-model" class="rag-model-row-select"><option value="voyage-context-4">voyage-context-4</option></select>
+                  <div class="rag-model-dimensions"><input id="rag-voyage-dimensions" aria-label="Voyage embedding dimensions" type="number" value="1024" min="256" max="2048" step="1" /></div>
+                </div>
+                <div class="rag-hint">256, 512, 1024 or 2048 dimensions. Each document is embedded as one ordered group; separate documents never share context.</div>
+              </div>
+              <div id="rag-gemini-model-row" class="rag-field rag-field-wide hidden">
+                <label for="rag-gemini-model">Gemini model</label>
+                <div class="rag-model-row">
+                  <select id="rag-gemini-model" class="rag-model-row-select"><option value="gemini-embedding-2">gemini-embedding-2</option></select>
+                  <div class="rag-model-dimensions"><input id="rag-gemini-dimensions" aria-label="Gemini embedding dimensions" type="number" value="1536" min="128" max="3072" step="1" /></div>
+                </div>
+                <div class="rag-hint">128–3072 dimensions. One vector per text chunk, with document and query formatting applied only to embedding requests.</div>
               </div>
               <div id="rag-ollama-model-row" class="rag-field rag-field-wide hidden">
                 <label>Ollama model</label>
@@ -703,7 +732,34 @@
                 </div>
                 <div id="rag-perplexity-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
               </div>
-              <div class="rag-hint">Applies to query embedding and indexing. Re-run Reference after changes.</div>
+              <div id="rag-voyage-key" class="rag-field rag-field-wide hidden">
+                <label for="rag-voyage-key-input">Voyage API key</label>
+                <div class="rag-inline-input">
+                  <input id="rag-voyage-key-input" type="password" autocomplete="off" />
+                  <button id="rag-voyage-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
+                </div>
+                <div id="rag-voyage-key-status" class="rag-hint">Stored in localStorage for this browser.</div>
+              </div>
+              <div id="rag-gemini-key" class="rag-field rag-field-wide hidden">
+                <label for="rag-gemini-key-input">Google API key</label>
+                <div class="rag-inline-input">
+                  <input id="rag-gemini-key-input" type="password" autocomplete="off" />
+                  <button id="rag-gemini-key-save" class="btn btn-primary btn-sm" disabled>Save</button>
+                </div>
+                <div id="rag-gemini-key-status" class="rag-hint">Uses the same Google key as chat. Stored in localStorage for this browser.</div>
+              </div>
+              <div class="rag-grid">
+                <div class="rag-field">
+                  <label for="rag-embedding-timeout">Embedding timeout (seconds)</label>
+                  <input id="rag-embedding-timeout" type="number" value="120" min="1" max="600" step="1" />
+                </div>
+                <div id="rag-embedding-concurrency-row" class="rag-field hidden">
+                  <label for="rag-embedding-concurrency">Gemini concurrent requests</label>
+                  <input id="rag-embedding-concurrency" type="number" value="4" min="1" max="16" step="1" />
+                </div>
+              </div>
+              <div id="rag-embedding-reindex-warning" class="rag-hint rag-status-warning hidden" role="status" aria-live="polite">Embedding settings differ from the indexed documents. Re-run Reference before searching, even when the dimensions match.</div>
+              <div class="rag-hint">Provider, model or dimension changes require reindexing. Timeout, concurrency and API-key changes apply to subsequent operations.</div>
             </div>
           </div>
 
@@ -1059,6 +1115,7 @@
       <!-- Embedding progress overlay (shown during Run Reference) -->
       <div id="rag-embed-progress" class="rag-embed-progress hidden">
         <div id="rag-embed-progress-content" class="rag-embed-progress-content"></div>
+        <button id="rag-embed-cancel" type="button" class="btn btn-ghost btn-sm">Cancel indexing</button>
       </div>
       <div class="modal-body rag-modal-body">
         <!-- ── LEFT: Documents + History + Run ── -->

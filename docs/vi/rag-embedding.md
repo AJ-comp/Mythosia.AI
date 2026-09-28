@@ -45,6 +45,16 @@ Các lô chung kiểm tra yêu cầu hủy trong khi đọc đầu vào. Ngay kh
 
 Cả hai provider giữ nguyên văn bản lưu trữ và kiểm tra số vector, số chiều, giá trị hữu hạn. `HttpClient` vẫn thuộc bên gọi và không đổi cấu hình. Voyage khôi phục thứ tự từ chỉ số phản hồi đã kiểm tra. Lỗi không chứa khóa hay nội dung từ xa; hủy được truyền tiếp, hết thời gian gây `TimeoutException`. `timeout` của Voyage áp dụng theo yêu cầu, Gemini áp dụng cho cả thao tác kể cả thời gian chờ đồng thời; giới hạn của client cũng có hiệu lực. Không tự chia lại hoặc cắt bỏ âm thầm. Lỗi trước khi lưu giữ tài liệu cũ; tính nguyên tử sau khi bắt đầu lưu tùy kho hoặc callback. Khi đổi mô hình, số chiều hoặc định dạng tìm kiếm, hãy lập chỉ mục lại tài liệu và cấu hình kho cho cùng không gian vector.
 
+<a id="playground-embeddings"></a>
+
+### Thử embedding trong Playground
+
+Trong Playground, mở Pipeline → Embedding và chọn Voyage Context 4, Gemini Embedding 2 hoặc embedding ngữ cảnh Perplexity. Nhập khóa nhà cung cấp và chọn số chiều. Thời gian chờ của ứng dụng mặc định là 120 giây (1–600); mức đồng thời Gemini là 4 (1–16). Các cài đặt này được khôi phục trong trình duyệt và dùng khi kết nối lại cơ sở dữ liệu vector. Thay đổi thời gian chờ, mức đồng thời và khóa API áp dụng cho các thao tác tiếp theo mà không cần lập lại chỉ mục.
+
+Mở Documents và chạy Run Reference để lập chỉ mục tệp, hoặc Cancel để dừng yêu cầu đang chạy. Kiểm tra số đoạn và vector của từng tài liệu, rồi dùng View Code để xuất cấu hình đã chọn với phần giữ chỗ cho khóa. Đổi nhà cung cấp, mô hình hoặc số chiều đòi hỏi lập lại chỉ mục; kết nối lại không chuyển đổi vector đã lưu. Hủy không hoàn tác tài liệu đã lưu.
+
+Các mô hình có thể dùng không gian vector khác nhau dù có cùng số chiều. Ứng dụng từ chối đổi nhà cung cấp, mô hình hoặc số chiều cho bảng, bộ sưu tập hoặc không gian tên bên ngoài đang kết nối. Chọn nơi lưu trữ mới và lập chỉ mục tất cả tài liệu cần thiết bằng cấu hình mới. Sau khi hủy, kiểm tra chỉ mục trước khi thử lại.
+
 ### Kiểm tra dịch vụ thực tế
 
 Kiểm thử trực tiếp gửi văn bản tổng hợp TXT, Markdown và PDF, có phát sinh phí API. Đặt `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, cấu hình thông tin xác thực và chọn `All`, `Voyage` hoặc `Gemini`. Trình chạy từ chối trường hợp bị bỏ qua hoặc chưa kết luận; kiểm thử ngoại tuyến không xác nhận dịch vụ đang khả dụng.

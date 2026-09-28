@@ -45,6 +45,16 @@ Os lotes genéricos verificam o cancelamento durante a leitura das entradas. Ao 
 
 Os dois provedores preservam o texto armazenado e validam quantidade, dimensões e valores finitos dos vetores. O `HttpClient` continua pertencendo ao chamador, com os mesmos ajustes. Voyage restaura a ordem a partir de índices de resposta validados. Erros omitem chaves e conteúdo remoto; o cancelamento é propagado e tempos esgotados geram `TimeoutException`. O `timeout` de Voyage vale por requisição; o de Gemini cobre a operação inteira, incluindo esperas de concorrência. O limite do cliente também se aplica. Não há divisão nem truncamento silencioso. Falhas antes da persistência preservam o documento anterior; depois, a atomicidade depende do armazenamento ou callback. Ao mudar modelo, dimensões ou formato de busca, reindexe os documentos e configure o armazenamento para o mesmo espaço vetorial.
 
+<a id="playground-embeddings"></a>
+
+### Experimente embeddings no Playground
+
+No Playground, abra Pipeline → Embedding e escolha Voyage Context 4, Gemini Embedding 2 ou embeddings contextuais do Perplexity. Informe a chave do provedor e as dimensões. O tempo limite do aplicativo é de 120 segundos por padrão (1–600); a concorrência do Gemini é 4 (1–16). Essas configurações são restauradas no navegador e usadas ao reconectar um banco vetorial. Alterações no tempo limite, na concorrência e na chave de API se aplicam às operações seguintes sem reindexação.
+
+Abra Documents e execute Run Reference para indexar arquivos, ou Cancel para interromper uma solicitação ativa. Confira as contagens de trechos e vetores por documento e use View Code para exportar a configuração com marcadores de chave. Mudar provedor, modelo ou dimensões exige reindexação; reconectar não converte os vetores armazenados. Cancelar não desfaz documentos já salvos.
+
+Modelos podem usar espaços vetoriais diferentes mesmo com as mesmas dimensões. O aplicativo rejeita mudanças de provedor, modelo ou dimensões para a tabela, coleção ou namespace externo conectado no momento. Escolha um novo destino e indexe todos os documentos necessários com a nova configuração. Após cancelar, confira o índice antes de tentar novamente.
+
 ### Verificar o serviço real
 
 Os testes ao vivo enviam texto sintético TXT, Markdown e PDF e geram custos de API. Defina `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, configure as credenciais e escolha `All`, `Voyage` ou `Gemini`. O executor rejeita casos ignorados ou inconclusivos; testes offline não comprovam a disponibilidade do serviço.

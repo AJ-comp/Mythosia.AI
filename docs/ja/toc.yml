@@ -92,3 +92,8 @@
     href: vector-filter.md
   - name: マイグレーション
     href: vectordb-migration.md
+
+- name: モデルサーバー管理
+  items:
+  - name: 実行中のモデルサーバーを管理する
+    href: serving.md

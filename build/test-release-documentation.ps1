@@ -46,6 +46,65 @@ function Get-ProjectPropertyValue {
     return $null
 }
 
+function Get-ReadmeContract {
+    param([string]$Text, [string]$Directory)
+
+    # Compare structure and runnable examples, not translated prose. This catches
+    # missing/reordered sections while allowing localized headings, prompts and comments.
+    $fencePattern = '(?ms)^```(?<language>[^\r\n]*)\r?\n(?<code>.*?)^```[ \t]*\r?$'
+    $structure = @([regex]::Matches($Text, $fencePattern + '|(?m)^(?<heading>#{1,6})[ \t]+[^\r\n]+') | ForEach-Object {
+        if ($_.Groups['heading'].Success) { 'H' + $_.Groups['heading'].Length }
+        else { 'code:' + $_.Groups['language'].Value.Trim().ToLowerInvariant() }
+    })
+    $examples = @([regex]::Matches($Text, $fencePattern) | ForEach-Object {
+        $language = $_.Groups['language'].Value.Trim().ToLowerInvariant()
+        $code = $_.Groups['code'].Value
+        if ($language -in @('csharp', 'cs', 'c#')) {
+            # Current README snippets use ordinary/interpolated/verbatim strings.
+            # Match strings together with comments so URLs inside strings stay intact.
+            $code = [regex]::Replace($code, '(?s)@"(?:""|[^"])*"|\$?"(?:\\.|[^"\\])*"|/\*.*?\*/|//[^\r\n]*', {
+                param($match)
+                if ($match.Value.StartsWith('/')) { return '' }
+                return '""'
+            })
+        }
+        elseif ($language -eq 'mermaid') {
+            # Translate group descriptions, retaining actual package names and edges.
+            $code = [regex]::Replace($code, '(?m)^\s*%%[^\r\n]*', '')
+            $code = [regex]::Replace($code, '(?m)(subgraph\s+\w+\[)"(?:\\.|[^"\\])*"(\])', '$1""$2')
+        }
+        else {
+            $code = [regex]::Replace($code, '(?m)#[^\r\n]*', '')
+        }
+        [regex]::Replace($code, '\s+', '')
+    })
+
+    $links = @([regex]::Matches($Text, '\]\((?<target>[^)\s]+\.md(?:#[^)\s]+)?)\)') | ForEach-Object {
+        $target = $_.Groups['target'].Value
+        $targetDirectory = $Directory
+        if ($target -match '^https://github\.com/AJ-comp/Mythosia\.AI/blob/main/(?<path>.+)$') {
+            $target = $Matches['path']
+            $targetDirectory = $repoRoot
+        }
+        elseif ($target -match '^https?://') { return }
+        $parts = $target -split '#', 2
+        $path = Get-RepositoryRelativePath -Path (Join-Path $targetDirectory $parts[0])
+        # Language-switcher README links are intentionally different. Other guides
+        # must have equivalent localized targets, including explicit section anchors.
+        if ($path -match '^(README\.md|docs/[^/]+/README\.md)$') { return }
+        $path = $path -replace '^docs/[^/]+/([^/]+\.md)$', 'docs/$1'
+        if ($parts.Count -eq 2) { $path += '#' + $parts[1] }
+        $path
+    } | Sort-Object -Unique)
+
+    [pscustomobject]@{
+        Structure = $structure -join ','
+        Examples = $examples
+        Links = $links
+        Video = [regex]::Match($Text, '(?m)^https://github\.com/user-attachments/assets/[^\s]+[ \t]*\r?$').Value.Trim()
+    }
+}
+
 . (Join-Path $PSScriptRoot 'release-plan.ps1')
 $releasePlan = Get-ReleasePlan
 $releasePackages = @($releasePlan.Packages)
@@ -224,8 +283,93 @@ $activeDocumentation = @(
 $documentationRoot = Join-Path $repoRoot "docs"
 $localizedDirectories = @(Get-ChildItem -LiteralPath $documentationRoot -Directory |
     Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName "toc.yml") -PathType Leaf })
+$mainReadmeContract = Get-ReadmeContract -Text (Get-Content -Raw -LiteralPath (Join-Path $repoRoot 'README.md')) -Directory $repoRoot
+foreach ($directory in $localizedDirectories) {
+    $readmePath = Join-Path $directory.FullName 'README.md'
+    $relativePath = Get-RepositoryRelativePath -Path $readmePath
+    if (-not (Test-Path -LiteralPath $readmePath -PathType Leaf)) {
+        Add-Issue "Missing translated main README: $relativePath"
+        continue
+    }
+    $contract = Get-ReadmeContract -Text (Get-Content -Raw -LiteralPath $readmePath) -Directory $directory.FullName
+    if ($contract.Structure -cne $mainReadmeContract.Structure) {
+        Add-Issue "$relativePath must match the main README's heading levels and code-block order."
+    }
+    if ($contract.Examples.Count -ne $mainReadmeContract.Examples.Count) {
+        Add-Issue "$relativePath has $($contract.Examples.Count) examples, expected $($mainReadmeContract.Examples.Count) from the main README."
+    }
+    else {
+        for ($i = 0; $i -lt $contract.Examples.Count; $i++) {
+            if ($contract.Examples[$i] -cne $mainReadmeContract.Examples[$i]) {
+                Add-Issue "$relativePath example $($i + 1) must use the same API/command/dependency structure as the main README (comments and strings may be translated)."
+            }
+        }
+    }
+    foreach ($link in $mainReadmeContract.Links) {
+        if ($link -cnotin $contract.Links) {
+            Add-Issue "$relativePath is missing the main README's guide link: $link"
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($mainReadmeContract.Video) -or $contract.Video -cne $mainReadmeContract.Video) {
+        Add-Issue "$relativePath must include the same standalone playable video URL as the main README."
+    }
+    foreach ($anchor in @(
+        @{ File = 'function-calling.md'; Id = 'async-tool-calling' },
+        @{ File = 'providers.md'; Id = 'image-generation' }
+    )) {
+        $targetPath = Join-Path $directory.FullName $anchor.File
+        if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf) -or
+            -not (Get-Content -Raw -LiteralPath $targetPath).Contains('<a id="' + $anchor.Id + '"></a>')) {
+            Add-Issue "$relativePath links to a missing stable section anchor: $($anchor.File)#$($anchor.Id)"
+        }
+    }
+}
 $guideDirectories = @(Get-Item -LiteralPath $documentationRoot) + $localizedDirectories
+$mainServingPath = Join-Path $documentationRoot 'serving.md'
+$mainServingContract = if (Test-Path -LiteralPath $mainServingPath -PathType Leaf) {
+    Get-ReadmeContract -Text (Get-Content -Raw -LiteralPath $mainServingPath) -Directory $documentationRoot
+} else { $null }
 foreach ($directory in $guideDirectories) {
+    # Server management must be discoverable in every language, with the same public contracts.
+    $servingGuidePath = Join-Path $directory.FullName 'serving.md'
+    if (-not (Test-Path -LiteralPath $servingGuidePath -PathType Leaf)) {
+        Add-Issue "Missing serving guide: $(Get-RepositoryRelativePath -Path $servingGuidePath)"
+    }
+    else {
+        $servingGuideText = Get-Content -Raw -LiteralPath $servingGuidePath
+        if ($null -ne $mainServingContract -and $directory.FullName -ne $documentationRoot) {
+            $translatedContract = Get-ReadmeContract -Text $servingGuideText -Directory $directory.FullName
+            $relativeGuide = Get-RepositoryRelativePath -Path $servingGuidePath
+            if ($translatedContract.Structure -cne $mainServingContract.Structure) {
+                Add-Issue "$relativeGuide must match the English serving guide's heading levels and code-block order."
+            }
+            if (($translatedContract.Examples -join "`n") -cne ($mainServingContract.Examples -join "`n")) {
+                Add-Issue "$relativeGuide must use the same API and command examples as the English serving guide (comments and strings may be translated)."
+            }
+            foreach ($link in $mainServingContract.Links) {
+                if ($link -cnotin $translatedContract.Links) {
+                    Add-Issue "$relativeGuide is missing the English serving guide's package or verification link: $link"
+                }
+            }
+        }
+        foreach ($servingContract in @('IModelServer', 'IModelLifecycle', 'IModelDownloader', 'IModelMetricsProvider',
+            'ServingCapabilities', 'Unknown', 'InstallationState', 'LoadState', 'autoload=false',
+            'download_finished', 'ServingException', 'CancellationToken',
+            'Mythosia.AI.Serving.Abstractions', 'Mythosia.AI.Serving.Ollama', 'Mythosia.AI.Serving.LlamaCpp', 'Mythosia.AI.Serving.Vllm')) {
+            if (-not $servingGuideText.Contains($servingContract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $servingGuidePath) omits the $servingContract serving contract."
+            }
+        }
+        if ($directory.FullName -ne $documentationRoot -and
+            $servingGuideText.StartsWith('# Manage existing model servers')) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $servingGuidePath) still uses the English guide title."
+        }
+    }
+    $servingTocPath = Join-Path $directory.FullName 'toc.yml'
+    if (-not (Test-Path -LiteralPath $servingTocPath -PathType Leaf) -or
+        [regex]::Matches((Get-Content -Raw -LiteralPath $servingTocPath), '(?m)^\s*href:\s*serving\.md\s*$').Count -ne 1) {
+        Add-Issue "$(Get-RepositoryRelativePath -Path $servingTocPath) must link to its local serving guide exactly once."
+    }
     # The executable custom splitter example must not teach empty record IDs:
     # upserting its chunks would silently overwrite sentences and other documents.
     $splitterGuidePath = Join-Path $directory.FullName "text-splitters.md"
@@ -802,4 +946,6 @@ if ($issues.Count -ne 0) {
 
 Write-Host "Release documentation and NuGet metadata validation passed."
 Write-Host "Validated $($releasePackages.Count) release packages and $($linkDocuments.Count) Markdown files."
+Write-Host "Validated main README structure, examples, guide links and video parity for $($localizedDirectories.Count) translations."
+Write-Host "Validated Serving contracts, runtime constraints and navigation for $($guideDirectories.Count) documentation languages."
 Write-Host "Validated v8 migration, model capabilities, completion cancellation and implementation migration, local tool returns/errors/cancellation, request builders, GPT Image 2.5, Perplexity Agent/Search/embeddings, DeepSeek Flash, Grok 4.6/4.7, Grok Imagine Image 2.0, Gemini 3.7/3.8, Run, reasoning/search, Fable 5.1, Opus 5.5, GPT-6 Sol/Luna and processing-speed guide coverage and navigation for $($guideDirectories.Count) documentation languages."

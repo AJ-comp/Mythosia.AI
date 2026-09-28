@@ -92,3 +92,8 @@
     href: vector-filter.md
   - name: Migration
     href: vectordb-migration.md
+
+- name: Quản lý máy chủ mô hình
+  items:
+  - name: Quản lý máy chủ mô hình đang chạy
+    href: serving.md

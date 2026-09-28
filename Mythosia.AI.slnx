@@ -20,6 +20,9 @@
     <Project Path="src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj" />
   </Folder>
   <Folder Name="/src/serving/">
+    <Project Path="src/serving/Mythosia.AI.Serving.Abstractions/Mythosia.AI.Serving.Abstractions.csproj" />
+    <Project Path="src/serving/Mythosia.AI.Serving.Ollama/Mythosia.AI.Serving.Ollama.csproj" />
+    <Project Path="src/serving/Mythosia.AI.Serving.LlamaCpp/Mythosia.AI.Serving.LlamaCpp.csproj" />
     <Project Path="src/serving/Mythosia.AI.Serving.Vllm/Mythosia.AI.Serving.Vllm.csproj" />
   </Folder>
   <Folder Name="/src/vectordb/">
@@ -41,7 +44,11 @@
     <Project Path="tests/Mythosia.AI.Rag.Tests/Mythosia.AI.Rag.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Rag.Search.Pixie.Tests/Mythosia.AI.Rag.Search.Pixie.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Rag.Search.Pixie.Benchmarks/Mythosia.AI.Rag.Search.Pixie.Benchmarks.csproj" />
+    <Project Path="tests/Mythosia.AI.Serving.Abstractions.Tests/Mythosia.AI.Serving.Abstractions.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Serving.Ollama.Tests/Mythosia.AI.Serving.Ollama.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Serving.LlamaCpp.Tests/Mythosia.AI.Serving.LlamaCpp.Tests.csproj" />
     <Project Path="tests/Mythosia.AI.Serving.Vllm.Tests/Mythosia.AI.Serving.Vllm.Tests.csproj" />
+    <Project Path="tests/Mythosia.AI.Serving.Live/Mythosia.AI.Serving.Live.csproj" />
     <Project Path="tests/Mythosia.AI.Test/Mythosia.AI.Test.csproj" />
     <Project Path="tests/Mythosia.Documents.Tests/Mythosia.Documents.Tests.csproj" />
     <Project Path="tests/Mythosia.VectorDb.Tests/Mythosia.VectorDb.Tests.csproj" />

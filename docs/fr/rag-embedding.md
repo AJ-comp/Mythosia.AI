@@ -45,6 +45,16 @@ Les lots génériques vérifient l’annulation pendant la lecture des entrées.
 
 Les deux fournisseurs préservent le texte stocké et vérifient le nombre, les dimensions et les valeurs finies des vecteurs. Le `HttpClient` reste propriété de l’appelant, sans modification de ses réglages. Voyage restaure l’ordre des documents et fragments à partir des indices validés. Les erreurs omettent clés et contenus distants ; l’annulation est propagée et les délais expirés lèvent `TimeoutException`. Le `timeout` de Voyage s’applique à chaque requête, celui de Gemini à toute l’opération, attente de concurrence comprise ; le délai du client reste actif. Aucune division ni troncature silencieuse. Un échec avant persistance conserve l’ancien document ; ensuite l’atomicité dépend du stockage ou du callback. Réindexez après un changement de modèle, dimensions ou format de recherche, avec un stockage adapté au même espace vectoriel.
 
+<a id="playground-embeddings"></a>
+
+### Essayer les embeddings dans Playground
+
+Dans Playground, ouvrez Pipeline → Embedding et choisissez Voyage Context 4, Gemini Embedding 2 ou les embeddings contextuels Perplexity. Indiquez la clé du fournisseur et les dimensions. Le délai de l'application est de 120 secondes par défaut (1–600) et la concurrence Gemini de 4 (1–16). Ces réglages sont restaurés dans le navigateur et utilisés lors de la reconnexion à une base vectorielle. Les changements de délai, de concurrence et de clé API s'appliquent aux opérations suivantes sans réindexation.
+
+Ouvrez Documents et lancez Run Reference pour indexer des fichiers, ou Cancel pour arrêter une requête active. Vérifiez les nombres de fragments et de vecteurs par document, puis utilisez View Code pour exporter la configuration avec des clés de remplacement. Changer de fournisseur, de modèle ou de dimensions exige une réindexation ; une reconnexion ne convertit pas les vecteurs stockés. L'annulation ne supprime pas les documents déjà enregistrés.
+
+Les modèles peuvent utiliser des espaces vectoriels différents à dimensions égales. L'application refuse de changer de fournisseur, de modèle ou de dimensions pour la table, la collection ou l’espace de noms externe actuellement connecté. Choisissez une nouvelle destination et indexez tous les documents nécessaires avec la nouvelle configuration. Après une annulation, vérifiez l'index avant de réessayer.
+
 ### Vérifier le service réel
 
 Les tests en direct envoient du texte synthétique TXT, Markdown et PDF et engendrent des frais API. Définissez `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, configurez les identifiants et choisissez `All`, `Voyage` ou `Gemini`. Le script refuse les cas ignorés ou non concluants ; les tests hors ligne ne prouvent pas la disponibilité du service.

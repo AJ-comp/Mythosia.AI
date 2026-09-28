@@ -150,10 +150,21 @@ if ($mcpRelease.Count -gt 0) {
          ($releaseIds -notcontains 'Mythosia.AI' -and $mcp.FixedDependencies['Mythosia.AI'] -ceq $consumerVersions['Mythosia.AI']))) `
         'A released MCP package must validate its only dependency against the planned or fixed published core version.'
 }
-$vllmConsumerOnly = @($releasePlan.ConsumerOnlyPackages | Where-Object { $_.Id -eq 'Mythosia.AI.Serving.Vllm' })
-Assert-True ($releaseIds -notcontains 'Mythosia.AI.Serving.Vllm' -and
-    $vllmConsumerOnly.Count -eq 1 -and $vllmConsumerOnly[0].Version -ceq '1.0.0') `
-    'The unchanged vLLM package must be tested from NuGet without becoming a publication target.'
+foreach ($definition in @($releaseDefinitions | Where-Object { $_.Id -like 'Mythosia.AI.Serving.*' })) {
+    if ($definition.Id -eq 'Mythosia.AI.Serving.Abstractions') {
+        Assert-True ($definition.Dependencies.Count -eq 0 -and $definition.FixedDependencies.Count -eq 0) `
+            'Serving.Abstractions must remain independent of concrete clients and external packages.'
+    }
+    else {
+        $contractsId = 'Mythosia.AI.Serving.Abstractions'
+        $contractsFromRelease = $releaseIds -contains $contractsId
+        Assert-True (($definition.Dependencies.Count + $definition.FixedDependencies.Count) -eq 2 -and
+            (($contractsFromRelease -and $definition.Dependencies[$contractsId] -ceq $contractsId) -or
+             (-not $contractsFromRelease -and $definition.FixedDependencies[$contractsId] -ceq $consumerVersions[$contractsId])) -and
+            $definition.FixedDependencies['Newtonsoft.Json'] -ceq '13.0.4') `
+            "$($definition.Id) must depend only on shared serving contracts and the reviewed JSON dependency."
+    }
+}
 $probeText = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'test-release-package-probes.ps1'))
 $referencedConsumerIds = @([regex]::Matches($consumerText + $probeText, '\$versions\[[''"](?<id>Mythosia\.[A-Za-z0-9.]+)[''"]\]') |
     ForEach-Object { $_.Groups['id'].Value })
@@ -186,12 +197,17 @@ Invoke-Expression $mappingFunction.Extent.Text
 [xml]$mappingXml = '<mapping>' + (Get-ReleasePackageSourceMapping -PackageIds $consumerIds) + '</mapping>'
 $mappedIds = @($mappingXml.mapping.package | ForEach-Object { [string]$_.pattern })
 Assert-True (($mappedIds -join '|') -ceq ($releaseIds -join '|')) `
-    "Each released package, including RAG contracts, must map to local artifacts by exact ID; only unchanged dependencies may come from NuGet."
+    "Each released package, including shared contracts, must map to local artifacts by exact ID; only unchanged dependencies may come from NuGet."
 Assert-True ($consumerText.Contains('Get-ReleasePackageSourceMapping -PackageIds $expectedIds') -and
     [regex]::IsMatch($consumerText, '<packageSource key="release-artifacts">\r?\n\$releasePackageSourceMapping')) `
     "The generated exact-ID source mapping must be used in the consumer NuGet.config."
 
 $consumerCommands = @($consumerAst.FindAll({
+    param($node)
+    $node -is [System.Management.Automation.Language.CommandAst] -and
+        $node.GetCommandName() -eq 'Invoke-PackageConsumer'
+}, $true))
+$consumerCommands += @($probeAst.FindAll({
     param($node)
     $node -is [System.Management.Automation.Language.CommandAst] -and
         $node.GetCommandName() -eq 'Invoke-PackageConsumer'
@@ -205,7 +221,7 @@ foreach ($consumerName in @('RagConsumer', 'RagNetStandardConsumer')) {
         $ragConsumers[0].Extent.Text.Contains('"Mythosia.AI.Rag.Abstractions/$($versions[''Mythosia.AI.Rag.Abstractions''])"') -and
         $ragConsumers[0].Extent.Text.Contains('"Mythosia.VectorDb.InMemory/$($versions[''Mythosia.VectorDb.InMemory''])"') -and
         $ragConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")')) `
-        "$consumerName must consume the RAG package with every changed dependency from this release and without the core implementation."
+        "$consumerName must consume the RAG package with every planned or fixed published dependency and without the core implementation."
 }
 foreach ($consumerName in @('McpConsumer', 'McpNetStandardConsumer')) {
     $mcpConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
@@ -213,15 +229,57 @@ foreach ($consumerName in @('McpConsumer', 'McpNetStandardConsumer')) {
         $mcpConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Mcp"') -and
         $mcpConsumers[0].Extent.Text.Contains('"Mythosia.AI/$($versions[''Mythosia.AI''])"') -and
         $mcpConsumers[0].Extent.Text.Contains('"Mythosia.AI.Abstractions/$($versions[''Mythosia.AI.Abstractions''])"')) `
-        "$consumerName must consume the MCP package with the core and abstractions from the same release."
+        "$consumerName must consume the MCP package with the planned or fixed published core and abstractions."
 }
-foreach ($consumerName in @('VllmConsumer', 'VllmNetStandardConsumer')) {
-    $vllmConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
-    Assert-True ($vllmConsumers.Count -eq 1 -and
-        $vllmConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Serving.Vllm"') -and
-        $vllmConsumers[0].Extent.Text.Contains('"Newtonsoft.Json/13.0.4"') -and
-        $vllmConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*")')) `
-        "$consumerName must consume the standalone vLLM serving package without pulling in chat, RAG or MCP packages."
+foreach ($runtime in @('Vllm', 'Ollama', 'LlamaCpp')) {
+    foreach ($consumerName in @("${runtime}Consumer", "${runtime}NetStandardConsumer")) {
+        $servingConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
+        Assert-True ($servingConsumers.Count -eq 1 -and
+            $servingConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Serving.' + $runtime + '"') -and
+            $servingConsumers[0].Extent.Text.Contains('"Mythosia.AI.Serving.Abstractions/$($versions[''Mythosia.AI.Serving.Abstractions''])"') -and
+            $servingConsumers[0].Extent.Text.Contains('"Newtonsoft.Json/13.0.4"') -and
+            $servingConsumers[0].Extent.Text.Contains('-RequireExactLibraries') -and
+            $servingConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Abstractions/*", "Mythosia.AI.Providers.*", "Mythosia.AI.Rag*", "Mythosia.AI.Mcp/*")')) `
+            "$consumerName must consume its exact serving dependencies without pulling in chat, RAG or MCP packages."
+    }
+}
+$servingContractsConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "ServingAbstractionsConsumer"') })
+Assert-True ($servingContractsConsumers.Count -eq 1 -and
+    $servingContractsConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.AI.Serving.Abstractions"') -and
+    $servingContractsConsumers[0].Extent.Text.Contains('-RequireExactLibraries') -and
+    $servingContractsConsumers[0].Extent.Text.Contains('-ExpectedLibraries @("Mythosia.AI.Serving.Abstractions/$($versions[''Mythosia.AI.Serving.Abstractions''])")')) `
+    'The serving contracts must be consumed without any transitive package dependencies.'
+Assert-True ($consumerText.Contains('if ($RequireExactLibraries -and') -and
+    $consumerText.Contains('$libraries.Count -ne $ExpectedLibraries.Count')) `
+    'Exact dependency checks must reject unexpected transitive libraries.'
+$exactLibraryGuard = $consumerAst.Find({
+    param($node)
+    $node -is [System.Management.Automation.Language.IfStatementAst] -and
+        $node.Extent.Text.StartsWith('if ($RequireExactLibraries -and')
+}, $true)
+Assert-True ($null -ne $exactLibraryGuard) 'Exact consumer dependency enforcement must be present.'
+$Name = 'ServingFixture'
+$RequireExactLibraries = $true
+$ExpectedLibraries = @('Mythosia.AI.Serving.Abstractions/1.0.0')
+$libraries = @('Mythosia.AI.Serving.Abstractions/1.0.0')
+Invoke-Expression $exactLibraryGuard.Extent.Text
+foreach ($fixture in @(
+    @{ Libraries = @('Mythosia.AI.Serving.Abstractions/1.0.0', 'Mythosia.AI/8.1.0') },
+    @{ Libraries = @('Mythosia.AI/8.1.0') },
+    @{ Libraries = @() })) {
+    $libraries = $fixture.Libraries
+    $rejected = $false
+    try { Invoke-Expression $exactLibraryGuard.Extent.Text }
+    catch {
+        if ($_.Exception.Message -notlike 'ServingFixture resolved packages outside its exact dependency contract:*') { throw }
+        $rejected = $true
+    }
+    Assert-True $rejected 'Exact serving consumers must reject extra, substituted and missing dependencies.'
+}
+foreach ($requiredApi in @('Task<IReadOnlyList<VllmModelCard>>', 'Task<VllmHealthReport>', 'Task<VllmMetrics>',
+    'IModelServer common = server;', 'IModelMetricsProvider commonMetrics = server;')) {
+    Assert-True ($consumerText.Contains($requiredApi)) `
+        "The vLLM consumer must preserve its legacy API and exercise the new common contracts: $requiredApi."
 }
 Assert-True ($publishText.Contains('Add-Type -AssemblyName System.Net.Http')) `
     "Windows PowerShell publication paths must load System.Net.Http before creating HttpClient."

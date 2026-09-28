@@ -48,6 +48,8 @@ dotnet run --project apps/Mythosia.AI.Samples.ChatUi
 
 Search models by name or provider and adjust settings on the left, chat in the center, and review returned processing details in the right-hand Inspector before integrating a model into your app. Use Stop to stop waiting for the active response; explicit speed choices are enabled only for supported model and endpoint combinations, and Fast may cost extra. On smaller screens, Models and Inspector open as drawers; see the [Chat UI guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md) for local setup, documents and pipeline settings.
 
+The Pipeline panel also supports Voyage Context 4, Gemini Embedding 2 and Perplexity contextual embeddings, with keys, dimensions and timeout settings. Documents shows chunk/vector counts and lets you cancel indexing. Saved settings, database reconnection and code examples use the selected configuration; rebuild the index after changing the embedding model or dimensions.
+
 Use the language selector in the header to switch between 13 interface languages without losing your input or settings. All seven providers are visible as collapsed groups; expand one or search for a model.
 
 </details>
@@ -329,7 +331,7 @@ The [retrieval evaluation infrastructure](https://github.com/AJ-comp/Mythosia.AI
 
 Keep request settings independent, stop ongoing work, and collect answers with usage and sources. See the [v8 upgrade guide](docs/v8-migration.md) for the six architecture changes, migration examples and validation scope.
 
-> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100). See the [previous patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
+> Package versions documented here: [Mythosia.AI 8.1.0](src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). See the [previous patch matrix](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) and [previous coordinated release](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) for the remaining retrieval, document and vector package versions.
 
 > [RAG 8.1.1 / PostgreSQL 10.8.1 patch](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): existing RAG wrappers now observe runtime query-rewriter changes, and mixed PostgreSQL hybrid search honors configured vector-search settings. Core `Mythosia.AI` remains at 8.1.0.
 
@@ -340,13 +342,13 @@ Keep request settings independent, stop ongoing work, and collect answers with u
 <a href="docs/assets/architecture.svg">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/architecture-dark.svg">
-    <img src="docs/assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
+    <img src="docs/assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and independent Ollama, llama.cpp and vLLM management." width="1600">
   </picture>
 </a>
 
 ### Package dependency details
 
-Arrows show direct package references. Shared packages appear in more than one view; vLLM server management is independent.
+Arrows show direct package references. Shared packages appear in more than one view; serving clients share management contracts and remain independent of core AI.
 
 #### Core AI and extensions
 
@@ -360,7 +362,13 @@ flowchart LR
     AI["Mythosia.AI"]:::core
     AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
     subgraph Independent["Independent server management"]
+        ServingAbs["Mythosia.AI.Serving.<br/>Abstractions"]:::contract
+        OllamaServing["Mythosia.AI.<br/>Serving.Ollama"]:::extension
+        LlamaCppServing["Mythosia.AI.<br/>Serving.LlamaCpp"]:::extension
         VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
+        OllamaServing --> ServingAbs
+        LlamaCppServing --> ServingAbs
+        VllmServing --> ServingAbs
     end
     Alibaba --> AI
     Mcp --> AI
@@ -474,11 +482,18 @@ flowchart LR
 
 ### Serving — Control Plane
 
-> Management/introspection clients for model-serving runtimes. Chat stays on the provider packages: `Providers.*` = chat data plane, `Serving.*` = server control plane.
+Build model selectors and server status screens with one management API for running Ollama, llama.cpp and vLLM instances. `IModelServer` reads health, models and capabilities; discovery never loads or downloads a model. These clients connect to existing servers and do not host runtimes or send chat requests.
+
+Optional `IModelLifecycle`, `IModelDownloader` and `IModelMetricsProvider` expose explicit operations where available. Check the connected server's capabilities: `Unknown` means insufficient evidence, not `Unsupported`; `Supported` does not guarantee success for every model. Unknown installation and load states remain unknown.
+
+Live checks passed on Ollama **0.34.4** (`qwen2.5:0.5b`), llama.cpp **b11146** in Router and single-model modes (Qwen2.5 0.5B, Q4_K_M), and vLLM **0.30.0** (a small Qwen model). These results apply to the tested configurations. See the [serving management guide](docs/serving.md) for operation coverage and runtime limitations.
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.AI.Serving.Vllm](src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM control-plane client — model cards (the model actually loaded via `root`), health, server version, Prometheus metrics |
+| [Mythosia.AI.Serving.Abstractions](src/serving/Mythosia.AI.Serving.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Abstractions) | Shared management contracts and immutable server/model/capability snapshots. |
+| [Mythosia.AI.Serving.Ollama](src/serving/Mythosia.AI.Serving.Ollama/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Ollama.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Ollama) | Ollama inventory, health, explicit preload/unload and streamed model downloads. |
+| [Mythosia.AI.Serving.LlamaCpp](src/serving/Mythosia.AI.Serving.LlamaCpp/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.LlamaCpp.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.LlamaCpp) | llama.cpp inspection, guarded router lifecycle/downloads and metrics without autoload. |
+| [Mythosia.AI.Serving.Vllm](src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM model cards, health, version and label-preserving metrics; existing concrete API retained. |
 
 ## Repository Structure
 
@@ -496,7 +511,10 @@ src/
     Mythosia.AI.Rag/                    # RAG fluent API and pipeline
     Mythosia.AI.Rag.Abstractions/       # RAG interfaces and models (RagDocument)
   serving/
-    Mythosia.AI.Serving.Vllm/           # vLLM control-plane client (models/health/version/metrics)
+    Mythosia.AI.Serving.Abstractions/  # Shared model-server management contracts
+    Mythosia.AI.Serving.Ollama/        # Ollama management and explicit downloads
+    Mythosia.AI.Serving.LlamaCpp/      # llama.cpp single-model/router management
+    Mythosia.AI.Serving.Vllm/          # vLLM management and metrics
   vectordb/
     Mythosia.VectorDb.Abstractions/     # Vector store contracts
     Mythosia.VectorDb.InMemory/         # In-memory vector store

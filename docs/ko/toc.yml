@@ -102,3 +102,8 @@
     href: vector-filter.md
   - name: 마이그레이션
     href: vectordb-migration.md
+
+- name: 모델 서버 관리
+  items:
+  - name: 실행 중인 모델 서버 관리하기
+    href: serving.md

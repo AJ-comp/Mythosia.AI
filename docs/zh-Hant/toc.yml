@@ -92,3 +92,8 @@
     href: vector-filter.md
   - name: 遷移
     href: vectordb-migration.md
+
+- name: 模型伺服器管理
+  items:
+  - name: 管理執行中的模型伺服器
+    href: serving.md

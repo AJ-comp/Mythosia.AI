@@ -92,3 +92,8 @@
     href: vector-filter.md
   - name: Миграция
     href: vectordb-migration.md
+
+- name: Управление серверами моделей
+  items:
+  - name: Управление работающими серверами моделей
+    href: serving.md

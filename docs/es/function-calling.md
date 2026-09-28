@@ -251,6 +251,7 @@ Los manejadores existentes de un argumento que devuelven cadenas siguen admitido
 
 Este es el tratamiento de resultados y cancelación de funciones .NET locales; no requiere `AllowAsync` nativo del proveedor. Detener solo el lector `run.StreamAsync(token)` detiene la observación, no el run. Consulta la [guía de Run](execution-api-transition.md) y el [protocolo del proveedor](https://developers.openai.com/api/docs/guides/async-tool-calling).
 
+<a id="async-tool-calling"></a>
 ## Llamadas asíncronas a herramientas
 
 Una consulta lenta no tiene por qué detener toda la respuesta. Mientras se cargan los datos del tiempo, por ejemplo, el modelo puede explicar consejos generales de viaje que no dependen del resultado. Las llamadas asíncronas a herramientas permiten ese trabajo independiente; las afirmaciones que necesiten el resultado deben seguir esperando.

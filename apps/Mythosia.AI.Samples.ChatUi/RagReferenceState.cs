@@ -10,13 +10,27 @@ public sealed class RagReferenceState
     private const int MaxHistory = 20;
     private readonly List<RagReferenceHistoryEntry> _history = new();
     private RagPipelineSettings _settings = new();
+    private RagEmbeddingIdentity? _indexedEmbedding;
+    internal IVectorStore? ActiveVectorStore { get; private set; }
+    internal string? ActiveVectorStoreIdentity { get; private set; }
+    internal RagPipelineSettings? ActiveSettings { get; private set; }
+    internal string? ActiveCredentialFingerprint { get; private set; }
+
+    public RagEmbeddingIdentity? IndexedEmbedding { get { lock (_lock) return _indexedEmbedding; } }
+    public bool RequiresReindex { get { lock (_lock) return Store != null && _indexedEmbedding != null && _indexedEmbedding != RagEmbeddingIdentity.From(_settings); } }
+    public bool RequiresReindexFor(RagPipelineSettings settings)
+    {
+        lock (_lock) return Store != null && _indexedEmbedding != null && _indexedEmbedding != RagEmbeddingIdentity.From(settings);
+    }
 
     public RagStore? Store { get; private set; }
     public RagReferenceTrace? LastTrace { get; private set; }
     public RagReferenceConfig? LastConfig { get; private set; }
     public DateTimeOffset? LastUpdated { get; private set; }
 
-    public void Update(RagStore store, RagReferenceTrace trace, RagReferenceConfig config)
+    public void Update(RagStore store, RagReferenceTrace trace, RagReferenceConfig config,
+        IVectorStore? vectorStore = null, string? vectorStoreIdentity = null, RagPipelineSettings? settings = null,
+        string? credentialFingerprint = null)
     {
         if (store == null) throw new ArgumentNullException(nameof(store));
         if (trace == null) throw new ArgumentNullException(nameof(trace));
@@ -25,6 +39,12 @@ public sealed class RagReferenceState
         lock (_lock)
         {
             Store = store;
+            _indexedEmbedding = new RagEmbeddingIdentity(config.EmbeddingProvider, config.EmbeddingModel,
+                config.EmbeddingDimensions, config.EmbeddingBaseUrl).Normalize();
+            ActiveVectorStore = vectorStore;
+            ActiveVectorStoreIdentity = vectorStoreIdentity;
+            ActiveSettings = settings;
+            ActiveCredentialFingerprint = credentialFingerprint;
             LastTrace = trace;
             LastConfig = config;
             var updatedAt = DateTimeOffset.UtcNow;
@@ -111,12 +131,18 @@ public sealed class RagReferenceState
     /// Sets the RAG store for an external database connection (e.g., PostgreSQL)
     /// without requiring a full document upload trace.
     /// </summary>
-    public void SetExternalStore(RagStore store)
+    public void SetExternalStore(RagStore store, RagPipelineSettings? settings = null,
+        IVectorStore? vectorStore = null, string? vectorStoreIdentity = null, string? credentialFingerprint = null)
     {
         if (store == null) throw new ArgumentNullException(nameof(store));
         lock (_lock)
         {
             Store = store;
+            ActiveVectorStore = vectorStore;
+            ActiveVectorStoreIdentity = vectorStoreIdentity;
+            ActiveSettings = settings;
+            ActiveCredentialFingerprint = credentialFingerprint;
+            _indexedEmbedding = settings == null ? null : RagEmbeddingIdentity.From(settings);
             LastUpdated = DateTimeOffset.UtcNow;
         }
     }
@@ -129,6 +155,10 @@ public sealed class RagReferenceState
         lock (_lock)
         {
             Store = null;
+            ActiveVectorStore = null;
+            ActiveVectorStoreIdentity = null;
+            ActiveSettings = null;
+            _indexedEmbedding = null;
         }
     }
 
@@ -179,7 +209,21 @@ public record RagReferenceConfig(
     string EmbeddingBaseUrl,
     RagFilter FinalFilter,
     RagRetrievalDerivation RetrievalDerivation,
-    string? PromptTemplate);
+    string? PromptTemplate,
+    int EmbeddingTimeoutSeconds = 120,
+    int EmbeddingMaxConcurrency = 4);
+
+public sealed record RagEmbeddingIdentity(string Provider, string Model, int Dimensions, string BaseUrl)
+{
+    public static RagEmbeddingIdentity From(RagPipelineSettings settings)
+        => new RagEmbeddingIdentity(settings.EmbeddingProvider, settings.EmbeddingModel,
+            settings.EmbeddingDimensions, settings.EmbeddingBaseUrl).Normalize();
+
+    public RagEmbeddingIdentity Normalize()
+        => this with { Provider = Provider.Trim().ToLowerInvariant(), Model = Model.Trim(),
+            BaseUrl = Provider.Trim().Equals("ollama", StringComparison.OrdinalIgnoreCase) || Provider.Trim().Equals("vllm", StringComparison.OrdinalIgnoreCase)
+                ? BaseUrl.Trim().TrimEnd('/') : string.Empty };
+}
 
 public record RagPipelineSettings(
     int ChunkSize = 300,
@@ -204,7 +248,9 @@ public record RagPipelineSettings(
     string RerankBaseUrl = "",
     string? RerankApiKey = null,
     RagFinalSelectionMode FinalSelectionMode = RagFinalSelectionMode.RerankerOnly,
-    double FinalSelectionRetrievalWeight = RagFinalSelectionOptions.DefaultRetrievalWeight)
+    double FinalSelectionRetrievalWeight = RagFinalSelectionOptions.DefaultRetrievalWeight,
+    int EmbeddingTimeoutSeconds = 120,
+    int EmbeddingMaxConcurrency = 4)
 {
     public RagPipelineSettings()
         : this(
@@ -389,21 +435,34 @@ internal sealed class TrackingVectorStore : IVectorStore
         _records = records ?? throw new ArgumentNullException(nameof(records));
     }
 
-    public Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default)
+    public async Task UpsertAsync(VectorRecord record, CancellationToken cancellationToken = default)
     {
         if (record == null)
             throw new ArgumentNullException(nameof(record));
 
+        await _inner.UpsertAsync(record, cancellationToken);
         _records.Add(record);
-        return _inner.UpsertAsync(record, cancellationToken);
     }
 
-    public Task UpsertBatchAsync(IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
+    public async Task UpsertBatchAsync(IEnumerable<VectorRecord> records, CancellationToken cancellationToken = default)
     {
         var recordList = records?.ToList() ?? new List<VectorRecord>();
+        await _inner.UpsertBatchAsync(recordList, cancellationToken);
         _records.AddRange(recordList);
-        return _inner.UpsertBatchAsync(recordList, cancellationToken);
     }
+
+    public async Task ReplaceByFilterAsync(VectorFilter filter, IReadOnlyList<VectorRecord> records, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        await _inner.ReplaceByFilterAsync(filter, records, cancellationToken);
+        _records.AddRange(records);
+    }
+
+    public Task<long> CountAsync(VectorFilter? filter = null, CancellationToken cancellationToken = default)
+        => _inner.CountAsync(filter, cancellationToken);
+
+    public Task VerifyConnectionAsync(CancellationToken cancellationToken = default)
+        => _inner.VerifyConnectionAsync(cancellationToken);
 
     public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(float[] queryVector, int topK = 5, VectorFilter? filter = null, CancellationToken cancellationToken = default)
         => _inner.SearchAsync(queryVector, topK, filter, cancellationToken);

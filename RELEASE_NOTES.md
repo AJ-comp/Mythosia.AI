@@ -1,5 +1,38 @@
 # Mythosia.AI workspace release notes
 
+## v1.1.0 — Serving family
+
+Build model selectors and server status screens against running Ollama, llama.cpp and vLLM servers through shared management contracts. This release adds Ollama/llama.cpp clients and extends the existing vLLM client. The heading identifies the **Serving family**, not the core `Mythosia.AI` package. Core remains **8.1.0**, RAG **8.2.0**, and RAG.Abstractions **6.4.0**; none of those published packages is republished for these changes.
+
+| Package | Published version | Release version | Full notes |
+| --- | --- | --- | --- |
+| Mythosia.AI.Serving.Abstractions | New package | **1.0.0** | [Contracts](src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100) |
+| Mythosia.AI.Serving.Ollama | New package | **1.0.0** | [Ollama](src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100) |
+| Mythosia.AI.Serving.LlamaCpp | New package | **1.0.0** | [llama.cpp](src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100) |
+| Mythosia.AI.Serving.Vllm | 1.0.0 | **1.1.0** | [vLLM](src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110) |
+
+### Added
+
+- Dependency-free `IModelServer` with optional `IModelLifecycle`, `IModelDownloader`, and `IModelMetricsProvider` contracts. Runtime, model, health, capability and labeled metric observations preserve unknown states instead of inferring missing facts.
+- Ollama installed/running model discovery, explicit preload/unload and NDJSON download completion. llama.cpp single-model/Router discovery, explicit Router lifecycle/downloads, and server/model-specific metrics with automatic loading disabled during inspection.
+- A [serving guide](docs/serving.md), documentation in 13 languages, deterministic HTTP regressions, isolated package consumers, and a reusable [opt-in live server runner](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Serving.Live/README.md).
+
+### Changed
+
+- vLLM supports common inspection and metrics interfaces while retaining its concrete methods, DTOs and legacy error fields. New common HTTP paths validate payloads, propagate cancellation and timeouts through body reads, and omit sensitive payloads from errors.
+- Chat UI exposes retrieval-aware Voyage, Gemini and Perplexity embedding settings, preserves configuration through save/restore, and requires compatible vector indexes after embedding-space changes. This is a sample application change, not a new RAG package version.
+- Main README translations now follow the main README's structure, examples and package details; documentation validation checks parity across all 13 languages.
+
+### Internal
+
+- Live validation passed with Ollama **0.34.4** (`qwen2.5:0.5b`), llama.cpp **b11146** in Router and single-model modes (Qwen2.5 0.5B, Q4_K_M), and vLLM **0.30.0** (a small Qwen model). These results cover the tested configurations and operations described in the serving guide; they do not establish compatibility with every runtime version or model. Offline CI remains independent of live servers.
+
+### Compatibility
+
+- Serving packages manage already running HTTP servers. They do not host engines or replace chat/embedding providers. Existing vLLM callers remain source compatible; a transitive dependency on `Mythosia.AI.Serving.Abstractions` is added in vLLM 1.1.0.
+- Runtime capabilities depend on server mode, version and configuration. `Unknown` means insufficient evidence and is distinct from `Unsupported`; `Supported` does not guarantee authorization or success for every model. Unobserved installation and load states remain unknown.
+- Read-only discovery does not load or download models. Cancellation stops local HTTP work and waiting; it does not guarantee rollback of commands already accepted by the server.
+
 ## v8.2.0
 
 This compatible embedding feature release publishes **Mythosia.AI.Rag 8.2.0** and **Mythosia.AI.Rag.Abstractions 6.4.0**. The core `Mythosia.AI` package remains **8.1.0** and PostgreSQL remains **10.8.1**. This heading identifies the workspace release, not a new core AI package.

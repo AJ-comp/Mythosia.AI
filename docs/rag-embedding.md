@@ -45,6 +45,16 @@ Generic batches check cancellation while reading inputs; reading stops and the b
 
 Both providers preserve stored source text, validate vector counts, dimensions and finite values, and keep the supplied `HttpClient` owned by the caller without changing its settings. Voyage restores document and chunk order from validated response indices. Errors omit keys and remote payloads; cancellation propagates and timeouts throw `TimeoutException`. Voyage `timeout` applies per request; Gemini applies it to the whole embedding operation, including concurrency waits. The client timeout also applies. Unsupported inputs are not silently split or truncated. Failures before persistence preserve the previous document; atomicity after persistence begins depends on the store or callback. Reindex documents after changing the model, dimensions or retrieval formatting, and configure the store for the same vector space.
 
+<a id="playground-embeddings"></a>
+
+### Try embeddings in the Playground
+
+In the Playground, open Pipeline → Embedding and choose Voyage Context 4, Gemini Embedding 2 or Perplexity contextual embeddings. Supply the provider key and select dimensions. The app timeout defaults to 120 seconds (1–600); Gemini concurrency defaults to 4 (1–16). These app settings are restored in the browser and used when reconnecting a vector database. Timeout, concurrency and API-key changes apply to subsequent operations without reindexing.
+
+Open Documents and run Run Reference to index files, or Cancel indexing to stop an active request. Review chunk and vector counts per document, and use View Code to export the selected configuration with key placeholders. Changing the provider, model or dimensions requires reindexing; reconnecting does not convert stored vectors. Cancellation does not undo documents already stored.
+
+Models can use different vector spaces even at the same dimensions. The app rejects a change of provider, model or dimensions for the currently connected external table, collection or namespace; choose a new storage target and index all required documents with the new configuration. After cancelling, check the index before retrying.
+
 ### Verify the real service
 
 Live tests send synthetic TXT, Markdown and PDF text and incur API charges. Set `MYTHOSIA_RETRIEVAL_EMBEDDING_LIVE=1`, configure credentials, and select `All`, `Voyage` or `Gemini`. The runner rejects skipped or inconclusive cases; offline tests do not establish service availability.

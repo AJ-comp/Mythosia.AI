@@ -16,7 +16,7 @@
     <Company>Mythosia</Company>
     <Authors>JJW</Authors>
     <PackageTags>AI;LLM;vLLM;Serving;InferenceServer;ControlPlane;ModelCards;Health;Metrics;Prometheus</PackageTags>
-    <Description>Inspect a running vLLM server before choosing a model or diagnosing an inference problem. VllmServer reads served model cards, loaded-model metadata when available, health status, server version and label-preserving Prometheus metrics through a read-only management client. Chat requests remain with the separate provider adapters. Targets .NET Standard 2.1 with Newtonsoft.Json 13.0.4 as its only package dependency; no Mythosia.AI core dependency.</Description>
+    <Description>Inspect served model aliases, readiness and request load on an existing vLLM server. VllmServer reads model cards, health, version and label-preserving Prometheus metrics. What's New in v1.1.0: shared IModelServer and IModelMetricsProvider contracts, observed capabilities and cancellation during response-body reads, preserving the concrete Vllm APIs. Targets .NET Standard 2.1 with a caller-owned HttpClient and no Mythosia.AI core dependency. No lifecycle, download, server hosting or chat API.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/serving/Mythosia.AI.Serving.Vllm</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -25,8 +25,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v1.0.0 promotes the published 1.0.0-preview client to a stable release without changing its public API or runtime behavior. VllmServer retains model-card lookup, classified health checks, version discovery, Prometheus metrics and server-root or /v1 endpoint normalization. Package documentation, MIT license/repository metadata and symbol packaging are aligned for stable publication. Requires only Newtonsoft.Json 13.0.4 and targets .NET Standard 2.1; no Mythosia.AI core dependency or server hosting is added. Existing preview callers can upgrade without source changes. Server fields and metric availability still depend on the deployed vLLM version. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100</PackageReleaseNotes>
-    <Version>1.0.0</Version>
+    <PackageReleaseNotes>v1.1.0 adds shared IModelServer and IModelMetricsProvider contracts, server information and observed capabilities while retaining concrete Vllm APIs. Common operations validate bounded responses, preserve unknown model state and metric labels, and omit raw failure payloads; legacy diagnostic fields remain available. Body reads honor caller cancellation. Live checks used vLLM 0.30.0 with a small Qwen model; see full notes for coverage and limits. Lifecycle/download remain unsupported. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110</PackageReleaseNotes>
+    <Version>1.1.0</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -35,6 +35,9 @@
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <ProjectReference Include="..\Mythosia.AI.Serving.Abstractions\Mythosia.AI.Serving.Abstractions.csproj" />
+    <Compile Include="../Shared/ServingHttpTransport.cs" Link="Internal/ServingHttpTransport.cs" />
+    <Compile Include="../Shared/ServingMetricsParser.cs" Link="Internal/ServingMetricsParser.cs" />
   </ItemGroup>
 
   <ItemGroup>

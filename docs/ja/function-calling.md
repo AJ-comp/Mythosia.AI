@@ -256,6 +256,7 @@ var readText = FunctionBuilder.Create("read_text")
 
 これはローカル.NET関数の戻り値とキャンセル処理であり、プロバイダーの`AllowAsync`機能は不要です。`run.StreamAsync(token)`の読み取りだけを止めてもrunは続きます。[Runガイド](execution-api-transition.md)と[プロトコル](https://developers.openai.com/api/docs/guides/async-tool-calling)も参照してください。
 
+<a id="async-tool-calling"></a>
 ## モデルによる非同期ツール呼び出し
 
 天気の取得に時間がかかるときでも、その結果に依存しない一般的な旅行の持ち物は先に説明できます。モデルによる非同期ツール呼び出しは、このように待ち時間に独立した作業を進めるために使います。結果に依存する判断は、結果が届いてから行う必要があります。

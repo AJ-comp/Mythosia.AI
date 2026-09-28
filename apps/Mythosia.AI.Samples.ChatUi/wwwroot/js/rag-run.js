@@ -11,6 +11,7 @@ import {
   ragEmbeddingBaseUrl,
   ragVllmBaseUrl,
   ragRun,
+  ragEmbedCancel,
   ragStatus,
   ragTrace,
   ragHistoryList,
@@ -40,13 +41,21 @@ import {
   ragTracePanelContent
 } from './dom.js';
 import { escapeHtml } from './utils.js';
-import { providerKeys } from './state.js';
 import { ragState, setSelectValue, markReferenceStale, setStatusState, setViewCodeEnabled, updateRunState } from './rag-shared.js';
-import { getSelectedEmbeddingProvider, validateOpenAiEmbeddingDimensions } from './rag-embedding.js';
+import { getEmbeddingCredentials, getEmbeddingIdentity, updateEmbeddingReindexWarning, validateOpenAiEmbeddingDimensions } from './rag-embedding.js';
 import { getPipelineSettingsForRequest } from './rag-pipeline.js';
 import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
 import { renderTrace as doRenderTrace, renderLoadingDetails, renderError } from './rag-trace.js';
 import { setDiagnoseEnabled } from './rag-diagnostics.js';
+
+let activeReference = null;
+let statusRevision = 0;
+
+export function cancelReference() {
+  if (!activeReference || activeReference.signal.aborted) return;
+  if (ragEmbedCancel) ragEmbedCancel.disabled = true;
+  activeReference.abort();
+}
 
 // ── File List ────────────────────────────────────────────────
 export function updateFileList() {
@@ -78,6 +87,7 @@ export function updateFileList() {
 
 // ── Run Reference ────────────────────────────────────────────
 export async function runReference() {
+  if (activeReference || ragState.referenceRunning) return;
   const files = Array.from(ragFiles.files || []);
   if (files.length === 0) return;
 
@@ -110,22 +120,18 @@ export async function runReference() {
     promptTemplate = settings.promptTemplate ?? ragPromptTemplate?.value ?? '';
     embeddingBaseUrl = settings.embeddingBaseUrl ?? '';
 
-    // Active DB's dimension is the source of truth for embedding
+    // A DB dimension cannot silently replace the selected embedding configuration.
     vectorStore = getVectorStoreConfigForRequest();
-    if (vectorStore.dimension != null) {
-      embeddingDimensions = vectorStore.dimension;
-    }
-    if (provider === 'openai') {
-      validateOpenAiEmbeddingDimensions(embeddingModel, embeddingDimensions);
+    if (vectorStore.dimension != null && vectorStore.dimension !== embeddingDimensions) {
+      if (provider === 'openai') validateOpenAiEmbeddingDimensions(embeddingModel, vectorStore.dimension);
+      throw new Error('Vector store dimensions must match the selected embedding dimensions before indexing.');
     }
 
     if (!chunker) throw new Error('Chunker is required.');
     if (!topK) throw new Error('TopK is required.');
-    if (provider === 'openai' && !providerKeys?.OpenAI) {
-      throw new Error('OpenAI API key is required.');
-    }
-    if (provider === 'perplexity' && !providerKeys?.Perplexity) {
-      throw new Error('Perplexity API key is required.');
+    if (Object.values(getEmbeddingCredentials()).some(key => !key)) {
+      const labels = { openai: 'OpenAI', perplexity: 'Perplexity', voyage: 'Voyage', gemini: 'Google' };
+      throw new Error(`${labels[provider] || provider} API key is required.`);
     }
   } catch (err) {
     const message = err.message || 'Invalid RAG pipeline settings.';
@@ -136,6 +142,10 @@ export async function runReference() {
     return;
   }
 
+  const controller = new AbortController();
+  activeReference = controller;
+  ragState.referenceRunning = true;
+  if (ragEmbedCancel) ragEmbedCancel.disabled = false;
   ragRun.disabled = true;
   ragStatus.textContent = `Embedding ${files.length} file${files.length > 1 ? 's' : ''} with ${provider.toUpperCase()}...`;
   setStatusState(ragStatus, null);
@@ -164,6 +174,8 @@ export async function runReference() {
   formData.append('embeddingModel', String(embeddingModel));
   formData.append('embeddingDimensions', String(embeddingDimensions));
   formData.append('embeddingBaseUrl', String(embeddingBaseUrl));
+  formData.append('embeddingTimeoutSeconds', String(settings.embeddingTimeoutSeconds));
+  formData.append('embeddingMaxConcurrency', String(settings.embeddingMaxConcurrency));
   formData.append('finalFilterTopK', String(topK));
   formData.append('finalFilterMinScore', String(finalMinScore));
   formData.append('retrievalDerivationMinScoreDivider', String(settings.retrievalDerivation?.minScoreDivider ?? ''));
@@ -179,12 +191,9 @@ export async function runReference() {
   formData.append('rerankBaseUrl', settings.rerankBaseUrl ?? '');
   formData.append('rerankApiKey', settings.rerankApiKey ?? '');
   formData.append('retrievalDerivationTopKMultiplier', String(retrievalMultiplier ?? ''));
-  if (provider === 'openai' && providerKeys?.OpenAI) {
-    formData.append('openaiApiKey', providerKeys.OpenAI);
-  }
-  if (provider === 'perplexity' && providerKeys?.Perplexity) {
-    formData.append('perplexityApiKey', providerKeys.Perplexity);
-  }
+  Object.entries(getEmbeddingCredentials()).forEach(([key, value]) => {
+    if (value) formData.append(key, value);
+  });
 
   ragTrace.innerHTML = renderLoadingDetails({
     files: files.map((file) => file.name),
@@ -194,14 +203,16 @@ export async function runReference() {
     vectorStore: vectorStore.provider
   });
   Object.entries(vectorStore).forEach(([key, value]) => {
-    if (key === 'openAiApiKey' || key === 'perplexityApiKey') return;
+    if (['openAiApiKey', 'perplexityApiKey', 'voyageApiKey', 'geminiApiKey'].includes(key)) return;
     if (value === undefined || value === null) return;
     formData.append(key, String(value));
   });
 
   try {
-    const res = await fetch('/api/rag/reference', { method: 'POST', body: formData });
+    const res = await fetch('/api/rag/reference', { method: 'POST', body: formData, signal: controller.signal });
     const payload = await res.json().catch(() => null);
+    // Cancellation also wins when a buffered response or JSON parse completes late.
+    if (controller.signal.aborted) throw new DOMException('Indexing cancelled.', 'AbortError');
 
     if (!res.ok) {
       if (ragEmbedProgress) ragEmbedProgress.classList.add('hidden');
@@ -209,7 +220,6 @@ export async function runReference() {
       ragStatus.textContent = message;
       setStatusState(ragStatus, 'error');
       ragTrace.innerHTML = renderError(message);
-      ragRun.disabled = false;
       return;
     }
 
@@ -217,7 +227,8 @@ export async function runReference() {
     setStatusState(ragStatus, 'success');
     ragTrace.innerHTML = '<div class="rag-empty">Select a recent reference to view the trace.</div>';
     setViewCodeEnabled(true);
-    setDiagnoseEnabled(true);
+    updateEmbeddingReindexWarning(getEmbeddingIdentity(settings), true);
+    setDiagnoseEnabled(!ragState.requiresReindex);
     refreshRagStatus();
     refreshReferenceHistory();
 
@@ -232,34 +243,52 @@ export async function runReference() {
     }
   } catch (err) {
     if (ragEmbedProgress) ragEmbedProgress.classList.add('hidden');
-    ragStatus.textContent = 'Network error.';
-    setStatusState(ragStatus, 'error');
-    ragTrace.innerHTML = renderError(err.message || 'Network error');
-    showRagStatusError(err);
+    if (controller.signal.aborted) {
+      const message = 'Indexing cancelled. Check the index before retrying.';
+      ragStatus.textContent = message;
+      setStatusState(ragStatus, 'warning');
+      ragTrace.innerHTML = `<div class="rag-empty">${message}</div>`;
+      refreshRagStatus();
+      refreshReferenceHistory();
+    } else {
+      ragStatus.textContent = 'Network error.';
+      setStatusState(ragStatus, 'error');
+      ragTrace.innerHTML = renderError(err.message || 'Network error');
+      showRagStatusError(err);
+    }
   } finally {
-    updateRunState(files);
+    if (activeReference === controller) {
+      activeReference = null;
+      ragState.referenceRunning = false;
+      if (ragEmbedProgress) ragEmbedProgress.classList.add('hidden');
+      if (ragEmbedCancel) ragEmbedCancel.disabled = false;
+      updateRunState();
+    }
   }
 }
 
 // ── Status ───────────────────────────────────────────────────
 export async function refreshRagStatus(settingsOverride) {
   if (!ragChatStatus) return;
+  const revision = ++statusRevision;
   if (settingsOverride) {
-    applyRagStatus(settingsOverride, true);
+    updateEmbeddingReindexWarning();
+    applyRagStatus(settingsOverride, ragState.hasIndex);
     return;
   }
-
-  const localSettings = getPipelineSettingsForRequest();
 
   try {
     const res = await fetch('/api/rag/status');
     const payload = await res.json().catch(() => null);
+    if (revision !== statusRevision) return;
     if (!res.ok) throw new Error(payload?.error || 'Failed to load RAG status.');
 
+    updateEmbeddingReindexWarning(payload?.indexedEmbedding ?? null, payload?.hasIndex);
+    const localSettings = getPipelineSettingsForRequest();
     applyRagStatus(localSettings || payload?.settings || {}, payload?.hasIndex);
-    setDiagnoseEnabled(!!payload?.hasIndex);
+    setDiagnoseEnabled(!!payload?.hasIndex && !ragState.requiresReindex);
   } catch (err) {
-    showRagStatusError(err);
+    if (revision === statusRevision) showRagStatusError(err);
   }
 }
 
@@ -269,10 +298,10 @@ function applyRagStatus(settings, hasIndex) {
   const topK = settings.finalFilter?.topK ?? 'UNSET';
   const minScore = settings.finalFilter?.minScore ?? 'UNSET';
   const chunker = settings.chunker ? settings.chunker.toUpperCase() : 'N/A';
-  const statusLabel = hasIndex ? 'RAG: READY' : 'RAG: NOT INDEXED';
+  const statusLabel = hasIndex ? (ragState.requiresReindex ? 'RAG: REINDEX REQUIRED' : 'RAG: READY') : 'RAG: NOT INDEXED';
 
   ragChatStatus.textContent = `${statusLabel} · TopK=${topK} · MinScore=${minScore} · ${provider} · ${chunker}`;
-  ragChatStatus.classList.toggle('active', !!hasIndex);
+  ragChatStatus.classList.toggle('active', !!hasIndex && !ragState.requiresReindex);
   ragChatStatus.classList.remove('error');
 }
 

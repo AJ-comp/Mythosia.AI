@@ -12,6 +12,7 @@ import {
   ragVllmBaseUrl,
   ragOpenAiModel,
   ragPerplexityModel,
+  ragVoyageModel, ragGeminiModel, ragEmbeddingTimeout, ragEmbeddingConcurrency,
   ragVllmModel,
   ragOllamaModel,
   ragTopK,
@@ -57,7 +58,7 @@ import {
 } from './dom.js';
 import { providerKeys } from './state.js';
 import { ragState, toInt, toFloatOrNull, setSelectValue, setStatusState } from './rag-shared.js';
-import { getEmbeddingDefaults, getSelectedEmbeddingDimensions, setEmbeddingDimensions, updateEmbeddingUI } from './rag-embedding.js';
+import { getEmbeddingDefaults, getSelectedEmbeddingDimensions, getEmbeddingExecutionSettings, setEmbeddingDimensions, updateEmbeddingUI } from './rag-embedding.js';
 import { refreshRagStatus, showRagStatusError } from './rag-run.js';
 import { normalizeRewriterModel, selectRewriterModel, getRewriterModelProvider } from './rag-rewriter-models.js';
 
@@ -95,6 +96,10 @@ export function applyPipelineSettings(settings) {
     if (ragOpenAiModel && settings.embeddingModel) setSelectValue(ragOpenAiModel, settings.embeddingModel);
   } else if (settings.embeddingProvider === 'perplexity') {
     if (ragPerplexityModel && settings.embeddingModel) setSelectValue(ragPerplexityModel, settings.embeddingModel);
+  } else if (settings.embeddingProvider === 'voyage') {
+    if (ragVoyageModel && settings.embeddingModel) setSelectValue(ragVoyageModel, settings.embeddingModel);
+  } else if (settings.embeddingProvider === 'gemini') {
+    if (ragGeminiModel && settings.embeddingModel) setSelectValue(ragGeminiModel, settings.embeddingModel);
   } else if (settings.embeddingProvider === 'vllm') {
     if (ragVllmModel && settings.embeddingModel) setSelectValue(ragVllmModel, settings.embeddingModel);
     if (ragVllmBaseUrl && settings.embeddingBaseUrl) ragVllmBaseUrl.value = settings.embeddingBaseUrl;
@@ -102,6 +107,8 @@ export function applyPipelineSettings(settings) {
     if (ragOllamaModel && settings.embeddingModel) setSelectValue(ragOllamaModel, settings.embeddingModel);
     if (ragEmbeddingBaseUrl && settings.embeddingBaseUrl) ragEmbeddingBaseUrl.value = settings.embeddingBaseUrl;
   }
+  if (ragEmbeddingTimeout) ragEmbeddingTimeout.value = settings.embeddingTimeoutSeconds ?? 120;
+  if (ragEmbeddingConcurrency) ragEmbeddingConcurrency.value = settings.embeddingMaxConcurrency ?? 4;
   if (ragTopK && finalFilter.topK) ragTopK.value = finalFilter.topK;
   if (ragMinScore && finalFilter.minScore != null) ragMinScore.value = finalFilter.minScore;
   if (ragPromptTemplate) ragPromptTemplate.value = settings.promptTemplate ?? '';
@@ -197,6 +204,7 @@ export function buildPipelineSettingsPayload() {
     embeddingProvider: provider,
     embeddingModel,
     embeddingDimensions,
+    ...getEmbeddingExecutionSettings(),
     embeddingBaseUrl: embeddingBaseUrl || '',
     finalFilter: {
       topK,
@@ -611,6 +619,8 @@ export async function exportPipelineSettingsPdf() {
         ${kvRow('Provider', settings.embeddingProvider?.toUpperCase())}
         ${kvRow('Model', settings.embeddingModel)}
         ${kvRow('Dimensions', settings.embeddingDimensions)}
+        ${kvRow('Embedding timeout (seconds)', settings.embeddingTimeoutSeconds)}
+        ${settings.embeddingProvider === 'gemini' ? kvRow('Gemini concurrent requests', settings.embeddingMaxConcurrency) : ''}
         ${settings.embeddingBaseUrl ? kvRow('Base URL', settings.embeddingBaseUrl) : ''}
       </table>
 

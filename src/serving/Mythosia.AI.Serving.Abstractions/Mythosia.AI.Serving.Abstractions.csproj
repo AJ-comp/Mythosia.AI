@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageId>Mythosia.AI.Serving.Abstractions</PackageId>
+    <Version>1.0.0</Version>
+    <IsPackable>true</IsPackable>
+    <Company>Mythosia</Company>
+    <Authors>JJW</Authors>
+    <PackageTags>AI;LLM;Serving;InferenceServer;ControlPlane;Abstractions;Ollama;llama.cpp;vLLM</PackageTags>
+    <Description>Build model selectors, readiness checks and operations dashboards for Ollama, llama.cpp and vLLM through runtime-neutral contracts. What's New in v1.0.0: server information, health, model inventory and capabilities, plus optional lifecycle, download-progress and metrics interfaces. Immutable observations distinguish installation from loading and preserve unknown states. Targets .NET Standard 2.1 with no package dependencies; concrete HTTP clients live in separate Serving packages. No server hosting or inference API.</Description>
+    <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/serving/Mythosia.AI.Serving.Abstractions</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageReleaseNotes>v1.0.0 introduces IModelServer, IModelLifecycle, IModelDownloader and IModelMetricsProvider, with immutable state observations, cancellation and shared failure classification. Unknown is distinct from unsupported, unloaded and zero. Concrete clients have bounded live verification against Ollama 0.34.4, llama.cpp b11146 and vLLM 0.30.0; see full notes for scope and limitations. No HTTP implementation, server hosting or chat API is included. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100</PackageReleaseNotes>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="README.md" Pack="True" PackagePath="/" />
+    <None Update="RELEASE_NOTES.md" Pack="True" PackagePath="/" />
+  </ItemGroup>
+</Project>

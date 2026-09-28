@@ -20,6 +20,9 @@ import {
   diagScoreResult
 } from './dom.js';
 import { escapeHtml, truncate } from './utils.js';
+import { getPipelineSettingsForRequest } from './rag-pipeline.js';
+import { getVectorStoreConfigForRequest } from './rag-vector-store.js';
+import { refreshRagStatus } from './rag-run.js';
 
 export function initRagDiagnostics() {
   if (!btnRagDiagnose || !diagModal) return;
@@ -54,11 +57,9 @@ export function setDiagnoseEnabled(enabled) {
 }
 
 async function checkRagIndexStatus() {
-  try {
-    const res = await fetch('/api/rag/status');
-    const data = await res.json().catch(() => null);
-    if (res.ok) setDiagnoseEnabled(!!data?.hasIndex);
-  } catch (e) { /* ignore — button stays disabled */ }
+  // Share the status request revision with indexing and reconnect operations.
+  // A delayed startup request cannot replace the snapshot from a later index.
+  await refreshRagStatus();
 }
 
 function openDiagModal() {
@@ -121,7 +122,7 @@ async function runWhyMissing() {
     const res = await fetch('/api/rag/diagnose/why-missing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, expectedText: expected })
+      body: JSON.stringify({ query, expectedText: expected, ragSettings: getPipelineSettingsForRequest(), vectorStore: getVectorStoreConfigForRequest() })
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error || 'Analysis failed.');
@@ -186,7 +187,7 @@ async function runQueryScores() {
     const res = await fetch('/api/rag/diagnose/query-scores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, expectedText: expected })
+      body: JSON.stringify({ query, expectedText: expected, ragSettings: getPipelineSettingsForRequest(), vectorStore: getVectorStoreConfigForRequest() })
     });
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error || 'Scoring failed.');

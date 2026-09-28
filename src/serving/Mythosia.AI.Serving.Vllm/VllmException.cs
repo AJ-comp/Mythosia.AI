@@ -14,10 +14,10 @@ namespace Mythosia.AI.Serving.Vllm
     /// standard <see cref="System.Net.Http.HttpRequestException"/> / timeout exceptions.
     /// </para>
     /// </summary>
-    public class VllmException : Exception
+    public class VllmException : ServingException
     {
         /// <summary>HTTP status code the server answered with.</summary>
-        public int StatusCode { get; }
+        public new int StatusCode { get; }
 
         /// <summary>vLLM error type when the body carried one (e.g. <c>"NotFoundError"</c>).</summary>
         public string? ErrorType { get; }
@@ -34,12 +34,20 @@ namespace Mythosia.AI.Serving.Vllm
             string? errorType = null,
             string? errorCode = null,
             string? responseBody = null)
-            : base(message)
+            : base(message, statusCode)
         {
             StatusCode = statusCode;
             ErrorType = errorType;
             ErrorCode = errorCode;
             ResponseBody = responseBody;
+        }
+
+        // Internal strict-contract failures retain the legacy exception type without
+        // changing its published constructor or copying a potentially sensitive body.
+        internal VllmException(string message, int statusCode, ServingFailureKind failureKind)
+            : base(message, statusCode, failureKind: failureKind)
+        {
+            StatusCode = statusCode;
         }
 
         internal static VllmException FromResponse(int statusCode, string? reasonPhrase, string? body)

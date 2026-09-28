@@ -17,6 +17,10 @@ export const ragState = {
   qdrantConnected: false,
   pineconeConnected: false,
   hasReferenceRun: false,
+  referenceRunning: false,
+  hasIndex: false,
+  indexedEmbedding: null,
+  requiresReindex: false,
   autoChunkerFromFiles: false
 };
 
@@ -61,11 +65,13 @@ export function updateRunState(files) {
   const fileCount = files ? files.length : (ragFiles.files ? ragFiles.files.length : 0);
   const provider = ragEmbeddingProvider?.value?.trim();
   const hasKey = provider === 'openai' ? !!providerKeys?.OpenAI
-    : provider === 'perplexity' ? !!providerKeys?.Perplexity : true;
+    : provider === 'perplexity' ? !!providerKeys?.Perplexity
+    : provider === 'voyage' ? !!providerKeys?.Voyage
+    : provider === 'gemini' ? !!providerKeys?.Google : true;
   const vsProvider = ragVectorStoreProvider?.value?.trim();
   const vsReady = vsProvider === 'inmemory'
     || (vsProvider === 'postgres' && ragState.pgConnected)
     || (vsProvider === 'qdrant' && ragState.qdrantConnected)
     || (vsProvider === 'pinecone' && ragState.pineconeConnected);
-  ragRun.disabled = fileCount === 0 || !provider || !vsProvider || !hasKey || !vsReady;
+  ragRun.disabled = ragState.referenceRunning || fileCount === 0 || !provider || !vsProvider || !hasKey || !vsReady;
 }

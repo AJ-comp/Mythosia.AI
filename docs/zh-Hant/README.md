@@ -27,23 +27,42 @@
 
 </div>
 
-TXT 與 Markdown 應依文件結構選擇[規則式分割器](text-splitters.md)。實作會檢查大小、重疊與 Unicode 邊界，並保留 Markdown 標題、程式碼區塊及表格列。字元或單字數量不等於模型 token 上限。 表格條件與程式碼縮排的含義會保留；Markdown 上下文重複過量時會明確擲出例外並停止。
+## 展示 / 測試平台 (Chat UI)
 
-為避免索引看似成功卻覆寫區塊或關聯錯誤向量，[索引驗證](rag-pipeline.md#indexing-validation)會在持久化前拒絕無效 ID 和嵌入批次。自訂分割器必須提供唯一 ID 並繼承文件中繼資料。
+撰寫整合程式碼前，先在 Playground 中試用模型和文件搜尋。
 
-穩定的[檔案識別](document-loaders.md#file-source-identity)、[問題向量驗證](rag-embedding.md#query-embedding-validation)及[文件單位持久化與 URL 取消](rag-pipeline.md#custom-persistence)可防止重複註冊、無效搜尋與舊區塊殘留。
+觀看目前 Playground 實際介面的螢幕錄影，了解如何瀏覽模型、切換語言，以及查看文件與 RAG 管線設定。影片包含英文字幕。
 
-選用的 `Mythosia.AI.Rag.Search.Pixie` 預覽版可比較本機神經網路稀疏搜尋與既有搜尋。它保留既有稠密嵌入服務，將 PIXIE 索引放在記憶體中，不遷移持久化儲存區，也不自動取代預設搜尋。 [PIXIE 設定與比較指南（英文）](../rag-pixie-search.md).
+https://github.com/user-attachments/assets/4cf90210-b000-41be-8317-a467e93e7504
 
-獨立管理請求設定，停止進行中的工作，並同時取得答案、用量與來源。[v8 升級指南](v8-migration.md)整理了六項架構變更、遷移範例與驗證範圍。
+### 執行範例
 
-> 本文件對應的套件版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Vllm 1.0.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v100).
+在本機執行 **`Mythosia.AI.Samples.ChatUi`**：
 
-> [RAG 8.1.1 / PostgreSQL 10.8.1 修補版本](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)：現有 RAG 包裝器會採用執行期間變更的改寫器，PostgreSQL 混合檢索也會套用設定的向量搜尋參數。核心套件 `Mythosia.AI` 仍為 8.1.0。
+```bash
+# 在儲存庫根目錄下
+dotnet run --project apps/Mythosia.AI.Samples.ChatUi
+```
 
----
+<details>
+<summary>Playground 操作與語言</summary>
 
-### 需要安裝哪些套件？
+在整合至應用程式前，可在左側依模型名稱或供應商搜尋並調整請求設定，在中央對話，並在右側 Inspector 中查看處理資訊。Stop 可停止等待目前的回應；速度選項僅對支援的模型與服務端點啟用，Fast 可能產生額外費用。在較窄的螢幕上，Models 與 Inspector 會以抽屜面板開啟；本機執行、文件匯入與檢索流程設定請參閱 [Chat UI 指南](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md)。
+
+管線面板支援 Voyage Context 4、Gemini Embedding 2 和 Perplexity 情境嵌入的金鑰、維度及逾時設定。文件頁面可查看區塊和向量數量並取消索引。儲存設定、資料庫重新連線和程式碼範例均使用所選組態；更換嵌入模型或維度後須重新索引。
+
+使用頂部的語言選擇器可在13種介面語言之間切換，並保留輸入內容與設定。模型清單預設顯示全部7個供應商的摺疊群組，可展開群組或搜尋模型。
+
+</details>
+
+## 為什麼選擇 Mythosia.AI？
+
+- **透過統一 API 切換 AI 供應商**，使用聊天、串流、工具呼叫和結構化回應。
+- 結合載入器、嵌入、檢索和重排序，**根據自己的文件建構答案**。
+- **獨立保留請求設定**，透過共用 Run API 控制進行中的工作。
+- 從核心函式庫到選用的 RAG 和向量儲存整合，**只選擇需要的套件**。
+
+## 需要安裝哪些套件？
 
 ```
 dotnet add package Mythosia.AI                    # 從這裡開始（這就夠了）
@@ -57,135 +76,16 @@ dotnet add package Mythosia.VectorDb.Postgres     # 可選：需要正式環境�
 | **2** | **`Mythosia.AI.Rag`** | 需要 RAG 時 — 文字切割、嵌入、混合搜尋、重排序、InMemory 向量儲存、文件載入器 (Word / Excel / PowerPoint / PDF) |
 | **3** | **`Mythosia.VectorDb.Postgres`** / **`Qdrant`** / **`Pinecone`** | 需要正式環境向量儲存取代 InMemory 時 — 擇一使用 |
 
-使用`CreateRequest(...).WithTemperature(...).GetCompletionAsync()`準備獨立請求，不改變其他請求的設定。[請求設定指南](request-building.md)包含Before/After、Run、設定檔與共用對話限制。
+準備不同設定時無須改變其他請求：`CreateRequest(...).WithTemperature(...).GetCompletionAsync()` 使用獨立且可重複使用的請求建構器。[請求設定指南](request-building.md)提供前後對照範例、Run、設定檔和共用對話限制。
 
 對等待時間敏感的請求可選擇[處理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理層級，`Processing` 顯示供應商實際套用的模式。Fast 是受支援組合上的付費選項。
-
-## 架構
-
-<a href="../assets/architecture.svg">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
-    <img src="../assets/architecture.svg" alt="Mythosia.AI architecture: core AI, RAG orchestration, document loaders, vector stores, shared contracts, MCP integration, and vLLM server management." width="1600">
-  </picture>
-</a>
-
-### 套件相依關係詳情
-
-箭頭表示直接套件參照。共用套件會出現在多個檢視中；vLLM 伺服器管理是獨立的。
-
-#### 核心 AI 與擴充
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    subgraph Extensions["Provider & tool extensions"]
-        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
-        Mcp["Mythosia.AI.Mcp"]:::extension
-    end
-    AI["Mythosia.AI"]:::core
-    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
-    subgraph Independent["Independent server management"]
-        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
-    end
-    Alibaba --> AI
-    Mcp --> AI
-    AI --> AIAbs
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-#### RAG 與文件載入
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    Rag["Mythosia.AI.Rag"]:::rag
-    subgraph Contracts["AI & RAG contracts"]
-        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
-        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
-    end
-    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
-    subgraph Documents["Document loading"]
-        Office["Mythosia.Documents.<br/>Office"]:::documents
-        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
-        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
-        Office --> LoaderAbs
-        Pdf --> LoaderAbs
-    end
-    Rag --> AIAbs
-    Rag --> RagAbs
-    Rag --> InMem
-    Rag --> Office
-    Rag --> Pdf
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-#### 向量儲存與搜尋
-
-```mermaid
-%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
-flowchart LR
-    subgraph Stores["Vector stores"]
-        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
-        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
-        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
-        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
-    end
-    subgraph Search["Optional neural search"]
-        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
-    end
-    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
-    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
-    InMem --> VdbAbs
-    RagAbs --> VdbAbs
-    Pg --> VdbAbs
-    Qd --> VdbAbs
-    Pine --> VdbAbs
-    Pixie --> VdbAbs
-    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
-    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
-    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
-    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
-    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
-    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
-```
-
-## 展示 / 測試平台 (Chat UI)
-
-在整合至應用程式前，可在左側依模型名稱或供應商搜尋並調整請求設定，在中央對話，並在右側 Inspector 中查看處理資訊。Stop 可停止等待目前的回應；速度選項僅對支援的模型與服務端點啟用，Fast 可能產生額外費用。在較窄的螢幕上，Models 與 Inspector 會以抽屜面板開啟；本機執行、文件匯入與檢索流程設定請參閱 [Chat UI 指南](https://github.com/AJ-comp/Mythosia.AI/blob/main/apps/Mythosia.AI.Samples.ChatUi/README.md)。
-
-使用頂部的語言選擇器可在13種介面語言之間切換，並保留輸入內容與設定。模型清單預設顯示全部7個供應商的摺疊群組，可展開群組或搜尋模型。
-
-### 執行範例
-
-在本機執行 **`Mythosia.AI.Samples.ChatUi`**：
-
-```bash
-# 在儲存庫根目錄下
-dotnet run --project apps/Mythosia.AI.Samples.ChatUi
-```
-
-觀看目前 Playground 實際介面的螢幕錄影，了解如何瀏覽模型、切換語言，以及查看文件與 RAG 流程設定。點擊圖片即可播放。
-
-[![觀看目前 Playground 操作示範](https://aj-comp.github.io/Mythosia.AI/docs/assets/playground-demo.png)](https://aj-comp.github.io/Mythosia.AI/docs/playground-demo.html)
 
 ## 快速開始
 
 ### 基礎 AI 補全
 
 ```csharp
-using Mythosia.AI;
+using Mythosia.AI.Services.OpenAI;
 
 var service = new OpenAIService(apiKey, httpClient);
 var response = await service.GetCompletionAsync("Hello!");
@@ -194,10 +94,10 @@ var response = await service.GetCompletionAsync("Hello!");
 ### 串流輸出
 
 ```csharp
-await foreach (var token in service.StreamAsync("Tell me a story"))
-{
-    Console.Write(token);
-}
+await using var run = await service.StartRunAsync(
+    "Tell me a story",
+    onText: text => Console.Write(text));
+string answer = (await run.Result).Text;
 ```
 
 ### 推理串流輸出
@@ -205,7 +105,9 @@ await foreach (var token in service.StreamAsync("Tell me a story"))
 OpenAI、Claude、Gemini、Grok 和 DeepSeek Flash 透過相同串流模式回傳供應商推理。先在服務或請求中開啟推理，再用 `StreamOptions.WithReasoning()` 觀察：
 
 ```csharp
-await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
+await using var run = await service.StartRunAsync(
+    message, options: new StreamOptions().WithReasoning());
+await foreach (var content in run.StreamAsync())
 {
     if (content.Type == StreamingContentType.Reasoning)
         Console.Write($"[Think] {content.Content}");
@@ -217,6 +119,9 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 ### 函式呼叫
 
 ```csharp
+using Mythosia.AI.Extensions;
+using Mythosia.AI.Services.OpenAI;
+
 var service = new OpenAIService(apiKey, httpClient)
     .WithFunction(
         "get_weather",
@@ -228,11 +133,45 @@ var service = new OpenAIService(apiKey, httpClient)
 var response = await service.GetCompletionAsync("What's the weather in Seoul?");
 ```
 
-天氣查詢較慢時，模型仍可先介紹不依賴天氣結果的一般旅行用品。模型原生非同步工具呼叫用於在這種等待期間繼續獨立工作；依賴查詢結果的判斷仍應等結果傳回後再進行。
+一次模型回應傳回的呼叫預設依序執行。如果註冊的函式彼此獨立，可以選擇限制並行數量的平行處理常式執行：
 
-透過 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可選擇允許 GPT-6 Astra / Sol / Luna 在 Responses API 中非同步呼叫工具。預設值為 `false`；不支援的模型仍等待同一個處理常式的結果。範例與請求生命週期請參見[函式呼叫指南](function-calling.md)。
+```csharp
+using Mythosia.AI.Models.Functions;
 
-如果回答需要最新資訊或文件依據，請參閱[推理與搜尋指南](reasoning-and-search.md)。共用選項可啟用網頁搜尋或現有文件儲存區，並取得回答的來源引用。
+service.DefaultPolicy = new FunctionCallingPolicy
+{
+    ExecutionMode = FunctionExecutionMode.Parallel,
+    MaxConcurrency = 3
+};
+```
+
+一般批次的結果會按供應商原始呼叫順序傳回模型。取消操作會略過尚未開始的呼叫，並提供對應的取消結果。已開始的工具在支援時接收取消權杖，並等待完成，以維持呼叫與結果歷程一一對應。`FunctionCallingPolicy.TimeoutSeconds` 涵蓋整個串流回合迴圈，包括回應標頭和 SSE 本文，不會在工具回合之間重設。原則逾時會擲出 `AIServiceException`；呼叫端取消仍表現為與其權杖關聯的 `OperationCanceledException`。
+
+慢速查詢進行期間，模型仍可完成有用的獨立工作，例如在天氣預報傳回前介紹一般旅行用品。設定 `FunctionDefinition.AllowAsync = true` 或使用 `FunctionBuilder.WithAsync()`，可讓支援的模型在函式執行時繼續工作。預設值為 `false`。GPT-6 Astra / Sol / Luna 透過 Responses API 使用此選項；不支援的模型不會傳送未支援的 API 選項，而是等待同一個處理常式的結果。此功能與 C# `async` 處理常式和平行處理常式排程彼此獨立。範例及請求生命週期行為請見[非同步工具呼叫](function-calling.md#async-tool-calling)。
+
+### 影像生成與編輯
+
+透過 OpenAI、Google 和 xAI 共用的選用功能，可以根據文字建立影像草稿或修改既有影像。影像模型獨立於所選聊天模型：
+
+```csharp
+using Mythosia.AI.Models.Images;
+using Mythosia.AI.Services;
+using Mythosia.AI.Services.OpenAI;
+
+IImageGenerationService images = new OpenAIService(apiKey, httpClient);
+var generated = await images.GenerateImagesAsync(new ImageGenerationRequest
+{
+    Prompt = "A glass pavilion at sunrise",
+    Size = ImageSize.Pixels(1024, 1024),
+    OutputFormat = ImageOutputFormat.Png
+});
+
+await File.WriteAllBytesAsync("pavilion.png", generated.Images[0].Data);
+```
+
+生成和編輯方法請見[供應商指南](providers.md#image-generation)，重大 API 變更請見[具型別的影像選項與遷移](providers.md#image-options-migration)。xAI 使用 `ImageOutputFormat.Auto`；請根據 `GeneratedImage.MediaType` 選擇輸出副檔名。
+
+Google 影像預設選項因模型而異：Flash 支援 512/1K/2K/4K，Flash-Lite 目前支援 1K，Pro 支援 1K/2K/4K。Flash/Lite 提供 14 種長寬比，Pro 提供 10 種標準長寬比，全部接受 `Auto`。顯示選項前請檢查 `GetImageCapabilities(model)`；生成和編輯時，明確指定不支援的尺寸或長寬比都會在 HTTP 請求前失敗。參閱[模型支援表與 Flash-Lite 文件差異](providers.md#google-image-options)。
 
 ### 結構化輸出（基礎）
 
@@ -292,7 +231,7 @@ policy.LoadSummary(saved);
 
 ### RAG（檢索增強生成）
 
-選擇關鍵字、語意或混合檢索，無需強制每次搜尋產生問題嵌入。[檢索指南](rag-hybrid-search.md)。
+選擇關鍵字、語意或混合檢索，無須強制每次搜尋產生問題嵌入。`UseKeywordSearch()` 略過問題嵌入；`UseRetriever(...)` 連接外部索引；`UseHybridSearch(HybridSearchOptions)` 傳遞明確的權重和候選設定。文件擷取仍會建立向量。參閱[檢索模式與儲存區支援](rag-hybrid-search.md)。
 
 ```bash
 dotnet add package Mythosia.AI.Rag
@@ -300,6 +239,7 @@ dotnet add package Mythosia.AI.Rag
 
 ```csharp
 using Mythosia.AI.Rag;
+using Mythosia.AI.Services.Anthropic;
 
 var service = new AnthropicService(apiKey, httpClient)
     .WithRag(rag => rag
@@ -309,6 +249,8 @@ var service = new AnthropicService(apiKey, httpClient)
 
 var response = await service.GetCompletionAsync("What is the refund policy?");
 ```
+
+若要讓代理程式控制檢索，請透過 `WithAgenticRag(...)` 註冊儲存區，並透過 `service.WithMaxRounds(10).StartRunAsync(...)` 啟動工作。可等待同一工作的 `run.Result`，或觀察 `run.StreamAsync()`。完整範例請見 [Mythosia.AI.Rag README](../../src/rag/Mythosia.AI.Rag/README.md)。
 
 #### 保留文件上下文和查詢用途
 
@@ -336,9 +278,9 @@ var result = await store.QueryAsync("What is the refund period?");
 | 供應商 | 套件 | 模型 |
 | --- | --- | --- |
 | **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (有限開放), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
-| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (預設), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
+| **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (預設), Grok 4.3, Grok 4.20 (推理 / 非推理), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
 | **Perplexity** | `Mythosia.AI` | Agent API 預設與 `perplexity/sonar` |
 | **Alibaba / Qwen** | `Mythosia.AI.Providers.Alibaba` | Qwen Max / Plus / Turbo / Qwen3 / Qwen3.5 系列 |
@@ -353,13 +295,139 @@ var result = await store.QueryAsync("What is the refund period?");
 
 快速製作視覺草稿可選 Flare，精細修改可選 Sunburst。[GPT Image 2.5 生成與編輯](providers.md#gpt-image-25)透過現有影像 API 為每個請求指定模型；OpenAI 預設仍為 GPT Image 2。
 
-產生或編輯影像時，請透過 [Google 各模型的影像選項](providers.md#google-image-options)選擇有效尺寸。Flash 支援 512/1K/2K/4K，Flash-Lite 目前支援 1K，Pro 支援 1K/2K/4K。Flash/Lite 提供 14 種長寬比，Pro 提供 10 種標準長寬比；全部接受 `Auto`。明確指定不支援的尺寸或長寬比會在 HTTP 請求前遭到拒絕。
-
 圖表和截圖分析、本地函式呼叫、快速回答後的深入審查可使用 [DeepSeek Flash](providers.md#deepseek-deepseekservice) (`AIModels.DeepSeek.Flash`, V4.1 Flash)。推理預設關閉，透過 `WithDeepSeekReasoning(...)` 或請求級 `WithReasoning(...)` 開啟。
 
 純文字任務可選擇 `AIModels.DeepSeek.V4Pro` (`deepseek-v4-pro`, V4-Pro-0813)。預設模型 Flash 支援影像，兩者均提供 Low/High/Max 推理和相同輸出上限。若要透過既有補全、串流、Run 和本機函式 API 使用 Responses，請在建立請求前設定 `UseResponsesApi = true`。預設仍為 `false`，以保留既有應用程式的 Chat Completions 行為；設定會固定到該請求及後續工具輪次。Responses 重送完整對話和原始推理歷史，不依賴伺服器儲存的回應 ID。
 
 使用 `DeepSeekImageFileContent`，可在 Flash 的 Chat Completions 或 Responses 中於多次提問重複使用已上傳影像；僅支援文字的 V4 Pro 會拒絕影像。 請參閱[影像上傳、重複使用與限制](providers.md#deepseek-deepseekservice)。 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。
+
+> Claude Fable 5 和 Claude Mythos 5 要求保留資料 30 天，不適用於零資料保留安排。它們的適應性推理始終開啟；呼叫端要求關閉推理時，Mythosia 使用低推理強度並省略推理摘要。Mythos 5 僅限獲准的 Project Glasswing 客戶使用。
+
+## 指南與遷移
+
+TXT 與 Markdown 應依文件結構選擇[規則式分割器](text-splitters.md)。實作會檢查大小、重疊與 Unicode 邊界，並保留 Markdown 標題、程式碼區塊及表格列。字元或單字數量不等於模型 token 上限。 表格條件與程式碼縮排的含義會保留；Markdown 上下文重複過量時會明確擲出例外並停止。
+
+為避免索引看似成功卻覆寫區塊或關聯錯誤向量，[索引驗證](rag-pipeline.md#indexing-validation)會在持久化前拒絕無效 ID 和嵌入批次。自訂分割器必須提供唯一 ID 並繼承文件中繼資料。
+
+穩定的[檔案識別](document-loaders.md#file-source-identity)、[問題向量驗證](rag-embedding.md#query-embedding-validation)及[文件單位持久化與 URL 取消](rag-pipeline.md#custom-persistence)可防止重複註冊、無效搜尋與舊區塊殘留。
+
+選用的 `Mythosia.AI.Rag.Search.Pixie` 預覽版可比較本機神經網路稀疏搜尋與既有搜尋。它保留既有稠密嵌入服務，將 PIXIE 索引放在記憶體中，不遷移持久化儲存區，也不自動取代預設搜尋。 [PIXIE 設定與比較指南（英文）](../rag-pixie-search.md).
+
+[檢索評估基礎設施](https://github.com/AJ-comp/Mythosia.AI/blob/main/tests/Mythosia.AI.Rag.Evaluation/README.md)支援可重複使用的資料集、搜尋配接器、執行報告持久化和回歸檢查。可擴充同一個評估器，用於新的搜尋方法和自己的文件集合。
+
+獨立管理請求設定，停止進行中的工作，並同時取得答案、用量與來源。[v8 升級指南](v8-migration.md)整理了六項架構變更、遷移範例與驗證範圍。
+
+> 本文件對應的套件版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). 其餘檢索、文件和向量套件的版本請見[先前修補版本表](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)及[先前聯合發行](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)。
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 修補版本](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)：現有 RAG 包裝器會採用執行期間變更的改寫器，PostgreSQL 混合檢索也會套用設定的向量搜尋參數。核心套件 `Mythosia.AI` 仍為 8.1.0。
+
+---
+
+## 架構
+
+<a href="../assets/architecture.svg">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="../assets/architecture-dark.svg">
+    <img src="../assets/architecture.svg" alt="Mythosia.AI 架構：核心 AI、RAG 協調、文件載入器、向量儲存、共用契約、MCP 整合及獨立的 Ollama、llama.cpp 和 vLLM 管理。" width="1600">
+  </picture>
+</a>
+
+### 套件相依關係詳情
+
+箭頭表示直接套件參照。共用套件出現在多個檢視中；Serving 用戶端共用管理契約，並獨立於核心 AI。
+
+#### 核心 AI 與擴充
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Extensions["供應商與工具擴充"]
+        Alibaba["Mythosia.AI.<br/>Providers.Alibaba"]:::extension
+        Mcp["Mythosia.AI.Mcp"]:::extension
+    end
+    AI["Mythosia.AI"]:::core
+    AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+    subgraph Independent["獨立的伺服器管理"]
+        ServingAbs["Mythosia.AI.Serving.<br/>Abstractions"]:::contract
+        OllamaServing["Mythosia.AI.<br/>Serving.Ollama"]:::extension
+        LlamaCppServing["Mythosia.AI.<br/>Serving.LlamaCpp"]:::extension
+        VllmServing["Mythosia.AI.<br/>Serving.Vllm"]:::extension
+        OllamaServing --> ServingAbs
+        LlamaCppServing --> ServingAbs
+        VllmServing --> ServingAbs
+    end
+    Alibaba --> AI
+    Mcp --> AI
+    AI --> AIAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### RAG 與文件載入
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    Rag["Mythosia.AI.Rag"]:::rag
+    subgraph Contracts["AI 與 RAG 契約"]
+        AIAbs["Mythosia.AI.<br/>Abstractions"]:::contract
+        RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    end
+    InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+    subgraph Documents["文件載入"]
+        Office["Mythosia.Documents.<br/>Office"]:::documents
+        Pdf["Mythosia.Documents.<br/>Pdf"]:::documents
+        LoaderAbs["Mythosia.Documents.<br/>Abstractions"]:::contract
+        Office --> LoaderAbs
+        Pdf --> LoaderAbs
+    end
+    Rag --> AIAbs
+    Rag --> RagAbs
+    Rag --> InMem
+    Rag --> Office
+    Rag --> Pdf
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
+
+#### 向量儲存與搜尋
+
+```mermaid
+%%{init: {"theme":"base","look":"classic","htmlLabels":false,"themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"18px","primaryTextColor":"#172c46","lineColor":"#64748b","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1"},"flowchart":{"htmlLabels":false,"curve":"linear","nodeSpacing":20,"rankSpacing":36,"padding":16,"wrappingWidth":300},"fontFamily":"Arial, sans-serif","fontSize":18}}%%
+flowchart LR
+    subgraph Stores["向量儲存"]
+        InMem["Mythosia.VectorDb.<br/>InMemory"]:::store
+        Pg["Mythosia.VectorDb.<br/>Postgres"]:::store
+        Qd["Mythosia.VectorDb.<br/>Qdrant"]:::store
+        Pine["Mythosia.VectorDb.<br/>Pinecone"]:::store
+    end
+    subgraph Search["選用神經網路搜尋"]
+        Pixie["Mythosia.AI.Rag.<br/>Search.Pixie"]:::rag
+    end
+    RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
+    VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
+    InMem --> RagAbs
+    InMem --> VdbAbs
+    RagAbs --> VdbAbs
+    Pg --> VdbAbs
+    Qd --> VdbAbs
+    Pine --> VdbAbs
+    Pixie --> VdbAbs
+    classDef core fill:#eff6ff,stroke:#93b4de,color:#172c46,stroke-width:1.5px
+    classDef rag fill:#eef8f5,stroke:#83b4a4,color:#164638,stroke-width:1.5px
+    classDef extension fill:#f5f0fc,stroke:#b9a4d4,color:#403054,stroke-width:1.5px
+    classDef documents fill:#fff8e9,stroke:#d4b879,color:#61491d,stroke-width:1.5px
+    classDef store fill:#edf7fb,stroke:#8dbaca,color:#194758,stroke-width:1.5px
+    classDef contract fill:#f8fafc,stroke:#a7b2c2,color:#334155,stroke-width:1.5px
+```
 
 ## 套件列表
 
@@ -400,11 +468,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 ### Serving — 控制平面
 
-> 模型服務執行階段的管理/內省用戶端。聊天仍由供應商套件負責：`Providers.*` = 聊天資料平面，`Serving.*` = 伺服器控制平面。
+透過統一的管理 API，為執行中的 Ollama、llama.cpp 和 vLLM 建立模型選擇器與伺服器狀態頁面。`IModelServer` 查詢健康狀態、模型和可用功能；查詢不會載入或下載模型。這些用戶端連線至現有伺服器，不託管執行階段，也不傳送聊天請求。
+
+選用的 `IModelLifecycle`、`IModelDownloader` 和 `IModelMetricsProvider` 在功能可用時提供明確的管理操作。請檢查所連線伺服器的功能：`Unknown` 表示證據不足，不等於 `Unsupported`；`Supported` 也不保證每個模型都能操作成功。無法確定的安裝與載入狀態仍保留為未知。
+
+已通過實際伺服器驗證的設定包括 Ollama **0.34.4**（`qwen2.5:0.5b`）、llama.cpp **b11146** 的 Router 與單模型模式（Qwen2.5 0.5B、Q4_K_M），以及 vLLM **0.30.0**（小型 Qwen 模型）。結果僅適用於這些已驗證設定。操作涵蓋範圍與執行階段限制請參閱[伺服器管理指南](serving.md)。
 
 | 套件 | NuGet | 描述 |
 | --- | --- | --- |
-| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM 控制平面用戶端 — 模型卡 (透過 `root` 取得實際載入的模型)、健康狀態、伺服器版本、Prometheus 指標 |
+| [Mythosia.AI.Serving.Abstractions](../../src/serving/Mythosia.AI.Serving.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Abstractions) | 共用管理契約與不可變的伺服器、模型及功能快照。 |
+| [Mythosia.AI.Serving.Ollama](../../src/serving/Mythosia.AI.Serving.Ollama/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Ollama.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Ollama) | Ollama 模型清單、健康狀態、明確預載/卸載及串流下載。 |
+| [Mythosia.AI.Serving.LlamaCpp](../../src/serving/Mythosia.AI.Serving.LlamaCpp/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.LlamaCpp.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.LlamaCpp) | llama.cpp 查詢、路由器確認後的生命週期/下載及無自動載入的指標。 |
+| [Mythosia.AI.Serving.Vllm](../../src/serving/Mythosia.AI.Serving.Vllm/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.AI.Serving.Vllm.svg)](https://www.nuget.org/packages/Mythosia.AI.Serving.Vllm) | vLLM 模型卡、健康狀態、版本及附標籤指標；保留既有具體 API。 |
 
 ## 儲存庫結構
 
@@ -422,7 +497,10 @@ src/
     Mythosia.AI.Rag/                    # RAG Fluent API 和管線
     Mythosia.AI.Rag.Abstractions/       # RAG 介面和模型 (RagDocument)
   serving/
-    Mythosia.AI.Serving.Vllm/           # vLLM 控制平面用戶端 (模型/健康狀態/版本/指標)
+    Mythosia.AI.Serving.Abstractions/  # 共用模型伺服器管理契約
+    Mythosia.AI.Serving.Ollama/        # Ollama 管理與明確下載
+    Mythosia.AI.Serving.LlamaCpp/      # llama.cpp 單模型/路由器管理
+    Mythosia.AI.Serving.Vllm/          # vLLM 管理與指標
   vectordb/
     Mythosia.VectorDb.Abstractions/     # 向量儲存契約
     Mythosia.VectorDb.InMemory/         # 記憶體內向量儲存
@@ -447,11 +525,24 @@ dotnet add package System.Linq.Async
 
 ## 文件
 
+需要先快速起草再深入審查，或根據最新資訊和已託管文件回答時，請參閱[推理與附來源的搜尋](reasoning-and-search.md)。
+
+- **[📖 完整文件網站](https://aj-comp.github.io/Mythosia.AI/)** — 由 DocFX 產生，涵蓋所有功能、RAG 管線、向量儲存及 API 參考
 - [基礎使用指南](getting-started.md)
 - [Mythosia.AI README](../../src/core/Mythosia.AI/README.md)  包含函式呼叫、串流和模型設定的完整 API 參考
 - [Mythosia.AI.Rag README](../../src/rag/Mythosia.AI.Rag/README.md)  RAG 管線使用方式和自訂實作
 - [載入器指南](document-loaders.md)
 - [版本說明](../../src/core/Mythosia.AI/RELEASE_NOTES.md)
+
+## 使用真實供應商驗證處理速度
+
+在儲存庫根目錄執行：
+
+```powershell
+./build/test-inference-speed-live.ps1
+```
+
+這套付費測試使用既有測試 Key Vault 組態和合成提示詞，針對 Anthropic Opus 5.5、OpenAI GPT-6 Astra、Gemini 3.8 Flash 和 Grok 4.6，組合 ProviderDefault/Standard/Fast 與補全/Run 路徑，共驗證 24 個案例。帳戶存取錯誤、缺少已套用模式報告或伺服器降級均不算 Fast 驗證成功；所有案例必須無略過地通過。報告儲存至 `artifacts/test-results/inference-speed-live`。只有在建置目前 Release 測試後才能使用 `-NoBuild`。此命令說明如何執行測試，並不代表目前帳戶已通過驗證。
 
 ## 授權
 
