@@ -39,6 +39,7 @@ try {
     Invoke-ReleaseCheck 'restore' 'dotnet' @('restore', 'Mythosia.AI.slnx')
     Invoke-ReleaseScript 'vulnerabilities' 'test-package-vulnerabilities.ps1'
     Invoke-ReleaseScript 'publication-safety' 'test-publish-nuget-safety.ps1'
+    Invoke-ReleaseCheck 'release-ci-gate' 'node' @('--test', 'build/test-release-ci.mjs')
     Invoke-ReleaseScript 'readiness-safety' 'test-release-readiness-safety.ps1'
     Invoke-ReleaseScript 'test-categories' 'test-test-categories.ps1'
     Invoke-ReleaseScript 'evaluation-categories' 'test-test-categories.ps1' @('-TestRoot', 'tests/Mythosia.AI.Rag.Evaluation.Tests')
