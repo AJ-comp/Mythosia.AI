@@ -56,7 +56,9 @@ The default check queries NuGet. The offline structural check used in ordinary C
 
 ## Commit and publish
 
-After the local check succeeds, review and commit the release changes, then push. GitHub rebuilds the committed source and runs its checks. Any later source edit requires fresh validation.
+After the local check succeeds, review and commit the release changes on a task branch, then push and open a PR against `main`. Follow [the contribution flow](../CONTRIBUTING.md) for Codex review, bounded fixes, current-revision CI, and the maintainer's merge decision. Any later source edit requires fresh validation.
+
+After merge, wait for ordinary CI to succeed on the exact `main` commit selected for publication. The publication workflow verifies the latest `ci.yml` push run for that SHA before its validation and again immediately before publishing. A stale green run, failed or pending rerun, or passing PR merge-ref run cannot satisfy this prerequisite. GitHub API errors stop publication instead of assuming success.
 
 The local package manifest is marked `development-validation` and is deliberately rejected by publication. Use **Publish NuGet Packages** on `main` to build fresh artifacts from the committed source. Run it with publication disabled first to verify release readiness, then enable publication when ready. Existing-version checks and package/source-commit provenance checks still apply at the actual push step.
 

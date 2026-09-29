@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: nuget-release-${{ github.ref }}
@@ -31,6 +32,13 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Require successful main CI for the exact release commit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node build/check-release-ci.mjs
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -88,6 +96,9 @@ jobs:
       - name: Verify NuGet publication safety contracts
         shell: pwsh
         run: ./build/test-publish-nuget-safety.ps1
+
+      - name: Verify release CI gate rejection cases
+        run: node --test build/test-release-ci.mjs
 
       - name: Verify test category coverage
         shell: pwsh
@@ -258,6 +269,9 @@ jobs:
     steps:
       - name: Checkout validated source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Setup .NET
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -269,6 +283,11 @@ jobs:
         with:
           name: validated-nuget-packages
           path: artifacts/
+
+      - name: Recheck main CI after publication approval
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node build/check-release-ci.mjs
 
       - name: Publish dependency-ordered packages
         shell: pwsh
