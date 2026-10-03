@@ -33,7 +33,9 @@ var store = new InMemoryVectorStore();
 
 `IVectorStoreDiagnostics` は `Mythosia.VectorDb.Abstractions` 4.2.0 の任意の契約です。InMemory が直接実装し、`IVectorStore` に必須メンバーは追加されません。`ListAllRecordsAsync` は全レコードを列挙し、`ScoredListAsync` は TopK 制限なしで全類似度スコアを降順に返します。どちらもストア全体を検査し、メタデータフィルターを受け取らず、RAG パイプラインの `StoreFilter` も適用しません。`GetTotalRecordCount()` は契約外の InMemory 固有の便利メソッドです。RAG 固有のチャンク分析、ヘルスチェックとレポートは `Mythosia.AI.Rag` の `RagDiagnostics` と `RagDiagnosticSession` に残ります。
 
-**InMemory 5.0.0 への更新:** RAG 9.0.0 と組み合わせてください。新しい InMemory と古い RAG の組み合わせはサポートされません。InMemory は `IRagDiagnosticsStore` を実装しないため、代入、キャスト、機能チェックを `IVectorStoreDiagnostics` に移行し、対象の利用側コードを再ビルドしてください。RAG Abstractions 6.5.0 は既存のカスタム実装向けに、非推奨のインターフェイス、元の二つのメソッド宣言と既定のブリッジを保持します。これは InMemory の旧インターフェイス関係を復元せず、すべての旧バイナリの互換性を保証しません。
+このリリースでは、マイナーバージョンの RAG 8.3.0 と InMemory 4.3.0 に、互換性を破るインターフェイス移行を意図的に含めています。このリリースに限るバージョン付けの例外として、メジャーバージョン番号が変わらなくても、`IRagDiagnosticsStore` を使用する既存の InMemory 呼び出し側は `IVectorStoreDiagnostics` への移行が必要です。
+
+**InMemory 4.3.0 への更新:** RAG 8.3.0 と組み合わせてください。新しい InMemory と古い RAG の組み合わせはサポートされません。InMemory は `IRagDiagnosticsStore` を実装しないため、代入、キャスト、機能チェックを `IVectorStoreDiagnostics` に移行し、対象の利用側コードを再ビルドしてください。RAG Abstractions 6.5.0 は既存のカスタム実装向けに、非推奨のインターフェイス、元の二つのメソッド宣言と既定のブリッジを保持します。これは InMemory の旧インターフェイス関係を復元せず、すべての旧バイナリの互換性を保証しません。
 
 `IRagDiagnosticsStore` を実装するカスタムストアでは、RAG は内部アダプターを介して元のインターフェイスメソッドを呼び出します。そのため、同じシグネチャの public ヘルパーメソッドがあっても、明示的な実装が引き続き使われます。`IVectorStoreDiagnostics` に直接キャストしてメソッドを呼び出す場合は、代わりにそれらの public メソッドが選択されることがあります。
 

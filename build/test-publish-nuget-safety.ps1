@@ -106,7 +106,7 @@ foreach ($packageId in $expectedRagDependencies.Keys) {
 }
 $luceneWarningExceptions = @{
     'Mythosia.VectorDb.Abstractions' = '4.2.0'
-    'Mythosia.VectorDb.InMemory' = '5.0.0'
+    'Mythosia.VectorDb.InMemory' = '4.3.0'
 }
 foreach ($definition in $releaseDefinitions) {
     [xml]$projectXml = Get-Content -Raw -LiteralPath (Join-Path $repoRoot $definition.Project)

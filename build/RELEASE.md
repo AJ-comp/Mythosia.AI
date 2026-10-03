@@ -73,10 +73,12 @@ The current release adds GPT-6.1 Sol, Claude Sonnet 5.5 and the diagnostics migr
 | Mythosia.AI.Providers.Alibaba | 3.0.2 | Uses the owned request-message snapshot in Qwen completion and targets Core 8.2.0; public APIs and endpoint defaults are unchanged. |
 | Mythosia.VectorDb.Abstractions | 4.2.0 | Adds optional `IVectorStoreDiagnostics`. |
 | Mythosia.AI.Rag.Abstractions | 6.5.0 | Preserves obsolete `IRagDiagnosticsStore` and bridges existing implementations to the new contract. |
-| Mythosia.VectorDb.InMemory | 5.0.0 | Implements the new contract and removes the RAG dependency; old diagnostic interface casts require migration. |
-| Mythosia.AI.Rag | 9.0.0 | Detects the new capability and includes the breaking InMemory dependency upgrade. |
+| Mythosia.VectorDb.InMemory | 4.3.0 | Implements the new contract and removes the RAG dependency; old diagnostic interface casts require migration. |
+| Mythosia.AI.Rag | 8.3.0 | Detects the new capability and includes the breaking InMemory dependency upgrade. |
 
-InMemory now depends on VectorDb.Abstractions and its existing Lucene packages, with no AI or RAG dependency. Isolated consumers verify that package graph and exercise listing, scoring and full RAG diagnostics. A separate fixture compiles an explicit legacy `IRagDiagnosticsStore` implementation against published RAG.Abstractions 6.4.0, then runs it against the new contracts without recompiling it. InMemory 5.0.0 itself no longer implements the old interface; users must migrate assignments/casts to `IVectorStoreDiagnostics` and upgrade RAG to retain full diagnostics.
+InMemory now depends on VectorDb.Abstractions and its existing Lucene packages, with no AI or RAG dependency. Isolated consumers verify that package graph and exercise listing, scoring and full RAG diagnostics. A separate fixture compiles an explicit legacy `IRagDiagnosticsStore` implementation against published RAG.Abstractions 6.4.0, then runs it against the new contracts without recompiling it. InMemory 4.3.0 itself no longer implements the old interface; users must migrate assignments/casts to `IVectorStoreDiagnostics` and upgrade RAG to retain full diagnostics.
+
+RAG 8.3.0 and InMemory 4.3.0 are an explicitly approved, release-specific exception to the normal major-version rule for breaking changes. Their minor version numbers do not make the removed InMemory interface relationship backward compatible. Keep this migration warning in the package metadata and release documentation; the exception does not authorize relaxing compatibility tests or changing the general versioning policy.
 
 Published Serving packages, loaders, other vector stores, MCP and PIXIE resolve from NuGet as consumer-only compatibility checks. Their existing probes still run, including controlled Serving HTTP responses and the published MCP package against the new Core/AI Abstractions. Alibaba 3.0.2 is packed from this release because its completion override changed; its dependency resolves to the planned Core 8.2.0 package. Earlier releases must not be republished.
 

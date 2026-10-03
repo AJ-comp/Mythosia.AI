@@ -30,9 +30,9 @@ Store inspection belongs to `Mythosia.VectorDb.IVectorStoreDiagnostics`. RAG ana
 
 The obsolete `IRagDiagnosticsStore` keeps its original namespace, assembly and two method declarations (`ListAllRecordsAsync`, `ScoredListAsync`), inherits `IVectorStoreDiagnostics`, and supplies default interface bridges to those legacy methods. This supports existing custom implementations, including explicit implementations of the old members, when used with the updated contracts. New custom stores should implement `IVectorStoreDiagnostics` directly and can omit a RAG abstractions reference if they otherwise use only vector contracts.
 
-A public class method takes precedence over a default interface bridge. If a legacy store also exposes public methods with those names, a direct call through `IVectorStoreDiagnostics` can select the public methods. RAG 9.0.0 uses an internal adapter that calls the original `IRagDiagnosticsStore` slots, preserving explicit legacy behavior in chunk lookup, scoring and health checks.
+A public class method takes precedence over a default interface bridge. If a legacy store also exposes public methods with those names, a direct call through `IVectorStoreDiagnostics` can select the public methods. RAG 8.3.0 uses an internal adapter that calls the original `IRagDiagnosticsStore` slots, preserving explicit legacy behavior in chunk lookup, scoring and health checks.
 
-The bridge does **not** make InMemory 5.0.0 implement the old interface. Migrate old InMemory assignments, casts and `is`/`as` checks to `IVectorStoreDiagnostics`, then rebuild affected consumers. Upgrade RAG to 9.0.0 together with InMemory 5.0.0; older RAG packages paired with the new InMemory package are unsupported. This is not a guarantee that every previously compiled consumer remains compatible.
+The bridge does **not** make InMemory 4.3.0 implement the old interface. Migrate old InMemory assignments, casts and `is`/`as` checks to `IVectorStoreDiagnostics`, then rebuild affected consumers. Upgrade RAG to 8.3.0 together with InMemory 4.3.0; older RAG packages paired with the new InMemory package are unsupported. This is not a guarantee that every previously compiled consumer remains compatible.
 
 ## Models
 

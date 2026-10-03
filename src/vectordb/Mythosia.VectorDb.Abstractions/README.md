@@ -257,7 +257,7 @@ if (store is IVectorStoreDiagnostics diagnostics)
 }
 ```
 
-InMemory 5.0.0 implements this contract directly. RAG analysis (`RagDiagnostics`, diagnostic sessions, chunk previews, health checks and reports) remains in `Mythosia.AI.Rag` and consumes this capability. `GetTotalRecordCount()` is an InMemory convenience method, not a member of this interface.
+InMemory 4.3.0 implements this contract directly. RAG analysis (`RagDiagnostics`, diagnostic sessions, chunk previews, health checks and reports) remains in `Mythosia.AI.Rag` and consumes this capability. `GetTotalRecordCount()` is an InMemory convenience method, not a member of this interface.
 
 The obsolete `Mythosia.AI.Rag.IRagDiagnosticsStore` remains in `Mythosia.AI.Rag.Abstractions` as a compatibility interface inheriting this contract. New implementations should depend on `IVectorStoreDiagnostics`; see the [RAG abstractions migration notes](../../rag/Mythosia.AI.Rag.Abstractions/README.md#diagnostics-compatibility).
 

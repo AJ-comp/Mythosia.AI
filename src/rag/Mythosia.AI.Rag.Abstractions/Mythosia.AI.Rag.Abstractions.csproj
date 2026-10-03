@@ -17,7 +17,7 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v6.5.0: Retains IRagDiagnosticsStore in its original assembly and namespace as an obsolete compatibility interface inheriting IVectorStoreDiagnostics, with original members and default bridges. Public methods take precedence over default bridges; RAG 9.0.0 preserves explicit legacy dispatch through an adapter. Requires VectorDb.Abstractions 4.2.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650</PackageReleaseNotes>
+    <PackageReleaseNotes>v6.5.0: Retains IRagDiagnosticsStore in its original assembly and namespace as an obsolete compatibility interface inheriting IVectorStoreDiagnostics, with original members and default bridges. Public methods take precedence over default bridges; RAG 8.3.0 preserves explicit legacy dispatch through an adapter. Requires VectorDb.Abstractions 4.2.0. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 

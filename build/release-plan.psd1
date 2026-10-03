@@ -61,23 +61,23 @@
         }
         @{
             Id = 'Mythosia.VectorDb.InMemory'
-            Version = '5.0.0'
+            Version = '4.3.0'
             Project = 'src/vectordb/Mythosia.VectorDb.InMemory/Mythosia.VectorDb.InMemory.csproj'
             TargetFramework = 'netstandard2.1'
             LicenseExpression = 'MIT'
             ProjectUrl = 'https://github.com/AJ-comp/Mythosia.AI'
-            ReleaseNotesUrl = 'https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500'
+            ReleaseNotesUrl = 'https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v430'
             Dependencies = @{ 'Mythosia.VectorDb.Abstractions' = 'Mythosia.VectorDb.Abstractions' }
             FixedDependencies = @{ 'Lucene.Net' = '4.8.0-beta00016'; 'Lucene.Net.Analysis.Common' = '4.8.0-beta00016' }
         }
         @{
             Id = 'Mythosia.AI.Rag'
-            Version = '9.0.0'
+            Version = '8.3.0'
             Project = 'src/rag/Mythosia.AI.Rag/Mythosia.AI.Rag.csproj'
             TargetFramework = 'netstandard2.1'
             LicenseExpression = 'MIT'
             ProjectUrl = 'https://aj-comp.github.io/Mythosia.AI/docs/rag.html'
-            ReleaseNotesUrl = 'https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v900'
+            ReleaseNotesUrl = 'https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v830'
             Dependencies = @{ 'Mythosia.AI.Abstractions' = 'Mythosia.AI.Abstractions'; 'Mythosia.AI.Rag.Abstractions' = 'Mythosia.AI.Rag.Abstractions'; 'Mythosia.VectorDb.InMemory' = 'Mythosia.VectorDb.InMemory' }
             FixedDependencies = @{ 'Mythosia.Documents.Office' = '1.1.1'; 'Mythosia.Documents.Pdf' = '1.1.2'; 'SharpZipLib' = '1.4.2' }
         }

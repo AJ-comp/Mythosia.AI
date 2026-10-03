@@ -1,8 +1,8 @@
 # Mythosia.AI workspace release notes
 
-## v9.0.0 — Vector store diagnostics, GPT-6.1 Sol and Claude Sonnet 5.5
+## v8.3.0 — Vector store diagnostics, GPT-6.1 Sol and Claude Sonnet 5.5
 
-Inspect an InMemory vector store without installing RAG. This coordinated release moves the optional storage inspection contract into `Mythosia.VectorDb.Abstractions`, while RAG retains query analysis, chunk inspection and health reports. The heading identifies **RAG 9.0.0**, not the core `Mythosia.AI` package, which advances to **8.2.0** for GPT-6.1 Sol and Claude Sonnet 5.5 support.
+Inspect an InMemory vector store without installing RAG. This coordinated release moves the optional storage inspection contract into `Mythosia.VectorDb.Abstractions`, while RAG retains query analysis, chunk inspection and health reports. The heading identifies **RAG 8.3.0**, not the core `Mythosia.AI` package, which advances to **8.2.0** for GPT-6.1 Sol and Claude Sonnet 5.5 support.
 
 | Package | Published version | Release version | Full notes |
 | --- | --- | --- | --- |
@@ -11,8 +11,8 @@ Inspect an InMemory vector store without installing RAG. This coordinated releas
 | Mythosia.AI.Providers.Alibaba | 3.0.1 | **3.0.2** | [Qwen adapter](src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302) |
 | Mythosia.VectorDb.Abstractions | 4.1.0 | **4.2.0** | [Vector contracts](src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420) |
 | Mythosia.AI.Rag.Abstractions | 6.4.0 | **6.5.0** | [RAG contracts](src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650) |
-| Mythosia.VectorDb.InMemory | 4.2.0 | **5.0.0** | [InMemory](src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500) |
-| Mythosia.AI.Rag | 8.2.0 | **9.0.0** | [RAG](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v900) |
+| Mythosia.VectorDb.InMemory | 4.2.0 | **4.3.0** | [InMemory](src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v430) |
+| Mythosia.AI.Rag | 8.2.0 | **8.3.0** | [RAG](src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v830) |
 
 ### Added
 
@@ -61,9 +61,10 @@ Inspect an InMemory vector store without installing RAG. This coordinated releas
 ### Compatibility
 
 - Core 8.2.0 adds protected `AIService.BeginIndependentRequestScope()` for an unrelated helper called from a provider override at the same base entry before forwarding the outer request. Keep the helper's await or full stream enumeration inside the scope; disposal restores outer request state. It does not isolate history or permit concurrency; use a stateless helper profile. Existing execution signatures remain. See the [provider adapter example](docs/request-building.md#provider-request-adapters).
-- **Breaking:** InMemory 5.0.0 is no longer assignable to `IRagDiagnosticsStore`. Update assignments, casts and capability checks to `IVectorStoreDiagnostics`. Upgrade RAG to 9.0.0 when using the new InMemory package; older RAG diagnostic consumers are not supported with it.
+- **Minor-version policy exception:** RAG 8.3.0 and InMemory 4.3.0 intentionally include the breaking diagnostics-interface migration below. These minor version numbers do not imply backward compatibility for affected callers. This is a release-specific exception; migrate old interface assignments/casts and upgrade the two packages together.
+- **Breaking:** InMemory 4.3.0 is no longer assignable to `IRagDiagnosticsStore`. Update assignments, casts and capability checks to `IVectorStoreDiagnostics`. Upgrade RAG to 8.3.0 when using the new InMemory package; older RAG diagnostic consumers are not supported with it.
 - RAG Abstractions 6.5.0 retains the obsolete `IRagDiagnosticsStore` name, its original member declarations and default interface bridges for existing custom implementations. RAG preserves explicit legacy dispatch through an internal adapter, including custom stores with public methods of the same names. This does not restore InMemory's old interface relationship or guarantee every mixed-version package combination.
-- Alibaba 3.0.2 is included because its completion override now uses the owned request-message snapshot and requires Core 8.2.0. MCP 0.1.1-preview and the published Serving packages remain consumer-only and are not republished. RAG 9.0.0 uses the compatible AI Abstractions 4.2.0 contracts. See [store diagnostics and migration](docs/vectordb-backends.md#vector-store-diagnostics).
+- Alibaba 3.0.2 is included because its completion override now uses the owned request-message snapshot and requires Core 8.2.0. MCP 0.1.1-preview and the published Serving packages remain consumer-only and are not republished. RAG 8.3.0 uses the compatible AI Abstractions 4.2.0 contracts. See [store diagnostics and migration](docs/vectordb-backends.md#vector-store-diagnostics).
 
 ### Known limitations
 
