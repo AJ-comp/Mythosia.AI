@@ -18,8 +18,7 @@ namespace Mythosia.AI.Services.Perplexity
 
         protected override AIModelCapabilities ResolveRequestCapabilities()
         {
-            var options = SuppressAgentTools ? new PerplexityAgentOptions { DisableWebSearch = true }
-                : CurrentProviderRequestOptions as PerplexityAgentOptions ?? RequestAgentOptions;
+            var options = EffectiveAgentOptions();
             var model = ResolveAgentRequestedModel(RequestModel, options);
             var known = model != null && KnownPerplexityAgentModels.Contains(model);
             var support = known ? CapabilitySupport.Supported : CapabilitySupport.Unknown;

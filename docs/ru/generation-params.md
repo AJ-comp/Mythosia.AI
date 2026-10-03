@@ -1,5 +1,9 @@
 # Параметры генерации
 
+> Claude Sonnet 5.5: Требуются Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Настройка и миграция](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Нужны Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Выбор модели и миграция](providers.md#gpt-61-sol)
+
 > Grok 4.7: Требуются Mythosia.AI 8.1.0 / Abstractions 4.1.0. [выбор модели, рассуждение и скорость обработки](providers.md#grok-47)
 
 Для независимых настроек и повторного использования вариантов применяйте [билдер запросов](request-building.md). Вызывайте `CreateRequest(...)` перед `With...`. Свойства и fluent-методы сервиса сохраняют прежнее поведение.
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // Штраф за уже встречавш�
 GPT-6 Astra не поддерживает `temperature` и `top_p`; Mythosia не отправляет их, даже если они заданы общими свойствами или профилем запроса. Максимальный вывод — 128 000 токенов. См. [настройки GPT-6](providers.md).
 
 GPT-6 Sol/Luna передают `temperature` и `top_p` только при `ReasoningLevel.None`; иначе оба поля опускаются. Astra не поддерживает `None`. См. [выбор и настройку модели](providers.md#gpt-6-sol-luna).
+
+При переходе с GPT-6 Sol замените `None` на `Low`: GPT-6.1 Sol поддерживает `Low`, `Medium` (значение `Auto` по умолчанию), `High`, `XHigh` и `Max`; `None` и `Minimal` отклоняются. `Temperature` / `TopP` не отправляются. `AIRequestProfile.DisableReasoning` использует `Low` в режиме Standard без сводок рассуждения. Поведение `None` у GPT-6 Sol и Luna сохраняется.
 
 
 Усилие рассуждения и источники для задачи задаются [общими параметрами рассуждения и поиска](reasoning-and-search.md); существующие настройки провайдеров сохраняются.

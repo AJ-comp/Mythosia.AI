@@ -99,6 +99,7 @@ namespace Mythosia.AI.Services.OpenAI
             RequestCancellationToken.ThrowIfCancellationRequested();
             using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             LastReasoningSummary = null;
 
             var policy = GetExecutionPolicy();
@@ -602,7 +603,7 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// GPT-6 reasoning effort level. Auto uses the library default of Medium.
-        /// Sol and Luna also support None. Astra always reasons and requires at least Low.
+        /// GPT-6 Sol and Luna also support None. GPT-6 Astra and GPT-6.1 Sol require at least Low.
         /// </summary>
         public Gpt6Reasoning Gpt6ReasoningEffort { get; set; } = Gpt6Reasoning.Auto;
 
@@ -752,7 +753,8 @@ namespace Mythosia.AI.Services.OpenAI
 
         /// <summary>
         /// Sets GPT-6 specific parameters.
-        /// Reasoning effort: Low, Medium (library default), High, XHigh, Max; Sol and Luna also support None.
+        /// Reasoning effort: Low, Medium (library default), High, XHigh, Max; GPT-6 Sol and Luna also support None.
+        /// GPT-6.1 Sol uses these settings and requires at least Low.
         /// Verbosity: Low, Medium (default), High.
         /// Pro is a reasoning mode and does not change the selected model ID.
         /// </summary>
@@ -817,9 +819,9 @@ namespace Mythosia.AI.Services.OpenAI
                  profile.Purpose == AIRequestPurpose.QueryRewrite) &&
                 profile.MaxTokens.HasValue &&
                 (RequestModel.StartsWith("gpt-5-pro", StringComparison.OrdinalIgnoreCase) ||
-                 IsOpenAIModelOrSnapshot(RequestModel, AIModels.OpenAI.Gpt6Astra)))
+                 IsGpt6MandatoryReasoningModel(RequestModel)))
             {
-                // gpt-5-pro and GPT-6 Astra always reason. Library-owned profiles that try
+                // gpt-5-pro, GPT-6 Astra, and GPT-6.1 Sol always reason. Library-owned profiles that try
                 // to disable reasoning (for example summarization and query rewriting)
                 // still count hidden reasoning against the same output budget and can
                 // finish as `incomplete` before producing text. Reserve enough room only

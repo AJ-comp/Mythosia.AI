@@ -116,6 +116,12 @@ Consulte [AIRequestProfile](request-profiles.md) para detalhes sobre como sobres
 
 ## Injeção automática com `SystemMessageProvider`
 
+As chamadas da aplicação iniciam solicitações lógicas independentes, incluindo chamadas comuns de `SystemMessageProvider` ou callbacks de ferramentas e chamadas que reutilizam o mesmo `AIRequestProfile` ou `Message`. Reutilizar um objeto não compartilha a execução. A delegação do framework, as rodadas de ferramentas, as novas tentativas e as correções de formato continuam a solicitação original, cujo perfil é aplicado uma vez. Uma solicitação filha comum captura suas opções e os padrões do serviço; os builders mantêm as configurações capturadas. A execução principal é restaurada após sucesso, falha ou cancelamento. Os métodos sobrescritos dos provedores que encaminham uma chamada do framework seguem as [regras de adaptadores](request-building.md#provider-request-adapters). Uma chamada auxiliar independente ao mesmo ponto de entrada da classe base antes do encaminhamento precisa de `BeginIndependentRequestScope()` envolvendo a chamada e seu `await`, ou toda a enumeração no streaming.
+
+Os provedores integrados mantêm uma cópia própria do conteúdo de entrada integrado. Reutilizar um `Message` aplica o contexto e as instruções da nova chamada sem reescrever o histórico aceito. O proprietário continua responsável pelo conteúdo personalizado e pelos objetos de metadados não compatíveis. Isso não torna seguras as chamadas simultâneas à mesma conversa.
+
+Nesta seção, «cada solicitação» refere-se às solicitações iniciadas pela aplicação. Os resumos de conversa gerados internamente também excluem o callback `SystemMessageProvider` e o contexto da solicitação principal, impedindo que um `RequestMessageOverride` herdado substitua o prompt de resumo. As solicitações iniciadas pela aplicação continuam resolvendo seu contexto dinâmico normalmente, inclusive pedidos explícitos de resumo de texto.
+
 ### O problema que resolve
 
 Uma aplicação de chat típica tem vários pontos de entrada ao LLM que precisam da mesma baseline — data de hoje, pasta ativa, info de sessão. **Sem** `SystemMessageProvider`, cada local de chamada precisa lembrar de construir e passar esse contexto:

@@ -78,6 +78,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # 可选：需要生产级向�
 
 准备不同设置时无需改变其他请求：`CreateRequest(...).WithTemperature(...).GetCompletionAsync()` 使用独立且可复用的请求构建器。[请求设置指南](request-building.md)提供前后对比示例、Run、配置档和共享会话限制。
 
+完成、流式、结构化输出和 Run 先执行一次实际配置处理并验证最终设置，再进行自动摘要、历史修改和传输。辅助请求隔离父会话及输出模式，同时保留提供者原生验证。参阅[请求设置指南](request-building.md)。
+
+应用发起的调用以及上下文或工具回调中的普通调用保持独立，即使复用配置或消息也是如此。框架调用虚拟提供者适配器时，对相应基类入口的第一次调用会延续已准备的请求，即使替换了输入也不例外。在转发前通过同一个基类入口执行无关的辅助调用时，须使用 `BeginIndependentRequestScope()`；参阅[提供者适配器规则](request-building.md#provider-request-adapters)。内置输入副本可防止后续调用改写已接受的历史。
+
+适配器修改的配置在自动摘要前验证，回调流会等待内部清理。Claude 压缩保护替换输入中保留的工具依赖和 Mythos 5.1 绑定的 thinking；OpenAI 无状态辅助请求保留父历史的保护状态。
+
 对等待时间敏感的请求可选择[处理速度](request-building.md#inference-speed)。`WithSpeed` 保持模型和推理级别，`Processing` 显示供应商实际应用的模式。Fast 是受支持组合上的付费选项。
 
 ## 快速开始
@@ -145,9 +151,9 @@ service.DefaultPolicy = new FunctionCallingPolicy
 };
 ```
 
-普通批次的结果会按提供商原始调用顺序返回给模型。取消操作会跳过尚未开始的调用，并提供对应的取消结果。已开始的工具在支持时接收取消令牌，并等待完成，以保持调用与结果历史一一对应。`FunctionCallingPolicy.TimeoutSeconds` 覆盖整个流式轮次循环，包括响应头和 SSE 正文，不会在工具轮次之间重置。策略超时抛出 `AIServiceException`；调用方取消仍表现为与其令牌关联的 `OperationCanceledException`。
+普通批次的结果会按提供商原始调用顺序返回给模型。取消操作会跳过尚未开始的调用，并提供对应的取消结果。已开始的工具在支持时接收取消令牌，并等待完成，以保持调用与结果历史一一对应。`FunctionCallingPolicy.TimeoutSeconds` 覆盖整个流式轮次循环，包括响应头和 SSE 正文，不会在工具轮次之间重置。策略超时抛出 `AIServiceException`；调用方取消仍表现为与其令牌关联的 `OperationCanceledException`。 缓冲正文的自定义 `HttpContent` 在获取 SSE 正文流时存在已知例外；请参阅[取消限制](streaming.md#sse-acquisition-cancellation-limitation)。
 
-慢速查询进行期间，模型仍可完成有用的独立工作，例如在天气预报返回前介绍一般旅行用品。设置 `FunctionDefinition.AllowAsync = true` 或使用 `FunctionBuilder.WithAsync()`，可让支持的模型在函数执行时继续工作。默认值为 `false`。GPT-6 Astra / Sol / Luna 通过 Responses API 使用此选项；不支持的模型不会发送不受支持的 API 选项，而是等待同一个处理器的结果。此功能与 C# `async` 处理器和并行处理器调度相互独立。示例及请求生命周期行为见[异步工具调用](function-calling.md#async-tool-calling)。
+慢速查询进行期间，模型仍可完成有用的独立工作，例如在天气预报返回前介绍一般旅行用品。设置 `FunctionDefinition.AllowAsync = true` 或使用 `FunctionBuilder.WithAsync()`，可让支持的模型在函数执行时继续工作。默认值为 `false`。GPT-6.1 Sol / GPT-6 Astra / Sol / Luna 通过 Responses API 使用此选项；不支持的模型不会发送不受支持的 API 选项，而是等待同一个处理器的结果。此功能与 C# `async` 处理器和并行处理器调度相互独立。示例及请求生命周期行为见[异步工具调用](function-calling.md#async-tool-calling)。
 
 ### 图像生成与编辑
 
@@ -271,14 +277,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 > Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择、推理与处理速度](providers.md#grok-47)
 
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型选择与迁移](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择与版本要求](providers.md#gpt-6-sol-luna)
+
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[配置与迁移](providers.md#claude-sonnet-55)
 
 > Claude Opus 5.5: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [配置与迁移](providers.md#claude-opus-55)
 
 | 提供商 | 包 | 模型 |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (有限开放), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (有限开放), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, [Sonnet 5.5](providers.md#claude-sonnet-55) / 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (默认), Grok 4.3, Grok 4.20 (推理 / 非推理), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
@@ -317,9 +327,13 @@ TXT 与 Markdown 应按文档结构选择[规则分割器](text-splitters.md)。
 
 独立管理请求设置，停止进行中的任务，并同时获取答案、用量和来源。[v8 升级指南](v8-migration.md)整理了六项架构变更、迁移示例和验证范围。
 
-> 本文档对应的包版本: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). 其余检索、文档和向量包的版本见[此前补丁版本表](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)及[此前联合发布](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)。
+> 本文档对应的包版本: [Mythosia.AI 8.2.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v820), [Abstractions 4.2.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420), [Alibaba 3.0.2](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302), [RAG 9.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v900), [RAG Abstractions 6.5.0](../../src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650), [VectorDb Abstractions 4.2.0](../../src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420), [InMemory 5.0.0](../../src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). 其余检索、文档和向量包的版本见[此前补丁版本表](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)及[此前联合发布](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)。
 
-> [RAG 8.1.1 / PostgreSQL 10.8.1 补丁](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)：现有 RAG 包装器会采用运行时更改的改写器，PostgreSQL 混合检索也会应用配置的向量搜索参数。核心包 `Mythosia.AI` 仍为 8.1.0。
+> **待发布版本的已知限制：** Sonnet 5.5 / Opus 5.5 可能拒绝以尚未执行的 `server_tool_use` 结尾的 `pause_turn` 续接请求；请参阅 [Claude 续接限制](providers.md#claude-native-continuation-limitation)。缓冲正文的自定义 `HttpContent` 可能在获取成功 SSE 响应的正文流时延迟取消或策略超时处理，使 Run 保持活动状态；请参阅 [SSE 取消限制](streaming.md#sse-acquisition-cancellation-limitation)。
+>
+> 这些页面描述待发布的变更，并不代表发布验证已完成。已包含的变更、剩余限制和验证范围请参阅[发布说明](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md)。
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 补丁](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)：现有 RAG 包装器会采用运行时更改的改写器，PostgreSQL 混合检索也会应用配置的向量搜索参数。该补丁中的核心包 `Mythosia.AI` 保持为 8.1.0。
 
 ---
 
@@ -414,7 +428,6 @@ flowchart LR
     end
     RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
     VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
     InMem --> VdbAbs
     RagAbs --> VdbAbs
     Pg --> VdbAbs
@@ -460,11 +473,13 @@ flowchart LR
 
 | 包 | NuGet | 描述 |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `VectorRecord` · `VectorFilter` 契约 |
+| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `IVectorStoreDiagnostics` · `VectorRecord` · `VectorFilter` 契约 |
 | [Mythosia.VectorDb.InMemory](../../src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | 内存存储 — 零基础设施，非常适合原型开发 |
 | [Mythosia.VectorDb.Pinecone](../../src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — 托管向量数据库的索引/命名空间/作用域隔离 |
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat 索引，可用于生产环境 |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC 客户端 — Cosine / Euclidean / Dot，自动配置 |
+
+可选的存储检查使用 `Mythosia.VectorDb.Abstractions` 中的 `IVectorStoreDiagnostics`。InMemory 5.0.0 不再依赖 RAG 抽象，`RagDiagnostics` 和 `RagDiagnosticSession` 仍属于 RAG 9.0.0。请同时升级 RAG 和 InMemory，并迁移旧的 `IRagDiagnosticsStore` 类型转换。[诊断与迁移](vectordb-backends.md#vector-store-diagnostics)。
 
 ### Serving — 控制平面
 

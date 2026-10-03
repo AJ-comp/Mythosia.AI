@@ -15,6 +15,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         public override async Task<uint> GetInputTokenCountAsync()
         {
+            ValidateClaudeHistoryOwnership();
             ValidateClaudeRequestOptions(ClaudeOptions);
             using var attempt = new ClaudeReasoningAttempt(this);
             var requestBody = BuildTokenCountRequestBody();
@@ -29,33 +30,30 @@ namespace Mythosia.AI.Services.Anthropic
                 new { role = ActorRole.User.ToDescription(), content = prompt }
             };
 
-            var requestBody = new
+            var requestBody = new Dictionary<string, object>
             {
-                model = RequestModel,
-                messages = messagesList
+                ["model"] = RequestModel,
+                ["messages"] = messagesList
             };
+            ApplyClaudeThinking(requestBody, tokenCount: true);
 
             return await GetTokenCountFromAPI(requestBody);
         }
 
         private object BuildTokenCountRequestBody()
         {
-            // Counting an existing conversation does not generate an assistant continuation.
-            var messagesList = UsesClaudeWireHistory ? BuildPreservedClaudeMessages(validateGenerationPrefill: false) : new List<object>();
-
-            foreach (var message in UsesClaudeWireHistory ? Array.Empty<Mythosia.AI.Models.Messages.Message>() : GetLatestMessages())
-            {
-                messagesList.Add(ConvertMessageForClaude(message));
-            }
-
             var requestBody = new Dictionary<string, object>
             {
                 ["model"] = RequestModel,
-                ["messages"] = messagesList
+                // Historical tools remain part of the input even if no tools are enabled now.
+                // Counting a completed conversation also permits its final assistant turn.
+                ["messages"] = BuildClaudeFunctionMessages(validateGenerationPrefill: false)
             };
 
             ApplySystemMessage(requestBody);
-            ApplyClaudeRequestOptions(requestBody);
+            ApplyClaudeThinking(requestBody, tokenCount: true);
+            ApplyToolsConfig(requestBody);
+            ApplyNativeClaudeTools(requestBody);
 
             return requestBody;
         }

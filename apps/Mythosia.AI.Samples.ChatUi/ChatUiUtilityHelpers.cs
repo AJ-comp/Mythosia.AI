@@ -98,7 +98,10 @@ namespace Mythosia.AI.Samples.ChatUi
             }
             if (svc is AnthropicService claude)
             {
-                sb.AppendLine($"service.ThinkingBudget = {claude.ThinkingBudget};");
+                if (string.Equals(modelValue, AIModels.Anthropic.ClaudeSonnet5_5, StringComparison.OrdinalIgnoreCase))
+                    sb.AppendLine($"service.ThinkingMode = ClaudeThinkingMode.{claude.ThinkingMode};");
+                else
+                    sb.AppendLine($"service.ThinkingBudget = {claude.ThinkingBudget};");
                 sb.AppendLine($"service.AdaptiveThinkingEffort = ClaudeReasoningEffort.{claude.AdaptiveThinkingEffort};");
                 sb.AppendLine($"service.AdaptiveThinkingDisplay = ClaudeThinkingDisplay.{claude.AdaptiveThinkingDisplay};");
             }

@@ -189,6 +189,12 @@ See [AIRequestProfile](request-profiles.md) for details on overriding generation
 
 ## Automatic Injection with `SystemMessageProvider`
 
+Application calls start independent logical requests, including ordinary calls from `SystemMessageProvider` or tool callbacks and calls reusing the same `AIRequestProfile` or `Message`. Reusing an object does not reuse an execution. Framework delegation, tool rounds, retries and format repairs continue the original request, applying its profile once. A new ordinary child captures its own options and service defaults; builders keep their captured settings. Success, failure and cancellation restore the parent execution. Virtual provider adapters follow the [forwarding rules](request-building.md#provider-request-adapters): their first matching base call continues the prepared request even with replacement input; an unrelated helper at that same base entry before forwarding uses `BeginIndependentRequestScope()` around its await or full stream enumeration.
+
+Built-in providers retain an owned snapshot of built-in input content. Reusing a `Message` for another call applies that call's context and turn instructions without rewriting accepted history. Custom content and unsupported metadata objects remain owner-managed. This does not make a shared conversation safe for concurrent calls.
+
+In this section, “every request” refers to application-initiated requests. Internally generated conversation summaries also exclude the parent's `SystemMessageProvider` callback and request context, so an inherited `RequestMessageOverride` cannot replace the summary prompt. Application-initiated requests still resolve their dynamic context normally, including explicit requests to summarize text.
+
 ### The Problem It Solves
 
 A typical chat app has several LLM entry points that all need the same dynamic baseline — today's date, the active folder, session info. Without `SystemMessageProvider`, every single call site has to remember to build and pass that context:

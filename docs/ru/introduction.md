@@ -1,6 +1,10 @@
 # Введение
 
+> Claude Sonnet 5.5: Требуются Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Настройка и миграция](providers.md#claude-sonnet-55)
+
 > Grok 4.7: Требуются Mythosia.AI 8.1.0 / Abstractions 4.1.0. [выбор модели, рассуждение и скорость обработки](providers.md#grok-47)
+
+> GPT-6.1 Sol: Нужны Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Выбор модели и миграция](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Требуются Mythosia.AI 8.1.0 / Abstractions 4.1.0. [выбор модели и требования](providers.md#gpt-6-sol-luna)
 
@@ -26,8 +30,8 @@ SDK разных AI-провайдеров сильно отличаются д�
 
 | Провайдер | Модели |
 |-----------|--------|
-| **OpenAI** | GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
-| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
+| **OpenAI** | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5.5 / 5 / 4.x, Sonnet 5.5 / 5 / 4.x, Haiku 4.5 |
 | **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
 | **xAI** | Grok 4.7 / 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
 | **DeepSeek** | Flash (V4.1 Flash), V4 Pro |
@@ -47,8 +51,7 @@ Mythosia.AI.Rag                 ← RAG-пайплайн, оркестрация
     ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
     │   └── Mythosia.Documents.Abstractions
     └── Mythosia.VectorDb.InMemory
-        ├── Mythosia.VectorDb.Abstractions
-        └── Mythosia.AI.Rag.Abstractions
+        └── Mythosia.VectorDb.Abstractions
 
 Mythosia.VectorDb.*             ← Векторные хранилища (выберите одно или несколько)
     └── Mythosia.VectorDb.Abstractions

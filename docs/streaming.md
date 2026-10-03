@@ -1,5 +1,11 @@
 # Streaming
 
+The default callback-streaming adapter cancels and awaits its producer on early exit. Run cancellation, timeout, observer failure and `DisposeAsync` wait for provider cleanup before settling `Result` or releasing the active-run guard; non-cooperative work can delay completion. Observer and cleanup failures are retained together. `ContextRecoveryMaxRetries` uses the captured request value. Ending only `run.StreamAsync()` observation still does not cancel the Run. Successful SSE body acquisition has a separate [cancellation limitation](#sse-acquisition-cancellation-limitation).
+
+> Claude Sonnet 5.5: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration and migration](providers.md#claude-sonnet-55)
+
+In adaptive mode, use `ClaudeThinkingDisplay.Updates` for readable tool progress or `Summarized` for summaries. Observe `StreamingContentType.Reasoning`; ordinary completion exposes `LastThinkingContent`. The explicit adaptive helper defaults its display argument to `Summarized`, unlike untouched settings. `between_tools` returns tool progress automatically. No fixed progress interval is promised.
+
 > Grok 4.7: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection, reasoning and processing speed](providers.md#grok-47)
 
 Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Claude error responses:** Cancellation and the request policy timeout also interrupt a stalled HTTP error-body read during streaming or Run. Run cleanup can then finish, allowing another Run on the service. Caller cancellation raises `OperationCanceledException`; a policy timeout raises `AIServiceException`. Cancellation controls local transport and cooperative cleanup; it does not guarantee that provider processing or billing stops.
+
+**Claude response cleanup:** Claude streaming and Run await asynchronous cleanup of an acquired HTTP response body, including custom streams that require asynchronous disposal. A subsequent response/content disposal exception does not replace successful completion, the original read error or cancellation; disposal of the original response/content is still attempted.
+
+**HTTP timeouts:** For text, content or callback streaming and Runs using the common streaming round path, an identifiable `HttpClient.Timeout` (`TaskCanceledException` with an inner `TimeoutException`) becomes `AIServiceException` when neither caller cancellation nor the request policy timeout has fired. `InnerException` retains the original transport exception, so `run.Result` faults with the timeout cause. Caller cancellation, policy timeouts and other transport cancellations keep their existing behavior.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## Known limitation: successful SSE body acquisition
+
+On HTTP 200 SSE, a custom handler’s buffering `HttpContent` wrapper can stall `ReadAsStreamAsync` before body acquisition and cleanup. Caller cancellation and request policy timeouts may leave `run.Result` pending, the response undisposed and the service’s active-run guard held until acquisition finishes; another Run is rejected as already active. This remains unfixed and is distinct from slow cleanup. Default `SocketsHttpHandler` passed the tested scenarios; HTTP error-body cancellation also passed with the wrapper. Use ordinary streaming content without a buffering wrapper. Claude native web search has a separate [continuation limitation](providers.md#claude-native-continuation-limitation).
 
 ## Existing input-taking streaming API
 

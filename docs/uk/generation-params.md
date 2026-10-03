@@ -1,5 +1,9 @@
 # Параметри генерації
 
+> Claude Sonnet 5.5: Потрібні Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Налаштування та міграція](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Потрібні Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Вибір моделі та міграція](providers.md#gpt-61-sol)
+
 > Grok 4.7: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі, міркування та швидкість обробки](providers.md#grok-47)
 
 Для незалежних налаштувань і повторного використання варіантів застосовуйте [білдер запитів](request-building.md). Викликайте `CreateRequest(...)` перед `With...`. Властивості та fluent-методи сервісу зберігають попередню поведінку.
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // Штраф за вже згадані то
 GPT-6 Astra не підтримує `temperature` і `top_p`; Mythosia не надсилає їх, навіть якщо вони задані спільними властивостями або профілем запиту. Максимальний вивід — 128 000 токенів. Див. [налаштування GPT-6](providers.md).
 
 GPT-6 Sol/Luna передають `temperature` і `top_p` лише за `ReasoningLevel.None`; інакше обидва поля пропускаються. Astra не підтримує `None`. Див. [вибір і налаштування моделі](providers.md#gpt-6-sol-luna).
+
+Під час переходу з GPT-6 Sol замініть `None` на `Low`: GPT-6.1 Sol підтримує `Low`, `Medium` (типове значення `Auto`), `High`, `XHigh` та `Max`; `None` і `Minimal` відхиляються. `Temperature` / `TopP` не надсилаються. `AIRequestProfile.DisableReasoning` використовує `Low` у режимі Standard без підсумків міркування. Поведінка `None` у GPT-6 Sol і Luna зберігається.
 
 
 Якщо чернетка й перевірка потребують різної глибини аналізу, використовуйте [спільні параметри міркування](reasoning-and-search.md). Посібник також пояснює різницю між зміною зі збереженням кешу та звичайним параметром одного запиту.

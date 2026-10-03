@@ -39,10 +39,12 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    public async Task Completion_UsesResponsesDefaultsAndOmitsUnsupportedSamplingParameters()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task Completion_UsesResponsesDefaultsAndOmitsUnsupportedSamplingParameters(string model)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         service.MaxTokens = 200000;
         service.Temperature = 0.3f;
         service.TopP = 0.5f;
@@ -54,7 +56,7 @@ public class OpenAIGpt6RequestShapeTests
 
         using var document = ParseSingleRequest(handler);
         var root = document.RootElement;
-        AssertGpt6Request(root);
+        AssertGpt6Request(root, model);
         var reasoning = root.GetProperty("reasoning");
         Assert.AreEqual("medium", reasoning.GetProperty("effort").GetString());
         Assert.AreEqual("auto", reasoning.GetProperty("summary").GetString());
@@ -64,38 +66,47 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    [DataRow(Gpt6Reasoning.Auto, "medium")]
-    [DataRow(Gpt6Reasoning.Low, "low")]
-    [DataRow(Gpt6Reasoning.Medium, "medium")]
-    [DataRow(Gpt6Reasoning.High, "high")]
-    [DataRow(Gpt6Reasoning.XHigh, "xhigh")]
-    [DataRow(Gpt6Reasoning.Max, "max")]
-    public async Task Completion_SerializesSupportedReasoningEfforts(Gpt6Reasoning effort, string expected)
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6Reasoning.Auto, "medium")]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6Reasoning.Low, "low")]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6Reasoning.Medium, "medium")]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6Reasoning.High, "high")]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6Reasoning.XHigh, "xhigh")]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6Reasoning.Max, "max")]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6Reasoning.Auto, "medium")]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6Reasoning.Low, "low")]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6Reasoning.Medium, "medium")]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6Reasoning.High, "high")]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6Reasoning.XHigh, "xhigh")]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6Reasoning.Max, "max")]
+    public async Task Completion_SerializesSupportedReasoningEfforts(string model, Gpt6Reasoning effort, string expected)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         service.WithGpt6Parameters(reasoningEffort: effort);
 
         await service.GetCompletionAsync("reason");
 
         using var document = ParseSingleRequest(handler);
+        AssertGpt6Request(document.RootElement, model);
         Assert.AreEqual(expected, document.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
     }
 
     [TestMethod]
-    public async Task ProMode_UsesSameModelWithConfiguredSettingsAndCallerTokenBudget()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task ProMode_UsesSameModelWithConfiguredSettingsAndCallerTokenBudget(string model)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         service.MaxTokens = 128;
         ConfigurePro(service);
 
         await service.GetCompletionAsync("solve this");
 
         using var document = ParseSingleRequest(handler);
-        AssertProRequest(document.RootElement);
+        AssertProRequest(document.RootElement, model);
         Assert.AreEqual(128, document.RootElement.GetProperty("max_output_tokens").GetInt32());
-        Assert.AreEqual(AIModels.OpenAI.Gpt6Astra, service.Model);
+        Assert.AreEqual(model, service.Model);
     }
 
     [TestMethod]
@@ -114,10 +125,12 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    public async Task DisableReasoning_UsesLowForOneRequestAndRestoresProSettings()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task DisableReasoning_UsesLowForOneRequestAndRestoresProSettings(string model)
     {
         var handler = new CaptureHandler(CompletedResponse, CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         ConfigurePro(service);
 
         await service.GetCompletionAsync("fast request", new AIRequestProfile { DisableReasoning = true });
@@ -125,20 +138,24 @@ public class OpenAIGpt6RequestShapeTests
 
         Assert.AreEqual(2, handler.Requests.Count);
         using var first = JsonDocument.Parse(handler.Requests[0].Body);
-        AssertLowReasoningWithoutSummary(first.RootElement);
+        AssertLowReasoningWithoutSummary(first.RootElement, model);
         using var second = JsonDocument.Parse(handler.Requests[1].Body);
-        AssertProRequest(second.RootElement);
+        AssertProRequest(second.RootElement, model);
     }
 
     [TestMethod]
-    [DataRow(AIRequestPurpose.Summarization, 256, 4096)]
-    [DataRow(AIRequestPurpose.QueryRewrite, 128, 4096)]
-    [DataRow(AIRequestPurpose.Summarization, 8192, 8192)]
-    [DataRow(AIRequestPurpose.QueryRewrite, 200000, 128000)]
-    public async Task InternalProfiles_ReserveReasoningBudgetAndRestoreCallerSettings(AIRequestPurpose purpose, int requestedTokens, int expectedTokens)
+    [DataRow(AIModels.OpenAI.Gpt6Astra, AIRequestPurpose.Summarization, 256, 4096)]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, AIRequestPurpose.QueryRewrite, 128, 4096)]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, AIRequestPurpose.Summarization, 8192, 8192)]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, AIRequestPurpose.QueryRewrite, 200000, 128000)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, AIRequestPurpose.Summarization, 256, 4096)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, AIRequestPurpose.QueryRewrite, 128, 4096)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, AIRequestPurpose.Summarization, 8192, 8192)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, AIRequestPurpose.QueryRewrite, 200000, 128000)]
+    public async Task InternalProfiles_ReserveReasoningBudgetAndRestoreCallerSettings(string model, AIRequestPurpose purpose, int requestedTokens, int expectedTokens)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         service.MaxTokens = 16000;
         ConfigurePro(service);
         var profile = purpose == AIRequestPurpose.Summarization
@@ -149,7 +166,7 @@ public class OpenAIGpt6RequestShapeTests
         await service.GetCompletionAsync("internal request", profile);
 
         using var document = ParseSingleRequest(handler);
-        AssertLowReasoningWithoutSummary(document.RootElement);
+        AssertLowReasoningWithoutSummary(document.RootElement, model);
         Assert.AreEqual(expectedTokens, document.RootElement.GetProperty("max_output_tokens").GetInt32());
         Assert.AreEqual(16000u, service.MaxTokens);
         AssertProSettings(service);
@@ -158,10 +175,12 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    public async Task CustomProfile_PreservesExplicitTokenBudget()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task CustomProfile_PreservesExplicitTokenBudget(string model)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
 
         await service.GetCompletionAsync("bounded request", new AIRequestProfile
         {
@@ -170,8 +189,54 @@ public class OpenAIGpt6RequestShapeTests
         });
 
         using var document = ParseSingleRequest(handler);
-        AssertLowReasoningWithoutSummary(document.RootElement);
+        AssertLowReasoningWithoutSummary(document.RootElement, model);
         Assert.AreEqual(128, document.RootElement.GetProperty("max_output_tokens").GetInt32());
+    }
+
+    [TestMethod]
+    public async Task Gpt6_1Builder_CapturesReasoningAndSpeedWithoutChangingOtherModelDefaults()
+    {
+        var handler = new CaptureHandler(CompletedResponse, CompletedResponse);
+        var service = CreateService(handler, AIModels.OpenAI.Gpt6_1Sol);
+        service.WithGpt6Parameters(Gpt6Reasoning.High, Verbosity.High);
+        var captured = service.CreateRequest("captured").WithSpeed(InferenceSpeed.Fast);
+        service.ChangeModel(AIModels.OpenAI.Gpt6Sol);
+        service.WithGpt6Parameters(Gpt6Reasoning.None, Verbosity.Low);
+        service.Temperature = 0.3f;
+        service.TopP = 0.7f;
+
+        await captured.GetCompletionAsync();
+        await service.GetCompletionAsync("current");
+
+        using var first = JsonDocument.Parse(handler.Requests[0].Body);
+        AssertGpt6Request(first.RootElement, AIModels.OpenAI.Gpt6_1Sol);
+        Assert.AreEqual("high", first.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
+        Assert.AreEqual("high", first.RootElement.GetProperty("text").GetProperty("verbosity").GetString());
+        Assert.AreEqual("fast", first.RootElement.GetProperty("service_tier").GetString());
+        using var second = JsonDocument.Parse(handler.Requests[1].Body);
+        Assert.AreEqual(AIModels.OpenAI.Gpt6Sol, second.RootElement.GetProperty("model").GetString());
+        Assert.AreEqual("none", second.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
+        Assert.AreEqual(0.3f, second.RootElement.GetProperty("temperature").GetSingle());
+        Assert.AreEqual(0.7f, second.RootElement.GetProperty("top_p").GetSingle());
+        Assert.IsFalse(second.RootElement.TryGetProperty("service_tier", out _));
+        Assert.AreEqual(AIModels.OpenAI.Gpt6Sol, service.Model);
+        Assert.AreEqual(Gpt6Reasoning.None, service.Gpt6ReasoningEffort);
+        Assert.AreEqual(Verbosity.Low, service.Gpt6Verbosity);
+    }
+
+    [TestMethod]
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task InvalidNativeReasoning_FailsBeforeNetworkOrHistoryMutation(string model)
+    {
+        var handler = new CaptureHandler();
+        var service = CreateService(handler, model);
+        service.Gpt6ReasoningEffort = (Gpt6Reasoning)999;
+
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.GetCompletionAsync("invalid"));
+
+        Assert.IsEmpty(handler.Requests);
+        Assert.IsEmpty(service.ActivateChat.Messages);
     }
 
     [TestMethod]
@@ -208,10 +273,12 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    public async Task StructuredOutput_PreservesSchemaAndGpt6Verbosity()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task StructuredOutput_PreservesSchemaAndGpt6Verbosity(string model)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         service.WithGpt6Parameters(verbosity: Verbosity.High);
         service.SetStructuredOutputSchema("""
             {"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}
@@ -220,7 +287,7 @@ public class OpenAIGpt6RequestShapeTests
         await service.GetCompletionAsync("return structured output");
 
         using var document = ParseSingleRequest(handler);
-        AssertGpt6Request(document.RootElement);
+        AssertGpt6Request(document.RootElement, model);
         var text = document.RootElement.GetProperty("text");
         Assert.AreEqual("high", text.GetProperty("verbosity").GetString());
         var format = text.GetProperty("format");
@@ -231,10 +298,12 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    public async Task ImageCompletion_PreservesGpt6ModelAndSendsResponsesImageInput()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task ImageCompletion_PreservesGpt6ModelAndSendsResponsesImageInput(string model)
     {
         var handler = new CaptureHandler(CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         var imagePath = Path.Combine(Path.GetTempPath(), $"mythosia-gpt6-{Guid.NewGuid():N}.png");
         try
         {
@@ -243,8 +312,8 @@ public class OpenAIGpt6RequestShapeTests
             Assert.AreEqual("ok", await service.GetCompletionWithImageAsync("describe", imagePath));
 
             using var document = ParseSingleRequest(handler);
-            AssertGpt6Request(document.RootElement);
-            Assert.AreEqual(AIModels.OpenAI.Gpt6Astra, service.Model);
+            AssertGpt6Request(document.RootElement, model);
+            Assert.AreEqual(model, service.Model);
             var image = document.RootElement.GetProperty("input")[0].GetProperty("content")[1];
             Assert.AreEqual("input_image", image.GetProperty("type").GetString());
             StringAssert.StartsWith(image.GetProperty("image_url").GetString()!, "data:image/png;base64,");
@@ -256,7 +325,9 @@ public class OpenAIGpt6RequestShapeTests
     }
 
     [TestMethod]
-    public async Task Streaming_UsesResponsesApiAndEmitsReasoningAndText()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task Streaming_UsesResponsesApiAndEmitsReasoningAndText(string model)
     {
         const string response = """
             data: {"type":"response.reasoning_summary_text.delta","item_id":"rs_answer","output_index":0,"summary_index":0,"delta":"summary"}
@@ -267,7 +338,7 @@ public class OpenAIGpt6RequestShapeTests
 
             """;
         var handler = new CaptureHandler(response);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         var events = new List<StreamingContent>();
 
         await foreach (var item in service.StreamAsync("reason", StreamOptions.Default.WithFunctionCalls(false).WithReasoning()))
@@ -277,19 +348,21 @@ public class OpenAIGpt6RequestShapeTests
         Assert.AreEqual("summary", string.Concat(events.Where(item => item.Type == StreamingContentType.Reasoning).Select(item => item.Content)));
         Assert.AreEqual("ok", string.Concat(events.Where(item => item.Type == StreamingContentType.Text).Select(item => item.Content)));
         using var document = ParseSingleRequest(handler);
-        AssertGpt6Request(document.RootElement);
+        AssertGpt6Request(document.RootElement, model);
         Assert.IsTrue(document.RootElement.GetProperty("stream").GetBoolean());
     }
 
     [TestMethod]
-    [DataRow(false)]
-    [DataRow(true)]
-    public async Task FunctionBatch_ReplaysReasoningAndBothCallsOnceWithGpt6Settings(bool streaming)
+    [DataRow(AIModels.OpenAI.Gpt6Astra, false)]
+    [DataRow(AIModels.OpenAI.Gpt6Astra, true)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, false)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, true)]
+    public async Task FunctionBatch_ReplaysReasoningAndBothCallsOnceWithGpt6Settings(string model, bool streaming)
     {
         var handler = new CaptureHandler(
             streaming ? ToCompletedStream(ToolResponse) : ToolResponse,
             streaming ? "data: {\"type\":\"response.output_text.delta\",\"delta\":\"ok\"}\n\n" + ToCompletedStream(CompletedResponse) : CompletedResponse);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         ConfigurePro(service);
         service.ForceFunctionName = "first";
         service.SystemMessage = "Use both tools.";
@@ -333,7 +406,7 @@ public class OpenAIGpt6RequestShapeTests
         {
             Assert.AreEqual("/v1/responses", captured.Uri.AbsolutePath);
             using var document = JsonDocument.Parse(captured.Body);
-            AssertProRequest(document.RootElement);
+            AssertProRequest(document.RootElement, model);
             Assert.AreEqual("Use both tools.", document.RootElement.GetProperty("instructions").GetString());
             Assert.IsTrue(document.RootElement.GetProperty("parallel_tool_calls").GetBoolean());
             Assert.AreEqual(2, document.RootElement.GetProperty("tools").GetArrayLength());
@@ -372,9 +445,9 @@ public class OpenAIGpt6RequestShapeTests
         Assert.AreEqual(Verbosity.High, service.Gpt6Verbosity);
     }
 
-    private static void AssertProRequest(JsonElement root)
+    private static void AssertProRequest(JsonElement root, string model = AIModels.OpenAI.Gpt6Astra)
     {
-        AssertGpt6Request(root);
+        AssertGpt6Request(root, model);
         var reasoning = root.GetProperty("reasoning");
         Assert.AreEqual("max", reasoning.GetProperty("effort").GetString());
         Assert.AreEqual("detailed", reasoning.GetProperty("summary").GetString());
@@ -382,18 +455,18 @@ public class OpenAIGpt6RequestShapeTests
         Assert.AreEqual("high", root.GetProperty("text").GetProperty("verbosity").GetString());
     }
 
-    private static void AssertLowReasoningWithoutSummary(JsonElement root)
+    private static void AssertLowReasoningWithoutSummary(JsonElement root, string model = AIModels.OpenAI.Gpt6Astra)
     {
-        AssertGpt6Request(root);
+        AssertGpt6Request(root, model);
         var reasoning = root.GetProperty("reasoning");
         Assert.AreEqual("low", reasoning.GetProperty("effort").GetString());
         Assert.IsFalse(reasoning.TryGetProperty("summary", out _));
         Assert.IsFalse(reasoning.TryGetProperty("mode", out _));
     }
 
-    private static void AssertGpt6Request(JsonElement root)
+    private static void AssertGpt6Request(JsonElement root, string model = AIModels.OpenAI.Gpt6Astra)
     {
-        Assert.AreEqual("gpt-6-astra", root.GetProperty("model").GetString());
+        Assert.AreEqual(model, root.GetProperty("model").GetString());
         Assert.AreEqual("current_turn", root.GetProperty("reasoning").GetProperty("context").GetString());
         foreach (var unsupported in new[]
         {
@@ -409,10 +482,10 @@ public class OpenAIGpt6RequestShapeTests
         return $"data: {{\"type\":\"response.completed\",\"response\":{JsonSerializer.Serialize(document.RootElement)}}}\n\n";
     }
 
-    private static ProbeService CreateService(CaptureHandler handler)
+    private static ProbeService CreateService(CaptureHandler handler, string model = AIModels.OpenAI.Gpt6Astra)
     {
         var service = new ProbeService(new HttpClient(handler));
-        service.ChangeModel(AIModels.OpenAI.Gpt6Astra);
+        service.ChangeModel(model);
         return service;
     }
 

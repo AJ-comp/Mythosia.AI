@@ -51,17 +51,17 @@ namespace Mythosia.AI.Services.Base
             using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             var requestMessage = new Message(ActorRole.User, prompt);
             using var requestScope = BeginRequestSettingsScope();
-            using var settingsScope = UseRequestSettings(_requestExecution.Value!.Settings);
             var schemaJson = JsonSchemaGenerator.Generate(typeof(T));
-            SetExecutionSetting(nameof(_structuredOutputSchemaJson), schemaJson);
             var policy = _currentStructuredOutputPolicy;
             _currentStructuredOutputPolicy = null;
+            using var featureScope = BeginRequestPreparation(requestMessage, entry: RequestEntry.StructuredOutput,
+                configure: () => SetExecutionSetting(nameof(_structuredOutputSchemaJson), schemaJson));
+            requestMessage = ResolveRequestMessage(requestMessage);
             var effectiveRetries = policy?.MaxRepairAttempts ?? RequestSetting(nameof(StructuredOutputMaxRetries), StructuredOutputMaxRetries);
             string? firstRawResponse = null;
             string? lastRawResponse = null;
             string? lastParseError = null;
 
-            using var featureScope = BeginRequestFeaturesScope(requestMessage);
             // Capture one-call options even when the retry budget is rejected, so they
             // cannot leak into a later request. No provider execution has started yet.
             var maxAttempts = ResolveStructuredOutputAttemptLimit(effectiveRetries);
@@ -72,12 +72,14 @@ namespace Mythosia.AI.Services.Base
 
                 if (attempt == 0)
                 {
-                    await ApplySummaryPolicyIfNeededAsync();
+                    _requestFeatureExecution.Value!.Operation!.SummaryBeforeSend = true;
+                    using var continuation = ContinueRequest(requestMessage, RequestEntry.MessageCompletion, allowInputReplacement: true);
                     rawResult = await GetCompletionAsync(requestMessage, profile: null, context: null);
                 }
                 else
                 {
                     var correctionPrompt = BuildCorrectionPrompt(lastRawResponse!, lastParseError!);
+                    using var continuation = ContinueRequest(null, RequestEntry.StringCompletion, allowInputReplacement: true);
                     rawResult = await GetCompletionAsync(correctionPrompt);
                 }
 

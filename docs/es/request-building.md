@@ -1,5 +1,9 @@
 # Mantener independientes los ajustes de cada solicitud
 
+> Claude Sonnet 5.5: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuración y migración](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selección y migración](providers.md#gpt-61-sol)
+
 > Grok 4.7: Requiere Mythosia.AI 8.1.0 / Abstractions 4.1.0. [selección del modelo, razonamiento y velocidad](providers.md#grok-47)
 
 Un resumen puede necesitar una temperatura baja y un borrador creativo una más alta. Preparar el borrador no debe cambiar un resumen ya preparado. Use `CreateRequest` para configurar cada llamada o crear variantes a partir de una solicitud base.
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude resuelve conjuntamente el modelo, el propósito de la solicitud, el razonamiento y la vinculación de thinking. Para un perfil auxiliar como `RequestProfiles.Summarization` o `RequestProfiles.QueryRewrite`, la vinculación heredada solo se omite cuando `DisableReasoning = true`, el propósito no es `Default` y la solicitud efectiva no conserva estado. Así, la política heredada no reactiva el razonamiento ni rechaza una solicitud sin prefijo de conversación que preservar. Los modelos que permiten desactivar thinking lo desactivan; Opus 5.5, Fable 5.1 y Mythos 5.1, con razonamiento obligatorio, usan `Low` y omiten thinking legible. Sonnet 5.5 usa `between_tools` con esfuerzo alto.
+
+Completion, streaming, salida estructurada y Run comparten la preparación de solicitudes: capturan los ajustes, aplican una vez el procesamiento real del perfil y validan las opciones comunes y nativas resultantes. Esto ocurre antes del resumen automático, de añadir la entrada al historial o de abrir el transporte. Las personalizaciones del perfil de un proveedor participan en la configuración que realmente se valida. Claude también rechaza en esta fase un `ThinkingBudget` manual utilizado que alcance o supere el límite de salida del modelo; los perfiles válidos y los ajustes comunes de razonamiento conservan su prioridad.
+
+Las llamadas de la aplicación inician solicitudes lógicas independientes, incluidas las llamadas ordinarias desde `SystemMessageProvider` o callbacks de herramientas y las que reutilizan el mismo `AIRequestProfile` o `Message`. Reutilizar un objeto no comparte la ejecución. La delegación del framework, las rondas de herramientas, los reintentos y las correcciones de formato continúan la solicitud original, cuyo perfil se aplica una vez. Una solicitud hija ordinaria captura sus propias opciones y valores predeterminados del servicio; los constructores conservan sus ajustes capturados. El estado de la solicitud principal se restaura tras éxito, fallo o cancelación. Las sobrescrituras de proveedores que reenvían una llamada del framework siguen las [reglas de adaptadores descritas más abajo](#provider-request-adapters).
+
+Los proveedores integrados conservan una copia propia del contenido de entrada integrado. Reutilizar un `Message` aplica el contexto y las instrucciones de la nueva llamada sin reescribir el historial aceptado. El propietario sigue gestionando el contenido personalizado y los objetos de metadatos no compatibles. Esto no garantiza llamadas simultáneas seguras a la misma conversación.
+
+Tras el retorno de `StartRunAsync`, el Run conserva su propia copia de los ajustes efectivos. Restaurar el perfil del llamador no cambia el Run activo, y los hooks de ejecución del perfil siguen ejecutándose una sola vez.
+
+Las solicitudes auxiliares sin estado usan su propia conversación y no heredan el esquema de salida, las herramientas alojadas ni las opciones de un solo uso de la solicitud principal. El aislamiento nunca omite la validación nativa, tampoco en Runs de OpenAI o Perplexity. Se conservan los ajustes, mensajes, `CurrentSummary` y observaciones de la solicitud principal. Las solicitudes con estado mantienen las comprobaciones de vinculación y conversación. Las API públicas existentes no cambian.
+
+Los resúmenes de conversación generados internamente también excluyen el callback `SystemMessageProvider` y el contexto de la solicitud principal, para que un `RequestMessageOverride` heredado no sustituya el prompt de resumen. Las solicitudes iniciadas por la aplicación siguen resolviendo su contexto dinámico normalmente, incluidas las peticiones explícitas de resumir texto.
+
+Las solicitudes sin estado también omiten el resumen automático de la conversación principal, incluida la sobrecarga existente `GetCompletionAsync(string, profile)`, igual que la sobrecarga `Message` y el constructor de solicitudes. `CurrentSummary` y los mensajes de la conversación principal no cambian. Las solicitudes con estado mantienen el resumen automático habitual.
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## Reenviar solicitudes en un proveedor personalizado
+
+Cuando el framework invoca un adaptador virtual de un proveedor, su primera llamada al punto de entrada correspondiente de la clase base continúa la solicitud preparada, aunque la sobrescritura sustituya el `Message` de entrada. Las opciones capturadas por el constructor y los perfiles aplicados se conservan al reenviar la solicitud. El adaptador predeterminado de streaming con callback también continúa la misma solicitud preparada.
+
+Un adaptador puede reenviar otro `AIRequestProfile`: los valores iguales no se aplican dos veces; los cambios sustituyen la capa anterior sobre los ajustes capturados. Se valida de nuevo antes del resumen automático y del envío, también al pasar a ejecución sin estado. Las solicitudes auxiliares OpenAI sin estado omiten el historial ajeno sin borrar la protección de la conversación principal.
+
+Al sustituir un perfil reenviado se conservan las adiciones, eliminaciones y ediciones posteriores de herramientas, los cambios de política y las asignaciones explícitas locales de la solicitud, incluso al asignar el mismo valor escalar. Cambiar otro campo del perfil no restaura una herramienta eliminada por el adaptador. No se vuelven a capturar los valores predeterminados del servicio.
+
+Para objetos de configuración personalizados opacos, los adaptadores deben sustituir el valor mediante `SetExecutionSetting` en vez de modificar campos internos. La biblioteca no inspecciona objetos arbitrarios de la aplicación ni invoca sus serializadores para seguir cambios de perfil.
+
+La compresión Claude conserva las dependencias llamada/resultado en `RequestMessageOverride` y `AdditionalMessages`, incluidas las herramientas del servidor, y el prefijo thinking vinculado de Mythos 5.1. Los registros antiguos de herramientas paralelas se agrupan una sola vez en el historial y en los mensajes adicionales, conservando la pertenencia de cada registro.
+
+Una llamada auxiliar independiente a ese mismo punto de entrada de la clase base antes del reenvío resulta ambigua: el framework no puede determinar si se trata de la continuación. Envuelva esa llamada auxiliar y su `await` en el método protegido `BeginIndependentRequestScope()`; en streaming, mantenga abierto el ámbito durante toda la enumeración. La llamada auxiliar parte de los valores predeterminados del servicio, y al liberar el ámbito se restauran los ajustes, las funciones, el contexto y la delegación pendiente de la solicitud externa. Las llamadas anidadas ordinarias desde callbacks de contexto o de herramientas ya son independientes y no necesitan este ámbito.
+
+Por ejemplo, una subclase de un proveedor concreto puede reformular el texto antes de reenviarlo:
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+Este ámbito separa el estado de ejecución de las solicitudes; no aísla el historial de conversación ni permite usar el servicio de forma simultánea. El ejemplo usa el perfil sin estado `QueryRewrite` para mantener la llamada auxiliar fuera de la conversación principal.
+
+La compactación de Claude comprueba el historial canónico conservado en el formato de transmisión, incluido el thinking firmado introducido mediante `AIRequestContext.AdditionalMessages`. La vinculación de thinking predeterminada protege ese prefijo frente a la compactación por resumen automática o explícita. Establecer explícitamente `ClaudeThinkingPrefixMismatchBehavior.DropBlock` permite la compactación donde sea compatible; las demás restricciones de la conversación siguen vigentes.
 
 ## Qué se copia y qué sigue compartido
 
@@ -177,7 +238,7 @@ La lista Fast implementada aparece abajo. Compruebe Standard por separado con `G
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

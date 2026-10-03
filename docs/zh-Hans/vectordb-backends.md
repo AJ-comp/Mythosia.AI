@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,24 @@ var store = new InMemoryVectorStore();
 
 取消批量写入后，已经写入的记录可能保留。`ReplaceByFilterAsync` 仍按顺序执行删除和批量插入，不使用事务：其他查询可能看到中间的空缺，失败或取消也不会回滚已完成的写入。
 
+<a id="vector-store-diagnostics"></a>
+
 ### 诊断
+
+`IVectorStoreDiagnostics` 是 `Mythosia.VectorDb.Abstractions` 4.2.0 中的可选契约。InMemory 直接实现它，`IVectorStore` 不增加必需成员。`ListAllRecordsAsync` 列出全部记录，`ScoredListAsync` 按降序返回全部相似度分数，不受 TopK 限制。两者都检查整个存储，不接受元数据过滤器，也不应用 RAG 管线的 `StoreFilter`。`GetTotalRecordCount()` 仍是契约之外的 InMemory 便捷方法。RAG 专用的分块分析、健康检查和报告仍由 `Mythosia.AI.Rag` 中的 `RagDiagnostics` 和 `RagDiagnosticSession` 提供。
+
+**升级到 InMemory 5.0.0：**请配合 RAG 9.0.0 使用；不支持新 InMemory 与旧 RAG 包的组合。InMemory 不再实现 `IRagDiagnosticsStore`：请将赋值、类型转换和能力检查迁移到 `IVectorStoreDiagnostics`，并重新构建受影响的调用方。RAG Abstractions 6.5.0 为旧的自定义实现保留了已弃用的接口、原有的两个方法声明和默认桥接。该桥接不会恢复 InMemory 与旧接口的关系，也不保证所有旧二进制文件都兼容。
+
+对于实现 `IRagDiagnosticsStore` 的自定义存储，RAG 通过内部适配器调用原接口方法。因此，即使存在签名相同的 public 辅助方法，也会继续使用显式接口实现。直接转换为 `IVectorStoreDiagnostics` 后调用方法时，则可能改为调用这些 public 方法。
 
 ```csharp
 // 列出所有存储的记录
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"总计：{store.GetTotalRecordCount()}");
 
 // 查看原始相似度分数
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

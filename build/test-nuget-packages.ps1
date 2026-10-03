@@ -394,6 +394,8 @@ namespace PackageSmoke
 
     $coreProgram = @'
 using Mythosia.AI.Builders;
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Capabilities;
 using Mythosia.AI.Models.Functions;
 using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Services.Base;
@@ -424,6 +426,23 @@ if (ReferenceEquals(summary, creative) || ReferenceEquals(summary, basis))
     throw new InvalidOperationException("Request configuration branches must be independent.");
 if (summary.GetCapabilities().Provider != "OpenAI")
     throw new InvalidOperationException("The packaged request capability API did not resolve the provider.");
+var sol61 = new OpenAIService("package-smoke-no-key", AIModels.OpenAI.Gpt6_1Sol, http);
+var sol61Request = sol61.CreateRequest("package smoke").WithReasoning(ReasoningLevel.Low).WithSpeed(InferenceSpeed.Fast);
+var sol61Capabilities = sol61Request.GetCapabilities();
+if (sol61Capabilities.Model != "gpt-6.1-sol" ||
+    sol61Capabilities.Steering != CapabilitySupport.Supported ||
+    sol61Capabilities.AsyncFunctionCalling != CapabilitySupport.Supported ||
+    sol61Capabilities.FastSpeed != CapabilitySupport.Supported ||
+    sol61Capabilities.MaxOutputTokens != 128000 ||
+    sol61Capabilities.GetReasoningSupport(ReasoningLevel.None) != CapabilitySupport.Unsupported ||
+    sol61Capabilities.GetReasoningSupport(ReasoningLevel.Minimal) != CapabilitySupport.Unsupported ||
+    sol61Capabilities.GetReasoningSupport(ReasoningLevel.Max) != CapabilitySupport.Supported)
+    throw new InvalidOperationException("The packaged GPT-6.1 Sol contract is incomplete.");
+sol61.Gpt6ReasoningMode = Gpt6ReasoningMode.Pro;
+var proCapabilities = sol61.CreateRequest("package smoke").GetCapabilities();
+if (proCapabilities.Steering != CapabilitySupport.Unsupported ||
+    proCapabilities.AsyncFunctionCalling != CapabilitySupport.Supported)
+    throw new InvalidOperationException("GPT-6.1 Sol Pro must disable steering while retaining async tools.");
 using var cancellation = new CancellationTokenSource();
 cancellation.Cancel();
 try
@@ -536,10 +555,68 @@ namespace PackageSmoke
         -TargetFramework "netstandard2.1" `
         -BuildOnly
 
+    $inMemoryProgram = @'
+using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
+
+using var store = new InMemoryVectorStore();
+IVectorStoreDiagnostics diagnostics = store;
+await store.UpsertBatchAsync(new[] {
+    new VectorRecord("first", new[] { 1f, 0f }, "first document"),
+    new VectorRecord("second", new[] { 0f, 1f }, "second document")
+});
+var records = await diagnostics.ListAllRecordsAsync();
+var scored = await diagnostics.ScoredListAsync(new[] { 1f, 0f });
+if (records.Count != 2 || scored.Count != 2 || scored[0].Record.Id != "first" || scored[0].Score != 1)
+    throw new InvalidOperationException("Standalone vector diagnostics lost records or all-record scoring.");
+if (typeof(IVectorStoreDiagnostics).Assembly.GetName().Name != "Mythosia.VectorDb.Abstractions" ||
+    typeof(InMemoryVectorStore).Assembly.GetReferencedAssemblies().Any(reference => reference.Name!.StartsWith("Mythosia.AI")))
+    throw new InvalidOperationException("Standalone InMemory diagnostics still depend on an AI or RAG assembly.");
+Console.WriteLine("Standalone InMemory diagnostics and dependency isolation passed.");
+'@
+    Invoke-PackageConsumer `
+        -Name "InMemoryConsumer" `
+        -PackageId "Mythosia.VectorDb.InMemory" `
+        -Version $versions["Mythosia.VectorDb.InMemory"] `
+        -Program $inMemoryProgram `
+        -ExpectedLibraries @(
+            "Mythosia.VectorDb.InMemory/$($versions['Mythosia.VectorDb.InMemory'])",
+            "Mythosia.VectorDb.Abstractions/$($versions['Mythosia.VectorDb.Abstractions'])") `
+        -UnexpectedLibraries @("Mythosia.AI*")
+
+    $inMemoryNetStandardProgram = @'
+using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+
+public static class InMemoryDiagnosticsProbe
+{
+    public static IVectorStoreDiagnostics Capability(InMemoryVectorStore store) => store;
+    public static Task<IReadOnlyList<VectorRecord>> List(IVectorStoreDiagnostics store, CancellationToken token)
+        => store.ListAllRecordsAsync(token);
+    public static Task<IReadOnlyList<VectorSearchResult>> Score(IVectorStoreDiagnostics store, float[] vector, CancellationToken token)
+        => store.ScoredListAsync(vector, token);
+}
+'@
+    Invoke-PackageConsumer `
+        -Name "InMemoryNetStandardConsumer" `
+        -PackageId "Mythosia.VectorDb.InMemory" `
+        -Version $versions["Mythosia.VectorDb.InMemory"] `
+        -Program $inMemoryNetStandardProgram `
+        -ExpectedLibraries @(
+            "Mythosia.VectorDb.InMemory/$($versions['Mythosia.VectorDb.InMemory'])",
+            "Mythosia.VectorDb.Abstractions/$($versions['Mythosia.VectorDb.Abstractions'])") `
+        -UnexpectedLibraries @("Mythosia.AI*") `
+        -TargetFramework "netstandard2.1" `
+        -BuildOnly
+
     $ragProgram = @'
 using Mythosia.AI.Models;
 using Mythosia.AI.Models.Runs;
 using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Diagnostics;
 using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 using System.Net;
@@ -554,6 +631,11 @@ var store = await RagStore.BuildAsync(builder => builder
 var result = await store.QueryAsync("PACKAGE_SMOKE_SHIPPING");
 if (!result.HasReferences || !result.RequestMessageContent.Contains("PACKAGE_SMOKE_SHIPPING takes three days."))
     throw new InvalidOperationException("The packaged RAG pipeline did not retrieve its local document.");
+var diagnostics = new RagDiagnostics(store);
+if ((await diagnostics.FindChunksContainingAsync("PACKAGE_SMOKE_SHIPPING")).Count != 1 ||
+    (await diagnostics.DiagnoseQueryAsync("PACKAGE_SMOKE_SHIPPING")).TotalChunks != 1 ||
+    (await store.Diagnose().HealthCheckAsync()).TotalChunks != 1)
+    throw new InvalidOperationException("The packaged RAG diagnostics did not recognize the standalone vector diagnostics capability.");
 
 if (!store.UseKeywordSearch())
     throw new InvalidOperationException("The packaged RAG pipeline did not accept keyword retrieval.");
@@ -755,6 +837,8 @@ namespace PackageSmoke
         public static ITextSearchStore CompileTextStore(InMemoryVectorStore store) => store;
 
         public static IConfigurableHybridSearchStore CompileHybridStore(InMemoryVectorStore store) => store;
+
+        public static IVectorStoreDiagnostics CompileDiagnosticsStore(InMemoryVectorStore store) => store;
 
         public static Task<IReadOnlyList<float[]>> CompileDocumentEmbedding(IRetrievalEmbeddingProvider provider)
             => provider.GetDocumentEmbeddingsAsync(new EmbeddingDocument("document", new[] { "first", "second" }, "Title"));
@@ -1069,4 +1153,6 @@ foreach ($id in $plannedVersions.Keys) {
         throw "The release plan or consumer-only package $id $($versions[$id]) was not exercised by an isolated consumer."
     }
 }
+& pwsh -NoProfile -File (Join-Path $PSScriptRoot 'test-vector-diagnostics-compatibility.ps1') -ArtifactsDirectory $artifactsDir
+if ($LASTEXITCODE -ne 0) { throw 'Precompiled legacy vector diagnostics compatibility validation failed.' }
 Write-Host "All isolated package consumer smoke tests passed."

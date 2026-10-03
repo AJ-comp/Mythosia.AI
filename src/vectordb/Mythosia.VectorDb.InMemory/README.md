@@ -1,6 +1,6 @@
 # Mythosia.VectorDb.InMemory
 
-> **v4.2.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v420) for compatibility and fixes.
+> **v5.0.0:** Implements `IVectorStoreDiagnostics` from `Mythosia.VectorDb.Abstractions` 4.2.0 and removes the RAG abstractions dependency. This is a breaking interface change: upgrade RAG together and migrate `IRagDiagnosticsStore` casts. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500).
 
 ## Package Summary
 
@@ -29,7 +29,28 @@ Automatically used as the default vector store in `Mythosia.AI.Rag`:
 - **Minimum score** — Discard results below a similarity threshold
 - **Upsert** — Single and batch upsert operations
 - **CountAsync** — Count records, optionally narrowed by filter criteria
-- **Diagnostics** — `IRagDiagnosticsStore`: `ListAllRecordsAsync`, `ScoredListAsync`, `GetTotalRecordCount`
+- **Store diagnostics** — Optional `IVectorStoreDiagnostics`: `ListAllRecordsAsync`, `ScoredListAsync`; `GetTotalRecordCount()` remains a concrete convenience method
+
+## Diagnostics and migration from 4.x
+
+InMemory depends on `Mythosia.VectorDb.Abstractions` and has no `Mythosia.AI.Rag.Abstractions` package reference. Use it independently for store-wide record inspection and raw cosine scores:
+
+```csharp
+using Mythosia.VectorDb;
+using Mythosia.VectorDb.InMemory;
+
+IVectorStoreDiagnostics diagnostics = new InMemoryVectorStore();
+var records = await diagnostics.ListAllRecordsAsync(cancellationToken);
+var scores = await diagnostics.ScoredListAsync(queryVector, cancellationToken);
+```
+
+These methods inspect all records and accept no metadata filter. They do not apply a RAG pipeline's `StoreFilter`. RAG-specific analysis, including chunk previews, missing-result explanations, health checks and reports, remains in `Mythosia.AI.Rag` 9.0.0.
+
+`InMemoryVectorStore` no longer implements `IRagDiagnosticsStore`. Replace assignments, casts and capability checks against that old interface with `IVectorStoreDiagnostics` and import `Mythosia.VectorDb`. This affects already compiled callers that use the old interface as well as source callers; the legacy shim does not restore that relationship. Upgrade `Mythosia.AI.Rag` to 9.0.0 together with InMemory 5.0.0. Pairing older RAG packages with the new InMemory package is unsupported.
+
+Custom stores that still implement the obsolete `IRagDiagnosticsStore` use the compatibility contract in RAG Abstractions 6.5.0 and the legacy adapter in RAG 9.0.0; see the [migration notes](../../rag/Mythosia.AI.Rag.Abstractions/README.md#diagnostics-compatibility).
+
+If your application previously obtained RAG types through InMemory's transitive dependency, add an explicit reference to the appropriate RAG package and rebuild. Standalone vector-store consumers need no RAG reference. This interface migration does not change stored records or require reindexing.
 
 ## Standalone Usage
 

@@ -53,12 +53,14 @@ public sealed class RagToolContinuationTests
         AssertConversationRequests(handler.Requests, hasReferences, inputKind == "media", hasPrevious: true);
         Assert.AreSame(previous, service.ActivateChat.Messages[0]);
         var storedInput = service.ActivateChat.Messages[2];
-        if (inputKind != "string") Assert.AreSame(input, storedInput);
+        if (inputKind != "string") Assert.AreNotSame(input, storedInput);
         Assert.AreEqual(Question, storedInput.Content);
         Assert.IsFalse(service.ActivateChat.Messages.Any(message => message.Content?.Contains(DocumentText, StringComparison.Ordinal) == true),
             "Retrieval augmentation must remain request-only and not overwrite the original history.");
         AssertHistoryToolResults(service);
         AssertOriginalInput(input, inputKind == "media");
+        input.Content = "caller changed input after completion";
+        Assert.AreEqual(Question, storedInput.Content, "Caller input must not alias accepted conversation history.");
     }
 
     [TestMethod]

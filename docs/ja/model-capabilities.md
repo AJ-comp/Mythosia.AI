@@ -1,6 +1,12 @@
 # 選択したモデルに合う機能を表示する
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
+`ThinkingToggle` は事前推論の切り替えです。`None` でも thinking ブロックが皆無とは限りません。`MaxOutputTokens` は 128000。`FastSpeed`、`AsyncFunctionCalling`、`Steering` は非対応です。
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
 

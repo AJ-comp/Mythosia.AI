@@ -1,5 +1,7 @@
 # Claude Fable 5.1 の長い作業を観察する
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
 [Claude Opus 5.5](providers.md#claude-opus-55) は Mythosia.AI 8.1.0 / Abstractions 4.1.0 で利用できます。推論は常時有効、既定の effort は medium、表示は省略です。読める進行状況は明示的に指定します。既定値とモデル binding は Fable 5.1 と異なります。
 
 > Fable 5.1 の設定には `Mythosia.AI` 8.0.0 と `Mythosia.AI.Abstractions` 4.0.0 以降が必要です。既存の Run・推論/検索・GPT-6 Astra API の最小バージョンは 7.1.0 / 3.1.0 のままです。
@@ -68,6 +70,10 @@ await service
 ```
 
 両メソッドは次の論理リクエストに指示を取り込みます。Mythosia は先行メッセージを保ち、ユーザー入力またはツール結果の後にシステムメッセージを追加します。`WithTurnInstruction` は `clear_at: "next_user_message"` を使用します。同じ論理リクエストの中ではツール結果のターンごとに指示を追加し直すため、そのリクエストが終わるまで有効です。`WithConversationInstruction` は後のターンにも適用されます。どちらも作業開始前に設定し、実行中の応答に介入する `run.SteerAsync` とは異なります。
+
+ローカル会話圧縮が許可される場合、適用済みの `WithConversationInstruction` は生成された要約とは別に、元の順序とシステム権限を保って保持されます。応答言語など継続的な要件が要約で失われるのを防ぎます。`WithTurnInstruction` はそのターンだけに適用されます。圧縮の失敗・キャンセルでは既存の指示と履歴を維持し、会話をクリアすると保持した指示も終了します。
+
+永続指示がある場合、履歴全体を消す圧縮でも `KeepRecentCount = 0` にかかわらず最後のユーザーターンと必要なツール依存関係を残します。これにより圧縮と明示的な会話クリアを区別します。
 
 リクエスト間で再利用可能なキャッシュ接頭部を保ちながら effort を変える場合は、`Mythosia.AI.Extensions` の `.WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)` を使います。ライブラリはメッセージ単位の effort 更新を送り履歴に保持します。対応する組み合わせは[共通ガイド](reasoning-and-search.md)に記載しています。5.1 では `AIRequestContext` のリクエスト単位のシステム接頭辞・接尾辞を、過去のシステムプロンプトを書き換える代わりに末尾のターン指示へ変換します。
 

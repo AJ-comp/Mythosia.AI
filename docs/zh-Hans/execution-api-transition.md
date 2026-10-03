@@ -1,5 +1,9 @@
 # 使用 Run 控制正在执行的 AI 任务
 
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[配置与迁移](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型选择与迁移](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择与版本要求](providers.md#gpt-6-sol-luna)
 
 只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](completions.md#completion-cancellation)。
@@ -199,11 +203,19 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-GPT-6 Astra / Sol / Luna 通过 Responses WebSocket 连接支持轮次中的追加指令。其他提供商及不支持的模型仍可使用普通 Run，但 `CanSteer` 为 `false`，追加指令会明确报告不支持，而不会默默创建普通的下一轮。`CanSteer` 不保证稍后调用时 Run 仍处于活动状态。
+GPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Luna 通过 Responses WebSocket 连接支持轮次中的追加指令。其他提供商及不支持的模型仍可使用普通 Run，但 `CanSteer` 为 `false`，追加指令会明确报告不支持，而不会默默创建普通的下一轮。`CanSteer` 不保证稍后调用时 Run 仍处于活动状态。
 
-GPT-6 的 Run 会建立专用 socket。传入的 `HttpClient` 及其消息处理器继续服务于 HTTP 调用，不会拦截此 socket。自定义传输可以重写 `OpenAIService.ConnectRunWebSocketAsync`。
+GPT-6.1 Sol 的追加指令仅支持 Standard 模式。Pro 仍支持普通 Run、函数调用和原生异步工具，但报告 `Steering = Unsupported`、`run.CanSteer = false`。在该 Pro Run 上调用 `SteerAsync` 会在本地被拒绝，不会取消或中止其正常执行。
+
+GPT-6 系列 Run 按照与 HTTP 请求相同的 URI 解析规则，基于配置的 `HttpClient.BaseAddress` 解析 `responses`，然后将 `https` 转为 `wss`、`http` 转为 `ws`，保留解析后的主机、端口和路径。末尾斜杠会影响结果：`https://example.com/proxy/v1/` 得到 `wss://example.com/proxy/v1/responses`，而 `https://example.com/proxy/v1` 得到 `wss://example.com/proxy/responses`。缺少基地址或使用 HTTP(S) 以外的协议时，会在连接前拒绝，不会回退到默认 OpenAI 端点。Run 使用独立的 `ClientWebSocket`，因此传入的 `HttpClient` 消息处理器不会拦截该 socket。自定义传输仍可重写 `OpenAIService.ConnectRunWebSocketAsync`。
+
+在等待发送顺序期间取消仅用于 `SteerAsync` 的令牌，只会取消该调用，不会停止 Run，包括排在其他发送操作之后等待的情况。开始向传输层提交后，取消或发送失败可能中止 Run，因为无法确定输入是否已送达。发送完成后，在等待确认期间取消只会停止等待，不会撤回已提交的输入；请继续观察同一个 Run。取消传给 `StartRunAsync` 的令牌或调用 `run.Cancel()` 仍会取消整个 Run。
 
 `SteerAsync` 成功表示服务器已将输入接受到队列中，不表示模型已经应用该指令。继续通过同一个 Run 观察后续执行或等待结果。已经发送的文本和已完成的操作不会撤销，也不会仅因提交了追加指令而取消已启动的工具。库在同一连接上处理继续执行和工具结果关联。参见 OpenAI 的[轮次中追加指令指南](https://developers.openai.com/api/docs/guides/steering)和 [WebSocket 模式](https://developers.openai.com/api/docs/guides/websocket-mode)。队列中的输入属于当前连接，不应假设断开后仍会保留；不要盲目重发已被接受的指令。
+
+在 OpenAI 原生 Run 中，即使输出处理落后于已接收的事件，已接受的追加指令也会记录在对话历史中对应的后续响应之前。发生不可恢复的传输故障时，会取消配合取消机制的本地工具，并在清理完成后由 `run.Result` 报告原始故障。清理仍会等待忽略取消的工具结束。
+
+在对端发送 WebSocket Close 帧的正常关闭过程中，即使 Close 帧在对应的首次请求或工具结果发送完成之前到达，已完整接收的最终响应也会保留。不会重新发送；调用方的取消仍然有效，没有确认最终响应的发送失败也不会被隐藏。如果本地工具仍在运行时连接随后关闭，已接收的 API 终止错误仍保留原始原因。
 
 ## 使用工具的任务与旧 Agent 方法
 

@@ -145,10 +145,18 @@ public class CapabilityReauditPrimaryProvidersTests
         var captured = request.GetCapabilities();
         service.ThinkingPrefixMismatchBehavior = null;
         await request.GetCompletionAsync();
-        Assert.AreEqual("adaptive", handler.Body!["thinking"]!["type"]!.GetValue<string>());
-        Assert.IsFalse(handler.Body.ContainsKey("temperature"), "Binding controls activate adaptive thinking even without a legacy thinking budget.");
+        if (profiled)
+        {
+            Assert.IsNull(handler.Body!["thinking"], "An isolated reasoning-disabled helper must not inherit thinking binding controls.");
+            Assert.IsTrue(handler.Body.ContainsKey("temperature"));
+        }
+        else
+        {
+            Assert.AreEqual("adaptive", handler.Body!["thinking"]!["type"]!.GetValue<string>());
+            Assert.IsFalse(handler.Body.ContainsKey("temperature"), "Binding controls activate adaptive thinking even without a legacy thinking budget.");
+        }
         Assert.AreEqual(CapabilitySupport.Unsupported, direct.Temperature);
-        Assert.AreEqual(CapabilitySupport.Unsupported, captured.Temperature);
+        Assert.AreEqual(profiled ? CapabilitySupport.Supported : CapabilitySupport.Unsupported, captured.Temperature);
         Assert.AreEqual(CapabilitySupport.Supported, service.GetCapabilities().Temperature);
     }
 

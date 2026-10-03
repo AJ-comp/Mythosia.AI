@@ -1,5 +1,18 @@
 # Mythosia.AI.Abstractions - Release Notes
 
+## v4.2.0
+
+### Added
+
+- `AIModels.Anthropic.ClaudeSonnet5_5` identifies `claude-sonnet-5-5`. The additive `ClaudeThinkingMode` enum exposes `Auto`, `Adaptive` and `BetweenTools`; existing reasoning/display, request-feature, capability and Run contracts are reused. Mythosia.AI 8.2.0 supplies model validation, explicit up-front thinking controls and signed-history preservation. See [Sonnet 5.5 configuration and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-sonnet-55).
+- `AIModels.OpenAI.Gpt6_1Sol` identifies the published `gpt-6.1-sol` model. Existing `Gpt6Reasoning`, Run, request-feature, speed and capability contracts are reused. Mythosia.AI 8.2.0 supplies provider validation and execution.
+
+### Compatibility
+
+- Sonnet 5.5 defaults to adaptive/high. Common None maps to high-effort `between_tools`; it suppresses up-front thinking while retaining possible tool progress. Minimal is unsupported, and native `BetweenTools` accepts only Auto/Low/Medium/High. These are model-specific semantics; existing model identifiers and enum numeric values remain unchanged.
+- Existing required interface members, constructors, enum values, model identifiers and service defaults remain unchanged.
+- GPT-6.1 Sol requires Low, Medium, High, XHigh or Max reasoning; Auto selects Medium. None and Minimal are unsupported for this model. GPT-6 Sol and Luna retain their existing None behavior. See [model selection and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-61-sol).
+
 ## v4.1.0
 
 > This additive contracts release pairs with Mythosia.AI 8.1.0. Existing required interface members, constructors and enum numeric values remain unchanged.

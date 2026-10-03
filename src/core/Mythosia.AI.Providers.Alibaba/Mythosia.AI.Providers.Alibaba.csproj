@@ -11,7 +11,7 @@
     <Company>Mythosia</Company>
     <Authors>JJW</Authors>
     <PackageTags>AI;LLM;Alibaba;Qwen;DashScope;vLLM;Ollama;Reasoning;Streaming;FunctionCalling;Run;RequestBuilder;Capabilities;Cancellation</PackageTags>
-    <Description>Call Qwen chat endpoints on DashScope, vLLM or Ollama while using the shared Mythosia.AI conversation and tool APIs. QwenService supports provider-specific thinking controls, custom deployment names, streaming usage, immutable request configuration, cancellable local tools, controllable runs and local model-capability inspection. Requires Mythosia.AI 8.1.0. Native steering, hosted search and image generation are outside this adapter.</Description>
+    <Description>Call Qwen chat endpoints on DashScope, vLLM or Ollama while using the shared Mythosia.AI conversation and tool APIs. QwenService supports provider-specific thinking controls, custom deployment names, streaming usage, immutable request configuration, cancellable local tools, controllable runs and local model-capability inspection. Requires Mythosia.AI 8.2.0. What's New in v3.0.2: Completion uses the prepared request message snapshot for request context and history consistency. Public APIs, endpoint defaults and thinking controls remain unchanged. Native steering, hosted search and image generation are outside this adapter.</Description>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Providers.Alibaba</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -20,8 +20,8 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v3.0.1 rebuilds the Qwen adapter against Mythosia.AI 8.1.0 and transitively Mythosia.AI.Abstractions 4.1.0. Inherits core request-context and stateless-summary fixes. Qwen public APIs, endpoint defaults and thinking controls are unchanged; this update does not add provider-specific priority processing. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301</PackageReleaseNotes>
-    <Version>3.0.1</Version>
+    <PackageReleaseNotes>v3.0.2 rebuilds the Qwen adapter against Mythosia.AI 8.2.0 and transitively Mythosia.AI.Abstractions 4.2.0. Completion uses the prepared request message snapshot instead of the original caller input, preserving captured request context and message ownership. Qwen public APIs, endpoint defaults and thinking controls remain unchanged. Inherits the documented core SSE acquisition cancellation limitation for custom buffering HTTP content. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302</PackageReleaseNotes>
+    <Version>3.0.2</Version>
   </PropertyGroup>
 
   <ItemGroup>

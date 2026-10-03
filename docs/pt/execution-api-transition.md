@@ -1,5 +1,9 @@
 # Controlar tarefas de IA em andamento com Run
 
+> Claude Sonnet 5.5: Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuração e migração](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Seleção e migração](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
 
 Para uma resposta final com botão Parar, passe `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progresso ou instruções adicionais suportadas. Consulte [cancelamento](completions.md#completion-cancellation).
@@ -197,11 +201,19 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-As instruções durante a resposta estão disponíveis para GPT-6 Astra / Sol / Luna pela conexão WebSocket da Responses. Outros provedores e modelos sem suporte podem executar runs normais, mas `CanSteer` é false e a tentativa de enviar instruções informa a falta de suporte, em vez de criar silenciosamente um próximo turno comum. `CanSteer` não garante que o run ainda estará ativo quando uma chamada posterior for feita.
+As instruções durante a resposta estão disponíveis para GPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Luna pela conexão WebSocket da Responses. Outros provedores e modelos sem suporte podem executar runs normais, mas `CanSteer` é false e a tentativa de enviar instruções informa a falta de suporte, em vez de criar silenciosamente um próximo turno comum. `CanSteer` não garante que o run ainda estará ativo quando uma chamada posterior for feita.
 
-Os runs de GPT-6 abrem um socket dedicado. O `HttpClient` fornecido e seus handlers de mensagens continuam atendendo às chamadas HTTP e não interceptam esse socket. Transportes personalizados podem sobrescrever `OpenAIService.ConnectRunWebSocketAsync`.
+No GPT-6.1 Sol, enviar instruções durante a execução exige o modo Standard. Pro aceita Run normal, chamadas de funções e ferramentas assíncronas nativas, mas informa `Steering = Unsupported` e `run.CanSteer = false`. Chamar `SteerAsync` nesse Run Pro é rejeitado localmente sem cancelar nem interromper sua execução normal.
+
+Os Run da família GPT-6 resolvem `responses` em relação ao `HttpClient.BaseAddress` configurado exatamente como as solicitações HTTP. Depois convertem `https` em `wss` e `http` em `ws`, preservando o host, a porta e o caminho resolvidos. A barra final importa: `https://example.com/proxy/v1/` resulta em `wss://example.com/proxy/v1/responses`, enquanto `https://example.com/proxy/v1` resulta em `wss://example.com/proxy/responses`. A ausência de endereço base ou um esquema diferente de HTTP(S) é rejeitado antes da conexão; não há fallback para o endpoint padrão da OpenAI. Os Run usam um `ClientWebSocket` dedicado, portanto os handlers de mensagens do `HttpClient` fornecido não interceptam o socket. Transportes personalizados ainda podem sobrescrever `OpenAIService.ConnectRunWebSocketAsync`.
+
+Cancelar um token usado apenas em `SteerAsync` enquanto aguarda sua vez de enviar, inclusive atrás de outro envio, cancela essa chamada sem parar o Run. Depois que a submissão ao transporte começa, o cancelamento ou uma falha de envio podem interromper o Run porque a entrega é incerta. Após concluir o envio, cancelar enquanto aguarda a confirmação encerra a espera, mas não retira a entrada enviada; continue observando o mesmo Run. Cancelar o token passado a `StartRunAsync` ou chamar `run.Cancel()` continua cancelando o Run.
 
 O sucesso de `SteerAsync` significa que o servidor aceitou a entrada na fila, não que o modelo já a aplicou. Continue observando o mesmo run ou aguardando seu resultado durante a continuação. O texto já entregue e as ações concluídas não são desfeitos, e ferramentas iniciadas não são canceladas apenas porque uma nova instrução foi enviada. A biblioteca gerencia a continuação e a associação dos resultados de ferramentas na mesma conexão. Consulte o [guia de instruções durante a resposta](https://developers.openai.com/api/docs/guides/steering) e o [modo WebSocket](https://developers.openai.com/api/docs/guides/websocket-mode) da OpenAI. Não presuma que entradas em espera vinculadas à conexão sobrevivam a uma desconexão, nem reenvie sem verificar uma instrução já aceita.
+
+Nos Run nativos da OpenAI, as instruções aceitas são registradas no histórico antes da resposta de continuação correspondente, mesmo quando o processamento da saída fica atrás dos eventos recebidos. Uma falha irrecuperável de transporte cancela as ferramentas locais que cooperam com o cancelamento, e `run.Result` informa a falha original após a limpeza. A limpeza continua aguardando as ferramentas que ignoram o cancelamento.
+
+Uma resposta final recebida por completo é preservada durante o fechamento normal do WebSocket se o quadro Close da outra ponta chegar antes de terminar o envio da solicitação inicial ou do resultado de ferramenta correspondente. O envio não é repetido; o cancelamento pelo chamador continua sendo respeitado, e falhas de envio sem uma resposta final confirmada não são ocultadas. Um erro terminal da API já recebido mantém seu motivo original se a conexão fechar depois, enquanto as ferramentas locais ainda estão em execução.
 
 ## Tarefas com ferramentas e métodos antigos de agente
 

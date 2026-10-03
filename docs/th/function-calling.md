@@ -1,5 +1,9 @@
 # Function Calling
 
+> Claude Sonnet 5.5: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การตั้งค่าและการย้ายรุ่น](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การเลือกโมเดลและการย้ายรุ่น](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
 
 หากต้องการเพียงคำตอบสุดท้ายและปุ่มหยุด ให้ส่ง `cancellationToken` ไปยัง `GetCompletionAsync` ใช้ Run สำหรับเหตุการณ์ความคืบหน้าหรือคำสั่งเพิ่มเติมที่รองรับ ดู[การยกเลิกคำตอบ](completions.md#completion-cancellation)
@@ -167,6 +171,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**สคีมาเครื่องมือ Claude:** คำสำคัญของ JSON Schema แยกตัวพิมพ์เล็กและใหญ่ Mythosia ส่ง `type`, `description`, `enum`, `default` และ `items` เป็นตัวพิมพ์เล็กเพื่อให้อ่านข้อกำหนดของพารามิเตอร์ได้ถูกต้อง `Items` ที่ซ้อนกันจะถูกแปลงแบบเรียกซ้ำ โดยคงชื่อพารามิเตอร์และคีย์ของออบเจ็กต์ในค่าเริ่มต้นไว้ ฟิลด์ที่ไม่บังคับและยังไม่ได้ตั้งค่า รวมถึง `Default = null` จะถูกละไว้ แต่ JSON null ที่ระบุอย่างชัดเจนด้วย `JsonElement` จะถูกเก็บไว้ API ของ `ParameterProperty` เดิมไม่เปลี่ยนแปลง
+
 <a id="tool-execution-contract"></a>
 
 ## คืนออบเจ็กต์จากเครื่องมืออะซิงโครนัสและยกเลิกงาน
@@ -291,7 +297,7 @@ var answer = await service.GetCompletionAsync(
     "ตรวจสอบสภาพอากาศตัวอย่างของโซล ระหว่างรอให้แนะนำของจำเป็นสำหรับการเดินทางสามอย่าง");
 ```
 
-Mythosia ส่ง `async: true` สำหรับ GPT-6 Astra / Sol / Luna ผ่าน Responses API หากโมเดลหรือ API ไม่รองรับ จะไม่ส่งฟิลด์นี้และรอผลจาก handler เดิม โดยไม่เปลี่ยนค่า `AllowAsync` ผู้ให้บริการต้องระบุว่าการเรียกจริงเป็นแบบอะซิงโครนัสด้วย (`FunctionCall.IsAsync`) การเปิดสิทธิ์จึงไม่ได้รับประกันว่าจะทำงานแบบอะซิงโครนัสเสมอ
+Mythosia ส่ง `async: true` สำหรับ GPT-6.1 Sol / GPT-6 Astra / Sol / Luna ผ่าน Responses API หากโมเดลหรือ API ไม่รองรับ จะไม่ส่งฟิลด์นี้และรอผลจาก handler เดิม โดยไม่เปลี่ยนค่า `AllowAsync` ผู้ให้บริการต้องระบุว่าการเรียกจริงเป็นแบบอะซิงโครนัสด้วย (`FunctionCall.IsAsync`) การเปิดสิทธิ์จึงไม่ได้รับประกันว่าจะทำงานแบบอะซิงโครนัสเสมอ
 
 `WithFunctionAsync` ใช้ลงทะเบียน handler แบบอะซิงโครนัสของ .NET ส่วน `FunctionExecutionMode.Parallel` ควบคุมการทำงานของ handler ในแอป ทั้งสองอย่างไม่เปิดสิทธิ์นี้โดยอัตโนมัติ `AllowAsync` อนุญาตให้โมเดลทำงานต่อก่อนที่ผลของฟังก์ชันจะมาถึง `FunctionExecutionMode` ยังคงควบคุมการเรียกทั่วไป งานอะซิงโครนัสที่อนุญาตอาจทำงานซ้อนกันได้แม้ในโหมด `Sequential` โดยงานในพูลแยกนี้ใช้ขีดจำกัด `MaxConcurrency` ร่วมกัน
 

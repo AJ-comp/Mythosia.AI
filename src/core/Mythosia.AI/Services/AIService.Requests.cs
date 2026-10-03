@@ -83,9 +83,10 @@ namespace Mythosia.AI.Services.Base
         {
             if (_requestExecution.Value == null) _requestExecution.Value = new RequestExecution(SnapshotRequestSettings());
             _requestExecution.Value.Settings[name] = value;
+            _requestExecution.Value.SettingWrites[name] = new object();
         }
 
-        /// <summary>Begins a settings snapshot for legacy entry points; nested calls reuse their logical request.</summary>
+        /// <summary>Supplies initial settings until request preparation establishes an independent execution or accepts a framework handoff.</summary>
         protected IDisposable BeginRequestSettingsScope()
         {
             if (_requestExecution.Value != null) return new FeatureScope(() => { });
@@ -102,7 +103,7 @@ namespace Mythosia.AI.Services.Base
                 copy[nameof(DefaultPolicy)] = ((FunctionCallingPolicy)policy!).Clone();
             if (copyFunctions && copy.TryGetValue(nameof(Functions), out var functions))
                 copy[nameof(Functions)] = ((IEnumerable<FunctionDefinition>)functions!).Select(AIRequest.CopyFunction).ToList();
-            _requestExecution.Value = new RequestExecution(copy);
+            _requestExecution.Value = new RequestExecution(copy, previous?.SettingWrites);
             return new FeatureScope(() => _requestExecution.Value = previous);
         }
 
@@ -144,9 +145,12 @@ namespace Mythosia.AI.Services.Base
             using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             using var settingsScope = UseRequestSettings(request.Settings);
             var input = CaptureRunMessage(request.Input);
-            using var features = UsePreparedRequestFeatures(request, input);
-            if (applySummary) await ApplySummaryPolicyIfNeededAsync().ConfigureAwait(false);
-            return await GetCompletionAsync(input, EffectiveProfile(request), CopyRequestContext(request.Context), RequestCancellationToken).ConfigureAwait(false);
+            using var features = UseCapturedRequestFeatures(request, input);
+            var profile = EffectiveProfile(request);
+            using var preparation = BeginRequestPreparation(input, profile, captured: true);
+            _requestFeatureExecution.Value!.Operation!.SummaryBeforeSend = applySummary;
+            using var continuation = ContinueRequest(input, RequestEntry.MessageCompletion, allowInputReplacement: true);
+            return await GetCompletionAsync(input, profile, CopyRequestContext(request.Context), RequestCancellationToken).ConfigureAwait(false);
         }
 
         internal async Task<AIRun> StartRequestRunAsync(AIRequest request, Action<string>? onText,
@@ -155,14 +159,11 @@ namespace Mythosia.AI.Services.Base
             cancellationToken.ThrowIfCancellationRequested();
             using var settingsScope = UseRequestSettings(request.Settings);
             var input = CaptureRunMessage(request.Input);
-            using var features = UsePreparedRequestFeatures(request, input);
+            using var features = UseCapturedRequestFeatures(request, input);
             var profile = EffectiveProfile(request);
-            var restore = profile == null ? null : ApplyRequestProfile(profile);
-            try
-            {
-                return await StartRunAsync(input, onText, options, CopyRequestContext(request.Context), cancellationToken).ConfigureAwait(false);
-            }
-            finally { restore?.Invoke(); }
+            using var preparation = BeginRequestPreparation(input, profile, captured: true);
+            using var continuation = ContinueRequest(input, RequestEntry.Run);
+            return await StartRunAsync(input, onText, options, CopyRequestContext(request.Context), cancellationToken).ConfigureAwait(false);
         }
 
         private AIRequestProfile? EffectiveProfile(AIRequest request) => request.Profile == null ? null : new AIRequestProfile
@@ -176,34 +177,23 @@ namespace Mythosia.AI.Services.Base
         {
             using var settingsScope = UseRequestSettings(request.Settings);
             var input = CaptureRunMessage(request.Input);
-            using var features = UsePreparedRequestFeatures(request, input);
+            using var features = UseCapturedRequestFeatures(request, input);
             var profile = EffectiveProfile(request);
-            var restore = profile == null ? null : ApplyRequestProfile(profile);
-            try
-            {
-                await foreach (var chunk in StreamAsync(input, CopyRequestContext(request.Context), cancellationToken).ConfigureAwait(false))
-                    yield return chunk;
-            }
-            finally { restore?.Invoke(); }
+            using var preparation = BeginRequestPreparation(input, profile, captured: true);
+            using var continuation = ContinueRequest(input, RequestEntry.Streaming, allowInputReplacement: true);
+            await foreach (var chunk in StreamAsync(input, CopyRequestContext(request.Context), cancellationToken).ConfigureAwait(false))
+                yield return chunk;
         }
 
-        private IDisposable UsePreparedRequestFeatures(AIRequest request, Message input)
+        private IDisposable UseCapturedRequestFeatures(AIRequest request, Message input)
         {
             if (request.Profile != null && request.Profile.Purpose != AIRequestPurpose.Default)
                 return SuppressRequestFeatures(input);
             var features = request.Features.Clone();
-            ValidateFeatureValues(features);
             var execution = new RequestFeatureExecution(features, input, CloneProviderRequestOptions(request.ProviderOptions));
             var scope = UseRequestFeatureExecution(execution);
             _lastFeatureExecution = execution;
-            try
-            {
-                ValidateProviderRequestOptions(execution.ProviderOptions, input);
-                ValidateRequestSpeed(features);
-                ValidateRequestFeatures(features);
-                return scope;
-            }
-            catch { scope.Dispose(); throw; }
+            return scope;
         }
 
         /// <summary>Creates fresh provider execution state when a prepared request is executed again.</summary>
@@ -215,7 +205,15 @@ namespace Mythosia.AI.Services.Base
         private sealed class RequestExecution
         {
             internal Dictionary<string, object?> Settings { get; }
-            internal RequestExecution(Dictionary<string, object?> settings) { Settings = settings; }
+            // Scope copies are not new assignments. Preserve their provenance so a
+            // later explicit write wins even when it assigns an equal scalar value.
+            internal Dictionary<string, object> SettingWrites { get; }
+            internal RequestExecution(Dictionary<string, object?> settings, Dictionary<string, object>? writes = null)
+            {
+                Settings = settings;
+                SettingWrites = writes == null ? new Dictionary<string, object>(StringComparer.Ordinal)
+                    : new Dictionary<string, object>(writes, StringComparer.Ordinal);
+            }
         }
     }
 }

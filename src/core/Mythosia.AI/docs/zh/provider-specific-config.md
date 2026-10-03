@@ -1,6 +1,8 @@
 # 提供商特有配置架构
 
-> GPT-6 Sol/Luna 是尚未发布的新增功能。参见[模型选择与版本要求](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#gpt-6-sol-luna)。
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型选择与迁移](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#gpt-61-sol)
+
+> GPT-6 Sol/Luna 从 Mythosia.AI 8.1.0 / Abstractions 4.1.0 开始提供。
 
 需要同时获取完整答案、用量和来源时，使用 `await run.Result` 返回的 `AIRunResult`，字符串位于 `result.Text`，无需读取流。这是 Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 的 API 变更；`GetCompletionAsync` 与 `StructuredStreamRun<T>.Result` 的返回类型保持不变。 [Run 结果与迁移](../../../../../docs/zh-Hans/execution-api-transition.md#run-result).
 
@@ -10,6 +12,93 @@
 > [Claude Fable 5.1](../../../../../docs/zh-Hans/fable-5-1.md) 的进度更新、单轮指令和 thinking 绑定诊断从 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 开始提供。Mythos 5.1 需要邀请访问，两个模型都拒绝强制工具选择。
 
 > GPT-6 Astra、`AllowAsync`、`StartRunAsync` 和通用推理与搜索 API 从 `Mythosia.AI` 7.1.0 开始提供，共享类型包含在 `Mythosia.AI.Abstractions` 3.1.0 中。
+
+<a id="claude-sonnet-55"></a>
+
+## Claude Sonnet 5.5
+
+`AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`) 支持文本和图像输入、文本输出，具有 1M 上下文窗口和最多 128K 输出 token。需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0；现有默认模型及模型标识符保持不变。
+
+未修改设置时使用 adaptive 推理、`High` effort，并省略可读推理。Adaptive 支持 `Low`、`Medium`、`High`、`XHigh` 和 `Max`，拒绝 `Minimal`。`MaxTokens` 包含推理和回答。采样参数不会发送。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.High, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.CreateRequest("Review the plan using the registered tools.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(options: StreamOptions.FullOptions);
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+Adaptive 模式可用 `ClaudeThinkingDisplay.Updates` 获取工具进度，或用 `Summarized` 获取推理摘要。读取 `StreamingContentType.Reasoning`，普通完成后读取 `LastThinkingContent`。Adaptive 辅助方法的默认 display 参数为 `Summarized`，与未设置时不同。`between_tools` 自动返回工具进度；不保证固定通知间隔。
+
+`ReasoningLevel.None`、禁用的旧版 `ThinkingBudget` 或 `AIRequestProfile.DisableReasoning` 会选择 high effort 的 `between_tools`，关闭预先推理，但工具进度仍可能作为 thinking 块返回。`WithBetweenToolsThinking(...)` 接受 `Auto`（high）、`Low`、`Medium` 或 `High`，拒绝 `XHigh` 和 `Max`。发送的 thinking 对象只有 `type`，没有 display、budget 或 binding。此模式不支持按消息更改 effort 或 `CachePreservation.Required`。公共 `WithReasoning(Low...Max)` 会切回 adaptive，`Auto` 则遵循所选提供者模式。
+
+```csharp
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithBetweenToolsThinking(ClaudeReasoningEffort.Low);
+string quick = await claude.CreateRequest("Use the registered tools to check the status.")
+    .GetCompletionAsync();
+
+// A separate conversation using request-scoped high-effort between_tools.
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+string next = await claude.CreateRequest("Give me the latest status.")
+    .WithReasoning(ReasoningLevel.None)
+    .GetCompletionAsync();
+```
+
+Claude 会统一确定模型、请求用途、推理和 thinking 绑定设置。对于 `RequestProfiles.Summarization` 或 `RequestProfiles.QueryRewrite` 等辅助配置，仅当 `DisableReasoning = true`、用途不是 `Default` 且实际请求无状态时，才省略继承的绑定策略。这样可防止没有会话前缀需要保留的请求因继承策略而重新启用推理或被拒绝。允许关闭推理的模型会关闭推理；始终推理的 Opus 5.5、Fable 5.1 和 Mythos 5.1 使用 `Low` 并省略可读 thinking，Sonnet 5.5 则使用 high effort 的 `between_tools`。
+
+完成、流式、结构化输出和 Run 使用同一请求准备流程：捕获设置，执行一次实际的配置处理，然后验证最终的通用选项和提供者原生选项。这些步骤先于自动摘要、追加新输入和建立传输连接，因此自定义提供者的配置覆盖会参与实际验证。Claude 实际使用的手动 `ThinkingBudget` 若达到或超过模型输出上限，也会在此阶段被拒绝；有效配置和通用推理设置的优先级保持不变。
+
+应用发起的调用会启动独立的逻辑请求，包括从 `SystemMessageProvider` 或工具回调发起的普通调用，以及复用同一个 `AIRequestProfile`、`Message` 的调用。对象复用不代表执行复用。框架内部委派、工具轮次、重试和格式修复会延续原请求，其配置仅应用一次。普通子请求读取自己的选项和服务默认值，构建器保留已捕获的设置。成功、失败或取消后均恢复父请求的执行状态。转发框架调用的提供者重写方法遵循[提供者适配器规则](../../../../../docs/zh-Hans/request-building.md#provider-request-adapters)。 框架调用虚拟提供者适配器时，对相应基类入口的第一次调用会延续已准备的请求，即使替换了输入 `Message` 也不例外。如果在转发前通过同一个基类入口执行无关的辅助调用，请用 `BeginIndependentRequestScope()` 包住该调用及其 `await`；流式调用的作用域须覆盖整个枚举过程。
+
+内置提供者保存内置输入内容的独立副本。复用 `Message` 发起新调用时，会应用本次的上下文和轮次指令，不会改写已接受的历史。自定义内容和不支持的元数据对象仍由所有者管理。这不保证同一会话的并发调用安全。
+
+`StartRunAsync` 返回后，Run 仍持有最终设置的独立副本。恢复调用方的配置不会改变正在运行的 Run，执行用的配置钩子仍只调用一次。
+
+无状态辅助请求使用独立会话，不继承父请求的输出模式、托管工具或一次性选项。隔离不会跳过原生选项验证，OpenAI 和 Perplexity 的 Run 也遵循此规则。父请求的设置、消息、`CurrentSummary` 和观测信息保持不变。有状态请求继续执行绑定与会话检查。现有公共 API 不变。
+
+库自动生成的会话摘要也会排除父请求的 `SystemMessageProvider` 回调和请求上下文，防止继承的 `RequestMessageOverride` 替换内部摘要提示词。应用主动发起的请求仍正常应用动态上下文，包括明确要求模型总结文本的请求。
+
+无状态请求也会跳过父会话的自动摘要。现有 `GetCompletionAsync(string, profile)` 重载与 `Message` 重载和请求构建器行为一致，保留父会话的 `CurrentSummary` 和消息。有状态请求继续使用原有的自动摘要行为。
+
+`(ClaudeReasoningEffort)1234` 等未定义的 `ClaudeReasoningEffort` 值会在实际推理配置使用该原生 effort 时于本地被拒绝。被拒绝的请求不会触发父会话的自动摘要，也不会将未发送的输入保留在历史记录中。有效的显式通用推理设置或配置覆盖仍按原有优先级覆盖原生基线设置。
+
+`ClaudeThinkingMode`: `Auto` / `Adaptive` / `BetweenTools`; `AnthropicService.ThinkingMode`.
+
+请只向历史末尾追加内容。带签名的 thinking 块（包括空块与 `progress_updates` 元数据）会在轮次和工具结果间保留。修改已保存的 assistant 响应会在本地被拒绝，`ClaudeThinkingPrefixMismatchBehavior.DropBlock` 也不例外。旧 user/system/tool 前缀修改不会自动在本地阻止，而是交给 Anthropic 的绑定策略处理。Adaptive 中的 `WithThinkingBinding(ClaudeThinkingPrefixMismatchBehavior.Error)` 请求提供者严格验证，无效前缀可能产生 HTTP 400；`DropBlock` 允许提供者丢弃受影响的推理，null 使用提供者默认策略。通过 `LastInputTransformations` 查看报告的丢弃。`between_tools` 不支持绑定控制。通过 `WithTurnInstruction` / `WithConversationInstruction` 添加新指令。Adaptive 的 `CachePreservation.Required` 也不能保证编辑旧消息是安全的。
+
+继续使用现有完成、流式、结构化输出、图像、本地函数、网页搜索和普通 Run API。不要设置 `ForceFunctionName`；强制工具选择（`any` / `tool`）和 assistant prefill 在 HTTP 前被拒绝，自动选择与 `FunctionsDisabled` 仍可用。不支持 `Fast`、原生异步工具或 Run steering。此集成未提供 computer toolset、advisor 工具、原生压缩、对话内工具更改或自动服务器 fallback。切换模型或账户可能丢弃绑定的推理；请求成功并不代表推理已保留。
+
+Mythosia.AI 8.2.0 的已知限制：Sonnet 5.5 和 Opus 5.5 会将以尚未执行的 `server_tool_use` 结尾的有效 `pause_turn` 响应误判为 assistant prefill，并在第二次 HTTP 请求前拒绝继续。以已完成的服务器工具结果结尾的续传已通过现有检查。请参阅[原生续传限制](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/zh-Hans/providers.md#claude-native-continuation-limitation)。
+
+公共结构化输出 API 使用模式提示、反序列化和修复重试，不发送原生 `output_config.format` 模式约束。
+
+[官方模型信息](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) · [迁移](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) · [提供者变更](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
+
+
+## Claude token 计算
+
+无参数的 `GetInputTokenCountAsync()` 复用支持工具的完成消息序列化，即使当前工具已禁用，也会保留 assistant 的 `tool_use` 和 user 的 `tool_result` 块。导入的旧版并行工具记录若共享同一个 `OriginalContent` 批次，该批次只会序列化一次，并保留带签名的内容和历史指令。它包含当前启用的工具定义及其 `tool_choice`，省略仅用于生成的字段，并保留 token 计算专用的 thinking 限制。`GetInputTokenCountAsync(string prompt)` 继续仅计算独立提示词，不包含已存储的会话历史或工具定义。
+
+普通完成、保留 thinking 的后续请求和 token 计算使用同一工具历史转换。禁用或移除函数后发送的普通请求也会将历史调用及结果保留为原生工具块。导入的 `FunctionSource` 元数据在调用和结果两侧均支持含义相同的已定义 enum、整数、字符串及 JSON 表示。同一并行 assistant 批次的重复记录只发送一次，不改变工具顺序、签名或提供者字段；仅改变元数据表示不会使已接受的前缀重复。
+
+Claude 在序列化、token 计算和摘要压缩保护中读取同一份权威 assistant 内容，涵盖原生内容、类型化批次及旧版 `Message.Metadata[OriginalContent]`。因此，无论导入表示如何，带签名 thinking 的前缀都受到相同保护。这只说明本地历史保留，不保证实际服务器接受签名。
 
 ## 原则
 
@@ -21,7 +110,7 @@
 | **提供商特有** | 各服务类 | ThinkingLevel/ThinkingBudget (Gemini), ReasoningEffort (GPT) 等 |
 | **每个函数的执行许可** | `FunctionDefinition` | `AllowAsync`（默认为 `false`） |
 
-`AllowAsync` 是调用方选择的许可，模型和 API 是否支持则由服务在内部判断。`FunctionBuilder.WithAsync()` 和 `[AiFunction("lookup", "查询数据", AllowAsync = true)]` 也可开启同一许可。GPT-6 Astra / Sol / Luna 通过 Responses 使用此选项；不支持的模型会省略 API 选项并等待同一个处理器的结果，不会修改已设置的许可。
+`AllowAsync` 是调用方选择的许可，模型和 API 是否支持则由服务在内部判断。`FunctionBuilder.WithAsync()` 和 `[AiFunction("lookup", "查询数据", AllowAsync = true)]` 也可开启同一许可。GPT-6.1 Sol / GPT-6 Astra / Sol / Luna 通过 Responses 使用此选项；不支持的模型会省略 API 选项并等待同一个处理器的结果，不会修改已设置的许可。
 
 ## 当前实现: 服务级别
 
@@ -202,6 +291,8 @@ string answer = await service.GetCompletionAsync("比较最新的电池回收方
 
 可用 `UsePreset(...)` 快速选择预设。预设/配置自行选择模型，`ModelOverride` 可明确替换。`DisableWebSearch` 仅移除适配器默认工具，不保证关闭预设内置搜索。根据模型可用 `Minimal`、`Low`、`Medium`、`High`、`XHigh`、`Max`；`None` 和直接 Sonar 的显式推理设置会被拒绝。内部 `DisableReasoning` 使用较低的可用级别或省略设置，不保证完全关闭推理。
 
+Perplexity 在应用配置后，使用同一最终请求计划进行验证和序列化。已抑制的父请求工具或推理设置不会导致辅助 Sonar 请求被拒绝；实际生效的选项仍会验证。预设和回退列表仍保留各自的模型选择。
+
 `PerplexityHostedTools.WebSearch`、`FetchUrl`、`Sandbox`、`FinanceSearch`、`PeopleSearch`、`Mcp`、`Connector` 可创建工具配置。MCP 不暂停等待批准，需要时用 `allowedTools` 限制。Connector 是提供方预览功能，引用已连接的集成。
 
 `StartBackgroundAsync` 捕获输入但不追加历史，并拒绝启用的本地函数或 `Store = false`。`GetResponseAsync` 查询一次；`WaitForCompletionAsync` 轮询到终止状态。保存 `Id` 与 `LastSequenceNumber`，用 `ResumeBackgroundRun(id).StreamAsync(startingAfter: cursor)` 重连。`CancelAsync` 取消远程任务；取消查询/读取令牌只停止该客户端操作。`LastResponse` 包含文本、状态、用量、引用与 `OutputJson`，使用答案前请检查终止状态。
@@ -258,5 +349,7 @@ chatBlock.Gemini.ThinkingBudget = 1024;
 此取消契约包含在 Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 中。不传令牌的调用和现有 profile/context 位置参数在源代码层面仍有效，但使用方需要重新构建。自定义 `IAIService` 实现必须在两个完成方法签名末尾添加并传递 `CancellationToken cancellationToken = default`。继承 `AIService` 的自定义供应商保留现有 `GetCompletionAsync(Message)` override，并将受保护的 `RequestCancellationToken` 传给传输层。构建器和 Run 本身不需要这次接口修改。 如果子类重写了已修改的字符串/profile/context 完成调用、图像辅助方法或 `RunAgentAsync` 等 public virtual 重载，也必须追加并传递新的 `CancellationToken`；仅接收单个 `Message` 的供应商 override 保留原签名。直接绑定到已修改签名的方法组委托可能需要改成显式传入或省略令牌的 lambda。
 
 [用共享支持定义构建模型功能选项](../../../../../docs/zh-Hans/model-capabilities.md).
+
+`ApplyRequestProfile` 和 `ApplyProviderSpecificRequestProfile` 每个逻辑请求执行一次，再验证最终设置。应用发起的普通调用是独立请求，在上下文或工具回调中也如此。框架调用虚拟提供者适配器时，对相应基类入口的第一次调用会延续已准备的请求及其设置，即使替换了输入也不例外。在转发前通过同一个基类入口执行无关的辅助调用时，须使用 `BeginIndependentRequestScope()`；参阅[提供者适配器规则](../../../../../docs/zh-Hans/request-building.md#provider-request-adapters)。自定义提供者可在 `BeginRequestFeaturesScope` 之后调用新增的 protected 钩子 `ResolveRequestMessage(message)`，并保存返回的输入副本。现有提供者覆盖保持兼容。功能查询仍使用独立且无副作用的钩子。
 
 如果自定义提供程序的配置会改变原生模式标志，请重写 `ApplyCapabilityRequestProfile(AIRequestProfile)`，并仅通过 `SetExecutionSetting(...)` 应用解析支持信息所需的标志。默认钩子不执行任何操作。构建器已捕获公共配置覆盖值；查询不会调用 `ApplyRequestProfile` 或 `ApplyProviderSpecificRequestProfile`。此钩子不得执行验证、回调、序列化、预算预留，或修改服务及调用方拥有的状态。临时设置会在查询结束后恢复，重写方法抛出异常时也一样。

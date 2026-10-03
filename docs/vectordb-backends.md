@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,24 @@ A supplied `CancellationToken` can cancel a call while it waits for another oper
 
 A canceled batch can retain records already written. `ReplaceByFilterAsync` still performs deletion followed by batch insertion without a transaction: another query can observe the gap, and failures or cancellation do not roll back earlier writes.
 
+<a id="vector-store-diagnostics"></a>
+
 ### Diagnostics
+
+`IVectorStoreDiagnostics` is an optional contract in `Mythosia.VectorDb.Abstractions` 4.2.0. InMemory implements it directly; `IVectorStore` gains no required members. `ListAllRecordsAsync` lists all records and `ScoredListAsync` returns all similarity scores in descending order without TopK filtering. Both inspect the whole store: they accept no metadata filter and do not apply a RAG pipeline’s `StoreFilter`. `GetTotalRecordCount()` remains an InMemory convenience method outside the contract. RAG-specific chunk analysis, health checks and reports remain in `RagDiagnostics` and `RagDiagnosticSession` in `Mythosia.AI.Rag`.
+
+**Upgrading to InMemory 5.0.0:** use RAG 9.0.0 alongside it; older RAG packages with the new InMemory package are unsupported. InMemory no longer implements `IRagDiagnosticsStore`: migrate assignments, casts and capability checks to `IVectorStoreDiagnostics`, and rebuild affected consumers. RAG Abstractions 6.5.0 keeps the obsolete interface, its two original method declarations and default bridges for legacy custom implementations. That bridge does not restore InMemory’s old interface relationship or guarantee compatibility for every old binary.
+
+For custom stores implementing `IRagDiagnosticsStore`, RAG uses an internal adapter to call the original interface methods. This preserves explicit implementations even when public helper methods have the same signatures. Calling methods through a direct cast to `IVectorStoreDiagnostics` can select those public methods instead.
 
 ```csharp
 // List all stored records
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"Total: {store.GetTotalRecordCount()}");
 
 // Inspect raw similarity scores
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

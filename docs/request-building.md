@@ -1,5 +1,9 @@
 # Keep each request’s settings independent
 
+> Claude Sonnet 5.5: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration and migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selection and migration](providers.md#gpt-61-sol)
+
 > Grok 4.7: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection, reasoning and processing speed](providers.md#grok-47)
 
 A summary may need a low temperature, while a creative draft needs a higher one. Preparing the draft must not silently change the settings of a summary you already prepared. Use `CreateRequest` when different calls need different settings, or when you want to reuse a base request with several variations.
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude resolves the model, request purpose, reasoning and thinking-binding settings together. For an auxiliary profile such as `RequestProfiles.Summarization` or `RequestProfiles.QueryRewrite`, inherited binding is omitted only when `DisableReasoning = true`, the purpose is not `Default`, and the effective request is stateless. This prevents the inherited policy from re-enabling reasoning or rejecting a request that has no conversation prefix to preserve. Models that can disable thinking do so; always-on Opus 5.5, Fable 5.1 and Mythos 5.1 use `Low` with readable thinking omitted, while Sonnet 5.5 uses high-effort `between_tools`.
+
+Completion, streaming, structured output and Run share one request preparation sequence: capture settings, apply the actual profile processing once, then validate the resulting common and native provider options. This happens before automatic summarization, appending new input or opening the transport. Custom provider profile overrides participate in the settings that are actually validated. Claude also rejects a consumed manual `ThinkingBudget` at or above the model's output limit at this stage; valid profile and common reasoning overrides retain their precedence.
+
+Application calls start independent logical requests, including ordinary calls from `SystemMessageProvider` or tool callbacks and calls reusing the same `AIRequestProfile` or `Message`. Reusing an object does not reuse an execution. Framework delegation, tool rounds, retries and format repairs continue the original request, applying its profile once. A new ordinary child captures its own options and service defaults; builders keep their captured settings. Success, failure and cancellation restore the parent execution. Provider overrides that forward a framework call follow the [adapter rules below](#provider-request-adapters).
+
+Built-in providers retain an owned snapshot of built-in input content. Reusing a `Message` for another call applies that call's context and turn instructions without rewriting accepted history. Custom content and unsupported metadata objects remain owner-managed. This does not make a shared conversation safe for concurrent calls.
+
+After `StartRunAsync` returns, the Run retains its own copy of the effective settings. Restoring the caller's profile cannot change the active Run, and execution profile hooks still run only once.
+
+Stateless auxiliary requests use their own conversation and do not inherit the parent's output schema, hosted tools or one-call options. This isolation never skips native provider validation, including for OpenAI and Perplexity Runs. Parent settings, messages, `CurrentSummary` and request observations are preserved. Stateful requests retain their binding and conversation checks. The existing public APIs remain unchanged.
+
+Internally generated conversation summaries also exclude the parent's `SystemMessageProvider` callback and request context, so an inherited `RequestMessageOverride` cannot replace the summary prompt. Application-initiated requests still resolve their dynamic context normally, including explicit requests to summarize text.
+
+Stateless requests also skip automatic summarization of the parent conversation, including the legacy `GetCompletionAsync(string, profile)` overload, consistently with the `Message` overload and request builder. The parent's `CurrentSummary` and messages remain unchanged. Stateful requests retain normal automatic summarization.
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## Forwarding requests in a custom provider
+
+When the framework invokes a virtual provider adapter, its first call to the matching base entry continues the prepared request, even if the override replaces the input `Message`. Captured builder options and applied profiles survive that forwarding. The default callback-streaming adapter also continues the same prepared request.
+
+An adapter may forward a changed `AIRequestProfile`: unchanged values are not applied twice, while changed values replace the earlier profile layer against captured settings and are validated again before automatic summarization or sending. Switching to stateless therefore cannot summarize the parent conversation first. OpenAI stateless helpers ignore unrelated preserved-history checks without clearing the stateful conversation’s guard.
+
+Replacing a forwarded profile preserves later request-local tool additions, removals and edits, policy changes, and explicit setting assignments, even when the assigned scalar value is unchanged. A tool removed by an adapter is not restored merely because another profile field changes. Service defaults are not recaptured.
+
+For opaque custom setting objects, provider adapters should replace the value through `SetExecutionSetting` instead of modifying its internal fields. The library does not inspect arbitrary application objects or invoke their serializers to track profile changes.
+
+Claude compaction preserves call/result dependencies in retained `RequestMessageOverride` and `AdditionalMessages`, including server tools. Mythos 5.1 also protects bound thinking prefixes. Imported parallel legacy tool records are grouped once in both regular history and additional messages, while retaining their individual ownership.
+
+An unrelated helper call to that same base entry before forwarding is ambiguous: the framework cannot infer whether it is the continuation. Wrap that helper and its `await` in the protected `BeginIndependentRequestScope()`; for streaming, keep the scope open through the full enumeration. The helper starts from service defaults, and disposing the scope restores the outer settings, features, context and pending delegation. Ordinary nested calls from context or tool callbacks are already independent and do not need this scope.
+
+For example, a subclass of a concrete provider can rewrite text before forwarding it:
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+This scope separates request execution state; it does not isolate conversation history or allow concurrent use of the service. The example uses the stateless `QueryRewrite` profile to keep the helper out of the parent conversation.
+
+Claude compaction checks the retained canonical wire history, including signed thinking introduced through `AIRequestContext.AdditionalMessages`. Default thinking binding protects that prefix from automatic or explicit summary compaction. Explicit `ClaudeThinkingPrefixMismatchBehavior.DropBlock` permits compaction where supported; other conversation constraints still apply.
 
 ## What is captured, and what is still shared
 
@@ -177,7 +238,7 @@ The Fast allowlist implemented here is explicit. Check Standard support separate
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

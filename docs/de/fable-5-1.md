@@ -1,5 +1,7 @@
 # Lange Aufgaben mit Claude Fable 5.1 beobachten
 
+> Claude Sonnet 5.5: Erfordert Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Konfiguration und Migration](providers.md#claude-sonnet-55)
+
 [Claude Opus 5.5](providers.md#claude-opus-55) ist ab Mythosia.AI 8.1.0 / Abstractions 4.1.0 verfügbar, mit ständig aktivem Denken, standardmäßig mittlerem Aufwand und verborgener Anzeige. Fordern Sie lesbaren Fortschritt ausdrücklich an; Standardwerte und Modellbindung unterscheiden sich von Fable 5.1.
 
 > Die Fable-5.1-Steuerung benötigt `Mythosia.AI` 8.0.0 und `Mythosia.AI.Abstractions` 4.0.0 oder neuer. Für bestehende Run-, Reasoning-/Such- und GPT-6 Astra-APIs gelten weiterhin die Mindestversionen 7.1.0 / 3.1.0.
@@ -68,6 +70,10 @@ await service
 ```
 
 Beide Helfer übernehmen Anweisungen für die nächste logische Anfrage. Mythosia hängt nach Benutzereingaben oder Tool-Ergebnissen eine Systemnachricht an und behält frühere Nachrichten bei. `WithTurnInstruction` verwendet `clear_at: "next_user_message"`. Innerhalb derselben logischen Anfrage wird die Anweisung nach jeder Tool-Ergebnisrunde erneut angehängt, damit sie bis zum Anfrageende gilt. `WithConversationInstruction` bleibt auch für spätere Runden wirksam. Konfiguriere beides vor dem Start; es ist weder `run.SteerAsync` noch eine Anweisung an eine bereits laufende Antwort.
+
+Wenn lokale Gesprächskomprimierung zulässig ist, bleiben übernommene `WithConversationInstruction`-Texte getrennt von der erzeugten Zusammenfassung in ihrer ursprünglichen Reihenfolge und mit Systemautorität erhalten. Eine dauerhafte Vorgabe wie die Antwortsprache geht dadurch nicht unbemerkt verloren. `WithTurnInstruction` gilt weiterhin nur für den jeweiligen Turn. Fehlgeschlagene oder abgebrochene Komprimierung lässt Anweisungen und Verlauf unverändert; das Leeren des Gesprächs beendet die gespeicherten Anweisungen.
+
+Bei dauerhaften Anweisungen behält ein Schnitt, der sonst den gesamten Verlauf leeren würde, auch mit `KeepRecentCount = 0` den letzten Benutzerturn und erforderliche Tool-Abhängigkeiten. Dadurch bleibt Komprimierung vom ausdrücklichen Leeren des Gesprächs unterscheidbar.
 
 Für Aufwandänderungen zwischen Anfragen unter Erhalt eines wiederverwendbaren Cache-Präfixes nutzt du `.WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)` aus `Mythosia.AI.Extensions`. Die Bibliothek sendet ein nachrichtenbezogenes effort-Update und behält dessen Verlauf. Unterstützte Kombinationen beschreibt der [gemeinsame Leitfaden](reasoning-and-search.md). Bei 5.1 werden die anfragebezogenen Systempräfixe/-suffixe aus `AIRequestContext` zu angehängten Rundenanweisungen, statt einen früheren Systemprompt umzuschreiben.
 

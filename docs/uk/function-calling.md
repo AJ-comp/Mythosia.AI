@@ -1,5 +1,9 @@
 # Виклик функцій
 
+> Claude Sonnet 5.5: Потрібні Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Налаштування та міграція](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Потрібні Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Вибір моделі та міграція](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі та вимоги](providers.md#gpt-6-sol-luna)
 
 Для готової відповіді й кнопки Стоп передайте `cancellationToken` у `GetCompletionAsync`. Run потрібен для подій прогресу або підтримуваних додаткових вказівок. Див. [скасування відповіді](completions.md#completion-cancellation).
@@ -146,6 +150,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Схеми інструментів Claude:** Ключові слова JSON Schema чутливі до регістру. Mythosia надсилає `type`, `description`, `enum`, `default` та `items` у нижньому регістрі, щоб обмеження параметрів читалися правильно. Вкладені `Items` перетворюються рекурсивно; назви параметрів і ключі об’єктів у типових значеннях зберігаються. Невстановлені необов’язкові поля, зокрема `Default = null`, пропускаються; JSON null, явно поданий через `JsonElement`, зберігається. Наявні API `ParameterProperty` не змінюються.
+
 <a id="tool-execution-contract"></a>
 
 ## Повернення об’єктів з асинхронних інструментів і скасування роботи
@@ -270,7 +276,7 @@ var answer = await service.GetCompletionAsync(
     "Перевір приклад погоди в Сеулі. Поки чекаєш, назви три необхідні речі для подорожі.");
 ```
 
-Mythosia надсилає `async: true` для GPT-6 Astra / Sol / Luna через Responses. Для моделей і API без підтримки поле пропускається, а виконання очікує результат того самого обробника, не змінюючи `AllowAsync`. Провайдер також має позначити фактичний виклик як асинхронний (`FunctionCall.IsAsync`); дозвіл не гарантує асинхронне виконання.
+Mythosia надсилає `async: true` для GPT-6.1 Sol / GPT-6 Astra / Sol / Luna через Responses. Для моделей і API без підтримки поле пропускається, а виконання очікує результат того самого обробника, не змінюючи `AllowAsync`. Провайдер також має позначити фактичний виклик як асинхронний (`FunctionCall.IsAsync`); дозвіл не гарантує асинхронне виконання.
 
 `WithFunctionAsync` реєструє асинхронний обробник .NET, а `FunctionExecutionMode.Parallel` керує локальним виконанням обробників. Жоден із них не вмикає цей дозвіл автоматично. `AllowAsync` дає моделі змогу працювати далі до отримання результату функції. `FunctionExecutionMode` і далі керує звичайними викликами. Дозволені асинхронні завдання можуть виконуватися одночасно навіть у режимі `Sequential`; для їхнього окремого пулу діє спільна межа `MaxConcurrency`.
 

@@ -1,18 +1,18 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.Abstractions</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.1.0</Version>
+    <Version>4.2.0</Version>
     <!-- This existing stable package intentionally retains its pinned Lucene prerelease
          dependencies. Keep NU5104 visible without making this known warning fatal. -->
-    <WarningsNotAsErrors Condition="'$(Version)' == '4.1.0'">$(WarningsNotAsErrors);NU5104</WarningsNotAsErrors>
+    <WarningsNotAsErrors Condition="'$(Version)' == '4.2.0'">$(WarningsNotAsErrors);NU5104</WarningsNotAsErrors>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>Framework-agnostic vector-storage contracts for RAG pipelines and custom database adapters. Defines IVectorStore, records, search results, metadata filters, batch retrieval, counts and connection verification. Optional ITextSearchStore and IConfigurableHybridSearchStore support text-only and explicitly configured hybrid queries. HybridSearchOptions and shared fusion helpers provide validated, normalized weighted RRF with top-K and score thresholds; existing vector-store contracts remain available. What's New in v4.1.0: Optional text and configurable hybrid search contracts with validated weighted RRF.</Description>
-    <PackageTags>VectorDB;VectorStore;Abstractions;Embedding;CosineSimilarity;HybridSearch;BM25;Count;BatchGet</PackageTags>
+    <Description>Framework-agnostic vector-storage contracts for RAG pipelines and custom database adapters. Defines IVectorStore, records, search results, metadata filters, batch retrieval, counts and connection verification. Optional ITextSearchStore and IConfigurableHybridSearchStore support text-only and explicitly configured hybrid queries. HybridSearchOptions and shared fusion helpers provide validated, normalized weighted RRF with top-K and score thresholds; existing vector-store contracts remain available. What's New in v4.2.0: Optional IVectorStoreDiagnostics for all-record listing and scoring without a RAG dependency.</Description>
+    <PackageTags>VectorDB;VectorStore;Abstractions;Embedding;CosineSimilarity;HybridSearch;BM25;Count;BatchGet;Diagnostics;IVectorStoreDiagnostics</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -21,7 +21,7 @@
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageReleaseNotes>v4.1.0: Adds optional ITextSearchStore and IConfigurableHybridSearchStore capabilities, validated HybridSearchOptions and shared normalized weighted-RRF fusion with final top-K and score thresholds. Existing IVectorStore implementations and direct hybrid calls remain available. Native keyword/vector scores remain distinct from weighted-RRF scores. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v410</PackageReleaseNotes>
+    <PackageReleaseNotes>v4.2.0: Adds optional IVectorStoreDiagnostics for all-record listing and similarity scoring without a RAG dependency. Existing IVectorStore implementations are unchanged and need not support diagnostics. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>

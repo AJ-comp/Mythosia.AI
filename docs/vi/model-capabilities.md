@@ -1,6 +1,12 @@
 # Hiển thị tùy chọn được mô hình đã chọn hỗ trợ
 
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
+`ThinkingToggle` điều khiển suy luận trước tác vụ; `None` không bảo đảm không có khối thinking. `MaxOutputTokens` là 128000. Không hỗ trợ `FastSpeed`, `AsyncFunctionCalling` và `Steering`.
+
 > Grok 4.7: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47)
+
+> GPT-6.1 Sol: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Chọn mô hình và chuyển đổi](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna)
 

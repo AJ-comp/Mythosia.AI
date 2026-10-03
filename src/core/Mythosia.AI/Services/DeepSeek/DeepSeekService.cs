@@ -56,13 +56,15 @@ namespace Mythosia.AI.Services.DeepSeek
 
         protected override object? CaptureProviderRequestOptions(Message message)
         {
-            ValidateDeepSeekMessage(message);
             return new DeepSeekRequestOptions
             {
                 ThinkingEnabled = RequestSetting(nameof(ThinkingEnabled), ThinkingEnabled),
                 ReasoningEffort = RequestSetting(nameof(ReasoningEffort), ReasoningEffort)
             };
         }
+
+        protected override void ValidateProviderRequestOptions(object? options, Message message)
+            => ValidateDeepSeekMessage(message);
 
         protected override object? CloneProviderRequestOptions(object? options)
             => options is DeepSeekRequestOptions captured
@@ -120,6 +122,7 @@ namespace Mythosia.AI.Services.DeepSeek
             RequestCancellationToken.ThrowIfCancellationRequested();
             using var settingsScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             ValidateDeepSeekToolSelection();
             var policy = GetExecutionPolicy();
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);

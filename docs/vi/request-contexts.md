@@ -189,6 +189,12 @@ Xem [AIRequestProfile](request-profiles.md) để biết thêm về cách ghi đ
 
 ## Tự động chèn bằng `SystemMessageProvider`
 
+Các lời gọi từ ứng dụng bắt đầu những yêu cầu logic độc lập, bao gồm lời gọi thông thường từ `SystemMessageProvider` hoặc callback của công cụ và lời gọi dùng lại cùng `AIRequestProfile` hay `Message`. Dùng lại đối tượng không đồng nghĩa với dùng chung lần thực thi. Việc chuyển tiếp trong framework, vòng công cụ, thử lại và sửa định dạng tiếp tục yêu cầu gốc, áp dụng profile một lần. Yêu cầu con thông thường lấy tùy chọn riêng và mặc định của dịch vụ; builder giữ cài đặt đã chụp. Trạng thái thực thi của yêu cầu cha được khôi phục sau thành công, lỗi hoặc hủy. Các phương thức ghi đè của nhà cung cấp chuyển tiếp lời gọi từ framework tuân theo [quy tắc adapter nhà cung cấp](request-building.md#provider-request-adapters). Nếu gọi cùng phương thức cơ sở cho tác vụ phụ trợ không liên quan trước khi chuyển tiếp, hãy bao quanh lời gọi và `await` bằng `BeginIndependentRequestScope()`; với streaming, giữ phạm vi cho đến khi duyệt hết luồng.
+
+Nhà cung cấp tích hợp giữ bản sao riêng của nội dung đầu vào tích hợp. Dùng lại `Message` sẽ áp dụng ngữ cảnh và chỉ dẫn của lời gọi mới mà không viết lại lịch sử đã được chấp nhận. Chủ sở hữu vẫn phải quản lý nội dung tùy chỉnh và đối tượng siêu dữ liệu không được hỗ trợ. Điều này không bảo đảm an toàn khi gọi đồng thời trên cùng hội thoại.
+
+Trong phần này, “mọi yêu cầu” nghĩa là yêu cầu do ứng dụng khởi tạo. Yêu cầu tóm tắt hội thoại do thư viện tự tạo cũng loại bỏ callback `SystemMessageProvider` và ngữ cảnh của yêu cầu cha, để `RequestMessageOverride` được kế thừa không thể thay thế lời nhắc tóm tắt nội bộ. Yêu cầu do ứng dụng khởi tạo vẫn áp dụng ngữ cảnh động bình thường, kể cả yêu cầu tóm tắt văn bản rõ ràng.
+
 ### Vấn đề nó giải quyết
 
 Một app chat điển hình có nhiều điểm vào LLM đều cần cùng một baseline — ngày hôm nay, thư mục hiện tại, thông tin phiên. **Không có** `SystemMessageProvider`, mỗi nơi gọi phải nhớ dựng và truyền context đó:

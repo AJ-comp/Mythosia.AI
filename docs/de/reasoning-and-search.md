@@ -1,6 +1,12 @@
 # Reasoning-Aufwand wählen und mit Quellen antworten
 
+> Claude Sonnet 5.5: Erfordert Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Konfiguration und Migration](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, ein deaktiviertes bisheriges `ThinkingBudget` oder `AIRequestProfile.DisableReasoning` wählen `between_tools` mit high: kein vorgelagertes Reasoning, aber Werkzeugfortschritt kann weiterhin in thinking-Blöcken erscheinen. `WithBetweenToolsThinking(...)` akzeptiert `Auto` (high), `Low`, `Medium` oder `High`; `XHigh` und `Max` werden abgelehnt. Das thinking-Objekt enthält nur `type`, keine display-, budget- oder binding-Felder. Änderungen des Efforts pro Nachricht und `CachePreservation.Required` sind in diesem Modus nicht verfügbar. Explizites `WithReasoning(Low...Max)` aktiviert adaptive; `Auto` beachtet den ausgewählten Providermodus.
+
 > Grok 4.7: Benötigt Mythosia.AI 8.1.0 / Abstractions 4.1.0. [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47)
+
+> GPT-6.1 Sol: Benötigt Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Modellwahl und Migration](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna sind noch nicht veröffentlicht. Siehe [Modellwahl und Voraussetzungen](providers.md#gpt-6-sol-luna).
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 Der Anbieter führt dieses gehostete Werkzeug aus. Sie müssen keinen lokalen Funktionshandler registrieren oder ausführen. Die Aktivierung stellt die Suche dem Modell bereit; bei einer bestimmten Eingabe kann es entscheiden, dass keine Suche nötig ist. Quellenverweise sind verfügbar, wenn der Anbieter sie zurückgibt.
 
+**Bekannte Einschränkungen:** Claude Sonnet 5.5 / Opus 5.5 können native Suchpausen mit ausstehendem `server_tool_use` am Ende nicht fortsetzen; siehe [betroffene APIs und unterstützte Pausenformen](providers.md#claude-native-continuation-limitation). Für Streaming und Run gilt außerdem eine bedingte [Einschränkung beim Abbruch mit puffernden benutzerdefinierten HTTP-Inhalten](streaming.md#sse-acquisition-cancellation-limitation).
+
 OpenAI und Anthropic akzeptieren außerdem `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`. Google bietet diese Positivliste im integrierten Werkzeug nicht an. Eine so eingeschränkte Anfrage wird daher abgelehnt, statt das gesamte Web zu durchsuchen.
 
 ## Aus bereits beim Anbieter indexierten Dokumenten antworten
@@ -146,8 +154,8 @@ Quellenfelder können `null` sein, wenn der Anbieter keinen Wert liefert. `Respo
 
 | Integrierter Anbieter | Benannte Reasoning-Stufen | Änderung mit Cache-Erhalt | Websuche | Dateisuche |
 | --- | --- | --- | --- | --- |
-| OpenAI | Unterstützte Reasoning-Modelle; Stufen sind modellabhängig | GPT-6 Astra / Sol / Luna Standard im Einzelagentenmodus | Unterstützte Responses-Modelle | Unterstützte Responses-Modelle, vorhandene Vektorspeicher |
-| Anthropic | Modelle mit nativer Effort-Steuerung | Unterstützte Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 mit Anbieter-Beta | Unterstützte Claude-Modelle | Kein nativer Speicheradapter; RAG verwenden |
+| OpenAI | Unterstützte Reasoning-Modelle; Stufen sind modellabhängig | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard im Einzelagentenmodus | Unterstützte Responses-Modelle | Unterstützte Responses-Modelle, vorhandene Vektorspeicher |
+| Anthropic | Modelle mit nativer Effort-Steuerung | Unterstützte Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 mit Anbieter-Beta | Unterstützte Claude-Modelle | Kein nativer Speicheradapter; RAG verwenden |
 | Google | Gemini-3-Stufen; Gemini 2.5 behält anbieterspezifische Budgets | Nicht unterstützt | Unterstützte Gemini-Textmodelle | Unterstützte Gemini-Textmodelle, vorhandene Dateisuchspeicher |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; Zuordnung zu nativem Low/High/Max | Nicht unterstützt | Kein gemeinsamer Adapter | Kein gemeinsamer Adapter |

@@ -189,6 +189,18 @@ internal static class ChatUiSettingsHelpers
         }
         else if (service is AnthropicService claude)
         {
+            if (string.Equals(claude.Model, AIModels.Anthropic.ClaudeSonnet5_5, StringComparison.OrdinalIgnoreCase))
+            {
+                if (reasoningType != "claude_adaptive" ||
+                    !Enum.TryParse<ClaudeReasoningEffort>(reasoningLevel, true, out var sonnetEffort) ||
+                    !Enum.IsDefined(sonnetEffort) ||
+                    !Enum.TryParse<ReasoningLevel>(reasoningLevel, true, out var commonEffort) ||
+                    !claude.GetCapabilities().NativeReasoningLevels.Contains(commonEffort))
+                    throw new ArgumentException("Unsupported Claude Sonnet 5.5 reasoning effort.");
+
+                claude.WithAdaptiveThinkingParameters(sonnetEffort, ClaudeThinkingDisplay.Summarized);
+                return;
+            }
             if (reasoningType == "claude_adaptive" || reasoningType == "claude_always")
             {
                 if (Enum.TryParse<ClaudeReasoningEffort>(reasoningLevel, true, out var effort))
@@ -246,7 +258,7 @@ internal static class ChatUiSettingsHelpers
             gptOff.Gpt5_6ReasoningEffort = Gpt5_6Reasoning.None;
             gptOff.Gpt5_6ReasoningSummary = null;
             gptOff.Gpt5_6ReasoningMode = Gpt5_6ReasoningMode.Standard;
-            // Astra retains its lowest effort; Sol and Luna can disable reasoning.
+            // Mandatory-reasoning models retain Low; only models exposing None can disable reasoning.
             gptOff.Gpt6ReasoningEffort = gptOff.GetCapabilities().NativeReasoningLevels.Contains(ReasoningLevel.None)
                 ? Gpt6Reasoning.None : Gpt6Reasoning.Low;
             gptOff.Gpt6ReasoningSummary = null;
@@ -254,6 +266,12 @@ internal static class ChatUiSettingsHelpers
         }
         else if (service is AnthropicService claudeOff)
         {
+            if (string.Equals(claudeOff.Model, AIModels.Anthropic.ClaudeSonnet5_5, StringComparison.OrdinalIgnoreCase))
+            {
+                claudeOff.WithBetweenToolsThinking();
+                claudeOff.AdaptiveThinkingDisplay = ClaudeThinkingDisplay.Omitted;
+                return;
+            }
             claudeOff.ThinkingBudget = -1;
             claudeOff.AdaptiveThinkingEffort =
                 claudeOff.Model.Contains("fable-5", StringComparison.OrdinalIgnoreCase) ||

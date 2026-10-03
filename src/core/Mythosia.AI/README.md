@@ -4,9 +4,21 @@ Build applications that can switch AI providers while keeping the same completio
 
 Choose premium low-latency processing only for requests that need it, while keeping the same model and reasoning effort. The `WithSpeed(InferenceSpeed.ProviderDefault/Standard/Fast)` API works on immutable request builders and next-request service extensions. Inspect model capabilities, then read `AIRunResult.Processing` or `LastProcessing` to distinguish requested from reported processing; unknown reporting remains unknown. Fast can cost more and is limited by provider/model/API and account access. See [speed selection and examples](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 8.1.0
+## Pending release: 8.2.0
 
-This minor release requires **Mythosia.AI.Abstractions 4.1.0**. It adds GPT-6 Sol/Luna, Claude Opus 5.5, Grok 4.7, DeepSeek V4 Pro and Responses/Files APIs, plus common processing-speed controls. Existing public APIs and service defaults remain. See the [v8.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v810).
+This minor release requires **Mythosia.AI.Abstractions 4.2.0**. It adds `AIModels.OpenAI.Gpt6_1Sol` (`gpt-6.1-sol`) through the existing completion, streaming, structured-output, image-input, local-tool and Run workflows. It supports Low through Max reasoning, including XHigh, and defaults to Medium; None and Minimal are rejected. Existing GPT-6 Sol/Luna reasoning-off behavior and service defaults remain. See the [v8.2.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v820) and [GPT-6.1 Sol migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-61-sol).
+
+Claude Sonnet 5.5 is also available through `AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`). Untouched settings use adaptive/high thinking with readable thinking omitted. `WithBetweenToolsThinking(...)` and `ClaudeThinkingMode` provide an explicit lowest-thinking mode; `ReasoningLevel.None` selects `between_tools` at high effort, which disables up-front thinking while retaining tool progress. See [Sonnet 5.5 configuration and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-sonnet-55).
+
+Completion, streaming, structured output and Run use the same request preparation: apply the actual profile once and validate the effective settings before automatic summaries, history changes or transport. Auxiliary requests retain native provider validation while isolating the parent conversation and output schema. See the [request settings guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md).
+
+Application calls remain independent when profiles or messages are reused, including ordinary nested context and tool callbacks. Framework dispatch into a virtual provider adapter and its first matching base call share the prepared request even when input is replaced; the default callback-streaming adapter also retains captured settings. An unrelated helper invoked at that same base entry before forwarding uses the protected `BeginIndependentRequestScope()`. See the [provider adapter rules and example](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#provider-request-adapters). Built-in input snapshots keep later calls from rewriting accepted history.
+
+Changed adapter profiles are revalidated before automatic summaries; callback streaming waits for producer cleanup; Claude compaction keeps retained tool dependencies, including input overrides, and protects Mythos 5.1 bound thinking. Stateless OpenAI helpers preserve the parent history guard. See the [request adapter guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#provider-request-adapters).
+
+> **Pending release — known limitations:** Sonnet 5.5 / Opus 5.5 can reject a `pause_turn` continuation ending in a pending `server_tool_use`; see [Claude continuation limits](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-native-continuation-limitation). A custom buffering `HttpContent` can delay cancellation or policy timeout during successful SSE body acquisition and keep the Run active; see [SSE cancellation limits](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/streaming.md#sse-acquisition-cancellation-limitation).
+>
+> These pages describe pending changes, not a completed release validation. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v820) for included changes, remaining limitations and validation scope.
 
 The v8 API contracts below remain available. When upgrading from 7.x or earlier, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) and rebuild dependent applications and custom providers.
 
@@ -29,14 +41,18 @@ Reliability fixes preserve request snapshots and reported token totals, complete
 
 For fast drafts and careful code/document reviews, select `AIModels.xAI.Grok4_7` and choose `Low`, `Medium`, `High` or `XHigh` through the existing request builder. Completion, streaming, Run, local tools, structured output, image input and model capabilities share the same model-specific validation. Native Auto uses the provider’s High default; reasoning cannot be disabled. `WithSpeed(InferenceSpeed.Fast)` selects paid priority processing, not the separate Cursor/Grok Build-only Grok 4.7 Fast variant. Read the reported tier in `AIRunResult.Processing`. This addition requires Mythosia.AI 8.1.0 and Abstractions 4.1.0; the service default remains Grok 4.5. See [usage, limits and transport scope](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#grok-47).
 
+## Claude Sonnet 5.5
+
+Use the existing completion, streaming, Run, local-tool, web-search, structured-output and image-input APIs. Structured output uses schema instructions, deserialization and repair retries; native `output_config.format` constraints are not sent. Adaptive mode accepts Low through Max, including XHigh; the `between_tools` mode accepts Low/Medium/High and sends no display, budget or binding fields. `Minimal`, forced tools and assistant prefills are rejected locally. Signed thinking, including empty blocks and progress-update metadata, is retained; stored assistant edits fail locally, while earlier user/system/tool prefix changes are sent to the provider binding policy. Use append-only history; adaptive mode can request Error or DropBlock explicitly. Fast, native async tools and Run steering are unsupported. `ThinkingToggle` means switching up-front thinking, not eliminating every thinking block. Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Examples, history constraints and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-sonnet-55).
+
 ## Claude Opus 5.5
 
 For long coding and document tasks, select `AIModels.Anthropic.ClaudeOpus5_5` through the existing completion, streaming and Run APIs. Untouched settings use medium adaptive effort and omit readable thinking; explicitly choose summarized reasoning or progress updates for your interface. Signed thinking, including empty blocks, is retained across ordinary turns and tool rounds. Forced tools, assistant prefills and reasoning-off requests are unsupported; native server features are not all exposed. This addition is available with Mythosia.AI 8.1.0 and Abstractions 4.1.0. See [Opus 5.5 configuration and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-opus-55).
 
 ## Supported Providers
 
-- **OpenAI** — GPT-6 Astra / Sol / Luna, GPT-5.6 alias / Sol / Terra / Luna, GPT-5.5 / 5.5 Pro, GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro, GPT-5.3 Codex, GPT-5.2 / 5.2 Pro, GPT-5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini
-- **Anthropic** — Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5.5 / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5
+- **OpenAI** — GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 alias / Sol / Terra / Luna, GPT-5.5 / 5.5 Pro, GPT-5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro, GPT-5.3 Codex, GPT-5.2 / 5.2 Pro, GPT-5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini
+- **Anthropic** — Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5.5 / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5.5 / 5 / 4.6 / 4.5, Haiku 4.5
 - **Google** — Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, and Gemini 3 Pro Image
 - **DeepSeek** — Flash (V4.1 Flash) with image input and text-only V4 Pro; local functions, optional thinking, opt-in Responses, and reusable image uploads
 - **xAI** — Grok 4.7, Grok 4.6, Grok 4.5 (default), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build
@@ -49,7 +65,7 @@ For long coding and document tasks, select `AIModels.Anthropic.ClaudeOpus5_5` th
 - **[Reasoning and Search](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/reasoning-and-search.md)** — Move from quick drafts to deeper review, search hosted sources, and retain citations through common Fluent options
 - **[Claude Fable 5.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/fable-5-1.md)** — Observe progress, append turn instructions, and diagnose preserved-thinking changes
 - **[Perplexity](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md)** — Produce grounded answers, manage research tasks, or use independent search and embeddings
-- **[v8.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v810)** — Current changes, compatibility details, and full version history
+- **[v8.2.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI/RELEASE_NOTES.md#v820)** — Current changes, compatibility details, and full version history
 - **[Relationship to Microsoft.Extensions.AI](https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions#relationship-to-microsoftextensionsai)** — How IAIService and IChatClient differ
 
 > Claude Fable 5 and Claude Mythos 5 require 30-day data retention and cannot use zero-data-retention arrangements. Adaptive thinking is always on; a reasoning-off request is represented by low effort with readable reasoning omitted. Mythos 5 is limited to approved Project Glasswing customers.
@@ -122,7 +138,17 @@ await using var run = await service.StartRunAsync(
 string answer = (await run.Result).Text;
 ```
 
-The same run can expose `run.StreamAsync()` events for tools and usage. `(await run.Result).Text` accumulates all emitted text, including intermediate tool-round and pre-steering output; observing the stream is optional. For supported GPT-6 Astra / Sol / Luna runs, call `run.SteerAsync(...)` while work is active. Success acknowledges queued input; it does not undo earlier output or actions.
+The same run can expose `run.StreamAsync()` events for tools and usage. `(await run.Result).Text` accumulates all emitted text, including intermediate tool-round and pre-steering output; observing the stream is optional. For supported GPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Luna runs, call `run.SteerAsync(...)` while work is active. Success acknowledges queued input; it does not undo earlier output or actions.
+
+For GPT-6.1 Sol, steering requires Standard mode. Pro supports normal Run execution, function calls and native async tools, but reports `Steering = Unsupported` and `run.CanSteer = false`. Calling `SteerAsync` on that Pro run is rejected locally without cancelling or aborting its normal execution.
+
+GPT-6 family runs resolve `responses` against the configured `HttpClient.BaseAddress` exactly as HTTP requests do, then map `https` to `wss` and `http` to `ws`, retaining the resolved host, port and path. The trailing slash matters: `https://example.com/proxy/v1/` resolves to `wss://example.com/proxy/v1/responses`, while `https://example.com/proxy/v1` resolves to `wss://example.com/proxy/responses`. A missing base address or a scheme other than HTTP(S) is rejected before connecting; there is no fallback to the default OpenAI endpoint. Runs use a dedicated `ClientWebSocket`, so the supplied `HttpClient` message handlers do not intercept the socket. Custom transports can still override `OpenAIService.ConnectRunWebSocketAsync`.
+
+Cancelling a token used only for `SteerAsync` while it is waiting to send, including behind another send, cancels that call without stopping the Run. Once submission to the transport starts, cancellation or a send failure may abort the Run because delivery is uncertain. After sending completes, cancellation while waiting for acknowledgement stops the wait but does not retract the submitted input; continue observing the same Run. Cancelling the token passed to `StartRunAsync`, or calling `run.Cancel()`, still cancels the Run.
+
+In native OpenAI runs, accepted steering instructions are recorded in conversation history before their corresponding continuation response, even if output processing lags behind received events. A nonrecoverable transport failure cancels cooperative local tools, and `run.Result` reports the original failure after cleanup. Cleanup still waits for tools that ignore cancellation.
+
+A fully received final response is retained during normal WebSocket closure if the peer's Close frame arrives before the corresponding initial request or tool-result send finishes. The send is not replayed; caller cancellation is still honored, and send failures without a confirmed final response are not suppressed. An already received terminal API failure keeps its original reason if the connection subsequently closes while local tools are still running.
 
 ## Image Generation and Editing
 
@@ -310,7 +336,7 @@ GPT-6 Astra reasoning is always enabled: `None` and `Minimal` are unavailable. `
 
 GPT-6 Astra internal summarization and query-rewrite profiles reserve at least 4,096 output tokens to accommodate mandatory reasoning. General request token budgets remain caller-controlled.
 
-To continue independent work during a slow lookup, use GPT-6 Astra / Sol / Luna opt-in async tools through `FunctionDefinition.AllowAsync` or `FunctionBuilder.WithAsync()`. See [Async Tool Calling](#async-tool-calling). To add a requirement while the model is working, start a run, check `run.CanSteer`, and call `run.SteerAsync(...)`; see [control ongoing tasks](#control-ongoing-tasks).
+To continue independent work during a slow lookup, use GPT-6.1 Sol / GPT-6 Astra / Sol / Luna opt-in async tools through `FunctionDefinition.AllowAsync` or `FunctionBuilder.WithAsync()`. See [Async Tool Calling](#async-tool-calling). To add a requirement while the model is working, start a run, check `run.CanSteer`, and call `run.SteerAsync(...)`; see [control ongoing tasks](#control-ongoing-tasks).
 
 ## GPT-5 Family Configuration
 
@@ -825,7 +851,7 @@ var answer = await service.GetCompletionAsync(
 
 `WithAsync()` sets `FunctionDefinition.AllowAsync = true`; its default is `false`, and `WithAsync(false)` disables the option. Attribute-based registration also accepts `[AiFunction("lookup", "Look up data", AllowAsync = true)]`. This permission is independent of `WithFunctionAsync` and `FunctionExecutionMode.Parallel`: those control .NET handlers, while `AllowAsync` allows the model to continue before a result arrives. Enable it only when overlapping model work is appropriate for that function.
 
-Mythosia enables the API option for GPT-6 Astra / Sol / Luna through Responses. Other models and APIs omit the option and execute the same handler with the existing wait-for-result behavior, without modifying `AllowAsync`. The provider must also mark the actual call as async (`FunctionCall.IsAsync`); permission alone does not guarantee async execution. See the [official async tool calling guide](https://developers.openai.com/api/docs/guides/async-tool-calling).
+Mythosia enables the API option for GPT-6.1 Sol / GPT-6 Astra / Sol / Luna through Responses. Other models and APIs omit the option and execute the same handler with the existing wait-for-result behavior, without modifying `AllowAsync`. The provider must also mark the actual call as async (`FunctionCall.IsAsync`); permission alone does not guarantee async execution. See the [official async tool calling guide](https://developers.openai.com/api/docs/guides/async-tool-calling).
 
 `FunctionExecutionMode` still controls ordinary calls. Opted-in async jobs can overlap even in `Sequential` mode and share a separate pending-job limit set by `MaxConcurrency`.
 
@@ -1294,7 +1320,7 @@ Computed properties: `NonCachedInputTokens`, `CacheHitRatio`, `HasCacheActivity`
 
 ## Reasoning Streaming
 
-GPT-6 Astra / Sol / Luna, supported GPT-5.1–5.6 models, Claude, Gemini, Grok, and DeepSeek Flash expose provider-returned reasoning through streaming events. Enable DeepSeek thinking explicitly, then observe with `StreamOptions.WithReasoning()`; observing reasoning does not turn it on.
+GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, supported GPT-5.1–5.6 models, Claude, Gemini, Grok, and DeepSeek Flash expose provider-returned reasoning through streaming events. Enable DeepSeek thinking explicitly, then observe with `StreamOptions.WithReasoning()`; observing reasoning does not turn it on.
 
 ```csharp
 await foreach (var content in service.StreamAsync(message, new StreamOptions().WithReasoning()))
@@ -1319,6 +1345,7 @@ await foreach (var content in service.StreamAsync(message, new StreamOptions().W
 | **OpenAI GPT-5.2 / 5.2 Pro** | ✅ | ✅ | ✅ | Per-model reasoning enums + verbosity |
 | **OpenAI GPT-5.1** | ✅ | ✅ | ✅ | Reasoning + verbosity control |
 | **OpenAI GPT-4.1 / 4.1 Mini / GPT-4o / 4o Mini** | ✅ | ✅ | — | Full function support |
+| **Claude Sonnet 5.5** | ✅ | ✅ | ✅ | Since v8.2.0; adaptive/high default, explicit between_tools, retained signed thinking and tool progress; forced tools unsupported |
 | **Claude Opus 5.5** | ✅ | ✅ | ✅ | Since v8.1.0; always-on adaptive thinking, medium/omitted default, explicit updates, preserved-thinking controls; forced tools unsupported |
 | **Claude Fable 5.1** | ✅ | ✅ | ✅ | Progress updates, per-message effort, turn instructions, binding diagnostics; forced tool choice unsupported |
 | **Claude Mythos 5.1** | ✅ | ✅ | ✅ | Invitation only; same 5.1 controls without Fable's prefix check; forced tool choice unsupported |

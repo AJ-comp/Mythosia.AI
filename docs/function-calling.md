@@ -1,5 +1,9 @@
 # Function Calling
 
+> Claude Sonnet 5.5: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration and migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selection and migration](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection and requirements](providers.md#gpt-6-sol-luna)
 
 Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
@@ -182,6 +186,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Claude tool schemas:** JSON Schema keywords are case-sensitive. Mythosia sends lowercase `type`, `description`, `enum`, `default` and `items` so parameter constraints can be read correctly. Nested `Items` are mapped recursively; parameter names and object keys inside defaults keep their spelling. Unset optional fields are omitted, including `Default = null`; an explicit JSON null represented by a `JsonElement` is preserved. Existing `ParameterProperty` APIs are unchanged.
+
 <a id="tool-execution-contract"></a>
 
 ## Return objects from async tools and stop work when cancelled
@@ -305,7 +311,7 @@ var answer = await service.GetCompletionAsync(
     "Check the demo Seoul weather. While waiting, list three packing essentials.");
 ```
 
-Mythosia sends `async: true` for GPT-6 Astra / Sol / Luna through Responses. Unsupported models and APIs omit that field and wait for the same handler's result, leaving your `AllowAsync` setting unchanged. The provider must also return an async call (`FunctionCall.IsAsync`); enabling the permission does not guarantee async execution.
+Mythosia sends `async: true` for GPT-6.1 Sol / GPT-6 Astra / Sol / Luna through Responses. Unsupported models and APIs omit that field and wait for the same handler's result, leaving your `AllowAsync` setting unchanged. The provider must also return an async call (`FunctionCall.IsAsync`); enabling the permission does not guarantee async execution.
 
 `WithFunctionAsync` only accepts a .NET asynchronous handler, and `FunctionExecutionMode.Parallel` controls local handler scheduling. Neither enables this permission. `AllowAsync` lets the model continue before a function result arrives. `FunctionExecutionMode` still controls ordinary calls. Opted-in async jobs can overlap even in `Sequential` mode and share a separate pending-job limit set by `MaxConcurrency`.
 

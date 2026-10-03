@@ -1,6 +1,12 @@
 # Chọn mức suy luận và trả lời kèm nguồn
 
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, `ThinkingBudget` cũ bị tắt hoặc `AIRequestProfile.DisableReasoning` chọn `between_tools` ở mức high: tắt suy luận trước khi làm việc, nhưng tiến độ công cụ vẫn có thể nằm trong khối thinking. `WithBetweenToolsThinking(...)` nhận `Auto` (high), `Low`, `Medium`, `High`; từ chối `XHigh` và `Max`. Đối tượng thinking chỉ gửi `type`, không có display, budget hay binding. Chế độ này không hỗ trợ đổi effort theo tin nhắn hoặc `CachePreservation.Required`. `WithReasoning(Low...Max)` chỉ định rõ sẽ chuyển về adaptive; `Auto` tôn trọng chế độ của nhà cung cấp.
+
 > Grok 4.7: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47)
+
+> GPT-6.1 Sol: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Chọn mô hình và chuyển đổi](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 Nhà cung cấp thực thi công cụ được lưu trữ này. Không cần đăng ký hay chạy trình xử lý hàm cục bộ. Bật tìm kiếm chỉ làm cho công cụ khả dụng với mô hình; mô hình có thể quyết định một lời nhắc cụ thể không cần tìm kiếm. Tham chiếu nguồn có sẵn khi nhà cung cấp trả về chúng.
 
+**Giới hạn đã biết:** Claude Sonnet 5.5 / Opus 5.5 không thể tiếp tục lần tạm dừng tìm kiếm gốc kết thúc bằng `server_tool_use` đang chờ; xem [API bị ảnh hưởng và dạng tạm dừng được hỗ trợ](providers.md#claude-native-continuation-limitation). Streaming và Run cũng có [giới hạn hủy khi dùng nội dung HTTP tùy chỉnh có bộ đệm](streaming.md#sse-acquisition-cancellation-limitation).
+
 OpenAI và Anthropic cũng chấp nhận `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`. Công cụ Google được tích hợp không cung cấp danh sách miền cho phép này, nên yêu cầu có giới hạn miền sẽ bị từ chối thay vì tìm trên toàn bộ web.
 
 ## Trả lời từ tài liệu đã được nhà cung cấp lập chỉ mục
@@ -146,8 +154,8 @@ Các trường trích dẫn có thể là null khi nhà cung cấp không gửi 
 
 | Nhà cung cấp đã tích hợp | Mức suy luận có tên | Thay đổi giữ bộ nhớ đệm | Tìm kiếm web | Tìm kiếm tệp |
 | --- | --- | --- | --- | --- |
-| OpenAI | Các mô hình suy luận được hỗ trợ; mức tùy theo mô hình | GPT-6 Astra / Sol / Luna Standard, chế độ một tác nhân | Các mô hình Responses được hỗ trợ | Các mô hình Responses được hỗ trợ và kho vector hiện có |
-| Anthropic | Mô hình có điều khiển effort gốc | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 được hỗ trợ, dùng tính năng beta của nhà cung cấp | Các mô hình Claude được hỗ trợ | Không có bộ điều hợp kho gốc; dùng RAG |
+| OpenAI | Các mô hình suy luận được hỗ trợ; mức tùy theo mô hình | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard, chế độ một tác nhân | Các mô hình Responses được hỗ trợ | Các mô hình Responses được hỗ trợ và kho vector hiện có |
+| Anthropic | Mô hình có điều khiển effort gốc | Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 được hỗ trợ, dùng tính năng beta của nhà cung cấp | Các mô hình Claude được hỗ trợ | Không có bộ điều hợp kho gốc; dùng RAG |
 | Google | Các mức Gemini 3; Gemini 2.5 giữ ngân sách riêng của nhà cung cấp | Không hỗ trợ | Các mô hình văn bản Gemini được hỗ trợ | Các mô hình văn bản Gemini được hỗ trợ và kho tìm kiếm tệp hiện có |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Không hỗ trợ | Không có adapter chung | Không có adapter chung |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; ánh xạ Low/High/Max gốc | Không hỗ trợ | Chưa có bộ điều hợp chung | Chưa có bộ điều hợp chung |

@@ -1,5 +1,11 @@
 # 스트리밍
 
+기본 콜백 스트리밍 어댑터는 열거를 조기에 끝내면 내부 생산 작업을 취소하고 기다립니다. Run 취소·타임아웃·관찰 콜백 오류·`DisposeAsync`는 공급자 정리가 끝난 뒤 `Result`와 실행 잠금을 해제하며, 취소에 응답하지 않는 작업은 완료를 늦출 수 있습니다. 관찰 오류와 정리 오류는 함께 보존합니다. `ContextRecoveryMaxRetries`는 요청에 보관한 값을 사용합니다. `run.StreamAsync()` 관찰만 중단하는 것은 여전히 Run 취소가 아닙니다. 성공한 SSE 응답 본문을 확보하는 단계에는 별도의 [취소 제한](#sse-acquisition-cancellation-limitation)이 있습니다.
+
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+Adaptive 모드에서는 `ClaudeThinkingDisplay.Updates`로 도구 진행 상황을, `Summarized`로 추론 요약을 요청합니다. 스트림의 `StreamingContentType.Reasoning` 또는 일반 완료 후 `LastThinkingContent`를 확인합니다. Adaptive 헬퍼의 생략된 display 인수는 `Summarized`로, 무설정 기본값과 다릅니다. `between_tools`에서는 도구 진행 상황이 자동으로 반환되며 고정된 진행 알림 주기는 보장하지 않습니다.
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
 
 완성된 답변과 사용량·출처를 함께 받아야 한다면 `await run.Result`가 반환하는 `AIRunResult`를 사용하세요. 문자열은 `result.Text`에 있으며 스트림을 읽지 않아도 결과를 모읍니다. Mythosia.AI 8.0.0의 API 변경이며 `GetCompletionAsync`와 타입 지정 `StructuredStreamRun<T>.Result`의 반환형은 유지합니다. [Run 결과와 전환 안내](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Claude 오류 응답:** 스트리밍이나 Run에서 HTTP 오류 본문 읽기가 멈춘 경우에도 취소와 요청 정책의 타임아웃이 적용됩니다. Run 정리가 끝나면 같은 서비스에서 다음 Run을 시작할 수 있습니다. 호출자 취소는 `OperationCanceledException`, 정책 타임아웃은 `AIServiceException`으로 전달됩니다. 취소는 로컬 전송과 취소에 응답하는 작업의 정리를 제어하며, 공급자 처리나 과금 중단을 보장하지 않습니다.
+
+**Claude 응답 정리:** Claude 스트리밍과 Run은 확보한 HTTP 응답 본문의 비동기 정리를 기다리며, 비동기 해제가 필요한 사용자 지정 스트림도 포함합니다. 이후 응답·콘텐츠 해제 중 발생한 예외가 성공적인 완료, 원래 읽기 오류 또는 취소를 덮어쓰지 않으며, 원래 응답·콘텐츠 해제 자체는 계속 시도합니다.
+
+**HTTP 타임아웃:** 공통 스트리밍 라운드 경로를 사용하는 텍스트·콘텐츠·콜백 스트리밍과 Run에서는 호출자 취소와 요청 정책 타임아웃이 발생하지 않은 경우, 식별 가능한 `HttpClient.Timeout`(내부 `TimeoutException`을 가진 `TaskCanceledException`)을 `AIServiceException`으로 전달합니다. `InnerException`에 원래 전송 예외를 보존하므로 `run.Result`도 타임아웃 원인을 유지한 실패로 완료됩니다. 호출자 취소, 정책 타임아웃과 기타 전송 취소의 기존 동작은 유지됩니다.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## 알려진 제한: 성공한 SSE 응답 본문 확보
+
+HTTP 200 SSE에서 사용자 지정 핸들러가 본문을 버퍼링하는 `HttpContent` 래퍼를 사용하면 본문 스트림 확보와 정리가 시작되기 전에 `ReadAsStreamAsync`가 멈출 수 있습니다. 호출자 취소나 요청 정책 타임아웃 후에도 확보 작업이 끝날 때까지 `run.Result`가 미완료이고 응답은 해제되지 않으며 서비스의 실행 잠금이 유지될 수 있어, 다음 Run은 이미 실행 중이라는 이유로 거부됩니다. 이 문제는 미수정 상태이며 느린 정리 작업과는 구분됩니다. 기본 `SocketsHttpHandler`는 검증한 시나리오를 통과했고, 같은 래퍼의 HTTP 오류 본문 취소도 통과했습니다. 본문을 버퍼링하는 래퍼를 피하고 일반 스트리밍 콘텐츠를 사용하세요. Claude 네이티브 웹 검색에는 별도의 [이어가기 제한](providers.md#claude-native-continuation-limitation)이 있습니다.
 
 ## 기존 입력형 스트리밍 API
 

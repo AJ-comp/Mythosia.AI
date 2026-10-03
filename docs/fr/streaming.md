@@ -1,5 +1,11 @@
 # Streaming
 
+L’adaptateur de streaming par rappel annule et attend son producteur à la sortie anticipée. Annulation du Run, expiration, erreur du rappel et `DisposeAsync` attendent le nettoyage avant de terminer `Result` et de libérer le verrou. Un traitement non coopératif peut retarder cette fin ; les erreurs d’observation et de nettoyage sont conservées ensemble. `ContextRecoveryMaxRetries` utilise la valeur capturée. Arrêter seulement l’observation de `run.StreamAsync()` n’annule pas le Run. L’acquisition du corps d’une réponse SSE réussie présente une [limitation distincte d’annulation](#sse-acquisition-cancellation-limitation).
+
+> Claude Sonnet 5.5: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration et migration](providers.md#claude-sonnet-55)
+
+En adaptive, `ClaudeThinkingDisplay.Updates` demande la progression lisible des outils, et `Summarized` les résumés de raisonnement. Observez `StreamingContentType.Reasoning`, ou `LastThinkingContent` après une completion. Le helper adaptive utilise `Summarized` lorsque display est omis, contrairement aux réglages inchangés. `between_tools` renvoie automatiquement la progression, sans garantie d’intervalle fixe.
+
 > Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
 
 Pour obtenir réponse, jetons et sources ensemble, `await run.Result` renvoie un instantané `AIRunResult`. La chaîne est dans `result.Text`, sans lecture du flux. Ce changement appartient à Mythosia.AI 8.0.0 ; les types de retour de `GetCompletionAsync` et `StructuredStreamRun<T>.Result` restent identiques. [Résultat Run et migration](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Réponses d’erreur Claude :** L’annulation et le délai de la politique de requête interrompent aussi la lecture bloquée du corps d’une erreur HTTP pendant le streaming ou un Run. Après le nettoyage du Run, un autre peut démarrer sur le même service. L’annulation par l’appelant lève `OperationCanceledException` ; l’expiration du délai lève `AIServiceException`. L’annulation contrôle le transport local et le nettoyage coopératif, sans garantir l’arrêt du traitement ou de la facturation du fournisseur.
+
+**Nettoyage des réponses Claude :** Le streaming Claude et Run attendent le nettoyage asynchrone du corps HTTP déjà obtenu, y compris pour les flux personnalisés qui nécessitent une libération asynchrone. Une exception ultérieure lors de la libération de la réponse ou de son contenu ne remplace ni une réussite, ni l’erreur de lecture d’origine, ni une annulation ; la libération de la réponse et du contenu d’origine reste tentée.
+
+**Délais HTTP :** Pour le streaming de texte, de contenu ou par callback et les Runs qui passent par le chemin commun des tours de streaming, un `HttpClient.Timeout` identifiable (`TaskCanceledException` contenant une `TimeoutException`) devient une `AIServiceException` si ni l’annulation par l’appelant ni le délai de la politique de requête n’ont été déclenchés. `InnerException` conserve l’exception de transport d’origine : `run.Result` échoue donc en préservant la cause du dépassement de délai. L’annulation par l’appelant, les délais de la politique et les autres annulations de transport conservent leur comportement.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## Limitation connue : acquisition du corps d’une réponse SSE réussie
+
+Sur HTTP 200 SSE, un wrapper `HttpContent` qui met le corps en mémoire tampon dans un handler personnalisé peut bloquer `ReadAsStreamAsync` avant l’acquisition du flux et le nettoyage. L’annulation par l’appelant et le délai de la politique de requête peuvent laisser `run.Result` en attente, la réponse non libérée et le verrou du Run actif maintenu jusqu’à la fin de l’acquisition ; un autre Run est alors refusé comme déjà actif. Ce problème reste non corrigé et se distingue d’un nettoyage lent. Le `SocketsHttpHandler` par défaut a réussi les scénarios testés ; l’annulation du corps d’erreur HTTP a également réussi avec le wrapper. Utilisez un contenu de streaming ordinaire sans wrapper qui le met en mémoire tampon. La recherche web native de Claude présente une [limitation distincte de continuation](providers.md#claude-native-continuation-limitation).
 
 ## Exemples de compatibilité avec l’ancienne API
 

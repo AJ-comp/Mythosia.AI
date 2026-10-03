@@ -1,5 +1,16 @@
 # Mythosia.VectorDb.Abstractions - Release Notes
 
+## v4.2.0
+
+### Added
+
+- Optional `IVectorStoreDiagnostics` defines all-record listing and similarity scoring in the `Mythosia.VectorDb` namespace. Vector stores can provide this capability without referencing any AI or RAG package.
+- `ListAllRecordsAsync` and `ScoredListAsync` inspect the entire store without metadata filtering. Scoring returns every record in descending score order without TopK or minimum-score filtering; score meaning remains implementation-specific.
+
+### Compatibility
+
+- `IVectorStore` and its existing implementations remain unchanged. Full-store diagnostics are optional and do not change ordinary vector, text or hybrid retrieval.
+
 ## v4.1.0
 
 ### Added

@@ -381,6 +381,7 @@
   "Reasoning": "Raciocínio",
   "Reasoning Level": "Nível de raciocínio",
   "Reasoning Mode": "Modo de raciocínio",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "Ao desativar, o raciocínio inicial é omitido; as atualizações de progresso entre chamadas de ferramentas continuam ativas.",
   "Reasoning and final answer": "Raciocínio e resposta final",
   "Recent references": "Referências recentes",
   "Recommended": "Recomendado",

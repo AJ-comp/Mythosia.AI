@@ -1,5 +1,9 @@
 # Appel de fonctions
 
+> Claude Sonnet 5.5: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration et migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Choix du modèle et migration](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [choix du modèle et prérequis](providers.md#gpt-6-sol-luna)
 
 Pour un résultat final et un bouton Arrêter, passez `cancellationToken` à `GetCompletionAsync`. Utilisez Run pour les événements de progression ou les instructions supplémentaires prises en charge. Voir [l’annulation](completions.md#completion-cancellation).
@@ -167,6 +171,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Schémas d’outils Claude :** Les mots-clés JSON Schema sont sensibles à la casse. Mythosia envoie `type`, `description`, `enum`, `default` et `items` en minuscules pour que les contraintes des paramètres soient correctement lues. Les `Items` imbriqués sont convertis récursivement ; les noms des paramètres et les clés des objets dans les valeurs par défaut restent inchangés. Les champs facultatifs non définis sont omis, y compris `Default = null` ; un null JSON explicitement représenté par un `JsonElement` est conservé. Les API `ParameterProperty` existantes ne changent pas.
+
 <a id="tool-execution-contract"></a>
 
 ## Renvoyer des objets depuis les outils asynchrones et annuler le travail
@@ -291,7 +297,7 @@ var answer = await service.GetCompletionAsync(
     "Consulte l’exemple de météo pour Séoul. En attendant, indique trois indispensables à emporter en voyage.");
 ```
 
-Mythosia envoie `async: true` pour GPT-6 Astra / Sol / Luna via Responses. Avec les modèles et API non compatibles, ce champ est omis et le résultat du même gestionnaire est attendu, sans modifier `AllowAsync`. Le fournisseur doit aussi signaler l’appel réel comme asynchrone (`FunctionCall.IsAsync`) : l’autorisation ne garantit pas une exécution asynchrone.
+Mythosia envoie `async: true` pour GPT-6.1 Sol / GPT-6 Astra / Sol / Luna via Responses. Avec les modèles et API non compatibles, ce champ est omis et le résultat du même gestionnaire est attendu, sans modifier `AllowAsync`. Le fournisseur doit aussi signaler l’appel réel comme asynchrone (`FunctionCall.IsAsync`) : l’autorisation ne garantit pas une exécution asynchrone.
 
 `WithFunctionAsync` enregistre un gestionnaire .NET asynchrone et `FunctionExecutionMode.Parallel` règle l’exécution locale des gestionnaires. Aucun des deux n’active automatiquement cette autorisation. `AllowAsync` permet au modèle de continuer avant de recevoir le résultat de la fonction. `FunctionExecutionMode` continue de régler les appels ordinaires. Les tâches asynchrones autorisées peuvent se chevaucher même en mode `Sequential` et partagent une limite distincte définie par `MaxConcurrency`.
 

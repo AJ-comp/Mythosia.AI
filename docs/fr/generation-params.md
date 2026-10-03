@@ -1,5 +1,9 @@
 # Paramètres de génération
 
+> Claude Sonnet 5.5: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration et migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Choix du modèle et migration](providers.md#gpt-61-sol)
+
 > Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
 
 Pour des paramètres indépendants et réutilisables, utilisez [le builder de requête](request-building.md). Appelez `CreateRequest(...)` avant `With...`. Les propriétés et méthodes fluent du service conservent leur comportement existant.
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // Pénalise les tokens déjà présents
 GPT-6 Astra ne prend pas en charge `temperature` ni `top_p` ; Mythosia les omet même si les propriétés communes ou un profil de requête les définissent. La sortie maximale est de 128 000 tokens. Voir la [configuration de GPT-6](providers.md).
 
 GPT-6 Sol/Luna n’envoient `temperature` et `top_p` qu’avec `ReasoningLevel.None` ; sinon les deux sont omis. Astra ne prend pas en charge `None`. Voir [choix et réglages du modèle](providers.md#gpt-6-sol-luna).
+
+Lors de la migration depuis GPT-6 Sol, remplacez `None` par `Low` : GPT-6.1 Sol accepte `Low`, `Medium` (valeur par défaut de `Auto`), `High`, `XHigh` et `Max`, mais refuse `None` et `Minimal`. `Temperature` / `TopP` sont omis. `AIRequestProfile.DisableReasoning` utilise `Low` en mode Standard sans résumé de raisonnement. GPT-6 Sol et Luna conservent leur comportement avec `None`.
 
 
 Choisissez l’effort de raisonnement et les sources d’une tâche avec les [options communes de raisonnement et de recherche](reasoning-and-search.md) ; les paramètres existants du fournisseur restent disponibles.

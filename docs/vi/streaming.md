@@ -1,5 +1,11 @@
 # Streaming
 
+Bộ điều hợp streaming qua callback hủy và chờ tác vụ tạo dữ liệu khi thoát sớm. Hủy Run, hết hạn, lỗi callback quan sát và `DisposeAsync` đều chờ dọn dẹp trước khi hoàn tất `Result` và nhả khóa chạy. Tác vụ không hợp tác có thể làm chậm việc kết thúc; lỗi quan sát và dọn dẹp được giữ cùng nhau. `ContextRecoveryMaxRetries` dùng giá trị đã chụp. Chỉ ngừng quan sát `run.StreamAsync()` không hủy Run. Việc lấy luồng nội dung của phản hồi SSE thành công có [giới hạn hủy](#sse-acquisition-cancellation-limitation) riêng.
+
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
+Trong adaptive, dùng `ClaudeThinkingDisplay.Updates` để đọc tiến độ công cụ hoặc `Summarized` để đọc tóm tắt suy luận. Theo dõi `StreamingContentType.Reasoning`, hoặc `LastThinkingContent` sau completion thông thường. Hàm adaptive dùng `Summarized` khi bỏ đối số display, khác thiết lập chưa chỉnh. `between_tools` tự trả tiến độ công cụ; không bảo đảm khoảng thời gian cố định.
+
 > Grok 4.7: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47)
 
 Để nhận câu trả lời, mức sử dụng và nguồn cùng lúc, dùng bản chụp `AIRunResult` do `await run.Result` trả về. Chuỗi ở `result.Text`; không cần đọc luồng. Đây là thay đổi của Mythosia.AI 8.0.0; kiểu trả về của `GetCompletionAsync` và `StructuredStreamRun<T>.Result` giữ nguyên. [Kết quả Run và chuyển đổi](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Phản hồi lỗi của Claude:** Việc hủy và thời hạn trong chính sách yêu cầu cũng ngắt thao tác đọc phần thân lỗi HTTP bị treo khi streaming hoặc chạy Run. Sau khi dọn dẹp Run xong, có thể bắt đầu Run khác trên cùng dịch vụ. Hủy từ bên gọi phát sinh `OperationCanceledException`; hết thời hạn chính sách phát sinh `AIServiceException`. Việc hủy điều khiển truyền tải cục bộ và dọn dẹp có hỗ trợ hủy, không bảo đảm nhà cung cấp dừng xử lý hay tính phí.
+
+**Dọn dẹp phản hồi Claude:** Streaming của Claude và Run chờ dọn dẹp bất đồng bộ phần thân HTTP đã nhận được, kể cả với các luồng tùy chỉnh yêu cầu giải phóng bất đồng bộ. Ngoại lệ phát sinh sau đó khi giải phóng phản hồi hoặc nội dung không thay thế kết quả hoàn tất thành công, lỗi đọc ban đầu hay trạng thái hủy; việc giải phóng phản hồi và nội dung ban đầu vẫn được thử.
+
+**Hết thời hạn HTTP:** Với streaming văn bản, nội dung hoặc qua callback và các Run sử dụng luồng xử lý vòng streaming chung, `HttpClient.Timeout` có thể nhận diện (`TaskCanceledException` chứa `TimeoutException` bên trong) được chuyển thành `AIServiceException` khi bên gọi chưa hủy và chính sách yêu cầu chưa hết thời hạn. `InnerException` giữ lại ngoại lệ truyền tải ban đầu, nên `run.Result` kết thúc với lỗi vẫn giữ nguyên nguyên nhân hết thời hạn. Hành vi hủy từ bên gọi, hết thời hạn chính sách và các trường hợp hủy truyền tải khác không thay đổi.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## Giới hạn đã biết: lấy luồng nội dung của phản hồi SSE thành công
+
+Với HTTP 200 SSE, wrapper `HttpContent` lưu nội dung vào bộ đệm trong handler tùy chỉnh có thể làm `ReadAsStreamAsync` bị treo trước khi lấy được luồng nội dung và bắt đầu dọn dẹp. Việc hủy từ bên gọi hoặc hết thời hạn theo chính sách yêu cầu có thể khiến `run.Result` vẫn chờ, phản hồi chưa được giải phóng và khóa Run của dịch vụ vẫn bị giữ đến khi lấy luồng xong; Run tiếp theo bị từ chối vì đã có Run đang chạy. Vấn đề này chưa được sửa và khác với việc dọn dẹp chậm. `SocketsHttpHandler` mặc định đã vượt qua các tình huống được kiểm tra; hủy đọc nội dung lỗi HTTP cũng thành công với cùng wrapper. Hãy dùng nội dung streaming thông thường, không bọc bằng wrapper lưu vào bộ đệm. Tìm kiếm web gốc của Claude có [giới hạn tiếp tục](providers.md#claude-native-continuation-limitation) riêng.
 
 StreamAsync nhận đầu vào của dịch vụ/RAG vẫn công khai trong v8. Dùng StartRunAsync cho điều khiển mới; run.StreamAsync() chỉ quan sát run đã tồn tại.
 

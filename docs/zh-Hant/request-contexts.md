@@ -119,6 +119,12 @@ var response = await service.GetCompletionAsync(
 
 ## 使用 `SystemMessageProvider` 自動注入
 
+應用程式發起的呼叫會啟動獨立的邏輯請求，包括從 `SystemMessageProvider` 或工具回呼發起的一般呼叫，以及重複使用同一個 `AIRequestProfile`、`Message` 的呼叫。物件重用不代表執行共用。框架內部委派、工具輪次、重試和格式修復會延續原請求，其設定檔只套用一次。一般子請求取得自己的選項和服務預設值，建構器保留已擷取的設定。成功、失敗或取消後均還原父請求的執行狀態。轉送框架呼叫的提供者覆寫方法遵循[提供者配接器規則](request-building.md#provider-request-adapters)。 如果在轉送前透過同一個基底類別入口執行無關的輔助呼叫，請用 `BeginIndependentRequestScope()` 包住該呼叫及其 `await`；串流呼叫的範圍須涵蓋整個列舉過程。
+
+內建供應者保留內建輸入內容的獨立副本。重複使用 `Message` 發起新呼叫時，會套用本次的內容脈絡和輪次指令，不會改寫已接受的歷史。自訂內容和不支援的中繼資料物件仍由擁有者管理。這不保證同一對話的並行呼叫安全。
+
+本節的「每個請求」指應用程式主動發起的請求。程式庫自動產生的對話摘要也會排除父請求的 `SystemMessageProvider` 回呼和請求上下文，避免繼承的 `RequestMessageOverride` 取代內部摘要提示詞。應用程式主動發起的請求仍正常套用動態上下文，包括明確要求模型摘要文字的請求。
+
 ### 此功能解決的問題
 
 典型的聊天應用有多個需要相同基準（今日日期、活動資料夾、工作階段資訊等）的 LLM 進入點。**不使用** `SystemMessageProvider` 時，每個呼叫點都需要記得建構並傳遞該上下文：

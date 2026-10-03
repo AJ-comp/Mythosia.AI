@@ -78,6 +78,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # tùy chọn: khi cần vecto
 
 Chuẩn bị cấu hình độc lập bằng `CreateRequest(...).WithTemperature(...).GetCompletionAsync()`. [Hướng dẫn yêu cầu](request-building.md) giải thích Before/After, Run, profile và giới hạn hội thoại chung.
 
+Completion, streaming, đầu ra có cấu trúc và Run áp dụng profile thực tế một lần rồi kiểm tra cài đặt trước khi tóm tắt, thay đổi lịch sử hoặc truyền yêu cầu. Yêu cầu phụ tách hội thoại và schema đầu ra của yêu cầu cha nhưng vẫn kiểm tra tùy chọn riêng của nhà cung cấp. Xem [hướng dẫn cài đặt yêu cầu](request-building.md).
+
+Lời gọi từ ứng dụng và lời gọi thông thường từ callback ngữ cảnh hoặc công cụ vẫn độc lập khi dùng lại profile hay thông điệp. Với adapter nhà cung cấp virtual do framework gọi, lời gọi đầu tiên tới phương thức cơ sở tương ứng tiếp tục yêu cầu đã chuẩn bị, ngay cả khi thay thế đầu vào. Lời gọi phụ trợ không liên quan tới cùng phương thức cơ sở trước khi chuyển tiếp cần dùng `BeginIndependentRequestScope()`; xem [quy tắc adapter nhà cung cấp](request-building.md#provider-request-adapters). Bản sao đầu vào ngăn lời gọi sau viết lại lịch sử đã được chấp nhận.
+
+Hồ sơ do bộ điều hợp thay đổi được xác thực trước tóm tắt tự động; streaming qua callback chờ dọn dẹp. Nén Claude giữ phụ thuộc công cụ trong đầu vào thay thế và thinking có ràng buộc của Mythos 5.1. Yêu cầu phụ OpenAI không trạng thái giữ cơ chế bảo vệ lịch sử cha.
+
 Với yêu cầu nhạy cảm về thời gian chờ, chọn [tốc độ xử lý](request-building.md#inference-speed). `WithSpeed` giữ mô hình và mức suy luận; `Processing` báo chế độ thực tế. Fast là tùy chọn trả phí trên các tổ hợp được hỗ trợ.
 
 ## Bắt đầu nhanh
@@ -147,11 +153,11 @@ service.DefaultPolicy = new FunctionCallingPolicy
 
 Kết quả của batch thông thường được gửi lại cho mô hình theo thứ tự gọi ban đầu của nhà cung cấp. Khi hủy, các lời gọi chưa bắt đầu được bỏ qua và nhận kết quả hủy tương ứng. Công cụ đã bắt đầu sẽ nhận token nếu được hỗ trợ và được chờ hoàn tất để lịch sử luôn ghép đúng lời gọi với kết quả.
 
-`FunctionCallingPolicy.TimeoutSeconds` bao phủ toàn bộ vòng lặp các lượt streaming, gồm header phản hồi và phần thân SSE, không đặt lại giữa các lượt công cụ. Hết thời gian của policy gây `AIServiceException`; việc người gọi hủy vẫn gây `OperationCanceledException` gắn với token của người gọi.
+`FunctionCallingPolicy.TimeoutSeconds` bao phủ toàn bộ vòng lặp các lượt streaming, gồm header phản hồi và phần thân SSE, không đặt lại giữa các lượt công cụ. Hết thời gian của policy gây `AIServiceException`; việc người gọi hủy vẫn gây `OperationCanceledException` gắn với token của người gọi. `HttpContent` tùy chỉnh có đệm nội dung có một ngoại lệ đã biết khi lấy luồng nội dung SSE; xem [giới hạn hủy](streaming.md#sse-acquisition-cancellation-limitation).
 
 Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.
 
-Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md#async-tool-calling).
+Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6.1 Sol / GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md#async-tool-calling).
 
 Cơ chế này khác với handler C# `async` và việc lập lịch handler song song. Tùy chọn API không được gửi tới mô hình chưa hỗ trợ.
 
@@ -277,14 +283,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 > Grok 4.7: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47)
 
+> GPT-6.1 Sol: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Chọn mô hình và chuyển đổi](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna)
+
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
 
 > Claude Opus 5.5: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [cấu hình và chuyển đổi](providers.md#claude-opus-55)
 
 | Provider | Package | Model |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, [Sonnet 5.5](providers.md#claude-sonnet-55) / 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (mặc định), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
@@ -323,9 +333,13 @@ Bản xem trước tùy chọn `Mythosia.AI.Rag.Search.Pixie` cho phép so sánh
 
 Tách cấu hình yêu cầu, dừng tác vụ và nhận câu trả lời cùng mức sử dụng và nguồn. [Hướng dẫn nâng cấp v8](v8-migration.md) tổng hợp sáu thay đổi kiến trúc, ví dụ chuyển đổi và phạm vi xác minh.
 
-> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Xem [bảng bản vá trước](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) và [đợt phát hành đồng bộ trước](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) để biết phiên bản các gói truy xuất, tài liệu và vector còn lại.
+> Các phiên bản gói được mô tả trong tài liệu này: [Mythosia.AI 8.2.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v820), [Abstractions 4.2.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420), [Alibaba 3.0.2](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302), [RAG 9.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v900), [RAG Abstractions 6.5.0](../../src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650), [VectorDb Abstractions 4.2.0](../../src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420), [InMemory 5.0.0](../../src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Xem [bảng bản vá trước](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) và [đợt phát hành đồng bộ trước](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) để biết phiên bản các gói truy xuất, tài liệu và vector còn lại.
 
-> [Bản vá RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): các wrapper RAG đã kết nối nhận thay đổi bộ viết lại trong lúc chạy, và tìm kiếm hybrid kết hợp của PostgreSQL áp dụng cấu hình tìm kiếm vector. Gói lõi `Mythosia.AI` vẫn ở phiên bản 8.1.0.
+> **Bản phát hành đang chờ — giới hạn đã biết:** Sonnet 5.5 / Opus 5.5 có thể từ chối yêu cầu tiếp tục `pause_turn` kết thúc bằng `server_tool_use` chưa được thực thi; xem [giới hạn tiếp tục của Claude](providers.md#claude-native-continuation-limitation). `HttpContent` tùy chỉnh có đệm nội dung có thể trì hoãn việc hủy hoặc hết thời gian của chính sách khi lấy luồng nội dung của phản hồi SSE thành công và giữ Run hoạt động; xem [giới hạn hủy SSE](streaming.md#sse-acquisition-cancellation-limitation).
+>
+> Các trang này mô tả những thay đổi đang chờ phát hành, không xác nhận rằng việc kiểm tra bản phát hành đã hoàn tất. Xem [ghi chú phát hành](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md) về các thay đổi đã có, giới hạn còn lại và phạm vi kiểm tra.
+
+> [Bản vá RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): các wrapper RAG đã kết nối nhận thay đổi bộ viết lại trong lúc chạy, và tìm kiếm hybrid kết hợp của PostgreSQL áp dụng cấu hình tìm kiếm vector. Trong bản vá đó, gói lõi `Mythosia.AI` vẫn ở phiên bản 8.1.0.
 
 ---
 
@@ -420,7 +434,6 @@ flowchart LR
     end
     RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
     VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
     InMem --> VdbAbs
     RagAbs --> VdbAbs
     Pg --> VdbAbs
@@ -466,11 +479,13 @@ flowchart LR
 
 | Package | NuGet | Mô tả |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Contract `IVectorStore` · `VectorRecord` · `VectorFilter` |
+| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Contract `IVectorStore` · `IVectorStoreDiagnostics` · `VectorRecord` · `VectorFilter` |
 | [Mythosia.VectorDb.InMemory](../../src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | Store trong bộ nhớ — không cần infrastructure, lý tưởng cho prototyping |
 | [Mythosia.VectorDb.Pinecone](../../src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — cách ly theo index/namespace/scope |
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — index HNSW / IVFFlat, sẵn sàng production |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot, tự động provision |
+
+Khả năng kiểm tra kho tùy chọn dùng `IVectorStoreDiagnostics` từ `Mythosia.VectorDb.Abstractions`. InMemory 5.0.0 không còn phụ thuộc vào các abstraction RAG; `RagDiagnostics` và `RagDiagnosticSession` vẫn thuộc RAG 9.0.0. Hãy nâng cấp RAG và InMemory cùng nhau, đồng thời chuyển các phép ép kiểu `IRagDiagnosticsStore` cũ. [Chẩn đoán và chuyển đổi](vectordb-backends.md#vector-store-diagnostics).
 
 ### Serving — Control Plane
 

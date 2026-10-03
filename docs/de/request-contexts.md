@@ -189,6 +189,12 @@ Weitere Details zu Generierungsparametern unter [AIRequestProfile](request-profi
 
 ## Automatische Injektion mit `SystemMessageProvider`
 
+Anwendungsaufrufe beginnen unabhängige logische Anfragen, auch gewöhnliche Aufrufe aus `SystemMessageProvider` oder Tool-Callbacks sowie Aufrufe, die dasselbe `AIRequestProfile` oder `Message` wiederverwenden. Ein wiederverwendetes Objekt bedeutet keine gemeinsame Ausführung. Framework-Delegation, Tool-Runden, Wiederholungen und Formatkorrekturen setzen die ursprüngliche Anfrage fort; ihr Profil wird einmal angewendet. Neue gewöhnliche Unteranfragen erfassen eigene Optionen und Service-Standardwerte, Builder behalten ihre erfassten Einstellungen. Nach Erfolg, Fehler oder Abbruch wird die übergeordnete Ausführung wiederhergestellt. Anbieterüberschreibungen, die einen Framework-Aufruf weiterleiten, folgen den [Adapterregeln](request-building.md#provider-request-adapters). Ein unabhängiger Hilfsaufruf desselben Basiseinstiegspunkts vor der Weiterleitung benötigt `BeginIndependentRequestScope()` um den Aufruf samt `await` bzw. der vollständigen Streaming-Enumeration.
+
+Integrierte Anbieter behalten eine eigene Kopie der integrierten Eingabeinhalte. Ein erneut verwendetes `Message` erhält den Kontext und die Anweisungen des neuen Aufrufs, ohne bereits akzeptierten Verlauf umzuschreiben. Benutzerdefinierte Inhalte und nicht unterstützte Metadatenobjekte bleiben in der Verantwortung ihres Eigentümers. Parallele Aufrufe derselben Unterhaltung werden dadurch nicht sicher.
+
+In diesem Abschnitt bezeichnet „jede Anfrage“ eine von der Anwendung gestartete Anfrage. Intern erzeugte Gesprächszusammenfassungen schließen auch den `SystemMessageProvider`-Callback und den Anfragekontext der übergeordneten Anfrage aus. Ein geerbtes `RequestMessageOverride` kann dadurch den internen Zusammenfassungsprompt nicht ersetzen. Von der Anwendung gestartete Anfragen verwenden ihren dynamischen Kontext weiterhin normal, auch bei expliziten Aufträgen zur Textzusammenfassung.
+
 ### Welches Problem löst es
 
 Eine typische Chat-App hat mehrere LLM-Entry-Points, die alle dieselbe Baseline benötigen — heutiges Datum, aktiver Ordner, Session-Info. **Ohne** `SystemMessageProvider` muss jede einzelne Aufrufstelle daran denken, diesen Context zu bauen und zu übergeben:

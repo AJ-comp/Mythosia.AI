@@ -189,6 +189,12 @@ var response = await service.GetCompletionAsync(
 
 ## 使用 `SystemMessageProvider` 自动注入
 
+应用发起的调用会启动独立的逻辑请求，包括从 `SystemMessageProvider` 或工具回调发起的普通调用，以及复用同一个 `AIRequestProfile`、`Message` 的调用。对象复用不代表执行复用。框架内部委派、工具轮次、重试和格式修复会延续原请求，其配置仅应用一次。普通子请求读取自己的选项和服务默认值，构建器保留已捕获的设置。成功、失败或取消后均恢复父请求的执行状态。转发框架调用的提供者重写方法遵循[提供者适配器规则](request-building.md#provider-request-adapters)。 如果在转发前通过同一个基类入口执行无关的辅助调用，请用 `BeginIndependentRequestScope()` 包住该调用及其 `await`；流式调用的作用域须覆盖整个枚举过程。
+
+内置提供者保存内置输入内容的独立副本。复用 `Message` 发起新调用时，会应用本次的上下文和轮次指令，不会改写已接受的历史。自定义内容和不支持的元数据对象仍由所有者管理。这不保证同一会话的并发调用安全。
+
+本节中的“每个请求”指应用主动发起的请求。库自动生成的会话摘要也会排除父请求的 `SystemMessageProvider` 回调和请求上下文，防止继承的 `RequestMessageOverride` 替换内部摘要提示词。应用主动发起的请求仍正常应用动态上下文，包括明确要求模型总结文本的请求。
+
 ### 此功能解决的问题
 
 典型的聊天应用有多个需要相同基线（今日日期、活动文件夹、会话信息等）的 LLM 入口点。**不使用** `SystemMessageProvider` 时，每个调用点都需要记得构建并传递该上下文：

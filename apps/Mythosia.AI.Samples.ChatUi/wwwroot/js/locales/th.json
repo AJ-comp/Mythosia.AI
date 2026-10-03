@@ -381,6 +381,7 @@
   "Reasoning": "การใช้เหตุผล",
   "Reasoning Level": "ระดับการใช้เหตุผล",
   "Reasoning Mode": "โหมดการใช้เหตุผล",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "เมื่อปิด จะข้ามการคิดก่อนเริ่ม แต่ยังคงแสดงความคืบหน้าระหว่างการเรียกใช้เครื่องมือ",
   "Reasoning and final answer": "การใช้เหตุผลและคำตอบสุดท้าย",
   "Recent references": "แหล่งอ้างอิงล่าสุด",
   "Recommended": "แนะนำ",

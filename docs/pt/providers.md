@@ -73,7 +73,36 @@ Para evitar salvar uma saída interrompida como imagem concluída, a geração e
 
 Uma consulta lenta não precisa interromper toda a resposta. Enquanto os dados do clima são carregados, por exemplo, o modelo pode explicar dicas gerais de viagem que não dependem do resultado.
 
-`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permite habilitar chamadas assíncronas para GPT-6 Astra / Sol / Luna via Responses. O padrão é `false`; modelos sem suporte aguardam o resultado do mesmo handler. Veja exemplos e o ciclo de vida da solicitação no [guia de chamadas de função](function-calling.md).
+`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permite habilitar chamadas assíncronas para GPT-6.1 Sol / GPT-6 Astra / Sol / Luna via Responses. O padrão é `false`; modelos sem suporte aguardam o resultado do mesmo handler. Veja exemplos e o ciclo de vida da solicitação no [guia de chamadas de função](function-calling.md).
+
+<a id="gpt-61-sol"></a>
+
+### GPT-6.1 Sol
+
+Escolha GPT-6.1 Sol para programação complexa e trabalho profissional quando precisar equilibrar qualidade e custo. A OpenAI o posiciona próximo ao Astra por um custo menor. Selecione explicitamente `AIModels.OpenAI.Gpt6_1Sol` (`gpt-6.1-sol`); o modelo padrão do serviço e o identificador anterior `Gpt6Sol` permanecem iguais.
+
+> Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0.
+
+Ao migrar do GPT-6 Sol, substitua `None` por `Low`: GPT-6.1 Sol aceita `Low`, `Medium` (padrão de `Auto`), `High`, `XHigh` e `Max`; rejeita `None` e `Minimal`. `Temperature` / `TopP` são omitidos. `AIRequestProfile.DisableReasoning` usa `Low` no modo Standard sem resumos de raciocínio. GPT-6 Sol e Luna mantêm o comportamento existente de `None`.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6_1Sol);
+string answer = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .GetCompletionAsync();
+```
+
+Aceita texto e imagens e produz texto. A janela de contexto tem 1.050.000 tokens, com no máximo 922.000 de entrada e 128.000 de saída; entrada, raciocínio e saída devem caber no contexto total. `MaxTokens` define o orçamento de saída solicitado.
+
+Responses é o padrão e é obrigatório para ferramentas; Chat Completions aceita solicitações sem ferramentas. Os caminhos existentes de conclusão, streaming, saída estruturada, ferramentas locais e Run aceitam o modelo, incluindo ferramentas assíncronas nativas opcionais e instruções por WebSocket no modo Standard (`run.CanSteer`). `Gpt6ReasoningMode.Standard` e `.Pro` mantêm o mesmo ID; alterações de raciocínio que preservam o cache exigem Standard com um único agente. `WithSpeed(InferenceSpeed.Fast)` solicita Fast pago; consulte o modo informado em `result.Processing`. Fast não está disponível com residência de dados na UE, e as capacidades locais não garantem acesso da conta.
+
+No GPT-6.1 Sol, enviar instruções durante a execução exige o modo Standard. Pro aceita Run normal, chamadas de funções e ferramentas assíncronas nativas, mas informa `Steering = Unsupported` e `run.CanSteer = false`. Chamar `SteerAsync` nesse Run Pro é rejeitado localmente sem cancelar nem interromper sua execução normal.
+
+[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) · [GPT-6 guide](https://developers.openai.com/api/docs/guides/latest-model#gpt-61-sol) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
 
 <a id="gpt-6-sol-luna"></a>
 
@@ -111,7 +140,7 @@ string answer = await service.CreateRequest("Summarize this paragraph.")
 
 ### Nível de Esforço de Reasoning
 
-GPT-6 Astra / Sol / Luna e GPT-5.1–5.6 permitem ajustar o esforço de raciocínio para equilibrar velocidade e profundidade:
+GPT-6.1 Sol / GPT-6 Astra / Sol / Luna e GPT-5.1–5.6 permitem ajustar o esforço de raciocínio para equilibrar velocidade e profundidade:
 
 ```csharp
 using Mythosia.AI.Models;
@@ -236,6 +265,70 @@ Consulte o [guia oficial de imagens](https://developers.openai.com/api/docs/guid
 ## Anthropic (AnthropicService)
 
 [Claude Fable 5.1](fable-5-1.md) adiciona atualizações de progresso, instruções por turno e diagnósticos de vinculação do raciocínio a partir de `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 exige convite. Ambos rejeitam a seleção forçada de ferramentas.
+
+<a id="claude-native-continuation-limitation"></a>
+
+### Limitação conhecida: continuação nativa do Claude
+
+Nesta versão, a busca web nativa do Claude Sonnet 5.5 e Opus 5.5 não consegue retomar uma resposta `pause_turn` que termine em um `server_tool_use` ainda não executado. Ela é tratada incorretamente como prefill do assistente e lança `NotSupportedException` antes da próxima requisição HTTP, afetando conclusão, streaming e Run. Pausas que terminam em um `*_tool_result` concluído podem continuar. O problema permanece sem correção. Conteúdo HTTP personalizado tem uma [limitação separada de cancelamento do streaming](streaming.md#sse-acquisition-cancellation-limitation).
+
+<a id="claude-sonnet-55"></a>
+
+### Claude Sonnet 5.5
+
+`AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`) aceita texto e imagens e produz texto, com contexto de 1M e até 128K tokens de saída. Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0; modelos padrão e identificadores anteriores são preservados.
+
+Sem alterações, usa raciocínio adaptive com esforço `High` e omite o raciocínio legível. Adaptive aceita `Low`, `Medium`, `High`, `XHigh` e `Max`; rejeita `Minimal`. `MaxTokens` inclui raciocínio e resposta. Parâmetros de amostragem são omitidos.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.High, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.CreateRequest("Review the plan using the registered tools.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(options: StreamOptions.FullOptions);
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+Em adaptive, use `ClaudeThinkingDisplay.Updates` para progresso legível das ferramentas ou `Summarized` para resumos do raciocínio. Observe `StreamingContentType.Reasoning`, ou `LastThinkingContent` após uma conclusão. O método adaptive usa `Summarized` quando display é omitido, diferente das configurações intocadas. `between_tools` retorna progresso automaticamente, sem intervalo fixo garantido.
+
+`ReasoningLevel.None`, o antigo `ThinkingBudget` desativado ou `AIRequestProfile.DisableReasoning` selecionam `between_tools` com esforço high: desativa o raciocínio inicial, mas o progresso das ferramentas ainda pode chegar em blocos thinking. `WithBetweenToolsThinking(...)` aceita `Auto` (high), `Low`, `Medium` ou `High`; rejeita `XHigh` e `Max`. O objeto thinking enviado contém apenas `type`, sem display, budget ou binding. Este modo não permite mudanças de esforço por mensagem nem `CachePreservation.Required`. `WithReasoning(Low...Max)` explícito volta para adaptive; `Auto` respeita o modo do provedor.
+
+```csharp
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithBetweenToolsThinking(ClaudeReasoningEffort.Low);
+string quick = await claude.CreateRequest("Use the registered tools to check the status.")
+    .GetCompletionAsync();
+
+// A separate conversation using request-scoped high-effort between_tools.
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+string next = await claude.CreateRequest("Give me the latest status.")
+    .WithReasoning(ReasoningLevel.None)
+    .GetCompletionAsync();
+```
+
+`ClaudeThinkingMode`: `Auto` / `Adaptive` / `BetweenTools`; `AnthropicService.ThinkingMode`.
+
+Acrescente ao final do histórico. Blocos thinking assinados, incluindo vazios e `progress_updates`, são preservados entre turnos e resultados de ferramentas. Alterações de respostas assistant salvas são rejeitadas localmente, mesmo com `ClaudeThinkingPrefixMismatchBehavior.DropBlock`. Mudanças anteriores do prefixo user/system/tool não são bloqueadas automaticamente no cliente: seguem para a política de vínculo da Anthropic. Em adaptive, `WithThinkingBinding(ClaudeThinkingPrefixMismatchBehavior.Error)` solicita validação estrita do provedor e um prefixo inválido pode resultar em HTTP 400. `DropBlock` permite que o provedor descarte os blocos afetados; null usa a política padrão dele. Consulte `LastInputTransformations` para os descartes informados. `between_tools` não permite controles de vínculo. Use `WithTurnInstruction` / `WithConversationInstruction` para novas instruções. `CachePreservation.Required` em adaptive também não torna seguras as alterações de mensagens antigas.
+
+Conclusão, streaming, saída estruturada, imagens, funções locais, busca web e Run comum usam as APIs existentes. Não defina `ForceFunctionName`: seleção forçada (`any` / `tool`) e assistant prefill são rejeitados antes de HTTP; seleção automática e `FunctionsDisabled` continuam disponíveis. `Fast`, ferramentas assíncronas nativas e steering de Run não são suportados. Computer toolsets, ferramentas advisor, compactação nativa, mudanças de ferramentas no diálogo e fallback automático do servidor não estão integrados. Trocar de modelo ou conta pode descartar raciocínio vinculado; uma requisição bem-sucedida não comprova sua preservação. A busca web nativa está sujeita à [limitação de continuação](#claude-native-continuation-limitation).
+
+A API comum de saída estruturada usa instruções de esquema, desserialização e novas tentativas de reparo; não envia restrições nativas de esquema em `output_config.format`.
+
+[Dados oficiais do modelo](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) · [Migração](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) · [Mudanças do provedor](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
 
 <a id="claude-opus-55"></a>
 

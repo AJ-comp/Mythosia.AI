@@ -34,9 +34,11 @@ namespace Mythosia.AI.Rag.Diagnostics
     {
         private readonly RagPipeline _pipeline;
         private readonly IVectorStore _vectorStore;
-        private readonly IRagDiagnosticsStore? _diagnosticsStore;
+        private readonly IVectorStoreDiagnostics? _diagnosticsStore;
         private readonly ITextSplitter _textSplitter;
         private readonly IEmbeddingProvider _embeddingProvider;
+
+        internal IVectorStoreDiagnostics? DiagnosticsStore => _diagnosticsStore;
 
         /// <summary>
         /// Creates diagnostics from a RagPipeline instance.
@@ -45,7 +47,7 @@ namespace Mythosia.AI.Rag.Diagnostics
         {
             _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
             _vectorStore = pipeline.VectorStore;
-            _diagnosticsStore = pipeline.VectorStore as IRagDiagnosticsStore;
+            _diagnosticsStore = VectorStoreDiagnosticsResolver.Resolve(pipeline.VectorStore);
             _textSplitter = pipeline.TextSplitter;
             _embeddingProvider = pipeline.EmbeddingProvider;
         }
@@ -59,7 +61,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             _pipeline = store.Pipeline as RagPipeline
                 ?? throw new InvalidOperationException("RagDiagnostics requires the underlying pipeline to be a RagPipeline.");
             _vectorStore = store.VectorStore;
-            _diagnosticsStore = store.VectorStore as IRagDiagnosticsStore;
+            _diagnosticsStore = VectorStoreDiagnosticsResolver.Resolve(store.VectorStore);
             _textSplitter = _pipeline.TextSplitter;
             _embeddingProvider = _pipeline.EmbeddingProvider;
         }
@@ -112,7 +114,7 @@ namespace Mythosia.AI.Rag.Diagnostics
         {
             if (_diagnosticsStore == null)
                 throw new InvalidOperationException(
-                    "FindChunksContainingAsync requires a vector store implementing IRagDiagnosticsStore. " +
+                    "FindChunksContainingAsync requires a vector store implementing IVectorStoreDiagnostics. " +
                     "For other vector stores, use DiagnoseQueryAsync instead.");
 
             var allRecords = await _diagnosticsStore.ListAllRecordsAsync(cancellationToken);

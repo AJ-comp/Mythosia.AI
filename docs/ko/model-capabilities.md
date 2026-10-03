@@ -1,6 +1,12 @@
 # 선택한 모델에 맞는 기능 선택지 보여주기
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+`ThinkingToggle`은 사전 추론을 제어합니다. `None`도 thinking 블록이 전혀 없음을 보장하지 않습니다. `MaxOutputTokens`는 128000이며 `FastSpeed`, `AsyncFunctionCalling`, `Steering`은 지원하지 않습니다.
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 

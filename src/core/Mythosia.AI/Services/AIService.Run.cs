@@ -18,8 +18,6 @@ namespace Mythosia.AI.Services.Base
     public abstract partial class AIService
     {
         private int _activeRun;
-        private string? _runRequestMessageId;
-        private AIRequestContext? _runEffectiveRequestContext;
 
         /// <summary>Starts one request with optional text observation and a separately awaitable result.</summary>
         /// <remarks>
@@ -51,15 +49,19 @@ namespace Mythosia.AI.Services.Base
             try
             {
                 using var requestScope = BeginRequestSettingsScope();
+                using var preparation = BeginRequestPreparation(message, entry: RequestEntry.Run);
+                // The worker outlives this call and any enclosing profile scope. Own a
+                // copy of the effective settings so a caller's restoration hook cannot
+                // mutate the already validated configuration after the handle returns.
+                using var runSettings = UseRequestSettings(_requestExecution.Value!.Settings);
                 // Capture pending per-call configuration before returning control or starting a worker.
                 var policy = GetExecutionPolicy();
                 if (policy.MaxRounds <= 0)
                     throw new ArgumentOutOfRangeException(nameof(policy.MaxRounds), "A run requires at least one LLM round.");
-                var capturedMessage = CaptureRunMessage(message);
+                var capturedMessage = ResolveRequestMessage(message);
                 // Internal profiles still get their own run snapshot, but must not replace
                 // diagnostics belonging to the latest user request.
-                var capturedFeatures = CaptureRequestFeatures(capturedMessage,
-                    publishObservations: _requestFeatureExecution.Value?.IsAuxiliary != true);
+                var capturedFeatures = _requestFeatureExecution.Value!;
                 var capturedContext = context == null ? null : new AIRequestContext
                 {
                     SystemMessagePrefix = context.SystemMessagePrefix,
@@ -143,7 +145,7 @@ namespace Mythosia.AI.Services.Base
                 // One deadline covers preparation and execution, including providers that replace
                 // StreamCoreAsync without creating their own policy timeout source.
                 var run = new ServiceRun(this, session, policy, observationOptions, onText,
-                    runCancellation, sessionCancellation, message.Id, startupTimeoutSeconds, features);
+                    runCancellation, sessionCancellation, startupTimeoutSeconds, features);
                 run.Start();
                 return run;
             }
@@ -227,7 +229,6 @@ namespace Mythosia.AI.Services.Base
             private readonly Action<string>? _onText;
             private readonly CancellationTokenSource _cancellation;
             private readonly CancellationTokenSource _sessionCancellation;
-            private readonly string _requestMessageId;
             private readonly int? _timeoutSeconds;
             private readonly string _provider;
             private readonly string? _requestedModel;
@@ -246,11 +247,12 @@ namespace Mythosia.AI.Services.Base
             private int _observationStopped;
             private int _disposed;
             private int _finished;
+            private readonly RequestHandoff _streamHandoff;
             private readonly RequestFeatureExecution _features;
 
             public ServiceRun(AIService service, RunSession session, FunctionCallingPolicy policy,
                 StreamOptions options, Action<string>? onText, CancellationTokenSource cancellation,
-                CancellationTokenSource sessionCancellation, string requestMessageId, int? timeoutSeconds,
+                CancellationTokenSource sessionCancellation, int? timeoutSeconds,
                 RequestFeatureExecution features)
             {
                 _service = service;
@@ -260,9 +262,9 @@ namespace Mythosia.AI.Services.Base
                 _onText = onText;
                 _cancellation = cancellation;
                 _sessionCancellation = sessionCancellation;
-                _requestMessageId = requestMessageId;
                 _timeoutSeconds = timeoutSeconds;
                 _features = features;
+                _streamHandoff = new RequestHandoff(features, features.Operation!.Input, RequestEntry.Streaming, allowInputReplacement: true);
                 _provider = service.Provider;
                 _requestedModel = service.GetRunRequestedModel();
             }
@@ -364,11 +366,11 @@ namespace Mythosia.AI.Services.Base
                 Exception? failure = null;
                 var completed = false;
                 _service.SetExecutionSetting(nameof(DefaultPolicy), _policy.Clone());
-                _service._runRequestMessageId = _requestMessageId;
                 try
                 {
                     _sessionCancellation.Token.ThrowIfCancellationRequested();
                     var enumerator = _session.StreamAsync(_sessionCancellation.Token).GetAsyncEnumerator(_sessionCancellation.Token);
+                    Exception? streamFailure = null;
                     try
                     {
                         while (await MoveNextWithRunContextAsync(enumerator).ConfigureAwait(false))
@@ -401,9 +403,18 @@ namespace Mythosia.AI.Services.Base
                                     item.Metadata == null ? string.Empty : System.Text.Json.JsonSerializer.Serialize(item.Metadata), _service.Provider);
                         }
                     }
+                    catch (Exception exception)
+                    {
+                        streamFailure = exception;
+                        throw;
+                    }
                     finally
                     {
-                        await DisposeWithRunContextAsync(enumerator).ConfigureAwait(false);
+                        try { await DisposeWithRunContextAsync(enumerator).ConfigureAwait(false); }
+                        catch (Exception cleanupException) when (streamFailure != null)
+                        {
+                            throw new AggregateException("Run execution and stream cleanup both failed.", streamFailure, cleanupException);
+                        }
                     }
                     _sessionCancellation.Token.ThrowIfCancellationRequested();
                     if (!completed) throw new AIServiceException("The run ended without a completion event.", string.Empty, _service.Provider);
@@ -434,8 +445,6 @@ namespace Mythosia.AI.Services.Base
                     finally
                     {
                         _sessionCancellation.Dispose();
-                        _service._runRequestMessageId = null;
-                        _service._runEffectiveRequestContext = null;
                         Volatile.Write(ref _service._activeRun, 0);
                     }
                     AIRunResult? result = null;
@@ -467,11 +476,14 @@ namespace Mythosia.AI.Services.Base
 
             private async ValueTask<bool> MoveNextWithRunContextAsync(IAsyncEnumerator<StreamingContent> enumerator)
             {
+                // A custom session can emit status before delegating to the stream adapter.
+                // Reattach the same one-use handoff on every advancement, so only that
+                // delegation can consume it, regardless of which advancement starts it.
+                using var continuation = _service.UseRequestHandoff(_streamHandoff);
                 // AsyncLocal values set inside an iterator do not flow back through yield return.
                 // Reapply the resolved run context on each advancement, without changing legacy APIs.
                 var previous = _service._currentRequestContext.Value;
-                if (_service._runEffectiveRequestContext != null)
-                    _service._currentRequestContext.Value = _service._runEffectiveRequestContext;
+                _service._currentRequestContext.Value = _features.Operation?.EffectiveContext;
                 try { return await enumerator.MoveNextAsync().ConfigureAwait(false); }
                 finally { _service._currentRequestContext.Value = previous; }
             }
@@ -479,8 +491,7 @@ namespace Mythosia.AI.Services.Base
             private async ValueTask DisposeWithRunContextAsync(IAsyncEnumerator<StreamingContent> enumerator)
             {
                 var previous = _service._currentRequestContext.Value;
-                if (_service._runEffectiveRequestContext != null)
-                    _service._currentRequestContext.Value = _service._runEffectiveRequestContext;
+                _service._currentRequestContext.Value = _features.Operation?.EffectiveContext;
                 try { await enumerator.DisposeAsync().ConfigureAwait(false); }
                 finally { _service._currentRequestContext.Value = previous; }
             }

@@ -1,5 +1,19 @@
 # Mythosia.AI.Rag - Release Notes
 
+## v9.0.0
+
+### Changed
+
+- Chunk lookup, all-record query scoring and diagnostic health checks detect optional `Mythosia.VectorDb.IVectorStoreDiagnostics`. The same diagnostic paths work with standalone InMemory 5.0.0 and compatible custom diagnostic stores.
+
+### Compatibility
+
+- Legacy custom stores retain their original interface dispatch through an internal adapter, including stores with public diagnostic helpers alongside explicit `IRagDiagnosticsStore` methods.
+- **Breaking dependency upgrade:** includes `Mythosia.VectorDb.InMemory` 5.0.0, which no longer implements `IRagDiagnosticsStore`. Change casts and capability checks on InMemory to `IVectorStoreDiagnostics`; the concrete diagnostic methods remain available.
+- Requires `Mythosia.AI.Abstractions` 4.2.0 and `Mythosia.AI.Rag.Abstractions` 6.5.0. Legacy custom stores implementing `IRagDiagnosticsStore` continue through its compatibility bridge. The legacy type remains in its original assembly and namespace.
+- Normal RAG indexing and retrieval still use `IVectorStore`; stores without the diagnostics capability remain supported. Limited query diagnostics and existing unsupported-operation behavior are retained for those stores.
+- This interface migration does not change stored records or require reindexing. Upgrade RAG together with InMemory to retain full diagnostics.
+
 ## v8.2.0
 
 ### Added

@@ -1,6 +1,10 @@
 # Introduction
 
+> Claude Sonnet 5.5: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration et migration](providers.md#claude-sonnet-55)
+
 > Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
+
+> GPT-6.1 Sol: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Choix du modèle et migration](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [choix du modèle et prérequis](providers.md#gpt-6-sol-luna)
 
@@ -26,8 +30,8 @@ Tous les fournisseurs sont inclus dans le package principal `Mythosia.AI` (sauf 
 
 | Fournisseur | Modèles |
 |----------|--------|
-| **OpenAI** | GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
-| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
+| **OpenAI** | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5.5 / 5 / 4.x, Sonnet 5.5 / 5 / 4.x, Haiku 4.5 |
 | **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
 | **xAI** | Grok 4.7 / 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
 | **DeepSeek** | Flash (V4.1 Flash), V4 Pro |
@@ -47,8 +51,7 @@ Mythosia.AI.Rag                 ← Pipeline RAG, orchestration
     ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
     │   └── Mythosia.Documents.Abstractions
     └── Mythosia.VectorDb.InMemory
-        ├── Mythosia.VectorDb.Abstractions
-        └── Mythosia.AI.Rag.Abstractions
+        └── Mythosia.VectorDb.Abstractions
 
 Mythosia.VectorDb.*             ← Stockages vectoriels (un ou plusieurs)
     └── Mythosia.VectorDb.Abstractions

@@ -1,6 +1,12 @@
 # Elegir el esfuerzo de razonamiento y responder con fuentes
 
+> Claude Sonnet 5.5: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuración y migración](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, el antiguo `ThinkingBudget` desactivado o `AIRequestProfile.DisableReasoning` seleccionan `between_tools` con esfuerzo high: desactiva el razonamiento previo, pero el progreso de herramientas puede seguir llegando en bloques thinking. `WithBetweenToolsThinking(...)` acepta `Auto` (high), `Low`, `Medium` o `High`; rechaza `XHigh` y `Max`. El objeto thinking enviado solo contiene `type`, sin display, budget ni binding. Este modo no admite cambios de esfuerzo por mensaje ni `CachePreservation.Required`. `WithReasoning(Low...Max)` explícito vuelve a adaptive; `Auto` respeta el modo del proveedor.
+
 > Grok 4.7: Requiere Mythosia.AI 8.1.0 / Abstractions 4.1.0. [selección del modelo, razonamiento y velocidad](providers.md#grok-47)
+
+> GPT-6.1 Sol: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selección y migración](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna aún no están publicados. Consulta [selección del modelo y requisitos](providers.md#gpt-6-sol-luna).
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 El proveedor ejecuta esta herramienta alojada. No hay que registrar ni ejecutar un controlador de función local. Activar la búsqueda la pone a disposición del modelo; este puede decidir que una entrada concreta no la necesita. Las referencias a fuentes están disponibles cuando el proveedor las devuelve.
 
+**Limitaciones conocidas:** Claude Sonnet 5.5 / Opus 5.5 no pueden continuar una pausa de búsqueda nativa que termine en `server_tool_use` pendiente; consulte [las APIs afectadas y las formas de pausa admitidas](providers.md#claude-native-continuation-limitation). Streaming y Run también tienen una [limitación de cancelación con contenido HTTP personalizado que usa búfer](streaming.md#sse-acquisition-cancellation-limitation).
+
 OpenAI y Anthropic también aceptan `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`. Google no ofrece esta lista de dominios permitidos mediante la herramienta integrada, por lo que se rechaza una solicitud restringida en lugar de buscar en toda la web.
 
 ## Responder a partir de documentos ya indexados por el proveedor
@@ -146,8 +154,8 @@ Los campos de una cita pueden ser `null` si el proveedor no suministra un valor.
 
 | Proveedor integrado | Niveles de razonamiento con nombre | Cambio conservando la caché | Búsqueda web | Búsqueda de archivos |
 | --- | --- | --- | --- | --- |
-| OpenAI | Modelos de razonamiento compatibles; los niveles varían según el modelo | GPT-6 Astra / Sol / Luna Standard, modo de un solo agente | Modelos Responses compatibles | Modelos Responses compatibles y almacenes vectoriales existentes |
-| Anthropic | Modelos con control nativo de esfuerzo | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 compatibles con la beta del proveedor | Modelos Claude compatibles | Sin adaptador de almacén nativo; use RAG |
+| OpenAI | Modelos de razonamiento compatibles; los niveles varían según el modelo | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard, modo de un solo agente | Modelos Responses compatibles | Modelos Responses compatibles y almacenes vectoriales existentes |
+| Anthropic | Modelos con control nativo de esfuerzo | Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 compatibles con la beta del proveedor | Modelos Claude compatibles | Sin adaptador de almacén nativo; use RAG |
 | Google | Niveles de Gemini 3; Gemini 2.5 conserva los presupuestos específicos del proveedor | No compatible | Modelos de texto Gemini compatibles | Modelos de texto Gemini compatibles y almacenes de búsqueda de archivos existentes |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | No compatible | Sin adaptador común | Sin adaptador común |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; equivalencias nativas Low/High/Max | No compatible | Sin adaptador común | Sin adaptador común |

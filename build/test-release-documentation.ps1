@@ -691,9 +691,50 @@ foreach ($directory in $guideDirectories) {
                 Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$gpt6LinkedGuide must link to its local GPT-6 Sol/Luna section."
             }
         }
-        foreach ($gpt6FastModel in @('`gpt-6-sol`', '`gpt-6-luna`')) {
+        foreach ($gpt6FastModel in @('`gpt-6-sol`', '`gpt-6-luna`', '`gpt-6.1-sol`')) {
             if (-not $requestBuilderGuideText.Contains($gpt6FastModel)) {
                 Add-Issue "$(Get-RepositoryRelativePath -Path $requestBuilderGuidePath) omits $gpt6FastModel from processing-speed guidance."
+            }
+        }
+        foreach ($gpt61Contract in @('AIModels.OpenAI.Gpt6_1Sol', '`gpt-6.1-sol`', '8.2.0', '4.2.0',
+                'models/gpt-6.1-sol')) {
+            if (-not $providerGuideText.Contains($gpt61Contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $gpt61Contract GPT-6.1 Sol contract."
+            }
+        }
+        if ([regex]::Matches($providerGuideText, '<a id="gpt-61-sol">').Count -ne 1) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) must define one gpt-61-sol anchor."
+        }
+        foreach ($gpt61LinkedGuide in @('introduction.md', 'model-capabilities.md', 'reasoning-and-search.md',
+                'execution-api-transition.md', 'function-calling.md', 'request-building.md')) {
+            $gpt61LinkedText = Get-Content -Raw -LiteralPath (Join-Path $directory.FullName $gpt61LinkedGuide)
+            if (-not $gpt61LinkedText.Contains('(providers.md#gpt-61-sol)')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$gpt61LinkedGuide must link to its local GPT-6.1 Sol section."
+            }
+        }
+        $sonnet55Section = [regex]::Match($providerGuideText,
+            '(?s)<a id="claude-sonnet-55"></a>(?<body>.*?)(?=<a id="claude-opus-55">|\z)').Groups['body'].Value
+        if ([regex]::Matches($providerGuideText, '<a id="claude-sonnet-55">').Count -ne 1) {
+            Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) must define one claude-sonnet-55 anchor."
+        }
+        foreach ($sonnet55Contract in @('AIModels.Anthropic.ClaudeSonnet5_5', '`claude-sonnet-5-5`',
+                '8.2.0', '4.2.0', '128K', '1M', 'ClaudeThinkingMode', 'WithBetweenToolsThinking',
+                'ReasoningLevel.None', 'ThinkingBudget', 'AIRequestProfile.DisableReasoning',
+                'between_tools', 'CachePreservation.Required', 'ClaudeThinkingDisplay.Updates',
+                'StreamingContentType.Reasoning', 'LastThinkingContent', 'progress_updates',
+                'ClaudeThinkingPrefixMismatchBehavior.DropBlock', 'LastInputTransformations',
+                'ForceFunctionName', 'FunctionsDisabled', 'output_config.format',
+                'models/sonnet-5-5/migration-guide')) {
+            if (-not $sonnet55Section.Contains($sonnet55Contract)) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $providerGuidePath) omits the $sonnet55Contract Sonnet 5.5 contract from its model section."
+            }
+        }
+        foreach ($sonnet55LinkedGuide in @('introduction.md', 'generation-params.md', 'model-capabilities.md',
+                'reasoning-and-search.md', 'execution-api-transition.md', 'function-calling.md',
+                'request-building.md', 'streaming.md', 'fable-5-1.md')) {
+            $sonnet55LinkedText = Get-Content -Raw -LiteralPath (Join-Path $directory.FullName $sonnet55LinkedGuide)
+            if (-not $sonnet55LinkedText.Contains('(providers.md#claude-sonnet-55)')) {
+                Add-Issue "$(Get-RepositoryRelativePath -Path $directory.FullName)/$sonnet55LinkedGuide must link to its local Sonnet 5.5 section."
             }
         }
         foreach ($opus55Contract in @('claude-opus-55', 'AIModels.Anthropic.ClaudeOpus5_5',
@@ -948,4 +989,4 @@ Write-Host "Release documentation and NuGet metadata validation passed."
 Write-Host "Validated $($releasePackages.Count) release packages and $($linkDocuments.Count) Markdown files."
 Write-Host "Validated main README structure, examples, guide links and video parity for $($localizedDirectories.Count) translations."
 Write-Host "Validated Serving contracts, runtime constraints and navigation for $($guideDirectories.Count) documentation languages."
-Write-Host "Validated v8 migration, model capabilities, completion cancellation and implementation migration, local tool returns/errors/cancellation, request builders, GPT Image 2.5, Perplexity Agent/Search/embeddings, DeepSeek Flash, Grok 4.6/4.7, Grok Imagine Image 2.0, Gemini 3.7/3.8, Run, reasoning/search, Fable 5.1, Opus 5.5, GPT-6 Sol/Luna and processing-speed guide coverage and navigation for $($guideDirectories.Count) documentation languages."
+Write-Host "Validated v8 migration, model capabilities, completion cancellation and implementation migration, local tool returns/errors/cancellation, request builders, GPT Image 2.5, Perplexity Agent/Search/embeddings, DeepSeek Flash, Grok 4.6/4.7, Grok Imagine Image 2.0, Gemini 3.7/3.8, Run, reasoning/search, Fable 5.1, Opus 5.5, Sonnet 5.5, GPT-6 Sol/Luna, GPT-6.1 Sol and processing-speed guide coverage and navigation for $($guideDirectories.Count) documentation languages."

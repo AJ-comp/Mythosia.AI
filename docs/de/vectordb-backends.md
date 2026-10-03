@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,24 @@ Ein übergebenes `CancellationToken` kann einen Aufruf auch abbrechen, während 
 
 Beim Abbruch eines Batches können bereits geschriebene Datensätze erhalten bleiben. `ReplaceByFilterAsync` führt weiterhin Löschen und Batch-Einfügen nacheinander ohne Transaktion aus: Eine andere Abfrage kann die Lücke sehen, und Fehler oder Abbruch setzen abgeschlossene Schreibvorgänge nicht zurück.
 
+<a id="vector-store-diagnostics"></a>
+
 ### Diagnose
+
+`IVectorStoreDiagnostics` ist ein optionaler Vertrag in `Mythosia.VectorDb.Abstractions` 4.2.0. InMemory implementiert ihn direkt; `IVectorStore` erhält keine neuen Pflichtmitglieder. `ListAllRecordsAsync` listet alle Datensätze auf, `ScoredListAsync` liefert alle Ähnlichkeitswerte absteigend ohne TopK-Begrenzung. Beide prüfen den gesamten Speicher, akzeptieren keinen Metadatenfilter und wenden den `StoreFilter` der RAG-Pipeline nicht an. `GetTotalRecordCount()` bleibt eine InMemory-Hilfsmethode außerhalb des Vertrags. RAG-spezifische Chunk-Analysen, Zustandsprüfungen und Berichte bleiben bei `RagDiagnostics` und `RagDiagnosticSession` in `Mythosia.AI.Rag`.
+
+**Upgrade auf InMemory 5.0.0:** Verwenden Sie dazu RAG 9.0.0; ältere RAG-Pakete mit dem neuen InMemory-Paket werden nicht unterstützt. InMemory implementiert `IRagDiagnosticsStore` nicht mehr: Migrieren Sie Zuweisungen, Typumwandlungen und Fähigkeitsprüfungen zu `IVectorStoreDiagnostics` und kompilieren Sie betroffene Anwendungen neu. RAG Abstractions 6.5.0 behält die veraltete Schnittstelle, ihre beiden ursprünglichen Methodendeklarationen und Standardbrücken für bisherige eigene Implementierungen. Die Brücke stellt InMemorys alte Schnittstellenbeziehung nicht wieder her und garantiert keine Kompatibilität für alle alten Binärdateien.
+
+Bei benutzerdefinierten Speichern, die `IRagDiagnosticsStore` implementieren, ruft RAG die ursprünglichen Schnittstellenmethoden über einen internen Adapter auf. Dadurch werden explizite Implementierungen auch dann weiterhin verwendet, wenn öffentliche Hilfsmethoden dieselben Signaturen haben. Bei einem direkten Cast zu `IVectorStoreDiagnostics` können Methodenaufrufe stattdessen diese öffentlichen Methoden verwenden.
 
 ```csharp
 // Alle gespeicherten Datensätze auflisten
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"Gesamt: {store.GetTotalRecordCount()}");
 
 // Rohe Ähnlichkeitsbewertungen inspizieren
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

@@ -59,6 +59,7 @@ namespace Mythosia.AI.Services.Perplexity
             RequestCancellationToken.ThrowIfCancellationRequested();
             using var settingsScope = BeginRequestSettingsScope();
             using var features = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             ValidateAgentClientToolSelection();
             var policy = GetExecutionPolicy();
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);

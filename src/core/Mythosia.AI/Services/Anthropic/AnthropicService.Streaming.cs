@@ -32,16 +32,19 @@ namespace Mythosia.AI.Services.Anthropic
             if (policy.EnableLogging)
                 Console.WriteLine($"[Claude Stream Round]");
 
-            var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
+            using var request = useFunctions ? CreateFunctionMessageRequest() : CreateMessageRequest();
             var processing = BeginProcessingObservation();
-            using var response = await HttpClient.SendAsync(
+            var response = await HttpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
+            using var responseCleanup = new ClaudeStreamingResponseCleanup(response);
 
             if (!response.IsSuccessStatusCode)
             {
-                var error = await response.Content.ReadAsStringAsync();
+                // Error bodies can stall after their headers just like successful SSE bodies.
+                // Keep them within the same caller cancellation and request timeout boundary.
+                var error = await ReadClaudeStreamingErrorBodyAsync(response, cancellationToken).ConfigureAwait(false);
                 yield return new StreamingContent
                 {
                     Type = StreamingContentType.Error,

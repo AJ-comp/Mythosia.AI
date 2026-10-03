@@ -41,7 +41,8 @@ namespace Mythosia.AI.Services.OpenAI
             return new AIModelCapabilities(provider: Provider, model: model,
                 streaming: CapabilitySupport.Supported, functionCalling: CapabilitySupport.Supported,
                 asyncFunctionCalling: nativeRun ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
-                steering: nativeRun ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
+                steering: SupportsGpt6Steering(model, RequestGpt6ReasoningMode)
+                    ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
                 reasoning: reasoning, reasoningLevels: levels,
                 nativeReasoning: reasoning, nativeReasoningLevels: levels,
                 thinkingToggle: levels.Contains(ReasoningLevel.None) ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
@@ -61,6 +62,9 @@ namespace Mythosia.AI.Services.OpenAI
             // future model families must not inherit capabilities by a broad prefix match.
             if (!HasOpenAISnapshotDate(model)) return false;
             var alias = model.Substring(0, model.Length - 11);
+            // GPT-6.1 Sol currently publishes only its undated ID; a date-shaped suffix
+            // must not invent a verified snapshot or inherit its capabilities.
+            if (string.Equals(alias, AIModels.OpenAI.Gpt6_1Sol, StringComparison.OrdinalIgnoreCase)) return false;
             return !HasOpenAISnapshotDate(alias) && KnownOpenAIChatModels.Contains(alias);
         }
 

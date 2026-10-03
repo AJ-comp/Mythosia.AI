@@ -23,6 +23,8 @@ namespace Mythosia.AI.Services.Anthropic
         private const string SseEventPrefix = "event:";
         private const uint MinimumAnthropicSummaryOutputTokens = 1024;
         private bool _adaptiveThinkingExplicitlyRequested;
+        private int _thinkingBudget = -1;
+        private bool _thinkingBudgetExplicitlySet;
 
         public override string Provider => nameof(AIProvider.Anthropic);
 
@@ -33,11 +35,23 @@ namespace Mythosia.AI.Services.Anthropic
         /// 1024+ is an exact token budget on manual-thinking models. On adaptive-thinking models,
         /// it retains the legacy high/xhigh/max effort mapping unless
         /// <see cref="AdaptiveThinkingEffort"/> is set explicitly.
-        /// Supported models: Claude Fable 5, Claude Mythos 5, Claude Sonnet 5 / 4+, Claude Opus 5 / 4+,
+        /// Sonnet 5.5 uses adaptive/high when this property is untouched; explicitly disabling
+        /// it selects between_tools, which retains progress updates between tools.
+        /// Supported models: Claude Fable 5, Claude Mythos 5, Claude Sonnet 5.5 / 5 / 4+, Claude Opus 5 / 4+,
         /// and Claude Haiku 4.5+.
         /// Note: adaptive-thinking models omit temperature; legacy manual-thinking models force it to 1.
         /// </summary>
-        public int ThinkingBudget { get; set; } = -1;
+        public int ThinkingBudget
+        {
+            get => _thinkingBudget;
+            set { _thinkingBudget = value; _thinkingBudgetExplicitlySet = true; }
+        }
+
+        /// <summary>
+        /// Selects the thinking phase on Sonnet 5.5. Auto preserves its adaptive/high default
+        /// unless thinking was explicitly disabled. Other models accept Auto only.
+        /// </summary>
+        public ClaudeThinkingMode ThinkingMode { get; set; } = ClaudeThinkingMode.Auto;
 
         /// <summary>
         /// Selects the low/medium/high/xhigh/max effort range on adaptive-thinking Claude models.
@@ -105,6 +119,7 @@ namespace Mythosia.AI.Services.Anthropic
             RequestCancellationToken.ThrowIfCancellationRequested();
             using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             _nativeServerContinuation = false;
             // Get policy (current or default)
             var policy = GetExecutionPolicy();
@@ -126,6 +141,7 @@ namespace Mythosia.AI.Services.Anthropic
                 SetExecutionSetting(nameof(Stream), false);
                 cts.Token.ThrowIfCancellationRequested();
                 ActivateChat.Messages.Add(message);
+                RecordRequestInput(message);
 
                 // Function calling loop - use policy.MaxRounds
                 for (int round = 0; round < policy.MaxRounds; round++)
@@ -401,7 +417,7 @@ namespace Mythosia.AI.Services.Anthropic
                 if (!string.IsNullOrEmpty(summary))
                     baseMessage = string.IsNullOrEmpty(baseMessage) ? $"[Previous conversation summary]\n{summary}" :
                         $"[Previous conversation summary]\n{summary}\n\n{baseMessage}";
-                if (!string.IsNullOrEmpty(baseMessage)) requestBody["system"] = baseMessage;
+                ApplyCompactedClaudeConversationInstructions(requestBody, baseMessage);
                 return;
             }
             var systemMsg = GetEffectiveSystemMessageWithRequestContext();
@@ -440,97 +456,6 @@ namespace Mythosia.AI.Services.Anthropic
         private bool IsThinkingEnabled => IsExtendedThinkingModel() &&
             (RequestThinkingBudget >= 1024 ||
              (ModelSupportsAdaptiveThinking() && IsAdaptiveThinkingExplicitlyRequested()));
-
-        /// <summary>
-        /// Applies thinking configuration to the request body when enabled.
-        /// Claude 5, Fable 5, Mythos 5, and Opus 4.7+ use adaptive thinking
-        /// (<c>thinking.type=adaptive</c> + <c>output_config.effort</c>);
-        /// older models use manual thinking (<c>thinking.type=enabled</c> + <c>budget_tokens</c>,
-        /// temperature forced to 1, with max_tokens auto-adjusted to keep budget_tokens &lt; max_tokens).
-        /// When thinking is disabled, Opus 5 and Sonnet 5 receive an explicit
-        /// <c>thinking.type=disabled</c> because their API default is thinking-on. Other adaptive
-        /// models omit the parameter. Fable 5 and Mythos 5 cannot disable thinking, so their closest equivalent
-        /// is adaptive thinking at low effort with readable thinking omitted. Opus 5.5 also always
-        /// thinks, but defaults to medium effort with readable thinking omitted.
-        /// </summary>
-        private void ApplyThinkingConfig(Dictionary<string, object> requestBody)
-        {
-            if (IsAdaptiveThinkingExplicitlyRequested() && !ModelSupportsAdaptiveThinking())
-            {
-                throw new NotSupportedException(
-                    $"Claude model '{RequestModel}' does not support adaptive thinking. " +
-                    $"Use {nameof(WithThinkingParameters)} with a manual token budget instead.");
-            }
-
-            if (!IsThinkingEnabled)
-            {
-                if (IsAlwaysOnAdaptiveThinkingModel())
-                {
-                    requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
-                    // Preserve Opus 5.5's native default. Older always-on models retain
-                    // the library's legacy low-effort fallback for a disabled budget.
-                    requestBody["output_config"] = new Dictionary<string, object>
-                    {
-                        ["effort"] = IsClaudeOpus55Model() ? "medium" : "low"
-                    };
-                    return;
-                }
-
-                if (ModelRequiresExplicitThinkingDisabled())
-                {
-                    requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "disabled" };
-                }
-
-                return;
-            }
-
-            if (UsesAdaptiveThinkingForRequest())
-            {
-                // Claude 5, Fable 5, Mythos 5, and Opus 4.7+ require adaptive thinking.
-                // Opus 4.6 and Sonnet 4.6 also use this branch when callers explicitly select
-                // adaptive thinking; their legacy budget_tokens form remains available for compatibility.
-                var thinking = new Dictionary<string, object>
-                {
-                    ["type"] = "adaptive",
-                    ["display"] = RequestAdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized
-                        ? "summarized"
-                        : "omitted"
-                };
-
-                requestBody["thinking"] = thinking;
-                requestBody["output_config"] = new Dictionary<string, object>
-                {
-                    ["effort"] = ResolveAdaptiveThinkingEffort()
-                };
-                return;
-            }
-
-            // Manual thinking (Opus 4.6 / Sonnet 4.x / Haiku 4.5 and earlier).
-            // Claude requires budget_tokens < max_tokens
-            var effectiveMaxTokens = GetEffectiveMaxTokens();
-            if ((uint)RequestThinkingBudget >= effectiveMaxTokens)
-            {
-                var modelMax = GetModelMaxOutputTokens();
-                if ((uint)RequestThinkingBudget >= modelMax)
-                {
-                    throw new ArgumentOutOfRangeException(
-                        nameof(ThinkingBudget),
-                        RequestThinkingBudget,
-                        $"Claude manual thinking requires ThinkingBudget to be lower than the " +
-                        $"model's maximum output tokens ({modelMax}) so max_tokens can remain larger.");
-                }
-
-                var required = (uint)RequestThinkingBudget + 1024;
-                requestBody["max_tokens"] = Math.Min(required, modelMax);
-            }
-
-            requestBody["temperature"] = 1.0f;
-            requestBody["thinking"] = new Dictionary<string, object>
-            {
-                ["type"] = "enabled",
-                ["budget_tokens"] = RequestThinkingBudget
-            };
-        }
 
         /// <summary>
         /// Returns true for models that require adaptive thinking
@@ -601,9 +526,9 @@ namespace Mythosia.AI.Services.Anthropic
         /// Explicit adaptive Auto uses the model default (medium on Opus 5.5, high otherwise).
         /// Allowed values: low, medium, high, xhigh, max.
         /// </summary>
-        private string ResolveAdaptiveThinkingEffort()
+        private string ResolveAdaptiveThinkingEffort(bool validate = true)
         {
-            if (RequestAdaptiveThinkingEffort == ClaudeReasoningEffort.XHigh &&
+            if (validate && RequestAdaptiveThinkingEffort == ClaudeReasoningEffort.XHigh &&
                 ModelSupportsOptionalAdaptiveThinking())
             {
                 throw new ArgumentOutOfRangeException(
@@ -623,6 +548,8 @@ namespace Mythosia.AI.Services.Anthropic
 
             if (IsClaudeOpus55Model() && (RequestAdaptiveThinkingExplicitlyRequested || RequestThinkingBudget < 1024))
                 return "medium";
+            if (IsClaudeSonnet55Model() && RequestAdaptiveThinkingExplicitlyRequested)
+                return "high";
             if (RequestThinkingBudget >= 100_000) return "max";
             if (RequestThinkingBudget >= 32_768 && !ModelSupportsOptionalAdaptiveThinking()) return "xhigh";
             return "high";
@@ -646,30 +573,6 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         /// <summary>
-        /// Removes the <c>temperature</c> parameter for models that reject a custom value
-        /// so the API applies its default (1.0). Must run after <see cref="ApplyThinkingConfig"/>.
-        /// </summary>
-        private void ApplyTemperaturePolicy(Dictionary<string, object> requestBody)
-        {
-            // Anthropic requires temperature=1 or omission whenever any thinking mode is enabled.
-            // Manual mode writes 1 explicitly above; adaptive mode omits temperature so callers'
-            // sampling settings cannot accidentally make an otherwise valid request fail.
-            if (!ModelRejectsCustomTemperature() &&
-                !RequiresAdaptiveThinkingTemperaturePolicy())
-            {
-                return;
-            }
-
-            if (requestBody.TryGetValue("temperature", out var current) &&
-                current is float t && Math.Abs(t - 1.0f) > 0.0001f)
-            {
-                Console.WriteLine($"[Claude] Model '{RequestModel}' does not support a custom temperature; ignoring temperature={t}.");
-            }
-
-            requestBody.Remove("temperature");
-        }
-
-        /// <summary>
         /// Sets Claude thinking through the legacy token-budget API.
         /// On manual-thinking models, the budget must be at least 1024 and is sent as
         /// <c>budget_tokens</c>; <c>max_tokens</c> is adjusted when necessary and temperature is
@@ -678,6 +581,7 @@ namespace Mythosia.AI.Services.Anthropic
         /// </summary>
         public AnthropicService WithThinkingParameters(int budgetTokens)
         {
+            ThinkingMode = ClaudeThinkingMode.Auto;
             ThinkingBudget = budgetTokens;
             AdaptiveThinkingEffort = ClaudeReasoningEffort.Auto;
             AdaptiveThinkingDisplay = ClaudeThinkingDisplay.Summarized;
@@ -692,11 +596,26 @@ namespace Mythosia.AI.Services.Anthropic
             ClaudeReasoningEffort effort,
             ClaudeThinkingDisplay display = ClaudeThinkingDisplay.Summarized)
         {
+            ThinkingMode = ClaudeThinkingMode.Auto;
             AdaptiveThinkingEffort = effort;
             AdaptiveThinkingDisplay = display;
             _adaptiveThinkingExplicitlyRequested = true;
             if (ThinkingBudget < 1024)
                 ThinkingBudget = 1024;
+            return this;
+        }
+
+        /// <summary>
+        /// On Sonnet 5.5, disables up-front reasoning while retaining progress updates between tools.
+        /// Auto uses high effort; Low, Medium and High are supported. XHigh and Max require adaptive thinking.
+        /// </summary>
+        public AnthropicService WithBetweenToolsThinking(ClaudeReasoningEffort effort = ClaudeReasoningEffort.Auto)
+        {
+            if (!Enum.IsDefined(typeof(ClaudeReasoningEffort), effort))
+                throw new ArgumentOutOfRangeException(nameof(effort));
+            ThinkingMode = ClaudeThinkingMode.BetweenTools;
+            AdaptiveThinkingEffort = effort;
+            _adaptiveThinkingExplicitlyRequested = false;
             return this;
         }
 
@@ -709,18 +628,15 @@ namespace Mythosia.AI.Services.Anthropic
         protected override void ApplyCapabilityRequestProfile(AIRequestProfile profile)
             => ApplyClaudeProfileSettings(profile);
 
-        // Shared native flags only; execution-specific output reservations remain outside this helper.
+        // Common profile fields have already been applied to the execution frame. In a
+        // builder they are intentionally absent from AIRequestProfile, so use effective settings.
         private void ApplyClaudeProfileSettings(AIRequestProfile profile)
         {
-            if (profile.DisableReasoning != true)
-                return;
-
-            SetExecutionSetting(nameof(ThinkingBudget), -1);
-            SetExecutionSetting(nameof(_adaptiveThinkingExplicitlyRequested), false);
-            SetExecutionSetting(nameof(AdaptiveThinkingEffort), IsAlwaysOnAdaptiveThinkingModel()
-                ? ClaudeReasoningEffort.Low
-                : ClaudeReasoningEffort.Auto);
-            SetExecutionSetting(nameof(AdaptiveThinkingDisplay), ClaudeThinkingDisplay.Omitted);
+            if (profile.DisableReasoning != true) return;
+            var isolated = RequestStatelessMode && profile.Purpose != AIRequestPurpose.Default;
+            SetExecutionSetting(nameof(ProfileThinking), new ClaudeProfileThinking(
+                IsAlwaysOnAdaptiveThinkingModel() ? ClaudeReasoningEffort.Low : ClaudeReasoningEffort.Auto,
+                isolated ? null : RequestThinkingPrefixMismatchBehavior));
         }
 
         protected override Action ApplyRequestProfile(AIRequestProfile profile)

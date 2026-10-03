@@ -28,9 +28,11 @@ namespace Mythosia.AI.Services.OpenAI
         protected override void ValidateRequestFeatures(AIRequestFeatures features)
         {
             if (IsGpt6Model(RequestModel)) ValidateGpt6Settings(features);
-            if (ActivateChat.Messages.Count == 0 ||
+            // Stateless work owns a different conversation once transport starts. Its
+            // preflight must neither validate nor reset the unrelated retained baseline.
+            if (!RequestStatelessMode && (ActivateChat.Messages.Count == 0 ||
                 (_preservedReasoning.TryGetValue(ActivateChat, out var unaccepted) && !unaccepted.AcceptedResponse &&
-                 !ActivateChat.Messages.Any(message => message.Role == ActorRole.Assistant)))
+                 !ActivateChat.Messages.Any(message => message.Role == ActorRole.Assistant))))
                 _preservedReasoning.Remove(ActivateChat);
             if (features.Reasoning != null)
             {
@@ -41,7 +43,7 @@ namespace Mythosia.AI.Services.OpenAI
                     if (preservation == CapabilitySupport.Unsupported ||
                         (preservation == CapabilitySupport.Unknown &&
                          (!SupportsAsyncFunctionCalls || RequestGpt6ReasoningMode != Gpt6ReasoningMode.Standard)))
-                        throw new NotSupportedException("Cache-preserving reasoning changes require GPT-6 Astra, Sol, or Luna in Standard mode.");
+                        throw new NotSupportedException("Cache-preserving reasoning changes require GPT-6 Astra, Sol, Luna, or GPT-6.1 Sol in Standard mode.");
                     if (RequestStatelessMode)
                         throw new NotSupportedException("Cache-preserving reasoning changes require conversation history.");
                     if (!_preservedReasoning.TryGetValue(ActivateChat, out _) &&
@@ -81,7 +83,7 @@ namespace Mythosia.AI.Services.OpenAI
                     throw new ArgumentException("OpenAI file search requires vector store IDs beginning with vs_.");
             }
 
-            if (_preservedReasoning.TryGetValue(ActivateChat, out var state) && state.Preserving)
+            if (!RequestStatelessMode && _preservedReasoning.TryGetValue(ActivateChat, out var state) && state.Preserving)
             {
                 ValidatePreservedHistory(state);
             }

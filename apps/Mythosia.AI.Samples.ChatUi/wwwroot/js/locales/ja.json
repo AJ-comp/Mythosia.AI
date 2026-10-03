@@ -381,6 +381,7 @@
   "Reasoning": "推論",
   "Reasoning Level": "推論の強度",
   "Reasoning Mode": "推論モード",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "オフにすると事前の推論を省略しますが、ツール呼び出し間の進捗更新は引き続き有効です。",
   "Reasoning and final answer": "推論と最終回答",
   "Recent references": "最近の参照",
   "Recommended": "推奨",

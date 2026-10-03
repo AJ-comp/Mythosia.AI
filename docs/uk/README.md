@@ -78,6 +78,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # опціонально: ко
 
 Створюйте незалежні налаштування через `CreateRequest(...).WithTemperature(...).GetCompletionAsync()`. [Посібник із запитів](request-building.md) пояснює Before/After, Run, профілі та обмеження спільної розмови.
 
+Completion, потокове й структуроване виведення та Run один раз застосовують фактичний профіль і перевіряють підсумкові налаштування до підсумовування, зміни історії й передавання. Допоміжні запити ізолюють батьківську розмову та схему виведення, зберігаючи нативну перевірку постачальника. Див. [посібник із налаштувань запитів](request-building.md).
+
+Виклики застосунку незалежні, зокрема звичайні виклики з callback-функцій контексту або інструментів і виклики з повторним використанням профілю чи повідомлення. У віртуальному адаптері постачальника, викликаному фреймворком, перший виклик відповідної точки входу базового класу продовжує підготовлений запит, навіть у разі заміни вхідних даних. Незалежному допоміжному виклику тієї самої точки входу перед передаванням запиту потрібен `BeginIndependentRequestScope()`; див. [правила адаптерів](request-building.md#provider-request-adapters). Копії вхідних даних захищають прийняту історію від змін наступними викликами.
+
+Змінені адаптером профілі перевіряються до автоматичного підсумовування; потоковий callback очікує очищення. Стиснення Claude зберігає залежності інструментів у замінених вхідних повідомленнях і зв’язаний thinking Mythos 5.1. Запити OpenAI без стану зберігають захист батьківської історії.
+
 Для запитів із важливим часом очікування вибирайте [швидкість обробки](request-building.md#inference-speed). `WithSpeed` зберігає модель і зусилля; `Processing` показує застосований режим. Fast є платною опцією для підтримуваних поєднань.
 
 ## Швидкий старт
@@ -147,9 +153,9 @@ service.DefaultPolicy = new FunctionCallingPolicy
 
 Результати звичайного пакета повертаються моделі в початковому порядку викликів провайдера. Скасування пропускає ще не запущені виклики та додає відповідні результати скасування. Запущені інструменти отримують токен, якщо підтримують його, і очікуються до завершення, щоб зберегти пари виклик/результат в історії.
 
-`FunctionCallingPolicy.TimeoutSeconds` охоплює весь цикл раундів стрімінгу, включно із заголовками відповіді та тілом SSE, без скидання між раундами інструментів. Завершення тайм-ауту політики спричиняє `AIServiceException`; скасування з боку викликача залишається `OperationCanceledException`, пов’язаним із його токеном.
+`FunctionCallingPolicy.TimeoutSeconds` охоплює весь цикл раундів стрімінгу, включно із заголовками відповіді та тілом SSE, без скидання між раундами інструментів. Завершення тайм-ауту політики спричиняє `AIServiceException`; скасування з боку викликача залишається `OperationCanceledException`, пов’язаним із його токеном. Для власного `HttpContent` із буферизацією тіла існує відомий виняток на етапі отримання потоку SSE; див. [обмеження скасування](streaming.md#sse-acquisition-cancellation-limitation).
 
-Коли модель може виконувати незалежну частину завдання — наприклад, пояснювати, що взяти в подорож, поки інструмент завантажує погоду, — очікування результату не має блокувати всю відповідь. `FunctionDefinition.AllowAsync = true` або `FunctionBuilder.WithAsync()` дозволяє асинхронні виклики для GPT-6 Astra / Sol / Luna через Responses. За замовчуванням використовується `false`; моделі без підтримки чекають результату того самого обробника. Приклади та життєвий цикл запиту описано в [посібнику з виклику функцій](function-calling.md#async-tool-calling).
+Коли модель може виконувати незалежну частину завдання — наприклад, пояснювати, що взяти в подорож, поки інструмент завантажує погоду, — очікування результату не має блокувати всю відповідь. `FunctionDefinition.AllowAsync = true` або `FunctionBuilder.WithAsync()` дозволяє асинхронні виклики для GPT-6.1 Sol / GPT-6 Astra / Sol / Luna через Responses. За замовчуванням використовується `false`; моделі без підтримки чекають результату того самого обробника. Приклади та життєвий цикл запиту описано в [посібнику з виклику функцій](function-calling.md#async-tool-calling).
 
 Це відрізняється від обробників C# `async` і паралельного планування викликів. Моделям без підтримки не надсилається непідтримувана опція API.
 
@@ -275,14 +281,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 > Grok 4.7: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі, міркування та швидкість обробки](providers.md#grok-47)
 
+> GPT-6.1 Sol: Потрібні Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Вибір моделі та міграція](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [вибір моделі та вимоги](providers.md#gpt-6-sol-luna)
+
+> Claude Sonnet 5.5: Потрібні Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Налаштування та міграція](providers.md#claude-sonnet-55)
 
 > Claude Opus 5.5: Потрібні Mythosia.AI 8.1.0 / Abstractions 4.1.0. [налаштування й міграцію](providers.md#claude-opus-55)
 
 | Провайдер | Пакет | Моделі |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, [Sonnet 5.5](providers.md#claude-sonnet-55) / 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (типово), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
@@ -321,9 +331,13 @@ var result = await store.QueryAsync("What is the refund period?");
 
 Налаштовуйте запити незалежно, зупиняйте роботу й отримуйте відповіді з використанням токенів та джерелами. [Посібник переходу на v8](v8-migration.md) містить шість змін, приклади міграції та межі перевірки.
 
-> Версії пакетів, описані в цій документації: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Інші версії пакетів пошуку, документів і векторних сховищ наведено в [матриці попереднього патча](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) та [попередньому узгодженому випуску](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810).
+> Версії пакетів, описані в цій документації: [Mythosia.AI 8.2.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v820), [Abstractions 4.2.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420), [Alibaba 3.0.2](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302), [RAG 9.0.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v900), [RAG Abstractions 6.5.0](../../src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650), [VectorDb Abstractions 4.2.0](../../src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420), [InMemory 5.0.0](../../src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Інші версії пакетів пошуку, документів і векторних сховищ наведено в [матриці попереднього патча](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) та [попередньому узгодженому випуску](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810).
 
-> [Виправлення RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): наявні обгортки RAG враховують зміну переписувача під час роботи, а змішаний гібридний пошук PostgreSQL застосовує задані параметри векторного пошуку. Основний пакет `Mythosia.AI` залишається на версії 8.1.0.
+> **Реліз очікує публікації — відомі обмеження:** Sonnet 5.5 / Opus 5.5 можуть відхилити продовження `pause_turn`, що закінчується ще не виконаним `server_tool_use`; див. [обмеження продовження Claude](providers.md#claude-native-continuation-limitation). Власний `HttpContent` із буферизацією тіла може затримати скасування або спрацювання тайм-ауту політики під час отримання потоку тіла успішної SSE-відповіді та залишити Run активним; див. [обмеження скасування SSE](streaming.md#sse-acquisition-cancellation-limitation).
+>
+> Ці сторінки описують зміни, що очікують публікації, і не підтверджують завершення перевірки релізу. Додані зміни, решту обмежень та обсяг перевірки наведено в [примітках до випуску](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md).
+
+> [Виправлення RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): наявні обгортки RAG враховують зміну переписувача під час роботи, а змішаний гібридний пошук PostgreSQL застосовує задані параметри векторного пошуку. У цьому виправленні основний пакет `Mythosia.AI` залишався на версії 8.1.0.
 
 ---
 
@@ -418,7 +432,6 @@ flowchart LR
     end
     RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
     VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
     InMem --> VdbAbs
     RagAbs --> VdbAbs
     Pg --> VdbAbs
@@ -464,11 +477,13 @@ flowchart LR
 
 | Пакет | NuGet | Опис |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Контракти `IVectorStore` · `VectorRecord` · `VectorFilter` |
+| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Контракти `IVectorStore` · `IVectorStoreDiagnostics` · `VectorRecord` · `VectorFilter` |
 | [Mythosia.VectorDb.InMemory](../../src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | Сховище в пам'яті — без інфраструктури, ідеально для прототипування |
 | [Mythosia.VectorDb.Pinecone](../../src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — ізоляція за індексом/namespace/scope для керованої векторної БД |
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — індекси HNSW / IVFFlat, готово для продакшену |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC-клієнт — Cosine / Euclidean / Dot, автоматичне розгортання |
+
+Для додаткової перевірки сховища використовується `IVectorStoreDiagnostics` із `Mythosia.VectorDb.Abstractions`. InMemory 5.0.0 більше не залежить від абстракцій RAG; `RagDiagnostics` і `RagDiagnosticSession` залишаються в RAG 9.0.0. Оновлюйте RAG та InMemory разом і замініть приведення до `IRagDiagnosticsStore`. [Діагностика та міграція](vectordb-backends.md#vector-store-diagnostics).
 
 ### Сервінг — площина керування
 

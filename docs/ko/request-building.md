@@ -1,5 +1,9 @@
 # 요청마다 설정을 독립적으로 관리하기
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
 
 문서 요약에는 낮은 Temperature가 필요하고 창작 초안에는 높은 값이 필요할 수 있습니다. 초안을 준비했다고 이미 준비한 요약 요청의 설정까지 바뀌어서는 안 됩니다. 호출마다 다른 설정이 필요하거나, 공통 요청에서 여러 변형을 만들 때 `CreateRequest`를 사용하세요.
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude는 모델, 요청 목적, 추론과 thinking 바인딩 설정을 함께 결정합니다. `RequestProfiles.Summarization`이나 `RequestProfiles.QueryRewrite` 같은 보조 프로파일에서는 `DisableReasoning = true`이고 목적이 `Default`가 아니며 실제 요청이 무상태일 때만 상속한 바인딩을 생략합니다. 보존할 대화 접두부가 없는 요청에서 상속한 정책 때문에 추론이 다시 켜지거나 요청이 거부되는 것을 막습니다. 추론을 끌 수 있는 모델은 비활성화하고, 항상 추론하는 Opus 5.5·Fable 5.1·Mythos 5.1은 `Low`와 읽을 수 있는 thinking 생략을 사용합니다. Sonnet 5.5는 high effort의 `between_tools`를 사용합니다.
+
+완료, 스트리밍, 구조화 출력, Run은 같은 순서로 요청을 준비합니다. 설정을 보관하고 실제 프로파일 처리를 한 번 적용한 뒤, 최종 공통 옵션과 공급자 네이티브 옵션을 검증합니다. 자동 요약, 새 입력의 이력 추가, 통신 연결보다 먼저 수행하므로 사용자 정의 공급자의 프로파일 재정의도 실제 검증 대상에 반영됩니다. Claude의 실제 사용되는 수동 `ThinkingBudget`이 모델 출력 한도 이상이면 이 단계에서 거부하며, 유효한 프로파일과 공통 추론 설정의 우선순위는 유지합니다.
+
+애플리케이션 호출은 독립된 논리 요청을 시작합니다. `SystemMessageProvider`나 도구 콜백의 일반 중첩 호출, 같은 `AIRequestProfile`·`Message`를 재사용하는 호출도 마찬가지이며, 객체 재사용이 실행 재사용을 뜻하지는 않습니다. 프레임워크 위임, 도구 실행 단계, 재시도, 형식 수정은 원래 요청을 이어가며 프로파일은 한 번 적용합니다. 일반 자식 요청은 자체 옵션과 서비스 기본값을 가져오고 빌더는 보관한 설정을 사용합니다. 성공·실패·취소 후에는 부모 실행 상태를 복원합니다. 프레임워크 호출을 전달하는 공급자 재정의에는 [아래 어댑터 규칙](#provider-request-adapters)을 적용합니다.
+
+내장 공급자는 기본 입력 콘텐츠의 자체 복사본을 보관합니다. 같은 `Message`로 다시 호출해도 해당 호출의 컨텍스트와 턴 지시를 적용하고 이미 수락된 이력은 바꾸지 않습니다. 사용자 정의 콘텐츠와 지원되지 않는 메타데이터 객체는 소유자가 관리해야 합니다. 같은 대화를 동시에 호출해도 안전하다는 뜻은 아닙니다.
+
+`StartRunAsync`가 반환된 뒤에도 Run은 최종 설정의 자체 복사본을 유지합니다. 호출 측 프로파일을 복원해도 실행 중인 Run의 설정은 바뀌지 않으며, 실행용 프로파일 훅은 여전히 한 번만 호출됩니다.
+
+무상태 보조 요청은 별도 대화를 사용하고 부모의 출력 스키마, 호스팅 도구, 일회성 옵션을 상속하지 않습니다. 이 격리가 네이티브 옵션 검증을 생략하지는 않으며 OpenAI·Perplexity Run에도 같은 원칙을 적용합니다. 부모 설정, 메시지, `CurrentSummary`, 요청 관측 정보는 보존합니다. 상태를 유지하는 요청은 바인딩과 대화 검증을 유지합니다. 기존 공개 API는 바뀌지 않습니다.
+
+라이브러리가 자동으로 생성하는 대화 요약은 부모의 `SystemMessageProvider` 콜백과 요청 컨텍스트도 제외합니다. 상속한 `RequestMessageOverride`가 내부 요약 프롬프트를 바꾸지 못하게 하기 위한 것입니다. 애플리케이션이 직접 텍스트 요약을 요청하는 경우를 포함한 일반 요청은 동적 컨텍스트를 정상적으로 적용합니다.
+
+무상태 요청은 부모 대화의 자동 요약도 실행하지 않습니다. 기존 `GetCompletionAsync(string, profile)` 오버로드에서도 `Message` 오버로드와 요청 빌더처럼 부모의 `CurrentSummary`와 메시지를 그대로 유지합니다. 상태를 유지하는 요청은 기존 자동 요약 동작을 유지합니다.
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## 사용자 정의 공급자에서 요청 전달하기
+
+프레임워크가 공급자의 가상 어댑터 메서드를 호출하면, 재정의 내부에서 처음 호출하는 대응 base 진입점은 준비된 요청을 이어갑니다. 입력 `Message`를 교체해도 보관한 빌더 옵션과 적용한 프로파일은 유지합니다. 기본 콜백 스트리밍 어댑터도 같은 준비된 요청을 이어갑니다.
+
+어댑터가 다른 `AIRequestProfile`을 전달하면, 같은 값은 두 번 적용하지 않고 변경된 값은 보관한 설정을 기준으로 이전 프로파일 계층을 교체합니다. 자동 요약·전송 전에 다시 검증하므로 무상태로 변경한 요청이 먼저 부모 대화를 요약하지 않습니다. OpenAI 무상태 보조 요청은 관련 없는 보존 이력 검사를 건너뛰며, 부모의 상태 유지 요청에 대한 보호는 해제하지 않습니다.
+
+전달할 프로파일을 교체해도 요청 안에서 나중에 추가·제거·수정한 도구, 정책 변경, 명시적으로 다시 지정한 설정은 유지됩니다. 같은 스칼라 값을 다시 지정한 경우도 포함합니다. 다른 프로파일 필드가 바뀌었다는 이유만으로 어댑터가 제거한 도구를 복원하지 않으며, 서비스 기본값을 다시 읽지도 않습니다.
+
+라이브러리가 내부 구조를 알 수 없는 사용자 정의 설정 객체는 내부 필드를 직접 바꾸기보다 `SetExecutionSetting`으로 값을 교체하세요. 프로파일 변경을 추적하기 위해 임의의 애플리케이션 객체를 탐색하거나 그 객체의 직렬화기를 실행하지는 않습니다.
+
+Claude 압축은 보관된 `RequestMessageOverride`·`AdditionalMessages`의 도구 호출과 결과 관계를 서버 도구까지 보호합니다. Mythos 5.1의 바인딩된 thinking 접두부도 보호합니다. 병렬 도구의 레거시 기록은 일반 이력과 추가 메시지에서 한 번만 묶어 전송하며, 각 기록의 소유 관계를 유지합니다.
+
+원래 요청을 전달하기 전에 같은 base 진입점으로 별개의 보조 작업을 호출하면 프레임워크는 그것이 원래 요청의 연속인지 구분할 수 없습니다. 이때는 protected `BeginIndependentRequestScope()`로 보조 호출과 `await`를 함께 감싸세요. 스트리밍은 전체 열거가 끝날 때까지 범위를 유지해야 합니다. 보조 요청은 서비스 기본값으로 시작하고, 범위 해제 시 바깥 요청의 설정·기능·컨텍스트와 대기 중인 위임을 복원합니다. 컨텍스트나 도구 콜백에서 하는 일반 중첩 호출은 이미 독립적이므로 이 범위가 필요하지 않습니다.
+
+예를 들어 구체 공급자의 하위 클래스는 텍스트를 재작성한 뒤 전달할 수 있습니다.
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+이 범위는 요청 실행 상태를 분리하며 대화 이력을 격리하거나 서비스 동시 사용을 허용하지는 않습니다. 예제는 무상태 `QueryRewrite` 프로파일로 보조 작업이 부모 대화에 들어가지 않게 합니다.
+
+Claude의 대화 압축 검사는 보존된 실제 전송 이력을 확인하며, `AIRequestContext.AdditionalMessages`로 추가한 서명된 thinking도 포함합니다. 기본 thinking 바인딩은 자동·명시적 요약 압축에서 이 접두부를 보호합니다. 지원되는 경우 `ClaudeThinkingPrefixMismatchBehavior.DropBlock`을 명시하면 압축할 수 있으며, 다른 대화 제약은 계속 적용됩니다.
 
 ## 복사되는 설정과 계속 공유되는 상태
 
@@ -177,7 +238,7 @@ var processing = service.LastProcessing;
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

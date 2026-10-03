@@ -1,5 +1,9 @@
 # Control ongoing AI tasks with Run
 
+> Claude Sonnet 5.5: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration and migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selection and migration](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection and requirements](providers.md#gpt-6-sol-luna)
 
 Need only the completed answer and a Stop button? Pass `cancellationToken` to `GetCompletionAsync`. Use Run for progress events or supported steering. See [completion cancellation](completions.md#completion-cancellation).
@@ -199,11 +203,19 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-Mid-turn steering is available for GPT-6 Astra / Sol / Luna over the Responses WebSocket connection. Other providers and unsupported models can use normal runs, but `CanSteer` is false and steering reports unsupported behavior instead of silently creating an ordinary next turn. `CanSteer` is not a guarantee that the run will still be active when a later call is made.
+Mid-turn steering is available for GPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Luna over the Responses WebSocket connection. Other providers and unsupported models can use normal runs, but `CanSteer` is false and steering reports unsupported behavior instead of silently creating an ordinary next turn. `CanSteer` is not a guarantee that the run will still be active when a later call is made.
 
-GPT-6 runs open a dedicated socket; the supplied `HttpClient` and its message handlers continue to serve HTTP calls and do not intercept this socket. Custom transports can override `OpenAIService.ConnectRunWebSocketAsync`.
+For GPT-6.1 Sol, steering requires Standard mode. Pro supports normal Run execution, function calls and native async tools, but reports `Steering = Unsupported` and `run.CanSteer = false`. Calling `SteerAsync` on that Pro run is rejected locally without cancelling or aborting its normal execution.
+
+GPT-6 family runs resolve `responses` against the configured `HttpClient.BaseAddress` exactly as HTTP requests do, then map `https` to `wss` and `http` to `ws`, retaining the resolved host, port and path. The trailing slash matters: `https://example.com/proxy/v1/` resolves to `wss://example.com/proxy/v1/responses`, while `https://example.com/proxy/v1` resolves to `wss://example.com/proxy/responses`. A missing base address or a scheme other than HTTP(S) is rejected before connecting; there is no fallback to the default OpenAI endpoint. Runs use a dedicated `ClientWebSocket`, so the supplied `HttpClient` message handlers do not intercept the socket. Custom transports can still override `OpenAIService.ConnectRunWebSocketAsync`.
+
+Cancelling a token used only for `SteerAsync` while it is waiting to send, including behind another send, cancels that call without stopping the Run. Once submission to the transport starts, cancellation or a send failure may abort the Run because delivery is uncertain. After sending completes, cancellation while waiting for acknowledgement stops the wait but does not retract the submitted input; continue observing the same Run. Cancelling the token passed to `StartRunAsync`, or calling `run.Cancel()`, still cancels the Run.
 
 A successful `SteerAsync` means the server accepted the input into its queue, not that the model has already applied it. Continue observing the same run or awaiting its result through the continuation. Already-delivered text and completed actions are not undone, and tools that have started are not cancelled merely because steering was submitted. The library handles continuation and tool-result correlation on the same connection. See OpenAI's [mid-turn steering guide](https://developers.openai.com/api/docs/guides/steering) and [WebSocket mode](https://developers.openai.com/api/docs/guides/websocket-mode). Connection-local queued input does not survive a disconnect by assumption; do not blindly resubmit an accepted instruction.
+
+In native OpenAI runs, accepted steering instructions are recorded in conversation history before their corresponding continuation response, even if output processing lags behind received events. A nonrecoverable transport failure cancels cooperative local tools, and `run.Result` reports the original failure after cleanup. Cleanup still waits for tools that ignore cancellation.
+
+A fully received final response is retained during normal WebSocket closure if the peer's Close frame arrives before the corresponding initial request or tool-result send finishes. The send is not replayed; caller cancellation is still honored, and send failures without a confirmed final response are not suppressed. An already received terminal API failure keeps its original reason if the connection subsequently closes while local tools are still running.
 
 ## Tool tasks and legacy agent methods
 

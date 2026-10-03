@@ -5,14 +5,14 @@
     <Nullable>enable</Nullable>
     <PackageId>Mythosia.VectorDb.InMemory</PackageId>
     <IsPackable>true</IsPackable>
-    <Version>4.2.0</Version>
+    <Version>5.0.0</Version>
     <!-- This existing stable package intentionally retains its pinned Lucene prerelease
          dependencies. Keep NU5104 visible without making this known warning fatal. -->
-    <WarningsNotAsErrors Condition="'$(Version)' == '4.2.0'">$(WarningsNotAsErrors);NU5104</WarningsNotAsErrors>
+    <WarningsNotAsErrors Condition="'$(Version)' == '5.0.0'">$(WarningsNotAsErrors);NU5104</WarningsNotAsErrors>
     <Authors>JJW</Authors>
     <Company>Mythosia</Company>
-    <Description>In-memory vector and BM25 text search for Mythosia VectorDb. Provides cosine similarity, text-only retrieval, configurable normalized weighted RRF, metadata filtering, upsert/delete operations, batch retrieval and counts. Filters candidates before truncation, synchronizes record and keyword-index access, and returns independent record copies. Supports cancellation while waiting for access and between batch records; batch and document replacement operations do not provide transactional rollback. What's New in v4.2.0: Text search, configurable hybrid search and consistent concurrent record/index access.</Description>
-    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF;Count;BatchGet</PackageTags>
+    <Description>In-memory vector and BM25 text search for Mythosia VectorDb. Provides cosine similarity, text-only retrieval, configurable normalized weighted RRF, metadata filtering, upsert/delete operations, batch retrieval and counts. Filters candidates before truncation, synchronizes record and keyword-index access, and returns independent record copies. Supports cancellation while waiting for access and between batch records; batch and document replacement operations do not provide transactional rollback. What's New in v5.0.0: Removes the RAG dependency and implements IVectorStoreDiagnostics in place of IRagDiagnosticsStore; concrete diagnostic methods remain available.</Description>
+    <PackageTags>VectorDB;VectorStore;InMemory;CosineSimilarity;BM25;HybridSearch;RRF;Count;BatchGet;Diagnostics;IVectorStoreDiagnostics</PackageTags>
     <PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -20,13 +20,12 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <IncludeSymbols>true</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-    <PackageReleaseNotes>v4.2.0: Adds text-only BM25 search and configurable normalized weighted RRF. Applies filtering before candidate truncation and honors vector weight, candidate multiplier and RRF smoothing. Synchronizes records and keyword indexes across reads/writes, copies input/output records and observes cancellation while waiting and between batch records. Completed records remain consistent, but batch writes and sequential replacement are not transactional. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v420</PackageReleaseNotes>
+    <PackageReleaseNotes>v5.0.0: Removes the RAG.Abstractions dependency and implements optional IVectorStoreDiagnostics from VectorDb.Abstractions 4.2.0. Breaking: InMemoryVectorStore no longer implements IRagDiagnosticsStore; update interface assignments/casts and use RAG 9.0.0 for full diagnostics. Existing concrete diagnostic methods and ordinary vector/text/hybrid operations remain available. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v500</PackageReleaseNotes>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Mythosia.VectorDb.Abstractions\Mythosia.VectorDb.Abstractions.csproj" />
-    <ProjectReference Include="..\..\rag\Mythosia.AI.Rag.Abstractions\Mythosia.AI.Rag.Abstractions.csproj" />
   </ItemGroup>
 
   <ItemGroup>

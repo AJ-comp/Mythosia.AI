@@ -1,5 +1,7 @@
 # 觀察 Claude Fable 5.1 的長時間工作
 
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[設定與移轉](providers.md#claude-sonnet-55)
+
 [Claude Opus 5.5](providers.md#claude-opus-55) 從 Mythosia.AI 8.1.0 / Abstractions 4.1.0 起可用：推理始終啟用，預設 effort 為 medium，並省略顯示。可讀進度需明確要求；預設值和模型綁定規則與 Fable 5.1 不同。
 
 > Fable 5.1 控制需要 `Mythosia.AI` 8.0.0 與 `Mythosia.AI.Abstractions` 4.0.0 或更新版本。既有 Run、推理/搜尋及 GPT-6 Astra API 的最低版本仍為 7.1.0 / 3.1.0。
@@ -68,6 +70,10 @@ await service
 ```
 
 兩個輔助方法都會為下一個邏輯請求擷取指令。Mythosia 保留先前訊息，在使用者輸入或工具結果之後附加系統訊息。`WithTurnInstruction` 使用 `clear_at: "next_user_message"`；同一個邏輯請求內，每次工具結果回合之後都會重新附加指令，使其生效至本次請求結束。`WithConversationInstruction` 會持續適用於後續回合。必須在啟動工作前設定；兩者都不是 `run.SteerAsync`，也不會向已執行中的回應注入指令。
+
+允許本機壓縮對話時，已接受的 `WithConversationInstruction` 文字會與產生的摘要分開保留，並維持原有順序和系統權限。因此，摘要不會悄悄丟棄回覆語言等持續要求。`WithTurnInstruction` 仍僅對目前回合有效。壓縮失敗或取消不會改變已接受的指示與歷史；清空對話會終止保留的指示。
+
+存在持續指示時，即使設定 `KeepRecentCount = 0`，原本會清空全部歷史的壓縮仍會保留最後一個使用者回合及必要的工具相依關係，以區分壓縮與明確清空對話。
 
 要在請求之間調整 effort 並保留可重用的快取前綴，使用 `Mythosia.AI.Extensions` 的 `.WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)`。函式庫傳送訊息級 effort 更新並保留其歷史。支援組合見[通用指南](reasoning-and-search.md)。在 5.1 中，`AIRequestContext` 的請求級系統前綴/後綴會轉為附加的回合指令，不會改寫早期系統提示。
 

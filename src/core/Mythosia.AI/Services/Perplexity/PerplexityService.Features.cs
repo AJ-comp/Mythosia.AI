@@ -38,11 +38,9 @@ namespace Mythosia.AI.Services.Perplexity
         {
             ValidateAgentMessage(message);
             ValidateAgentModelId(RequestModel);
-            if (options is PerplexityAgentOptions captured)
-            {
-                ValidateAgentOptions(captured);
-                ApplyAdvancedAgentOptions(new Dictionary<string, object>(), captured);
-            }
+            // Invalid native values remain invalid even when a profile suppresses their
+            // effect. Model/effort compatibility is checked separately on the final plan.
+            ValidateAgentOptions(options as PerplexityAgentOptions ?? RequestAgentOptions);
         }
 
         protected override void ValidateRequestFeatures(AIRequestFeatures features)
@@ -57,17 +55,11 @@ namespace Mythosia.AI.Services.Perplexity
                 throw new NotSupportedException("Perplexity Agent accepts minimal, low, medium, high, xhigh and max reasoning effort; None is not supported.");
             if (features.WebSearch?.AllowedDomains?.Any(domain => domain.StartsWith("-", StringComparison.Ordinal)) == true)
                 throw new NotSupportedException("WithWebSearch AllowedDomains must be an allowlist. Use native filters for a denylist.");
-            // Initial validation runs before the captured execution is installed in AsyncLocal.
-            // It must still reject unsupported combinations before appending the user turn.
-            var options = CurrentProviderRequestOptions as PerplexityAgentOptions ?? RequestAgentOptions;
-            if (options != null)
-            {
-                var level = features.Reasoning?.Level ?? ReasoningLevel.Auto;
-                if (level == ReasoningLevel.Auto) level = options.ReasoningEffort;
-                if (level != ReasoningLevel.Auto)
-                    ValidateAgentReasoning(level, options.ModelOverride ??
-                        (options.Preset.HasValue || options.Profile != null || options.Models != null ? null : RequestModel));
-            }
+            var plan = ResolveAgentRequestPlan(features);
+            // Pending-feature validation has no request lifetime and must not install
+            // execution state. Actual preparation publishes the validated plan once.
+            if (CurrentFeatureRequestMessage != null && ReferenceEquals(features, CurrentRequestFeatures))
+                SetExecutionSetting(AgentRequestPlanSetting, plan);
         }
 
         private static void ValidateAgentOptions(PerplexityAgentOptions options)
@@ -123,19 +115,6 @@ namespace Mythosia.AI.Services.Perplexity
                 SetExecutionSetting("Perplexity.SuppressAgentTools", true);
             if (profile.DisableReasoning == true)
                 SetExecutionSetting("Perplexity.DisableAgentReasoning", true);
-        }
-
-        private PerplexityAgentOptions EffectiveAgentOptions()
-        {
-            // Internal rewrite/summary scopes have no captured provider options and must not inherit presets or tools.
-            var options = CurrentProviderRequestOptions is PerplexityAgentOptions captured
-                ? captured.Clone() : new PerplexityAgentOptions { DisableWebSearch = true };
-            if (SuppressAgentTools)
-            {
-                options = new PerplexityAgentOptions { DisableWebSearch = true };
-            }
-            if (DisableAgentReasoning) options.ReasoningEffort = ReasoningLevel.Auto;
-            return options;
         }
 
         protected override string? GetConversationCompactionBlockReason()

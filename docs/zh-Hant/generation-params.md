@@ -1,5 +1,9 @@
 # 生成參數
 
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[設定與移轉](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型選擇與遷移](providers.md#gpt-61-sol)
+
 > Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型選擇、推理與處理速度](providers.md#grok-47)
 
 若要分離每個請求的設定並衍生多個版本，請使用[請求建構器](request-building.md)。先呼叫`CreateRequest(...)`，再串接`With...`。服務屬性與服務上的fluent方法維持原有行為。
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // 對已出現 Token 的懲罰
 GPT-6 Astra 不支援 `temperature` 和 `top_p`；即使透過通用屬性或請求設定指定它們，Mythosia 也會在傳送時省略這兩個欄位。最大輸出為 128,000 個 token。參見 [GPT-6 設定](providers.md)。
 
 GPT-6 Sol/Luna 僅在 `ReasoningLevel.None` 時傳送 `temperature` 和 `top_p`，其他情況均省略。Astra 不支援 `None`。參見[模型選擇與設定](providers.md#gpt-6-sol-luna)。
+
+從 GPT-6 Sol 遷移時，請將 `None` 改為 `Low`：GPT-6.1 Sol 支援 `Low`、`Medium`（`Auto` 預設值）、`High`、`XHigh` 和 `Max`，拒絕 `None` 與 `Minimal`。請求省略 `Temperature` / `TopP`。`AIRequestProfile.DisableReasoning` 使用 Standard 模式的 `Low`，並省略推理摘要。原有 GPT-6 Sol 和 Luna 的 `None` 行為保持不變。
 
 
 如果起草和審查需要不同的推理深度，可以使用[共用推理設定](reasoning-and-search.md)。指南也說明保留快取的變更與一般單次請求設定的差異。

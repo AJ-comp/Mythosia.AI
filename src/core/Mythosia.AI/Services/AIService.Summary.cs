@@ -94,8 +94,6 @@ namespace Mythosia.AI.Services.Base
         {
             using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             if (_isSummarizing) return SummaryCompactionResult.Skipped("reentrant");
-            var compactionBlock = GetConversationCompactionBlockReason();
-            if (compactionBlock != null) return SummaryCompactionResult.Skipped(compactionBlock);
             // No policy means no summary store — there is nothing to compact into.
             // Injecting a policy here would silently start deleting history the caller never opted into.
             if (ConversationPolicy == null) return SummaryCompactionResult.Skipped("no-policy");
@@ -104,19 +102,26 @@ namespace Mythosia.AI.Services.Base
             if (!force && !ConversationPolicy.ShouldSummarize(ActivateChat.Messages, LastKnownInputTokens))
                 return SummaryCompactionResult.Skipped("trigger-not-met");
 
+            // Inspect provider history only when this operation can compact it.
+            // Stateless helpers must never parse unrelated conversation contents.
+            var compactionBlock = GetConversationCompactionBlockReason();
+            if (compactionBlock != null) return SummaryCompactionResult.Skipped(compactionBlock);
+
             var (messagesToSummarize, keepFromIndex) = ConversationPolicy.GetMessagesToSummarize(ActivateChat.Messages);
 
             // Keep every retained result with its originating call, including asynchronous
             // results separated from their call by other assistant turns or partial results.
             // The regular trigger path needs the same protection as forced recovery.
-            keepFromIndex = ClampKeepIndexForFunctionPair(ActivateChat.Messages, keepFromIndex);
+            keepFromIndex = ClampConversationCompactionKeepIndex(
+                ClampKeepIndexForFunctionPair(ActivateChat.Messages, keepFromIndex));
             messagesToSummarize = Take(ActivateChat.Messages, keepFromIndex);
 
             int sentBefore = 0, sentAfter = 0;
 
             if (force)
             {
-                keepFromIndex = ClampKeepIndexForForcedCompaction(ActivateChat.Messages, keepFromIndex);
+                keepFromIndex = ClampConversationCompactionKeepIndex(
+                    ClampKeepIndexForForcedCompaction(ActivateChat.Messages, keepFromIndex));
                 messagesToSummarize = Take(ActivateChat.Messages, keepFromIndex);
 
                 // KeepRecent covers everything (or the clamp pulled it back to zero) — nothing can be
@@ -144,12 +149,13 @@ namespace Mythosia.AI.Services.Base
             // summarization prompt. What came back would be an
             // ordinary answer to the caller's question, stored as the conversation summary while the
             // messages it was supposed to summarize get deleted.
-            var restoreContext = SuppressRequestContext();
+            Action? restoreContext = null;
             try
             {
+                restoreContext = SuppressRequestContext();
                 var summaryResult = await GetCompletionAsync(prompt, RequestProfiles.Summarization);
                 RequestCancellationToken.ThrowIfCancellationRequested();
-                ConversationPolicy.CurrentSummary = summaryResult;
+                var acceptPrefixRemoval = PrepareConversationPrefixRemoval(messagesToSummarize.Count);
 
                 // Only remove messages when there are messages beyond KeepRecent
                 if (messagesToSummarize.Count > 0)
@@ -159,17 +165,28 @@ namespace Mythosia.AI.Services.Base
                         ActivateChat.Messages.RemoveAt(i);
                     }
                 }
+                acceptPrefixRemoval();
+                ConversationPolicy.CurrentSummary = summaryResult;
             }
             finally
             {
-                restoreContext();
-                _isSummarizing = false;
+                try { restoreContext?.Invoke(); }
+                finally { _isSummarizing = false; }
             }
 
             if (!force) return SummaryCompactionResult.Applied(messagesToSummarize.Count, 0, 0);
 
             return SummaryCompactionResult.Applied(messagesToSummarize.Count, sentBefore, sentAfter);
         }
+
+        // Providers stage retained protocol state before the known cut, then publish it
+        // only after the conversation prefix has actually been removed.
+        internal virtual Action PrepareConversationPrefixRemoval(int count) => () => { };
+
+        // Provider-owned wire records can contain dependencies absent from public
+        // Message data (for example a retained request override). Move a proposed
+        // public-history cut earlier without publishing or mutating provider state.
+        internal virtual int ClampConversationCompactionKeepIndex(int keepFromIndex) => keepFromIndex;
 
         /// <summary>
         /// Pulls the cut point back so forced compaction cannot produce a request the server will

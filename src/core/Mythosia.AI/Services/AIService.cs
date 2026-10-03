@@ -32,7 +32,7 @@ namespace Mythosia.AI.Services.Base
 
         /// <summary>
         /// Optional async provider that supplies a baseline <see cref="AIRequestContext"/>
-        /// for every outbound request. Invoked automatically right before each call
+        /// for each caller request (excluding internally generated summaries). Invoked automatically right before each call
         /// to <see cref="GetCompletionAsync(Message, AIRequestProfile, AIRequestContext, CancellationToken)"/>
         /// or <see cref="StreamAsync(Message, StreamOptions, AIRequestContext, CancellationToken)"/>
         /// (including agent-path calls) so callers no longer need to build and pass
@@ -244,7 +244,7 @@ namespace Mythosia.AI.Services.Base
 
         /// <summary>Identifies the user input replaced by request context while tool rounds append messages.</summary>
         protected virtual string? GetRequestMessageOverrideTargetId()
-            => _runRequestMessageId ?? CurrentFeatureRequestMessage?.Id;
+            => CurrentFeatureRequestMessage?.Id;
 
         /// <summary>
         /// Ensures the message list starts with a User message.
@@ -314,9 +314,10 @@ namespace Mythosia.AI.Services.Base
             using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             using var requestScope = BeginRequestSettingsScope();
             var message = new Message(ActorRole.User, prompt);
-            using var featureScope = profile != null && profile.Purpose != AIRequestPurpose.Default
-                ? SuppressRequestFeatures(message) : BeginRequestFeaturesScope(message);
-            await ApplySummaryPolicyIfNeededAsync();
+            using var preparation = BeginRequestPreparation(message, profile, RequestEntry.StringCompletion);
+            message = ResolveRequestMessage(message);
+            _requestFeatureExecution.Value!.Operation!.SummaryBeforeSend = true;
+            using var continuation = ContinueRequest(message, RequestEntry.MessageCompletion, allowInputReplacement: true);
             return await GetCompletionAsync(message, profile, context, RequestCancellationToken);
         }
 
@@ -328,14 +329,19 @@ namespace Mythosia.AI.Services.Base
         {
             using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
             using var requestScope = BeginRequestSettingsScope();
-            using var featureScope = profile != null && profile.Purpose != AIRequestPurpose.Default
-                ? SuppressRequestFeatures(message) : BeginRequestFeaturesScope(message);
+            using var preparation = BeginRequestPreparation(message, profile);
+            message = ResolveRequestMessage(message);
+            var operation = _requestFeatureExecution.Value!.Operation!;
+            if (operation.SummaryBeforeSend)
+            {
+                operation.SummaryBeforeSend = false;
+                await ApplySummaryPolicyIfNeededAsync().ConfigureAwait(false);
+            }
             var effectiveContext = await BuildEffectiveContextAsync(context, RequestCancellationToken).ConfigureAwait(false);
             RequestCancellationToken.ThrowIfCancellationRequested();
             if (profile == null && effectiveContext == null)
                 return await SendWithContextRecoveryAsync(message);
 
-            Action restoreProfile = profile != null ? ApplyRequestProfile(profile) : () => { };
             Action restoreContext = effectiveContext != null ? ApplyRequestContext(effectiveContext) : () => { };
             try
             {
@@ -344,7 +350,6 @@ namespace Mythosia.AI.Services.Base
             finally
             {
                 restoreContext();
-                restoreProfile();
             }
         }
 
@@ -365,6 +370,11 @@ namespace Mythosia.AI.Services.Base
         private async Task<string> SendWithContextRecoveryAsync(Message message)
         {
             var capturedPolicy = GetExecutionPolicy();
+            var operation = _requestFeatureExecution.Value!.Operation!;
+            // The provider may replace its input. A retry dispatches the original
+            // adapter argument again, but still occupies the same logical input slot.
+            // Format-repair messages never replace that original slot.
+            var replacesInitialInput = ReferenceEquals(message, operation.Input) || ReferenceEquals(message, operation.SourceInput);
 
             for (int attempt = 0; ; attempt++)
             {
@@ -376,6 +386,8 @@ namespace Mythosia.AI.Services.Base
 
                 try
                 {
+                    using var continuation = ContinueRequest(message, RequestEntry.Provider, allowInputReplacement: true,
+                        replacesInitialInput: replacesInitialInput);
                     var result = await GetCompletionAsync(message);
                     RequestCancellationToken.ThrowIfCancellationRequested();
                     return result;
@@ -394,7 +406,8 @@ namespace Mythosia.AI.Services.Base
                         throw;
                     }
 
-                    var compactionBlock = GetConversationCompactionBlockReason();
+                    var compactionBlock = _isSummarizing || RequestStatelessMode
+                        ? null : GetConversationCompactionBlockReason();
                     if (_isSummarizing || RequestStatelessMode || compactionBlock != null)
                     {
                         ex.RecoveryAttempts = attempt;
@@ -484,9 +497,19 @@ namespace Mythosia.AI.Services.Base
         private protected Action SuppressRequestContext()
         {
             var backup = _currentRequestContext.Value;
+            var settingsScope = UseRequestSettings(
+                _requestExecution.Value?.Settings ?? SnapshotRequestSettings(), copyFunctions: false);
+            // Clearing only the resolved context is insufficient: the summary would
+            // invoke the same callback again and recreate the parent's input override.
+            SetExecutionSetting<Func<CancellationToken, ValueTask<AIRequestContext?>>?>(
+                nameof(SystemMessageProvider), null);
             var featureScope = SuppressRequestFeatures();
             _currentRequestContext.Value = null;
-            return () => { _currentRequestContext.Value = backup; featureScope.Dispose(); };
+            return () =>
+            {
+                _currentRequestContext.Value = backup;
+                try { featureScope.Dispose(); } finally { settingsScope.Dispose(); }
+            };
         }
 
         #endregion
@@ -623,7 +646,8 @@ namespace Mythosia.AI.Services.Base
         {
             var backup = _currentRequestContext.Value;
             _currentRequestContext.Value = context;
-            if (_runRequestMessageId != null) _runEffectiveRequestContext = context;
+            if (_requestFeatureExecution.Value?.Operation is RequestOperation operation)
+                operation.EffectiveContext = context;
             return () => _currentRequestContext.Value = backup;
         }
 
@@ -688,8 +712,23 @@ namespace Mythosia.AI.Services.Base
                 : systemMessage + structuredOutputInstruction;
         }
 
-        internal Message ResolveRequestMessage(Message message)
+        /// <summary>Returns the current request's owned input snapshot without changing caller-owned messages.</summary>
+        /// <remarks>Provider implementations may call this after BeginRequestFeaturesScope and retain the returned input.
+        /// Existing providers which retain their original input remain supported. Repair messages remain distinct.</remarks>
+        protected internal Message ResolveRequestMessage(Message message)
         {
+            var execution = _requestFeatureExecution.Value;
+            var operation = execution?.Operation;
+            if (operation != null && ReferenceEquals(operation.SourceInput, message))
+            {
+                if (!operation.OwnsInput)
+                {
+                    operation.Input = CaptureRunMessage(message);
+                    operation.OwnsInput = true;
+                    execution!.Message = operation.Input;
+                }
+                return operation.Input;
+            }
             return message;
         }
 

@@ -100,6 +100,8 @@ async function applySettings(revision, connectionRevision) {
 }
 
 export function updateReasoningUI() {
+  setReasoning.title = app.modelReasoningInfo?.type === 'claude_adaptive' && app.modelReasoningInfo.defaultEnabled
+    ? 'Off skips upfront thinking; progress updates between tool calls remain enabled.' : '';
   const perplexityPanel = document.getElementById('perplexity-options');
   if (perplexityPanel) perplexityPanel.classList.toggle('hidden', app.selectedProvider !== 'Perplexity');
   if (app.modelReasoningInfo) {
@@ -160,10 +162,14 @@ export function updateReasoningUI() {
       });
     } else {
       setReasoning.disabled = false;
+      if (typeof info.defaultEnabled === 'boolean') {
+        setReasoning.checked = info.defaultEnabled;
+        reasoningOpts.classList.toggle('hidden', !info.defaultEnabled);
+      }
       reasoningLvls.innerHTML = '';
-      info.levels.forEach((lvl, i) => {
+      info.levels.forEach(lvl => {
         const label = document.createElement('label');
-        label.innerHTML = `<input type="radio" name="reasoning-level" value="${lvl}" ${i === 0 ? 'checked' : ''} /><span>${lvl}</span>`;
+        label.innerHTML = `<input type="radio" name="reasoning-level" value="${lvl}" ${lvl === (info.defaultLevel || info.levels[0]) ? 'checked' : ''} /><span>${lvl}</span>`;
         label.querySelector('input').addEventListener('change', () => scheduleApplySettings(0));
         reasoningLvls.appendChild(label);
       });

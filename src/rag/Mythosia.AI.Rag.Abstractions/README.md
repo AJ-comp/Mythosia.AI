@@ -1,6 +1,6 @@
 # Mythosia.AI.Rag.Abstractions
 
-> **v6.4.0:** Adds optional `IRetrievalEmbeddingProvider` and immutable `EmbeddingDocument` so providers can preserve a document's full chunk context and distinguish search questions from documents. Use `Mythosia.AI.Rag` 8.2.0 or later for the corresponding pipeline and Voyage/Gemini integrations. Existing `IEmbeddingProvider`, `IRagRetriever` and `IRetrievalStrategy` implementations remain supported. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v640).
+> **v6.5.0:** Retains `IRagDiagnosticsStore` as an obsolete compatibility bridge to `Mythosia.VectorDb.IVectorStoreDiagnostics` in VectorDb Abstractions 4.2.0. Existing custom diagnostic stores can use the bridge; new stores should implement the vector-layer contract. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650).
 
 ## Package Summary
 
@@ -15,13 +15,24 @@ This package defines the contracts that all RAG components implement — you onl
 | `IEmbeddingProvider` | Text → vector embedding (`GetEmbeddingAsync`, `GetEmbeddingsAsync`) |
 | `IRetrievalEmbeddingProvider` | Optional `IEmbeddingProvider` capability: complete ordered document embeddings and explicit query embeddings |
 | `IVectorStore` | Vector storage & search (`UpsertAsync`, `SearchAsync`, `DeleteAsync`) |
-| `IRagDiagnosticsStore` | Optional diagnostics contract (`ListAllRecordsAsync`, `ScoredListAsync`) |
+| `IVectorStoreDiagnostics` | Optional vector-layer inspection contract (`ListAllRecordsAsync`, `ScoredListAsync`), defined in `Mythosia.VectorDb.Abstractions` |
+| `IRagDiagnosticsStore` | Obsolete compatibility interface inheriting `IVectorStoreDiagnostics` |
 | `ITextSplitter` | Document → chunks (`Split(RagDocument)`) |
 | `IContextBuilder` | Search results → LLM prompt (`BuildContext(query, results)`) |
 | `IQueryRewriter` | Rewrites queries into retrieval-ready form using conversation history, and decides whether document search is needed (search gate) |
 | `IRagRetriever` | Request-based retrieval without a mandatory query embedding; owns preparation, filtering, limits and cancellation |
 | `IRetrievalStrategy` | Existing dense-input strategy, retained through a compatibility adapter |
 | `IReranker` | Re-ranks search results post-retrieval for improved relevance |
+
+## Diagnostics compatibility
+
+Store inspection belongs to `Mythosia.VectorDb.IVectorStoreDiagnostics`. RAG analysis belongs to `Mythosia.AI.Rag`: `RagDiagnostics` and `RagDiagnosticSession` use the optional vector-layer capability for chunk lookup, all-record scoring and health checks. Implementing `IVectorStore` alone does not require diagnostics.
+
+The obsolete `IRagDiagnosticsStore` keeps its original namespace, assembly and two method declarations (`ListAllRecordsAsync`, `ScoredListAsync`), inherits `IVectorStoreDiagnostics`, and supplies default interface bridges to those legacy methods. This supports existing custom implementations, including explicit implementations of the old members, when used with the updated contracts. New custom stores should implement `IVectorStoreDiagnostics` directly and can omit a RAG abstractions reference if they otherwise use only vector contracts.
+
+A public class method takes precedence over a default interface bridge. If a legacy store also exposes public methods with those names, a direct call through `IVectorStoreDiagnostics` can select the public methods. RAG 9.0.0 uses an internal adapter that calls the original `IRagDiagnosticsStore` slots, preserving explicit legacy behavior in chunk lookup, scoring and health checks.
+
+The bridge does **not** make InMemory 5.0.0 implement the old interface. Migrate old InMemory assignments, casts and `is`/`as` checks to `IVectorStoreDiagnostics`, then rebuild affected consumers. Upgrade RAG to 9.0.0 together with InMemory 5.0.0; older RAG packages paired with the new InMemory package are unsupported. This is not a guarantee that every previously compiled consumer remains compatible.
 
 ## Models
 

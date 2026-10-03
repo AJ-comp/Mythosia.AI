@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,24 @@ var store = new InMemoryVectorStore();
 
 배치를 취소해도 이미 저장된 레코드는 남을 수 있습니다. `ReplaceByFilterAsync`는 여전히 삭제 후 배치 저장을 순서대로 실행하며 트랜잭션을 제공하지 않습니다. 다른 검색이 그 사이의 빈 상태를 볼 수 있고, 실패나 취소가 앞서 완료된 저장을 되돌리지는 않습니다.
 
+<a id="vector-store-diagnostics"></a>
+
 ### 진단 메서드
+
+`IVectorStoreDiagnostics`는 `Mythosia.VectorDb.Abstractions` 4.2.0의 선택적 계약입니다. InMemory가 직접 구현하며 `IVectorStore`에 필수 멤버를 추가하지 않습니다. `ListAllRecordsAsync`는 모든 레코드를 나열하고, `ScoredListAsync`는 TopK 제한 없이 모든 유사도 점수를 내림차순으로 반환합니다. 두 메서드는 저장소 전체를 검사하므로 메타데이터 필터를 받지 않으며 RAG 파이프라인의 `StoreFilter`도 적용하지 않습니다. `GetTotalRecordCount()`는 계약에 포함되지 않는 InMemory 편의 메서드입니다. RAG 전용 청크 분석, 상태 검사와 보고서는 `Mythosia.AI.Rag`의 `RagDiagnostics`와 `RagDiagnosticSession`에 남습니다.
+
+**InMemory 5.0.0 업그레이드:** RAG 9.0.0과 함께 사용하세요. 새 InMemory와 이전 RAG 패키지의 조합은 지원하지 않습니다. InMemory는 더 이상 `IRagDiagnosticsStore`를 구현하지 않으므로 할당, 캐스트, 기능 확인을 `IVectorStoreDiagnostics`로 변경하고 해당 소비자를 다시 빌드하세요. RAG Abstractions 6.5.0은 기존 사용자 정의 구현을 위해 사용 중단된 인터페이스, 원래의 두 메서드 선언과 기본 브리지를 유지합니다. 이 브리지는 InMemory의 이전 인터페이스 관계를 복원하거나 모든 기존 바이너리의 호환성을 보장하지 않습니다.
+
+`IRagDiagnosticsStore`를 구현하는 사용자 정의 저장소의 경우 RAG는 내부 어댑터를 통해 원래 인터페이스 메서드를 호출합니다. 따라서 동일한 시그니처의 public 도우미 메서드가 있더라도 명시적 구현을 계속 사용합니다. `IVectorStoreDiagnostics`로 직접 캐스트한 뒤 메서드를 호출하면 해당 public 메서드가 대신 선택될 수 있습니다.
 
 ```csharp
 // 저장된 모든 레코드 나열
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"전체: {store.GetTotalRecordCount()}");
 
 // 원시 유사도 점수 확인
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

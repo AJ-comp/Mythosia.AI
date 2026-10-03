@@ -61,7 +61,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             var minScore = _pipeline.Options.DefaultQuery.FinalFilter.MinScore;
 
             // ── Step 1: Was the text ever indexed? ──
-            bool canSearchChunks = _pipeline.VectorStore is IRagDiagnosticsStore;
+            bool canSearchChunks = _diag.DiagnosticsStore != null;
             ChunkSearchMatch? targetMatch = null;
 
             if (canSearchChunks)
@@ -85,7 +85,7 @@ namespace Mythosia.AI.Rag.Diagnostics
             else
             {
                 steps.Add(AnalysisStep.Info("Indexing",
-                    "Cannot verify (requires IRagDiagnosticsStore). Skipping to search analysis."));
+                    "Cannot verify (requires IVectorStoreDiagnostics). Skipping to search analysis."));
             }
 
             // ── Step 2: Score all chunks against the query ──
@@ -188,11 +188,11 @@ namespace Mythosia.AI.Rag.Diagnostics
         {
             var items = new List<HealthCheckItem>();
 
-            var diagnosticsStore = _pipeline.VectorStore as IRagDiagnosticsStore;
+            var diagnosticsStore = _diag.DiagnosticsStore;
             if (diagnosticsStore == null)
             {
                 items.Add(HealthCheckItem.Info("Store Type",
-                    "HealthCheck requires a vector store implementing IRagDiagnosticsStore for full analysis."));
+                    "HealthCheck requires a vector store implementing IVectorStoreDiagnostics for full analysis."));
                 return new HealthCheckResult(0, items);
             }
 

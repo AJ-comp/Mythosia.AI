@@ -1,6 +1,12 @@
 # Choose reasoning effort and answer with sources
 
+> Claude Sonnet 5.5: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration and migration](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, a disabled legacy `ThinkingBudget`, or `AIRequestProfile.DisableReasoning` select `between_tools` at high effort: this disables up-front thinking, but tool progress may still arrive in thinking blocks. `WithBetweenToolsThinking(...)` accepts `Auto` (high), `Low`, `Medium` or `High`; `XHigh` and `Max` are rejected. Its wire thinking object contains only `type`: no display, budget or binding fields. Per-message effort changes and `CachePreservation.Required` are unavailable in this mode. Explicit common `WithReasoning(Low...Max)` returns to adaptive mode; `Auto` respects the selected provider mode.
+
 > Grok 4.7: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection, reasoning and processing speed](providers.md#grok-47)
+
+> GPT-6.1 Sol: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selection and migration](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection and requirements](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 The provider runs this hosted tool. There is no local function handler to register or execute. Enabling search makes it available to the model; the model may decide that a particular prompt does not require it. Source references are available when the provider returns them.
 
+**Known limitations:** Claude Sonnet 5.5 / Opus 5.5 cannot continue a native search pause ending in pending `server_tool_use`; see [affected APIs and supported pause shapes](providers.md#claude-native-continuation-limitation). Streaming and Run also have a conditional [cancellation limitation with buffering custom HTTP content](streaming.md#sse-acquisition-cancellation-limitation).
+
 OpenAI and Anthropic also accept `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`. Google does not expose this allowlist through the integrated tool, so a restricted request is rejected instead of searching the whole web.
 
 ## Answer from documents already indexed by the provider
@@ -146,8 +154,8 @@ Citation fields are nullable when the provider supplies no value. `ResponseId`, 
 
 | Integrated provider | Named reasoning levels | Cache-preserving change | Web search | File search |
 | --- | --- | --- | --- | --- |
-| OpenAI | Supported reasoning models; level varies by model | GPT-6 Astra / Sol / Luna Standard, single-agent mode | Supported Responses models | Supported Responses models, existing vector stores |
-| Anthropic | Models with native effort control | Supported Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 with the provider beta | Supported Claude models | No native store adapter; use RAG |
+| OpenAI | Supported reasoning models; level varies by model | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard, single-agent mode | Supported Responses models | Supported Responses models, existing vector stores |
+| Anthropic | Models with native effort control | Supported Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 with the provider beta | Supported Claude models | No native store adapter; use RAG |
 | Google | Gemini 3 levels; Gemini 2.5 retains provider-specific budgets | Unsupported | Supported Gemini text models | Supported Gemini text models, existing file search stores |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Unsupported | No common adapter | No common adapter |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; provider aliases map to native Low/High/Max | Unsupported | No common adapter | No common adapter |

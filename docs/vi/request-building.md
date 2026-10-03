@@ -1,5 +1,9 @@
 # Giữ cấu hình của từng yêu cầu độc lập
 
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Chọn mô hình và chuyển đổi](providers.md#gpt-61-sol)
+
 > Grok 4.7: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình, suy luận và tốc độ xử lý](providers.md#grok-47)
 
 Bản tóm tắt có thể cần nhiệt độ thấp, còn bản nháp sáng tạo cần giá trị cao hơn. Chuẩn bị bản nháp không được làm đổi cấu hình của yêu cầu tóm tắt đã chuẩn bị. Dùng `CreateRequest` để đặt cấu hình riêng cho từng lần gọi hoặc tạo nhiều biến thể từ một yêu cầu cơ sở.
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude xác định đồng thời mô hình, mục đích yêu cầu, suy luận và liên kết thinking. Với cấu hình phụ trợ như `RequestProfiles.Summarization` hoặc `RequestProfiles.QueryRewrite`, liên kết kế thừa chỉ được bỏ qua khi `DisableReasoning = true`, mục đích khác `Default` và yêu cầu thực tế không giữ trạng thái. Nhờ đó, chính sách kế thừa không bật lại suy luận hoặc từ chối yêu cầu không có tiền tố hội thoại cần bảo toàn. Mô hình cho phép tắt thinking sẽ tắt nó; Opus 5.5, Fable 5.1 và Mythos 5.1 luôn suy luận nên dùng `Low` và bỏ thinking có thể đọc được. Sonnet 5.5 dùng `between_tools` với mức nỗ lực cao.
+
+Completion, streaming, đầu ra có cấu trúc và Run dùng cùng quy trình chuẩn bị: chụp lại cài đặt, áp dụng xử lý profile thực tế một lần, rồi kiểm tra các tùy chọn chung và tùy chọn riêng của nhà cung cấp. Quy trình này diễn ra trước khi tự động tóm tắt, thêm đầu vào vào lịch sử hoặc mở kết nối. Vì vậy, phần ghi đè profile của nhà cung cấp tùy chỉnh được phản ánh trong cài đặt thực sự được kiểm tra. Claude cũng từ chối ngay tại đây nếu `ThinkingBudget` thủ công được sử dụng đạt hoặc vượt giới hạn đầu ra của mô hình; profile hợp lệ và cài đặt suy luận chung vẫn giữ thứ tự ưu tiên.
+
+Các lời gọi từ ứng dụng bắt đầu những yêu cầu logic độc lập, bao gồm lời gọi thông thường từ `SystemMessageProvider` hoặc callback của công cụ và lời gọi dùng lại cùng `AIRequestProfile` hay `Message`. Dùng lại đối tượng không đồng nghĩa với dùng chung lần thực thi. Việc chuyển tiếp trong framework, vòng công cụ, thử lại và sửa định dạng tiếp tục yêu cầu gốc, áp dụng profile một lần. Yêu cầu con thông thường lấy tùy chọn riêng và mặc định của dịch vụ; builder giữ cài đặt đã chụp. Trạng thái thực thi của yêu cầu cha được khôi phục sau thành công, lỗi hoặc hủy. Các phương thức ghi đè của nhà cung cấp chuyển tiếp lời gọi từ framework tuân theo [quy tắc adapter bên dưới](#provider-request-adapters).
+
+Nhà cung cấp tích hợp giữ bản sao riêng của nội dung đầu vào tích hợp. Dùng lại `Message` sẽ áp dụng ngữ cảnh và chỉ dẫn của lời gọi mới mà không viết lại lịch sử đã được chấp nhận. Chủ sở hữu vẫn phải quản lý nội dung tùy chỉnh và đối tượng siêu dữ liệu không được hỗ trợ. Điều này không bảo đảm an toàn khi gọi đồng thời trên cùng hội thoại.
+
+Sau khi `StartRunAsync` trả về, Run giữ bản sao riêng của cài đặt có hiệu lực. Việc khôi phục profile phía gọi không làm thay đổi Run đang chạy, và các hook thực thi profile vẫn chỉ được gọi một lần.
+
+Yêu cầu phụ không trạng thái dùng hội thoại riêng, không kế thừa schema đầu ra, công cụ do nhà cung cấp lưu trữ hay tùy chọn dùng một lần của yêu cầu cha. Việc tách biệt không bao giờ bỏ qua kiểm tra tùy chọn riêng của nhà cung cấp, kể cả Run của OpenAI và Perplexity. Cài đặt, tin nhắn, `CurrentSummary` và dữ liệu quan sát của yêu cầu cha được giữ nguyên. Yêu cầu có trạng thái vẫn kiểm tra liên kết và hội thoại. API công khai hiện tại không thay đổi.
+
+Yêu cầu tóm tắt hội thoại do thư viện tự tạo cũng loại bỏ callback `SystemMessageProvider` và ngữ cảnh của yêu cầu cha, để `RequestMessageOverride` được kế thừa không thể thay thế lời nhắc tóm tắt nội bộ. Yêu cầu do ứng dụng khởi tạo vẫn áp dụng ngữ cảnh động bình thường, kể cả yêu cầu tóm tắt văn bản rõ ràng.
+
+Yêu cầu không giữ trạng thái cũng bỏ qua việc tự động tóm tắt hội thoại cha, kể cả overload hiện có `GetCompletionAsync(string, profile)`, giống overload `Message` và trình tạo yêu cầu. `CurrentSummary` và các tin nhắn của hội thoại cha không thay đổi. Yêu cầu giữ trạng thái vẫn tự động tóm tắt như trước.
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## Chuyển tiếp yêu cầu trong nhà cung cấp tùy chỉnh
+
+Khi framework gọi adapter nhà cung cấp qua phương thức virtual, lời gọi đầu tiên tới phương thức cơ sở tương ứng sẽ tiếp tục yêu cầu đã chuẩn bị, ngay cả khi phương thức ghi đè thay thế `Message` đầu vào. Các tùy chọn builder đã chụp và profile đã áp dụng vẫn được giữ khi chuyển tiếp. Adapter streaming dùng callback mặc định cũng tiếp tục cùng yêu cầu đã chuẩn bị đó.
+
+Bộ điều hợp có thể chuyển tiếp `AIRequestProfile` đã đổi: giá trị không đổi không được áp dụng lại; giá trị mới thay lớp hồ sơ cũ dựa trên cấu hình đã chụp. Việc xác thực lại diễn ra trước tóm tắt tự động và gửi, kể cả khi chuyển sang không trạng thái. Yêu cầu phụ OpenAI không trạng thái bỏ qua lịch sử không liên quan mà không xóa cơ chế bảo vệ hội thoại cha.
+
+Việc thay hồ sơ được chuyển tiếp vẫn giữ các thao tác thêm, xóa và sửa công cụ, thay đổi chính sách và phép gán tường minh được thực hiện sau đó trong yêu cầu, kể cả khi gán lại cùng một giá trị vô hướng. Thay đổi trường hồ sơ khác không khôi phục công cụ mà bộ điều hợp đã xóa. Các giá trị mặc định của dịch vụ không được đọc lại.
+
+Với đối tượng cấu hình tùy chỉnh mà thư viện không biết cấu trúc bên trong, bộ điều hợp nên thay giá trị qua `SetExecutionSetting` thay vì sửa trường nội bộ. Thư viện không kiểm tra đối tượng ứng dụng tùy ý hay gọi bộ tuần tự hóa của chúng để theo dõi thay đổi hồ sơ.
+
+Nén lịch sử Claude giữ quan hệ gọi/kết quả trong `RequestMessageOverride` và `AdditionalMessages`, kể cả công cụ máy chủ, và bảo vệ tiền tố thinking có ràng buộc của Mythos 5.1. Bản ghi công cụ song song kiểu cũ chỉ được gộp một lần trong lịch sử và tin nhắn bổ sung, vẫn giữ quyền sở hữu từng bản ghi.
+
+Một lời gọi phụ trợ không liên quan tới cùng phương thức cơ sở trước khi chuyển tiếp gây ra sự mơ hồ: framework không thể suy ra liệu đó có phải là lời gọi tiếp tục hay không. Hãy bao quanh lời gọi phụ trợ và `await` của nó bằng phạm vi từ phương thức protected `BeginIndependentRequestScope()`; với streaming, giữ phạm vi mở cho đến khi duyệt hết luồng. Yêu cầu phụ trợ bắt đầu từ mặc định của dịch vụ, và việc giải phóng phạm vi khôi phục cài đặt, tính năng, ngữ cảnh và bước chuyển tiếp đang chờ của yêu cầu bên ngoài. Các lời gọi lồng nhau thông thường từ callback ngữ cảnh hoặc công cụ vốn đã độc lập nên không cần phạm vi này.
+
+Ví dụ, lớp con của một nhà cung cấp cụ thể có thể viết lại văn bản trước khi chuyển tiếp:
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+Phạm vi này tách biệt trạng thái thực thi yêu cầu; nó không tách biệt lịch sử hội thoại hay cho phép dùng dịch vụ đồng thời. Ví dụ dùng profile `QueryRewrite` không giữ trạng thái để yêu cầu phụ trợ không tham gia hội thoại cha.
+
+Quá trình rút gọn của Claude kiểm tra lịch sử được giữ lại theo định dạng truyền chuẩn, bao gồm thinking có chữ ký được thêm qua `AIRequestContext.AdditionalMessages`. Liên kết thinking mặc định bảo vệ phần tiền tố đó khỏi việc rút gọn bằng tóm tắt tự động hoặc tóm tắt được yêu cầu trực tiếp. Chỉ định rõ `ClaudeThinkingPrefixMismatchBehavior.DropBlock` cho phép rút gọn khi được hỗ trợ; các ràng buộc hội thoại khác vẫn áp dụng.
 
 ## Cấu hình được sao chép và trạng thái còn dùng chung
 
@@ -177,7 +238,7 @@ Danh sách Fast được triển khai nằm dưới đây. Kiểm tra Standard r
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

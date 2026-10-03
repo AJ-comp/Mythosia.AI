@@ -381,6 +381,7 @@
   "Reasoning": "Рассуждение",
   "Reasoning Level": "Уровень рассуждения",
   "Reasoning Mode": "Режим рассуждения",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "При отключении предварительное рассуждение пропускается; сообщения о ходе работы между вызовами инструментов остаются включёнными.",
   "Reasoning and final answer": "Рассуждение и итоговый ответ",
   "Recent references": "Недавние источники",
   "Recommended": "Рекомендуется",

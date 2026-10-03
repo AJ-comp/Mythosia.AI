@@ -1,5 +1,9 @@
 # 생성 파라미터
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
 
 요청마다 설정을 분리하고 공통 요청에서 여러 변형을 만들려면 [요청 빌더](request-building.md)를 사용하세요. `CreateRequest(...)` 다음에 `With...`를 연결합니다. 서비스에 직접 지정하는 속성과 fluent 메서드는 기존 동작을 유지합니다.
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // 이미 등장한 토큰 패널티
 GPT-6 Astra는 `temperature`와 `top_p`를 지원하지 않습니다. 공통 속성이나 요청 프로파일에서 설정해도 Mythosia가 전송 시 두 필드를 생략합니다. 최대 출력은 128,000토큰입니다. 추론 수준과 응답 상세도는 [GPT-6 설정](providers.md#추론-수준)을 참고하세요.
 
 GPT-6 Sol/Luna는 `ReasoningLevel.None`일 때만 `temperature`와 `top_p`를 전송하며, 나머지는 두 필드를 생략합니다. Astra는 `None`을 지원하지 않습니다. [모델 선택과 설정](providers.md#gpt-6-sol-luna)을 참고하세요.
+
+GPT-6 Sol에서 전환할 때 `None`을 `Low`로 바꾸세요. GPT-6.1 Sol은 `Low`, `Medium` (`Auto`의 기본값), `High`, `XHigh`, `Max`를 지원하고 `None`과 `Minimal`은 거절합니다. `Temperature` / `TopP`는 생략합니다. `AIRequestProfile.DisableReasoning`은 Standard 모드의 `Low`를 사용하며 추론 요약을 생략합니다. 기존 GPT-6 Sol과 Luna의 `None` 동작은 유지됩니다.
 
 
 ## 플루언트 확장 메서드

@@ -1,6 +1,12 @@
 # Показывать функции, поддерживаемые выбранной моделью
 
+> Claude Sonnet 5.5: Требуются Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Настройка и миграция](providers.md#claude-sonnet-55)
+
+`ThinkingToggle` управляет предварительным рассуждением; `None` не гарантирует отсутствие thinking-блоков. `MaxOutputTokens` равен 128000. `FastSpeed`, `AsyncFunctionCalling` и `Steering` не поддерживаются.
+
 > Grok 4.7: Требуются Mythosia.AI 8.1.0 / Abstractions 4.1.0. [выбор модели, рассуждение и скорость обработки](providers.md#grok-47)
+
+> GPT-6.1 Sol: Нужны Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Выбор модели и миграция](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Требуются Mythosia.AI 8.1.0 / Abstractions 4.1.0. [выбор модели и требования](providers.md#gpt-6-sol-luna)
 

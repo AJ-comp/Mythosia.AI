@@ -81,7 +81,7 @@ foreach ($definition in $releaseDefinitions) {
 }
 $expectedRagDependencies = @{
     'Mythosia.AI.Rag.Abstractions' = @('Mythosia.VectorDb.Abstractions')
-    'Mythosia.VectorDb.InMemory' = @('Mythosia.VectorDb.Abstractions', 'Mythosia.AI.Rag.Abstractions')
+    'Mythosia.VectorDb.InMemory' = @('Mythosia.VectorDb.Abstractions')
     'Mythosia.AI.Rag' = @('Mythosia.AI.Abstractions', 'Mythosia.AI.Rag.Abstractions', 'Mythosia.VectorDb.InMemory', 'Mythosia.Documents.Office', 'Mythosia.Documents.Pdf')
 }
 foreach ($packageId in $expectedRagDependencies.Keys) {
@@ -105,8 +105,8 @@ foreach ($packageId in $expectedRagDependencies.Keys) {
     }
 }
 $luceneWarningExceptions = @{
-    'Mythosia.VectorDb.Abstractions' = '4.1.0'
-    'Mythosia.VectorDb.InMemory' = '4.2.0'
+    'Mythosia.VectorDb.Abstractions' = '4.2.0'
+    'Mythosia.VectorDb.InMemory' = '5.0.0'
 }
 foreach ($definition in $releaseDefinitions) {
     [xml]$projectXml = Get-Content -Raw -LiteralPath (Join-Path $repoRoot $definition.Project)
@@ -222,6 +222,14 @@ foreach ($consumerName in @('RagConsumer', 'RagNetStandardConsumer')) {
         $ragConsumers[0].Extent.Text.Contains('"Mythosia.VectorDb.InMemory/$($versions[''Mythosia.VectorDb.InMemory''])"') -and
         $ragConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI/*", "Mythosia.AI.Providers.Alibaba/*")')) `
         "$consumerName must consume the RAG package with every planned or fixed published dependency and without the core implementation."
+}
+foreach ($consumerName in @('InMemoryConsumer', 'InMemoryNetStandardConsumer')) {
+    $inMemoryConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
+    Assert-True ($inMemoryConsumers.Count -eq 1 -and
+        $inMemoryConsumers[0].Extent.Text.Contains('-PackageId "Mythosia.VectorDb.InMemory"') -and
+        $inMemoryConsumers[0].Extent.Text.Contains('"Mythosia.VectorDb.Abstractions/$($versions[''Mythosia.VectorDb.Abstractions''])"') -and
+        $inMemoryConsumers[0].Extent.Text.Contains('-UnexpectedLibraries @("Mythosia.AI*")')) `
+        "$consumerName must validate the standalone vector diagnostics capability without any AI or RAG package."
 }
 foreach ($consumerName in @('McpConsumer', 'McpNetStandardConsumer')) {
     $mcpConsumers = @($consumerCommands | Where-Object { $_.Extent.Text.Contains('-Name "' + $consumerName + '"') })
@@ -614,5 +622,7 @@ $hardenedSolutionBuilds = [regex]::Matches(
     'dotnet build Mythosia\.AI\.slnx[^\r\n]*-p:TreatWarningsAsErrors=true')
 Assert-True ($hardenedSolutionBuilds.Count -eq 3) `
     "CI, NuGet publication, and docs workflows must all reject solution build warnings."
+
+& (Join-Path $PSScriptRoot 'test-vector-diagnostics-release-plan.ps1')
 
 Write-Host "NuGet publication safety contracts passed."
