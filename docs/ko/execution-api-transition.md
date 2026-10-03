@@ -1,5 +1,9 @@
 # 진행 중인 AI 작업 제어하기
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 
 완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
@@ -199,11 +203,19 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-작업 중 추가 지시는 Responses WebSocket 연결을 사용하는 GPT-6 Astra / Sol / Luna에서 지원합니다. 다른 provider와 미지원 모델도 일반 run은 사용할 수 있지만 `CanSteer`는 false이고, 추가 지시를 일반적인 다음 대화로 바꾸어 보내지 않고 지원 불가를 알립니다. `CanSteer`가 true라고 나중에 호출하는 시점까지 작업이 실행 중이라는 보장은 없습니다.
+작업 중 추가 지시는 Responses WebSocket 연결을 사용하는 GPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Luna에서 지원합니다. 다른 provider와 미지원 모델도 일반 run은 사용할 수 있지만 `CanSteer`는 false이고, 추가 지시를 일반적인 다음 대화로 바꾸어 보내지 않고 지원 불가를 알립니다. `CanSteer`가 true라고 나중에 호출하는 시점까지 작업이 실행 중이라는 보장은 없습니다.
 
-GPT-6 run은 전용 소켓을 엽니다. 전달한 `HttpClient`와 메시지 핸들러는 기존 HTTP 호출에 사용되며 이 소켓을 가로채지 않습니다. 사용자 정의 전송이 필요하면 `OpenAIService.ConnectRunWebSocketAsync`를 재정의할 수 있습니다.
+GPT-6.1 Sol의 추가 지시는 Standard 모드에서만 지원합니다. Pro에서도 일반 Run 실행, 함수 호출, 네이티브 비동기 도구는 지원하지만 `Steering = Unsupported`, `run.CanSteer = false`로 표시합니다. 해당 Pro Run에서 `SteerAsync`를 호출하면 로컬에서 거절하며 정상 실행을 취소하거나 중단하지 않습니다.
+
+GPT-6 계열 Run은 HTTP 요청과 같은 URI 해석 규칙으로 설정된 `HttpClient.BaseAddress`를 기준으로 `responses` 주소를 구합니다. 그런 다음 해석된 호스트, 포트, 경로를 유지하면서 `https`를 `wss`로, `http`를 `ws`로 바꿉니다. 끝의 슬래시가 중요합니다. `https://example.com/proxy/v1/`은 `wss://example.com/proxy/v1/responses`가 되지만, `https://example.com/proxy/v1`은 `wss://example.com/proxy/responses`가 됩니다. 기본 주소가 없거나 HTTP(S) 이외의 스킴이면 연결 전에 거절하며, 기본 OpenAI 엔드포인트로 대체하지 않습니다. Run은 전용 `ClientWebSocket`을 사용하므로 전달한 `HttpClient`의 메시지 핸들러는 이 소켓을 가로채지 않습니다. 사용자 정의 전송은 기존처럼 `OpenAIService.ConnectRunWebSocketAsync`를 재정의할 수 있습니다.
+
+`SteerAsync`에만 사용하는 토큰을 전송 순서를 기다리는 동안 취소하면 해당 호출만 취소하고 Run은 계속합니다. 다른 전송을 기다리는 중에도 같습니다. 전송 계층에 제출을 시작한 뒤에는 전달 여부를 확신할 수 없으므로 취소나 전송 실패가 Run을 중단할 수 있습니다. 전송 완료 후 승인 응답을 기다리는 중 취소하면 대기만 멈추며 이미 제출한 입력은 철회되지 않습니다. 같은 Run을 계속 관찰하세요. `StartRunAsync`에 전달한 토큰을 취소하거나 `run.Cancel()`을 호출하면 기존처럼 Run 전체를 취소합니다.
 
 `SteerAsync` 성공은 서버가 입력을 대기열에 접수했다는 뜻이며 모델이 이미 반영했다는 뜻은 아닙니다. 이어지는 응답까지 같은 run의 출력이나 결과를 기다립니다. 이미 전달한 텍스트와 완료한 행동은 되돌리지 않으며 추가 지시 자체가 실행 중인 도구를 취소하지도 않습니다. 라이브러리가 같은 연결에서 후속 응답과 도구 결과 연결을 처리합니다. OpenAI의 [추가 지시 안내](https://developers.openai.com/api/docs/guides/steering)와 [WebSocket 안내](https://developers.openai.com/api/docs/guides/websocket-mode)를 참고하세요. 연결이 끊겼을 때 대기 중인 지시가 보존되었다고 가정하거나 접수한 지시를 확인 없이 재전송하면 안 됩니다.
+
+OpenAI 네이티브 Run에서는 출력 처리가 수신한 이벤트보다 늦어져도 접수된 추가 지시를 해당 후속 응답 바로 앞의 대화 기록에 저장합니다. 복구할 수 없는 전송 오류가 발생하면 취소에 협력하는 로컬 도구를 취소하고, 정리 후 `run.Result`에서 원래 오류를 보고합니다. 취소를 무시하는 도구는 정리 중에도 종료될 때까지 기다립니다.
+
+상대가 보낸 WebSocket Close 프레임으로 정상 종료하는 경우, 해당 최초 요청이나 도구 결과의 전송이 끝나기 전에 Close 프레임이 도착해도 이미 모두 수신한 최종 응답은 보존합니다. 전송을 재시도하지 않으며 호출자의 취소는 계속 적용하고, 최종 응답이 확인되지 않은 전송 실패는 숨기지 않습니다. 로컬 도구가 아직 실행 중일 때 연결이 닫히더라도 이미 수신한 API의 최종 실패 사유를 보존합니다.
 
 ## 도구 작업과 기존 에이전트 메서드
 

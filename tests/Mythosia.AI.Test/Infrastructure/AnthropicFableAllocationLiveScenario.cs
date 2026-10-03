@@ -122,8 +122,16 @@ internal static class AnthropicFableAllocationLiveScenario
             for (var message = 0; message < before.Count; message++)
                 Assert.AreEqual(before[message]!.ToJsonString(), after[message]!.ToJsonString());
         }
-        if (model == AIModels.Anthropic.ClaudeOpus5_5)
+        if (model == AIModels.Anthropic.ClaudeOpus5_5 || model == AIModels.Anthropic.ClaudeSonnet5_5)
         {
+            if (model == AIModels.Anthropic.ClaudeSonnet5_5)
+                foreach (var request in probe.Requests)
+                {
+                    var responseModels = request.Frames().Select(frame => (frame["model"] ?? frame["message"]?["model"])?.GetValue<string>())
+                        .OfType<string>().Distinct().ToArray();
+                    CollectionAssert.AreEqual(new[] { model }, responseModels,
+                        "The actual provider response must identify the fixed Sonnet 5.5 model.");
+                }
             var signedBlocks = 0;
             for (var index = 0; index + 1 < probe.Requests.Count; index++)
             {
@@ -133,7 +141,7 @@ internal static class AnthropicFableAllocationLiveScenario
                 foreach (var original in probe.Requests[index].ResponseBlocks().Where(block => block["type"]?.GetValue<string>() == "thinking"))
                 {
                     Assert.IsFalse(string.IsNullOrWhiteSpace(original["signature"]?.GetValue<string>()));
-                    Assert.IsTrue(replayed.Any(block => JsonNode.DeepEquals(original, block)), "A real signed Opus 5.5 thinking block changed before tool continuation.");
+                    Assert.IsTrue(replayed.Any(block => JsonNode.DeepEquals(original, block)), "A real signed thinking block changed before tool continuation.");
                     signedBlocks++;
                 }
             }

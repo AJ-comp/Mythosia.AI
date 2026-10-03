@@ -1,5 +1,9 @@
 # Generation Parameters
 
+> Claude Sonnet 5.5: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration and migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selection and migration](providers.md#gpt-61-sol)
+
 > Grok 4.7: Requires Mythosia.AI 8.1.0 / Abstractions 4.1.0. [model selection, reasoning and processing speed](providers.md#grok-47)
 
 For independent settings and reusable variations, use [the request builder](request-building.md). Call `CreateRequest(...)` before `With...`; service-level setters and fluent methods retain their existing behavior.
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // Penalize tokens already present
 GPT-6 Astra does not support `temperature` or `top_p`; Mythosia omits both even when the common properties or a request profile set them. Its maximum output is 128,000 tokens. Use the [GPT-6 reasoning settings](providers.md#reasoning-effort) to configure reasoning effort and verbosity.
 
 GPT-6 Sol/Luna send `temperature` and `top_p` only with `ReasoningLevel.None`; otherwise both fields are omitted. `None` is unsupported on Astra. See [model selection and settings](providers.md#gpt-6-sol-luna).
+
+When migrating from GPT-6 Sol, replace `None` with `Low`: GPT-6.1 Sol supports `Low`, `Medium` (the `Auto` default), `High`, `XHigh` and `Max`; `None` and `Minimal` are rejected. `Temperature` / `TopP` are omitted. `AIRequestProfile.DisableReasoning` uses `Low` in Standard mode without reasoning summaries. GPT-6 Sol and Luna retain their existing `None` behavior.
 
 
 ## Fluent Extension Methods

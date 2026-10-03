@@ -1,5 +1,9 @@
 # Llamada de Funciones
 
+> Claude Sonnet 5.5: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuración y migración](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selección y migración](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna aún no están publicados. Consulta [selección del modelo y requisitos](providers.md#gpt-6-sol-luna).
 
 Para una respuesta final con botón Detener, pase `cancellationToken` a `GetCompletionAsync`. Use Run para eventos de progreso o instrucciones adicionales compatibles. Consulte [cancelación](completions.md#completion-cancellation).
@@ -159,6 +163,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Esquemas de herramientas de Claude:** Las palabras clave de JSON Schema distinguen mayúsculas y minúsculas. Mythosia envía `type`, `description`, `enum`, `default` e `items` en minúsculas para que las restricciones de los parámetros se lean correctamente. Los `Items` anidados se convierten recursivamente; los nombres de parámetros y las claves de objetos en los valores predeterminados se conservan. Se omiten los campos opcionales sin establecer, incluido `Default = null`; se conserva un null JSON representado explícitamente mediante `JsonElement`. Las API de `ParameterProperty` existentes no cambian.
+
 <a id="tool-execution-contract"></a>
 
 ## Devolver objetos desde herramientas asíncronas y cancelar el trabajo
@@ -283,7 +289,7 @@ var answer = await service.GetCompletionAsync(
     "Consulta el ejemplo del tiempo en Seúl. Mientras tanto, indica tres cosas esenciales para viajar.");
 ```
 
-Mythosia envía `async: true` para GPT-6 Astra / Sol / Luna mediante Responses. Con modelos y API no compatibles, omite ese campo y espera el resultado del mismo manejador sin cambiar `AllowAsync`. El proveedor también debe marcar la llamada real como asíncrona (`FunctionCall.IsAsync`); habilitar el permiso no garantiza la ejecución asíncrona.
+Mythosia envía `async: true` para GPT-6.1 Sol / GPT-6 Astra / Sol / Luna mediante Responses. Con modelos y API no compatibles, omite ese campo y espera el resultado del mismo manejador sin cambiar `AllowAsync`. El proveedor también debe marcar la llamada real como asíncrona (`FunctionCall.IsAsync`); habilitar el permiso no garantiza la ejecución asíncrona.
 
 `WithFunctionAsync` registra un manejador asíncrono de .NET y `FunctionExecutionMode.Parallel` controla la ejecución local de los manejadores. Ninguno activa automáticamente este permiso. `AllowAsync` permite al modelo continuar antes de recibir el resultado de la función. `FunctionExecutionMode` sigue controlando las llamadas normales. Los trabajos asíncronos habilitados pueden solaparse incluso en modo `Sequential` y comparten un límite independiente de trabajos establecido por `MaxConcurrency`.
 

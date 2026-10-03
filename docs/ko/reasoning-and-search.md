@@ -1,6 +1,12 @@
 # 추론 깊이를 조절하고 출처로 답변 보완하기
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, 비활성화된 기존 `ThinkingBudget`, `AIRequestProfile.DisableReasoning`은 high effort의 `between_tools`를 선택합니다. 사전 추론을 끄지만 도구 진행 상황은 thinking 블록으로 반환될 수 있습니다. `WithBetweenToolsThinking(...)`은 `Auto`(high), `Low`, `Medium`, `High`를 허용하고 `XHigh`와 `Max`는 거부합니다. 전송하는 thinking 객체에는 `type`만 있으며 display, budget, binding 필드는 없습니다. 이 모드에서는 메시지별 effort 변경과 `CachePreservation.Required`를 지원하지 않습니다. 공통 `WithReasoning(Low...Max)`는 adaptive 모드로 전환하고 `Auto`는 선택한 제공자 모드를 따릅니다.
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 검색 도구는 공급자가 실행합니다. 애플리케이션에 로컬 함수 핸들러를 등록하거나 직접 실행할 필요가 없습니다. 검색을 켜면 모델이 사용할 수 있게 되며, 특정 질문에는 검색이 필요 없다고 판단할 수도 있습니다. 출처는 공급자가 반환했을 때 제공됩니다.
 
+**알려진 제한:** Claude Sonnet 5.5 / Opus 5.5는 미실행 `server_tool_use`로 끝나는 네이티브 검색 일시 중지를 이어갈 수 없습니다. [영향받는 API와 지원되는 일시 중지 형태](providers.md#claude-native-continuation-limitation)를 확인하세요. 스트리밍과 Run에는 [버퍼링하는 사용자 지정 HTTP 콘텐츠의 취소 제한](streaming.md#sse-acquisition-cancellation-limitation)도 있습니다.
+
 OpenAI와 Anthropic에는 `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`으로 도메인을 제한할 수도 있습니다. Google의 연결된 도구에는 이 허용 목록이 없으므로, 제한을 무시하고 전체 웹을 검색하는 대신 요청을 거절합니다.
 
 ## 공급자에 이미 등록한 문서에서 답 찾기
@@ -146,8 +154,8 @@ string answer = (await run.Result).Text;
 
 | 연결된 공급자 | 이름 붙은 추론 수준 | 캐시를 유지하는 변경 | 웹 검색 | 파일 검색 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 지원 추론 모델, 수준은 모델별 상이 | GPT-6 Astra / Sol / Luna Standard·단일 에이전트 모드 | 지원 Responses 모델 | 지원 Responses 모델의 기존 벡터 저장소 |
-| Anthropic | 네이티브 effort 지원 모델 | 지원 Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1, 공급자 베타 사용 | 지원 Claude 모델 | 네이티브 저장소 어댑터 없음, RAG 사용 |
+| OpenAI | 지원 추론 모델, 수준은 모델별 상이 | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard·단일 에이전트 모드 | 지원 Responses 모델 | 지원 Responses 모델의 기존 벡터 저장소 |
+| Anthropic | 네이티브 effort 지원 모델 | 지원 Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1, 공급자 베타 사용 | 지원 Claude 모델 | 네이티브 저장소 어댑터 없음, RAG 사용 |
 | Google | Gemini 3 수준, Gemini 2.5는 기존 예산 속성 유지 | 미지원 | 지원 Gemini 텍스트 모델 | 지원 Gemini 텍스트 모델의 기존 파일 검색 저장소 |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; 제공자 별칭을 원본 Low/High/Max로 매핑 | 미지원 | 공통 어댑터 없음 | 공통 어댑터 없음 |

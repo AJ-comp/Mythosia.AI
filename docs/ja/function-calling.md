@@ -1,5 +1,9 @@
 # 関数呼び出し
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
 
 完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
@@ -164,6 +168,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Claude のツールスキーマ:** JSON Schema のキーワードは大文字と小文字を区別します。パラメーターの制約を正しく読み取れるよう、`type`、`description`、`enum`、`default`、`items` を小文字で送信します。入れ子の `Items` も再帰的に変換し、パラメーター名と既定値のオブジェクト内のキーは変更しません。`Default = null` を含む未設定の任意フィールドは省略しますが、`JsonElement` として明示した JSON null は保持します。既存の `ParameterProperty` API は変わりません。
+
 <a id="tool-execution-contract"></a>
 
 ## 非同期ツールでオブジェクトを返し、実行をキャンセルする
@@ -288,7 +294,7 @@ var answer = await service.GetCompletionAsync(
     "ソウルのサンプル天気を確認して。待っている間に旅行の持ち物を三つ説明して。");
 ```
 
-Mythosia は GPT-6 Astra / Sol / Luna の Responses API で `async: true` を送信します。未対応のモデルや API ではこのフィールドを省略し、同じハンドラーの結果を待ちます。設定した `AllowAsync` の値は変更しません。実際の呼び出しもプロバイダーが非同期として返す必要があります（`FunctionCall.IsAsync`）。許可を有効にしても非同期実行が保証されるわけではありません。
+Mythosia は GPT-6.1 Sol / GPT-6 Astra / Sol / Luna の Responses API で `async: true` を送信します。未対応のモデルや API ではこのフィールドを省略し、同じハンドラーの結果を待ちます。設定した `AllowAsync` の値は変更しません。実際の呼び出しもプロバイダーが非同期として返す必要があります（`FunctionCall.IsAsync`）。許可を有効にしても非同期実行が保証されるわけではありません。
 
 `WithFunctionAsync` は .NET の非同期ハンドラーを登録し、`FunctionExecutionMode.Parallel` はローカルでのハンドラー実行方法を制御します。どちらもこの許可を自動的には有効にしません。`AllowAsync` は、関数の結果が届く前にモデルが作業を続けるための設定です。 `FunctionExecutionMode` は引き続き通常の呼び出しに適用されます。許可された非同期ジョブは `Sequential` モードでも重複して実行でき、専用のジョブプール全体に `MaxConcurrency` の上限が適用されます。
 

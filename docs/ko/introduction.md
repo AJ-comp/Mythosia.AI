@@ -1,6 +1,10 @@
 # 소개
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택·추론·처리 속도](providers.md#grok-47)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 
@@ -26,8 +30,8 @@ Mythosia.AI는 다양한 AI 프로바이더, RAG 파이프라인, 문서 로더,
 
 | 프로바이더 | 모델 |
 |------------|------|
-| **OpenAI** | GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
-| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus / Sonnet 5 and 4.x, Haiku 4.5 |
+| **OpenAI** | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.1–5.6, GPT-4.1, GPT-4o |
+| **Anthropic** | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), Opus 5.5 / 5 / 4.x, Sonnet 5.5 / 5 / 4.x, Haiku 4.5 |
 | **Google** | Gemini 3.8 / 3.7 / 3.6 Flash, Gemini 3.5 / 3.1 / 3, Gemini 2.5 |
 | **xAI** | Grok 4.7 / 4.6 / 4.5 / 4.3 / 4.20, Grok Build |
 | **DeepSeek** | Flash (V4.1 Flash), V4 Pro |
@@ -47,8 +51,7 @@ Mythosia.AI.Rag                 ← RAG 파이프라인, 오케스트레이션
     ├── Mythosia.Documents.Office / Mythosia.Documents.Pdf
     │   └── Mythosia.Documents.Abstractions
     └── Mythosia.VectorDb.InMemory
-        ├── Mythosia.VectorDb.Abstractions
-        └── Mythosia.AI.Rag.Abstractions
+        └── Mythosia.VectorDb.Abstractions
 
 Mythosia.VectorDb.*             ← 벡터 스토어 (하나 이상 선택)
     └── Mythosia.VectorDb.Abstractions

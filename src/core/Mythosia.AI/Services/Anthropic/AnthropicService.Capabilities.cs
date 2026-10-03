@@ -31,8 +31,9 @@ namespace Mythosia.AI.Services.Anthropic
             var nativeLevels = ModelSupportsAdaptiveThinking()
                 ? levels.Where(level => level != ReasoningLevel.None).ToArray()
                 : Array.Empty<ReasoningLevel>();
-            var temperature = !ModelRejectsCustomTemperature() && !IsThinkingEnabled &&
-                !RequiresAdaptiveThinkingTemperaturePolicy();
+            var thinking = ResolveClaudeThinkingPlan(validate: false);
+            var temperature = !ModelRejectsCustomTemperature() && !thinking.Adaptive &&
+                thinking.Type != "enabled" && thinking.Type != "between_tools";
             return new AIModelCapabilities(provider: Provider, model: model,
                 streaming: CapabilitySupport.Supported, functionCalling: CapabilitySupport.Supported,
                 asyncFunctionCalling: CapabilitySupport.Unsupported, steering: CapabilitySupport.Unsupported,
@@ -42,7 +43,7 @@ namespace Mythosia.AI.Services.Anthropic
                 thinkingBudgetPresets: ModelRequiresAdaptiveThinking()
                     ? Array.Empty<int>() : new[] { 1024, 2048, 4096, 8192, 16384 },
                 webSearch: CapabilitySupport.Supported, fileSearch: CapabilitySupport.Unsupported,
-                reasoningCachePreservation: SupportsPerMessageClaudeEffort()
+                reasoningCachePreservation: SupportsPerMessageClaudeEffort() && !UsesSonnet55BetweenTools()
                     ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
                 imageInput: CapabilitySupport.Supported, structuredOutput: CapabilitySupport.Supported,
                 temperature: temperature ? CapabilitySupport.Supported : CapabilitySupport.Unsupported,
@@ -50,26 +51,14 @@ namespace Mythosia.AI.Services.Anthropic
                 presencePenalty: CapabilitySupport.Unsupported, maxOutputTokens: GetModelMaxOutputTokens());
         }
 
-        private bool RequiresAdaptiveThinkingTemperaturePolicy()
-        {
-            var commonEffort = CurrentRequestFeatures.Reasoning?.Level;
-            var commonAdaptive = commonEffort.HasValue && commonEffort != ReasoningLevel.Auto &&
-                commonEffort != ReasoningLevel.None && ModelSupportsAdaptiveThinking();
-            // Binding controls can create an adaptive thinking object even when the legacy
-            // budget and explicit effort leave IsThinkingEnabled false. Read the same captured
-            // options as ApplyClaudeRequestOptions, including native defaults during inspection.
-            var bindingAdaptive = !IsThinkingEnabled && ModelSupportsOptionalAdaptiveThinking() &&
-                commonEffort != ReasoningLevel.None && ClaudeOptions.Binding.HasValue;
-            return (IsThinkingEnabled && UsesAdaptiveThinkingForRequest()) || commonAdaptive || bindingAdaptive;
-        }
-
         private static bool IsKnownClaudeModel(string model)
         {
             if (KnownClaudeModels.Contains(model)) return true;
             if (!HasClaudeSnapshotDate(model)) return false;
             var alias = model.Substring(0, model.Length - 9);
-            // Opus 5.5 is a fixed ID; Anthropic does not publish date-suffixed snapshots for it.
-            if (string.Equals(alias, AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase))
+            // Opus/Sonnet 5.5 have fixed IDs without date-suffixed snapshots.
+            if (string.Equals(alias, AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(alias, AIModels.Anthropic.ClaudeSonnet5_5, StringComparison.OrdinalIgnoreCase))
                 return false;
             return !HasClaudeSnapshotDate(alias) && KnownClaudeModels.Contains(alias);
         }

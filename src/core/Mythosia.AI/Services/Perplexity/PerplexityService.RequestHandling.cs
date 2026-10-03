@@ -17,7 +17,7 @@ namespace Mythosia.AI.Services.Perplexity
         protected override HttpRequestMessage CreateMessageRequest() => CreateAgentRequest(false);
 
         protected override string? GetRunRequestedModel()
-            => ResolveAgentRequestedModel(RequestModel, EffectiveAgentOptions());
+            => PreparedAgentRequestPlan.Model;
 
         private static string? ResolveAgentRequestedModel(string model, PerplexityAgentOptions options)
             => options.Models != null ? null : options.ModelOverride ??
@@ -25,8 +25,7 @@ namespace Mythosia.AI.Services.Perplexity
 
         private HttpRequestMessage CreateAgentRequest(bool useFunctions)
             => CreateAgentHttpRequest(BuildAgentRequestBody(GetLatestMessages().ToList(),
-                GetEffectiveSystemMessageWithRequestContext(), RequestModel, EffectiveAgentOptions(),
-                SuppressAgentTools ? new AIRequestFeatures() : CurrentRequestFeatures, useFunctions, RequestStream));
+                GetEffectiveSystemMessageWithRequestContext(), PreparedAgentRequestPlan, useFunctions, RequestStream));
 
         internal HttpRequestMessage CreateAgentHttpRequest(Dictionary<string, object> body)
         {
@@ -38,11 +37,11 @@ namespace Mythosia.AI.Services.Perplexity
             return request;
         }
 
-        internal Dictionary<string, object> BuildAgentRequestBody(
-            IReadOnlyList<Message> messages, string? instructions, string model,
-            PerplexityAgentOptions options, AIRequestFeatures features, bool useFunctions, bool stream)
+        private Dictionary<string, object> BuildAgentRequestBody(
+            IReadOnlyList<Message> messages, string? instructions, AgentRequestPlan plan, bool useFunctions, bool stream)
         {
-            ValidateAgentOptions(options);
+            var options = plan.Options;
+            var features = plan.Features;
             var input = new List<object>();
             foreach (var message in messages)
             {
@@ -57,19 +56,11 @@ namespace Mythosia.AI.Services.Perplexity
             if (RequestTemperature != 1.0f) body["temperature"] = RequestTemperature;
             if (RequestTopP != 1.0f) body["top_p"] = RequestTopP;
             if (options.Preset.HasValue) body["preset"] = PresetWireName(options.Preset.Value);
-            var requestedModel = ResolveAgentRequestedModel(model, options);
-            if (requestedModel != null) body["model"] = requestedModel;
+            if (plan.Model != null) body["model"] = plan.Model;
             if (!string.IsNullOrEmpty(instructions)) body["instructions"] = instructions;
             if (options.MaxSteps > 0) body["max_steps"] = options.MaxSteps;
-            var level = features.Reasoning?.Level ?? ReasoningLevel.Auto;
-            if (level == ReasoningLevel.Auto) level = options.ReasoningEffort;
-            if (DisableAgentReasoning) level = MinimumAgentReasoning(options.ModelOverride ?? model);
-            if (level != ReasoningLevel.Auto)
-            {
-                ValidateAgentReasoning(level, options.ModelOverride ??
-                    (options.Preset.HasValue || options.Profile != null || options.Models != null ? null : model));
-                body["reasoning"] = new Dictionary<string, object> { ["effort"] = level.ToString().ToLowerInvariant() };
-            }
+            if (plan.Reasoning != ReasoningLevel.Auto)
+                body["reasoning"] = new Dictionary<string, object> { ["effort"] = plan.Reasoning.ToString().ToLowerInvariant() };
 
             var tools = options.Tools.Select(tool =>
             {
@@ -115,7 +106,7 @@ namespace Mythosia.AI.Services.Perplexity
                     json_schema = new { name = "structuredoutput", schema = schema.RootElement.Clone() }
                 };
             }
-            ApplyAdvancedAgentOptions(body, options);
+            foreach (var entry in plan.Advanced) body[entry.Key] = entry.Value;
             return body;
         }
 
@@ -132,8 +123,9 @@ namespace Mythosia.AI.Services.Perplexity
             // remap levels between providers or infer support from a preset's changing model.
         }
 
-        private static ReasoningLevel MinimumAgentReasoning(string model)
+        private static ReasoningLevel MinimumAgentReasoning(string? model)
         {
+            if (model == null) return ReasoningLevel.Auto;
             if (model.StartsWith("openai/gpt-5", StringComparison.OrdinalIgnoreCase)) return ReasoningLevel.Minimal;
             if (model.StartsWith("google/", StringComparison.OrdinalIgnoreCase) ||
                 model.StartsWith("anthropic/", StringComparison.OrdinalIgnoreCase) ||

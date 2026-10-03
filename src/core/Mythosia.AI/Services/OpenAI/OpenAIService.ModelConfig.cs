@@ -353,7 +353,8 @@ namespace Mythosia.AI.Services.OpenAI
         }
 
         /// <summary>
-        /// Configures GPT-6 reasoning and text output. Sol and Luna also support no reasoning.
+        /// Configures GPT-6 family reasoning and text output. GPT-6 Sol and Luna also support no reasoning;
+        /// GPT-6 Astra and GPT-6.1 Sol require at least Low.
         /// Pro is selected with reasoning.mode without changing the model ID.
         /// </summary>
         private void ConfigureGpt6Parameters(Dictionary<string, object> requestBody)
@@ -541,8 +542,17 @@ namespace Mythosia.AI.Services.OpenAI
 
         // Native run features require a verified model rather than a family prefix.
         private static bool IsKnownGpt6Model(string model) =>
-            IsOpenAIModelOrSnapshot(model, AIModels.OpenAI.Gpt6Astra) ||
+            IsGpt6MandatoryReasoningModel(model) ||
             IsGpt6OptionalReasoningModel(model);
+
+        private static bool IsGpt6MandatoryReasoningModel(string model) =>
+            IsOpenAIModelOrSnapshot(model, AIModels.OpenAI.Gpt6Astra) ||
+            string.Equals(model, AIModels.OpenAI.Gpt6_1Sol, StringComparison.OrdinalIgnoreCase);
+
+        private static bool SupportsGpt6Steering(string model, Gpt6ReasoningMode mode) =>
+            IsKnownGpt6Model(model) &&
+            !(string.Equals(model, AIModels.OpenAI.Gpt6_1Sol, StringComparison.OrdinalIgnoreCase) &&
+              mode == Gpt6ReasoningMode.Pro);
 
         private static bool IsGpt6OptionalReasoningModel(string model) =>
             IsOpenAIModelOrSnapshot(model, AIModels.OpenAI.Gpt6Sol) ||

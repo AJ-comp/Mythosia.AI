@@ -98,6 +98,24 @@ public class OpenAIXAISpeedTests
     }
 
     [TestMethod]
+    [DataRow("https://eu.api.openai.com/v1/")]
+    [DataRow("https://example.com/v1/")]
+    public async Task Gpt6_1Sol_UnverifiedEndpointsDoNotInheritFastSupport(string endpoint)
+    {
+        var handler = new CaptureHandler();
+        using var client = new HttpClient(handler);
+        var service = new OpenAIService("test", AIModels.OpenAI.Gpt6_1Sol, client);
+        client.BaseAddress = new Uri(endpoint);
+
+        Assert.AreEqual(CapabilitySupport.Unknown, service.GetCapabilities().GetSpeedSupport(InferenceSpeed.Fast));
+        await Assert.ThrowsAsync<NotSupportedException>(() => service.CreateRequest("unsupported")
+            .WithSpeed(InferenceSpeed.Fast).GetCompletionAsync());
+
+        Assert.IsEmpty(handler.Requests);
+        Assert.IsEmpty(service.ActivateChat.Messages);
+    }
+
+    [TestMethod]
     [DataRow(false)]
     [DataRow(true)]
     public async Task RejectedPreparedRequest_ClearsPreviousProcessingBeforeValidation(bool xai)

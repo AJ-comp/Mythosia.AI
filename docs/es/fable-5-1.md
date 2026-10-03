@@ -1,5 +1,7 @@
 # Observar tareas largas con Claude Fable 5.1
 
+> Claude Sonnet 5.5: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuración y migración](providers.md#claude-sonnet-55)
+
 [Claude Opus 5.5](providers.md#claude-opus-55) está disponible con Mythosia.AI 8.1.0 / Abstractions 4.1.0: razonamiento siempre activo, esfuerzo medium por defecto y visualización omitida. Solicite el progreso legible explícitamente; sus valores por defecto y reglas de vinculación difieren de Fable 5.1.
 
 > Los controles de Fable 5.1 requieren `Mythosia.AI` 8.0.0 y `Mythosia.AI.Abstractions` 4.0.0 o posteriores. Las API existentes de Run, razonamiento/búsqueda y GPT-6 Astra mantienen sus versiones mínimas 7.1.0 / 3.1.0.
@@ -68,6 +70,10 @@ await service
 ```
 
 Ambos métodos capturan instrucciones para la siguiente solicitud lógica. Mythosia añade un mensaje system después de la entrada del usuario o de los resultados de herramientas y conserva los mensajes anteriores. `WithTurnInstruction` utiliza `clear_at: "next_user_message"`; dentro de la misma solicitud, la biblioteca vuelve a añadir la instrucción tras cada turno de resultados para mantenerla activa hasta que termine la solicitud. `WithConversationInstruction` persiste en turnos posteriores. Configúralos antes de empezar: no equivalen a `run.SteerAsync` ni inyectan instrucciones en una respuesta que ya se está ejecutando.
+
+Cuando se permite compactar localmente la conversación, el texto aceptado de `WithConversationInstruction` se conserva por separado del resumen generado, en su orden original y con autoridad de sistema. Así, el resumen no descarta silenciosamente una exigencia persistente como el idioma de respuesta. `WithTurnInstruction` sigue limitado al turno. Un fallo o cancelación de la compactación mantiene intactos las instrucciones y el historial; vaciar la conversación termina las instrucciones conservadas.
+
+Con instrucciones persistentes, un recorte que vaciaría todo el historial conserva el último turno del usuario y las dependencias de herramientas necesarias, incluso con `KeepRecentCount = 0`. Esto distingue la compactación del vaciado explícito de la conversación.
 
 Para ajustar effort entre solicitudes conservando un prefijo de caché reutilizable, usa `.WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)` de `Mythosia.AI.Extensions`. La biblioteca envía una actualización de effort por mensaje y conserva su historial. Consulta las combinaciones admitidas en la [guía común](reasoning-and-search.md). En 5.1, los prefijos/sufijos system por solicitud de `AIRequestContext` se convierten en instrucciones de turno añadidas al final, sin reescribir un system prompt anterior.
 

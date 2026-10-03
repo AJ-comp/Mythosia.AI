@@ -40,7 +40,7 @@ This runs the existing hash-verifying preparation script without regenerating tr
 
 [release-plan.psd1](release-plan.psd1) defines the package versions, dependency order, framework, license and release-note URL. Packing, isolated consumers and release checks use that plan. A package outside the plan is never automatically published merely because its project version changed.
 
-The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `e288647`, confirmed in the official NuGet repository metadata for RAG 8.2.0 and RAG.Abstractions 6.4.0. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
+The coverage check compares production source and project changes against `PreviousReleaseCommit`, including uncommitted and untracked changes. Advance that baseline only when preparing the next release, after verifying the preceding publication. README-only edits do not require an unrelated package release. The current baseline is `0471906`, confirmed in the official NuGet package repository metadata for Serving.Abstractions, Serving.Ollama and Serving.LlamaCpp 1.0.0 and Serving.Vllm 1.1.0. Older unpublished changes discovered by comparing actual packages must still be reviewed explicitly.
 
 Explicit relative `Compile Include` files count as that package's source, including linked files outside its directory and compiled inputs under otherwise excluded documentation paths. For example, changing a shared Serving transport requires every adapter that compiles it to be covered by the release plan. Paths are normalized inside the repository; unresolved MSBuild expressions or globs in explicit includes require review instead of being silently skipped.
 
@@ -64,18 +64,47 @@ The local package manifest is marked `development-validation` and is deliberatel
 
 Partial resume is only for packages already published from the **same release commit**. It is not a way to overwrite an old version or bypass a missing version bump. NuGet availability may change after a local check, so the publication workflow repeats the checks.
 
-The current feature release publishes these packages in dependency order:
+The current release adds GPT-6.1 Sol, Claude Sonnet 5.5 and the diagnostics migration, together with request isolation, signed-history, tool-schema, streaming cancellation and response-cleanup fixes. It publishes these packages in dependency order:
 
 | Package | Version | Change |
 | --- | --- | --- |
-| Mythosia.AI.Serving.Abstractions | 1.0.0 | New shared management contracts with no package dependencies. |
-| Mythosia.AI.Serving.Ollama | 1.0.0 | New Ollama management client. |
-| Mythosia.AI.Serving.LlamaCpp | 1.0.0 | New llama.cpp management client. |
-| Mythosia.AI.Serving.Vllm | 1.1.0 | Compatible common-contract support; existing concrete vLLM APIs remain available. |
+| Mythosia.AI.Abstractions | 4.2.0 | Adds `AIModels.OpenAI.Gpt6_1Sol`, `AIModels.Anthropic.ClaudeSonnet5_5` and `ClaudeThinkingMode` without changing existing identifiers. |
+| Mythosia.AI | 8.2.0 | Adds GPT-6.1 Sol and Sonnet 5.5; fixes request/profile isolation, signed/tool history, schemas, streaming cancellation/timeouts, response cleanup and OpenAI Run lifecycle. See the remaining limitations below. |
+| Mythosia.AI.Providers.Alibaba | 3.0.2 | Uses the owned request-message snapshot in Qwen completion and targets Core 8.2.0; public APIs and endpoint defaults are unchanged. |
+| Mythosia.VectorDb.Abstractions | 4.2.0 | Adds optional `IVectorStoreDiagnostics`. |
+| Mythosia.AI.Rag.Abstractions | 6.5.0 | Preserves obsolete `IRagDiagnosticsStore` and bridges existing implementations to the new contract. |
+| Mythosia.VectorDb.InMemory | 4.3.0 | Implements the new contract and removes the RAG dependency; old diagnostic interface casts require migration. |
+| Mythosia.AI.Rag | 8.3.0 | Detects the new capability and includes the breaking InMemory dependency upgrade. |
 
-Each adapter depends only on Serving.Abstractions 1.0.0 and Newtonsoft.Json 13.0.4. Isolated consumers verify those exact dependency sets, both the original vLLM API and the common contracts, and the new clients through controlled HTTP responses. The previously published **RAG 8.2.0** and **RAG.Abstractions 6.4.0** now resolve from NuGet as consumer-only compatibility checks. The unchanged core, loaders, vector stores, MCP and PIXIE probes still run. Earlier releases must not be republished.
+InMemory now depends on VectorDb.Abstractions and its existing Lucene packages, with no AI or RAG dependency. Isolated consumers verify that package graph and exercise listing, scoring and full RAG diagnostics. A separate fixture compiles an explicit legacy `IRagDiagnosticsStore` implementation against published RAG.Abstractions 6.4.0, then runs it against the new contracts without recompiling it. InMemory 4.3.0 itself no longer implements the old interface; users must migrate assignments/casts to `IVectorStoreDiagnostics` and upgrade RAG to retain full diagnostics.
+
+RAG 8.3.0 and InMemory 4.3.0 are an explicitly approved, release-specific exception to the normal major-version rule for breaking changes. Their minor version numbers do not make the removed InMemory interface relationship backward compatible. Keep this migration warning in the package metadata and release documentation; the exception does not authorize relaxing compatibility tests or changing the general versioning policy.
+
+Published Serving packages, loaders, other vector stores, MCP and PIXIE resolve from NuGet as consumer-only compatibility checks. Their existing probes still run, including controlled Serving HTTP responses and the published MCP package against the new Core/AI Abstractions. Alibaba 3.0.2 is packed from this release because its completion override changed; its dependency resolves to the planned Core 8.2.0 package. Earlier releases must not be republished.
+
+Two Core limitations remain in this release and must stay visible in the README, guides and NuGet release notes: Sonnet 5.5/Opus 5.5 continuation after a pause ending in a pending server-tool call can fail prefill validation, and custom buffering HTTP content can hold successful SSE acquisition past cancellation or timeout. See [known limitations](../src/core/Mythosia.AI/RELEASE_NOTES.md#known-limitations). They are not covered by a claim that all maintained tests pass; current documentation does not mark either defect fixed. The latest lifecycle validation used deterministic tests and real local HTTP connections, not live provider APIs.
 
 The serving package probes do not start a server or establish live-runtime compatibility. Live management checks against explicitly configured endpoints remain separate; missing runtime endpoints must be reported as unexecuted, not passed.
+
+The package-consumer gate also runs `test-vector-diagnostics-compatibility.ps1`. It compiles implicit and explicit custom diagnostic implementations, a store combining public helpers with explicit legacy methods, and callers of the original methods against the published RAG Abstractions **6.4.0** package. A separate consumer then references that unchanged DLL and the exact contracts/RAG versions from the release plan. Only publication targets resolve from the local artifact feed; unchanged `ConsumerOnlyPackages` resolve from NuGet. A later RAG-only patch or an unrelated-package release therefore keeps this check without requiring the four diagnostics packages to be republished. Missing, duplicate or mismatched publication entries still fail validation. It checks interface dispatch, cancellation, RAG's preservation of the explicit legacy methods and InMemory's absence of RAG assembly references. The old binary is never recompiled against the new contract; a copied-DLL hash check verifies this. This check covers those legacy custom implementations, not old InMemory casts or arbitrary mixed RAG/InMemory versions.
+
+`test-vector-diagnostics-release-plan.ps1`, included in publication safety checks, verifies full and partial release plans, rejected manifests and package-source selection. Its simulated published feed is local and makes no publication claim; the normal package-consumer gate continues to restore unchanged packages from NuGet.
+
+## GPT-6.1 Sol live validation
+
+```powershell
+pwsh -NoProfile -File build/test-openai-gpt61-sol-live.ps1
+```
+
+This opt-in suite uses the existing `momedit-openai-secret` Key Vault credential and synthetic inputs; API calls incur charges. It covers every supported reasoning level, Standard/Fast and provider-default processing, Pro, function calls, asynchronous tools in Standard and Pro, native Run steering in Standard, cache-preserving reasoning changes, structured output, image input and hosted web/file search. Pro Run reports `CanSteer = false` and rejects an additional instruction locally while completing the original request. It requires all 29 cases to pass without skips; a Fast downgrade remains visible as a failed Fast execution check. Cache-update acceptance does not prove a cache hit. Reports stay under ignored `artifacts/test-results/openai-gpt61-sol-live`. Use `-NoBuild` only after building the current source.
+
+## Claude Sonnet 5.5 live validation
+
+```powershell
+pwsh -NoProfile -File build/test-anthropic-sonnet55-live.ps1
+```
+
+This opt-in suite uses the existing Anthropic Key Vault credential and synthetic inputs; API calls incur charges. All 19 cases must execute and pass without skips. It covers adaptive effort levels, between-tools effort levels, the common None mapping, prompt-based typed structured output, signed multi-turn history, token counting, automatic tools and readable progress through completion/legacy streaming/Run, and cache-preserving effort changes with temporary turn instructions. It verifies the returned model identity and replays actual signed blocks; adaptive thinking is not required to emit a new block on every simple turn. These checks do not establish a cache hit or exercise image input, hosted web search, computer tools, native compaction or server fallback. Reports remain under ignored `artifacts/test-results/anthropic-sonnet55-live`. Use `-NoBuild` only after building the current source.
 
 ## Serving live validation
 

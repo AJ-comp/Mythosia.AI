@@ -1,5 +1,11 @@
 # ストリーミング
 
+既定のコールバック式ストリーミングは列挙の早期終了時に生成処理をキャンセルして待機します。Run のキャンセル、タイムアウト、観測コールバックの失敗、`DisposeAsync` はプロバイダーの後処理完了後に `Result` と実行ガードを解放します。非協調的な処理は完了を遅らせ得ます。観測と後処理の例外は両方保持します。`ContextRecoveryMaxRetries` は取得済みの値を使います。`run.StreamAsync()` の観測終了だけでは Run をキャンセルしません。 成功した SSE 応答の本文取得には別の[キャンセル制限](#sse-acquisition-cancellation-limitation)があります。
+
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
+Adaptive では `ClaudeThinkingDisplay.Updates` でツールの進捗、`Summarized` で推論要約を要求します。`StreamingContentType.Reasoning`、通常の完了では `LastThinkingContent` を確認します。Adaptive ヘルパーの display 引数の既定値は `Summarized` で、未設定時とは異なります。`between_tools` は進捗を自動で返します。一定間隔の通知は保証されません。
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
 
 回答・使用量・出典をまとめて取得するには、`await run.Result` が返す `AIRunResult` を使用します。文字列は `result.Text` で取得でき、ストリームを読む必要はありません。Mythosia.AI 8.0.0 の API 変更です。`GetCompletionAsync` と `StructuredStreamRun<T>.Result` の戻り値型は維持します。 [Run の結果と移行](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Claude のエラー応答:** ストリーミングや Run で HTTP エラー本文の読み取りが停止していても、キャンセルとリクエストポリシーのタイムアウトが適用されます。Run の後処理が完了すれば、同じサービスで次の Run を開始できます。呼び出し元のキャンセルは `OperationCanceledException`、ポリシーのタイムアウトは `AIServiceException` になります。キャンセルはローカルの通信と協調的な後処理を制御し、プロバイダーの処理や課金の停止を保証しません。
+
+**Claude 応答の後処理:** Claude のストリーミングと Run は、取得済みの HTTP 応答本文の非同期後処理を待機します。非同期の破棄が必要なカスタムストリームも対象です。その後の応答やコンテンツの破棄で例外が発生しても、正常完了、元の読み取りエラー、キャンセルを置き換えることはありません。元の応答やコンテンツの破棄自体は引き続き試みます。
+
+**HTTP タイムアウト:** 共通のストリーミングラウンド経路を使うテキスト・コンテンツ・コールバックストリーミングと Run では、呼び出し元のキャンセルもリクエストポリシーのタイムアウトも発生していない場合、識別可能な `HttpClient.Timeout`（内部に `TimeoutException` を持つ `TaskCanceledException`）が `AIServiceException` になります。`InnerException` に元の通信例外が保持されるため、`run.Result` はタイムアウトの原因を保持した失敗になります。呼び出し元のキャンセル、ポリシーのタイムアウト、その他の通信キャンセルの動作は変わりません。
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## 既知の制限: 成功した SSE 応答の本文取得
+
+HTTP 200 SSE で、カスタムハンドラーが本文をバッファリングする `HttpContent` ラッパーを使う場合、本文ストリームの取得と後処理の開始前に `ReadAsStreamAsync` が停止することがあります。呼び出し元のキャンセルやリクエストポリシーのタイムアウト後も、取得が終わるまで `run.Result` が未完了、応答が未破棄、サービスの実行ガードが保持された状態になり、次の Run は実行中として拒否されます。この問題は未修正で、後処理が遅い場合とは異なります。既定の `SocketsHttpHandler` は検証したシナリオを通過し、同じラッパーでも HTTP エラー本文のキャンセルは成功しました。本文をバッファリングするラッパーを避け、通常のストリーミングコンテンツを使用してください。Claude のネイティブ Web 検索には別の[継続制限](providers.md#claude-native-continuation-limitation)があります。
 
 入力を受け取るサービス・RAGのStreamAsyncはv8でも公開です。新しい実行制御にはStartRunAsyncを使い、run.StreamAsync()は開始済みrunの出力だけを観測します。
 

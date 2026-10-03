@@ -1,5 +1,9 @@
 # 함수 호출
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [모델 선택과 전환](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0이 필요합니다. [모델 선택과 필요 버전](providers.md#gpt-6-sol-luna)
 
 완성된 답변과 중지 버튼만 필요하면 `GetCompletionAsync`에 `cancellationToken`을 전달하세요. 진행 이벤트나 지원 모델의 추가 지시에는 Run을 사용합니다. [일반 응답 취소](completions.md#completion-cancellation)를 참고하세요.
@@ -164,6 +168,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Claude 도구 스키마:** JSON Schema 키워드는 대소문자를 구분합니다. 파라미터 제약을 올바르게 읽을 수 있도록 `type`, `description`, `enum`, `default`, `items`를 소문자로 전송합니다. 중첩된 `Items`도 재귀적으로 변환하며, 파라미터 이름과 기본값 객체 안의 키는 그대로 유지합니다. `Default = null`을 포함해 설정하지 않은 선택 필드는 생략하지만, `JsonElement`로 명시한 JSON null은 유지합니다. 기존 `ParameterProperty` API는 변경되지 않습니다.
+
 <a id="tool-execution-contract"></a>
 
 ## 비동기 도구에서 객체를 반환하고 실행 취소하기
@@ -288,7 +294,7 @@ var answer = await service.GetCompletionAsync(
     "서울의 예시 날씨를 조회해줘. 기다리는 동안 여행 준비물 세 가지를 설명해줘.");
 ```
 
-Mythosia는 GPT-6 Astra / Sol / Luna의 Responses API에서 `async: true`를 전송합니다. 미지원 모델과 API에서는 이 필드를 생략하고 같은 핸들러의 결과를 기다립니다. 사용자가 지정한 `AllowAsync` 값은 바꾸지 않습니다. 실제 호출도 공급자가 비동기로 표시해야 하므로(`FunctionCall.IsAsync`), 옵션을 켰다고 비동기 실행이 보장되는 것은 아닙니다.
+Mythosia는 GPT-6.1 Sol / GPT-6 Astra / Sol / Luna의 Responses API에서 `async: true`를 전송합니다. 미지원 모델과 API에서는 이 필드를 생략하고 같은 핸들러의 결과를 기다립니다. 사용자가 지정한 `AllowAsync` 값은 바꾸지 않습니다. 실제 호출도 공급자가 비동기로 표시해야 하므로(`FunctionCall.IsAsync`), 옵션을 켰다고 비동기 실행이 보장되는 것은 아닙니다.
 
 `WithFunctionAsync`는 .NET 비동기 핸들러를 등록하는 메서드이고, `FunctionExecutionMode.Parallel`은 로컬 핸들러의 실행 방식을 제어합니다. 둘 다 이 옵션을 자동으로 켜지 않습니다. `AllowAsync`는 함수 결과가 나오기 전에 모델이 작업을 계속하도록 허용하는 별도 설정입니다. `FunctionExecutionMode`는 일반 호출에 계속 적용됩니다. 허용한 비동기 작업은 `Sequential` 모드에서도 겹쳐 실행될 수 있으며, 별도 작업 풀 전체가 `MaxConcurrency` 제한을 공유합니다.
 

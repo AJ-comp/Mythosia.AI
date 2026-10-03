@@ -1,5 +1,17 @@
 # Mythosia.AI.Rag.Abstractions - Release Notes
 
+## v6.5.0
+
+### Changed
+
+- `IRagDiagnosticsStore` is obsolete in favor of `Mythosia.VectorDb.IVectorStoreDiagnostics`. It remains in its original namespace and assembly, inherits the new optional contract and retains its original method declarations.
+- Default interface bridges support existing legacy implementations. Public class methods take precedence over those bridges; RAG 8.3.0 uses a legacy adapter to preserve original explicit dispatch when both exist.
+
+### Compatibility
+
+- Existing custom implementations of `IRagDiagnosticsStore` remain supported; migrate new implementations to `IVectorStoreDiagnostics`. Obsolete API references produce a migration warning.
+- Requires `Mythosia.VectorDb.Abstractions` 4.2.0. InMemory 4.3.0 implements only the new contract and cannot be cast to the obsolete interface.
+
 ## v6.4.0
 
 ### Added

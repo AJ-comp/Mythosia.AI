@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,26 @@ Un `CancellationToken` fourni peut annuler un appel pendant qu’il attend qu’
 
 L’annulation d’un lot peut conserver les enregistrements déjà écrits. `ReplaceByFilterAsync` effectue toujours la suppression puis l’insertion par lot sans transaction : une autre requête peut observer l’intervalle vide, et un échec ou une annulation n’annule pas les écritures terminées.
 
+<a id="vector-store-diagnostics"></a>
+
 ### Diagnostics
+
+`IVectorStoreDiagnostics` est un contrat facultatif de `Mythosia.VectorDb.Abstractions` 4.2.0. InMemory l’implémente directement ; `IVectorStore` ne reçoit aucun membre obligatoire. `ListAllRecordsAsync` énumère tous les enregistrements et `ScoredListAsync` renvoie tous les scores de similarité par ordre décroissant, sans limite TopK. Ces méthodes inspectent tout le stockage : elles n’acceptent aucun filtre de métadonnées et n’appliquent pas le `StoreFilter` du pipeline RAG. `GetTotalRecordCount()` reste une méthode pratique d’InMemory hors du contrat. L’analyse des fragments, les contrôles de santé et les rapports RAG restent dans `RagDiagnostics` et `RagDiagnosticSession` de `Mythosia.AI.Rag`.
+
+Cette publication inclut volontairement une migration d’interface incompatible dans les versions mineures RAG 8.3.0 et InMemory 4.3.0. Il s’agit d’une exception de versionnement propre à cette publication : le code existant qui utilise InMemory via `IRagDiagnosticsStore` doit migrer vers `IVectorStoreDiagnostics`, même si les numéros de version majeure restent inchangés.
+
+**Mise à jour vers InMemory 4.3.0 :** utilisez RAG 8.3.0 avec cette version ; les anciens packages RAG associés au nouvel InMemory ne sont pas pris en charge. InMemory n’implémente plus `IRagDiagnosticsStore` : migrez affectations, conversions et vérifications de capacité vers `IVectorStoreDiagnostics`, puis recompilez les consommateurs concernés. RAG Abstractions 6.5.0 conserve l’interface obsolète, ses deux déclarations originales et les ponts par défaut pour les anciennes implémentations personnalisées. Ce pont ne rétablit pas l’ancienne relation d’InMemory avec l’interface et ne garantit pas la compatibilité de tous les anciens binaires.
+
+Pour les stockages personnalisés qui implémentent `IRagDiagnosticsStore`, RAG utilise un adaptateur interne pour appeler les méthodes de l’interface d’origine. Les implémentations explicites restent ainsi utilisées, même si des méthodes utilitaires publiques ont les mêmes signatures. Les appels après une conversion directe vers `IVectorStoreDiagnostics` peuvent utiliser ces méthodes publiques à la place.
 
 ```csharp
 // Lister tous les enregistrements stockés
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"Total : {store.GetTotalRecordCount()}");
 
 // Inspecter les scores bruts de similarité
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

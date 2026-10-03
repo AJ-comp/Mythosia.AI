@@ -1,5 +1,9 @@
 # Gọi hàm (Function Calling)
 
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Chọn mô hình và chuyển đổi](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna)
 
 Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
@@ -167,6 +171,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Schema công cụ Claude:** Từ khóa JSON Schema phân biệt chữ hoa và chữ thường. Mythosia gửi `type`, `description`, `enum`, `default` và `items` bằng chữ thường để các ràng buộc tham số được đọc đúng. `Items` lồng nhau được chuyển đổi đệ quy; tên tham số và khóa đối tượng trong giá trị mặc định được giữ nguyên. Các trường tùy chọn chưa đặt, kể cả `Default = null`, được bỏ qua; JSON null được biểu diễn tường minh bằng `JsonElement` vẫn được giữ lại. Các API `ParameterProperty` hiện có không thay đổi.
+
 <a id="tool-execution-contract"></a>
 
 ## Trả về đối tượng từ công cụ bất đồng bộ và hủy công việc
@@ -291,7 +297,7 @@ var answer = await service.GetCompletionAsync(
     "Kiểm tra thời tiết minh họa của Seoul. Trong lúc chờ, hãy liệt kê ba vật dụng cần thiết cho chuyến đi.");
 ```
 
-Mythosia gửi `async: true` cho GPT-6 Astra / Sol / Luna qua Responses API. Với mô hình và API chưa hỗ trợ, thư viện bỏ trường này và chờ kết quả của cùng handler, không thay đổi `AllowAsync`. Nhà cung cấp cũng phải đánh dấu lời gọi thực tế là bất đồng bộ (`FunctionCall.IsAsync`); bật quyền không đảm bảo lúc nào cũng chạy bất đồng bộ.
+Mythosia gửi `async: true` cho GPT-6.1 Sol / GPT-6 Astra / Sol / Luna qua Responses API. Với mô hình và API chưa hỗ trợ, thư viện bỏ trường này và chờ kết quả của cùng handler, không thay đổi `AllowAsync`. Nhà cung cấp cũng phải đánh dấu lời gọi thực tế là bất đồng bộ (`FunctionCall.IsAsync`); bật quyền không đảm bảo lúc nào cũng chạy bất đồng bộ.
 
 `WithFunctionAsync` đăng ký handler bất đồng bộ của .NET, còn `FunctionExecutionMode.Parallel` điều khiển cách chạy handler cục bộ. Cả hai đều không tự bật quyền này. `AllowAsync` cho phép mô hình tiếp tục trước khi nhận kết quả của hàm. `FunctionExecutionMode` vẫn điều khiển các lời gọi thông thường. Công việc bất đồng bộ được cho phép có thể chạy chồng nhau ngay cả ở chế độ `Sequential`, và toàn bộ nhóm công việc riêng này dùng chung giới hạn `MaxConcurrency`.
 

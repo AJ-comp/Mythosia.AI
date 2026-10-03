@@ -37,15 +37,18 @@ namespace Mythosia.AI.Services.Base
         public virtual async Task<string> RunAgentAsync(string goal, int maxSteps = 10, AIRequestContext? context = null, CancellationToken cancellationToken = default)
         {
             using var cancellationScope = BeginRequestCancellationScope(cancellationToken);
-            using var requestScope = BeginRequestSettingsScope();
+            // This compatibility wrapper still dispatches through the public virtual
+            // string entry. Stage independent settings without preparing an input yet:
+            // an override may transform the prompt or add options before calling base.
+            using var requestScope = UseRequestSettings(SnapshotRequestSettings());
+            using var featureBoundary = UseRequestFeatureExecution(null);
             var agentPolicy = GetExecutionPolicy();
             agentPolicy.MaxRounds = maxSteps;
-
             SetExecutionSetting(nameof(DefaultPolicy), agentPolicy);
 
             try
             {
-                return await GetCompletionAsync(goal, context: context);
+                return await GetCompletionAsync(goal, context: context, cancellationToken: RequestCancellationToken).ConfigureAwait(false);
             }
             catch (AIServiceException ex) when (ex.Message.Contains("Maximum rounds"))
             {
@@ -80,15 +83,15 @@ namespace Mythosia.AI.Services.Base
             AIRequestContext? context = null,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
-            using var requestScope = BeginRequestSettingsScope();
+            using var requestScope = UseRequestSettings(SnapshotRequestSettings());
+            using var featureBoundary = UseRequestFeatureExecution(null);
             var agentPolicy = GetExecutionPolicy();
             agentPolicy.MaxRounds = maxSteps;
+            SetExecutionSetting(nameof(DefaultPolicy), agentPolicy);
 
             var agentOptions = (options ?? StreamOptions.WithFunctions).Clone();
             agentOptions.IncludeFunctionCalls = true;
             agentOptions.TextOnly = false;
-
-            SetExecutionSetting(nameof(DefaultPolicy), agentPolicy);
 
             var completed = false;
             var sawError = false;

@@ -13,7 +13,8 @@ const english = JSON.parse(fs.readFileSync(path.join(web, 'js/locales/en.json'),
 const ko = { ...english, 'Choose a model': '모델 선택', 'Interface language': '화면 언어', 'Save': '저장',
   'Send message': '메시지 전송', 'Search models…': '모델 검색…', 'Streaming': '스트리밍', 'Supported': '지원',
   '{count} matching models': '{count}개 모델 검색됨', '{providers} providers · {count} models': '공급자 {providers}개 · 모델 {count}개',
-  'Connected: {model} ({provider})': '연결됨: {model} ({provider})', 'RAG: NOT INDEXED': 'RAG: 색인 없음' };
+  'Connected: {model} ({provider})': '연결됨: {model} ({provider})', 'RAG: NOT INDEXED': 'RAG: 색인 없음',
+  'Off skips upfront thinking; progress updates between tool calls remain enabled.': '끄면 사전 추론을 생략하지만 도구 호출 사이의 진행 상황 업데이트는 계속됩니다.' };
 const tick = () => new Promise(resolve => setImmediate(resolve));
 async function fixture({ saved, languages = ['en-US'], language = languages?.[0], blocked = false } = {}) {
   const dom = new JSDOM(fs.readFileSync(path.join(web, 'index.html'), 'utf8'), { url: 'https://i18n.test/', runScripts: 'outside-only' });
@@ -40,8 +41,9 @@ try {
   d.getElementById('chat-input').value = 'Save';
   d.getElementById('set-system').value = 'Choose a model';
   d.getElementById('modal-apikey-input').value = 'private-test-key';
+  d.getElementById('set-reasoning').title = 'Off skips upfront thinking; progress updates between tool calls remain enabled.';
   const data = d.createElement('div');
-  data.innerHTML = '<div class="msg-content">Save <button title="Copy">Copy</button></div><div class="thinking-content">Streaming</div><div class="state-msg-content">Save</div><span class="state-val">Supported</span><pre>Save</pre><div class="pipe-preview">Save</div><div class="diag-detail-content">Save</div><span class="provider-name">OpenAI</span><button class="model-item" data-model="Gpt6Sol">gpt-6-sol</button>';
+  data.innerHTML = '<div class="msg-content">Save <button title="Copy">Copy</button></div><div class="thinking-content">Streaming</div><div class="state-msg-content">Save</div><span class="state-val">Supported</span><pre>Save</pre><div class="pipe-preview">Save</div><div class="diag-detail-content">Save</div><span class="provider-name">OpenAI</span><button class="model-item" data-model="Gpt6Sol">gpt-6-sol</button><button class="model-item" data-model="Gpt6_1Sol">gpt-6.1-sol</button><button class="model-item" data-model="ClaudeSonnet5_5">claude-sonnet-5-5</button>';
   d.body.append(data); const original = data.innerHTML;
   const inputs = [...d.querySelectorAll('input,textarea,select:not(#ui-language)')].map(el => [el, el.value]);
   let changes = 0; inputs.forEach(([el]) => el.addEventListener('change', () => changes++));
@@ -53,6 +55,7 @@ try {
   assert.equal(d.getElementById('model-search').placeholder, '모델 검색…');
   assert.equal(d.getElementById('btn-send').getAttribute('aria-label'), '메시지 전송');
   assert.equal(d.getElementById('ui-language').getAttribute('aria-label'), '화면 언어');
+  assert.equal(d.getElementById('set-reasoning').title, '끄면 사전 추론을 생략하지만 도구 호출 사이의 진행 상황 업데이트는 계속됩니다.');
   assert.equal(data.innerHTML, original, 'User data, model IDs and code must remain unchanged');
   const copy = d.createElement('button'); copy.textContent = 'Save'; copy.setAttribute('data-ui-localize', '');
   data.querySelector('pre').append(copy); await tick();
@@ -62,18 +65,30 @@ try {
   assert.equal(changes, 0, 'Language changes must not resubmit settings');
   assert.equal(w.localStorage.getItem('mythosia.ui.language'), 'ko');
   assert.equal(d.querySelector('#ui-language option[value="ja"]').textContent, '日本語');
-  d.getElementById('model-count').textContent = '7 providers · 87 models';
+  d.getElementById('model-count').textContent = '7 providers · 88 models';
   d.getElementById('chat-status').textContent = 'Connected: gpt-6-sol (OpenAI)';
   d.getElementById('rag-chat-status').textContent = 'RAG: NOT INDEXED · TopK=8 · MinScore=0.4';
   d.getElementById('model-capabilities').innerHTML = '<details><summary>Model capabilities</summary><dl><dt>Streaming</dt><dd>Supported</dd></dl></details>';
   await tick();
-  assert.equal(d.getElementById('model-count').textContent, '공급자 7개 · 모델 87개');
+  assert.equal(d.getElementById('model-count').textContent, '공급자 7개 · 모델 88개');
   assert.equal(d.getElementById('chat-status').textContent, '연결됨: gpt-6-sol (OpenAI)');
   assert.equal(d.querySelector('#model-capabilities dt').textContent, '스트리밍');
   assert.equal(d.getElementById('rag-chat-status').textContent, 'RAG: 색인 없음 · TopK=8 · MinScore=0.4');
   await ui.setLocale('en'); await tick();
-  assert.equal(d.getElementById('model-count').textContent, '7 providers · 87 models');
+  assert.equal(d.getElementById('model-count').textContent, '7 providers · 88 models');
   assert.equal(d.getElementById('chat-status').textContent, 'Connected: gpt-6-sol (OpenAI)');
+  d.getElementById('chat-status').textContent = 'Connected: gpt-6.1-sol (OpenAI)';
+  await ui.setLocale('ko'); await tick();
+  assert.equal(d.getElementById('chat-status').textContent, '연결됨: gpt-6.1-sol (OpenAI)');
+  assert.equal(d.querySelector('[data-model="Gpt6_1Sol"]').textContent, 'gpt-6.1-sol');
+  await ui.setLocale('en'); await tick();
+  assert.equal(d.getElementById('chat-status').textContent, 'Connected: gpt-6.1-sol (OpenAI)');
+  d.getElementById('chat-status').textContent = 'Connected: claude-sonnet-5-5 (Anthropic)';
+  await ui.setLocale('ko'); await tick();
+  assert.equal(d.getElementById('chat-status').textContent, '연결됨: claude-sonnet-5-5 (Anthropic)');
+  assert.equal(d.querySelector('[data-model="ClaudeSonnet5_5"]').textContent, 'claude-sonnet-5-5');
+  await ui.setLocale('en'); await tick();
+  assert.equal(d.getElementById('chat-status').textContent, 'Connected: claude-sonnet-5-5 (Anthropic)');
   await ui.setLocale('ko'); d.getElementById('model-count').textContent = '3 matching models'; await tick();
   assert.equal(d.getElementById('model-count').textContent, '3개 모델 검색됨');
   const heading = d.querySelector('.sidebar-header h2');

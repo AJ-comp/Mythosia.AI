@@ -56,10 +56,12 @@ public class OpenAIAsyncToolCallingTests
     }
 
     [TestMethod]
-    [DataRow(AIModels.OpenAI.Gpt6Astra)]
-    [DataRow(AIModels.OpenAI.Gpt6Sol)]
-    [DataRow(AIModels.OpenAI.Gpt6Luna)]
-    public async Task AsyncCall_ContinuesModelBeforeHandlerFinishesAndReplaysItsResultOnce(string model)
+    [DataRow(AIModels.OpenAI.Gpt6Astra, Gpt6ReasoningMode.Standard)]
+    [DataRow(AIModels.OpenAI.Gpt6Sol, Gpt6ReasoningMode.Standard)]
+    [DataRow(AIModels.OpenAI.Gpt6Luna, Gpt6ReasoningMode.Standard)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6ReasoningMode.Standard)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, Gpt6ReasoningMode.Pro)]
+    public async Task AsyncCall_ContinuesModelBeforeHandlerFinishesAndReplaysItsResultOnce(string model, Gpt6ReasoningMode mode)
     {
         var gate = new GatedTool("weather");
         var handler = new ScriptedHandler(
@@ -68,6 +70,7 @@ public class OpenAIAsyncToolCallingTests
             TextResponse("The weather is sunny."));
         var service = CreateService(handler, gate.Definition);
         service.ChangeModel(model);
+        service.Gpt6ReasoningMode = mode;
         service.ForceFunctionName = "weather";
         var completion = service.GetCompletionAsync("Get the weather and explain packing.");
 
@@ -79,6 +82,8 @@ public class OpenAIAsyncToolCallingTests
             AssertOutputs(continuingRequest);
             using (var document = JsonDocument.Parse(continuingRequest.Body))
             {
+                if (mode == Gpt6ReasoningMode.Pro)
+                    Assert.AreEqual("pro", document.RootElement.GetProperty("reasoning").GetProperty("mode").GetString());
                 var input = document.RootElement.GetProperty("input").EnumerateArray().ToArray();
                 Assert.AreEqual("auto", document.RootElement.GetProperty("tool_choice").GetString(),
                     "Forced selection applies only to the first model request.");

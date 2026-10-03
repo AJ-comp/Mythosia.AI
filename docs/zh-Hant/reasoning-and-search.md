@@ -1,6 +1,12 @@
 # 選擇推理強度，並取得附有來源的回答
 
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[設定與移轉](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`、停用的舊版 `ThinkingBudget` 或 `AIRequestProfile.DisableReasoning` 會選擇 high effort 的 `between_tools`，關閉預先推理，但工具進度仍可能以 thinking 區塊回傳。`WithBetweenToolsThinking(...)` 接受 `Auto`（high）、`Low`、`Medium` 或 `High`，拒絕 `XHigh` 和 `Max`。傳送的 thinking 物件只有 `type`，沒有 display、budget 或 binding。此模式不支援依訊息變更 effort 或 `CachePreservation.Required`。共用 `WithReasoning(Low...Max)` 會切回 adaptive，`Auto` 則遵循所選提供者模式。
+
 > Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型選擇、推理與處理速度](providers.md#grok-47)
+
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型選擇與遷移](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型選擇與版本需求](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 這項託管工具由供應商執行，不必註冊或執行本機函式處理常式。啟用搜尋代表模型可以使用它；模型也可能判斷某個提示不需要搜尋。只有供應商傳回來源時，才能取得對應引用。
 
+**已知限制：** Claude Sonnet 5.5 / Opus 5.5 無法接續以待執行的 `server_tool_use` 結尾的原生搜尋暫停；參見[受影響的 API 和支援的暫停形式](providers.md#claude-native-continuation-limitation)。串流和 Run 另有[使用緩衝型自訂 HTTP 內容時的取消限制](streaming.md#sse-acquisition-cancellation-limitation)。
+
 OpenAI 和 Anthropic 也接受 `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`。Google 的整合工具未提供這項允許清單，因此帶有網域限制的請求會被拒絕，而不會改為搜尋整個網路。
 
 ## 從供應商已建立索引的文件中回答
@@ -146,8 +154,8 @@ string answer = (await run.Result).Text;
 
 | 已整合的供應商 | 具名推理等級 | 保留快取的變更 | 網頁搜尋 | 檔案搜尋 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 支援的推理模型；等級因模型而異 | GPT-6 Astra / Sol / Luna Standard，單一代理模式 | 支援的 Responses 模型 | 支援的 Responses 模型及現有向量儲存區 |
-| Anthropic | 具備原生 effort 控制的模型 | 支援的 Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1，使用供應商測試版功能 | 支援的 Claude 模型 | 沒有原生儲存區轉接器；請使用 RAG |
+| OpenAI | 支援的推理模型；等級因模型而異 | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard，單一代理模式 | 支援的 Responses 模型 | 支援的 Responses 模型及現有向量儲存區 |
+| Anthropic | 具備原生 effort 控制的模型 | 支援的 Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1，使用供應商測試版功能 | 支援的 Claude 模型 | 沒有原生儲存區轉接器；請使用 RAG |
 | Google | Gemini 3 的等級；Gemini 2.5 保留供應商專用預算 | 不支援 | 支援的 Gemini 文字模型 | 支援的 Gemini 文字模型及現有檔案搜尋儲存區 |
 | xAI | Grok 4.6：`Auto`、`Low`、`Medium`、`High`、`XHigh` | 不支援 | 沒有共用轉接器 | 沒有共用轉接器 |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`；對應原生 Low/High/Max | 不支援 | 無共用配接器 | 無共用配接器 |

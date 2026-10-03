@@ -78,6 +78,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # 任意: 本番用ベクト�
 
 他のリクエストを変更せずに設定を準備できます。`CreateRequest(...).WithTemperature(...).GetCompletionAsync()` は、独立して再利用できるリクエストビルダーを使用します。変更前後の例、Run、プロファイル、共有会話の制約は[リクエスト設定ガイド](request-building.md)を参照してください。
 
+完了、ストリーミング、構造化出力、Run は実際のプロファイルを一度適用し、最終設定を検証してから自動要約、履歴変更、通信を実行します。補助リクエストは親の会話と出力スキーマを分離し、プロバイダー固有の検証を維持します。[リクエスト設定ガイド](request-building.md)を参照してください。
+
+アプリケーションからの呼び出しと、コンテキストやツールのコールバック内からの通常の呼び出しは、プロファイルやメッセージを再利用しても独立します。フレームワークが呼び出した仮想プロバイダーアダプターでは、対応する基底メソッドへの最初の呼び出しが、入力を置き換えた場合も準備済みリクエストを継続します。転送前に同じ基底メソッドで無関係な補助処理を行う場合は `BeginIndependentRequestScope()` を使います。[プロバイダーアダプターの規則](request-building.md#provider-request-adapters)を参照してください。組み込み入力のコピーにより、後の呼び出しが受理済み履歴を書き換えることを防ぎます。
+
+アダプターのプロファイル変更は自動要約前に検証し、コールバック式ストリーミングは内部処理の後始末を待ちます。Claude の圧縮は入力置換に保持されたツール依存関係と Mythos 5.1 の thinking を保護し、OpenAI のステートレス補助要求は親の履歴保護を維持します。
+
 待ち時間が重要なリクエストでは[処理速度](request-building.md#inference-speed)を選べます。`WithSpeed` はモデルと推論レベルを保持し、`Processing` は実際に適用されたモードを示します。Fast は対応する組み合わせで使う有料設定です。
 
 ## クイックスタート
@@ -145,9 +151,9 @@ service.DefaultPolicy = new FunctionCallingPolicy
 };
 ```
 
-通常のバッチ結果は、プロバイダーの元の呼び出し順でモデルに返されます。キャンセルすると未開始の呼び出しをスキップし、対応するキャンセル結果を用意します。開始済みのツールには対応していればトークンを渡し、完了を待つことで呼び出しと結果の履歴の対応を保ちます。`FunctionCallingPolicy.TimeoutSeconds` は応答ヘッダーと SSE 本文を含むストリーミングのラウンドループ全体に適用され、ツールのラウンド間でリセットされません。ポリシーの期限切れは `AIServiceException`、呼び出し元によるキャンセルはそのトークンに関連付けられた `OperationCanceledException` になります。
+通常のバッチ結果は、プロバイダーの元の呼び出し順でモデルに返されます。キャンセルすると未開始の呼び出しをスキップし、対応するキャンセル結果を用意します。開始済みのツールには対応していればトークンを渡し、完了を待つことで呼び出しと結果の履歴の対応を保ちます。`FunctionCallingPolicy.TimeoutSeconds` は応答ヘッダーと SSE 本文を含むストリーミングのラウンドループ全体に適用され、ツールのラウンド間でリセットされません。ポリシーの期限切れは `AIServiceException`、呼び出し元によるキャンセルはそのトークンに関連付けられた `OperationCanceledException` になります。 本文をバッファリングするカスタム `HttpContent` には、SSE 本文ストリーム取得時の例外があります。[キャンセルの制限](streaming.md#sse-acquisition-cancellation-limitation)を参照してください。
 
-時間のかかる検索中にも、天気予報が届く前に一般的な旅行の持ち物を説明するなど、モデルは独立した作業を進められます。`FunctionDefinition.AllowAsync = true` または `FunctionBuilder.WithAsync()` を設定すると、対応モデルはその関数の実行中も処理を続けられます。既定値は `false` です。GPT-6 Astra / Sol / Luna は Responses API でこのオプションを使用します。未対応モデルは未対応の API オプションを送信せず、同じハンドラーの結果を待ちます。これは C# の `async` ハンドラーや並列ハンドラーのスケジューリングとは別の機能です。例とリクエストの有効期間中の動作は[非同期ツール呼び出し](function-calling.md#async-tool-calling)を参照してください。
+時間のかかる検索中にも、天気予報が届く前に一般的な旅行の持ち物を説明するなど、モデルは独立した作業を進められます。`FunctionDefinition.AllowAsync = true` または `FunctionBuilder.WithAsync()` を設定すると、対応モデルはその関数の実行中も処理を続けられます。既定値は `false` です。GPT-6.1 Sol / GPT-6 Astra / Sol / Luna は Responses API でこのオプションを使用します。未対応モデルは未対応の API オプションを送信せず、同じハンドラーの結果を待ちます。これは C# の `async` ハンドラーや並列ハンドラーのスケジューリングとは別の機能です。例とリクエストの有効期間中の動作は[非同期ツール呼び出し](function-calling.md#async-tool-calling)を参照してください。
 
 ### 画像の生成と編集
 
@@ -271,14 +277,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
 
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
+
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
 
 > Claude Opus 5.5: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [設定と移行](providers.md#claude-opus-55)
 
 | プロバイダー | パッケージ | モデル |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (限定提供), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (限定提供), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, [Sonnet 5.5](providers.md#claude-sonnet-55) / 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (既定), Grok 4.3, Grok 4.20 (推論 / 非推論), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
@@ -317,9 +327,13 @@ TXT・Markdownには文書構造に合わせた[規則ベースのスプリッ�
 
 リクエストの設定を分け、処理を中止し、回答と使用量・出典をまとめて受け取れます。[v8移行ガイド](v8-migration.md)に6つの構造変更、移行例、検証範囲をまとめました。
 
-> このドキュメントの対象バージョン: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). その他の検索・文書・ベクトルパッケージのバージョンは、[以前のパッチ一覧](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)と[以前の統合リリース](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)を参照してください。
+> このドキュメントの対象バージョン: [Mythosia.AI 8.2.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v820), [Abstractions 4.2.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420), [Alibaba 3.0.2](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302), [RAG 8.3.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v830), [RAG Abstractions 6.5.0](../../src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650), [VectorDb Abstractions 4.2.0](../../src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420), [InMemory 4.3.0](../../src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v430), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). その他の検索・文書・ベクトルパッケージのバージョンは、[以前のパッチ一覧](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811)と[以前の統合リリース](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)を参照してください。
 
-> [RAG 8.1.1 / PostgreSQL 10.8.1 パッチ](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): 既存の RAG ラッパーに実行中の書き換え器の変更を反映し、PostgreSQL の混合ハイブリッド検索にもベクトル検索設定を適用します。コアの `Mythosia.AI` は 8.1.0 のままです。
+> **公開待ちリリースの既知の制限:** Sonnet 5.5 / Opus 5.5 は、未実行の `server_tool_use` で終わる `pause_turn` の継続リクエストを拒否する場合があります。[Claude の継続制限](providers.md#claude-native-continuation-limitation)を参照してください。本文をバッファリングするカスタム `HttpContent` では、成功した SSE 応答の本文ストリーム取得中にキャンセルやポリシーのタイムアウト処理が遅れ、Run が実行中のままになる場合があります。[SSE のキャンセル制限](streaming.md#sse-acquisition-cancellation-limitation)を参照してください。
+>
+> この文書は公開待ちの変更を説明するもので、リリース検証の完了を示すものではありません。変更内容、残る制限、検証範囲は[リリースノート](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md)を参照してください。
+
+> [RAG 8.1.1 / PostgreSQL 10.8.1 パッチ](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): 既存の RAG ラッパーに実行中の書き換え器の変更を反映し、PostgreSQL の混合ハイブリッド検索にもベクトル検索設定を適用します。このパッチではコアの `Mythosia.AI` は 8.1.0 のままでした。
 
 ---
 
@@ -414,7 +428,6 @@ flowchart LR
     end
     RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
     VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
     InMem --> VdbAbs
     RagAbs --> VdbAbs
     Pg --> VdbAbs
@@ -460,11 +473,15 @@ flowchart LR
 
 | パッケージ | NuGet | 説明 |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `VectorRecord` · `VectorFilter` コントラクト |
+| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | `IVectorStore` · `IVectorStoreDiagnostics` · `VectorRecord` · `VectorFilter` コントラクト |
 | [Mythosia.VectorDb.InMemory](../../src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | インメモリストア — インフラ不要、プロトタイピングに最適 |
 | [Mythosia.VectorDb.Pinecone](../../src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — マネージドベクトル DB のインデックス/ネームスペース/スコープ分離 |
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — HNSW / IVFFlat インデックス、本番環境対応 |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC クライアント — Cosine / Euclidean / Dot、自動プロビジョニング |
+
+任意のストア検査には `Mythosia.VectorDb.Abstractions` の `IVectorStoreDiagnostics` を使用します。InMemory 4.3.0 は RAG 抽象化に依存せず、`RagDiagnostics` と `RagDiagnosticSession` は RAG 8.3.0 に残ります。RAG と InMemory を同時に更新し、従来の `IRagDiagnosticsStore` キャストを移行してください。[診断と移行](vectordb-backends.md#vector-store-diagnostics)。
+
+このリリースでは、マイナーバージョンの RAG 8.3.0 と InMemory 4.3.0 に、互換性を破るインターフェイス移行を意図的に含めています。このリリースに限るバージョン付けの例外として、メジャーバージョン番号が変わらなくても、`IRagDiagnosticsStore` を使用する既存の InMemory 呼び出し側は `IVectorStoreDiagnostics` への移行が必要です。
 
 ### サービング — コントロールプレーン
 

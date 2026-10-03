@@ -1,5 +1,7 @@
 # Claude Fable 5.1의 긴 작업을 관찰하고 제어하기
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0이 필요합니다. [설정과 마이그레이션](providers.md#claude-sonnet-55)
+
 [Claude Opus 5.5](providers.md#claude-opus-55)는 Mythosia.AI 8.1.0 / Abstractions 4.1.0에서 지원합니다. 추론은 항상 켜져 있고 기본 effort는 medium, 표시는 생략입니다. 읽을 수 있는 진행 안내는 명시적으로 요청하세요. 기본값과 모델 binding 규칙은 Fable 5.1과 다릅니다.
 
 > Fable 5.1 설정은 `Mythosia.AI` 8.0.0과 `Mythosia.AI.Abstractions` 4.0.0 이상이 필요합니다. 기존 Run·추론/검색·GPT-6 Astra API의 최소 버전은 7.1.0 / 3.1.0으로 유지합니다.
@@ -68,6 +70,10 @@ await service
 ```
 
 두 메서드는 다음 논리적 요청에 지시를 적용합니다. Mythosia는 기존 메시지를 유지하고 사용자 입력이나 도구 결과 뒤에 시스템 메시지를 추가합니다. `WithTurnInstruction`은 `clear_at: "next_user_message"`를 사용합니다. 한 논리적 요청 안에서는 도구 결과 턴마다 지시를 다시 추가해 해당 요청이 끝날 때까지 효력을 유지합니다. `WithConversationInstruction`은 이후 턴에도 적용됩니다. 두 설정 모두 작업을 시작하기 전에 지정하며, 이미 실행 중인 응답에 개입하는 `run.SteerAsync`와는 다릅니다.
+
+로컬 대화 압축이 허용된 경우, 이미 적용한 `WithConversationInstruction` 지시는 생성된 요약과 별도로 원래 순서와 시스템 권한을 유지합니다. 따라서 답변 언어처럼 계속 지켜야 할 요구가 요약 과정에서 조용히 사라지지 않습니다. `WithTurnInstruction`은 계속 해당 턴에만 적용됩니다. 압축 실패·취소 시 기존 지시와 이력을 유지하며, 대화를 비우면 보존한 지시도 종료됩니다.
+
+지속 지시가 있는 상태에서 이력 전체를 없애는 압축은 `KeepRecentCount = 0`이어도 마지막 사용자 턴과 필요한 도구 의존 관계를 남깁니다. 이를 통해 압축과 사용자가 명시적으로 대화를 비운 경우를 구분합니다.
 
 요청 사이에 추론 수준을 바꾸면서 재사용 가능한 캐시 접두부를 보존하려면 `Mythosia.AI.Extensions`의 `.WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)`를 사용합니다. 라이브러리는 메시지별 effort 변경을 전송하고 이력에 유지합니다. 지원 조합은 [공통 가이드](reasoning-and-search.md)를 참고하세요. 5.1에서 `AIRequestContext`의 요청별 시스템 접두부·접미부는 이전 시스템 프롬프트를 바꾸는 대신 뒤에 추가하는 턴별 지시로 변환합니다.
 

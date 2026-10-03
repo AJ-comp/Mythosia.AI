@@ -1,5 +1,9 @@
 # Điều khiển tác vụ AI đang chạy bằng Run
 
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Chọn mô hình và chuyển đổi](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Cần Mythosia.AI 8.1.0 / Abstractions 4.1.0. [chọn mô hình và yêu cầu phiên bản](providers.md#gpt-6-sol-luna)
 
 Chỉ cần kết quả cuối cùng và nút Dừng thì truyền `cancellationToken` vào `GetCompletionAsync`. Dùng Run cho sự kiện tiến độ hoặc chỉ dẫn bổ sung được hỗ trợ. Xem [hủy câu trả lời](completions.md#completion-cancellation).
@@ -199,11 +203,19 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-GPT-6 Astra / Sol / Luna hỗ trợ chỉ dẫn giữa lượt qua kết nối Responses WebSocket. Các nhà cung cấp khác và mô hình không hỗ trợ vẫn dùng Run bình thường, nhưng `CanSteer` là `false`; thao tác gửi thêm chỉ dẫn báo không hỗ trợ thay vì âm thầm tạo lượt yêu cầu thông thường tiếp theo. `CanSteer` không bảo đảm Run vẫn hoạt động ở thời điểm gọi sau đó.
+GPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Luna hỗ trợ chỉ dẫn giữa lượt qua kết nối Responses WebSocket. Các nhà cung cấp khác và mô hình không hỗ trợ vẫn dùng Run bình thường, nhưng `CanSteer` là `false`; thao tác gửi thêm chỉ dẫn báo không hỗ trợ thay vì âm thầm tạo lượt yêu cầu thông thường tiếp theo. `CanSteer` không bảo đảm Run vẫn hoạt động ở thời điểm gọi sau đó.
 
-Run của GPT-6 mở socket riêng. `HttpClient` được cung cấp cùng các message handler vẫn phục vụ lời gọi HTTP và không can thiệp vào socket này. Có thể ghi đè `OpenAIService.ConnectRunWebSocketAsync` để dùng cơ chế truyền tải tùy chỉnh.
+Với GPT-6.1 Sol, chỉ dẫn giữa lượt yêu cầu chế độ Standard. Pro vẫn hỗ trợ Run thông thường, gọi hàm và công cụ bất đồng bộ gốc, nhưng báo `Steering = Unsupported` và `run.CanSteer = false`. Gọi `SteerAsync` trên Run Pro đó bị từ chối cục bộ mà không hủy hay ngắt quá trình thực thi bình thường.
+
+Run thuộc họ GPT-6 phân giải `responses` theo `HttpClient.BaseAddress` đã cấu hình bằng cùng quy tắc với yêu cầu HTTP, rồi đổi `https` thành `wss` và `http` thành `ws`, giữ nguyên máy chủ, cổng và đường dẫn đã phân giải. Dấu gạch chéo cuối rất quan trọng: `https://example.com/proxy/v1/` cho ra `wss://example.com/proxy/v1/responses`, còn `https://example.com/proxy/v1` cho ra `wss://example.com/proxy/responses`. Thiếu địa chỉ cơ sở hoặc dùng lược đồ khác HTTP(S) sẽ bị từ chối trước khi kết nối; không chuyển sang endpoint mặc định của OpenAI. Run dùng `ClientWebSocket` riêng, nên các message handler của `HttpClient` được cung cấp không can thiệp vào socket này. Cơ chế truyền tải tùy chỉnh vẫn có thể ghi đè `OpenAIService.ConnectRunWebSocketAsync`.
+
+Hủy token chỉ dùng cho `SteerAsync` trong lúc chờ đến lượt gửi, kể cả khi chờ một lượt gửi khác, sẽ hủy lời gọi đó mà không dừng Run. Khi bắt đầu chuyển dữ liệu cho lớp truyền tải, việc hủy hoặc lỗi gửi có thể ngắt Run vì không chắc dữ liệu đã tới nơi hay chưa. Sau khi gửi xong, hủy trong lúc chờ xác nhận chỉ dừng việc chờ, không rút lại đầu vào đã gửi; hãy tiếp tục theo dõi cùng Run đó. Hủy token đã truyền cho `StartRunAsync` hoặc gọi `run.Cancel()` vẫn hủy toàn bộ Run.
 
 `SteerAsync` thành công có nghĩa máy chủ đã nhận đầu vào vào hàng đợi, không có nghĩa mô hình đã áp dụng. Tiếp tục theo dõi cùng Run hoặc chờ kết quả qua phần thực thi tiếp nối. Văn bản đã gửi và hành động đã hoàn thành không bị hoàn tác; công cụ đã bắt đầu cũng không bị hủy chỉ vì có chỉ dẫn bổ sung. Thư viện xử lý việc tiếp nối và ghép kết quả công cụ trên cùng kết nối. Xem [hướng dẫn chỉ dẫn giữa lượt](https://developers.openai.com/api/docs/guides/steering) và [chế độ WebSocket](https://developers.openai.com/api/docs/guides/websocket-mode) của OpenAI. Đầu vào xếp hàng thuộc về kết nối hiện tại; không được giả định nó còn tồn tại sau khi ngắt kết nối, và không gửi lại một cách máy móc chỉ dẫn đã được chấp nhận.
+
+Trong Run gốc của OpenAI, chỉ dẫn đã được chấp nhận được ghi vào lịch sử hội thoại ngay trước phản hồi tiếp nối tương ứng, ngay cả khi việc xử lý đầu ra chậm hơn các sự kiện đã nhận. Lỗi truyền tải không thể khôi phục sẽ hủy các công cụ cục bộ có hỗ trợ hủy hợp tác; sau khi dọn dẹp, `run.Result` báo lỗi ban đầu. Quá trình dọn dẹp vẫn chờ các công cụ bỏ qua yêu cầu hủy kết thúc.
+
+Phản hồi cuối cùng đã nhận đầy đủ được giữ lại khi WebSocket đóng bình thường, nếu khung Close từ phía bên kia đến trước khi hoàn tất việc gửi yêu cầu ban đầu hoặc kết quả công cụ tương ứng. Dữ liệu không được gửi lại; yêu cầu hủy từ bên gọi vẫn được tôn trọng và lỗi gửi khi chưa xác nhận được phản hồi cuối cùng không bị che giấu. Lỗi kết thúc từ API đã nhận vẫn giữ nguyên nguyên nhân nếu kết nối đóng sau đó khi các công cụ cục bộ còn chạy.
 
 ## Tác vụ dùng công cụ và các phương thức agent cũ
 

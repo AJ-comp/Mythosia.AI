@@ -27,11 +27,12 @@ namespace Mythosia.AI.Services.Perplexity
             cancellationToken.ThrowIfCancellationRequested();
             using var settingsScope = BeginRequestSettingsScope();
             using var scope = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             ValidateAgentClientToolSelection();
             if (ShouldUseFunctions && RequestFunctionCallMode != FunctionCallMode.None)
                 throw new NotSupportedException("Background jobs cannot execute application functions. Use StartRunAsync, or disable client functions and use hosted tools.");
-            var options = (CurrentProviderRequestOptions as PerplexityAgentOptions ?? RequestAgentOptions).Clone();
-            if (options.Store == false) throw new ArgumentException("Background jobs require retrieval; Store cannot be false.");
+            var plan = PreparedAgentRequestPlan;
+            if (plan.Options.Store == false) throw new ArgumentException("Background jobs require retrieval; Store cannot be false.");
             var policy = GetExecutionPolicy();
             using var timeout = CreateRequestTimeoutCts(policy, cancellationToken);
             var effectiveContext = await BuildEffectiveContextAsync(context, timeout.Token).ConfigureAwait(false);
@@ -44,8 +45,7 @@ namespace Mythosia.AI.Services.Perplexity
                 messages.Add(effectiveContext?.RequestMessageOverride ?? message);
                 if (effectiveContext?.AdditionalMessages != null)
                     messages.AddRange(effectiveContext.AdditionalMessages);
-                var body = BuildAgentRequestBody(messages, GetEffectiveSystemMessageWithRequestContext(), RequestModel,
-                    options, CurrentRequestFeatures, false, true);
+                var body = BuildAgentRequestBody(messages, GetEffectiveSystemMessageWithRequestContext(), plan, false, true);
                 body["background"] = true;
                 using var request = CreateAgentHttpRequest(body);
                 var transport = new PerplexityBackgroundRun(HttpClient, ApiKey);

@@ -54,7 +54,7 @@ public sealed class RagMultimodalCompletionTests
             sent.Contents.Where(content => content is not TextContent).ToArray());
         Assert.AreNotSame(contents, sent.Contents);
         Assert.AreNotSame(input.Metadata, sent.Metadata);
-        Assert.AreSame(input, Assert.ContainsSingle(service.ActivateChat.Messages));
+        AssertOwnedHistoryInput(input, Assert.ContainsSingle(service.ActivateChat.Messages));
         Assert.AreSame(contents, input.Contents);
         Assert.AreEqual(Question, input.Content);
         Assert.AreEqual("Explain the image", firstText.Text);
@@ -94,7 +94,7 @@ public sealed class RagMultimodalCompletionTests
         Assert.AreEqual("https://example.invalid/policy.png", parts[1].GetProperty("image_url").GetProperty("url").GetString());
         Assert.AreEqual("high", parts[1].GetProperty("image_url").GetProperty("detail").GetString());
         Assert.AreEqual("data:image/png;base64,AQID", parts[2].GetProperty("image_url").GetProperty("url").GetString());
-        Assert.AreSame(input, service.ActivateChat.Messages[0]);
+        AssertOwnedHistoryInput(input, service.ActivateChat.Messages[0]);
         Assert.AreEqual(Question, input.Content);
         Assert.AreEqual(2, input.Contents.OfType<ImageContent>().Count());
     }
@@ -118,7 +118,28 @@ public sealed class RagMultimodalCompletionTests
         Assert.IsNull(retriever.LastQuery);
         Assert.AreSame(image, Assert.ContainsSingle(service.LastReceivedMessage!.Contents.OfType<ImageContent>()));
         Assert.AreEqual(Question, Assert.ContainsSingle(service.LastReceivedMessage.Contents.OfType<TextContent>()).Text);
-        Assert.AreSame(input, Assert.ContainsSingle(service.ActivateChat.Messages));
+        AssertOwnedHistoryInput(input, Assert.ContainsSingle(service.ActivateChat.Messages));
+    }
+
+    private static void AssertOwnedHistoryInput(Message original, Message stored)
+    {
+        Assert.AreNotSame(original, stored);
+        Assert.AreEqual(original.Role, stored.Role);
+        Assert.AreEqual(original.Timestamp, stored.Timestamp);
+        Assert.AreEqual(original.Content, stored.Content);
+        Assert.AreEqual(original.Contents.Count, stored.Contents.Count);
+        Assert.AreEqual(JsonSerializer.Serialize(original.Metadata), JsonSerializer.Serialize(stored.Metadata));
+        for (var index = 0; index < original.Contents.Count; index++)
+        {
+            var source = original.Contents[index];
+            var copy = stored.Contents[index];
+            Assert.AreEqual(source.GetType(), copy.GetType());
+            Assert.AreEqual(JsonSerializer.Serialize(source, source.GetType()), JsonSerializer.Serialize(copy, copy.GetType()));
+            if (source is CustomContent) Assert.AreSame(source, copy);
+            else Assert.AreNotSame(source, copy);
+            if (source is ImageContent { Data: not null } image) Assert.AreNotSame(image.Data, ((ImageContent)copy).Data);
+            if (source is AudioContent audio) Assert.AreNotSame(audio.Data, ((AudioContent)copy).Data);
+        }
     }
 
     private sealed class FixedRetriever(bool hasReferences) : IRagRetriever

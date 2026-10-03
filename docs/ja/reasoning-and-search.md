@@ -1,6 +1,12 @@
 # 推論の深さを選び、出典のある回答を得る
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`、無効化した従来の `ThinkingBudget`、`AIRequestProfile.DisableReasoning` は high effort の `between_tools` を選択します。事前推論は無効になりますが、ツールの進捗は thinking ブロックで返る場合があります。`WithBetweenToolsThinking(...)` は `Auto`（high）、`Low`、`Medium`、`High` に対応し、`XHigh` と `Max` は拒否します。thinking オブジェクトには `type` だけを送信し、display、budget、binding は送りません。このモードはメッセージごとの effort 変更と `CachePreservation.Required` に対応しません。共通の `WithReasoning(Low...Max)` は adaptive に戻し、`Auto` は選択済みのプロバイダーモードを維持します。
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 このホスト型ツールはプロバイダー側で実行されます。ローカルの関数ハンドラーを登録したり実行したりする必要はありません。検索を有効にするとモデルが利用できるようになりますが、その質問には検索が不要だとモデルが判断することもあります。出典はプロバイダーが返した場合に取得できます。
 
+**既知の制限:** Claude Sonnet 5.5 / Opus 5.5 は、未実行の `server_tool_use` で終わるネイティブ検索の一時停止を継続できません。[対象 API と対応する一時停止の形](providers.md#claude-native-continuation-limitation)を確認してください。ストリーミングと Run には、[バッファリングするカスタム HTTP コンテンツでのキャンセル制限](streaming.md#sse-acquisition-cancellation-limitation)もあります。
+
 OpenAI と Anthropic では `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })` も使えます。Google の統合ツールではこの許可リストを指定できないため、ドメイン制限を要求した場合は、Web 全体を検索する代わりにリクエストを拒否します。
 
 ## プロバイダーが索引を作成済みの文書から回答する
@@ -146,8 +154,8 @@ string answer = (await run.Result).Text;
 
 | 統合プロバイダー | 名前付き推論レベル | キャッシュを保持する変更 | Web 検索 | ファイル検索 |
 | --- | --- | --- | --- | --- |
-| OpenAI | 対応する推論モデル。レベルはモデルごとに異なる | GPT-6 Astra / Sol / Luna Standard、単一エージェントモード | 対応する Responses モデル | 対応する Responses モデル、既存のベクトルストア |
-| Anthropic | ネイティブの effort 制御に対応するモデル | 対応する Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 とプロバイダーのベータ機能 | 対応する Claude モデル | ネイティブストアのアダプターなし。RAG を使用 |
+| OpenAI | 対応する推論モデル。レベルはモデルごとに異なる | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard、単一エージェントモード | 対応する Responses モデル | 対応する Responses モデル、既存のベクトルストア |
+| Anthropic | ネイティブの effort 制御に対応するモデル | 対応する Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 とプロバイダーのベータ機能 | 対応する Claude モデル | ネイティブストアのアダプターなし。RAG を使用 |
 | Google | Gemini 3 のレベル。Gemini 2.5 ではプロバイダー固有の予算を維持 | 非対応 | 対応する Gemini テキストモデル | 対応する Gemini テキストモデル、既存のファイル検索ストア |
 | xAI | Grok 4.7 / 4.6: `Auto`、`Low`、`Medium`、`High`、`XHigh` | 非対応 | 共通アダプターなし | 共通アダプターなし |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; ネイティブ Low/High/Max へ対応付け | 未対応 | 共通アダプターなし | 共通アダプターなし |

@@ -35,86 +35,42 @@ namespace Mythosia.AI.Services.Anthropic
         private object BuildRequestBodyWithFunctions()
         {
             PrepareClaudeFeatureMessage();
-            var messagesList = UsesClaudeWireHistory ? BuildPreservedClaudeMessages() : new List<object>();
-            var messages = UsesClaudeWireHistory ? new List<Message>() : GetLatestMessages().ToList();
-            EnsureUserFirstMessage(messages);
-
-            for (int i = 0; i < messages.Count; i++)
-            {
-                var message = messages[i];
-                AppendClaudeEffortMarker(messagesList, message);
-
-                if (message.FunctionCallBatch != null)
-                {
-                    messagesList.Add(ConvertAssistantFunctionCallBatchMessage(message));
-                    continue;
-                }
-
-                if (message.FunctionCallResultBatch != null)
-                {
-                    messagesList.Add(ConvertFunctionResultBatchMessage(message.FunctionCallResultBatch));
-                    continue;
-                }
-
-                if (message.Role == ActorRole.Assistant && IsFunctionCallMessage(message) &&
-                    message.Metadata?.ContainsKey(MessageMetadataKeys.OriginalContent) == true)
-                {
-                    var originalContent = message.Metadata[MessageMetadataKeys.OriginalContent]?.ToString();
-                    messagesList.Add(ConvertAssistantFunctionCallMessage(message));
-
-                    // Every call from the same parallel assistant turn stores the same raw content.
-                    // Emit that assistant turn once and retain each internal call record for pairing.
-                    while (i + 1 < messages.Count &&
-                           messages[i + 1].Role == ActorRole.Assistant &&
-                           IsFunctionCallMessage(messages[i + 1]) &&
-                           string.Equals(
-                               messages[i + 1].Metadata?.GetValueOrDefault(MessageMetadataKeys.OriginalContent)?.ToString(),
-                               originalContent,
-                               StringComparison.Ordinal))
-                    {
-                        i++;
-                    }
-
-                    continue;
-                }
-
-                if (message.Role == ActorRole.Function)
-                {
-                    var resultBlocks = new List<object>();
-                    do
-                    {
-                        resultBlocks.Add(ConvertFunctionResultContent(messages[i]));
-                        i++;
-                    }
-                    while (i < messages.Count && messages[i].Role == ActorRole.Function);
-
-                    i--;
-                    messagesList.Add(new { role = "user", content = resultBlocks });
-                    continue;
-                }
-
-                messagesList.Add(ConvertMessageForFunctionCalling(message));
-            }
-
             var requestBody = new Dictionary<string, object>
             {
                 ["model"] = RequestModel,
-                ["messages"] = messagesList,
+                ["messages"] = BuildClaudeFunctionMessages(),
                 ["temperature"] = RequestTemperature,
                 ["max_tokens"] = GetEffectiveMaxTokens(),
                 ["stream"] = RequestStream
             };
 
             ApplySystemMessage(requestBody);
-            ApplyThinkingConfig(requestBody);
-            ApplyCommonClaudeReasoning(requestBody);
-            ApplyClaudeRequestOptions(requestBody);
-            ApplyTemperaturePolicy(requestBody);
+            ApplyClaudeThinking(requestBody);
             ApplyToolsConfig(requestBody);
             ApplyNativeClaudeTools(requestBody);
             ApplyClaudeSpeed(requestBody);
 
             return requestBody;
+        }
+
+        private List<object> BuildClaudeFunctionMessages(bool validateGenerationPrefill = true)
+        {
+            if (UsesClaudeWireHistory)
+                return BuildPreservedClaudeMessages(validateGenerationPrefill);
+
+            var projection = new ClaudeWireProjection();
+            var messages = GetLatestMessages().ToList();
+            EnsureUserFirstMessage(messages);
+            foreach (var message in messages)
+            {
+                var wire = new List<object>();
+                AppendClaudeEffortMarker(wire, message);
+                // Convert and validate every record, including records that represent the
+                // same legacy assistant turn. Projection alone owns wire grouping.
+                wire.Add(ConvertPreservedClaudeMessage(message));
+                projection.Append(message, wire.Select(item => JsonSerializer.SerializeToElement(item)).ToArray());
+            }
+            return projection.Messages;
         }
 
         private object ConvertMessageForFunctionCalling(Message message)
@@ -140,12 +96,8 @@ namespace Mythosia.AI.Services.Anthropic
             var functionCalls = message.FunctionCallBatch
                 ?? throw new InvalidOperationException("Assistant function-call batch is missing.");
 
-            if (functionCalls.Metadata?.TryGetValue(
-                    MessageMetadataKeys.OriginalContent,
-                    out var originalContent) == true &&
-                !string.IsNullOrWhiteSpace(originalContent?.ToString()))
+            if (TryReadClaudeAssistantContent(message, out var blocks))
             {
-                var blocks = JsonSerializer.Deserialize<JsonElement>(originalContent!.ToString()!);
                 ValidatePreservedClaudeAssistantText(message, blocks);
                 return new
                 {
@@ -218,16 +170,13 @@ namespace Mythosia.AI.Services.Anthropic
         private object ConvertFunctionResultContent(Message message)
         {
             var functionId = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
-            var functionSource = message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionSource);
-
-            if (string.IsNullOrEmpty(functionId) || functionSource == null)
+            if (string.IsNullOrEmpty(functionId) || !TryReadClaudeLegacySource(message, out var source))
             {
                 throw new InvalidOperationException(
                     $"Function result message missing ID or source. Function: {message.Metadata?.GetValueOrDefault(MessageMetadataKeys.FunctionName)}"
                 );
             }
 
-            var source = (IdSource)functionSource;
             var claudeId = FunctionIdConverter.ToClaudeId(functionId, source);
 
             return new
@@ -244,10 +193,8 @@ namespace Mythosia.AI.Services.Anthropic
                 ?? throw new InvalidOperationException("Assistant function-call messages require metadata.");
 
             // Check if we have the original content preserved
-            if (metadata.ContainsKey(MessageMetadataKeys.OriginalContent))
+            if (TryReadClaudeAssistantContent(message, out var blocks))
             {
-                var originalContent = metadata[MessageMetadataKeys.OriginalContent].ToString();
-                var blocks = JsonSerializer.Deserialize<JsonElement>(originalContent);
                 ValidatePreservedClaudeAssistantText(message, blocks);
                 return new
                 {
@@ -258,16 +205,14 @@ namespace Mythosia.AI.Services.Anthropic
 
             // Reconstruct from metadata
             var functionId = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionId)?.ToString();
-            var functionSource = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionSource);
             var functionName = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionName)?.ToString();
             var argumentsStr = metadata.GetValueOrDefault(MessageMetadataKeys.FunctionArguments)?.ToString() ?? "{}";
 
-            if (string.IsNullOrEmpty(functionId) || functionSource == null)
+            if (string.IsNullOrEmpty(functionId) || !TryReadClaudeLegacySource(message, out var source))
             {
                 throw new InvalidOperationException("Assistant function call message missing ID or source");
             }
 
-            var source = (IdSource)functionSource;
             var claudeId = FunctionIdConverter.ToClaudeId(functionId, source);
 
             var contentList = new List<object>();
@@ -303,7 +248,8 @@ namespace Mythosia.AI.Services.Anthropic
                 input_schema = new
                 {
                     type = "object",
-                    properties = f.Parameters.Properties,
+                    properties = f.Parameters.Properties.ToDictionary(pair => pair.Key,
+                        pair => BuildClaudeParameterSchema(pair.Value), StringComparer.Ordinal),
                     required = f.Parameters.Required
                 }
             }).ToList();
@@ -333,6 +279,37 @@ namespace Mythosia.AI.Services.Anthropic
             }
         }
 
+        private static Dictionary<string, object> BuildClaudeParameterSchema(ParameterProperty property)
+        {
+            if (property == null)
+                throw new ArgumentException("Function parameter schemas must not contain null entries.", nameof(property));
+
+            var schema = new Dictionary<string, object>(StringComparer.Ordinal);
+            var node = schema;
+            var ancestors = new List<ParameterProperty>();
+            while (true)
+            {
+                // Token counting can read service defaults without the request snapshot's
+                // graph validation. Bound traversal and reject cycles on this path too.
+                if (ancestors.Count >= 64 || ancestors.Any(ancestor => ReferenceEquals(ancestor, property)))
+                    throw new ArgumentException("Function parameter schemas must be acyclic and no more than 64 levels deep.", nameof(property));
+                ancestors.Add(property);
+
+                // Only schema keywords are mapped. Parameter names and data inside a
+                // default value retain their original spelling and serialization.
+                if (!string.IsNullOrWhiteSpace(property.Type)) node["type"] = property.Type;
+                if (property.Description != null) node["description"] = property.Description;
+                if (property.Enum != null) node["enum"] = property.Enum.ToArray();
+                if (property.Default != null) node["default"] = property.Default;
+                if (property.Items == null) return schema;
+
+                var items = new Dictionary<string, object>(StringComparer.Ordinal);
+                node["items"] = items;
+                node = items;
+                property = property.Items;
+            }
+        }
+
         private bool IsFunctionContinuation()
         {
             var lastMessage = GetLatestMessages().LastOrDefault();
@@ -343,12 +320,7 @@ namespace Mythosia.AI.Services.Anthropic
         }
 
         private bool UsesManualExtendedThinkingForRequest()
-        {
-            if (CurrentRequestFeatures.Reasoning != null &&
-                CurrentRequestFeatures.Reasoning.Level != ReasoningLevel.Auto)
-                return CurrentRequestFeatures.Reasoning.Level != ReasoningLevel.None && !ModelSupportsAdaptiveThinking() && IsThinkingEnabled;
-            return IsThinkingEnabled && !UsesAdaptiveThinkingForRequest();
-        }
+            => ResolveClaudeThinkingPlan(preserveConversation: true).Type == "enabled";
 
         protected override (string content, FunctionCallBatch functionCalls) ExtractFunctionCalls(string response)
         {

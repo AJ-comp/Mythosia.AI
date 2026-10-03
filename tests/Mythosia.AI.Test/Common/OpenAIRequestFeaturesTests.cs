@@ -44,6 +44,8 @@ public class OpenAIRequestFeaturesTests
 
     [TestMethod]
     [DataRow("gpt-6-astra", ReasoningLevel.None)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, ReasoningLevel.None)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol, ReasoningLevel.Minimal)]
     [DataRow("gpt-4.1", ReasoningLevel.High)]
     [DataRow("gpt-5-pro", ReasoningLevel.Low)]
     public async Task UnsupportedReasoning_FailsBeforeNetworkOrHistoryMutation(string model, ReasoningLevel level)
@@ -59,6 +61,7 @@ public class OpenAIRequestFeaturesTests
     [DataRow(AIModels.OpenAI.Gpt6Astra)]
     [DataRow(AIModels.OpenAI.Gpt6Sol)]
     [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
     public async Task CachePreservation_KeepsOriginalEffortAndReplaysUpdatesAtTheirHistoryPositions(string model)
     {
         var handler = new CaptureHandler(Answer, Answer, Answer, Answer);
@@ -127,10 +130,12 @@ public class OpenAIRequestFeaturesTests
     }
 
     [TestMethod]
-    public async Task RequiredCache_RejectsProStatelessAndImportedHistoryBeforeSending()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task RequiredCache_RejectsProStatelessAndImportedHistoryBeforeSending(string model)
     {
         var handler = new CaptureHandler(Answer);
-        var service = CreateService(handler);
+        var service = CreateService(handler, model);
         service.Gpt6ReasoningMode = Gpt6ReasoningMode.Pro;
         await Assert.ThrowsAsync<NotSupportedException>(() => service.WithReasoning(ReasoningLevel.High, CachePreservation.Required).GetCompletionAsync("pro"));
         service.Gpt6ReasoningMode = Gpt6ReasoningMode.Standard;
@@ -252,11 +257,14 @@ public class OpenAIRequestFeaturesTests
     }
 
     [TestMethod]
-    public async Task Run_CapturesCitationsWithoutAStreamReaderAndSendsHostedToolsOverWebSocket()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task Run_CapturesCitationsWithoutAStreamReaderAndSendsHostedToolsOverWebSocket(string model)
     {
         using var socket = new ScriptedSocket();
         socket.OnSend = _ => socket.Push(SourceEvents());
         var service = new SocketService(socket);
+        service.ChangeModel(model);
         await using var run = await service.WithReasoning(ReasoningLevel.High, CachePreservation.Required)
             .WithWebSearch().WithFileSearch(new FileSearchStore("OpenAI", "vs_reference"))
             .StartRunAsync("research");
@@ -271,11 +279,14 @@ public class OpenAIRequestFeaturesTests
     }
 
     [TestMethod]
-    public async Task Run_FunctionContinuationKeepsHostedToolsAndOriginalEffortWithoutReplayingConfigurationUpdates()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task Run_FunctionContinuationKeepsHostedToolsAndOriginalEffortWithoutReplayingConfigurationUpdates(string model)
     {
         using var socket = new ScriptedSocket();
         var handler = new CaptureHandler(Answer);
         var service = new SocketService(socket, handler);
+        service.ChangeModel(model);
         await service.WithReasoning(ReasoningLevel.Low).GetCompletionAsync("baseline");
         var executions = 0;
         service.Functions.Add(new FunctionDefinition

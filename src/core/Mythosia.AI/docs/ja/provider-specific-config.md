@@ -1,6 +1,8 @@
 # プロバイダー固有設定アーキテクチャ
 
-> GPT-6 Sol/Luna は未リリースの追加機能です。[モデルの選択と必要バージョン](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#gpt-6-sol-luna)を参照してください。
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#gpt-61-sol)
+
+> GPT-6 Sol/Luna は Mythosia.AI 8.1.0 / Abstractions 4.1.0 から利用できます。
 
 回答・使用量・出典をまとめて取得するには、`await run.Result` が返す `AIRunResult` を使用します。文字列は `result.Text` で取得でき、ストリームを読む必要はありません。Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 の API 変更です。`GetCompletionAsync` と `StructuredStreamRun<T>.Result` の戻り値型は維持します。 [Run の結果と移行](../../../../../docs/ja/execution-api-transition.md#run-result).
 
@@ -10,6 +12,93 @@
 > [Claude Fable 5.1](../../../../../docs/ja/fable-5-1.md) は `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 から進捗更新、ターン限定指示、thinking binding 診断を利用できます。Mythos 5.1 は招待制です。両モデルともツール選択の強制を拒否します。
 
 > GPT-6 Astra、`AllowAsync`、`StartRunAsync`、共通の推論・検索 API は `Mythosia.AI` 7.1.0 から利用でき、共通型は `Mythosia.AI.Abstractions` 3.1.0 に含まれます。
+
+<a id="claude-sonnet-55"></a>
+
+## Claude Sonnet 5.5
+
+`AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`) はテキスト・画像入力とテキスト出力に対応し、コンテキストは 1M、最大出力は 128K トークンです。Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。既存の既定モデルとモデル識別子は変わりません。
+
+未設定時は adaptive 推論、`High` effort、読み取り可能な推論の省略が既定です。Adaptive は `Low`、`Medium`、`High`、`XHigh`、`Max` を受け付け、`Minimal` は拒否します。`MaxTokens` は推論と回答を含みます。サンプリング引数は送信しません。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.High, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.CreateRequest("Review the plan using the registered tools.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(options: StreamOptions.FullOptions);
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+Adaptive では `ClaudeThinkingDisplay.Updates` でツールの進捗、`Summarized` で推論要約を要求します。`StreamingContentType.Reasoning`、通常の完了では `LastThinkingContent` を確認します。Adaptive ヘルパーの display 引数の既定値は `Summarized` で、未設定時とは異なります。`between_tools` は進捗を自動で返します。一定間隔の通知は保証されません。
+
+`ReasoningLevel.None`、無効化した従来の `ThinkingBudget`、`AIRequestProfile.DisableReasoning` は high effort の `between_tools` を選択します。事前推論は無効になりますが、ツールの進捗は thinking ブロックで返る場合があります。`WithBetweenToolsThinking(...)` は `Auto`（high）、`Low`、`Medium`、`High` に対応し、`XHigh` と `Max` は拒否します。thinking オブジェクトには `type` だけを送信し、display、budget、binding は送りません。このモードはメッセージごとの effort 変更と `CachePreservation.Required` に対応しません。共通の `WithReasoning(Low...Max)` は adaptive に戻し、`Auto` は選択済みのプロバイダーモードを維持します。
+
+```csharp
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithBetweenToolsThinking(ClaudeReasoningEffort.Low);
+string quick = await claude.CreateRequest("Use the registered tools to check the status.")
+    .GetCompletionAsync();
+
+// A separate conversation using request-scoped high-effort between_tools.
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+string next = await claude.CreateRequest("Give me the latest status.")
+    .WithReasoning(ReasoningLevel.None)
+    .GetCompletionAsync();
+```
+
+Claude はモデル、リクエストの目的、推論と thinking binding の設定をまとめて決定します。`RequestProfiles.Summarization` や `RequestProfiles.QueryRewrite` などの補助プロファイルでは、`DisableReasoning = true`、目的が `Default` 以外、かつ実際のリクエストがステートレスの場合に限り、継承した binding を省略します。保持する会話プレフィックスがないリクエストで、継承したポリシーが推論を再度有効にしたりリクエストを拒否したりするのを防ぎます。推論を無効にできるモデルでは無効化し、常時推論する Opus 5.5、Fable 5.1、Mythos 5.1 では `Low` を使い、読み取り可能な thinking を省略します。Sonnet 5.5 では high effort の `between_tools` を使います。
+
+完了、ストリーミング、構造化出力、Run は同じ順序でリクエストを準備します。設定を取得し、実際のプロファイル処理を一度適用してから、最終的な共通オプションとプロバイダー固有オプションを検証します。自動要約、新しい入力の履歴追加、通信開始より前に行うため、カスタムプロバイダーのプロファイルオーバーライドも検証対象に反映されます。Claude で実際に使用する手動 `ThinkingBudget` がモデルの出力上限以上なら、この段階で拒否します。有効なプロファイルと共通推論設定の優先順位は変わりません。
+
+アプリケーションからの呼び出しは独立した論理リクエストを開始します。`SystemMessageProvider` やツールのコールバック内からの通常の呼び出し、同じ `AIRequestProfile`・`Message` を再利用する呼び出しも含みます。オブジェクトの再利用は実行の共有を意味しません。フレームワーク内部の委譲、ツール処理、再試行、形式修正は元のリクエストを継続し、プロファイルは一度だけ適用します。通常の子リクエストは独自のオプションとサービス既定値を取得し、ビルダーは取得済み設定を使います。成功・失敗・キャンセル後に親の実行状態を復元します。フレームワークからの呼び出しを転送するプロバイダーのオーバーライドには、[プロバイダーアダプターの規則](../../../../../docs/ja/request-building.md#provider-request-adapters)が適用されます。 フレームワークが呼び出した仮想プロバイダーアダプターでは、対応する基底メソッドへの最初の呼び出しが、入力の `Message` を置き換えた場合も準備済みリクエストを継続します。転送前に無関係な補助処理で同じ基底メソッドを呼び出す場合は、その呼び出しと `await`（ストリーミングでは列挙全体）を `BeginIndependentRequestScope()` のスコープで囲みます。
+
+組み込みプロバイダーは組み込み入力コンテンツの独立したコピーを保持します。同じ `Message` を再利用しても、その呼び出しのコンテキストとターン指示を適用し、受理済みの履歴は書き換えません。カスタムコンテンツと未対応のメタデータオブジェクトは所有者が管理してください。同じ会話への並行呼び出しを安全にするものではありません。
+
+`StartRunAsync` が戻った後も、Run は最終設定の独自のコピーを保持します。呼び出し元のプロファイルを復元しても実行中の Run は変わらず、実行用プロファイルフックも一度だけ呼び出されます。
+
+ステートレスな補助リクエストは独立した会話を使用し、親の出力スキーマ、ホスト型ツール、一回限りのオプションを継承しません。この分離によってネイティブオプションの検証を省略することはなく、OpenAI・Perplexity の Run にも適用します。親の設定、メッセージ、`CurrentSummary`、リクエストの観測情報は保持します。ステートフルなリクエストでは binding と会話の検証を維持します。既存の公開 API は変わりません。
+
+ライブラリが自動生成する会話要約では、親の `SystemMessageProvider` コールバックとリクエストコンテキストも除外します。継承した `RequestMessageOverride` が内部の要約プロンプトを置き換えることを防ぐためです。アプリケーションが明示的に文章の要約を依頼する場合を含め、通常のリクエストでは動的コンテキストを従来どおり適用します。
+
+ステートレスなリクエストは親の会話の自動要約も実行しません。従来の `GetCompletionAsync(string, profile)` オーバーロードでも、`Message` オーバーロードやリクエストビルダーと同じ動作になります。親の `CurrentSummary` とメッセージは変わりません。状態を保持するリクエストでは通常の自動要約を維持します。
+
+`(ClaudeReasoningEffort)1234` などの未定義の `ClaudeReasoningEffort` 値は、実際の推論設定がそのネイティブ effort を使用する場合にローカルで拒否されます。拒否されたリクエストは親の会話を自動要約せず、未送信の入力を履歴に残しません。有効な明示的な共通推論設定やプロファイルによる上書きは、従来どおりネイティブの基本設定より優先されます。
+
+`ClaudeThinkingMode`: `Auto` / `Adaptive` / `BetweenTools`; `AnthropicService.ThinkingMode`.
+
+履歴は追記のみとしてください。空のブロックと `progress_updates` を含む署名付き thinking をターン間とツール結果間で保持します。保存した assistant 応答の書き換えは `ClaudeThinkingPrefixMismatchBehavior.DropBlock` でもローカルで拒否します。過去の user/system/tool プレフィックス編集は自動でローカル拒否せず、Anthropic の binding ポリシーに従って送信します。Adaptive の `WithThinkingBinding(ClaudeThinkingPrefixMismatchBehavior.Error)` は厳密なプロバイダー検証を要求し、不正なプレフィックスでは HTTP 400 になり得ます。`DropBlock` は該当する推論の破棄を許可し、null はプロバイダーの既定値を使います。`LastInputTransformations` で報告された破棄を確認してください。`between_tools` は binding 制御に非対応です。新しい指示には `WithTurnInstruction` / `WithConversationInstruction` を使用します。Adaptive の `CachePreservation.Required` も過去の編集の安全性を保証しません。
+
+既存の完了、ストリーミング、構造化出力、画像、ローカル関数、Web 検索、通常の Run API を使用します。`ForceFunctionName` は未設定にします。強制ツール選択（`any` / `tool`）と assistant prefill は HTTP 前に拒否し、自動選択と `FunctionsDisabled` は利用できます。`Fast`、ネイティブ非同期ツール、Run steering は非対応です。Computer toolset、advisor ツール、ネイティブ圧縮、会話中のツール変更、自動サーバー fallback は統合していません。モデル・アカウントの変更で bound thinking が失われる場合があり、リクエスト成功だけでは推論保持を保証しません。
+
+Mythosia.AI 8.2.0 の既知の制限: Sonnet 5.5 と Opus 5.5 では、未実行の `server_tool_use` で終わる有効な `pause_turn` 応答を assistant prefill と誤判定し、2 回目の HTTP リクエスト前に拒否します。完了したサーバーツールの結果で終わる継続は既存の検証を通過しています。[ネイティブ継続の制限](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/ja/providers.md#claude-native-continuation-limitation)を参照してください。
+
+共通の構造化出力 API はスキーマ指示、逆シリアル化、修復リトライを使用し、ネイティブの `output_config.format` スキーマ制約は送信しません。
+
+[公式モデル情報](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) · [移行](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) · [プロバイダーの変更](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
+
+
+## Claude のトークン計算
+
+引数なしの `GetInputTokenCountAsync()` はツールに対応した完了メッセージのシリアル化を再利用し、現在ツールが無効でも assistant の `tool_use` と user の `tool_result` ブロックを保持します。インポートした従来の並列ツール記録が同じ `OriginalContent` バッチを共有する場合、そのバッチを一度だけシリアル化し、署名付きコンテンツと過去の指示を保持します。現在有効なツール定義と `tool_choice` を含め、生成専用フィールドは省略し、トークン計算固有の thinking 制限を維持します。`GetInputTokenCountAsync(string prompt)` は独立したプロンプトのトークンを計算する従来の動作を維持し、保存した会話履歴やツール定義は含めません。
+
+通常の完了、thinking を保持する継続リクエスト、トークン計算は同じツール履歴変換を使用します。関数を無効化または削除した後の通常リクエストでも、過去の呼び出しと結果はネイティブのツールブロックとして保持します。インポートした `FunctionSource` メタデータは、呼び出しと結果の両方で同じ意味の定義済み enum、整数、文字列、JSON 表現を受け付けます。同じ並列 assistant バッチの重複記録は、ツールの順序、署名、プロバイダーフィールドを変更せず一度だけ出力します。メタデータ表現だけの変更で、受理済みプレフィックスが重複することはありません。
+
+Claude はシリアライズ、トークン計算、要約圧縮の保護で同じ元の assistant コンテンツを確認します。ネイティブコンテンツ、型付きバッチ、従来の `Message.Metadata[OriginalContent]` を含むため、インポート形式にかかわらず署名付き thinking のプレフィックスを同じように保護します。これはローカル履歴の保持であり、実サーバーによる署名の受理を保証しません。
 
 ## 原則
 
@@ -21,7 +110,7 @@
 | **プロバイダー固有** | 各サービスクラス | ThinkingLevel/ThinkingBudget (Gemini), ReasoningEffort (GPT) 等 |
 | **関数ごとの実行許可** | `FunctionDefinition` | `AllowAsync`（既定値 `false`） |
 
-`AllowAsync` は呼び出し側が選ぶ許可であり、モデルと API の対応状況はサービスが内部で判断します。`FunctionBuilder.WithAsync()` と `[AiFunction("lookup", "データを取得", AllowAsync = true)]` でも同じ許可を有効にできます。GPT-6 Astra / Sol / Luna では Responses で使用し、未対応のモデルでは API オプションを省略して同じハンドラーの結果を待ちます。設定した許可の値は変更しません。
+`AllowAsync` は呼び出し側が選ぶ許可であり、モデルと API の対応状況はサービスが内部で判断します。`FunctionBuilder.WithAsync()` と `[AiFunction("lookup", "データを取得", AllowAsync = true)]` でも同じ許可を有効にできます。GPT-6.1 Sol / GPT-6 Astra / Sol / Luna では Responses で使用し、未対応のモデルでは API オプションを省略して同じハンドラーの結果を待ちます。設定した許可の値は変更しません。
 
 ## 現在の実装: サービスレベル
 
@@ -202,6 +291,8 @@ string answer = await service.GetCompletionAsync("最新のバッテリーリサ
 
 `UsePreset(...)` でプリセットを選べます。プリセット/プロファイルは独自のモデルを選び、`ModelOverride` で明示的に変更します。`DisableWebSearch` はアダプターの既定ツールだけを除き、プリセット内蔵の検索停止を保証しません。モデルに応じて `Minimal`、`Low`、`Medium`、`High`、`XHigh`、`Max` を使用できます。`None` と直接 Sonar への明示的な推論指定は拒否されます。内部の `DisableReasoning` は低い対応レベルか省略を使い、完全な無効化を保証しません。
 
+Perplexity はプロファイル適用後の同じ最終リクエスト計画で検証とシリアライズを行います。抑制された親のツールや推論設定で補助 Sonar リクエストを拒否せず、実際に適用するオプションは引き続き検証します。プリセットとフォールバック一覧のモデル選択も維持します。
+
 `PerplexityHostedTools.WebSearch`、`FetchUrl`、`Sandbox`、`FinanceSearch`、`PeopleSearch`、`Mcp`、`Connector` でツール設定を作れます。MCP は承認待ちなしで実行されるため、必要に応じて `allowedTools` を制限します。Connector は提供元のプレビュー機能で、接続済みの統合を参照します。
 
 `StartBackgroundAsync` は履歴を追加せず入力を取得し、有効なローカル関数や `Store = false` を拒否します。`GetResponseAsync` は一度取得し、`WaitForCompletionAsync` は終了状態までポーリングします。`Id` と `LastSequenceNumber` を保存し、`ResumeBackgroundRun(id).StreamAsync(startingAfter: cursor)` で再接続します。遠隔ジョブの停止は `CancelAsync` です。取得・読み取りトークンのキャンセルはそのクライアント操作だけを止めます。`LastResponse` のテキスト、状態、使用量、引用、`OutputJson` を参照し、回答利用前に終了状態を確認してください。
@@ -258,5 +349,7 @@ chatBlock.Gemini.ThinkingBudget = 1024;
 このキャンセル契約は Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0 に含まれます。トークン省略や従来のprofile/context位置引数はソース上で有効ですが、利用側は再ビルドが必要です。独自の`IAIService`実装では両完了メソッドの末尾に`CancellationToken cancellationToken = default`を追加して伝播します。`AIService`派生プロバイダーは既存の`GetCompletionAsync(Message)` overrideを維持し、protectedの`RequestCancellationToken`を通信に渡します。ビルダーとRun自体にはこのインターフェース変更は不要でした。 文字列・profile/contextの完了、画像ヘルパー、`RunAgentAsync`など変更されたpublic virtualオーバーロードを再定義する派生クラスも、新しい`CancellationToken`を末尾に追加して伝播します。従来のシグネチャを維持するのは単一の`Message`を受け取るprovider overrideです。変更されたメソッドをデリゲートに直接渡すコードは、トークンを渡すか省略する明示的なラムダへの変更が必要な場合があります。
 
 [共通の対応定義でモデルの機能選択を構成する](../../../../../docs/ja/model-capabilities.md).
+
+`ApplyRequestProfile` と `ApplyProviderSpecificRequestProfile` は論理リクエストごとに一度実行し、最終設定を検証します。アプリケーションからの通常の呼び出しは、コンテキストやツールのコールバック内でも独立したリクエストになります。フレームワークが呼び出した仮想プロバイダーアダプターでは、対応する基底メソッドへの最初の呼び出しが、入力を置き換えた場合も準備済みリクエストとその設定を継続します。転送前に同じ基底メソッドで無関係な補助処理を行う場合は `BeginIndependentRequestScope()` を使います。[プロバイダーアダプターの規則](../../../../../docs/ja/request-building.md#provider-request-adapters)を参照してください。カスタムプロバイダーは `BeginRequestFeaturesScope` の後で追加の protected フック `ResolveRequestMessage(message)` を呼び、返された入力コピーを保持できます。既存のオーバーライドとの互換性は維持します。機能照会は副作用のない別のフックを使用します。
 
 独自プロバイダーのプロファイルがネイティブモードのフラグを変更する場合は、`ApplyCapabilityRequestProfile(AIRequestProfile)` をオーバーライドし、リゾルバーに必要なフラグだけを `SetExecutionSetting(...)` で適用します。既定のフックは何もしません。共通プロファイル設定はビルダーが取得済みであり、照会は `ApplyRequestProfile` や `ApplyProviderSpecificRequestProfile` を呼び出しません。このフックで検証、コールバック、シリアライズ、予算予約、サービスや呼び出し元の状態変更を行わないでください。一時設定は照会終了時に復元され、オーバーライドが例外を送出した場合も同様です。

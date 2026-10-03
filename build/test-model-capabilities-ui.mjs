@@ -319,6 +319,127 @@ assert.match(dom.reasoningLvls.innerHTML, /Always on/);
 assert.equal(dom.reasoningLvls.querySelectorAll('input').some(radio => radio.value === 'None'), false,
   'Sol/Luna controls must not leak a None option to Astra');
 
+// Selecting GPT-6.1 Sol uses the catalogue identifier and the connected provider
+// controls. Switching from optional reasoning must not retain None or sampling.
+providerKeys.OpenAI = 'offline-test-key';
+const sol61Controls = {
+  reasoning: { type: 'gpt6', levels: ['Auto', 'Low', 'Medium', 'High', 'XHigh', 'Max'] },
+  sampling: { temperature: false, topP: false },
+  maxOutputTokens: 128000, currentMaxTokens: 16000,
+  speed: { selected: 'ProviderDefault', standard: 'Supported', fast: 'Supported' },
+  capabilities: { streaming: 'Supported', functionCalling: 'Supported', asyncFunctionCalling: 'Supported', steering: 'Supported' }
+};
+requests.length = 0;
+fetchOverride = async (url, options) => {
+  const body = JSON.parse(options.body);
+  requests.push({ url, body });
+  return { ok: true, json: async () => ({ provider: 'OpenAI', model: 'gpt-6.1-sol', controls: sol61Controls }) };
+};
+modelsModule.namespace.onModelSelect('Gpt6_1Sol', 'OpenAI', 'gpt-6.1-sol',
+  sol61Controls.reasoning, sol61Controls.maxOutputTokens, sol61Controls.sampling);
+await waitTurn();
+assert.equal(requests[0].url, '/api/configure');
+assert.equal(requests[0].body.model, 'Gpt6_1Sol');
+assert.equal(app.isConnected, true);
+assert.equal(app.selectedModel, 'Gpt6_1Sol');
+assert.equal(dom.setMaxTokens.max, 128000);
+assert.equal(dom.setMaxTokens.value, 16000, 'The connected budget must remain distinct from the model ceiling');
+assert.equal(dom.setReasoning.checked, true);
+assert.equal(dom.setReasoning.disabled, true);
+assert.equal(dom.setTemp.disabled, true);
+assert.equal(dom.setTopp.disabled, true);
+assert.match(dom.reasoningLvls.innerHTML, /Always on/);
+assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'Auto');
+assert.deepEqual(dom.reasoningLvls.querySelectorAll('input').map(radio => radio.value),
+  ['Auto', 'Low', 'Medium', 'High', 'XHigh', 'Max']);
+for (const level of ['Auto', 'Low', 'Medium', 'High', 'XHigh', 'Max']) {
+  let selected;
+  for (const radio of dom.reasoningLvls.querySelectorAll('input')) {
+    radio.checked = radio.value === level;
+    if (radio.checked) selected = radio;
+  }
+  await selected.fire('change');
+  await waitTurn();
+  const sent = requests.at(-1);
+  assert.equal(sent.url, '/api/settings');
+  assert.equal(sent.body.reasoningEnabled, true);
+  assert.equal(sent.body.reasoningType, 'gpt6');
+  assert.equal(sent.body.reasoningLevel, level);
+  assert.equal(sent.body.temperature, null);
+  assert.equal(sent.body.topP, null);
+  assert.equal(sent.body.maxTokens, 16000);
+  assert.equal(dom.reasoningLvls.querySelector('input:checked').value, level);
+}
+
+// Sonnet 5.5 starts with adaptive High even after switching from a model with
+// reasoning disabled. Its optional toggle must survive settings refreshes.
+providerKeys.Anthropic = 'offline-test-key';
+const sonnet55Controls = {
+  reasoning: { type: 'claude_adaptive', levels: ['Low', 'Medium', 'High', 'XHigh', 'Max'],
+    defaultLevel: 'High', defaultEnabled: true },
+  sampling: { temperature: false, topP: false },
+  maxOutputTokens: 128000, currentMaxTokens: 16000,
+  speed: { selected: 'ProviderDefault', standard: 'Supported', fast: 'Unsupported' },
+  capabilities: { streaming: 'Supported', functionCalling: 'Supported', asyncFunctionCalling: 'Unsupported', steering: 'Unsupported' }
+};
+dom.setReasoning.checked = false;
+requests.length = 0;
+fetchOverride = async (url, options) => {
+  const body = JSON.parse(options.body);
+  requests.push({ url, body });
+  return { ok: true, json: async () => ({ provider: 'Anthropic', model: 'claude-sonnet-5-5', controls: sonnet55Controls }) };
+};
+modelsModule.namespace.onModelSelect('ClaudeSonnet5_5', 'Anthropic', 'claude-sonnet-5-5',
+  sonnet55Controls.reasoning, sonnet55Controls.maxOutputTokens, sonnet55Controls.sampling);
+await waitTurn();
+assert.equal(requests[0].url, '/api/configure');
+assert.equal(requests[0].body.model, 'ClaudeSonnet5_5');
+assert.equal(app.selectedModel, 'ClaudeSonnet5_5');
+assert.equal(app.isConnected, true);
+assert.equal(dom.setReasoning.checked, true);
+assert.equal(dom.setReasoning.disabled, false);
+assert.equal(dom.setReasoning.title, 'Off skips upfront thinking; progress updates between tool calls remain enabled.');
+assert.equal(dom.reasoningOpts.classList.contains('hidden'), false);
+assert.equal(dom.reasoningLvls.querySelector('input:checked').value, 'High');
+assert.deepEqual(dom.reasoningLvls.querySelectorAll('input').map(radio => radio.value),
+  ['Low', 'Medium', 'High', 'XHigh', 'Max']);
+assert.equal(dom.setMaxTokens.max, 128000);
+assert.equal(dom.setTemp.disabled, true);
+assert.equal(dom.setTopp.disabled, true);
+assert.equal(node('set-speed').options.find(option => option.value === 'Fast').disabled, true);
+ui.scheduleApplySettings(0);
+await waitTurn();
+assert.equal(requests.at(-1).body.reasoningEnabled, true);
+assert.equal(requests.at(-1).body.reasoningType, 'claude_adaptive');
+assert.equal(requests.at(-1).body.reasoningLevel, 'High');
+assert.equal(requests.at(-1).body.temperature, null);
+assert.equal(requests.at(-1).body.topP, null);
+for (const level of ['Low', 'Medium', 'High', 'XHigh', 'Max']) {
+  let selected;
+  for (const radio of dom.reasoningLvls.querySelectorAll('input')) {
+    radio.checked = radio.value === level;
+    if (radio.checked) selected = radio;
+  }
+  await selected.fire('change');
+  await waitTurn();
+  assert.equal(requests.at(-1).body.reasoningLevel, level);
+  assert.equal(dom.reasoningLvls.querySelector('input:checked').value, level);
+}
+dom.setReasoning.checked = false;
+ui.scheduleApplySettings(0);
+await waitTurn();
+assert.equal(requests.at(-1).body.reasoningEnabled, false);
+assert.equal(requests.at(-1).body.reasoningLevel, null);
+assert.equal(requests.at(-1).body.temperature, null);
+assert.equal(dom.setReasoning.checked, false, 'Capabilities refresh must retain the explicit opt-out');
+assert.equal(dom.setTemp.disabled, true, 'Between-tools thinking must not enable unsupported sampling');
+dom.setReasoning.checked = true;
+ui.scheduleApplySettings(0);
+await waitTurn();
+assert.equal(requests.at(-1).body.reasoningEnabled, true);
+assert.equal(requests.at(-1).body.reasoningLevel, 'Max', 'Re-enabling preserves the selected effort');
+assert.equal(dom.setReasoning.checked, true);
+
 // Speed is opt-in, model/endpoint-derived, and round-trips through the real settings handler.
 const speedControls = {
   reasoning: app.modelReasoningInfo, sampling: { temperature: false, topP: false },

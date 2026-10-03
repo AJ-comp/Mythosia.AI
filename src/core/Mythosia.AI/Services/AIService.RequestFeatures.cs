@@ -23,7 +23,7 @@ namespace Mythosia.AI.Services.Base
         /// <summary>The effective context of the active request, including resolved dynamic system instructions.</summary>
         protected AIRequestContext? CurrentRequestContext => _currentRequestContext.Value;
         /// <summary>Captures and consumes provider-specific per-request options before execution starts.</summary>
-        /// <remarks>Nested calls and Run reuse the returned snapshot. Internal summary and rewrite work
+        /// <remarks>Framework delegation and tool rounds reuse the returned snapshot; new public calls capture independently. Internal summary and rewrite work
         /// do not call this hook and do not inherit these options.</remarks>
         protected virtual object? CaptureProviderRequestOptions(Message message) => null;
         public IReadOnlyList<AICitation> LastCitations => _lastFeatureExecution?.Snapshot() ?? Array.Empty<AICitation>();
@@ -60,26 +60,24 @@ namespace Mythosia.AI.Services.Base
         /// <summary>Returns a reason when protocol state requires retaining the original conversation prefix.</summary>
         protected virtual string? GetConversationCompactionBlockReason() => null;
 
-        /// <summary>Captures pending settings once; nested calls share the snapshot, including format repairs.</summary>
+        /// <summary>Starts a provider execution, or accepts a framework handoff for the current request.</summary>
         protected IDisposable BeginRequestFeaturesScope(Message message)
-        {
-            if (message == null) throw new ArgumentNullException(nameof(message));
-            var settings = BeginRequestSettingsScope();
-            try
-            {
-                var features = _requestFeatureExecution.Value != null
-                    ? new FeatureScope(() => { }) : UseRequestFeatureExecution(CaptureRequestFeatures(message));
-                return new FeatureScope(() => { try { features.Dispose(); } finally { settings.Dispose(); } });
-            }
-            catch { settings.Dispose(); throw; }
-        }
+            => BeginRequestPreparation(message, entry: RequestEntry.Provider);
 
         IDisposable Services.IAIRequestFeatureService.BeginRequestFeaturesScope(Message message)
-            => BeginRequestFeaturesScope(message);
-
-        private RequestFeatureExecution CaptureRequestFeatures(Message message, bool publishObservations = true)
         {
-            var previous = _requestFeatureExecution.Value;
+            var preparation = BeginRequestPreparation(message, entry: RequestEntry.Reservation);
+            try
+            {
+                var handoff = ContinueRequest(message, RequestEntry.Reservation);
+                return new FeatureScope(() => { try { handoff.Dispose(); } finally { preparation.Dispose(); } });
+            }
+            catch { preparation.Dispose(); throw; }
+        }
+
+        private RequestFeatureExecution CaptureRequestFeatures(Message message, bool publishObservations = true, bool inheritCurrent = true)
+        {
+            var previous = inheritCurrent ? _requestFeatureExecution.Value : null;
             AIRequestFeatures features;
             if (previous != null)
                 features = previous.Features.Clone();
@@ -90,15 +88,12 @@ namespace Mythosia.AI.Services.Base
                 _pendingRequestFeatures = new AIRequestFeatures();
             }
             var execution = new RequestFeatureExecution(features, message, isAuxiliary: previous?.IsAuxiliary == true);
-            if (publishObservations) _lastFeatureExecution = execution;
+            if (publishObservations && !execution.IsAuxiliary) _lastFeatureExecution = execution;
             execution.ProviderOptions = previous != null ? previous.ProviderOptions : CaptureProviderRequestOptions(message);
-            ValidateProviderRequestOptions(execution.ProviderOptions, message);
-            ValidateRequestSpeed(features);
-            ValidateRequestFeatures(features);
             return execution;
         }
 
-        private IDisposable UseRequestFeatureExecution(RequestFeatureExecution execution)
+        private IDisposable UseRequestFeatureExecution(RequestFeatureExecution? execution)
         {
             var previous = _requestFeatureExecution.Value;
             _requestFeatureExecution.Value = execution;
@@ -139,8 +134,10 @@ namespace Mythosia.AI.Services.Base
         private sealed class RequestFeatureExecution
         {
             internal AIRequestFeatures Features { get; }
-            internal Message? Message { get; }
+            internal Message? Message { get; set; }
             internal bool IsAuxiliary { get; }
+            internal RequestOperation? Operation { get; set; }
+            internal bool Prepared { get; set; }
             internal object? ProviderOptions { get; set; }
             private readonly List<AICitation> _citations = new List<AICitation>();
             internal readonly List<ProcessingObservation> Processing = new List<ProcessingObservation>();

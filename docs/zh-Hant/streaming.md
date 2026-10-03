@@ -1,5 +1,11 @@
 # 串流輸出
 
+預設回呼串流介接器在提前結束時取消並等待內部產生工作。Run 取消、逾時、觀察回呼失敗和 `DisposeAsync` 都等待供應商清理結束後才完成 `Result` 並釋放執行鎖；不回應取消的工作可能延遲結束。觀察與清理例外一併保留。`ContextRecoveryMaxRetries` 使用請求擷取的值。僅停止 `run.StreamAsync()` 觀察仍不會取消 Run。 成功 SSE 回應的本文串流取得另有[取消限制](#sse-acquisition-cancellation-limitation)。
+
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[設定與移轉](providers.md#claude-sonnet-55)
+
+Adaptive 模式可用 `ClaudeThinkingDisplay.Updates` 取得工具進度，或用 `Summarized` 取得推理摘要。讀取 `StreamingContentType.Reasoning`，一般完成後讀取 `LastThinkingContent`。Adaptive 輔助方法的預設 display 引數為 `Summarized`，與未設定時不同。`between_tools` 自動回傳工具進度；不保證固定通知間隔。
+
 > Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型選擇、推理與處理速度](providers.md#grok-47)
 
 需要同時取得完整答案、用量與來源時，使用 `await run.Result` 傳回的 `AIRunResult`；字串位於 `result.Text`，不必讀取串流。這是Mythosia.AI 8.0.0 的 API 變更；`GetCompletionAsync` 與 `StructuredStreamRun<T>.Result` 的傳回型別保持不變。 [Run 結果與移轉](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Claude 錯誤回應：** 在串流請求或 Run 中，即使 HTTP 錯誤本文的讀取停滯，取消和請求原則逾時仍會生效。Run 清理完成後，可在同一服務上啟動下一個 Run。呼叫端取消會拋出 `OperationCanceledException`，原則逾時會拋出 `AIServiceException`。取消控制本機傳輸和配合取消的清理程序，不保證供應商停止處理或計費。
+
+**Claude 回應清理：** Claude 串流請求和 Run 會等待已取得的 HTTP 回應本文完成非同步清理，包括需要非同步釋放的自訂串流。之後釋放回應或內容時發生的例外不會覆蓋成功完成、原始讀取錯誤或取消的結果；仍會嘗試釋放原始回應和內容。
+
+**HTTP 逾時：** 對於使用共用串流回合處理路徑的文字、內容或回呼串流請求及 Run，在呼叫端取消和請求原則逾時皆未觸發時，可識別的 `HttpClient.Timeout`（內含 `TimeoutException` 的 `TaskCanceledException`）會轉換為 `AIServiceException`。`InnerException` 保留原始傳輸例外，因此 `run.Result` 會以保留逾時原因的失敗狀態完成。呼叫端取消、原則逾時及其他傳輸取消的既有行為保持不變。
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## 已知限制：成功 SSE 回應的本文串流取得
+
+對於 HTTP 200 SSE，如果自訂處理常式使用緩衝本文的 `HttpContent` 包裝器，`ReadAsStreamAsync` 可能在取得本文串流和開始清理之前停滯。呼叫端取消和請求原則逾時後，`run.Result` 仍可能維持未完成、回應未釋放、服務的執行鎖未解除，直到取得完成；下一個 Run 會因已有執行中的 Run 而被拒絕。此問題尚未修復，與清理緩慢不同。預設 `SocketsHttpHandler` 通過了已測試的情境；相同包裝器下的 HTTP 錯誤本文取消也通過了驗證。請使用一般串流內容，避免使用緩衝本文的包裝器。Claude 原生網頁搜尋另有[接續限制](providers.md#claude-native-continuation-limitation)。
 
 接收輸入的服務與 RAG StreamAsync 在 v8 仍公開。新的執行控制使用 StartRunAsync；run.StreamAsync() 只觀察已啟動的 run。
 

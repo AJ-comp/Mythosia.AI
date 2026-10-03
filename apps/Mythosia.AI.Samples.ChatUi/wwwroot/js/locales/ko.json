@@ -381,6 +381,7 @@
   "Reasoning": "추론",
   "Reasoning Level": "추론 수준",
   "Reasoning Mode": "추론 모드",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "끄면 사전 추론을 생략하지만 도구 호출 사이의 진행 상황 업데이트는 계속됩니다.",
   "Reasoning and final answer": "추론 및 최종 답변",
   "Recent references": "최근 참조",
   "Recommended": "권장",

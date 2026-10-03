@@ -381,6 +381,7 @@
   "Reasoning": "Reasoning",
   "Reasoning Level": "Reasoning Level",
   "Reasoning Mode": "Reasoning Mode",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "Off skips upfront thinking; progress updates between tool calls remain enabled.",
   "Reasoning and final answer": "Reasoning and final answer",
   "Recent references": "Recent references",
   "Recommended": "Recommended",

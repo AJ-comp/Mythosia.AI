@@ -1,9 +1,9 @@
 # Mythosia.VectorDb.Abstractions
 
-> **v4.1.0:** Includes text-only and configurable hybrid search. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v410) for compatibility and fixes.
+> **v4.2.0:** Adds optional `IVectorStoreDiagnostics` for record inspection and all-record similarity scores without a RAG dependency. Existing `IVectorStore` implementations gain no required members. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420).
 
 Core contracts for the **Mythosia VectorDb** abstraction layer.
-Defines `IVectorStore`, all model types, and the metadata-based filtering API.
+Defines `IVectorStore`, optional `IVectorStoreDiagnostics`, all model types, and the metadata-based filtering API.
 Consumed by `Mythosia.AI.Rag` and all concrete store implementations (InMemory, Postgres, Qdrant, Pinecone).
 
 > **Breaking change in v4.0.0**
@@ -227,6 +227,39 @@ public interface IVectorStore
 | `VerifyConnectionAsync` | `Task.CompletedTask` (no-op) |
 
 Concrete stores override these defaults where a more efficient or transactional implementation is available.
+
+---
+
+## Optional store diagnostics
+
+`Mythosia.VectorDb.IVectorStoreDiagnostics` is an optional capability implemented alongside `IVectorStore`. It exposes stored data for inspection; it does not embed text, split documents, explain retrieval decisions, or add required methods to `IVectorStore`.
+
+```csharp
+public interface IVectorStoreDiagnostics
+{
+    Task<IReadOnlyList<VectorRecord>> ListAllRecordsAsync(
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<VectorSearchResult>> ScoredListAsync(
+        float[] queryVector, CancellationToken cancellationToken = default);
+}
+```
+
+`ListAllRecordsAsync` returns all stored records. `ScoredListAsync` scores all records against a supplied vector, orders results by descending score, and applies no TopK limit. Neither method takes a metadata filter; do not treat these store-wide inspection methods as a tenant-scoped retrieval API. Score meaning depends on the implementation.
+
+Check the capability before calling it:
+
+```csharp
+if (store is IVectorStoreDiagnostics diagnostics)
+{
+    var records = await diagnostics.ListAllRecordsAsync(cancellationToken);
+    var scores = await diagnostics.ScoredListAsync(queryVector, cancellationToken);
+}
+```
+
+InMemory 4.3.0 implements this contract directly. RAG analysis (`RagDiagnostics`, diagnostic sessions, chunk previews, health checks and reports) remains in `Mythosia.AI.Rag` and consumes this capability. `GetTotalRecordCount()` is an InMemory convenience method, not a member of this interface.
+
+The obsolete `Mythosia.AI.Rag.IRagDiagnosticsStore` remains in `Mythosia.AI.Rag.Abstractions` as a compatibility interface inheriting this contract. New implementations should depend on `IVectorStoreDiagnostics`; see the [RAG abstractions migration notes](../../rag/Mythosia.AI.Rag.Abstractions/README.md#diagnostics-compatibility).
 
 ---
 

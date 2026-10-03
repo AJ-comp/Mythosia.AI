@@ -73,9 +73,38 @@ Bạn có thể tái sử dụng bộ đệm đầu vào sau khi `EditImagesAsyn
 
 Trong khi chờ truy vấn thời tiết chậm, mô hình vẫn có thể giới thiệu đồ dùng du lịch thông thường không phụ thuộc kết quả thời tiết. Gọi công cụ bất đồng bộ ở cấp mô hình giúp tiếp tục công việc độc lập trong thời gian chờ; quyết định phụ thuộc kết quả vẫn phải đợi kết quả trả về.
 
-Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
+Dùng `FunctionDefinition.AllowAsync = true` hoặc `FunctionBuilder.WithAsync()` để cho phép gọi công cụ bất đồng bộ với GPT-6.1 Sol / GPT-6 Astra / Sol / Luna qua Responses. Mặc định là `false`; mô hình chưa hỗ trợ vẫn chờ kết quả từ cùng handler. Xem ví dụ và vòng đời yêu cầu trong [hướng dẫn gọi hàm](function-calling.md).
 
 Xem [hướng dẫn suy luận và tìm kiếm](reasoning-and-search.md) để đặt mức suy luận giữa các nhà cung cấp và dùng thông tin mới hoặc tài liệu đã lập chỉ mục. Hướng dẫn nêu rõ mô hình hỗ trợ, cách giữ bộ nhớ đệm và giới hạn kết hợp.
+
+<a id="gpt-61-sol"></a>
+
+### GPT-6.1 Sol
+
+Chọn GPT-6.1 Sol cho lập trình phức tạp và công việc chuyên môn khi cần cân bằng chất lượng và chi phí. OpenAI định vị mô hình này gần Astra với chi phí thấp hơn. Chọn rõ `AIModels.OpenAI.Gpt6_1Sol` (`gpt-6.1-sol`); mô hình mặc định của dịch vụ và định danh `Gpt6Sol` cũ không thay đổi.
+
+> Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0.
+
+Khi chuyển từ GPT-6 Sol, thay `None` bằng `Low`: GPT-6.1 Sol hỗ trợ `Low`, `Medium` (mặc định của `Auto`), `High`, `XHigh` và `Max`; từ chối `None` và `Minimal`. `Temperature` / `TopP` được bỏ qua. `AIRequestProfile.DisableReasoning` dùng `Low` trong chế độ Standard và bỏ bản tóm tắt suy luận. GPT-6 Sol và Luna giữ hành vi `None` hiện có.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6_1Sol);
+string answer = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .GetCompletionAsync();
+```
+
+Mô hình nhận văn bản và hình ảnh, trả về văn bản. Cửa sổ ngữ cảnh là 1.050.000 token, tối đa 922.000 token đầu vào và 128.000 token đầu ra; đầu vào, suy luận và đầu ra phải nằm trong tổng ngữ cảnh. `MaxTokens` đặt ngân sách đầu ra được yêu cầu.
+
+Responses là mặc định và bắt buộc khi dùng công cụ; Chat Completions hỗ trợ yêu cầu không có công cụ. Các luồng trả lời đầy đủ, streaming, đầu ra có cấu trúc, công cụ cục bộ và Run hiện có đều hỗ trợ mô hình, gồm công cụ bất đồng bộ gốc tùy chọn và chỉ dẫn qua WebSocket trong chế độ Standard (`run.CanSteer`). `Gpt6ReasoningMode.Standard` và `.Pro` giữ cùng ID; thay đổi suy luận giữ cache yêu cầu Standard với một tác nhân. `WithSpeed(InferenceSpeed.Fast)` yêu cầu Fast có phí; xem chế độ được báo cáo trong `result.Processing`. Fast không khả dụng với lưu trú dữ liệu tại EU, và thông tin khả năng cục bộ không bảo đảm quyền tài khoản.
+
+Với GPT-6.1 Sol, chỉ dẫn giữa lượt yêu cầu chế độ Standard. Pro vẫn hỗ trợ Run thông thường, gọi hàm và công cụ bất đồng bộ gốc, nhưng báo `Steering = Unsupported` và `run.CanSteer = false`. Gọi `SteerAsync` trên Run Pro đó bị từ chối cục bộ mà không hủy hay ngắt quá trình thực thi bình thường.
+
+[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) · [GPT-6 guide](https://developers.openai.com/api/docs/guides/latest-model#gpt-61-sol) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
 
 <a id="gpt-6-sol-luna"></a>
 
@@ -113,7 +142,7 @@ string answer = await service.CreateRequest("Summarize this paragraph.")
 
 ### Mức độ suy luận
 
-GPT-6 Astra / Sol / Luna và GPT-5.1–5.6 cho phép điều chỉnh mức suy luận để cân bằng tốc độ và độ sâu của câu trả lời:
+GPT-6.1 Sol / GPT-6 Astra / Sol / Luna và GPT-5.1–5.6 cho phép điều chỉnh mức suy luận để cân bằng tốc độ và độ sâu của câu trả lời:
 
 ```csharp
 using Mythosia.AI.Models;
@@ -240,6 +269,70 @@ Xem [hướng dẫn ảnh chính thức](https://developers.openai.com/api/docs/
 ## Anthropic (AnthropicService)
 
 [Claude Fable 5.1](fable-5-1.md) bổ sung cập nhật tiến độ, chỉ dẫn theo lượt và chẩn đoán liên kết thinking từ `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 cần lời mời truy cập. Cả hai đều từ chối ép chọn công cụ.
+
+<a id="claude-native-continuation-limitation"></a>
+
+### Giới hạn đã biết: tiếp tục tác vụ gốc của Claude
+
+Trong bản phát hành này, tìm kiếm web gốc của Claude Sonnet 5.5 và Opus 5.5 không thể tiếp tục phản hồi `pause_turn` kết thúc bằng `server_tool_use` chưa được thực thi. Phản hồi bị nhận nhầm là phần điền trước của trợ lý và phát sinh `NotSupportedException` trước yêu cầu HTTP tiếp theo, ảnh hưởng đến completion, streaming và Run. Các lần tạm dừng kết thúc bằng `*_tool_result` đã hoàn tất có thể tiếp tục. Vấn đề này chưa được sửa. Nội dung HTTP tùy chỉnh có [giới hạn hủy streaming](streaming.md#sse-acquisition-cancellation-limitation) riêng.
+
+<a id="claude-sonnet-55"></a>
+
+### Claude Sonnet 5.5
+
+`AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`) nhận văn bản/hình ảnh và trả văn bản, với ngữ cảnh 1M và tối đa 128K token đầu ra. Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0; mô hình mặc định và định danh cũ được giữ nguyên.
+
+Khi chưa đổi thiết lập, mô hình dùng adaptive với mức `High` và ẩn phần suy luận có thể đọc. Adaptive hỗ trợ `Low`, `Medium`, `High`, `XHigh`, `Max`; từ chối `Minimal`. `MaxTokens` gồm cả suy luận và câu trả lời. Các tham số lấy mẫu không được gửi.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.High, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.CreateRequest("Review the plan using the registered tools.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(options: StreamOptions.FullOptions);
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+Trong adaptive, dùng `ClaudeThinkingDisplay.Updates` để đọc tiến độ công cụ hoặc `Summarized` để đọc tóm tắt suy luận. Theo dõi `StreamingContentType.Reasoning`, hoặc `LastThinkingContent` sau completion thông thường. Hàm adaptive dùng `Summarized` khi bỏ đối số display, khác thiết lập chưa chỉnh. `between_tools` tự trả tiến độ công cụ; không bảo đảm khoảng thời gian cố định.
+
+`ReasoningLevel.None`, `ThinkingBudget` cũ bị tắt hoặc `AIRequestProfile.DisableReasoning` chọn `between_tools` ở mức high: tắt suy luận trước khi làm việc, nhưng tiến độ công cụ vẫn có thể nằm trong khối thinking. `WithBetweenToolsThinking(...)` nhận `Auto` (high), `Low`, `Medium`, `High`; từ chối `XHigh` và `Max`. Đối tượng thinking chỉ gửi `type`, không có display, budget hay binding. Chế độ này không hỗ trợ đổi effort theo tin nhắn hoặc `CachePreservation.Required`. `WithReasoning(Low...Max)` chỉ định rõ sẽ chuyển về adaptive; `Auto` tôn trọng chế độ của nhà cung cấp.
+
+```csharp
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithBetweenToolsThinking(ClaudeReasoningEffort.Low);
+string quick = await claude.CreateRequest("Use the registered tools to check the status.")
+    .GetCompletionAsync();
+
+// A separate conversation using request-scoped high-effort between_tools.
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+string next = await claude.CreateRequest("Give me the latest status.")
+    .WithReasoning(ReasoningLevel.None)
+    .GetCompletionAsync();
+```
+
+`ClaudeThinkingMode`: `Auto` / `Adaptive` / `BetweenTools`; `AnthropicService.ThinkingMode`.
+
+Chỉ thêm vào cuối lịch sử. Khối thinking có chữ ký, kể cả khối rỗng và `progress_updates`, được giữ qua các lượt và kết quả công cụ. Sửa phản hồi assistant đã lưu bị từ chối cục bộ, kể cả khi dùng `ClaudeThinkingPrefixMismatchBehavior.DropBlock`. Việc sửa tiền tố user/system/tool trước đó không tự bị chặn cục bộ mà được gửi để Anthropic áp dụng chính sách ràng buộc. Trong adaptive, `WithThinkingBinding(ClaudeThinkingPrefixMismatchBehavior.Error)` yêu cầu nhà cung cấp kiểm tra nghiêm ngặt; tiền tố sai có thể gây HTTP 400. `DropBlock` cho phép nhà cung cấp bỏ các khối bị ảnh hưởng; null dùng chính sách mặc định của họ. Xem các khối bị bỏ được báo trong `LastInputTransformations`. `between_tools` không hỗ trợ điều khiển ràng buộc. Dùng `WithTurnInstruction` / `WithConversationInstruction` cho chỉ dẫn mới. `CachePreservation.Required` trong adaptive cũng không làm cho việc sửa tin nhắn cũ trở nên an toàn.
+
+Dùng API completion, streaming, đầu ra có cấu trúc, hình ảnh, hàm cục bộ, tìm kiếm web và Run thông thường hiện có. Để trống `ForceFunctionName`: ép chọn công cụ (`any` / `tool`) và assistant prefill bị từ chối trước HTTP; tự chọn công cụ và `FunctionsDisabled` vẫn dùng được. Không hỗ trợ `Fast`, công cụ bất đồng bộ gốc hoặc steering của Run. Chưa tích hợp computer toolset, công cụ advisor, nén gốc, đổi công cụ trong hội thoại hay fallback máy chủ tự động. Đổi mô hình/tài khoản có thể loại bỏ suy luận đã ràng buộc; yêu cầu thành công không chứng minh suy luận được giữ. Tìm kiếm web gốc chịu [giới hạn tiếp tục](#claude-native-continuation-limitation).
+
+API đầu ra có cấu trúc chung dùng chỉ dẫn lược đồ, giải tuần tự hóa và thử sửa lại; không gửi ràng buộc lược đồ gốc qua `output_config.format`.
+
+[Thông tin mô hình chính thức](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) · [Chuyển đổi](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) · [Thay đổi từ nhà cung cấp](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
 
 <a id="claude-opus-55"></a>
 

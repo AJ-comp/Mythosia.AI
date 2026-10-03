@@ -1,5 +1,9 @@
 # 函数调用
 
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[配置与迁移](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型选择与迁移](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型选择与版本要求](providers.md#gpt-6-sol-luna)
 
 只需完整答案和停止按钮时，将 `cancellationToken` 传给 `GetCompletionAsync`。进度事件或受支持的中途追加指令使用 Run。参阅[取消回答](completions.md#completion-cancellation)。
@@ -167,6 +171,8 @@ var fn = FunctionBuilder
 service.WithFunction(fn);
 ```
 
+**Claude 工具模式：** JSON Schema 关键字区分大小写。Mythosia 发送小写的 `type`、`description`、`enum`、`default` 和 `items`，使参数约束可被正确读取。嵌套的 `Items` 会递归转换，参数名和默认值对象中的键保持原样。未设置的可选字段会被省略，包括 `Default = null`；用 `JsonElement` 显式表示的 JSON null 则会保留。现有 `ParameterProperty` API 不变。
+
 <a id="tool-execution-contract"></a>
 
 ## 异步工具直接返回对象，并响应取消
@@ -291,7 +297,7 @@ var answer = await service.GetCompletionAsync(
     "查询首尔的示例天气。等待时请介绍三件旅行必备物品。");
 ```
 
-Mythosia 在 GPT-6 Astra / Sol / Luna 的 Responses API 中发送 `async: true`。对于不支持的模型和 API，会省略该字段并等待同一个处理器的结果，不会修改用户设置的 `AllowAsync` 值。提供商还必须将实际调用标为异步（`FunctionCall.IsAsync`）；开启许可不代表一定异步执行。
+Mythosia 在 GPT-6.1 Sol / GPT-6 Astra / Sol / Luna 的 Responses API 中发送 `async: true`。对于不支持的模型和 API，会省略该字段并等待同一个处理器的结果，不会修改用户设置的 `AllowAsync` 值。提供商还必须将实际调用标为异步（`FunctionCall.IsAsync`）；开启许可不代表一定异步执行。
 
 `WithFunctionAsync` 用于注册 .NET 异步处理器，`FunctionExecutionMode.Parallel` 控制本地处理器调度，两者都不会自动开启此选项。`AllowAsync` 允许模型在函数结果返回前继续工作。 `FunctionExecutionMode` 仍控制普通调用。允许的异步任务即使在 `Sequential` 模式下也可重叠执行，并在独立任务池内共享 `MaxConcurrency` 上限。
 

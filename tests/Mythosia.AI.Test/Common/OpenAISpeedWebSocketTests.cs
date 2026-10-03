@@ -18,6 +18,7 @@ public class OpenAISpeedWebSocketTests
     [DataRow(AIModels.OpenAI.Gpt6Astra)]
     [DataRow(AIModels.OpenAI.Gpt6Sol)]
     [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
     public async Task ServerSteeringContinuation_PreservesEachResponsesActualTier(string model)
     {
         using var socket = new ScriptedSocket();
@@ -60,6 +61,7 @@ public class OpenAISpeedWebSocketTests
     [DataRow(AIModels.OpenAI.Gpt6Astra)]
     [DataRow(AIModels.OpenAI.Gpt6Sol)]
     [DataRow(AIModels.OpenAI.Gpt6Luna)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
     public async Task ToolContinuation_ResendsSpeedAndCreatesOneObservationPerRequest(string model)
     {
         using var socket = new ScriptedSocket();

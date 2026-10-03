@@ -19,9 +19,9 @@
 		<PackageId>Mythosia.AI.Abstractions</PackageId>
 		<IsPackable>true</IsPackable>
 		<Company>Mythosia</Company>
-		<PackageTags>AI;LLM;Abstractions;IAIService;IAIRunService;IImageGenerationService;Messages;Streaming;FunctionCalling;Run;Citations;ImageGeneration;ImageEditing;ImageSize;ImageQuality;Capabilities;Cancellation;GPT6;GPT6Sol;GPT6Luna;Claude;Opus5.5;Grok4.7;InferenceSpeed;Processing</PackageTags>
+		<PackageTags>AI;LLM;Abstractions;IAIService;IAIRunService;IImageGenerationService;Messages;Streaming;FunctionCalling;Run;Citations;ImageGeneration;ImageEditing;ImageSize;ImageQuality;Capabilities;Cancellation;GPT6;GPT6Sol;GPT6.1Sol;GPT6Luna;Claude;Opus5.5;Sonnet5.5;BetweenTools;Grok4.7;InferenceSpeed;Processing</PackageTags>
 		<Authors>JJW</Authors>
-		<Description>Use shared AI contracts in middleware, RAG integrations and custom providers without depending on provider SDKs. Defines IAIService, optional Run/request-feature/image interfaces, messages, streaming events, tools, typed image options, AIRunResult, processing-speed choices and observations, and immutable model-capability snapshots. Includes shared identifiers for GPT-6 Sol/Luna, Claude Opus 5.5, Grok 4.7 and DeepSeek V4 Pro, plus Perplexity Agent API contracts. Provider execution is supplied by Mythosia.AI 8.1.0. What's New in v4.1.0: additional model identifiers and optional processing-speed contracts. Depends only on the lightweight Mythosia base package.</Description>
+		<Description>Use shared AI contracts in middleware, RAG integrations and custom providers without depending on provider SDKs. Defines IAIService, optional Run/request-feature/image interfaces, messages, streaming events, tools, typed image options, AIRunResult, processing-speed observations and immutable model capabilities. Includes identifiers for GPT-6.1 Sol, GPT-6 Sol/Luna, Claude Sonnet 5.5 and Opus 5.5, Grok 4.7 and DeepSeek V4 Pro, plus Perplexity Agent API contracts. Provider execution is supplied by Mythosia.AI 8.2.0. What's New in v4.2.0: additive GPT-6.1 Sol and Claude Sonnet 5.5 model identifiers, plus ClaudeThinkingMode for adaptive and between-tools thinking. Existing public contracts remain compatible. Depends only on the lightweight Mythosia base package.</Description>
 		<PackageProjectUrl>https://github.com/AJ-comp/Mythosia.AI/tree/main/src/core/Mythosia.AI.Abstractions</PackageProjectUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryUrl>https://github.com/AJ-comp/Mythosia.AI.git</RepositoryUrl>
@@ -30,9 +30,9 @@
 		<IncludeSymbols>true</IncludeSymbols>
 		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
-		<PackageReleaseNotes>v4.1.0 adds GPT-6 Sol/Luna, Claude Opus 5.5, Grok 4.7 and DeepSeek V4 Pro identifiers, Gpt6Reasoning.None, and optional processing-speed request, capability and observation contracts. Existing required interface members, constructors and enum values are retained. Mythosia.AI 8.1.0 supplies provider validation and execution. Recognizes explicit xAI input-too-large context errors without treating unrelated failures as compaction signals. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410</PackageReleaseNotes>
+		<PackageReleaseNotes>v4.2.0 adds AIModels.Anthropic.ClaudeSonnet5_5 for claude-sonnet-5-5 and the additive ClaudeThinkingMode enum (Auto/Adaptive/BetweenTools). Core 8.2.0 provides model validation, adaptive/high defaults, between-tools up-front thinking control and signed-history preservation. Existing reasoning/display and Run contracts are reused. Also adds AIModels.OpenAI.Gpt6_1Sol for gpt-6.1-sol, reusing existing reasoning, Run, request-feature, capability and processing-speed contracts. Existing required interface members, constructors, enum values and model identifiers remain. GPT-6.1 Sol requires Low through Max reasoning; older GPT-6 Sol/Luna retain None support. Mythosia.AI 8.2.0 supplies provider validation and execution. Full notes: https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420</PackageReleaseNotes>
 
-		<Version>4.1.0</Version>
+		<Version>4.2.0</Version>
 
 	</PropertyGroup>
 

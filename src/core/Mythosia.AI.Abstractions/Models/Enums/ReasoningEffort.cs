@@ -115,10 +115,10 @@ namespace Mythosia.AI.Models
     }
 
     /// <summary>
-    /// Reasoning effort level for GPT-6 models.
+    /// Reasoning effort level for GPT-6 family models, including GPT-6.1 Sol.
     /// Auto uses the library default (Medium).
-    /// GPT-6 supports low, medium, high, xhigh, and max. Sol and Luna also support None;
-    /// Astra always reasons and does not support None.
+    /// GPT-6 supports low, medium, high, xhigh, and max. GPT-6 Sol and Luna also support None;
+    /// GPT-6 Astra and GPT-6.1 Sol always reason and do not support None.
     /// </summary>
     public enum Gpt6Reasoning
     {
@@ -128,7 +128,7 @@ namespace Mythosia.AI.Models
         High,
         XHigh,
         Max,
-        /// <summary>Disables reasoning on GPT-6 Sol and Luna. Not supported by Astra.</summary>
+        /// <summary>Disables reasoning on GPT-6 Sol and Luna. Not supported by GPT-6 Astra or GPT-6.1 Sol.</summary>
         None
     }
 
@@ -167,6 +167,17 @@ namespace Mythosia.AI.Models
         Omitted,
         Summarized,
         Updates
+    }
+
+    /// <summary>Selects the thinking phase on Claude Sonnet 5.5 independently of effort.</summary>
+    public enum ClaudeThinkingMode
+    {
+        /// <summary>Use the model default unless an explicit legacy thinking setting overrides it.</summary>
+        Auto,
+        /// <summary>Allow adaptive reasoning before the answer and between tool calls.</summary>
+        Adaptive,
+        /// <summary>Disable up-front reasoning while retaining signed progress updates between tools. Supports low through high effort.</summary>
+        BetweenTools
     }
 
     /// <summary>How supported Claude requests handle thinking blocks bound to a changed conversation prefix.</summary>

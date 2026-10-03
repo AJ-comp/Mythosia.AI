@@ -1,5 +1,9 @@
 # พารามิเตอร์การสร้าง
 
+> Claude Sonnet 5.5: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การตั้งค่าและการย้ายรุ่น](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การเลือกโมเดลและการย้ายรุ่น](providers.md#gpt-61-sol)
+
 > Grok 4.7: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
 
 ใช้ [request builder](request-building.md) เพื่อแยกการตั้งค่าและสร้างรูปแบบที่ใช้ซ้ำได้ เรียก `CreateRequest(...)` ก่อน `With...` ส่วน property และ fluent method บน service ยังคงพฤติกรรมเดิม
@@ -19,6 +23,8 @@ service.PresencePenalty = 0.0f;    // ลดโทษ token ที่เคย�
 GPT-6 Astra ไม่รองรับ `temperature` และ `top_p` โดย Mythosia จะไม่ส่งทั้งสองค่า แม้จะตั้งผ่านพร็อพเพอร์ตีทั่วไปหรือโปรไฟล์คำขอแล้วก็ตาม เอาต์พุตสูงสุดคือ 128,000 โทเค็น ดู[การตั้งค่า GPT-6](providers.md)
 
 GPT-6 Sol/Luna ส่ง `temperature` และ `top_p` เฉพาะเมื่อใช้ `ReasoningLevel.None` กรณีอื่นจะละทั้งสองฟิลด์ Astra ไม่รองรับ `None` ดู[การเลือกและตั้งค่าโมเดล](providers.md#gpt-6-sol-luna)
+
+เมื่อย้ายจาก GPT-6 Sol ให้เปลี่ยน `None` เป็น `Low`: GPT-6.1 Sol รองรับ `Low`, `Medium` (ค่าเริ่มต้นของ `Auto`), `High`, `XHigh`, `Max` และปฏิเสธ `None` กับ `Minimal` โดยละ `Temperature` / `TopP` ส่วน `AIRequestProfile.DisableReasoning` ใช้ `Low` ในโหมด Standard และละสรุปการให้เหตุผล GPT-6 Sol และ Luna ยังคงพฤติกรรม `None` เดิม
 
 
 เมื่อการร่างและการตรวจทานต้องใช้การให้เหตุผลต่างระดับ ให้ดู[การตั้งค่าการให้เหตุผลร่วม](reasoning-and-search.md) พร้อมคำอธิบายความต่างระหว่างการเปลี่ยนที่รักษาแคชกับการตั้งค่าสำหรับคำขอเดียว

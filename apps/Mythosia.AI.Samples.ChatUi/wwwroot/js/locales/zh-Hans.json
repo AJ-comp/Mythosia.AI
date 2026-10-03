@@ -381,6 +381,7 @@
   "Reasoning": "推理",
   "Reasoning Level": "推理强度",
   "Reasoning Mode": "推理模式",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "关闭后将跳过前置推理，但仍会在工具调用之间提供进度更新。",
   "Reasoning and final answer": "推理与最终回答",
   "Recent references": "最近的参考资料",
   "Recommended": "推荐",

@@ -118,6 +118,7 @@ namespace Mythosia.AI.Services.Google
             RequestCancellationToken.ThrowIfCancellationRequested();
             using var requestScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             LastThinkingContent = null;
             var policy = GetExecutionPolicy();
             var timeoutSeconds = ResolveRequestTimeoutSeconds(policy);

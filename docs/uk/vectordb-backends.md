@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,26 @@ var store = new InMemoryVectorStore();
 
 Після скасування пакетного запису вже збережені записи можуть залишитися. `ReplaceByFilterAsync` і далі послідовно виконує видалення та пакетну вставку без транзакції: інший запит може побачити проміжний порожній стан, а помилка чи скасування не відкочує завершені записи.
 
+<a id="vector-store-diagnostics"></a>
+
 ### Діагностика
+
+`IVectorStoreDiagnostics` — додатковий контракт у `Mythosia.VectorDb.Abstractions` 4.2.0. InMemory реалізує його безпосередньо; до `IVectorStore` не додаються обов’язкові члени. `ListAllRecordsAsync` перелічує всі записи, а `ScoredListAsync` повертає всі оцінки подібності за спаданням без обмеження TopK. Обидва методи перевіряють усе сховище: не приймають фільтр метаданих і не застосовують `StoreFilter` конвеєра RAG. `GetTotalRecordCount()` залишається допоміжним методом InMemory поза контрактом. Аналіз фрагментів, перевірки стану та звіти RAG залишаються в `RagDiagnostics` і `RagDiagnosticSession` пакета `Mythosia.AI.Rag`.
+
+Цей випуск навмисно включає несумісну зміну інтерфейсу в мінорних версіях RAG 8.3.0 та InMemory 4.3.0. Це виняток із правил версіонування лише для цього випуску: наявний код, що використовує InMemory через `IRagDiagnosticsStore`, має перейти на `IVectorStoreDiagnostics`, хоча мажорні номери версій не змінилися.
+
+**Перехід на InMemory 4.3.0:** використовуйте RAG 8.3.0; поєднання нового InMemory зі старими пакетами RAG не підтримується. InMemory більше не реалізує `IRagDiagnosticsStore`: замініть присвоєння, приведення та перевірки можливостей на `IVectorStoreDiagnostics` і перебудуйте відповідних споживачів. RAG Abstractions 6.5.0 зберігає застарілий інтерфейс, два початкові оголошення методів і перехідні реалізації за замовчуванням для старих власних реалізацій. Цей механізм не відновлює попередній зв’язок InMemory з інтерфейсом і не гарантує сумісність усіх старих двійкових файлів.
+
+Для власних сховищ, що реалізують `IRagDiagnosticsStore`, RAG викликає методи початкового інтерфейсу через внутрішній адаптер. Тому явні реалізації й надалі використовуються, навіть якщо відкриті допоміжні методи мають ті самі сигнатури. Під час виклику методів після прямого приведення до `IVectorStoreDiagnostics` натомість можуть викликатися ці відкриті методи.
 
 ```csharp
 // Список усіх записів
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"Total: {store.GetTotalRecordCount()}");
 
 // Перегляд необроблених оцінок схожості
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

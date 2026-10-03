@@ -1,5 +1,18 @@
 # Mythosia.VectorDb.InMemory - Release Notes
 
+## v4.3.0
+
+### Changed
+
+- `InMemoryVectorStore` implements `IVectorStoreDiagnostics` from `Mythosia.VectorDb.Abstractions` 4.2.0. Its package no longer depends on `Mythosia.AI.Rag.Abstractions`.
+
+### Compatibility
+
+- **Intentional breaking change in a minor release:** As a one-time versioning-policy exception, `InMemoryVectorStore` no longer implements `Mythosia.AI.Rag.IRagDiagnosticsStore`. Change interface assignments, casts and capability checks to `Mythosia.VectorDb.IVectorStoreDiagnostics`. A reference to the obsolete interface does not make InMemory implement it.
+- The existing concrete `ListAllRecordsAsync` and `ScoredListAsync` methods retain their signatures and behavior. Ordinary storage, vector/text/hybrid retrieval and existing data remain unchanged.
+- Use `Mythosia.AI.Rag` 8.3.0 for full RAG diagnostics with InMemory 4.3.0. Older RAG diagnostics still check the old interface and can lose chunk lookup/full health analysis even though ordinary retrieval works.
+- Standalone users who previously obtained RAG types transitively through this package must explicitly reference the appropriate RAG package.
+
 ## v4.2.0
 
 ### Added

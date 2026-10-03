@@ -1,5 +1,9 @@
 # リクエストごとに設定を独立させる
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](providers.md#gpt-61-sol)
+
 > Grok 4.7: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデル選択・推論・処理速度](providers.md#grok-47)
 
 文書の要約には低いTemperature、創作の下書きには高い値が必要になることがあります。下書きを準備しただけで、先に準備した要約の設定が変わってはいけません。呼び出しごとに設定を変えたい場合や、共通のリクエストから複数のバリエーションを作る場合は`CreateRequest`を使います。
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude はモデル、リクエストの目的、推論と thinking binding の設定をまとめて決定します。`RequestProfiles.Summarization` や `RequestProfiles.QueryRewrite` などの補助プロファイルでは、`DisableReasoning = true`、目的が `Default` 以外、かつ実際のリクエストがステートレスの場合に限り、継承した binding を省略します。保持する会話プレフィックスがないリクエストで、継承したポリシーが推論を再度有効にしたりリクエストを拒否したりするのを防ぎます。推論を無効にできるモデルでは無効化し、常時推論する Opus 5.5、Fable 5.1、Mythos 5.1 では `Low` を使い、読み取り可能な thinking を省略します。Sonnet 5.5 では high effort の `between_tools` を使います。
+
+完了、ストリーミング、構造化出力、Run は同じ順序でリクエストを準備します。設定を取得し、実際のプロファイル処理を一度適用してから、最終的な共通オプションとプロバイダー固有オプションを検証します。自動要約、新しい入力の履歴追加、通信開始より前に行うため、カスタムプロバイダーのプロファイルオーバーライドも検証対象に反映されます。Claude で実際に使用する手動 `ThinkingBudget` がモデルの出力上限以上なら、この段階で拒否します。有効なプロファイルと共通推論設定の優先順位は変わりません。
+
+アプリケーションからの呼び出しは独立した論理リクエストを開始します。`SystemMessageProvider` やツールのコールバック内からの通常の呼び出し、同じ `AIRequestProfile`・`Message` を再利用する呼び出しも含みます。オブジェクトの再利用は実行の共有を意味しません。フレームワーク内部の委譲、ツール処理、再試行、形式修正は元のリクエストを継続し、プロファイルは一度だけ適用します。通常の子リクエストは独自のオプションとサービス既定値を取得し、ビルダーは取得済み設定を使います。成功・失敗・キャンセル後に親の実行状態を復元します。フレームワークからの呼び出しを転送するプロバイダーのオーバーライドには、[後述のアダプター規則](#provider-request-adapters)が適用されます。
+
+組み込みプロバイダーは組み込み入力コンテンツの独立したコピーを保持します。同じ `Message` を再利用しても、その呼び出しのコンテキストとターン指示を適用し、受理済みの履歴は書き換えません。カスタムコンテンツと未対応のメタデータオブジェクトは所有者が管理してください。同じ会話への並行呼び出しを安全にするものではありません。
+
+`StartRunAsync` が戻った後も、Run は最終設定の独自のコピーを保持します。呼び出し元のプロファイルを復元しても実行中の Run は変わらず、実行用プロファイルフックも一度だけ呼び出されます。
+
+ステートレスな補助リクエストは独立した会話を使用し、親の出力スキーマ、ホスト型ツール、一回限りのオプションを継承しません。この分離によってネイティブオプションの検証を省略することはなく、OpenAI・Perplexity の Run にも適用します。親の設定、メッセージ、`CurrentSummary`、リクエストの観測情報は保持します。ステートフルなリクエストでは binding と会話の検証を維持します。既存の公開 API は変わりません。
+
+ライブラリが自動生成する会話要約では、親の `SystemMessageProvider` コールバックとリクエストコンテキストも除外します。継承した `RequestMessageOverride` が内部の要約プロンプトを置き換えることを防ぐためです。アプリケーションが明示的に文章の要約を依頼する場合を含め、通常のリクエストでは動的コンテキストを従来どおり適用します。
+
+ステートレスなリクエストは親の会話の自動要約も実行しません。従来の `GetCompletionAsync(string, profile)` オーバーロードでも、`Message` オーバーロードやリクエストビルダーと同じ動作になります。親の `CurrentSummary` とメッセージは変わりません。状態を保持するリクエストでは通常の自動要約を維持します。
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## カスタムプロバイダーでリクエストを転送する
+
+フレームワークが仮想プロバイダーアダプターを呼び出した場合、対応する基底メソッドへの最初の呼び出しは、準備済みのリクエストを継続します。オーバーライドで入力の `Message` を置き換えた場合も同様です。ビルダーが取得したオプションと適用済みのプロファイルは、この転送でも維持されます。既定のコールバック型ストリーミングアダプターも、同じ準備済みリクエストを継続します。
+
+アダプターが異なる `AIRequestProfile` を渡す場合、同じ値は再適用せず、変更値は取得済み設定を基に以前のプロファイル層を置き換えます。自動要約や送信の前に再検証するため、ステートレスへの変更で親の会話が先に要約されることはありません。OpenAI のステートレス補助要求は無関係な保持履歴の検査を省略し、親の保護状態は維持します。
+
+転送するプロファイルを置き換えても、リクエスト内で後から追加・削除・編集したツール、ポリシー変更、明示的に再設定した値は維持されます。同じスカラー値を再設定した場合も含みます。別のプロファイル項目の変更で、アダプターが削除したツールが復活することはありません。サービスの既定値も再取得しません。
+
+ライブラリが内部構造を扱えない独自設定オブジェクトは、内部フィールドを変更せず `SetExecutionSetting` で値を置き換えてください。プロファイル変更の追跡のために任意のアプリケーションオブジェクトを調査したり、そのシリアライザーを実行したりはしません。
+
+Claude の圧縮は保持済み `RequestMessageOverride` と `AdditionalMessages` の呼び出しと結果の依存関係を、サーバーツールも含めて維持します。Mythos 5.1 のバインド済み thinking 接頭部も保護します。並列ツールの旧形式記録は通常履歴でも追加メッセージでも一度だけまとめ、各記録の所有関係を維持します。
+
+転送前に無関係な補助処理が同じ基底メソッドを呼び出すと、それが継続なのかをフレームワークは判断できません。その補助呼び出しと `await` を、protected メソッド `BeginIndependentRequestScope()` のスコープで囲んでください。ストリーミングの場合は、列挙全体が終わるまでスコープを維持します。補助リクエストはサービス既定値から開始し、スコープを破棄すると外側の設定、機能、コンテキスト、保留中の委譲が復元されます。コンテキストやツールのコールバックからの通常の入れ子呼び出しはすでに独立しており、このスコープは不要です。
+
+たとえば、具象プロバイダーのサブクラスでテキストを書き換えてから転送できます。
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+このスコープはリクエストの実行状態を分離しますが、会話履歴を分離したり、サービスの並行利用を可能にしたりするものではありません。この例ではステートレスな `QueryRewrite` プロファイルを使い、補助リクエストを親の会話から分離しています。
+
+Claude の圧縮処理は、`AIRequestContext.AdditionalMessages` で追加された署名付き thinking を含め、正規の送信形式で保持された履歴を検査します。既定の thinking binding は、そのプレフィックスを自動要約や明示的な要約による圧縮から保護します。`ClaudeThinkingPrefixMismatchBehavior.DropBlock` を明示すると、対応する場合には圧縮が許可されます。他の会話に関する制約は引き続き適用されます。
 
 ## コピーされる設定と共有される状態
 
@@ -177,7 +238,7 @@ var processing = service.LastProcessing;
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

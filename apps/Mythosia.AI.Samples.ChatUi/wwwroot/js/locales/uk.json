@@ -381,6 +381,7 @@
   "Reasoning": "Міркування",
   "Reasoning Level": "Рівень міркування",
   "Reasoning Mode": "Режим міркування",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "Після вимкнення початкове міркування пропускається; повідомлення про перебіг роботи між викликами інструментів залишаються ввімкненими.",
   "Reasoning and final answer": "Міркування та підсумкова відповідь",
   "Recent references": "Нещодавні джерела",
   "Recommended": "Рекомендовано",

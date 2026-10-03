@@ -31,6 +31,7 @@
             public const string Gpt6Astra = "gpt-6-astra";
             public const string Gpt6Sol = "gpt-6-sol";
             public const string Gpt6Luna = "gpt-6-luna";
+            public const string Gpt6_1Sol = "gpt-6.1-sol";
             public const string GptImage2 = "gpt-image-2";
             public const string GptImage2_260421 = "gpt-image-2-2026-04-21";
             public const string GptImage2_5Sunburst = "gpt-image-2.5-sunburst";
@@ -58,6 +59,7 @@
             public const string ClaudeOpus5_5 = "claude-opus-5-5";
             public const string ClaudeOpus5 = "claude-opus-5";
             public const string ClaudeSonnet5 = "claude-sonnet-5";
+            public const string ClaudeSonnet5_5 = "claude-sonnet-5-5";
             public const string ClaudeOpus4_8 = "claude-opus-4-8";
             public const string ClaudeOpus4_7 = "claude-opus-4-7";
             public const string ClaudeOpus4_6 = "claude-opus-4-6";

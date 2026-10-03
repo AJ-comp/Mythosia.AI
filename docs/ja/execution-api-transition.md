@@ -1,5 +1,9 @@
 # Runで実行中のAIタスクを制御する
 
+> Claude Sonnet 5.5: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[設定と移行](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Mythosia.AI 8.2.0 / Abstractions 4.2.0 が必要です。[モデル選択と移行](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: Mythosia.AI 8.1.0 / Abstractions 4.1.0 が必要です。 [モデルの選択と必要バージョン](providers.md#gpt-6-sol-luna)
 
 完成した回答と停止ボタンだけなら`GetCompletionAsync`に`cancellationToken`を渡します。進捗イベントや対応モデルへの追加指示にはRunを使います。[完了要求のキャンセル](completions.md#completion-cancellation)を参照してください。
@@ -199,11 +203,19 @@ async Task SendUpdateAsync(string instruction)
 string answer = (await run.Result).Text;
 ```
 
-実行途中の追加指示は、Responses WebSocket接続を使用するGPT-6 Astra / Sol / Lunaで利用できます。他のプロバイダーや非対応モデルでも通常のRunを利用できますが、`CanSteer`は`false`となり、追加指示は非対応として報告されます。通常の次のターンを黙って作成することはありません。`CanSteer`は、後で呼び出す時点でもRunが実行中であることまでは保証しません。
+実行途中の追加指示は、Responses WebSocket接続を使用するGPT-6.1 Sol (Standard) / GPT-6 Astra / Sol / Lunaで利用できます。他のプロバイダーや非対応モデルでも通常のRunを利用できますが、`CanSteer`は`false`となり、追加指示は非対応として報告されます。通常の次のターンを黙って作成することはありません。`CanSteer`は、後で呼び出す時点でもRunが実行中であることまでは保証しません。
 
-GPT-6のRunは専用ソケットを開きます。渡した`HttpClient`とメッセージハンドラーは引き続きHTTP呼び出しで使われ、このソケットには介在しません。独自のトランスポートが必要な場合は`OpenAIService.ConnectRunWebSocketAsync`をオーバーライドできます。
+GPT-6.1 Sol の追加指示は Standard モードでのみ利用できます。Pro でも通常の Run、関数呼び出し、ネイティブ非同期ツールは利用できますが、`Steering = Unsupported`、`run.CanSteer = false` になります。その Pro Run で `SteerAsync` を呼び出すとローカルで拒否され、通常の実行はキャンセルも中断もされません。
+
+GPT-6 ファミリーの Run は、HTTP リクエストと同じ規則で、設定された `HttpClient.BaseAddress` に対して `responses` を解決します。その後、解決されたホスト、ポート、パスを保ち、`https` を `wss`、`http` を `ws` に変換します。末尾のスラッシュによって結果が変わります。`https://example.com/proxy/v1/` は `wss://example.com/proxy/v1/responses`、`https://example.com/proxy/v1` は `wss://example.com/proxy/responses` になります。ベースアドレスがない場合や HTTP(S) 以外のスキームは接続前に拒否され、既定の OpenAI エンドポイントにはフォールバックしません。Run は専用の `ClientWebSocket` を使うため、渡した `HttpClient` のメッセージハンドラーはソケットに介在しません。独自のトランスポートは引き続き `OpenAIService.ConnectRunWebSocketAsync` をオーバーライドできます。
+
+`SteerAsync` だけに使うトークンを送信順の待機中にキャンセルすると、別の送信を待っている場合も含めて、その呼び出しだけをキャンセルし、Run は停止しません。トランスポートへの引き渡し開始後のキャンセルや送信エラーは、配送結果が不明なため Run を中断する場合があります。送信完了後、確認応答の待機中にキャンセルしても、待機を停止するだけで送信済みの入力は取り消せません。同じ Run の監視を続けてください。`StartRunAsync` に渡したトークンのキャンセルや `run.Cancel()` は、引き続き Run 全体をキャンセルします。
 
 `SteerAsync`の成功は、サーバーが入力をキューに受け入れたことを意味し、モデルへの適用完了を意味しません。継続処理も同じRunで観測するか、その結果を待ちます。すでに配信したテキストや完了した操作は取り消されず、追加指示だけを理由に開始済みのツールがキャンセルされることもありません。ライブラリが同じ接続で継続処理とツール結果の対応付けを行います。OpenAIの[実行途中の追加指示ガイド](https://developers.openai.com/api/docs/guides/steering)と[WebSocketモード](https://developers.openai.com/api/docs/guides/websocket-mode)も参照してください。キュー内の入力は接続に属し、切断後も残るとは想定できません。受け入れ済みの指示を無条件で再送しないでください。
+
+OpenAI のネイティブ Run では、出力処理が受信イベントに遅れても、受理された追加指示を対応する継続応答の直前に会話履歴へ記録します。回復不能なトランスポート障害が発生すると、キャンセルに対応するローカルツールをキャンセルし、クリーンアップ後に `run.Result` が元の障害を報告します。キャンセルを無視するツールについては、引き続き終了まで待機します。
+
+相手からの WebSocket Close フレームによる正常終了では、対応する初回リクエストやツール結果の送信が完了する前に Close フレームが届いても、完全に受信済みの最終応答は保持されます。再送は行わず、呼び出し元のキャンセルは引き続き尊重され、最終応答が確認できていない送信失敗は抑制されません。ローカルツールの実行中に接続が閉じた場合も、すでに受信した API の終端エラーの元の理由が保持されます。
 
 ## ツールを使うタスクと旧エージェントメソッド
 

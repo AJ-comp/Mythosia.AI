@@ -4,9 +4,11 @@ Use this package when building middleware, retrieval integrations or custom prov
 
 Version 4.1.0 speed contracts add `InferenceSpeed`, immutable `AIProcessingInfo`, request-feature `WithSpeed`, tri-state speed capabilities and `AIRunResult.Processing`. They describe processing mode and provider reports, not measured tokens per second. The matching core implementation provides provider validation and transport wiring; `IAIService` gains no required members; optional `IAIProcessingInfoService` and `GetLastProcessing()` expose observations through interface references. See [processing speed](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 4.1.0
+## Current release: 4.2.0
 
-This additive contracts release pairs with **Mythosia.AI 8.1.0**. It adds model identifiers and optional speed contracts without changing existing required interface members, constructors or enum values. See the [v4.1.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410).
+This additive contracts release pairs with **Mythosia.AI 8.2.0**. It adds `AIModels.OpenAI.Gpt6_1Sol` for the fixed `gpt-6.1-sol` model ID, reusing the existing reasoning, Run, request-feature and processing-speed contracts. No required interface members, constructors or existing enum values change. GPT-6.1 Sol requires Low through Max reasoning; older Sol/Luna retain support for None. See the [v4.2.0 release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420) and [model selection and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-61-sol).
+
+`AIModels.Anthropic.ClaudeSonnet5_5` selects `claude-sonnet-5-5`; the additive `ClaudeThinkingMode` enum defines `Auto`, `Adaptive` and `BetweenTools`. Mythosia.AI 8.2.0 supplies validation and execution: adaptive/high by default, explicit `between_tools` for up-front thinking suppression, and preserved signed tool progress. [Sonnet 5.5 configuration and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-sonnet-55).
 
 The v4 contracts below remain available. When upgrading from 3.x or earlier, the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md) explains the required source changes and rebuilds.
 
@@ -163,7 +165,8 @@ The shared output-format default is now `ImageOutputFormat.Auto`: OpenAI resolve
 | `ActorRole` | Message role enum (`System`, `User`, `Assistant`, `Function`) |
 | `AIRequestContext` | Per-request context overrides (system message prefix/suffix, message override) |
 | `AIRequestProfile` | Per-request parameter overrides (temperature, max tokens, stateless mode) |
-| `AIModels` | Provider model identifiers, including `AIModels.Anthropic.ClaudeOpus5_5`, `ClaudeFable5_1`, `ClaudeMythos5_1`, GPT-6 Astra / Sol / Luna, GPT-5.6, and current xAI aliases |
+| `AIModels` | Provider model identifiers, including `AIModels.Anthropic.ClaudeSonnet5_5`, `ClaudeOpus5_5`, `ClaudeFable5_1`, `ClaudeMythos5_1`, GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6, and current xAI aliases |
+| `ClaudeThinkingMode` | `Auto`, `Adaptive`, `BetweenTools`; core validates model-specific support and effort combinations |
 | `ClaudeThinkingDisplay` | `Omitted`, `Summarized`, or `Updates`; 5.1 progress updates keep reasoning hidden |
 | `ClaudeThinkingPrefixMismatchBehavior` | `Error` or `DropBlock` for the provider's handling of thinking bound to a changed conversation |
 | `ClaudeInputTransformation` | Provider-reported thinking changes: `Type`, `Path`, `Reason`, `ResponseId`, and `Model` |
@@ -208,7 +211,7 @@ The shared output-format default is now `ImageOutputFormat.Auto`: OpenAI resolve
 | `AiFunctionAttribute` | Marks a method as an AI-callable function, with optional `AllowAsync` permission (default `false`) |
 | `AiParameterAttribute` | Describes a function parameter for the AI |
 
-When a slow lookup leaves room for independent model work, such as giving general advice while waiting for a forecast, `AllowAsync` permits the two to overlap on a supporting provider, model, and API. The implementation enables it for GPT-6 Astra / Sol / Luna through Responses; other connections omit the API option and wait for the same handler's result. The permission is preserved when switching models. `FunctionCall.IsAsync` records the provider's actual call status, so enabling the permission does not guarantee async execution. In `Mythosia.AI`, `FunctionBuilder.WithAsync()` is the fluent equivalent of `AllowAsync = true`.
+When a slow lookup leaves room for independent model work, such as giving general advice while waiting for a forecast, `AllowAsync` permits the two to overlap on a supporting provider, model, and API. The implementation enables it for GPT-6.1 Sol / GPT-6 Astra / Sol / Luna through Responses; other connections omit the API option and wait for the same handler's result. The permission is preserved when switching models. `FunctionCall.IsAsync` records the provider's actual call status, so enabling the permission does not guarantee async execution. In `Mythosia.AI`, `FunctionBuilder.WithAsync()` is the fluent equivalent of `AllowAsync = true`.
 
 This is separate from `Task`-returning handlers and `FunctionExecutionMode.Parallel`. Pending function jobs belong to the existing completion or streaming request; they are completed and cleaned up before that request ends. Cancellation-aware handlers receive the execution token through `HandlerWithCancellation`; started handlers that ignore cancellation are still awaited during cleanup. Calls not yet started are skipped with matching cancelled results. Calling the legacy `Handler` delegate directly uses `CancellationToken.None`.
 
@@ -248,4 +251,4 @@ By depending on abstractions rather than the full implementation package, librar
 - [Mythosia.AI (implementation)](https://www.nuget.org/packages/Mythosia.AI)
 - [GitHub](https://github.com/AJ-comp/Mythosia.AI)
 - [Documentation](https://aj-comp.github.io/Mythosia.AI/)
-- [v4.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410)
+- [v4.1.0 Release Notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420)

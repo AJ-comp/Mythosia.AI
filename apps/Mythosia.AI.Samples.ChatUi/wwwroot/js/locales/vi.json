@@ -381,6 +381,7 @@
   "Reasoning": "Suy luận",
   "Reasoning Level": "Mức độ suy luận",
   "Reasoning Mode": "Chế độ suy luận",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "Khi tắt, mô hình bỏ qua suy luận ban đầu; các cập nhật tiến độ giữa những lần gọi công cụ vẫn được bật.",
   "Reasoning and final answer": "Suy luận và câu trả lời cuối cùng",
   "Recent references": "Nguồn tham chiếu gần đây",
   "Recommended": "Đề xuất",

@@ -1,6 +1,12 @@
 # Escolher o esforço de raciocínio e responder com fontes
 
+> Claude Sonnet 5.5: Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuração e migração](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, o antigo `ThinkingBudget` desativado ou `AIRequestProfile.DisableReasoning` selecionam `between_tools` com esforço high: desativa o raciocínio inicial, mas o progresso das ferramentas ainda pode chegar em blocos thinking. `WithBetweenToolsThinking(...)` aceita `Auto` (high), `Low`, `Medium` ou `High`; rejeita `XHigh` e `Max`. O objeto thinking enviado contém apenas `type`, sem display, budget ou binding. Este modo não permite mudanças de esforço por mensagem nem `CachePreservation.Required`. `WithReasoning(Low...Max)` explícito volta para adaptive; `Auto` respeita o modo do provedor.
+
 > Grok 4.7: Requer Mythosia.AI 8.1.0 / Abstractions 4.1.0. [seleção do modelo, raciocínio e velocidade](providers.md#grok-47)
+
+> GPT-6.1 Sol: Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Seleção e migração](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna ainda não foram publicados. Veja [seleção do modelo e requisitos](providers.md#gpt-6-sol-luna).
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 O provedor executa essa ferramenta hospedada. Não é necessário registrar ou executar um manipulador de função local. Ativar a busca a disponibiliza ao modelo; ele pode decidir que um prompt específico não precisa dela. As referências às fontes ficam disponíveis quando o provedor as retorna.
 
+**Limitações conhecidas:** Claude Sonnet 5.5 / Opus 5.5 não conseguem continuar uma pausa de busca nativa que termine em `server_tool_use` pendente; veja [as APIs afetadas e as formas de pausa suportadas](providers.md#claude-native-continuation-limitation). Streaming e Run também têm uma [limitação de cancelamento com conteúdo HTTP personalizado que usa buffer](streaming.md#sse-acquisition-cancellation-limitation).
+
 OpenAI e Anthropic também aceitam `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`. O Google não disponibiliza essa lista de domínios permitidos pela ferramenta integrada; por isso, uma solicitação restrita é rejeitada em vez de pesquisar toda a Web.
 
 ## Responder com documentos já indexados pelo provedor
@@ -146,8 +154,8 @@ Os campos de citação podem ser `null` quando o provedor não fornece um valor.
 
 | Provedor integrado | Níveis de raciocínio nomeados | Mudança preservando o cache | Busca na Web | Busca de arquivos |
 | --- | --- | --- | --- | --- |
-| OpenAI | Modelos de raciocínio compatíveis; níveis variam por modelo | GPT-6 Astra / Sol / Luna Standard, modo de agente único | Modelos Responses compatíveis | Modelos Responses compatíveis e repositórios vetoriais existentes |
-| Anthropic | Modelos com controle nativo de esforço | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 compatíveis com a versão beta do provedor | Modelos Claude compatíveis | Sem adaptador nativo de repositório; use RAG |
+| OpenAI | Modelos de raciocínio compatíveis; níveis variam por modelo | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard, modo de agente único | Modelos Responses compatíveis | Modelos Responses compatíveis e repositórios vetoriais existentes |
+| Anthropic | Modelos com controle nativo de esforço | Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 compatíveis com a versão beta do provedor | Modelos Claude compatíveis | Sem adaptador nativo de repositório; use RAG |
 | Google | Níveis do Gemini 3; Gemini 2.5 mantém os orçamentos específicos do provedor | Não suportado | Modelos de texto Gemini compatíveis | Modelos de texto Gemini compatíveis e repositórios de busca de arquivos existentes |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | Não suportado | Sem adaptador comum | Sem adaptador comum |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; equivalências nativas Low/High/Max | Não suportado | Sem adaptador comum | Sem adaptador comum |

@@ -40,7 +40,8 @@ public class OpenAIAsyncToolCallingLiveTests
         await VerifyAsync(model, allowAsync, expectNativeAsync: false, streaming);
     }
 
-    internal static async Task VerifyAsync(string model, bool allowAsync, bool expectNativeAsync, bool streaming)
+    internal static async Task VerifyAsync(string model, bool allowAsync, bool expectNativeAsync, bool streaming,
+        Gpt6ReasoningMode reasoningMode = Gpt6ReasoningMode.Standard)
     {
         // Use the same credential source as the existing provider live contracts. Do not log keys.
         var apiKey = await LiveTestSecrets.GetAsync("momedit-openai-secret");
@@ -52,6 +53,7 @@ public class OpenAIAsyncToolCallingLiveTests
             MaxTokens = 4096,
             ForceFunctionName = ToolName,
             Gpt6ReasoningEffort = Gpt6Reasoning.Low,
+            Gpt6ReasoningMode = reasoningMode,
             Gpt6ReasoningSummary = null,
             Gpt6Verbosity = Verbosity.Low,
             Gpt5_6ReasoningEffort = Gpt5_6Reasoning.None,

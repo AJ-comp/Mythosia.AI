@@ -381,6 +381,7 @@
   "Reasoning": "Schlussfolgern",
   "Reasoning Level": "Schlussfolgerungstiefe",
   "Reasoning Mode": "Schlussfolgerungsmodus",
+  "Off skips upfront thinking; progress updates between tool calls remain enabled.": "Aus überspringt das anfängliche Denken; Fortschrittsmeldungen zwischen Tool-Aufrufen bleiben aktiviert.",
   "Reasoning and final answer": "Schlussfolgerungen und endgültige Antwort",
   "Recent references": "Zuletzt erstellte Referenzen",
   "Recommended": "Empfohlen",

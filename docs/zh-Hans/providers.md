@@ -73,9 +73,38 @@ var presetRequest = new ImageGenerationRequest
 
 天气查询较慢时，模型仍可先介绍不依赖天气结果的通用旅行用品。模型原生异步工具调用用于在这种等待期间继续独立工作；依赖查询结果的判断仍应等结果返回后再进行。
 
-通过 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可选择允许 GPT-6 Astra / Sol / Luna 在 Responses API 中异步调用工具。默认值为 `false`；不支持的模型仍等待同一个处理器的结果。示例和请求生命周期见[函数调用指南](function-calling.md)。
+通过 `FunctionDefinition.AllowAsync = true` 或 `FunctionBuilder.WithAsync()`，可选择允许 GPT-6.1 Sol / GPT-6 Astra / Sol / Luna 在 Responses API 中异步调用工具。默认值为 `false`；不支持的模型仍等待同一个处理器的结果。示例和请求生命周期见[函数调用指南](function-calling.md)。
 
 要跨提供商设置推理级别，并使用最新信息或已索引文档作为依据，请参阅[推理与搜索指南](reasoning-and-search.md)，其中列明了模型支持、缓存保留及组合限制。
+
+<a id="gpt-61-sol"></a>
+
+### GPT-6.1 Sol
+
+复杂编程和专业工作需要兼顾质量与成本时，可选择 GPT-6.1 Sol。OpenAI 将其定位为以较低成本提供接近 Astra 表现的模型。请显式选择 `AIModels.OpenAI.Gpt6_1Sol` (`gpt-6.1-sol`)；服务默认模型及原有 `Gpt6Sol` 标识符保持不变。
+
+> 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。
+
+从 GPT-6 Sol 迁移时，请将 `None` 改为 `Low`：GPT-6.1 Sol 支持 `Low`、`Medium`（`Auto` 默认值）、`High`、`XHigh` 和 `Max`，拒绝 `None` 与 `Minimal`。请求省略 `Temperature` / `TopP`。`AIRequestProfile.DisableReasoning` 使用 Standard 模式的 `Low`，并省略推理摘要。原有 GPT-6 Sol 和 Luna 的 `None` 行为保持不变。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Services.OpenAI;
+
+var service = new OpenAIService(apiKey, httpClient);
+service.ChangeModel(AIModels.OpenAI.Gpt6_1Sol);
+string answer = await service.CreateRequest("Review this design.")
+    .WithReasoning(ReasoningLevel.High)
+    .GetCompletionAsync();
+```
+
+支持文本和图像输入、文本输出。上下文为 1,050,000 token，最大输入 922,000，最大输出 128,000；输入、推理和输出的总量必须符合上下文上限。`MaxTokens` 控制请求的输出预算。
+
+默认使用 Responses，工具调用也必须使用此 API；Chat Completions 支持不带工具的请求。现有完整响应、流式响应、结构化输出、本地工具与 Run 路径均可使用此模型，包括可选原生异步工具和 Standard 模式的 WebSocket 追加指令（`run.CanSteer`）。`Gpt6ReasoningMode.Standard` 与 `.Pro` 使用同一模型 ID，保留缓存的推理变更仅用于 Standard 单代理模式。`WithSpeed(InferenceSpeed.Fast)` 请求付费 Fast 处理，通过 `result.Processing` 查看报告的处理模式。EU 数据驻留不支持 Fast，本地能力信息也不保证账户权限。
+
+GPT-6.1 Sol 的追加指令仅支持 Standard 模式。Pro 仍支持普通 Run、函数调用和原生异步工具，但报告 `Steering = Unsupported`、`run.CanSteer = false`。在该 Pro Run 上调用 `SteerAsync` 会在本地被拒绝，不会取消或中止其正常执行。
+
+[GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol) · [GPT-6 guide](https://developers.openai.com/api/docs/guides/latest-model#gpt-61-sol) · [Fast](https://developers.openai.com/api/docs/guides/fast-mode)
 
 <a id="gpt-6-sol-luna"></a>
 
@@ -113,7 +142,7 @@ string answer = await service.CreateRequest("Summarize this paragraph.")
 
 ### 推理强度
 
-GPT-6 Astra / Sol / Luna 和 GPT-5.1–5.6 支持调整推理强度，以平衡响应速度和分析深度：
+GPT-6.1 Sol / GPT-6 Astra / Sol / Luna 和 GPT-5.1–5.6 支持调整推理强度，以平衡响应速度和分析深度：
 
 ```csharp
 using Mythosia.AI.Models;
@@ -240,6 +269,70 @@ await File.WriteAllBytesAsync("pavilion-cutout.png", edited.Images[0].Data);
 ## Anthropic (AnthropicService)
 
 [Claude Fable 5.1](fable-5-1.md) 的进度更新、单轮指令和 thinking 绑定诊断从 `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0 开始提供。Mythos 5.1 需要邀请访问，两个模型都拒绝强制工具选择。
+
+<a id="claude-native-continuation-limitation"></a>
+
+### 已知限制：Claude 原生续接
+
+本次发行中，Claude Sonnet 5.5 和 Opus 5.5 的原生网页搜索无法续接以尚未执行的 `server_tool_use` 结尾的 `pause_turn` 响应。该响应会被误判为 assistant prefill，在下一次 HTTP 请求之前抛出 `NotSupportedException`，影响普通完成、流式和 Run。以已完成的 `*_tool_result` 结尾的暂停可以续接。此问题尚未修复。自定义 HTTP 内容还存在单独的[流式取消限制](streaming.md#sse-acquisition-cancellation-limitation)。
+
+<a id="claude-sonnet-55"></a>
+
+### Claude Sonnet 5.5
+
+`AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`) 支持文本和图像输入、文本输出，具有 1M 上下文窗口和最多 128K 输出 token。需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0；现有默认模型及模型标识符保持不变。
+
+未修改设置时使用 adaptive 推理、`High` effort，并省略可读推理。Adaptive 支持 `Low`、`Medium`、`High`、`XHigh` 和 `Max`，拒绝 `Minimal`。`MaxTokens` 包含推理和回答。采样参数不会发送。
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.High, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.CreateRequest("Review the plan using the registered tools.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(options: StreamOptions.FullOptions);
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+Adaptive 模式可用 `ClaudeThinkingDisplay.Updates` 获取工具进度，或用 `Summarized` 获取推理摘要。读取 `StreamingContentType.Reasoning`，普通完成后读取 `LastThinkingContent`。Adaptive 辅助方法的默认 display 参数为 `Summarized`，与未设置时不同。`between_tools` 自动返回工具进度；不保证固定通知间隔。
+
+`ReasoningLevel.None`、禁用的旧版 `ThinkingBudget` 或 `AIRequestProfile.DisableReasoning` 会选择 high effort 的 `between_tools`，关闭预先推理，但工具进度仍可能作为 thinking 块返回。`WithBetweenToolsThinking(...)` 接受 `Auto`（high）、`Low`、`Medium` 或 `High`，拒绝 `XHigh` 和 `Max`。发送的 thinking 对象只有 `type`，没有 display、budget 或 binding。此模式不支持按消息更改 effort 或 `CachePreservation.Required`。公共 `WithReasoning(Low...Max)` 会切回 adaptive，`Auto` 则遵循所选提供者模式。
+
+```csharp
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithBetweenToolsThinking(ClaudeReasoningEffort.Low);
+string quick = await claude.CreateRequest("Use the registered tools to check the status.")
+    .GetCompletionAsync();
+
+// A separate conversation using request-scoped high-effort between_tools.
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+string next = await claude.CreateRequest("Give me the latest status.")
+    .WithReasoning(ReasoningLevel.None)
+    .GetCompletionAsync();
+```
+
+`ClaudeThinkingMode`: `Auto` / `Adaptive` / `BetweenTools`; `AnthropicService.ThinkingMode`.
+
+请只向历史末尾追加内容。带签名的 thinking 块（包括空块与 `progress_updates` 元数据）会在轮次和工具结果间保留。修改已保存的 assistant 响应会在本地被拒绝，`ClaudeThinkingPrefixMismatchBehavior.DropBlock` 也不例外。旧 user/system/tool 前缀修改不会自动在本地阻止，而是交给 Anthropic 的绑定策略处理。Adaptive 中的 `WithThinkingBinding(ClaudeThinkingPrefixMismatchBehavior.Error)` 请求提供者严格验证，无效前缀可能产生 HTTP 400；`DropBlock` 允许提供者丢弃受影响的推理，null 使用提供者默认策略。通过 `LastInputTransformations` 查看报告的丢弃。`between_tools` 不支持绑定控制。通过 `WithTurnInstruction` / `WithConversationInstruction` 添加新指令。Adaptive 的 `CachePreservation.Required` 也不能保证编辑旧消息是安全的。
+
+继续使用现有完成、流式、结构化输出、图像、本地函数、网页搜索和普通 Run API。不要设置 `ForceFunctionName`；强制工具选择（`any` / `tool`）和 assistant prefill 在 HTTP 前被拒绝，自动选择与 `FunctionsDisabled` 仍可用。不支持 `Fast`、原生异步工具或 Run steering。此集成未提供 computer toolset、advisor 工具、原生压缩、对话内工具更改或自动服务器 fallback。切换模型或账户可能丢弃绑定的推理；请求成功并不代表推理已保留。 原生网页搜索受[续接限制](#claude-native-continuation-limitation)影响。
+
+公共结构化输出 API 使用模式提示、反序列化和修复重试，不发送原生 `output_config.format` 模式约束。
+
+[官方模型信息](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) · [迁移](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) · [提供者变更](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
 
 <a id="claude-opus-55"></a>
 

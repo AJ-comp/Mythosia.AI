@@ -23,8 +23,8 @@ namespace Mythosia.AI.Services.Anthropic
         {
             public string Model = string.Empty;
             public string Endpoint = string.Empty;
-            public object? Thinking;
-            public object? OutputConfig;
+            public ClaudeThinkingPlan? Plan;
+            public ClaudeThinkingDisplay DisplaySetting;
             public bool Disabled;
             public string? PersistentEffort;
             public string[] MessageIds = Array.Empty<string>();
@@ -96,7 +96,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private bool SupportsPerMessageClaudeEffort()
         {
-            return IsClaudeOpus55Model() || IsClaudeNameOrSnapshot("claude-opus-5") ||
+            return IsClaudeOpus55Model() || IsClaudeSonnet55Model() || IsClaudeNameOrSnapshot("claude-opus-5") ||
                    IsClaudeNameOrSnapshot("claude-fable-5-1") ||
                    IsClaudeNameOrSnapshot("claude-mythos-5-1");
         }
@@ -108,17 +108,21 @@ namespace Mythosia.AI.Services.Anthropic
 
         protected override void ValidateRequestFeatures(AIRequestFeatures features)
         {
-            if (ActivateChat.Messages.Count == 0)
+            // Preparation installs effective settings/features before provider validation.
+            if (UsesSonnet55BetweenTools(features) && RequestThinkingPrefixMismatchBehavior.HasValue)
+                throw new NotSupportedException("Sonnet 5.5 between-tools thinking does not accept binding controls. Keep history unchanged or use adaptive thinking with an explicit binding policy.");
+            if (!IsIsolatedAuxiliaryRequest && ActivateChat.Messages.Count == 0)
             {
                 _claudeReasoningBaselines.Remove(ActivateChat);
                 _claudeWireHistories.Remove(ActivateChat);
             }
-            if (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var preserved) && preserved.PersistentEffort != null)
+            if (!IsIsolatedAuxiliaryRequest &&
+                _claudeReasoningBaselines.TryGetValue(ActivateChat, out var preserved) && preserved.PersistentEffort != null)
             {
                 ValidateClaudePreservedHistory(preserved);
                 if (RequestStatelessMode)
                     throw new NotSupportedException("A cache-preserving Claude conversation cannot use stateless requests.");
-                if (features.Reasoning?.Level == ReasoningLevel.None)
+                if (features.Reasoning?.Level == ReasoningLevel.None || UsesSonnet55BetweenTools(features))
                     throw new NotSupportedException("Thinking cannot be disabled inside a cache-preserving Claude conversation. Start a new conversation.");
             }
             if (features.FileSearch != null)
@@ -137,7 +141,7 @@ namespace Mythosia.AI.Services.Anthropic
                 if (!_claudeReasoningBaselines.TryGetValue(ActivateChat, out _) &&
                     ActivateChat.Messages.Any(message => message.Role == ActorRole.Assistant))
                     throw new NotSupportedException("Imported Claude history has no verified reasoning baseline. Start a new conversation.");
-                if (ResolveRequestCapabilities().ReasoningCachePreservation == CapabilitySupport.Unsupported ||
+                if (UsesSonnet55BetweenTools(features) ||
                     !SupportsPerMessageClaudeEffort())
                     throw new NotSupportedException($"Claude model '{RequestModel}' does not support cache-preserving per-message effort.");
                 if (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var previous) &&
@@ -159,11 +163,12 @@ namespace Mythosia.AI.Services.Anthropic
 
         protected override string? GetConversationCompactionBlockReason()
         {
+            ValidateClaudeHistoryOwnership();
             if (CurrentRequestFeatures.Reasoning?.Cache == CachePreservation.Required ||
                 (_claudeReasoningBaselines.TryGetValue(ActivateChat, out var state) &&
                  state.PersistentEffort != null && ActivateChat.Messages.Count > 0))
                 return "Conversation compaction would invalidate the prefix required by cache-preserving Claude effort.";
-            if ((IsClaudeNameOrSnapshot("claude-fable-5-1") || IsClaudeOpus55Model()) &&
+            if (UsesBoundClaudeThinking() &&
                 ClaudeOptions.Binding != ClaudeThinkingPrefixMismatchBehavior.DropBlock && HasClaudeThinkingHistory())
                 return "Conversation compaction would invalidate preserved Claude thinking. Start a new conversation or explicitly select DropBlock.";
             return base.GetConversationCompactionBlockReason();
@@ -179,8 +184,7 @@ namespace Mythosia.AI.Services.Anthropic
             var effort = reasoning == null
                 ? baseline.PersistentEffort!
                 : reasoning.Level == ReasoningLevel.Auto
-                ? (UsesAdaptiveThinkingForRequest() && IsThinkingEnabled ? ResolveAdaptiveThinkingEffort()
-                    : IsClaudeOpus55Model() ? "medium" : "high")
+                ? (ResolveClaudeThinkingPlan(validate: false).Effort ?? (IsClaudeOpus55Model() ? "medium" : "high"))
                 : reasoning.Level.ToString().ToLowerInvariant();
             if (reasoning?.Cache == CachePreservation.Required)
                 baseline.PersistentEffort = effort;
@@ -215,57 +219,6 @@ namespace Mythosia.AI.Services.Anthropic
                     content = Array.Empty<object>(),
                     output_config = new { effort = effort.ToString() }
                 });
-        }
-
-        private void ApplyCommonClaudeReasoning(Dictionary<string, object> requestBody)
-        {
-            var reasoning = CurrentRequestFeatures.Reasoning;
-            if (reasoning != null && reasoning.Level != ReasoningLevel.Auto)
-            {
-                if (reasoning.Level == ReasoningLevel.None)
-                {
-                    requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "disabled" };
-                    requestBody.Remove("output_config");
-                }
-                else
-                {
-                    if (ModelSupportsAdaptiveThinking())
-                    {
-                        requestBody["thinking"] = new Dictionary<string, object>
-                        {
-                            ["type"] = "adaptive",
-                            ["display"] = RequestAdaptiveThinkingDisplay == ClaudeThinkingDisplay.Summarized ? "summarized" : "omitted"
-                        };
-                        requestBody.Remove("temperature");
-                    }
-                    requestBody["output_config"] = new Dictionary<string, object>
-                    {
-                        ["effort"] = reasoning.Level.ToString().ToLowerInvariant()
-                    };
-                }
-            }
-            var baseline = _claudeReasoningBaselines.GetValue(ActivateChat, _ => new ClaudeReasoningBaseline());
-            if (baseline.PersistentEffort != null && baseline.Model == RequestModel)
-            {
-                SetOrRemoveClaudeField(requestBody, "thinking", baseline.Thinking);
-                SetOrRemoveClaudeField(requestBody, "output_config", baseline.OutputConfig);
-                return;
-            }
-            if (reasoning?.Cache == CachePreservation.Required && reasoning.Level == ReasoningLevel.Auto)
-                requestBody["thinking"] = new Dictionary<string, object> { ["type"] = "adaptive" };
-            baseline.Model = RequestModel;
-            baseline.Endpoint = HttpClient.BaseAddress?.AbsoluteUri ?? string.Empty;
-            baseline.Thinking = requestBody.TryGetValue("thinking", out var thinking) ? thinking : null;
-            baseline.OutputConfig = requestBody.TryGetValue("output_config", out var output) ? output : null;
-            baseline.Disabled = baseline.Thinking != null &&
-                JsonSerializer.SerializeToElement(baseline.Thinking).TryGetProperty("type", out var type) &&
-                type.GetString() == "disabled";
-        }
-
-        private static void SetOrRemoveClaudeField(Dictionary<string, object> body, string name, object? value)
-        {
-            if (value == null) body.Remove(name);
-            else body[name] = value;
         }
 
         private void ApplyNativeClaudeTools(Dictionary<string, object> requestBody)

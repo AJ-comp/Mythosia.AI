@@ -1,5 +1,7 @@
 # Theo dõi các tác vụ dài với Claude Fable 5.1
 
+> Claude Sonnet 5.5: Cần Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Cấu hình và chuyển đổi](providers.md#claude-sonnet-55)
+
 [Claude Opus 5.5](providers.md#claude-opus-55) được hỗ trợ từ Mythosia.AI 8.1.0 / Abstractions 4.1.0: luôn bật suy luận, mặc định mức medium và ẩn hiển thị. Cần yêu cầu rõ tiến độ đọc được; mặc định và quy tắc gắn với mô hình khác Fable 5.1.
 
 > Các tùy chọn Fable 5.1 yêu cầu `Mythosia.AI` 8.0.0 và `Mythosia.AI.Abstractions` 4.0.0 trở lên. API Run, suy luận/tìm kiếm và GPT-6 Astra hiện có vẫn giữ phiên bản tối thiểu 7.1.0 / 3.1.0.
@@ -68,6 +70,10 @@ await service
 ```
 
 Cả hai helper chụp chỉ dẫn cho yêu cầu logic tiếp theo. Mythosia giữ tin nhắn cũ và thêm tin nhắn system sau đầu vào người dùng hoặc kết quả công cụ. `WithTurnInstruction` dùng `clear_at: "next_user_message"`; trong cùng yêu cầu logic, thư viện thêm lại chỉ dẫn sau mỗi lượt kết quả công cụ để duy trì hiệu lực đến hết yêu cầu. `WithConversationInstruction` tiếp tục áp dụng cho các lượt sau. Cấu hình trước khi bắt đầu tác vụ; chúng không phải `run.SteerAsync` và không chèn chỉ dẫn vào phản hồi đang chạy.
+
+Khi được phép nén hội thoại cục bộ, nội dung `WithConversationInstruction` đã được chấp nhận được giữ riêng với bản tóm tắt, theo thứ tự ban đầu và với quyền hệ thống. Vì vậy, bản tóm tắt không thể âm thầm bỏ yêu cầu lâu dài như ngôn ngữ trả lời. `WithTurnInstruction` vẫn chỉ áp dụng trong lượt đó. Nén thất bại hoặc bị hủy không thay đổi chỉ dẫn và lịch sử đã chấp nhận; xóa hội thoại sẽ kết thúc các chỉ dẫn được giữ lại.
+
+Khi có chỉ dẫn lâu dài, thao tác nén vốn sẽ xóa toàn bộ lịch sử vẫn giữ lượt người dùng mới nhất cùng các phụ thuộc công cụ cần thiết, kể cả khi `KeepRecentCount = 0`. Nhờ đó có thể phân biệt nén với chủ động xóa hội thoại.
 
 Để thay đổi effort giữa các yêu cầu mà vẫn giữ tiền tố cache có thể tái sử dụng, dùng `.WithReasoning(ReasoningLevel.High, cache: CachePreservation.Required)` từ `Mythosia.AI.Extensions`. Thư viện gửi cập nhật effort theo tin nhắn và giữ lịch sử của nó. Xem tổ hợp được hỗ trợ trong [hướng dẫn chung](reasoning-and-search.md). Với 5.1, tiền tố/hậu tố system theo yêu cầu của `AIRequestContext` trở thành chỉ dẫn theo lượt được thêm cuối, thay vì sửa system prompt trước đó.
 

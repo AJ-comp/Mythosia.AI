@@ -1,5 +1,17 @@
 # Mythosia.AI.Providers.Alibaba - Release Notes
 
+## v3.0.2
+
+### Changed
+
+- Completion resolves the prepared request message snapshot before request execution instead of continuing with the original caller input. This keeps captured request context and message ownership consistent with the core request pipeline.
+- Rebuilds against `Mythosia.AI` 8.2.0 and transitively `Mythosia.AI.Abstractions` 4.2.0.
+
+### Compatibility
+
+- Existing Qwen public APIs, endpoint defaults and thinking controls remain unchanged. No additional source migration is required from 3.0.x; this patch does not add provider-specific priority processing.
+- The inherited core SSE path retains a known cancellation/timeout limitation with custom HTTP content that buffers a successful response during stream acquisition. A canceled Run can remain pending and block service reuse until acquisition finishes; default transport checks passed. See the [streaming limitation](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/streaming.md#sse-acquisition-cancellation-limitation).
+
 ## v3.0.1
 
 ### Changed

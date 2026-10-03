@@ -1,5 +1,9 @@
 # Einstellungen jeder Anfrage unabhängig halten
 
+> Claude Sonnet 5.5: Erfordert Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Konfiguration und Migration](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: Benötigt Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Modellwahl und Migration](providers.md#gpt-61-sol)
+
 > Grok 4.7: Benötigt Mythosia.AI 8.1.0 / Abstractions 4.1.0. [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47)
 
 Eine Zusammenfassung benötigt möglicherweise eine niedrige Temperatur, ein kreativer Entwurf eine höhere. Der Entwurf darf die bereits vorbereitete Zusammenfassung nicht verändern. Verwenden Sie `CreateRequest`, wenn Aufrufe unterschiedliche Einstellungen benötigen oder Sie Varianten einer gemeinsamen Anfrage erstellen möchten.
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude bestimmt Modell, Anfragezweck, Reasoning und Thinking-Binding gemeinsam. Bei Hilfsprofilen wie `RequestProfiles.Summarization` oder `RequestProfiles.QueryRewrite` wird die übernommene Binding-Richtlinie nur weggelassen, wenn `DisableReasoning = true` gilt, der Zweck nicht `Default` ist und die tatsächliche Anfrage zustandslos ist. So aktiviert die übernommene Richtlinie weder erneut Reasoning noch führt sie zur Ablehnung einer Anfrage ohne zu erhaltendes Gesprächspräfix. Modelle mit abschaltbarem Thinking deaktivieren es; Opus 5.5, Fable 5.1 und Mythos 5.1 mit obligatorischem Reasoning verwenden `Low` ohne lesbares Thinking. Sonnet 5.5 verwendet `between_tools` mit hohem Aufwand.
+
+Completion, Streaming, strukturierte Ausgabe und Run bereiten Anfragen nach demselben Ablauf vor: Einstellungen erfassen, die tatsächliche Profilverarbeitung einmal anwenden und danach die resultierenden allgemeinen und anbieterspezifischen Optionen prüfen. Dies geschieht vor automatischer Zusammenfassung, dem Anhängen neuer Eingaben und dem Verbindungsaufbau. Benutzerdefinierte Profilüberschreibungen werden damit tatsächlich berücksichtigt. Claude weist auch ein verwendetes manuelles `ThinkingBudget` zurück, das die Ausgabegrenze des Modells erreicht oder überschreitet; gültige Profil- und allgemeine Reasoning-Einstellungen behalten ihren Vorrang.
+
+Anwendungsaufrufe beginnen unabhängige logische Anfragen, auch gewöhnliche Aufrufe aus `SystemMessageProvider` oder Tool-Callbacks sowie Aufrufe, die dasselbe `AIRequestProfile` oder `Message` wiederverwenden. Ein wiederverwendetes Objekt bedeutet keine gemeinsame Ausführung. Framework-Delegation, Tool-Runden, Wiederholungen und Formatkorrekturen setzen die ursprüngliche Anfrage fort; ihr Profil wird einmal angewendet. Neue gewöhnliche Unteranfragen erfassen eigene Optionen und Service-Standardwerte, Builder behalten ihre erfassten Einstellungen. Nach Erfolg, Fehler oder Abbruch wird die übergeordnete Ausführung wiederhergestellt. Anbieterüberschreibungen, die einen Framework-Aufruf weiterleiten, folgen den [Adapterregeln unten](#provider-request-adapters).
+
+Integrierte Anbieter behalten eine eigene Kopie der integrierten Eingabeinhalte. Ein erneut verwendetes `Message` erhält den Kontext und die Anweisungen des neuen Aufrufs, ohne bereits akzeptierten Verlauf umzuschreiben. Benutzerdefinierte Inhalte und nicht unterstützte Metadatenobjekte bleiben in der Verantwortung ihres Eigentümers. Parallele Aufrufe derselben Unterhaltung werden dadurch nicht sicher.
+
+Nach der Rückkehr von `StartRunAsync` behält der Run eine eigene Kopie der effektiven Einstellungen. Das Wiederherstellen des Aufruferprofils verändert den aktiven Run nicht; die Ausführungs-Hooks des Profils werden weiterhin nur einmal aufgerufen.
+
+Zustandslose Hilfsanfragen verwenden eine eigene Unterhaltung und übernehmen weder Ausgabeschema noch gehostete Tools oder einmalige Optionen der übergeordneten Anfrage. Die Isolierung überspringt niemals die native Anbieterprüfung, auch nicht bei OpenAI- und Perplexity-Runs. Einstellungen, Nachrichten, `CurrentSummary` und Beobachtungsdaten der übergeordneten Anfrage bleiben erhalten. Zustandsbehaftete Anfragen behalten ihre Binding- und Unterhaltungsprüfungen. Die bestehenden öffentlichen APIs bleiben unverändert.
+
+Intern erzeugte Gesprächszusammenfassungen schließen auch den `SystemMessageProvider`-Callback und den Anfragekontext der übergeordneten Anfrage aus. Ein geerbtes `RequestMessageOverride` kann dadurch den internen Zusammenfassungsprompt nicht ersetzen. Von der Anwendung gestartete Anfragen verwenden ihren dynamischen Kontext weiterhin normal, auch bei expliziten Aufträgen zur Textzusammenfassung.
+
+Zustandslose Anfragen überspringen auch die automatische Zusammenfassung des übergeordneten Gesprächs, einschließlich der bisherigen Überladung `GetCompletionAsync(string, profile)`, ebenso wie die `Message`-Überladung und der Request Builder. `CurrentSummary` und die Nachrichten des übergeordneten Gesprächs bleiben unverändert. Zustandsbehaftete Anfragen behalten die übliche automatische Zusammenfassung.
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## Anfragen in einem benutzerdefinierten Anbieter weiterleiten
+
+Wenn das Framework einen virtuellen Anbieteradapter aufruft, setzt dessen erster Aufruf des passenden Basiseinstiegspunkts die vorbereitete Anfrage fort, auch wenn die Überschreibung die Eingabe `Message` ersetzt. Erfasste Builder-Optionen und angewendete Profile bleiben bei dieser Weiterleitung erhalten. Auch der standardmäßige Adapter für Callback-Streaming setzt dieselbe vorbereitete Anfrage fort.
+
+Ein Adapter darf ein geändertes `AIRequestProfile` weitergeben: unveränderte Werte werden nicht erneut angewendet; Änderungen ersetzen die vorherige Profilebene auf Basis der erfassten Einstellungen. Die erneute Prüfung erfolgt vor automatischer Zusammenfassung und Versand, auch beim Wechsel zu zustandsloser Ausführung. Zustandslose OpenAI-Hilfsanfragen überspringen fremde Verlaufskontrollen, ohne den Schutz der ursprünglichen Unterhaltung zu löschen.
+
+Beim Ersetzen eines weitergereichten Profils bleiben spätere anfragelokale Tool-Ergänzungen, Entfernungen und Änderungen, Richtlinienänderungen und explizite Zuweisungen erhalten, auch bei erneut zugewiesenen identischen Skalarwerten. Ein vom Adapter entferntes Tool kehrt nicht allein durch ein anderes Profilfeld zurück. Dienstvorgaben werden nicht erneut eingelesen.
+
+Bei undurchsichtigen benutzerdefinierten Einstellungsobjekten sollten Provider-Adapter den Wert über `SetExecutionSetting` ersetzen, statt interne Felder zu ändern. Die Bibliothek untersucht keine beliebigen Anwendungsobjekte und ruft deren Serialisierer nicht zur Profilverfolgung auf.
+
+Claude bewahrt beim Kürzen Aufruf/Ergebnis-Abhängigkeiten in `RequestMessageOverride` und `AdditionalMessages`, einschließlich Serverwerkzeugen, sowie gebundene Thinking-Präfixe von Mythos 5.1. Alte parallele Werkzeugaufzeichnungen werden sowohl im Verlauf als auch in Zusatznachrichten einmal zusammengeführt; ihre jeweilige Zuordnung bleibt erhalten.
+
+Ein unabhängiger Hilfsaufruf desselben Basiseinstiegspunkts vor der Weiterleitung ist mehrdeutig: Das Framework kann nicht erkennen, ob dieser Aufruf die Fortsetzung ist. Umschließen Sie diesen Hilfsaufruf und sein `await` mit dem geschützten `BeginIndependentRequestScope()`; bei Streaming muss der Scope während der gesamten Enumeration geöffnet bleiben. Der Hilfsaufruf beginnt mit den Service-Standardwerten. Beim Freigeben des Scopes werden die äußeren Einstellungen, Features, der Kontext und die ausstehende Delegation wiederhergestellt. Gewöhnliche verschachtelte Aufrufe aus Kontext- oder Tool-Callbacks sind bereits unabhängig und benötigen diesen Scope nicht.
+
+Eine Unterklasse eines konkreten Anbieters kann beispielsweise Text vor der Weiterleitung umformulieren:
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+Dieser Scope trennt den Ausführungszustand der Anfragen; er isoliert weder den Gesprächsverlauf noch erlaubt er die gleichzeitige Nutzung des Dienstes. Das Beispiel verwendet das zustandslose Profil `QueryRewrite`, damit der Hilfsaufruf außerhalb der übergeordneten Unterhaltung bleibt.
+
+Claude prüft beim Verdichten den beibehaltenen kanonischen Verlauf im Übertragungsformat, einschließlich signierter Thinking-Blöcke, die über `AIRequestContext.AdditionalMessages` hinzugefügt wurden. Die standardmäßige Thinking-Bindung schützt dieses Präfix vor automatischer oder expliziter Verdichtung durch Zusammenfassung. Ein ausdrücklich gesetztes `ClaudeThinkingPrefixMismatchBehavior.DropBlock` erlaubt die Verdichtung, soweit unterstützt; andere Einschränkungen für die Unterhaltung gelten weiterhin.
 
 ## Kopierte Einstellungen und geteilter Zustand
 
@@ -177,7 +238,7 @@ Die implementierte Fast-Liste steht unten. Prüfen Sie Standard separat mit `Get
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

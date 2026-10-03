@@ -6,6 +6,7 @@ using Mythosia.AI.Models.Streaming;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -104,7 +105,8 @@ namespace Mythosia.AI.Services.Base
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             using var requestScope = BeginRequestSettingsScope();
-            using var featureScope = BeginRequestFeaturesScope(message);
+            using var featureScope = BeginRequestPreparation(message, entry: RequestEntry.Streaming);
+            message = ResolveRequestMessage(message);
             var featureExecution = _requestFeatureExecution.Value!;
             var requestExecution = _requestExecution.Value!;
             var effectiveContext = await BuildEffectiveContextAsync(context, cancellationToken).ConfigureAwait(false);
@@ -196,6 +198,7 @@ namespace Mythosia.AI.Services.Base
             {
                 SetExecutionSetting(nameof(Stream), true);
                 ActivateChat.Messages.Add(message);
+                RecordRequestInput(message);
 
                 int accInputTokens = 0;
                 int accOutputTokens = 0;
@@ -243,7 +246,7 @@ namespace Mythosia.AI.Services.Base
                             {
                                 var content = enumerator.Current;
 
-                                if (!roundEmittedAny && attempt < ContextRecoveryMaxRetries &&
+                                if (!roundEmittedAny && attempt < RequestSetting(nameof(ContextRecoveryMaxRetries), ContextRecoveryMaxRetries) &&
                                     !_isSummarizing && !RequestStatelessMode && !HasPendingAsyncFunctions &&
                                     GetConversationCompactionBlockReason() == null && IsContextOverflowChunk(content))
                                 {
@@ -451,6 +454,15 @@ namespace Mythosia.AI.Services.Base
                     $"Request timeout after {timeoutSeconds} seconds",
                     exception);
             }
+            catch (TaskCanceledException exception) when (
+                !callerCancellationToken.IsCancellationRequested &&
+                !roundLoopCancellationToken.IsCancellationRequested &&
+                exception.InnerException is TimeoutException)
+            {
+                // HttpClient has its own deadline. Preserve that failure before Run
+                // settlement can discard its cause by treating it as caller cancellation.
+                throw new AIServiceException("The HTTP request timed out.", exception);
+            }
         }
 
         protected static StreamingContent CreateRoundUsageContent(
@@ -533,48 +545,78 @@ namespace Mythosia.AI.Services.Base
                 SingleWriter = true
             });
 
+            // The callback producer belongs to this enumeration, including when its reader
+            // stops after a chunk or throws. Disposing a linked CTS does not cancel its work.
+            using var producerCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var producerToken = producerCancellation.Token;
+            Exception? producerFailure = null;
+            var deliveredFailure = false;
+
             var streamingTask = Task.Run(async () =>
             {
                 try
                 {
                     // Build a temporary message from the last user message
                     var lastMessage = ActivateChat.Messages[ActivateChat.Messages.Count - 1];
+                    using var cancellationScope = BeginRequestCancellationScope(producerToken);
+                    using var continuation = ContinueRequest(lastMessage, RequestEntry.Provider, allowInputReplacement: true);
                     await StreamCompletionAsync(lastMessage, async content =>
                     {
                         await channel.Writer.WriteAsync(new StreamingContent
                         {
                             Type = StreamingContentType.Text,
                             Content = content
-                        }, cancellationToken);
+                        }, producerToken);
                     });
+                }
+                catch (OperationCanceledException) when (producerToken.IsCancellationRequested)
+                {
+                    // The reader reports caller cancellation. Iterator disposal only stops
+                    // the producer; its cooperative cancellation must not replace a caller error.
                 }
                 catch (Exception ex)
                 {
-                    await channel.Writer.WriteAsync(new StreamingContent
+                    producerFailure = ex;
+                    channel.Writer.TryWrite(new StreamingContent
                     {
                         Type = StreamingContentType.Error,
                         Content = ex.Message,
                         Metadata = new Dictionary<string, object> { ["error"] = ex.Message }
-                    }, cancellationToken);
+                    });
                 }
                 finally
                 {
                     channel.Writer.TryComplete();
                 }
-            }, cancellationToken);
-
-            await foreach (var content in channel.Reader.ReadAllAsync(cancellationToken))
-            {
-                yield return content;
-            }
+            });
 
             try
             {
-                await streamingTask;
+                await foreach (var content in channel.Reader.ReadAllAsync(cancellationToken))
+                {
+                    if (content.Type == StreamingContentType.Error) deliveredFailure = true;
+                    yield return content;
+                }
             }
-            catch (OperationCanceledException)
+            finally
             {
-                // Expected when cancelled
+                Exception? cancellationFailure = null;
+                if (!streamingTask.IsCompleted)
+                {
+                    try { producerCancellation.Cancel(); }
+                    catch (Exception ex) { cancellationFailure = ex; }
+                }
+                // Always drain, even when cancellation callbacks throw. Returning before this
+                // completes would let Run release its guard while the old provider still runs.
+                await streamingTask.ConfigureAwait(false);
+                if (!deliveredFailure && producerFailure != null)
+                {
+                    if (cancellationFailure != null)
+                        throw new AggregateException(producerFailure, cancellationFailure);
+                    ExceptionDispatchInfo.Capture(producerFailure).Throw();
+                }
+                if (cancellationFailure != null)
+                    ExceptionDispatchInfo.Capture(cancellationFailure).Throw();
             }
         }
 

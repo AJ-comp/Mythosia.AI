@@ -16,6 +16,7 @@ namespace Mythosia.AI.Samples.ChatUi
     {
         private static readonly (string Provider, string Name, string Value)[] Catalogue =
         {
+            ("OpenAI", nameof(AIModels.OpenAI.Gpt6_1Sol), AIModels.OpenAI.Gpt6_1Sol),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt6Astra), AIModels.OpenAI.Gpt6Astra),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt6Sol), AIModels.OpenAI.Gpt6Sol),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt6Luna), AIModels.OpenAI.Gpt6Luna),
@@ -39,6 +40,7 @@ namespace Mythosia.AI.Samples.ChatUi
             ("OpenAI", nameof(AIModels.OpenAI.Gpt4o241120), AIModels.OpenAI.Gpt4o241120),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt4o240806), AIModels.OpenAI.Gpt4o240806),
             ("OpenAI", nameof(AIModels.OpenAI.Gpt4oMini), AIModels.OpenAI.Gpt4oMini),
+            ("Anthropic", nameof(AIModels.Anthropic.ClaudeSonnet5_5), AIModels.Anthropic.ClaudeSonnet5_5),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeFable5_1), AIModels.Anthropic.ClaudeFable5_1),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeMythos5_1), AIModels.Anthropic.ClaudeMythos5_1),
             ("Anthropic", nameof(AIModels.Anthropic.ClaudeFable5), AIModels.Anthropic.ClaudeFable5),
@@ -231,6 +233,14 @@ namespace Mythosia.AI.Samples.ChatUi
             if (provider == "Anthropic")
             {
                 if (budgets.Length > 0) return new { type = "claude", levels = budgets };
+                if (string.Equals(model, AIModels.Anthropic.ClaudeSonnet5_5, StringComparison.OrdinalIgnoreCase))
+                    return new
+                    {
+                        type = "claude_adaptive",
+                        levels = levels.Where(level => level != "Auto" && level != "None").ToArray(),
+                        defaultLevel = "High",
+                        defaultEnabled = true
+                    };
                 if (string.Equals(model, AIModels.Anthropic.ClaudeOpus5_5, StringComparison.OrdinalIgnoreCase))
                     return new
                     {

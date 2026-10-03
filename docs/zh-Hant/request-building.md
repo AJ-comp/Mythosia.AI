@@ -1,5 +1,9 @@
 # 讓每個請求的設定互相獨立
 
+> Claude Sonnet 5.5: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[設定與移轉](providers.md#claude-sonnet-55)
+
+> GPT-6.1 Sol: 需要 Mythosia.AI 8.2.0 / Abstractions 4.2.0。[模型選擇與遷移](providers.md#gpt-61-sol)
+
 > Grok 4.7: 需要 Mythosia.AI 8.1.0 / Abstractions 4.1.0。 [模型選擇、推理與處理速度](providers.md#grok-47)
 
 文件摘要可能需要較低的Temperature，創意草稿則需要較高的值。準備草稿不應悄悄改變已經準備好的摘要請求。不同呼叫需要不同設定，或需要從基礎請求衍生多個版本時，請使用`CreateRequest`。
@@ -93,7 +97,64 @@ var request = service
 string rewritten = await request.GetCompletionAsync();
 ```
 
+Claude 會統一決定模型、請求用途、推理和 thinking 綁定設定。對於 `RequestProfiles.Summarization` 或 `RequestProfiles.QueryRewrite` 等輔助設定，只有在 `DisableReasoning = true`、用途不是 `Default` 且實際請求為無狀態時，才省略繼承的綁定原則。這可避免沒有對話前綴需要保留的請求因繼承原則而重新啟用推理或遭到拒絕。允許關閉推理的模型會關閉推理；持續推理的 Opus 5.5、Fable 5.1 和 Mythos 5.1 使用 `Low` 並省略可讀 thinking，Sonnet 5.5 則使用 high effort 的 `between_tools`。
+
+完成、串流、結構化輸出和 Run 使用同一請求準備流程：擷取設定，執行一次實際的設定檔處理，再驗證最終的通用選項和供應者原生選項。這些步驟先於自動摘要、新增輸入至歷史及建立傳輸連線，因此自訂供應者的設定檔覆寫也會參與實際驗證。Claude 實際使用的手動 `ThinkingBudget` 若達到或超過模型輸出上限，也會在此階段被拒絕；有效設定檔和通用推理設定的優先順序不變。
+
+應用程式發起的呼叫會啟動獨立的邏輯請求，包括從 `SystemMessageProvider` 或工具回呼發起的一般呼叫，以及重複使用同一個 `AIRequestProfile`、`Message` 的呼叫。物件重用不代表執行共用。框架內部委派、工具輪次、重試和格式修復會延續原請求，其設定檔只套用一次。一般子請求取得自己的選項和服務預設值，建構器保留已擷取的設定。成功、失敗或取消後均還原父請求的執行狀態。轉送框架呼叫的提供者覆寫方法遵循[下方的配接器規則](#provider-request-adapters)。
+
+內建供應者保留內建輸入內容的獨立副本。重複使用 `Message` 發起新呼叫時，會套用本次的內容脈絡和輪次指令，不會改寫已接受的歷史。自訂內容和不支援的中繼資料物件仍由擁有者管理。這不保證同一對話的並行呼叫安全。
+
+`StartRunAsync` 傳回後，Run 仍保有最終設定的獨立副本。還原呼叫端的設定檔不會改變執行中的 Run，執行用的設定檔掛鉤仍只呼叫一次。
+
+無狀態輔助請求使用獨立對話，不繼承父請求的輸出結構描述、託管工具或一次性選項。隔離不會略過原生選項驗證，OpenAI 和 Perplexity 的 Run 也遵循此規則。父請求的設定、訊息、`CurrentSummary` 和觀測資訊保持不變。有狀態請求繼續執行綁定與對話檢查。現有公開 API 不變。
+
+程式庫自動產生的對話摘要也會排除父請求的 `SystemMessageProvider` 回呼和請求上下文，避免繼承的 `RequestMessageOverride` 取代內部摘要提示詞。應用程式主動發起的請求仍正常套用動態上下文，包括明確要求模型摘要文字的請求。
+
+無狀態請求也會略過父對話的自動摘要。既有 `GetCompletionAsync(string, profile)` 多載與 `Message` 多載及請求建構器的行為一致，保留父對話的 `CurrentSummary` 和訊息。有狀態請求繼續使用原有的自動摘要行為。
+
 [AIRequestProfile](request-profiles.md) · [AIRequestContext](request-contexts.md) · [WithReasoning / WithWebSearch / WithFileSearch](reasoning-and-search.md)
+
+<a id="provider-request-adapters"></a>
+
+## 在自訂提供者中轉送請求
+
+框架呼叫虛擬提供者配接器時，配接器對相應基底類別入口的第一次呼叫會延續已準備的請求，即使覆寫方法替換了輸入 `Message` 也是如此。建構器已擷取的選項和已套用的設定檔在轉送時仍然保留。預設的回呼式串流配接器也會延續同一個已準備的請求。
+
+介接器可以轉送修改後的 `AIRequestProfile`：相同值不會重複套用，變更值依已擷取的設定取代先前的設定層，並在自動摘要和傳送前重新驗證。因此，切換到無狀態模式不會先摘要父對話。OpenAI 無狀態輔助請求不檢查無關的保留歷程，也不會清除父對話的保護狀態。
+
+替換轉送的設定檔時，會保留請求內稍後新增、移除或修改的工具、原則變更及明確設定的值，即使重新指定相同的純量值也一樣。更改其他設定欄位不會恢復介接器已移除的工具，也不會重新讀取服務預設值。
+
+對於函式庫無法了解內部結構的自訂設定物件，介接器應透過 `SetExecutionSetting` 替換其值，而不是修改內部欄位。函式庫不會為了追蹤設定變更而檢查任意應用物件或呼叫其序列化器。
+
+Claude 壓縮保留 `RequestMessageOverride` 和 `AdditionalMessages` 中的呼叫／結果相依關係，包括伺服器工具，並保護 Mythos 5.1 綁定的 thinking 前綴。平行工具的舊格式記錄在一般歷程和附加訊息中都只合併一次，且保留每筆記錄的歸屬。
+
+如果在轉送之前，另一個無關的輔助呼叫也使用相同的基底類別入口，就會產生歧義：框架無法判斷它是否正在延續原請求。請使用 protected 方法 `BeginIndependentRequestScope()` 的範圍包住輔助呼叫及其 `await`；對於串流呼叫，此範圍必須涵蓋整個列舉過程。輔助請求從服務預設值開始，處置範圍會還原外層的設定、功能、上下文及待處理的委派。上下文或工具回呼中的一般巢狀呼叫本身已獨立，不需要此範圍。
+
+例如，具體提供者的子類別可以先改寫文字，再轉送請求：
+
+```csharp
+public override async Task<string> GetCompletionAsync(
+    Message message, AIRequestProfile? profile = null,
+    AIRequestContext? context = null, CancellationToken cancellationToken = default)
+{
+    string rewritten;
+    using (BeginIndependentRequestScope())
+    {
+        rewritten = await base.GetCompletionAsync(
+            new Message(ActorRole.User, message.Content),
+            RequestProfiles.QueryRewrite,
+            cancellationToken: cancellationToken);
+    }
+
+    var replacement = new Message(message.Role, rewritten);
+    return await base.GetCompletionAsync(replacement, profile, context, cancellationToken);
+}
+```
+
+此範圍隔離請求的執行狀態，不會隔離對話歷史或讓服務支援並行使用。範例使用無狀態的 `QueryRewrite` 設定檔，避免輔助請求加入父對話。
+
+Claude 壓縮會檢查以正規傳輸格式保留的歷史，包括透過 `AIRequestContext.AdditionalMessages` 加入的帶簽章 thinking。預設的 thinking 綁定會保護該前綴，防止自動或明確要求的摘要對其進行壓縮。明確指定 `ClaudeThinkingPrefixMismatchBehavior.DropBlock` 可在支援時允許壓縮；其他對話約束仍然適用。
 
 ## 哪些內容被複製，哪些狀態仍然共用
 
@@ -177,7 +238,7 @@ var processing = service.LastProcessing;
 | API | Fast |
 | --- | --- |
 | Anthropic — `api.anthropic.com` | `claude-opus-4-8`, `claude-opus-5`, `claude-opus-5-5` |
-| OpenAI — `api.openai.com` | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
+| OpenAI — `api.openai.com` | `gpt-6.1-sol`, `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.3-codex` |
 | xAI — `api.x.ai` | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.5-latest`, `grok-build-latest`, `grok-4.3`, `grok-4.3-latest`, `grok-latest`, `grok-4.20-0309-reasoning`, `grok-4.20-0309-non-reasoning`, `grok-build-0.1` |
 | xAI — `us.api.x.ai` | `grok-4.7`, `grok-4.6` |
 | Google — Gemini Developer API | `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview`, `gemini-3.1-pro-preview`, `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`, `gemini-3.7-flash`, `gemini-3.8-flash` |

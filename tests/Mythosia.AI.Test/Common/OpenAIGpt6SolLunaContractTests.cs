@@ -95,7 +95,8 @@ public class OpenAIGpt6SolLunaContractTests
     [TestMethod]
     [DataRow(AIModels.OpenAI.Gpt6Astra)]
     [DataRow("gpt-6-astra-2026-09-01")]
-    public async Task AstraNativeNone_IsRejectedBeforeNetworkAndHistoryMutation(string model)
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public async Task MandatoryReasoningNativeNone_IsRejectedBeforeNetworkAndHistoryMutation(string model)
     {
         using var handler = new CaptureHandler();
         using var client = new HttpClient(handler);
@@ -233,6 +234,12 @@ public class OpenAIGpt6SolLunaContractTests
     [DataRow("gpt-6-sol-2026-99-99")]
     [DataRow("gpt-6-luna-2026-09-22-extra")]
     [DataRow("gpt-6-terra")]
+    [DataRow("gpt-6.1-sol-experimental")]
+    [DataRow("gpt-6.1-sol-2026-09-30")]
+    [DataRow("gpt-6.1-sol-2026-99-99")]
+    [DataRow("gpt-6.1-sol-2026-09-30-extra")]
+    [DataRow("gpt-6.1-astra")]
+    [DataRow("gpt-6.1-luna")]
     public async Task UnknownModelSuffixes_DoNotInheritNativeFeatures(string model)
     {
         using var handler = new CaptureHandler();

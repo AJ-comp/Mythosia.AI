@@ -17,16 +17,9 @@ namespace Mythosia.AI.Services.Anthropic
         private object BuildRequestBody()
         {
             PrepareClaudeFeatureMessage();
-            var messagesList = UsesClaudeWireHistory ? BuildPreservedClaudeMessages() : new List<object>();
-
-            // Convert messages to Claude format
-            var messages = UsesClaudeWireHistory ? new List<Message>() : GetLatestMessagesWithFunctionFallback().ToList();
-            EnsureUserFirstMessage(messages);
-            foreach (var message in messages)
-            {
-                AppendClaudeEffortMarker(messagesList, message);
-                messagesList.Add(ConvertMessageForClaude(message));
-            }
+            // Historical turns keep one wire representation regardless of whether
+            // definitions for new tool calls are currently enabled.
+            var messagesList = BuildClaudeFunctionMessages();
 
             // Dictionary 사용으로 null/empty 체크 가능
             var requestBody = new Dictionary<string, object>
@@ -39,10 +32,7 @@ namespace Mythosia.AI.Services.Anthropic
             };
 
             ApplySystemMessage(requestBody);
-            ApplyThinkingConfig(requestBody);
-            ApplyCommonClaudeReasoning(requestBody);
-            ApplyClaudeRequestOptions(requestBody);
-            ApplyTemperaturePolicy(requestBody);
+            ApplyClaudeThinking(requestBody);
             ApplyNativeClaudeTools(requestBody);
             ApplyClaudeSpeed(requestBody);
 
@@ -51,10 +41,8 @@ namespace Mythosia.AI.Services.Anthropic
 
         private object ConvertMessageForClaude(Message message)
         {
-            if (message.Role == ActorRole.Assistant &&
-                message.Metadata?.TryGetValue(ClaudeNativeContentKey, out var nativeContent) == true)
+            if (TryReadClaudeAssistantContent(message, out var blocks))
             {
-                var blocks = JsonSerializer.Deserialize<JsonElement>(nativeContent.ToString()!);
                 ValidatePreservedClaudeAssistantText(message, blocks);
                 return new { role = "assistant", content = blocks };
             }
@@ -88,7 +76,7 @@ namespace Mythosia.AI.Services.Anthropic
 
         private void ValidatePreservedClaudeAssistantText(Message message, JsonElement blocks)
         {
-            if (!IsClaudeOpus55Model()) return;
+            if (!IsClaudeOpus55Model() && !IsClaudeSonnet55Model()) return;
             var originalText = string.Concat(blocks.EnumerateArray()
                 .Where(block => ReadClaudeString(block, "type") == "text")
                 .Select(block => ReadClaudeString(block, "text")));
@@ -102,7 +90,7 @@ namespace Mythosia.AI.Services.Anthropic
                 !string.Equals(contentText, originalText, StringComparison.Ordinal) ||
                 message.Contents.Any(content => !(content is TextContent)))
                 throw new InvalidOperationException(
-                    "A preserved Claude Opus 5.5 assistant response was edited. " +
+                    $"A preserved Claude {(IsClaudeSonnet55Model() ? "Sonnet" : "Opus")} 5.5 assistant response was edited. " +
                     "Restore the original response and send the correction as a new user message, " +
                     "or start a new conversation; signed assistant blocks must remain unchanged.");
         }

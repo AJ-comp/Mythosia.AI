@@ -1,5 +1,11 @@
 # Streaming
 
+Der Callback-Streaming-Adapter bricht seinen Produzenten bei vorzeitigem Ende ab und wartet auf ihn. Run-Abbruch, Zeitüberschreitung, Beobachterfehler und `DisposeAsync` warten auf die Bereinigung, bevor `Result` und die Ausführungssperre freigegeben werden. Nicht kooperative Arbeit kann dies verzögern; Beobachter- und Bereinigungsfehler bleiben gemeinsam erhalten. `ContextRecoveryMaxRetries` nutzt den erfassten Wert. Das Beenden allein der Beobachtung über `run.StreamAsync()` bricht den Run nicht ab. Beim Zugriff auf erfolgreiche SSE-Antwortkörper gilt eine separate [Einschränkung beim Abbruch](#sse-acquisition-cancellation-limitation).
+
+> Claude Sonnet 5.5: Erfordert Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Konfiguration und Migration](providers.md#claude-sonnet-55)
+
+In adaptive fordert `ClaudeThinkingDisplay.Updates` lesbaren Werkzeugfortschritt an, `Summarized` auch Reasoning-Zusammenfassungen. Lesen Sie `StreamingContentType.Reasoning` beziehungsweise `LastThinkingContent` nach einer Completion. Der adaptive Helfer verwendet ohne display-Argument `Summarized`, anders als unveränderte Einstellungen. `between_tools` liefert Werkzeugfortschritt automatisch; feste Intervalle sind nicht garantiert.
+
 > Grok 4.7: Benötigt Mythosia.AI 8.1.0 / Abstractions 4.1.0. [Modellwahl, Reasoning und Verarbeitungsgeschwindigkeit](providers.md#grok-47)
 
 Für die fertige Antwort mit Verbrauch und Quellen liefert `await run.Result` eine `AIRunResult`-Momentaufnahme. Die Zeichenfolge steht in `result.Text`; ein Stream-Leser ist unnötig. Diese API-Änderung gehört zu Mythosia.AI 8.0.0. Die Rückgabetypen von `GetCompletionAsync` und `StructuredStreamRun<T>.Result` bleiben erhalten. [Run-Ergebnis und Migration](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Claude-Fehlerantworten:** Abbruch und das Zeitlimit der Anfragerichtlinie unterbrechen auch das Lesen eines stockenden HTTP-Fehlertexts bei Streaming oder Run. Nach der Run-Bereinigung kann ein weiterer Run auf demselben Service starten. Ein Abbruch durch den Aufrufer führt zu `OperationCanceledException`, eine Zeitüberschreitung zu `AIServiceException`. Der Abbruch steuert den lokalen Transport und kooperative Bereinigung; er garantiert keinen Stopp der Verarbeitung oder Abrechnung beim Anbieter.
+
+**Bereinigung von Claude-Antworten:** Claude-Streaming und Run warten auf die asynchrone Bereinigung eines bereits bezogenen HTTP-Antwortinhalts, auch bei benutzerdefinierten Streams, die eine asynchrone Freigabe erfordern. Eine anschließende Ausnahme bei der Freigabe von Antwort oder Inhalt ersetzt weder einen erfolgreichen Abschluss noch den ursprünglichen Lesefehler oder Abbruch. Die Freigabe der ursprünglichen Antwort und ihres Inhalts wird weiterhin versucht.
+
+**HTTP-Zeitüberschreitungen:** Bei Text-, Inhalts- oder Callback-Streaming und Runs über den gemeinsamen Streaming-Rundenpfad wird ein erkennbarer `HttpClient.Timeout` (`TaskCanceledException` mit innerer `TimeoutException`) zu `AIServiceException`, sofern weder ein Abbruch durch den Aufrufer noch das Zeitlimit der Anfragerichtlinie ausgelöst wurde. `InnerException` bewahrt die ursprüngliche Transportausnahme, sodass `run.Result` mit der Ursache der Zeitüberschreitung fehlschlägt. Abbrüche durch den Aufrufer, Zeitlimits der Richtlinie und andere Transportabbrüche behalten ihr bisheriges Verhalten.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## Bekannte Einschränkung: Zugriff auf erfolgreiche SSE-Antwortkörper
+
+Bei HTTP 200 SSE kann ein puffernder `HttpContent`-Wrapper eines benutzerdefinierten Handlers `ReadAsStreamAsync` blockieren, bevor der Body-Stream verfügbar ist und die Bereinigung beginnt. Ein Abbruch durch den Aufrufer oder das Zeitlimit der Anfragerichtlinie kann `run.Result` offenlassen; die Antwort bleibt unfreigegeben und die Ausführungssperre bestehen, bis der Streamzugriff abgeschlossen ist. Ein weiterer Run wird als bereits aktiv abgelehnt. Dieser noch nicht behobene Fehler ist von langsamer Bereinigung zu unterscheiden. Der standardmäßige `SocketsHttpHandler` bestand die geprüften Szenarien; der Abbruch beim Lesen von HTTP-Fehlerantworten bestand auch mit dem Wrapper. Verwenden Sie normale Streaming-Inhalte ohne puffernden Wrapper. Für Claudes native Websuche gilt eine separate [Einschränkung der Fortsetzung](providers.md#claude-native-continuation-limitation).
 
 ## Beispiele für die bisherigen Kompatibilitätsmethoden
 

@@ -1,6 +1,12 @@
 # เลือกระดับการให้เหตุผลและตอบพร้อมแหล่งอ้างอิง
 
+> Claude Sonnet 5.5: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การตั้งค่าและการย้ายรุ่น](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, `ThinkingBudget` แบบเดิมที่ปิดไว้ หรือ `AIRequestProfile.DisableReasoning` จะเลือก `between_tools` ที่ระดับ high ซึ่งปิดการคิดล่วงหน้า แต่ความคืบหน้าของเครื่องมือยังอาจอยู่ในบล็อก thinking ได้ `WithBetweenToolsThinking(...)` รองรับ `Auto` (high), `Low`, `Medium`, `High` และปฏิเสธ `XHigh` กับ `Max` ออบเจ็กต์ thinking ที่ส่งมีเพียง `type` ไม่มี display, budget หรือ binding โหมดนี้ไม่รองรับการเปลี่ยน effort รายข้อความหรือ `CachePreservation.Required` การระบุ `WithReasoning(Low...Max)` จะกลับไปใช้ adaptive ส่วน `Auto` จะใช้โหมดผู้ให้บริการที่เลือกไว้
+
 > Grok 4.7: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
+
+> GPT-6.1 Sol: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การเลือกโมเดลและการย้ายรุ่น](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 ผู้ให้บริการเป็นผู้เรียกใช้เครื่องมือที่โฮสต์ไว้นี้ ไม่ต้องลงทะเบียนหรือเรียกใช้ตัวจัดการฟังก์ชันภายในแอป การเปิดค้นหาทำให้โมเดลเลือกใช้ได้ แต่โมเดลอาจตัดสินว่าพรอมป์ต์บางรายการไม่จำเป็นต้องค้นหา แหล่งอ้างอิงจะมีให้เมื่อผู้ให้บริการส่งกลับมา
 
+**ข้อจำกัดที่ทราบ:** Claude Sonnet 5.5 / Opus 5.5 ไม่สามารถทำงานต่อจากการพักการค้นหาแบบเนทีฟที่ลงท้ายด้วย `server_tool_use` ซึ่งยังรอทำงานได้ ดู[API ที่ได้รับผลกระทบและรูปแบบการพักที่รองรับ](providers.md#claude-native-continuation-limitation) นอกจากนี้ streaming และ Run ยังมี[ข้อจำกัดการยกเลิกเมื่อใช้เนื้อหา HTTP แบบกำหนดเองที่บัฟเฟอร์](streaming.md#sse-acquisition-cancellation-limitation)
+
 OpenAI และ Anthropic รองรับ `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })` ด้วย ส่วนเครื่องมือ Google ที่เชื่อมต่ออยู่นี้ไม่มีตัวเลือกรายการโดเมนที่อนุญาต คำขอที่กำหนดข้อจำกัดนี้จึงถูกปฏิเสธ แทนที่จะค้นหาทั่วทั้งเว็บ
 
 ## ตอบจากเอกสารที่ผู้ให้บริการจัดทำดัชนีไว้แล้ว
@@ -146,8 +154,8 @@ string answer = (await run.Result).Text;
 
 | ผู้ให้บริการที่เชื่อมต่อ | ระดับการให้เหตุผลแบบมีชื่อ | การเปลี่ยนที่รักษาแคช | ค้นหาเว็บ | ค้นหาไฟล์ |
 | --- | --- | --- | --- | --- |
-| OpenAI | โมเดลการให้เหตุผลที่รองรับ โดยระดับขึ้นอยู่กับโมเดล | GPT-6 Astra / Sol / Luna Standard ในโหมดเอเจนต์เดียว | โมเดล Responses ที่รองรับ | โมเดล Responses ที่รองรับและที่เก็บเวกเตอร์ที่มีอยู่แล้ว |
-| Anthropic | โมเดลที่มีการควบคุม effort โดยตรง | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 ที่รองรับ พร้อมฟีเจอร์เบตาของผู้ให้บริการ | โมเดล Claude ที่รองรับ | ไม่มีอะแดปเตอร์ที่เก็บแบบเนทีฟ ให้ใช้ RAG |
+| OpenAI | โมเดลการให้เหตุผลที่รองรับ โดยระดับขึ้นอยู่กับโมเดล | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard ในโหมดเอเจนต์เดียว | โมเดล Responses ที่รองรับ | โมเดล Responses ที่รองรับและที่เก็บเวกเตอร์ที่มีอยู่แล้ว |
+| Anthropic | โมเดลที่มีการควบคุม effort โดยตรง | Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 ที่รองรับ พร้อมฟีเจอร์เบตาของผู้ให้บริการ | โมเดล Claude ที่รองรับ | ไม่มีอะแดปเตอร์ที่เก็บแบบเนทีฟ ให้ใช้ RAG |
 | Google | ระดับของ Gemini 3; Gemini 2.5 ยังคงใช้งบประมาณเฉพาะผู้ให้บริการ | ไม่รองรับ | โมเดลข้อความ Gemini ที่รองรับ | โมเดลข้อความ Gemini ที่รองรับและที่เก็บค้นหาไฟล์ที่มีอยู่แล้ว |
 | xAI | Grok 4.7 / 4.6: `Auto`, `Low`, `Medium`, `High`, `XHigh` | ไม่รองรับ | ไม่มีอะแดปเตอร์ร่วม | ไม่มีอะแดปเตอร์ร่วม |
 | DeepSeek | Flash / V4 Pro: `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max`; จับคู่กับ Low/High/Max เนทีฟ | ไม่รองรับ | ไม่มีอะแดปเตอร์ร่วม | ไม่มีอะแดปเตอร์ร่วม |

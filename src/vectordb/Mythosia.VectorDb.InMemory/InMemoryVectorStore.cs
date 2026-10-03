@@ -1,4 +1,3 @@
-using Mythosia.AI.Rag;
 using Mythosia.VectorDb;
 using System;
 using System.Collections.Concurrent;
@@ -22,7 +21,7 @@ namespace Mythosia.VectorDb.InMemory
     /// without interrupting that operation or splitting a record update.
     /// Batch writes and the default interface replacement are not transactions.
     /// </remarks>
-    public class InMemoryVectorStore : IVectorStore, ITextSearchStore, IConfigurableHybridSearchStore, IRagDiagnosticsStore, IDisposable
+    public class InMemoryVectorStore : IVectorStore, ITextSearchStore, IConfigurableHybridSearchStore, IVectorStoreDiagnostics, IDisposable
     {
         private readonly ConcurrentDictionary<string, VectorRecord> _records
             = new ConcurrentDictionary<string, VectorRecord>(StringComparer.Ordinal);

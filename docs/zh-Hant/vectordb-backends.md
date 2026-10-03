@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,26 @@ var store = new InMemoryVectorStore();
 
 取消批次寫入後，已經寫入的記錄可能保留。`ReplaceByFilterAsync` 仍依序執行刪除和批次插入，不使用交易：其他查詢可能看到中間的空缺，失敗或取消也不會回復已完成的寫入。
 
+<a id="vector-store-diagnostics"></a>
+
 ### 診斷
+
+`IVectorStoreDiagnostics` 是 `Mythosia.VectorDb.Abstractions` 4.2.0 中的選用契約。InMemory 直接實作它，`IVectorStore` 不增加必要成員。`ListAllRecordsAsync` 列出全部記錄，`ScoredListAsync` 依遞減順序傳回全部相似度分數，不受 TopK 限制。兩者都檢查整個儲存，不接受中繼資料篩選器，也不套用 RAG 管線的 `StoreFilter`。`GetTotalRecordCount()` 仍是契約之外的 InMemory 便利方法。RAG 專用的區塊分析、健康檢查與報告仍由 `Mythosia.AI.Rag` 中的 `RagDiagnostics` 和 `RagDiagnosticSession` 提供。
+
+本次發行有意在次版本 RAG 8.3.0 和 InMemory 4.3.0 中包含破壞相容性的介面遷移。這是僅針對本次發行的版本編號例外：即使主版本號未變，透過 `IRagDiagnosticsStore` 使用 InMemory 的現有呼叫端也必須遷移至 `IVectorStoreDiagnostics`。
+
+**升級至 InMemory 4.3.0：**請搭配 RAG 8.3.0 使用；不支援新 InMemory 與舊 RAG 套件的組合。InMemory 不再實作 `IRagDiagnosticsStore`：請將指派、型別轉換及能力檢查遷移至 `IVectorStoreDiagnostics`，並重新建置受影響的呼叫端。RAG Abstractions 6.5.0 為舊自訂實作保留了已淘汰的介面、原有的兩個方法宣告及預設橋接。此橋接不會恢復 InMemory 與舊介面的關係，也不保證所有舊二進位檔都相容。
+
+對於實作 `IRagDiagnosticsStore` 的自訂儲存，RAG 透過內部配接器呼叫原介面方法。因此，即使存在簽章相同的 public 輔助方法，也會繼續使用明確介面實作。直接轉換為 `IVectorStoreDiagnostics` 後呼叫方法時，則可能改為呼叫這些 public 方法。
 
 ```csharp
 // 列出所有儲存的記錄
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"總計：{store.GetTotalRecordCount()}");
 
 // 查看原始相似度分數
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

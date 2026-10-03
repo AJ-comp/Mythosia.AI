@@ -1,6 +1,8 @@
 # Provider-Specific Configuration Architecture
 
-> GPT-6 Sol/Luna are unreleased additions; see [model selection and requirements](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-6-sol-luna).
+> GPT-6.1 Sol: Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Selection and migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#gpt-61-sol)
+
+> GPT-6 Sol/Luna require Mythosia.AI 8.1.0 / Abstractions 4.1.0.
 
 Need the completed answer together with usage and sources? `await run.Result` now returns an `AIRunResult` snapshot; use `result.Text` for the string. No stream reader is required. This is an API change in Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0; `GetCompletionAsync` and typed `StructuredStreamRun<T>.Result` keep their existing return types. [Run result and migration](../../../../../docs/execution-api-transition.md#run-result).
 
@@ -10,6 +12,93 @@ For independent settings and reusable variations, use [the request builder](../.
 > [Claude Fable 5.1](../../../../../docs/fable-5-1.md) adds progress updates, turn-scoped instructions, and thinking-binding diagnostics from `Mythosia.AI` 8.0.0 / `Mythosia.AI.Abstractions` 4.0.0. Mythos 5.1 requires invitation access. Both reject forced tool choice.
 
 > GPT-6 Astra, `AllowAsync`, `StartRunAsync`, and the common reasoning/search API are available from `Mythosia.AI` 7.1.0, with shared types in `Mythosia.AI.Abstractions` 3.1.0.
+
+<a id="claude-sonnet-55"></a>
+
+## Claude Sonnet 5.5
+
+Select `AIModels.Anthropic.ClaudeSonnet5_5` (`claude-sonnet-5-5`) for text/image input and text output, with a 1M context window and 128K maximum output tokens. Requires Mythosia.AI 8.2.0 / Abstractions 4.2.0; existing service defaults and older model identifiers remain unchanged.
+
+Untouched settings use adaptive thinking with `High` effort and omitted readable thinking. Adaptive mode accepts `Low`, `Medium`, `High`, `XHigh` and `Max`; `Minimal` is rejected. `MaxTokens` includes reasoning and answer text. Sampling parameters are omitted.
+
+```csharp
+using Mythosia.AI.Models;
+using Mythosia.AI.Models.Streaming;
+using Mythosia.AI.Services.Anthropic;
+
+var claude = new AnthropicService(apiKey, httpClient);
+claude.ChangeModel(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithAdaptiveThinkingParameters(
+    ClaudeReasoningEffort.High, ClaudeThinkingDisplay.Updates);
+
+await using var run = await claude.CreateRequest("Review the plan using the registered tools.")
+    .WithReasoning(ReasoningLevel.High)
+    .StartRunAsync(options: StreamOptions.FullOptions);
+await foreach (var item in run.StreamAsync())
+{
+    if (item.Type == StreamingContentType.Reasoning)
+        Console.WriteLine(item.Content);
+    else if (item.Type == StreamingContentType.Text)
+        Console.Write(item.Content);
+}
+string answer = (await run.Result).Text;
+```
+
+In adaptive mode, use `ClaudeThinkingDisplay.Updates` for readable tool progress or `Summarized` for summaries. Observe `StreamingContentType.Reasoning`; ordinary completion exposes `LastThinkingContent`. The explicit adaptive helper defaults its display argument to `Summarized`, unlike untouched settings. `between_tools` returns tool progress automatically. No fixed progress interval is promised.
+
+`ReasoningLevel.None`, a disabled legacy `ThinkingBudget`, or `AIRequestProfile.DisableReasoning` select `between_tools` at high effort: this disables up-front thinking, but tool progress may still arrive in thinking blocks. `WithBetweenToolsThinking(...)` accepts `Auto` (high), `Low`, `Medium` or `High`; `XHigh` and `Max` are rejected. Its wire thinking object contains only `type`: no display, budget or binding fields. Per-message effort changes and `CachePreservation.Required` are unavailable in this mode. Explicit common `WithReasoning(Low...Max)` returns to adaptive mode; `Auto` respects the selected provider mode.
+
+```csharp
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+claude.WithBetweenToolsThinking(ClaudeReasoningEffort.Low);
+string quick = await claude.CreateRequest("Use the registered tools to check the status.")
+    .GetCompletionAsync();
+
+// A separate conversation using request-scoped high-effort between_tools.
+claude.StartNewConversation(AIModels.Anthropic.ClaudeSonnet5_5);
+string next = await claude.CreateRequest("Give me the latest status.")
+    .WithReasoning(ReasoningLevel.None)
+    .GetCompletionAsync();
+```
+
+Claude resolves the model, request purpose, reasoning and thinking-binding settings together. For an auxiliary profile such as `RequestProfiles.Summarization` or `RequestProfiles.QueryRewrite`, inherited binding is omitted only when `DisableReasoning = true`, the purpose is not `Default`, and the effective request is stateless. This prevents the inherited policy from re-enabling reasoning or rejecting a request that has no conversation prefix to preserve. Models that can disable thinking do so; always-on Opus 5.5, Fable 5.1 and Mythos 5.1 use `Low` with readable thinking omitted, while Sonnet 5.5 uses high-effort `between_tools`.
+
+Completion, streaming, structured output and Run share one request preparation sequence: capture settings, apply the actual profile processing once, then validate the resulting common and native provider options. This happens before automatic summarization, appending new input or opening the transport. Custom provider profile overrides participate in the settings that are actually validated. Claude also rejects a consumed manual `ThinkingBudget` at or above the model's output limit at this stage; valid profile and common reasoning overrides retain their precedence.
+
+Application calls start independent logical requests, including ordinary calls from `SystemMessageProvider` or tool callbacks and calls reusing the same `AIRequestProfile` or `Message`. Reusing an object does not reuse an execution. Framework delegation, tool rounds, retries and format repairs continue the original request, applying its profile once. A new ordinary child captures its own options and service defaults; builders keep their captured settings. Success, failure and cancellation restore the parent execution. Virtual provider adapters follow the [forwarding rules](../../../../../docs/request-building.md#provider-request-adapters): their first matching base call continues the prepared request even with replacement input; an unrelated helper at that same base entry before forwarding uses `BeginIndependentRequestScope()` around its await or full stream enumeration.
+
+Built-in providers retain an owned snapshot of built-in input content. Reusing a `Message` for another call applies that call's context and turn instructions without rewriting accepted history. Custom content and unsupported metadata objects remain owner-managed. This does not make a shared conversation safe for concurrent calls.
+
+After `StartRunAsync` returns, the Run retains its own copy of the effective settings. Restoring the caller's profile cannot change the active Run, and execution profile hooks still run only once.
+
+Stateless auxiliary requests use their own conversation and do not inherit the parent's output schema, hosted tools or one-call options. This isolation never skips native provider validation, including for OpenAI and Perplexity Runs. Parent settings, messages, `CurrentSummary` and request observations are preserved. Stateful requests retain their binding and conversation checks. The existing public APIs remain unchanged.
+
+Internally generated conversation summaries also exclude the parent's `SystemMessageProvider` callback and request context, so an inherited `RequestMessageOverride` cannot replace the summary prompt. Application-initiated requests still resolve their dynamic context normally, including explicit requests to summarize text.
+
+Stateless requests also skip automatic summarization of the parent conversation, including the legacy `GetCompletionAsync(string, profile)` overload, consistently with the `Message` overload and request builder. The parent's `CurrentSummary` and messages remain unchanged. Stateful requests retain normal automatic summarization.
+
+Undefined `ClaudeReasoningEffort` values, such as `(ClaudeReasoningEffort)1234`, fail locally when the effective reasoning configuration uses that native effort. Rejection neither triggers automatic summarization of the parent conversation nor retains unsent input in history. Valid explicit common reasoning or profile overrides retain their existing precedence over the native baseline.
+
+`ClaudeThinkingMode`: `Auto` / `Adaptive` / `BetweenTools`; `AnthropicService.ThinkingMode`.
+
+Keep history append-only. Signed thinking blocks, including empty blocks and `progress_updates` metadata, are preserved across turns and tool results. Rewriting a stored assistant response fails locally, even with `ClaudeThinkingPrefixMismatchBehavior.DropBlock`. Earlier user/system/tool prefix edits are sent to Anthropic for its binding policy; they are not automatically blocked locally. In adaptive mode, `WithThinkingBinding(ClaudeThinkingPrefixMismatchBehavior.Error)` requests strict provider validation and can produce HTTP 400 for an invalid prefix; `DropBlock` allows the provider to discard affected thinking. A null policy uses provider defaults. Inspect `LastInputTransformations` for reported drops. Binding controls are unsupported in `between_tools`. Use `WithTurnInstruction` / `WithConversationInstruction` for new instructions. Adaptive mode supports `CachePreservation.Required`; it does not make prior-message edits safe.
+
+Completion, streaming, structured output, images, local functions, web search and ordinary Run use existing APIs. Leave `ForceFunctionName` unset: forced tool choice (`any` / `tool`) and assistant prefills are rejected before HTTP; automatic tool selection and `FunctionsDisabled` remain available. `Fast`, native async tools and Run steering are unsupported. This integration does not expose computer toolsets, advisor tools, native compaction, inline tool changes or automatic server fallback. Model/account switching can discard bound thinking; a successful request does not prove reasoning was retained.
+
+Known limitation in Mythosia.AI 8.2.0: for Sonnet 5.5 and Opus 5.5, a valid `pause_turn` response ending in a pending `server_tool_use` is incorrectly rejected as assistant prefill before the second HTTP request. Continuations ending in a completed server-tool result passed the existing checks. See [native continuation limits](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/providers.md#claude-native-continuation-limitation).
+
+The common structured-output API uses schema instructions, deserialization and repair retries; it does not send native `output_config.format` schema constraints.
+
+[Official model details](https://platform.claude.com/docs/en/models/sonnet-5-5/overview) · [Migration](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide) · [Provider changes](https://platform.claude.com/docs/en/models/sonnet-5-5/whats-new-sonnet-5-5).
+
+
+## Claude token counting
+
+Parameterless `GetInputTokenCountAsync()` reuses tool-aware completion message serialization, preserving assistant `tool_use` and user `tool_result` blocks even when tools are currently disabled. Imported legacy parallel-tool records sharing one `OriginalContent` batch serialize that batch once, preserving signed content and historical instructions. It includes currently enabled tool definitions and their `tool_choice`, while omitting generation-only fields and retaining token-count-specific thinking restrictions. `GetInputTokenCountAsync(string prompt)` retains standalone prompt counting; it does not include stored conversation history or tool definitions.
+
+Ordinary completion, preserved-thinking continuation and token counting use the same tool-history projection. This also applies to plain requests after functions have been disabled or removed: historical calls and results remain native tool blocks. Imported `FunctionSource` metadata accepts equivalent defined enum, integer, string and JSON representations for both calls and results. Redundant records for the same parallel assistant batch are emitted once without changing tool order, signatures or provider fields; equivalent metadata representations do not duplicate an already accepted prefix.
+
+Claude uses the same authoritative assistant content for serialization, token counting and summary-compaction guards, including native content, typed batches and legacy `Message.Metadata[OriginalContent]`. Signed thinking therefore receives the same prefix protection regardless of import representation. This preserves local history; it does not assert live server signature acceptance.
 
 ## Principle
 
@@ -21,7 +110,7 @@ Applications can now express task-level effort and hosted retrieval through the 
 | **Provider-specific** | Each service class | ThinkingLevel/ThinkingBudget (Gemini), ReasoningEffort (GPT), etc. |
 | **Per-function permission** | `FunctionDefinition` | `AllowAsync` (default `false`) |
 
-`AllowAsync` is a caller-controlled permission; the service determines model/API support internally. `FunctionBuilder.WithAsync()` and `[AiFunction("lookup", "Look up data", AllowAsync = true)]` enable the same permission. GPT-6 Astra / Sol / Luna use it through Responses, while unsupported models omit the API option and wait for the same handler's result without changing the permission.
+`AllowAsync` is a caller-controlled permission; the service determines model/API support internally. `FunctionBuilder.WithAsync()` and `[AiFunction("lookup", "Look up data", AllowAsync = true)]` enable the same permission. GPT-6.1 Sol / GPT-6 Astra / Sol / Luna use it through Responses, while unsupported models omit the API option and wait for the same handler's result without changing the permission.
 
 ## Current Implementation: Service Level
 
@@ -202,6 +291,8 @@ string answer = await service.GetCompletionAsync("Compare the latest approaches 
 
 `UsePreset(...)` is a shortcut for selecting a preset. A preset/profile chooses its own model; `ModelOverride` explicitly replaces it. `DisableWebSearch` only removes the adapter's default tool and cannot promise to disable a preset's built-in search. Agent effort accepts `Minimal`, `Low`, `Medium`, `High`, `XHigh`, or `Max` when supported; `None` is rejected and direct Sonar rejects explicit effort. Internal `DisableReasoning` uses an available low effort or omits the setting, without promising reasoning is off.
 
+Perplexity validates and serializes the same effective request plan after profile application. Suppressed parent tools and reasoning cannot reject an auxiliary Sonar request; options that actually apply are still validated. Presets and fallback lists retain their own model selection.
+
 Factory methods `PerplexityHostedTools.WebSearch`, `FetchUrl`, `Sandbox`, `FinanceSearch`, `PeopleSearch`, `Mcp`, and `Connector` create tool options. MCP calls execute without an approval pause; restrict `allowedTools` as needed. Connectors are a provider preview and reference an existing connected integration.
 
 `StartBackgroundAsync` captures input without appending conversation history and rejects active local functions or `Store = false`. `GetResponseAsync` polls once; `WaitForCompletionAsync` polls until a terminal status. Save `Id` and `LastSequenceNumber`; `ResumeBackgroundRun(id).StreamAsync(startingAfter: cursor)` reconnects. Cancel the remote job with `CancelAsync`; cancelling a polling/reading token stops that client operation. `LastResponse` contains text, status, usage, citations, and `OutputJson`. Check the terminal status before using an answer.
@@ -258,5 +349,7 @@ Need only the completed answer and a Stop button? Pass `cancellationToken` to `G
 This cancellation contract is included in Mythosia.AI 8.0.0 / Mythosia.AI.Abstractions 4.0.0. Application source calls that omit the token remain valid, including positional profile/context arguments, but consumers must rebuild. Custom `IAIService` implementations must append `CancellationToken cancellationToken = default` to both completion signatures and propagate it. Custom `AIService` providers retain their existing `GetCompletionAsync(Message)` override and must forward the protected `RequestCancellationToken` into their transport. Builder and Run capabilities alone did not require that interface change. Subclasses that override changed public virtual overloads for string/profile/context completion, image helpers, or `RunAgentAsync` must also append and forward the new `CancellationToken`; only the single-`Message` provider override retains its old signature. Method-group delegates targeting a changed signature may need an explicit lambda that passes or omits the token.
 
 [Choose model controls using shared capability definitions](../../../../../docs/model-capabilities.md).
+
+`ApplyRequestProfile` and `ApplyProviderSpecificRequestProfile` run once per logical request before effective validation. Ordinary nested application calls are separate requests. Framework virtual forwarding and internal continuations retain prepared settings; an unrelated helper at the same base entry before forwarding uses [the protected independent-request scope](../../../../../docs/request-building.md#provider-request-adapters). Custom providers may call the additive protected `ResolveRequestMessage(message)` hook after `BeginRequestFeaturesScope` and retain its returned input snapshot. Existing provider overrides remain compatible. Capability inspection keeps its separate, side-effect-free hook.
 
 If a custom provider profile changes native mode flags, override `ApplyCapabilityRequestProfile(AIRequestProfile)` and use `SetExecutionSetting(...)` only for the flags needed by the resolver. The default hook does nothing. Common profile overrides are already captured by the builder; inspection never calls `ApplyRequestProfile` or `ApplyProviderSpecificRequestProfile`. Keep this hook free of validation, callbacks, serialization, budget reservation and changes to service or caller-owned state. Its temporary settings are restored after inspection, including when an override throws.

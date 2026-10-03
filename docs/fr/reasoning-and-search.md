@@ -1,6 +1,12 @@
 # Choisir l’effort de raisonnement et répondre avec des sources
 
+> Claude Sonnet 5.5: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration et migration](providers.md#claude-sonnet-55)
+
+`ReasoningLevel.None`, un ancien `ThinkingBudget` désactivé ou `AIRequestProfile.DisableReasoning` sélectionnent `between_tools` avec un effort high : le raisonnement préalable est désactivé, mais la progression des outils peut encore arriver dans des blocs thinking. `WithBetweenToolsThinking(...)` accepte `Auto` (high), `Low`, `Medium` ou `High` ; `XHigh` et `Max` sont rejetés. Le bloc thinking envoyé contient seulement `type`, sans display, budget ni binding. Ce mode ne permet ni changement d’effort par message ni `CachePreservation.Required`. Un `WithReasoning(Low...Max)` explicite réactive adaptive ; `Auto` respecte le mode du fournisseur.
+
 > Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
+
+> GPT-6.1 Sol: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Choix du modèle et migration](providers.md#gpt-61-sol)
 
 > GPT-6 Sol/Luna: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [choix du modèle et prérequis](providers.md#gpt-6-sol-luna)
 
@@ -80,6 +86,8 @@ foreach (AICitation source in service.GetLastCitations())
 
 Le fournisseur exécute cet outil hébergé. Aucun gestionnaire de fonction local n’est à enregistrer ou à exécuter. L’activation rend la recherche accessible au modèle ; celui-ci peut décider qu’un prompt particulier n’en a pas besoin. Les références aux sources sont disponibles lorsque le fournisseur les renvoie.
 
+**Limitations connues :** Claude Sonnet 5.5 / Opus 5.5 ne peuvent pas poursuivre une pause de recherche native se terminant par un `server_tool_use` en attente ; voir [les API concernées et les formes de pause prises en charge](providers.md#claude-native-continuation-limitation). Le streaming et Run présentent aussi une [limitation d’annulation avec du contenu HTTP personnalisé mis en mémoire tampon](streaming.md#sse-acquisition-cancellation-limitation).
+
 OpenAI et Anthropic acceptent également `WithWebSearch(new WebSearchOptions { AllowedDomains = new[] { "example.com" } })`. Google n’expose pas cette liste de domaines autorisés dans l’outil intégré : une requête restreinte est donc refusée au lieu de lancer une recherche sur tout le Web.
 
 ## Répondre à partir de documents déjà indexés par le fournisseur
@@ -146,8 +154,8 @@ Les champs d’une citation peuvent être `null` lorsque le fournisseur ne donne
 
 | Fournisseur intégré | Niveaux de raisonnement nommés | Modification conservant le cache | Recherche Web | Recherche de fichiers |
 | --- | --- | --- | --- | --- |
-| OpenAI | Modèles de raisonnement compatibles ; niveaux variables selon le modèle | GPT-6 Astra / Sol / Luna Standard, mode à un seul agent | Modèles Responses compatibles | Modèles Responses compatibles, magasins vectoriels existants |
-| Anthropic | Modèles avec contrôle natif de l’effort | Opus 5 / 5.5 / Fable 5.1 / Mythos 5.1 compatibles, avec la bêta du fournisseur | Modèles Claude compatibles | Aucun adaptateur de magasin natif ; utiliser RAG |
+| OpenAI | Modèles de raisonnement compatibles ; niveaux variables selon le modèle | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna Standard, mode à un seul agent | Modèles Responses compatibles | Modèles Responses compatibles, magasins vectoriels existants |
+| Anthropic | Modèles avec contrôle natif de l’effort | Opus 5 / 5.5 / Sonnet 5.5 (adaptive) / Fable 5.1 / Mythos 5.1 compatibles, avec la bêta du fournisseur | Modèles Claude compatibles | Aucun adaptateur de magasin natif ; utiliser RAG |
 | Google | Niveaux Gemini 3 ; Gemini 2.5 conserve les budgets propres au fournisseur | Non pris en charge | Modèles de texte Gemini compatibles | Modèles de texte Gemini compatibles, magasins de recherche de fichiers existants |
 | xAI | Grok 4.6 : `Auto`, `Low`, `Medium`, `High`, `XHigh` | Non pris en charge | Aucun adaptateur commun | Aucun adaptateur commun |
 | DeepSeek | Flash / V4 Pro : `Auto`, `None`, `Minimal`/`Low`, `Medium`/`High`/`XHigh`, `Max` ; correspondances natives Low/High/Max | Non pris en charge | Aucun adaptateur commun | Aucun adaptateur commun |

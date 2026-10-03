@@ -78,6 +78,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # เพิ่มเติม:
 
 เตรียมการตั้งค่าอิสระด้วย `CreateRequest(...).WithTemperature(...).GetCompletionAsync()` ดู Before/After, Run, profile และข้อจำกัดของบทสนทนาร่วมกันใน [คู่มือคำขอ](request-building.md)
 
+Completion, streaming, ผลลัพธ์แบบมีโครงสร้าง และ Run ใช้โปรไฟล์จริงหนึ่งครั้งและตรวจสอบค่าที่มีผลก่อนสรุปอัตโนมัติ แก้ไขประวัติ หรือส่งคำขอ คำขอเสริมแยกบทสนทนาและสคีมาเอาต์พุตของคำขอหลัก แต่ยังตรวจสอบตัวเลือกเฉพาะผู้ให้บริการ ดู[คู่มือการตั้งค่าคำขอ](request-building.md)
+
+การเรียกจากแอปพลิเคชันและการเรียกทั่วไปจาก callback ของบริบทหรือเครื่องมือแยกจากกัน แม้ใช้โปรไฟล์หรือข้อความซ้ำ สำหรับอะแดปเตอร์ผู้ให้บริการแบบ virtual ที่เฟรมเวิร์กเรียก การเรียกเมธอดฐานที่ตรงกันครั้งแรกจะดำเนินคำขอที่เตรียมไว้ต่อ แม้จะแทนที่อินพุตก็ตาม การเรียกเสริมที่ไม่เกี่ยวข้องผ่านเมธอดฐานเดียวกันก่อนส่งต่อต้องใช้ `BeginIndependentRequestScope()` ดู[กฎของอะแดปเตอร์ผู้ให้บริการ](request-building.md#provider-request-adapters) สำเนาอินพุตป้องกันการเรียกภายหลังเขียนประวัติที่ยอมรับแล้วทับ
+
+ตรวจสอบโปรไฟล์ที่อะแดปเตอร์เปลี่ยนก่อนสรุปอัตโนมัติ และสตรีมแบบ callback รอการเก็บกวาด การย่อประวัติ Claude ป้องกันความสัมพันธ์ของเครื่องมือในอินพุตที่แทนที่และ thinking ที่ผูกไว้ของ Mythos 5.1 คำขอเสริม OpenAI แบบไร้สถานะรักษาการป้องกันประวัติหลัก
+
 คำขอที่ต้องคำนึงถึงเวลารอสามารถเลือก[ความเร็วในการประมวลผล](request-building.md#inference-speed) ได้ `WithSpeed` คงโมเดลและระดับการคิด ส่วน `Processing` รายงานโหมดที่ใช้จริง Fast เป็นตัวเลือกเสียเงินสำหรับการผสมที่รองรับ
 
 ## เริ่มต้นอย่างรวดเร็ว
@@ -147,9 +153,9 @@ service.DefaultPolicy = new FunctionCallingPolicy
 
 ผลลัพธ์ของ batch ปกติจะส่งกลับให้โมเดลตามลำดับการเรียกเดิมของผู้ให้บริการ เมื่อยกเลิก ระบบข้ามการเรียกที่ยังไม่เริ่มและใส่ผลการยกเลิกที่ตรงกัน เครื่องมือที่เริ่มแล้วจะได้รับ token หากรองรับ และระบบรอจนเสร็จเพื่อรักษาคู่การเรียก/ผลลัพธ์ในประวัติ
 
-`FunctionCallingPolicy.TimeoutSeconds` ครอบคลุมลูป streaming ทุก round รวมทั้ง header ของคำตอบและเนื้อหา SSE โดยไม่เริ่มจับเวลาใหม่ระหว่าง round ของเครื่องมือ เมื่อหมดเวลาของ policy จะเกิด `AIServiceException` ส่วนการยกเลิกโดยผู้เรียกยังคงเป็น `OperationCanceledException` ที่ผูกกับ token ของผู้เรียก
+`FunctionCallingPolicy.TimeoutSeconds` ครอบคลุมลูป streaming ทุก round รวมทั้ง header ของคำตอบและเนื้อหา SSE โดยไม่เริ่มจับเวลาใหม่ระหว่าง round ของเครื่องมือ เมื่อหมดเวลาของ policy จะเกิด `AIServiceException` ส่วนการยกเลิกโดยผู้เรียกยังคงเป็น `OperationCanceledException` ที่ผูกกับ token ของผู้เรียก `HttpContent` แบบกำหนดเองที่บัฟเฟอร์เนื้อหามีข้อยกเว้นที่ทราบในขั้นตอนรับสตรีมเนื้อหา SSE ดู[ข้อจำกัดการยกเลิก](streaming.md#sse-acquisition-cancellation-limitation)
 
-หากมีงานที่ทำได้โดยไม่ต้องรอผล เช่น อธิบายของที่ควรเตรียมเดินทางระหว่างเครื่องมือกำลังดึงข้อมูลอากาศ โมเดลสามารถทำส่วนนั้นก่อนได้โดยไม่ต้องหยุดรอทั้งคำตอบ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6 Astra / Sol / Luna ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md#async-tool-calling)
+หากมีงานที่ทำได้โดยไม่ต้องรอผล เช่น อธิบายของที่ควรเตรียมเดินทางระหว่างเครื่องมือกำลังดึงข้อมูลอากาศ โมเดลสามารถทำส่วนนั้นก่อนได้โดยไม่ต้องหยุดรอทั้งคำตอบ ใช้ `FunctionDefinition.AllowAsync = true` หรือ `FunctionBuilder.WithAsync()` เพื่อเลือกอนุญาตการเรียกเครื่องมือแบบอะซิงโครนัสของ GPT-6.1 Sol / GPT-6 Astra / Sol / Luna ผ่าน Responses ค่าเริ่มต้นคือ `false` ส่วนโมเดลที่ไม่รองรับจะรอผลจาก handler เดิม ดูตัวอย่างและอายุของคำขอใน[คู่มือการเรียกฟังก์ชัน](function-calling.md#async-tool-calling)
 
 กลไกนี้แยกจาก handler C# `async` และการจัดตาราง handler แบบขนาน โมเดลที่ไม่รองรับจะไม่ได้รับตัวเลือก API ที่ใช้ไม่ได้
 
@@ -275,14 +281,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 > Grok 4.7: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดล การให้เหตุผล และความเร็ว](providers.md#grok-47)
 
+> GPT-6.1 Sol: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การเลือกโมเดลและการย้ายรุ่น](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การเลือกโมเดลและรุ่นที่ต้องใช้](providers.md#gpt-6-sol-luna)
+
+> Claude Sonnet 5.5: ต้องใช้ Mythosia.AI 8.2.0 / Abstractions 4.2.0 [การตั้งค่าและการย้ายรุ่น](providers.md#claude-sonnet-55)
 
 > Claude Opus 5.5: ต้องใช้ Mythosia.AI 8.1.0 / Abstractions 4.1.0 [การตั้งค่าและการย้ายมาใช้](providers.md#claude-opus-55)
 
 | Provider | Package | Model |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (limited), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, [Sonnet 5.5](providers.md#claude-sonnet-55) / 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (ค่าเริ่มต้น), Grok 4.3, Grok 4.20 (reasoning / non-reasoning), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
@@ -321,9 +331,13 @@ var result = await store.QueryAsync("What is the refund period?");
 
 แยกการตั้งค่าคำขอ หยุดงาน และรับคำตอบพร้อมการใช้โทเค็นและแหล่งที่มา [คู่มือย้ายไป v8](v8-migration.md) รวมการเปลี่ยนสถาปัตยกรรมหกด้าน ตัวอย่าง และขอบเขตการตรวจสอบ
 
-> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). ดูเวอร์ชันแพ็กเกจการค้นคืน เอกสาร และเวกเตอร์ที่เหลือใน[ตารางแพตช์ก่อนหน้า](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) และ[รุ่นที่ออกพร้อมกันก่อนหน้า](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)
+> เวอร์ชันแพ็กเกจที่เอกสารนี้อ้างอิง: [Mythosia.AI 8.2.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v820), [Abstractions 4.2.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420), [Alibaba 3.0.2](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302), [RAG 8.3.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v830), [RAG Abstractions 6.5.0](../../src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650), [VectorDb Abstractions 4.2.0](../../src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420), [InMemory 4.3.0](../../src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v430), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). ดูเวอร์ชันแพ็กเกจการค้นคืน เอกสาร และเวกเตอร์ที่เหลือใน[ตารางแพตช์ก่อนหน้า](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) และ[รุ่นที่ออกพร้อมกันก่อนหน้า](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810)
 
-> [แพตช์ RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): แรปเปอร์ RAG ที่เชื่อมต่ออยู่แล้วจะรับการเปลี่ยนตัวเขียนคำถามใหม่ระหว่างทำงาน และการค้นหาไฮบริดแบบผสมของ PostgreSQL จะใช้การตั้งค่าค้นหาเวกเตอร์ที่กำหนดไว้ แพ็กเกจหลัก `Mythosia.AI` ยังคงเป็น 8.1.0
+> **รุ่นที่รอเผยแพร่ — ข้อจำกัดที่ทราบ:** Sonnet 5.5 / Opus 5.5 อาจปฏิเสธคำขอต่อเนื่อง `pause_turn` ที่ลงท้ายด้วย `server_tool_use` ซึ่งยังไม่ได้ทำงาน ดู[ข้อจำกัดการทำงานต่อของ Claude](providers.md#claude-native-continuation-limitation) `HttpContent` แบบกำหนดเองที่บัฟเฟอร์เนื้อหาอาจทำให้การยกเลิกหรือการหมดเวลาตามนโยบายล่าช้าระหว่างการรับสตรีมเนื้อหาของการตอบกลับ SSE ที่สำเร็จ และทำให้ Run ยังคงทำงานอยู่ ดู[ข้อจำกัดการยกเลิก SSE](streaming.md#sse-acquisition-cancellation-limitation)
+>
+> หน้าเหล่านี้อธิบายการเปลี่ยนแปลงที่รอเผยแพร่ ไม่ได้ยืนยันว่าการตรวจสอบรุ่นเสร็จสมบูรณ์แล้ว ดูการเปลี่ยนแปลงที่รวมไว้ ข้อจำกัดที่ยังเหลือ และขอบเขตการตรวจสอบใน[บันทึกประจำรุ่น](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md)
+
+> [แพตช์ RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811): แรปเปอร์ RAG ที่เชื่อมต่ออยู่แล้วจะรับการเปลี่ยนตัวเขียนคำถามใหม่ระหว่างทำงาน และการค้นหาไฮบริดแบบผสมของ PostgreSQL จะใช้การตั้งค่าค้นหาเวกเตอร์ที่กำหนดไว้ ในแพตช์นั้นแพ็กเกจหลัก `Mythosia.AI` ยังคงเป็น 8.1.0
 
 ---
 
@@ -418,7 +432,6 @@ flowchart LR
     end
     RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
     VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
     InMem --> VdbAbs
     RagAbs --> VdbAbs
     Pg --> VdbAbs
@@ -464,11 +477,15 @@ flowchart LR
 
 | Package | NuGet | คำอธิบาย |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Contract `IVectorStore` · `VectorRecord` · `VectorFilter` |
+| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Contract `IVectorStore` · `IVectorStoreDiagnostics` · `VectorRecord` · `VectorFilter` |
 | [Mythosia.VectorDb.InMemory](../../src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | Store ใน RAM — ไม่ต้องมี infrastructure เหมาะสำหรับ prototype |
 | [Mythosia.VectorDb.Pinecone](../../src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | Pinecone HTTP API — แยกตาม index/namespace/scope |
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — index HNSW / IVFFlat พร้อม production |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Qdrant gRPC client — Cosine / Euclidean / Dot auto-provision |
+
+การตรวจสอบข้อมูลใน store แบบเสริมใช้ `IVectorStoreDiagnostics` จาก `Mythosia.VectorDb.Abstractions` โดย InMemory 4.3.0 ไม่ขึ้นกับ RAG abstractions อีกต่อไป ส่วน `RagDiagnostics` และ `RagDiagnosticSession` ยังคงอยู่ใน RAG 8.3.0 ให้อัปเกรด RAG และ InMemory พร้อมกัน และเปลี่ยนการ cast เดิมที่ใช้ `IRagDiagnosticsStore` [การวินิจฉัยและการย้ายเวอร์ชัน](vectordb-backends.md#vector-store-diagnostics)
+
+รุ่นนี้ตั้งใจรวมการย้ายอินเทอร์เฟซที่ทำให้โค้ดเดิมบางส่วนใช้งานร่วมกันไม่ได้ไว้ในเวอร์ชัน minor คือ RAG 8.3.0 และ InMemory 4.3.0 โดยเป็นข้อยกเว้นด้านการกำหนดเวอร์ชันเฉพาะรุ่นนี้ โค้ดเดิมที่เรียกใช้ InMemory ผ่าน `IRagDiagnosticsStore` ต้องย้ายไปใช้ `IVectorStoreDiagnostics` แม้เลขเวอร์ชัน major จะไม่เปลี่ยน
 
 ### Serving — Control Plane
 

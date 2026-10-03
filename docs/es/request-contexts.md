@@ -116,6 +116,12 @@ Consulta [AIRequestProfile](request-profiles.md) para detalles sobre cómo sobre
 
 ## Inyección automática con `SystemMessageProvider`
 
+Las llamadas de la aplicación inician solicitudes lógicas independientes, incluidas las llamadas ordinarias desde `SystemMessageProvider` o callbacks de herramientas y las que reutilizan el mismo `AIRequestProfile` o `Message`. Reutilizar un objeto no comparte la ejecución. La delegación del framework, las rondas de herramientas, los reintentos y las correcciones de formato continúan la solicitud original, cuyo perfil se aplica una vez. Una solicitud hija ordinaria captura sus propias opciones y valores predeterminados del servicio; los constructores conservan sus ajustes capturados. El estado de la solicitud principal se restaura tras éxito, fallo o cancelación. Las sobrescrituras de proveedores que reenvían una llamada del framework siguen las [reglas de adaptadores](request-building.md#provider-request-adapters). Una llamada auxiliar independiente al mismo punto de entrada de la clase base antes del reenvío necesita `BeginIndependentRequestScope()` alrededor de la llamada y su `await`, o de toda la enumeración en streaming.
+
+Los proveedores integrados conservan una copia propia del contenido de entrada integrado. Reutilizar un `Message` aplica el contexto y las instrucciones de la nueva llamada sin reescribir el historial aceptado. El propietario sigue gestionando el contenido personalizado y los objetos de metadatos no compatibles. Esto no garantiza llamadas simultáneas seguras a la misma conversación.
+
+En esta sección, «cada solicitud» se refiere a las solicitudes iniciadas por la aplicación. Los resúmenes de conversación generados internamente también excluyen el callback `SystemMessageProvider` y el contexto de la solicitud principal, para que un `RequestMessageOverride` heredado no sustituya el prompt de resumen. Las solicitudes iniciadas por la aplicación siguen resolviendo su contexto dinámico normalmente, incluidas las peticiones explícitas de resumir texto.
+
 ### El problema que resuelve
 
 Una app de chat típica tiene varios puntos de entrada al LLM que necesitan la misma baseline — fecha de hoy, carpeta activa, info de sesión. **Sin** `SystemMessageProvider`, cada punto de llamada tiene que acordarse de construir y pasar ese contexto:

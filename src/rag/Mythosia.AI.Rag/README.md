@@ -2,23 +2,47 @@
 
 Ground answers in documents your application manages. `Mythosia.AI.Rag` adds `.WithRag()` to an `IAIService` and handles document loading, splitting, embeddings, retrieval and context assembly. Use Agentic RAG tools when the model should decide when to search again.
 
-Version **8.2.0** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.1.0** and **Mythosia.AI.Rag.Abstractions 6.4.0**.
+Version **8.3.0** depends on lightweight contracts instead of the full provider implementation: **Mythosia.AI.Abstractions 4.2.0** and **Mythosia.AI.Rag.Abstractions 6.5.0**. Its default store is **Mythosia.VectorDb.InMemory 4.3.0**, using **Mythosia.VectorDb.Abstractions 4.2.0**.
 
-> **v8.2.0:** Preserve a document's neighbouring chunk context with Voyage, or distinguish documents and search questions with Gemini Embedding 2. The optional `IRetrievalEmbeddingProvider` contract also connects Perplexity contextual embeddings to RAG while retaining existing `IEmbeddingProvider` implementations. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820).
+> **v8.3.0:** RAG diagnostics consume the optional `IVectorStoreDiagnostics` contract. InMemory no longer depends on RAG abstractions or implements `IRagDiagnosticsStore`; this minor release intentionally includes that breaking interface migration as a one-time versioning-policy exception. General RAG method signatures remain unchanged. See the [release notes](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v830).
 
 In v8.1.0, `RagEnabledService.WithSpeed(InferenceSpeed.Fast)` can request paid low-latency processing for the next answer when the inner provider/model supports it. It preserves retrieval settings and keeps internal query rewriting separate. Read `LastProcessing` or `(await run.Result).Processing` for reported applied modes; missing information remains unknown. See [speed selection](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/request-building.md#inference-speed).
 
-## Current release: 8.2.0
+## Current release: 8.3.0
 
-Index extracted TXT, Markdown and PDF text with `UseVoyageEmbedding(...)` or `UseGeminiEmbedding(...)`. RAG passes complete documents to the new optional contract, preserving chunk order, and uses explicit query embeddings for dense retrieval and diagnostics. Stored source text remains unchanged. Existing embedding providers and the runtime query-rewriter fixes from [8.1.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811) remain supported. Changing an embedding model, dimensions or retrieval formatting requires reindexing into the same vector space used by queries; merely upgrading the package does not convert stored vectors. For upgrades from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md).
+Upgrade RAG and its default InMemory store together. Replace old InMemory assignments, casts and capability checks against `IRagDiagnosticsStore` with `Mythosia.VectorDb.IVectorStoreDiagnostics`; older RAG packages paired with InMemory 4.3.0 are unsupported. RAG Abstractions 6.5.0 retains the obsolete interface and its two original members with default bridges for legacy custom implementations. That bridge does not restore InMemory's old interface relationship or guarantee compatibility for every previously compiled consumer.
+
+Index extracted TXT, Markdown and PDF text with `UseVoyageEmbedding(...)` or `UseGeminiEmbedding(...)`. RAG passes complete documents to the optional `IRetrievalEmbeddingProvider` contract, preserving chunk order, and uses explicit query embeddings for dense retrieval and diagnostics. Stored source text remains unchanged. Existing embedding providers and the runtime query-rewriter fixes from [8.1.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v811) remain supported. Changing an embedding model, dimensions or retrieval formatting requires reindexing into the same vector space used by queries; merely upgrading the package does not convert stored vectors. For upgrades from before 8.0.0, follow the [v8 migration guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/v8-migration.md).
 
 Pass `cancellationToken` to stop cooperative retrieval, query rewriting and the inner completion call when a user stops waiting. `WithAgenticRag` forwards tool cancellation into `RagStore.QueryAsync`; search exceptions become failed tool results. Cancellation avoids later model rounds, but cleanup can wait for components that ignore the token and does not guarantee that a provider stops inference or billing. See the [completion contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/completions.md#completion-cancellation) and [tool contract](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/function-calling.md#tool-execution-contract).
+
+The inner Mythosia.AI 8.2.0 provider has a known cancellation/timeout limitation when a custom HTTP handler buffers a successful SSE response while acquiring its stream: a canceled Run can remain pending and prevent another Run on that service until acquisition finishes. Default transport checks passed; see the [scope and reproduction conditions](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/streaming.md#sse-acquisition-cancellation-limitation).
 
 Keep an `AIRunResult` when the answer needs usage, sources and execution details: `await run.Result` provides that snapshot without a stream reader, and `(await run.Result).Text` provides the string. Usage describes the inner model execution; retrieval and embedding usage are separate. `GetCompletionAsync` remains a string API. See the [Run result migration](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/execution-api-transition.md#run-result).
 
 Perplexity standard 0.6B/4B embeddings and contextual embeddings both connect to the RAG builder. The contextual provider preserves each document's ordered chunks through the new interface; its existing public grouped API remains available. Packed binary results still use an explicit vector type. See the [Perplexity guide](https://github.com/AJ-comp/Mythosia.AI/blob/main/docs/perplexity.md).
 
-RAG Run controls, request-scoped reasoning/search forwarding and duplicate-registration filtering were introduced in [v7.6.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760). Use a supporting inner service, such as Mythosia.AI 8.1.0, for the current provider integrations.
+RAG Run controls, request-scoped reasoning/search forwarding and duplicate-registration filtering were introduced in [v7.6.0](https://github.com/AJ-comp/Mythosia.AI/blob/main/src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v760). Use a supporting inner service, such as Mythosia.AI 8.2.0, for the current provider integrations.
+
+## Store inspection and RAG diagnostics
+
+`IVectorStoreDiagnostics` in `Mythosia.VectorDb.Abstractions` exposes optional, store-wide record listing and similarity scoring. InMemory implements it directly. Other `IVectorStore` implementations need not implement it, and neither inspection method accepts a metadata filter or applies the pipeline's `StoreFilter`.
+
+RAG-specific analysis stays in this package: `RagDiagnostics`, `RagDiagnosticSession` and the `Diagnose()` extensions handle chunk previews, missing-result analysis, health checks and reports using the pipeline's splitter and embedding provider.
+
+For legacy custom stores, RAG preserves calls through `IRagDiagnosticsStore` using an internal adapter. Explicit legacy implementations therefore keep their behavior even when the class also exposes public methods with the same names. New stores can implement `IVectorStoreDiagnostics` directly.
+
+```csharp
+using Mythosia.AI.Rag;
+using Mythosia.AI.Rag.Diagnostics;
+
+var diagnostics = new RagDiagnostics(ragStore);
+var matches = await diagnostics.FindChunksContainingAsync("refund", cancellationToken);
+var report = await ragStore.Diagnose().WhyMissingAsync("What is the refund policy?", "refund", cancellationToken);
+Console.WriteLine(report.ToReport());
+```
+
+Chunk lookup and full health checks require `IVectorStoreDiagnostics`. Without it, query diagnostics retain the existing `SearchAsync` fallback and diagnostic sessions report that full store inspection is unavailable. Store-wide inspection is not an authorization boundary; use it only where access to every stored record is appropriate.
 
 ## Installation
 

@@ -9,6 +9,7 @@ dotnet add package Mythosia.VectorDb.InMemory
 ```
 
 ```csharp
+using Mythosia.VectorDb;
 using Mythosia.VectorDb.InMemory;
 
 var store = new InMemoryVectorStore();
@@ -26,15 +27,26 @@ var store = new InMemoryVectorStore();
 
 การยกเลิกแบตช์อาจคงเรคคอร์ดที่เขียนแล้วไว้ `ReplaceByFilterAsync` ยังคงลบแล้วแทรกแบบแบตช์ตามลำดับโดยไม่มีทรานแซกชัน การค้นหาอื่นอาจเห็นช่วงที่ข้อมูลว่างระหว่างสองขั้นตอน และข้อผิดพลาดหรือการยกเลิกจะไม่ย้อนกลับการเขียนที่เสร็จแล้ว
 
+<a id="vector-store-diagnostics"></a>
+
 ### Diagnostics
+
+`IVectorStoreDiagnostics` เป็นสัญญาเสริมใน `Mythosia.VectorDb.Abstractions` 4.2.0 ซึ่ง InMemory นำไปใช้โดยตรง โดยไม่เพิ่มสมาชิกที่จำเป็นใน `IVectorStore` เมธอด `ListAllRecordsAsync` แสดงระเบียนทั้งหมด และ `ScoredListAsync` คืนคะแนนความคล้ายคลึงทั้งหมดเรียงจากมากไปน้อยโดยไม่จำกัด TopK ทั้งสองเมธอดตรวจทั้ง store ไม่รับตัวกรอง metadata และไม่ใช้ `StoreFilter` ของ RAG pipeline ส่วน `GetTotalRecordCount()` ยังคงเป็นเมธอดอำนวยความสะดวกของ InMemory ที่ไม่อยู่ในสัญญานี้ การวิเคราะห์ chunk การตรวจสุขภาพ และรายงานเฉพาะ RAG ยังคงอยู่ใน `RagDiagnostics` และ `RagDiagnosticSession` ของ `Mythosia.AI.Rag`
+
+รุ่นนี้ตั้งใจรวมการย้ายอินเทอร์เฟซที่ทำให้โค้ดเดิมบางส่วนใช้งานร่วมกันไม่ได้ไว้ในเวอร์ชัน minor คือ RAG 8.3.0 และ InMemory 4.3.0 โดยเป็นข้อยกเว้นด้านการกำหนดเวอร์ชันเฉพาะรุ่นนี้ โค้ดเดิมที่เรียกใช้ InMemory ผ่าน `IRagDiagnosticsStore` ต้องย้ายไปใช้ `IVectorStoreDiagnostics` แม้เลขเวอร์ชัน major จะไม่เปลี่ยน
+
+**การอัปเกรดเป็น InMemory 4.3.0:** ให้ใช้ร่วมกับ RAG 8.3.0 โดยไม่รองรับการใช้ InMemory ใหม่กับแพ็กเกจ RAG เก่า InMemory ไม่ได้ implement `IRagDiagnosticsStore` อีกต่อไป จึงต้องเปลี่ยนการกำหนดค่า การ cast และการตรวจความสามารถไปใช้ `IVectorStoreDiagnostics` แล้ว build โค้ดผู้ใช้ที่ได้รับผลกระทบใหม่ RAG Abstractions 6.5.0 ยังคงอินเทอร์เฟซที่เลิกแนะนำ ประกาศเมธอดเดิมสองตัว และ bridge เริ่มต้นสำหรับ implementation แบบกำหนดเองรุ่นเก่า แต่ bridge นี้ไม่ทำให้ InMemory กลับมาใช้ได้กับอินเทอร์เฟซเดิม และไม่รับประกันว่าไบนารีเก่าทุกตัวจะเข้ากันได้
+
+สำหรับ store แบบกำหนดเองที่ implement `IRagDiagnosticsStore` นั้น RAG จะใช้ adapter ภายในเพื่อเรียกเมธอดของอินเทอร์เฟซเดิม จึงยังเรียกใช้ explicit implementation แม้จะมีเมธอดช่วยเหลือแบบ public ที่มี signature เดียวกัน แต่การเรียกเมธอดหลัง cast เป็น `IVectorStoreDiagnostics` โดยตรงอาจเรียกเมธอด public เหล่านั้นแทน
 
 ```csharp
 // แสดง record ทั้งหมดที่เก็บไว้
-var all = await store.ListAllRecordsAsync();
+IVectorStoreDiagnostics diagnostics = store;
+var all = await diagnostics.ListAllRecordsAsync();
 Console.WriteLine($"ทั้งหมด: {store.GetTotalRecordCount()}");
 
 // ดู similarity score ดิบ
-var scored = await store.ScoredListAsync(queryVector);
+var scored = await diagnostics.ScoredListAsync(queryVector);
 foreach (var r in scored)
     Console.WriteLine($"[{r.Score:F3}] {r.Record.Content[..60]}");
 ```

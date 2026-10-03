@@ -52,6 +52,8 @@ public class OpenAIAnthropicCapabilityTests
     [DataRow("gpt-6-unannounced")]
     [DataRow("gpt-6-astra-experimental")]
     [DataRow("gpt-6-astra-2026-99-99")]
+    [DataRow("gpt-6.1-sol-experimental")]
+    [DataRow("gpt-6.1-sol-2026-09-30")]
     public void UnknownOpenAIModels_DoNotAcquireCapabilitiesFromPrefixes(string model)
     {
         using var client = new HttpClient(new OfflineHandler());
@@ -90,17 +92,35 @@ public class OpenAIAnthropicCapabilityTests
     }
 
     [TestMethod]
-    public void AstraMode_IsCapturedByBuilder_AndMatchesPreservationValidation()
+    [DataRow(AIModels.OpenAI.Gpt6Astra)]
+    [DataRow(AIModels.OpenAI.Gpt6_1Sol)]
+    public void MandatoryReasoningMode_IsCapturedByBuilder_AndMatchesPreservationValidation(string model)
     {
         using var client = new HttpClient(new OfflineHandler());
-        var service = new OpenAIProbe(AIModels.OpenAI.Gpt6Astra, client);
+        var service = new OpenAIProbe(model, client);
         var request = service.CreateRequest("question");
         service.Gpt6ReasoningMode = Gpt6ReasoningMode.Pro;
 
+        var capabilities = request.GetCapabilities();
+        Assert.AreEqual(model, capabilities.Model);
+        CollectionAssert.AreEquivalent(new[] { ReasoningLevel.Auto, ReasoningLevel.Low, ReasoningLevel.Medium,
+            ReasoningLevel.High, ReasoningLevel.XHigh, ReasoningLevel.Max }, capabilities.ReasoningLevels.ToArray());
+        CollectionAssert.AreEquivalent(capabilities.ReasoningLevels.ToArray(), capabilities.NativeReasoningLevels.ToArray());
+        Assert.AreEqual(CapabilitySupport.Unsupported, capabilities.ThinkingToggle);
+        Assert.AreEqual(CapabilitySupport.Unsupported, capabilities.Temperature);
+        Assert.AreEqual(CapabilitySupport.Unsupported, capabilities.TopP);
+        Assert.AreEqual(CapabilitySupport.Supported, capabilities.WebSearch);
+        Assert.AreEqual(CapabilitySupport.Supported, capabilities.FileSearch);
+        Assert.AreEqual(CapabilitySupport.Supported, capabilities.ImageInput);
+        Assert.AreEqual(CapabilitySupport.Supported, capabilities.StructuredOutput);
+        Assert.AreEqual(CapabilitySupport.Supported, capabilities.GetSpeedSupport(InferenceSpeed.Fast));
+        Assert.AreEqual(128000u, capabilities.MaxOutputTokens);
         Assert.AreEqual(CapabilitySupport.Supported, request.GetCapabilities().ReasoningCachePreservation);
         Assert.AreEqual(CapabilitySupport.Unsupported, service.GetCapabilities().ReasoningCachePreservation);
         Assert.AreEqual(CapabilitySupport.Supported, service.GetCapabilities().AsyncFunctionCalling);
-        Assert.AreEqual(CapabilitySupport.Supported, service.GetCapabilities().Steering);
+        Assert.AreEqual(CapabilitySupport.Supported, request.GetCapabilities().Steering);
+        Assert.AreEqual(model == AIModels.OpenAI.Gpt6_1Sol ? CapabilitySupport.Unsupported : CapabilitySupport.Supported,
+            service.GetCapabilities().Steering);
         Assert.Throws<NotSupportedException>(() => service.Validate(new AIRequestFeatures
         {
             Reasoning = new ReasoningOptions { Level = ReasoningLevel.High, Cache = CachePreservation.Required }

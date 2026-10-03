@@ -1,5 +1,11 @@
 # Streaming
 
+El adaptador de streaming por callback cancela y espera al productor al salir antes de tiempo. La cancelación del Run, el tiempo agotado, el fallo del observador y `DisposeAsync` esperan la limpieza antes de completar `Result` y liberar el bloqueo. El trabajo no cooperativo puede retrasar el final; los errores del observador y de limpieza se conservan juntos. `ContextRecoveryMaxRetries` usa el valor capturado. Detener solo la observación de `run.StreamAsync()` no cancela el Run. La obtención del cuerpo SSE de respuestas correctas tiene una [limitación de cancelación](#sse-acquisition-cancellation-limitation) independiente.
+
+> Claude Sonnet 5.5: Requiere Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuración y migración](providers.md#claude-sonnet-55)
+
+En adaptive, `ClaudeThinkingDisplay.Updates` solicita progreso legible y `Summarized` resúmenes de razonamiento. Observe `StreamingContentType.Reasoning` o `LastThinkingContent` tras un completado. El método adaptive usa `Summarized` si se omite el argumento display, a diferencia de la configuración sin modificar. `between_tools` devuelve progreso automáticamente; no se garantiza un intervalo fijo.
+
 > Grok 4.7: Requiere Mythosia.AI 8.1.0 / Abstractions 4.1.0. [selección del modelo, razonamiento y velocidad](providers.md#grok-47)
 
 Para obtener respuesta, uso y fuentes juntos, `await run.Result` devuelve una instantánea `AIRunResult`. La cadena está en `result.Text`, sin leer el flujo. Es un cambio de Mythosia.AI 8.0.0; `GetCompletionAsync` y `StructuredStreamRun<T>.Result` mantienen sus tipos de retorno. [Resultado Run y migración](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Respuestas de error de Claude:** La cancelación y el tiempo límite de la política de solicitud también interrumpen la lectura bloqueada del cuerpo de un error HTTP durante streaming o Run. Tras la limpieza del Run, puede iniciarse otro en el mismo servicio. La cancelación del llamador genera `OperationCanceledException`; el tiempo límite genera `AIServiceException`. La cancelación controla el transporte local y la limpieza cooperativa; no garantiza que se detengan el procesamiento o la facturación del proveedor.
+
+**Limpieza de respuestas de Claude:** El streaming de Claude y Run esperan la limpieza asíncrona del cuerpo HTTP ya obtenido, incluidos los streams personalizados que requieren liberación asíncrona. Una excepción posterior al liberar la respuesta o su contenido no sustituye una finalización correcta, el error de lectura original ni una cancelación; se sigue intentando liberar la respuesta y el contenido originales.
+
+**Tiempos límite HTTP:** En el streaming de texto, contenido o callbacks y en los Runs que usan la ruta común de rondas de streaming, un `HttpClient.Timeout` identificable (`TaskCanceledException` con una `TimeoutException` interna) se convierte en `AIServiceException` si no se ha activado la cancelación del llamador ni el tiempo límite de la política de solicitud. `InnerException` conserva la excepción de transporte original, por lo que `run.Result` falla conservando la causa del tiempo límite. La cancelación del llamador, los tiempos límite de la política y otras cancelaciones de transporte mantienen su comportamiento anterior.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## Limitación conocida: obtención del cuerpo SSE de una respuesta correcta
+
+En HTTP 200 SSE, un wrapper `HttpContent` que almacena el cuerpo en un búfer, usado por un handler personalizado, puede bloquear `ReadAsStreamAsync` antes de obtener el flujo del cuerpo e iniciar la limpieza. La cancelación del llamador y el tiempo límite de la política de solicitud pueden dejar `run.Result` pendiente, la respuesta sin liberar y el bloqueo de Run activo retenido hasta que termine la obtención; otro Run se rechaza por haber uno activo. Este problema sigue sin corregirse y es distinto de una limpieza lenta. El `SocketsHttpHandler` predeterminado superó los escenarios probados; la cancelación del cuerpo de error HTTP también funcionó con el wrapper. Use contenido de streaming normal sin un wrapper que lo almacene en un búfer. La búsqueda web nativa de Claude tiene una [limitación de continuación](providers.md#claude-native-continuation-limitation) independiente.
 
 ## Ejemplos de compatibilidad con la API anterior
 

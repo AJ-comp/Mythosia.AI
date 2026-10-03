@@ -78,6 +78,12 @@ dotnet add package Mythosia.VectorDb.Postgres     # optionnel : quand vous avez 
 
 Préparez des paramètres indépendants avec `CreateRequest(...).WithTemperature(...).GetCompletionAsync()`. Le [guide des requêtes](request-building.md) présente Before/After, Run, profils et limites de la conversation partagée.
 
+Completion, streaming, sortie structurée et Run appliquent une fois le profil réel et valident les réglages effectifs avant le résumé automatique, les modifications d'historique ou le transport. Les requêtes auxiliaires isolent la conversation et le schéma de sortie principaux tout en conservant la validation native du fournisseur. Consultez le [guide des réglages de requête](request-building.md).
+
+Les appels de l'application restent indépendants, y compris les appels ordinaires depuis les callbacks de contexte ou d'outils et ceux qui réutilisent des profils ou des messages. Dans un adaptateur virtuel de fournisseur invoqué par le framework, le premier appel au point d'entrée correspondant de la classe de base poursuit la requête préparée, même si l'entrée est remplacée. Un appel auxiliaire indépendant à ce même point avant la transmission nécessite `BeginIndependentRequestScope()` ; consultez les [règles des adaptateurs](request-building.md#provider-request-adapters). Les copies d'entrée protègent l'historique accepté contre les modifications des appels suivants.
+
+Les profils modifiés par un adaptateur sont validés avant le résumé automatique ; le streaming par rappel attend le nettoyage. La compression Claude préserve les dépendances d’outils des entrées remplacées et le thinking lié de Mythos 5.1. Les requêtes auxiliaires OpenAI sans état maintiennent la protection de l’historique parent.
+
 Pour une requête sensible au temps d’attente, choisissez la [vitesse de traitement](request-building.md#inference-speed). `WithSpeed` conserve modèle et effort, tandis que `Processing` rapporte le mode réellement appliqué. Fast est payant sur les combinaisons compatibles.
 
 ## Démarrage rapide
@@ -145,11 +151,11 @@ service.DefaultPolicy = new FunctionCallingPolicy
 };
 ```
 
-Les résultats d’un lot normal sont renvoyés au modèle dans l’ordre d’origine des appels. Une annulation ignore les appels qui n’ont pas démarré et fournit les résultats d’annulation correspondants. Les outils déjà démarrés reçoivent le jeton lorsque cela est pris en charge ; leur exécution est attendue pour préserver les paires appel/résultat dans l’historique. `FunctionCallingPolicy.TimeoutSeconds` couvre toute la boucle des tours de streaming, y compris les en-têtes de réponse et le corps SSE, sans être réinitialisé entre les tours d’outils. Son expiration déclenche `AIServiceException` ; une annulation par l’appelant reste une `OperationCanceledException` associée à son jeton.
+Les résultats d’un lot normal sont renvoyés au modèle dans l’ordre d’origine des appels. Une annulation ignore les appels qui n’ont pas démarré et fournit les résultats d’annulation correspondants. Les outils déjà démarrés reçoivent le jeton lorsque cela est pris en charge ; leur exécution est attendue pour préserver les paires appel/résultat dans l’historique. `FunctionCallingPolicy.TimeoutSeconds` couvre toute la boucle des tours de streaming, y compris les en-têtes de réponse et le corps SSE, sans être réinitialisé entre les tours d’outils. Son expiration déclenche `AIServiceException` ; une annulation par l’appelant reste une `OperationCanceledException` associée à son jeton. Un `HttpContent` personnalisé qui met le corps en mémoire tampon présente une exception connue lors de l’acquisition du flux SSE ; voir les [limites d’annulation](streaming.md#sse-acquisition-cancellation-limitation).
 
 Une consultation lente ne doit pas forcément suspendre toute la réponse. Pendant le chargement de la météo, par exemple, le modèle peut déjà formuler des conseils de voyage généraux qui ne dépendent pas du résultat.
 
-`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permet d’autoriser les appels asynchrones pour GPT-6 Astra / Sol / Luna via Responses. La valeur par défaut est `false` ; les modèles non compatibles attendent le résultat du même gestionnaire. Voir les exemples et la durée de vie des requêtes dans le [guide des appels de fonctions](function-calling.md).
+`FunctionDefinition.AllowAsync = true` ou `FunctionBuilder.WithAsync()` permet d’autoriser les appels asynchrones pour GPT-6.1 Sol / GPT-6 Astra / Sol / Luna via Responses. La valeur par défaut est `false` ; les modèles non compatibles attendent le résultat du même gestionnaire. Voir les exemples et la durée de vie des requêtes dans le [guide des appels de fonctions](function-calling.md).
 
 Les modèles non compatibles ne reçoivent pas cette option d’API. Ce mécanisme est distinct des gestionnaires C# `async` et de leur exécution parallèle. Voir les [appels d’outils asynchrones](function-calling.md#async-tool-calling) pour les exemples et la durée de vie des requêtes.
 
@@ -275,14 +281,18 @@ var result = await store.QueryAsync("What is the refund period?");
 
 > Grok 4.7: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [le choix du modèle, le raisonnement et la vitesse](providers.md#grok-47)
 
+> GPT-6.1 Sol: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Choix du modèle et migration](providers.md#gpt-61-sol)
+
 > GPT-6 Sol/Luna nécessitent Mythosia.AI 8.1.0 et Abstractions 4.1.0 ; voir [le choix du modèle et les prérequis](providers.md#gpt-6-sol-luna).
+
+> Claude Sonnet 5.5: Nécessite Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuration et migration](providers.md#claude-sonnet-55)
 
 > Claude Opus 5.5: Nécessite Mythosia.AI 8.1.0 / Abstractions 4.1.0. [configuration et migration](providers.md#claude-opus-55)
 
 | Fournisseur | Package | Modèles |
 | --- | --- | --- |
-| **OpenAI** | `Mythosia.AI` | GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
-| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (accès limité), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, Sonnet 5 / 4.6 / 4.5, Haiku 4.5 |
+| **OpenAI** | `Mythosia.AI` | GPT-6.1 Sol / GPT-6 Astra / Sol / Luna, GPT-5.6 Sol / Terra / Luna, GPT-5.5 / 5.5 Pro / 5.4 / 5.4 Mini / 5.4 Nano / 5.4 Pro / 5.3 Codex / 5.2 / 5.2 Pro / 5.1, GPT-4.1 / 4.1 Mini, GPT-4o / 4o Mini |
+| **Anthropic** | `Mythosia.AI` | Claude Fable 5.1 / 5, Mythos 5.1 / 5 (accès limité), [Opus 5.5](providers.md#claude-opus-55) / 5 / 4.8 / 4.7 / 4.6 / 4.5, [Sonnet 5.5](providers.md#claude-sonnet-55) / 5 / 4.6 / 4.5, Haiku 4.5 |
 | **Google** | `Mythosia.AI` | Gemini 3.8 Flash, Gemini 3.7 Flash, Gemini 3.6 Flash, Gemini 3.5 Flash/Flash-Lite, Gemini 3.1 Pro Preview/Flash-Lite, Gemini 3 Flash Preview, Gemini 2.5 Pro/Flash/Flash-Lite, Gemini 3.1 Flash Image, Gemini 3.1 Flash-Lite Image, Gemini 3 Pro Image |
 | **xAI** | `Mythosia.AI` | Grok 4.7, Grok 4.6, Grok 4.5 (par défaut), Grok 4.3, Grok 4.20 (avec / sans raisonnement), Grok Build |
 | **DeepSeek** | `Mythosia.AI` | Flash (V4.1 Flash), V4 Pro |
@@ -321,9 +331,13 @@ L’[infrastructure d’évaluation de la recherche](https://github.com/AJ-comp/
 
 Isolez les réglages, arrêtez le travail en cours et recevez les réponses avec consommation et sources. Le [guide de migration v8](v8-migration.md) présente six changements d’architecture, des exemples et le périmètre de validation.
 
-> Versions des packages documentées ici: [Mythosia.AI 8.1.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v810), [Abstractions 4.1.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v410), [Alibaba 3.0.1](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v301), [RAG 8.2.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v820), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Consultez le [tableau du correctif précédent](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) et la [publication coordonnée précédente](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) pour les versions des autres packages de recherche, de documents et de vecteurs.
+> Versions des packages documentées ici: [Mythosia.AI 8.2.0](../../src/core/Mythosia.AI/RELEASE_NOTES.md#v820), [Abstractions 4.2.0](../../src/core/Mythosia.AI.Abstractions/RELEASE_NOTES.md#v420), [Alibaba 3.0.2](../../src/core/Mythosia.AI.Providers.Alibaba/RELEASE_NOTES.md#v302), [RAG 8.3.0](../../src/rag/Mythosia.AI.Rag/RELEASE_NOTES.md#v830), [RAG Abstractions 6.5.0](../../src/rag/Mythosia.AI.Rag.Abstractions/RELEASE_NOTES.md#v650), [VectorDb Abstractions 4.2.0](../../src/vectordb/Mythosia.VectorDb.Abstractions/RELEASE_NOTES.md#v420), [InMemory 4.3.0](../../src/vectordb/Mythosia.VectorDb.InMemory/RELEASE_NOTES.md#v430), [PostgreSQL 10.8.1](../../src/vectordb/Mythosia.VectorDb.Postgres/RELEASE_NOTES.md#v1081), [MCP 0.1.1-preview](../../src/integrations/Mythosia.AI.Mcp/RELEASE_NOTES.md#v011-preview), [Serving.Abstractions 1.0.0](../../src/serving/Mythosia.AI.Serving.Abstractions/RELEASE_NOTES.md#v100), [Serving.Ollama 1.0.0](../../src/serving/Mythosia.AI.Serving.Ollama/RELEASE_NOTES.md#v100), [Serving.LlamaCpp 1.0.0](../../src/serving/Mythosia.AI.Serving.LlamaCpp/RELEASE_NOTES.md#v100), [Serving.Vllm 1.1.0](../../src/serving/Mythosia.AI.Serving.Vllm/RELEASE_NOTES.md#v110). Consultez le [tableau du correctif précédent](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) et la [publication coordonnée précédente](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v810) pour les versions des autres packages de recherche, de documents et de vecteurs.
 
-> [Correctif RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) : les wrappers RAG existants prennent en compte les changements du réécrivain à l’exécution, et la recherche hybride mixte PostgreSQL respecte les paramètres vectoriels configurés. Le package principal `Mythosia.AI` reste en 8.1.0.
+> **Version en attente de publication — limites connues :** Sonnet 5.5 / Opus 5.5 peuvent rejeter une continuation `pause_turn` se terminant par un `server_tool_use` non encore exécuté ; voir les [limites de continuation Claude](providers.md#claude-native-continuation-limitation). Un `HttpContent` personnalisé qui met le corps en mémoire tampon peut retarder l’annulation ou l’expiration du délai de la politique pendant l’acquisition du flux d’une réponse SSE réussie et maintenir le Run actif ; voir les [limites d’annulation SSE](streaming.md#sse-acquisition-cancellation-limitation).
+>
+> Ces pages décrivent des modifications en attente de publication, sans attester une validation complète de la version. Les [notes de version](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md) précisent les modifications incluses, les limites restantes et la portée de la validation.
+
+> [Correctif RAG 8.1.1 / PostgreSQL 10.8.1](https://github.com/AJ-comp/Mythosia.AI/blob/main/RELEASE_NOTES.md#v811) : les wrappers RAG existants prennent en compte les changements du réécrivain à l’exécution, et la recherche hybride mixte PostgreSQL respecte les paramètres vectoriels configurés. Ce correctif avait conservé le package principal `Mythosia.AI` en 8.1.0.
 
 ---
 
@@ -418,7 +432,6 @@ flowchart LR
     end
     RagAbs["Mythosia.AI.Rag.<br/>Abstractions"]:::contract
     VdbAbs["Mythosia.VectorDb.<br/>Abstractions"]:::contract
-    InMem --> RagAbs
     InMem --> VdbAbs
     RagAbs --> VdbAbs
     Pg --> VdbAbs
@@ -464,11 +477,15 @@ flowchart LR
 
 | Package | NuGet | Description |
 | --- | --- | --- |
-| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Contrats `IVectorStore` · `VectorRecord` · `VectorFilter` |
+| [Mythosia.VectorDb.Abstractions](../../src/vectordb/Mythosia.VectorDb.Abstractions/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Abstractions.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Abstractions) | Contrats `IVectorStore` · `IVectorStoreDiagnostics` · `VectorRecord` · `VectorFilter` |
 | [Mythosia.VectorDb.InMemory](../../src/vectordb/Mythosia.VectorDb.InMemory/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.InMemory.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.InMemory) | Store en mémoire — zéro infrastructure, idéal pour le prototypage |
 | [Mythosia.VectorDb.Pinecone](../../src/vectordb/Mythosia.VectorDb.Pinecone/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Pinecone.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Pinecone) | API HTTP Pinecone — isolation par index/namespace/scope pour la base de vecteurs gérée |
 | [Mythosia.VectorDb.Postgres](../../src/vectordb/Mythosia.VectorDb.Postgres/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Postgres.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Postgres) | PostgreSQL + pgvector — index HNSW / IVFFlat, prêt pour la production |
 | [Mythosia.VectorDb.Qdrant](../../src/vectordb/Mythosia.VectorDb.Qdrant/README.md) | [![NuGet](https://img.shields.io/nuget/v/Mythosia.VectorDb.Qdrant.svg)](https://www.nuget.org/packages/Mythosia.VectorDb.Qdrant) | Client gRPC Qdrant — Cosine / Euclidean / Dot, provisionnement automatique |
+
+L’inspection facultative du stockage utilise `IVectorStoreDiagnostics` de `Mythosia.VectorDb.Abstractions`. InMemory 4.3.0 ne dépend plus des abstractions RAG ; `RagDiagnostics` et `RagDiagnosticSession` restent dans RAG 8.3.0. Mettez RAG et InMemory à jour ensemble et migrez les conversions vers `IRagDiagnosticsStore`. [Diagnostic et migration](vectordb-backends.md#vector-store-diagnostics).
+
+Cette publication inclut volontairement une migration d’interface incompatible dans les versions mineures RAG 8.3.0 et InMemory 4.3.0. Il s’agit d’une exception de versionnement propre à cette publication : le code existant qui utilise InMemory via `IRagDiagnosticsStore` doit migrer vers `IVectorStoreDiagnostics`, même si les numéros de version majeure restent inchangés.
 
 ### Serving — Plan de contrôle
 

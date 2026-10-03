@@ -88,6 +88,7 @@ namespace Mythosia.AI.Providers.Alibaba
             RequestCancellationToken.ThrowIfCancellationRequested();
             using var settingsScope = BeginRequestSettingsScope();
             using var featureScope = BeginRequestFeaturesScope(message);
+            message = ResolveRequestMessage(message);
             var policy = GetExecutionPolicy();
 
             using var cts = CreateRequestTimeoutCts(policy);

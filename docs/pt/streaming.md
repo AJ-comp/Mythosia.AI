@@ -1,5 +1,11 @@
 # Streaming
 
+O adaptador de streaming por callback cancela e aguarda o produtor na saída antecipada. Cancelamento do Run, timeout, erro do observador e `DisposeAsync` aguardam a limpeza antes de concluir `Result` e liberar o bloqueio. Trabalho não cooperativo pode atrasar o término; erros do observador e da limpeza são preservados juntos. `ContextRecoveryMaxRetries` usa o valor capturado. Encerrar apenas a observação de `run.StreamAsync()` não cancela o Run. A obtenção do corpo de uma resposta SSE bem-sucedida tem uma [limitação separada de cancelamento](#sse-acquisition-cancellation-limitation).
+
+> Claude Sonnet 5.5: Requer Mythosia.AI 8.2.0 / Abstractions 4.2.0. [Configuração e migração](providers.md#claude-sonnet-55)
+
+Em adaptive, use `ClaudeThinkingDisplay.Updates` para progresso legível das ferramentas ou `Summarized` para resumos do raciocínio. Observe `StreamingContentType.Reasoning`, ou `LastThinkingContent` após uma conclusão. O método adaptive usa `Summarized` quando display é omitido, diferente das configurações intocadas. `between_tools` retorna progresso automaticamente, sem intervalo fixo garantido.
+
 > Grok 4.7: Requer Mythosia.AI 8.1.0 / Abstractions 4.1.0. [seleção do modelo, raciocínio e velocidade](providers.md#grok-47)
 
 Para receber resposta, uso e fontes juntos, `await run.Result` retorna um `AIRunResult` com o estado final. A string fica em `result.Text`, sem ler o fluxo. É uma mudança de Mythosia.AI 8.0.0; `GetCompletionAsync` e `StructuredStreamRun<T>.Result` mantêm seus tipos de retorno. [Resultado Run e migração](execution-api-transition.md#run-result).
@@ -22,6 +28,18 @@ await foreach (var item in run.StreamAsync())
 
 string answer = (await run.Result).Text;
 ```
+
+**Respostas de erro do Claude:** O cancelamento e o timeout da política de solicitação também interrompem a leitura bloqueada do corpo de um erro HTTP durante streaming ou Run. Após a limpeza do Run, outro pode ser iniciado no mesmo serviço. O cancelamento pelo chamador gera `OperationCanceledException`; o timeout da política gera `AIServiceException`. O cancelamento controla o transporte local e a limpeza cooperativa; não garante que o processamento ou a cobrança do provedor parem.
+
+**Limpeza das respostas do Claude:** O streaming do Claude e Run aguardam a limpeza assíncrona do corpo HTTP já obtido, incluindo streams personalizados que exigem liberação assíncrona. Uma exceção posterior ao liberar a resposta ou o conteúdo não substitui uma conclusão bem-sucedida, o erro de leitura original ou um cancelamento; a liberação da resposta e do conteúdo originais continua sendo tentada.
+
+**Timeouts HTTP:** No streaming de texto, conteúdo ou callbacks e nos Runs que usam o caminho comum de rodadas de streaming, um `HttpClient.Timeout` identificável (`TaskCanceledException` com uma `TimeoutException` interna) torna-se `AIServiceException` quando nem o cancelamento pelo chamador nem o timeout da política de solicitação foram acionados. `InnerException` preserva a exceção de transporte original, de modo que `run.Result` falha mantendo a causa do timeout. O cancelamento pelo chamador, os timeouts da política e outros cancelamentos de transporte mantêm o comportamento existente.
+
+<a id="sse-acquisition-cancellation-limitation"></a>
+
+## Limitação conhecida: obtenção do corpo de uma resposta SSE bem-sucedida
+
+Em HTTP 200 SSE, um wrapper `HttpContent` que armazena o corpo em buffer, usado por um handler personalizado, pode bloquear `ReadAsStreamAsync` antes da obtenção do fluxo do corpo e da limpeza. O cancelamento pelo chamador e o timeout da política de requisição podem deixar `run.Result` pendente, a resposta sem descarte e o bloqueio de Run ativo retido até a obtenção terminar; outro Run é rejeitado por já haver um ativo. Esse problema permanece sem correção e é distinto de uma limpeza lenta. O `SocketsHttpHandler` padrão passou nos cenários testados; o cancelamento do corpo de erro HTTP também passou com o wrapper. Use conteúdo de streaming comum sem um wrapper que o armazene em buffer. A busca web nativa do Claude tem uma [limitação separada de continuação](providers.md#claude-native-continuation-limitation).
 
 ## Exemplos de compatibilidade com a API anterior
 
