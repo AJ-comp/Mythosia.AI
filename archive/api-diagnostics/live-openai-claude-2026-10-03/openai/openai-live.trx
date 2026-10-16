@@ -1,0 +1,3132 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010" id="92dbaa5b-7478-4e13-9e35-010b615bd4a8" name="Archived live API validation 2026-10-03">
+  <Times creation="2026-10-03T03:55:35.6004668Z" queuing="2026-10-03T03:55:35.6004668Z" start="2026-10-03T03:55:35.6004668Z" finish="2026-10-03T04:04:33.4380058Z" />
+  <TestSettings name="default" id="625da072-9579-46ec-bc71-38bd853b0f42">
+    <Deployment runDeploymentRoot="archived-live-api-2026-10-03" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="40d4acb2-a65c-449f-82c1-6a07bdfee48d" testId="14575774-0730-8ae1-8453-5df7fed7dd4d" testName="Gpt5_6AliasAndTierModels_ReturnCompletion(&quot;gpt-5.6&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:08.2406879" startTime="2026-10-03T03:55:35.9359235+00:00" endTime="2026-10-03T03:55:44.1947900+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="40d4acb2-a65c-449f-82c1-6a07bdfee48d">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="388946dd-994d-4bff-841a-0dd8dcc263b4" testId="198ab3b8-70fb-8e47-a44f-a3896c49ff15" testName="Gpt5_6AliasAndTierModels_ReturnCompletion(&quot;gpt-5.6-terra&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.5293139" startTime="2026-10-03T03:55:44.1996500+00:00" endTime="2026-10-03T03:55:46.7293650+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="388946dd-994d-4bff-841a-0dd8dcc263b4">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="be00a470-34a3-4a78-a244-485db1240081" testId="1e7bc3ef-784e-818c-a017-722c295a9689" testName="Gpt5_6AliasAndTierModels_ReturnCompletion(&quot;gpt-5.6-luna&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.1959115" startTime="2026-10-03T03:55:46.7295264+00:00" endTime="2026-10-03T03:55:48.9255269+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="be00a470-34a3-4a78-a244-485db1240081">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0b171560-2a76-4d3a-a8a0-8283a310fcb6" testId="162f3a0f-649e-85e6-ac5c-46d6aaacd319" testName="Gpt5_6Sol_MaxHighDetailedPro_ReturnsCompletion" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.3793193" startTime="2026-10-03T03:55:48.9256615+00:00" endTime="2026-10-03T03:55:54.3067338+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="0b171560-2a76-4d3a-a8a0-8283a310fcb6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d482113d-f582-4988-9265-f37fc9b03962" testId="110b18ef-5d83-8328-b157-6a944cfca1af" testName="GptImage2_GeneratesPng" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.8736525" startTime="2026-10-03T03:55:54.3069182+00:00" endTime="2026-10-03T03:56:02.1806738+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="d482113d-f582-4988-9265-f37fc9b03962" />
+    <UnitTestResult executionId="6d282d33-daea-4759-b8db-ff13cfe0d937" testId="12b7d70d-7f4a-8932-a3dd-b3ef0cdaa589" testName="GptImage2_EditsReferencePng" computerName="ARCHIVED_TEST_HOST" duration="00:00:12.9104399" startTime="2026-10-03T03:56:02.1808160+00:00" endTime="2026-10-03T03:56:15.0930587+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="6d282d33-daea-4759-b8db-ff13cfe0d937" />
+    <UnitTestResult executionId="0a033695-a2af-438a-a1ac-e3044092276d" testId="1a77d579-7a01-8f32-94c7-7e4d7dfcf1ea" testName="Gpt6Astra_AsyncTool_ContinuesBeforeResultAndDeliversOriginalCall(False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:17.6326702" startTime="2026-10-03T03:56:15.0937905+00:00" endTime="2026-10-03T03:56:32.7266982+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="0a033695-a2af-438a-a1ac-e3044092276d">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ee1724ae-b1b1-4ef4-862c-c6037d29cc17" testId="15b612bc-cdf1-851d-916a-f2a4597bac03" testName="Gpt6Astra_AsyncTool_ContinuesBeforeResultAndDeliversOriginalCall(True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.1670476" startTime="2026-10-03T03:56:32.7268442+00:00" endTime="2026-10-03T03:56:39.8939982+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="ee1724ae-b1b1-4ef4-862c-c6037d29cc17">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="633bbb12-e84a-42ab-8350-9740727a5e10" testId="14e7a221-4b40-8cf3-9562-c3e2316f0840" testName="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-6-astra&quot;,False,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.1188933" startTime="2026-10-03T03:56:39.8941688+00:00" endTime="2026-10-03T03:56:45.0132035+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="633bbb12-e84a-42ab-8350-9740727a5e10">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c1e4de09-3a57-4d65-801f-1fd5cdc4ae65" testId="1634207d-5947-8878-8f27-1c8a94bb739f" testName="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-6-astra&quot;,False,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.6233161" startTime="2026-10-03T03:56:45.0140446+00:00" endTime="2026-10-03T03:56:48.6374770+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="c1e4de09-3a57-4d65-801f-1fd5cdc4ae65">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="cc1d632c-e7ff-467c-8636-f37e65a3fbb0" testId="1bd8e213-6c68-8e73-a32b-121d214ac160" testName="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-5.6-sol&quot;,True,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.3875907" startTime="2026-10-03T03:56:48.6375678+00:00" endTime="2026-10-03T03:56:54.0252373+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="cc1d632c-e7ff-467c-8636-f37e65a3fbb0">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c221a758-9cd1-4d5b-899d-b22f288dddc5" testId="14901dee-4479-8787-8bd7-818c701a306f" testName="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-5.6-sol&quot;,True,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.4774483" startTime="2026-10-03T03:56:54.0253912+00:00" endTime="2026-10-03T03:56:57.5029293+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="c221a758-9cd1-4d5b-899d-b22f288dddc5">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1b089f56-ec31-400e-baf1-cbbf9bd1fb6a" testId="1624b573-f59e-89de-8cc3-441a950af3d2" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Auto)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.3303741" startTime="2026-10-03T03:56:57.5030283+00:00" endTime="2026-10-03T03:57:00.8335596+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="1b089f56-ec31-400e-baf1-cbbf9bd1fb6a">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f6b962be-44af-47ac-8d31-329de2a756fe" testId="1d00ce3a-7603-8496-bfcd-a94c24b8fe44" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Low)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.9615865" startTime="2026-10-03T03:57:00.8336550+00:00" endTime="2026-10-03T03:57:02.7953314+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="f6b962be-44af-47ac-8d31-329de2a756fe">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="05e4fd8d-a63c-4f91-b7b7-ba96add49626" testId="119a25c1-c259-81c3-a055-b494670e1dc8" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Medium)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.2962053" startTime="2026-10-03T03:57:02.7954099+00:00" endTime="2026-10-03T03:57:05.0917396+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="05e4fd8d-a63c-4f91-b7b7-ba96add49626">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1741c2b4-6742-4f5f-a050-ebaacb3287bd" testId="139d7cd0-1ff4-8406-98f0-0b43f2ab224a" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,High)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.8979037" startTime="2026-10-03T03:57:05.0918803+00:00" endTime="2026-10-03T03:57:06.9899396+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="1741c2b4-6742-4f5f-a050-ebaacb3287bd">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3b013ca4-2a7a-4946-b3fd-b07cae832dfd" testId="19185958-2287-84c9-9e57-ae1e3985a3ba" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,XHigh)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.7728044" startTime="2026-10-03T03:57:06.9905219+00:00" endTime="2026-10-03T03:57:09.7634619+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3b013ca4-2a7a-4946-b3fd-b07cae832dfd">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="14e2260f-f124-4dcd-84e4-63372ab881e6" testId="1aeb82f1-5aa5-8bf3-911f-f48372aa45fc" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Max)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.9740212" startTime="2026-10-03T03:57:09.7635650+00:00" endTime="2026-10-03T03:57:11.7376628+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="14e2260f-f124-4dcd-84e4-63372ab881e6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a5a44b09-abbd-43d2-9610-c07bb31b269b" testId="1756763c-70bd-8c1e-889d-c390d635f89f" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,ProviderDefault,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.0395369" startTime="2026-10-03T03:57:11.7377350+00:00" endTime="2026-10-03T03:57:13.7774790+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a5a44b09-abbd-43d2-9610-c07bb31b269b">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="524960ab-ca01-4855-b283-11ebfb024900" testId="176e2004-4754-81cb-9312-b1a4aa7fbe7d" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,ProviderDefault,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.4773755" startTime="2026-10-03T03:57:13.7775938+00:00" endTime="2026-10-03T03:57:16.2550730+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="524960ab-ca01-4855-b283-11ebfb024900">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a1613419-2203-462e-b394-269390465677" testId="19f5e1cd-29da-8d19-9138-7cea4bc2aed4" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Standard,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.1611995" startTime="2026-10-03T03:57:16.2551659+00:00" endTime="2026-10-03T03:57:18.4164389+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a1613419-2203-462e-b394-269390465677">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5d9b6e1f-8e4f-4e8a-b36e-a1d61a4ca73d" testId="1a0c4afe-f4c3-8b24-a13c-0e442bfd2028" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Standard,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.8035858" startTime="2026-10-03T03:57:18.4165386+00:00" endTime="2026-10-03T03:57:20.2201993+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5d9b6e1f-8e4f-4e8a-b36e-a1d61a4ca73d">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b2098372-3947-4a43-8ed4-fc4773dc06dc" testId="165bbe79-bd2a-8ff0-8ad4-260716ecdf6e" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Fast,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.0430546" startTime="2026-10-03T03:57:20.2202725+00:00" endTime="2026-10-03T03:57:21.2634032+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="b2098372-3947-4a43-8ed4-fc4773dc06dc">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="83847a3c-b6fb-475e-8118-a32fbc2ec70e" testId="1ba00b87-6cc2-8612-84e2-7dfdd006f66b" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Fast,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7220999" startTime="2026-10-03T03:57:21.2635201+00:00" endTime="2026-10-03T03:57:22.9857062+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="83847a3c-b6fb-475e-8118-a32fbc2ec70e">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5ba8d1e9-3fd2-4c15-a750-0c87446a4c51" testId="15938671-25c3-80a7-8c5f-51f88a6ef371" testName="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6.1-sol&quot;,Medium)" computerName="ARCHIVED_TEST_HOST" duration="00:00:04.4099311" startTime="2026-10-03T03:57:22.9857701+00:00" endTime="2026-10-03T03:57:27.3957806+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5ba8d1e9-3fd2-4c15-a750-0c87446a4c51">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f396f55c-0a4b-42b1-b31b-dbfaa20068f7" testId="11a3bfee-b47d-8109-811b-9229eebc357f" testName="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6.1-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.6003041" startTime="2026-10-03T03:57:27.3959111+00:00" endTime="2026-10-03T03:57:34.9962990+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="f396f55c-0a4b-42b1-b31b-dbfaa20068f7">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="84e991f8-6adb-486d-a867-845f2589cf17" testId="15be0103-5711-8ebb-9a0e-93a5f5305f10" testName="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6.1-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:06.9484300" startTime="2026-10-03T03:57:34.9963561+00:00" endTime="2026-10-03T03:57:41.9448561+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="84e991f8-6adb-486d-a867-845f2589cf17">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a8ae94b3-bcf8-4762-aa39-636f08ec7677" testId="18be239f-9720-8c7e-8863-aadf4f2508b8" testName="ProAsyncTools_ContinueBeforeResultAndDeliverOriginalCall(False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:12.0607571" startTime="2026-10-03T03:57:41.9449248+00:00" endTime="2026-10-03T03:57:54.0057726+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a8ae94b3-bcf8-4762-aa39-636f08ec7677">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bd861f74-e8a3-4d7b-8197-895291970904" testId="1550cdf5-71d8-8ef7-8125-1df90141767f" testName="ProAsyncTools_ContinueBeforeResultAndDeliverOriginalCall(True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:11.4277978" startTime="2026-10-03T03:57:54.0058414+00:00" endTime="2026-10-03T03:58:05.4337307+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="bd861f74-e8a3-4d7b-8197-895291970904">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="44009cb0-5091-4eea-aead-406db6ca2de8" testId="17352513-6be5-831e-b5a5-05772a3ce9bc" testName="ProRun_RejectsUnsupportedSteeringWithoutInterruptingResult" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.4829609" startTime="2026-10-03T03:58:05.4338241+00:00" endTime="2026-10-03T03:58:08.9169023+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="44009cb0-5091-4eea-aead-406db6ca2de8" />
+    <UnitTestResult executionId="629a1aeb-be30-4d0f-b41a-3a9bb46fc8cf" testId="10d85d74-ff74-8a07-837d-e79d1d5ba5dd" testName="LowReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6.1-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:04.0454254" startTime="2026-10-03T03:58:08.9169871+00:00" endTime="2026-10-03T03:58:12.9625511+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="629a1aeb-be30-4d0f-b41a-3a9bb46fc8cf">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="80b42b51-ab5e-414a-bf54-9715b879c731" testId="170d3328-f845-8039-831a-3541e651efbc" testName="LowReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6.1-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.4948220" startTime="2026-10-03T03:58:12.9626276+00:00" endTime="2026-10-03T03:58:16.4575197+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="80b42b51-ab5e-414a-bf54-9715b879c731" />
+    <UnitTestResult executionId="7bbe3f6c-7c56-44ac-bba0-879845ce40f1" testId="11723ff0-b51a-81c3-80f9-fb540b3c77a6" testName="Steering_UpdatesActualRunningResponse(&quot;gpt-6.1-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:25.8471859" startTime="2026-10-03T03:58:16.4576023+00:00" endTime="2026-10-03T03:58:42.3048454+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="7bbe3f6c-7c56-44ac-bba0-879845ce40f1">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="4f5c9e41-df4e-4580-b82e-13cb6bc9a474" testId="17cbe26b-fcd0-8714-9735-110a631ff8d6" testName="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6.1-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.5539028" startTime="2026-10-03T03:58:42.3048965+00:00" endTime="2026-10-03T03:58:47.8588664+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="4f5c9e41-df4e-4580-b82e-13cb6bc9a474">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="63994ce4-82a6-4a72-89ed-1faeb3eeaea6" testId="1212cc19-d17d-8fc6-9d54-c26f3b962595" testName="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6.1-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:13.2666948" startTime="2026-10-03T03:58:47.8589286+00:00" endTime="2026-10-03T03:59:01.1256924+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="63994ce4-82a6-4a72-89ed-1faeb3eeaea6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="fca56ac5-afbd-4c39-90f2-02f46f48b38f" testId="1e5b186f-183c-87b7-a8dd-d720dac38e82" testName="CachePreservingReasoning_ChangesEffortWithoutChangingRequestPrefix(&quot;gpt-6.1-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.5931177" startTime="2026-10-03T03:59:01.1257684+00:00" endTime="2026-10-03T03:59:06.7189533+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="fca56ac5-afbd-4c39-90f2-02f46f48b38f">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ab097620-1b88-4f60-9bfc-391f3d1da540" testId="1224852d-3baf-8dde-856e-763e7fa543bd" testName="CachePreservingReasoning_ChangesEffortWithoutChangingRequestPrefix(&quot;gpt-6.1-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.5034100" startTime="2026-10-03T03:59:06.7190457+00:00" endTime="2026-10-03T03:59:12.2225294+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="ab097620-1b88-4f60-9bfc-391f3d1da540">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e7d30abe-dc82-4073-a429-a072080a8d07" testId="1470ce74-6232-89a2-a070-9e33cd69eb35" testName="StructuredOutput_ReturnsTypedResultWithoutRepair(&quot;gpt-6.1-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.8549738" startTime="2026-10-03T03:59:12.2225932+00:00" endTime="2026-10-03T03:59:15.0776956+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="e7d30abe-dc82-4073-a429-a072080a8d07">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="11a865e8-260b-47bc-b410-8266849697de" testId="1dcad9bb-6dfd-8bc2-b6e6-0b104300c9f5" testName="ImageInput_KeepsModelAndRecognizesSyntheticImage(&quot;gpt-6.1-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.5162179" startTime="2026-10-03T03:59:15.0777516+00:00" endTime="2026-10-03T03:59:16.5940352+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="11a865e8-260b-47bc-b410-8266849697de">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b294f4b0-b162-4ec9-afa9-cb437f69a1cd" testId="15bf2329-da3a-81c9-bc3c-2e03bd147964" testName="WebSearch_ReturnsActualProviderCitations(&quot;gpt-6.1-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.5858549" startTime="2026-10-03T03:59:16.5941115+00:00" endTime="2026-10-03T03:59:22.1800403+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="b294f4b0-b162-4ec9-afa9-cb437f69a1cd">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="99cfe32e-1bce-47e3-bd27-4c04b376051a" testId="1e9ddd2a-7a21-8303-a800-cb79606fa831" testName="FileSearch_RetrievesUnpredictableTokenAndCitation(&quot;gpt-6.1-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:15.5162096" startTime="2026-10-03T03:59:22.1800907+00:00" endTime="2026-10-03T03:59:37.6963688+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="99cfe32e-1bce-47e3-bd27-4c04b376051a">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a141a6c8-8c30-4d3e-9d17-6578e01cc818" testId="163764f4-26bd-8935-b5f2-8eb0cc3f5742" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Auto)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.1792430" startTime="2026-10-03T03:59:37.6964447+00:00" endTime="2026-10-03T03:59:39.8758824+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a141a6c8-8c30-4d3e-9d17-6578e01cc818">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ccf89d8e-ccf2-481d-8e74-46fbc0dab747" testId="1ff4af43-ca99-8c05-bc66-6f6fea6707b7" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,None)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.8913287" startTime="2026-10-03T03:59:39.8759530+00:00" endTime="2026-10-03T03:59:41.7673596+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="ccf89d8e-ccf2-481d-8e74-46fbc0dab747">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="274ba1c6-c48d-49f6-94cd-9dc11c883d71" testId="18bc288c-025b-8453-b1c7-95d4c7f84d85" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Low)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7968751" startTime="2026-10-03T03:59:41.7674291+00:00" endTime="2026-10-03T03:59:43.5643711+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="274ba1c6-c48d-49f6-94cd-9dc11c883d71">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a9a2a391-176b-46ad-8495-3213ebef0807" testId="148e0c77-ff12-863d-9b9d-8f935e346111" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Medium)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7039965" startTime="2026-10-03T03:59:43.5644394+00:00" endTime="2026-10-03T03:59:45.2685093+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a9a2a391-176b-46ad-8495-3213ebef0807">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="637d2181-4468-4bcb-8e22-b43c40107251" testId="1c70f165-1cc2-8e51-a58e-cb7ae8ed7613" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,High)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.3637390" startTime="2026-10-03T03:59:45.2685724+00:00" endTime="2026-10-03T03:59:46.6324002+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="637d2181-4468-4bcb-8e22-b43c40107251">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="4ec75407-0e4c-4b45-8dbd-24e1a90bf278" testId="16e2db6e-a73c-8939-af72-5589c541a398" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,XHigh)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.8100631" startTime="2026-10-03T03:59:46.6324485+00:00" endTime="2026-10-03T03:59:48.4425656+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="4ec75407-0e4c-4b45-8dbd-24e1a90bf278">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5e601d2b-d5e8-4474-a20c-a930c664f377" testId="1221e085-6f74-89c2-9e16-d0b63ccaf080" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Max)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.3469576" startTime="2026-10-03T03:59:48.4426297+00:00" endTime="2026-10-03T03:59:49.7896557+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5e601d2b-d5e8-4474-a20c-a930c664f377">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d36f7623-e07d-4a23-8c13-dc0be46b3d87" testId="15e57605-e1ea-8776-9411-146f67223f80" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Auto)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.5042556" startTime="2026-10-03T03:59:49.7897161+00:00" endTime="2026-10-03T03:59:52.2940385+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="d36f7623-e07d-4a23-8c13-dc0be46b3d87">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a45cdc7a-a67a-4b8e-a227-eebb8bc11765" testId="13621630-b1e1-8c6e-8cad-72ed4f751d5e" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,None)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.2239124" startTime="2026-10-03T03:59:52.2941050+00:00" endTime="2026-10-03T03:59:53.5181070+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a45cdc7a-a67a-4b8e-a227-eebb8bc11765">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0441f8d9-819c-4bee-b9a2-19978dc1c9f2" testId="107acdab-85e6-8583-a020-5b3ecfddba17" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Low)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.4718948" startTime="2026-10-03T03:59:53.5181628+00:00" endTime="2026-10-03T03:59:55.9901179+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="0441f8d9-819c-4bee-b9a2-19978dc1c9f2">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="01cfdef7-3411-42f0-973d-98381b824b37" testId="1958a11d-3326-8898-9c76-bac74e38b957" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Medium)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7839387" startTime="2026-10-03T03:59:55.9901891+00:00" endTime="2026-10-03T03:59:57.7742015+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="01cfdef7-3411-42f0-973d-98381b824b37">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="adb4a06d-b208-4991-b1f3-587d6160c97b" testId="100ffac6-4b3a-8145-85cc-8713c9cea3ad" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,High)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.4457331" startTime="2026-10-03T03:59:57.7742428+00:00" endTime="2026-10-03T03:59:59.2200234+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="adb4a06d-b208-4991-b1f3-587d6160c97b">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6722ce27-10b9-4c80-b6a9-dd25c31e07eb" testId="1f77d00d-6124-8e85-a689-2ae87818725d" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,XHigh)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.1640907" startTime="2026-10-03T03:59:59.2200723+00:00" endTime="2026-10-03T04:00:01.3842128+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="6722ce27-10b9-4c80-b6a9-dd25c31e07eb">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3d045b80-790c-4c94-84d2-aa5026b6a379" testId="1f692e46-dd4f-8c0e-9dfe-efef48a227cf" testName="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Max)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.5409989" startTime="2026-10-03T04:00:01.3842604+00:00" endTime="2026-10-03T04:00:02.9253138+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3d045b80-790c-4c94-84d2-aa5026b6a379">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bdbe4884-8a15-41c6-8c5f-ae86f82ef489" testId="12b62771-4784-809f-9705-1abf6bc54746" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,ProviderDefault,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.1386052" startTime="2026-10-03T04:00:02.9253858+00:00" endTime="2026-10-03T04:00:05.0643540+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="bdbe4884-8a15-41c6-8c5f-ae86f82ef489">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2178d70d-502e-461b-abf0-7f510430396e" testId="186ee5b0-7423-8e8d-92bd-9cba306e3f29" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,ProviderDefault,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7801599" startTime="2026-10-03T04:00:05.0644188+00:00" endTime="2026-10-03T04:00:06.8446458+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="2178d70d-502e-461b-abf0-7f510430396e">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="4901ceff-ff43-4431-9a29-6b6909912bf0" testId="11a7d8c3-191b-8935-8e66-217a9469f13c" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Standard,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.3069504" startTime="2026-10-03T04:00:06.8447094+00:00" endTime="2026-10-03T04:00:08.1517341+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="4901ceff-ff43-4431-9a29-6b6909912bf0">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d348b4b6-2cfa-40e1-83d2-bb1a7119f928" testId="15fd67db-5bed-8ce2-a36a-f2af6acaed3f" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Standard,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.6991521" startTime="2026-10-03T04:00:08.1518002+00:00" endTime="2026-10-03T04:00:09.8510226+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="d348b4b6-2cfa-40e1-83d2-bb1a7119f928">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="12e7eb00-ce86-43dd-bb77-c0c672442515" testId="1e8390f4-76e1-83d3-a476-8b1b422dfc54" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Fast,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:00.9496430" startTime="2026-10-03T04:00:09.8510883+00:00" endTime="2026-10-03T04:00:10.8007858+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="12e7eb00-ce86-43dd-bb77-c0c672442515">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2c641d45-bfd5-4045-bd91-55a65e3fcc0a" testId="11f5ab37-ab93-8cd0-aa15-da64ae882353" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Fast,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.4009070" startTime="2026-10-03T04:00:10.8008409+00:00" endTime="2026-10-03T04:00:12.2019341+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="2c641d45-bfd5-4045-bd91-55a65e3fcc0a">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bf42f778-9ce6-400a-bee0-208a15eb8ec9" testId="159ee471-d07f-8ae1-ba10-5f07451d2941" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,ProviderDefault,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.4141152" startTime="2026-10-03T04:00:12.2019891+00:00" endTime="2026-10-03T04:00:13.6161478+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="bf42f778-9ce6-400a-bee0-208a15eb8ec9">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1703f4a6-9513-4ce3-8f43-8cc2a4c71239" testId="105d67ad-7126-8524-89ea-4a748b099b5b" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,ProviderDefault,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.4314975" startTime="2026-10-03T04:00:13.6162162+00:00" endTime="2026-10-03T04:00:15.0477822+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="1703f4a6-9513-4ce3-8f43-8cc2a4c71239">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="009a376e-591a-47b4-b0c3-bb01fe92aefa" testId="18bf0930-d964-85da-8bb5-5a530a2913c4" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Standard,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.2557302" startTime="2026-10-03T04:00:15.0478314+00:00" endTime="2026-10-03T04:00:16.3036057+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="009a376e-591a-47b4-b0c3-bb01fe92aefa">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1ca07e6e-5cb4-4930-856d-baa5113d88f6" testId="1ce84ab5-fdd0-850e-ac61-ec0caf705071" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Standard,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7940925" startTime="2026-10-03T04:00:16.3036371+00:00" endTime="2026-10-03T04:00:18.0977719+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="1ca07e6e-5cb4-4930-856d-baa5113d88f6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3d8f5d35-5cd2-41e7-8ba6-5d5c395e7b63" testId="12517e87-1a02-8586-9b67-6e7dcc288eab" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Fast,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.9175321" startTime="2026-10-03T04:00:18.0978019+00:00" endTime="2026-10-03T04:00:20.0153649+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3d8f5d35-5cd2-41e7-8ba6-5d5c395e7b63">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="8bb88376-ca8a-4335-bc16-ae65bff8ec6c" testId="1d49418b-ac5e-8a4a-b187-f70f27666ae4" testName="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Fast,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.2666662" startTime="2026-10-03T04:00:20.0154012+00:00" endTime="2026-10-03T04:00:21.2821047+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="8bb88376-ca8a-4335-bc16-ae65bff8ec6c">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="83e9d172-18b5-46dd-8741-343987c1707b" testId="1fa0cf61-983c-8bf4-b0e1-4708ed205bbd" testName="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-sol&quot;,None)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.6322022" startTime="2026-10-03T04:00:21.2821820+00:00" endTime="2026-10-03T04:00:24.9144295+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="83e9d172-18b5-46dd-8741-343987c1707b">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b9f40ee8-8289-4f31-90a9-b2aeaeda70af" testId="1a1a3c51-2f8c-80d5-befb-720057e3efc4" testName="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-sol&quot;,Medium)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.4810281" startTime="2026-10-03T04:00:24.9144755+00:00" endTime="2026-10-03T04:00:27.3955526+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="b9f40ee8-8289-4f31-90a9-b2aeaeda70af">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="a168014a-1716-4c98-8d71-ae1a26b92651" testId="1c28f6b0-5fa0-85fe-9c13-d3200de9aa0b" testName="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-luna&quot;,None)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.6355391" startTime="2026-10-03T04:00:27.3955973+00:00" endTime="2026-10-03T04:00:30.0311948+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="a168014a-1716-4c98-8d71-ae1a26b92651">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b51e031a-0d56-4d39-b4a6-0fe8b70464f3" testId="1b4ddb9c-7719-8bb6-bfed-350e40cfd56f" testName="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-luna&quot;,Medium)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.3303722" startTime="2026-10-03T04:00:30.0312400+00:00" endTime="2026-10-03T04:00:32.3616609+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="b51e031a-0d56-4d39-b4a6-0fe8b70464f3">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5b598cfa-d374-4a3f-87cc-278864e0b1df" testId="10c67872-6bf8-8a1a-82db-9465e76609a0" testName="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:06.5007528" startTime="2026-10-03T04:00:32.3617220+00:00" endTime="2026-10-03T04:00:38.8625257+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5b598cfa-d374-4a3f-87cc-278864e0b1df">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="9ad7065e-c269-4dc5-8919-ef67e4d6ca73" testId="188f2ae2-678b-8c5b-afef-8f4fba087f51" testName="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.3338592" startTime="2026-10-03T04:00:38.8625829+00:00" endTime="2026-10-03T04:00:44.1964872+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="9ad7065e-c269-4dc5-8919-ef67e4d6ca73">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6d1b763e-8aa8-48be-8fd2-6832557153d1" testId="1df01354-f66a-86e7-900a-a65022eb7c68" testName="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-luna&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.8348229" startTime="2026-10-03T04:00:44.1965364+00:00" endTime="2026-10-03T04:00:52.0314019+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="6d1b763e-8aa8-48be-8fd2-6832557153d1">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f98fbb14-500f-4ffd-829e-4b00aa9e3b0f" testId="1cdd6406-6fdc-87da-9de6-0ddf9951b232" testName="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-luna&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:06.5508423" startTime="2026-10-03T04:00:52.0314361+00:00" endTime="2026-10-03T04:00:58.5823141+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="f98fbb14-500f-4ffd-829e-4b00aa9e3b0f">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="352464b6-afee-482b-9ae8-51106adf31a6" testId="1f5b7ac7-0702-844d-aa12-a4a8dd30baea" testName="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:08.0784504" startTime="2026-10-03T04:00:58.5823740+00:00" endTime="2026-10-03T04:01:06.6608728+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="352464b6-afee-482b-9ae8-51106adf31a6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="973b98cd-cda4-41b0-b0a6-e169c94ac3dd" testId="193582d7-3aac-8efd-80df-a16e5bae3ed6" testName="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.9632963" startTime="2026-10-03T04:01:06.6609087+00:00" endTime="2026-10-03T04:01:10.6242497+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="973b98cd-cda4-41b0-b0a6-e169c94ac3dd" />
+    <UnitTestResult executionId="d11f5a6b-cb54-43b7-a684-2702b30032ca" testId="1bf2c137-b729-80e8-b13c-608f3df5b116" testName="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-luna&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:04.1592538" startTime="2026-10-03T04:01:10.6242825+00:00" endTime="2026-10-03T04:01:14.7835713+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="d11f5a6b-cb54-43b7-a684-2702b30032ca">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="11ef726f-6383-4b86-8bda-7d2fd159a6b7" testId="18d97deb-810d-8dcb-9bca-43b91d9a1c91" testName="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-luna&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.3574367" startTime="2026-10-03T04:01:14.7836175+00:00" endTime="2026-10-03T04:01:17.1410908+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="11ef726f-6383-4b86-8bda-7d2fd159a6b7" />
+    <UnitTestResult executionId="b05149c0-fce0-4505-bdc1-3aeacd3dfde6" testId="17a9a350-c280-825f-b090-8a4ed430a9af" testName="Steering_UpdatesActualRunningResponse(&quot;gpt-6-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:10.3528986" startTime="2026-10-03T04:01:17.1411232+00:00" endTime="2026-10-03T04:01:27.4940880+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="b05149c0-fce0-4505-bdc1-3aeacd3dfde6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f77963e9-419e-4c64-940b-e6024c98d477" testId="1655a719-7954-8c71-85c4-02eb87f7bd73" testName="Steering_UpdatesActualRunningResponse(&quot;gpt-6-luna&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:08.7884596" startTime="2026-10-03T04:01:27.4941206+00:00" endTime="2026-10-03T04:01:36.2826149+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="f77963e9-419e-4c64-940b-e6024c98d477">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5be12724-b975-4cf5-8c74-1a70d63ae5fa" testId="1e6ae6a0-a47d-839c-8976-e08ee997e4fc" testName="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.3241726" startTime="2026-10-03T04:01:36.2826475+00:00" endTime="2026-10-03T04:01:39.6068571+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5be12724-b975-4cf5-8c74-1a70d63ae5fa">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c2634610-4362-4485-9674-2c71bd7362a8" testId="1f294cca-5ef1-8d82-9d7a-7623e3b1e300" testName="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.0926458" startTime="2026-10-03T04:01:39.6068989+00:00" endTime="2026-10-03T04:01:46.6995870+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="c2634610-4362-4485-9674-2c71bd7362a8">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2ac2344c-f3ae-44d6-89ee-ffaabe02d9dc" testId="10c1d2c0-3aed-8c78-b704-ea44beca080c" testName="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-luna&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.9217313" startTime="2026-10-03T04:01:46.6996196+00:00" endTime="2026-10-03T04:01:50.6213838+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="2ac2344c-f3ae-44d6-89ee-ffaabe02d9dc">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="30658e91-08fa-48f6-a8ae-a753c5395408" testId="1eb9244c-1183-866b-ac85-130cbe6609c1" testName="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-luna&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:09.2749440" startTime="2026-10-03T04:01:50.6214155+00:00" endTime="2026-10-03T04:01:59.8963930+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="30658e91-08fa-48f6-a8ae-a753c5395408">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5b35d014-f73e-4fe4-a3c2-1ea3268feacb" testId="1554026b-cda5-8653-98ad-f2686a87198e" testName="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.1612153" startTime="2026-10-03T04:01:59.8964447+00:00" endTime="2026-10-03T04:02:05.0576947+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5b35d014-f73e-4fe4-a3c2-1ea3268feacb">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="96292052-dd6b-49ea-b13e-e37a55076350" testId="12746cd2-e5f8-8cd6-8f64-6b37d3cf7f43" testName="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:06.2803397" startTime="2026-10-03T04:02:05.0577347+00:00" endTime="2026-10-03T04:02:11.3381130+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="96292052-dd6b-49ea-b13e-e37a55076350">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="802a9e2c-d4a7-4452-b5ef-15da1f899cad" testId="1df754db-1ee0-8e29-9c75-aad6d295e390" testName="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-luna&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:04.0179032" startTime="2026-10-03T04:02:11.3381530+00:00" endTime="2026-10-03T04:02:15.3561003+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="802a9e2c-d4a7-4452-b5ef-15da1f899cad">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3ba239b1-ebe4-4b1f-94e0-3ffbdee01a33" testId="124651bc-53b2-8706-8260-4fc8991bf569" testName="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-luna&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.3167181" startTime="2026-10-03T04:02:15.3561476+00:00" endTime="2026-10-03T04:02:20.6729062+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3ba239b1-ebe4-4b1f-94e0-3ffbdee01a33">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e9aa5a17-c035-4c42-a840-1411b0c06f02" testId="13b69fa1-8c38-8161-a649-3ae786f83b1c" testName="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-sol&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.9744237" startTime="2026-10-03T04:02:20.6729366+00:00" endTime="2026-10-03T04:02:24.6473911+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="e9aa5a17-c035-4c42-a840-1411b0c06f02">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="499b40bd-9aa4-4fd2-a074-b0be625f8e90" testId="15f77536-ec5c-85f7-a1a1-10fee9a23407" testName="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-sol&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:06.0831590" startTime="2026-10-03T04:02:24.6474263+00:00" endTime="2026-10-03T04:02:30.7306171+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="499b40bd-9aa4-4fd2-a074-b0be625f8e90">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="d8c09431-6ce8-4559-9e0a-25c92c83b24c" testId="17aa6582-7e26-87e2-9291-f633d8320f27" testName="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-luna&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.4735062" startTime="2026-10-03T04:02:30.7306692+00:00" endTime="2026-10-03T04:02:34.2042307+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="d8c09431-6ce8-4559-9e0a-25c92c83b24c">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="04ed02f4-246f-4547-875a-22ffbc6c52f5" testId="12938cdc-a6ff-8258-a5da-cd39354a7e5c" testName="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-luna&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:04.0170126" startTime="2026-10-03T04:02:34.2042943+00:00" endTime="2026-10-03T04:02:38.2213588+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="04ed02f4-246f-4547-875a-22ffbc6c52f5">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bf7409ac-1ea5-4df8-b063-cbb8d014a10b" testId="160d5f59-3221-8757-b1c1-361254685003" testName="StructuredOutput_ReturnsTypedResultWithoutRepair(&quot;gpt-6-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.3891172" startTime="2026-10-03T04:02:38.2213993+00:00" endTime="2026-10-03T04:02:39.6105587+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="bf7409ac-1ea5-4df8-b063-cbb8d014a10b">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e9ea280a-7a1f-49f9-b3e6-1664cd387c13" testId="17fdeba1-7fb8-883f-a878-6580cd0544f2" testName="StructuredOutput_ReturnsTypedResultWithoutRepair(&quot;gpt-6-luna&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.4629491" startTime="2026-10-03T04:02:39.6105930+00:00" endTime="2026-10-03T04:02:41.0735921+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="e9ea280a-7a1f-49f9-b3e6-1664cd387c13">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="159dcf5c-18f0-4a1a-a781-b6f214227cf0" testId="17e9f74c-7901-8c6f-a333-cc100634914f" testName="ImageInput_KeepsModelAndRecognizesSyntheticImage(&quot;gpt-6-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.3508376" startTime="2026-10-03T04:02:41.0736610+00:00" endTime="2026-10-03T04:02:42.4245366+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="159dcf5c-18f0-4a1a-a781-b6f214227cf0">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f51936f2-6d0b-4947-a735-610073d19263" testId="1f6bb9d0-c7d3-82bd-b4c9-4d218591a04a" testName="ImageInput_KeepsModelAndRecognizesSyntheticImage(&quot;gpt-6-luna&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.1858142" startTime="2026-10-03T04:02:42.4245754+00:00" endTime="2026-10-03T04:02:43.6104275+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="f51936f2-6d0b-4947-a735-610073d19263">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bf2e5351-8e27-42d1-8726-6836d8c5f783" testId="138b036c-fba8-8dff-a251-9a97da8ed230" testName="WebSearch_ReturnsActualProviderCitations(&quot;gpt-6-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.1995130" startTime="2026-10-03T04:02:43.6104646+00:00" endTime="2026-10-03T04:02:46.8100112+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="bf2e5351-8e27-42d1-8726-6836d8c5f783">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="2315a596-b579-44d5-a956-c45296a7dd79" testId="1e038cbe-dc11-8427-9355-ef9fc670f71f" testName="WebSearch_ReturnsActualProviderCitations(&quot;gpt-6-luna&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:04.9556384" startTime="2026-10-03T04:02:46.8100425+00:00" endTime="2026-10-03T04:02:51.7657120+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="2315a596-b579-44d5-a956-c45296a7dd79">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="c9e6bebd-9c51-43f3-aa5d-4de850ade411" testId="14a519ea-f9fc-899b-9a45-9fe497a274f5" testName="FileSearch_RetrievesUnpredictableTokenAndCitation(&quot;gpt-6-sol&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:16.4537387" startTime="2026-10-03T04:02:51.7657433+00:00" endTime="2026-10-03T04:03:08.2195176+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="c9e6bebd-9c51-43f3-aa5d-4de850ade411">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="f1d4a6b1-32b4-4c3d-bd81-d7c7a443df38" testId="11bb0f8a-150a-8798-9619-1833526da99b" testName="FileSearch_RetrievesUnpredictableTokenAndCitation(&quot;gpt-6-luna&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:13.5540136" startTime="2026-10-03T04:03:08.2195645+00:00" endTime="2026-10-03T04:03:21.7736201+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="f1d4a6b1-32b4-4c3d-bd81-d7c7a443df38">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="1d9a59c8-01fb-4ca9-b695-f0bbd3c94a3d" testId="1a7c6ed0-4adc-83b6-adf5-a763f69582e3" testName="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-sunburst&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.6167354" startTime="2026-10-03T04:03:21.7736576+00:00" endTime="2026-10-03T04:03:29.3904980+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="1d9a59c8-01fb-4ca9-b695-f0bbd3c94a3d">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6072342a-c81c-4f72-ba05-bf7b1af447ae" testId="175cc183-c90c-8766-a6e7-be2d056e4c6d" testName="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-sunburst&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:09.1124246" startTime="2026-10-03T04:03:29.3905302+00:00" endTime="2026-10-03T04:03:38.5029864+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="6072342a-c81c-4f72-ba05-bf7b1af447ae">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="e6fad988-0c21-497b-a296-b133f02dddf5" testId="101c613b-192c-88b5-85db-c1e213271443" testName="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-flare&quot;,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.7299774" startTime="2026-10-03T04:03:38.5030176+00:00" endTime="2026-10-03T04:03:44.2330362+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="e6fad988-0c21-497b-a296-b133f02dddf5">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="eff8f4d0-e78e-4f49-8f83-f4e8c39c01b3" testId="18857be7-c220-8e8e-8c9e-226b96ae04c1" testName="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-flare&quot;,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.6796159" startTime="2026-10-03T04:03:44.2330751+00:00" endTime="2026-10-03T04:03:51.9127292+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="eff8f4d0-e78e-4f49-8f83-f4e8c39c01b3">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="501c5cfe-9b09-46b0-819e-4750f116bf35" testId="1994e0eb-c403-8f02-b6a4-20b4614cd630" testName="Astra_ResultCompletesWithoutStreamConsumer" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.8431768" startTime="2026-10-03T04:03:51.9127626+00:00" endTime="2026-10-03T04:03:53.7560276+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="501c5cfe-9b09-46b0-819e-4750f116bf35">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="7c7e4c97-7d21-47e3-92ec-25b21f3b16e5" testId="187508cd-49f6-8b63-af5e-33cb6e167b21" testName="Astra_SteerDuringText_CallbackAndResultShareContinuation" computerName="ARCHIVED_TEST_HOST" duration="00:00:23.0190419" startTime="2026-10-03T04:03:53.7560590+00:00" endTime="2026-10-03T04:04:16.7751348+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="7c7e4c97-7d21-47e3-92ec-25b21f3b16e5">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="b888ac7d-f9d9-450b-bde6-2d90c1a13dcc" testId="1f6b2fb5-7d4d-8af8-be52-2c80b11bfacf" testName="Astra_SteerWhileToolPending_PreservesCallAndFinalCompletion(False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.4621341" startTime="2026-10-03T04:04:16.7751724+00:00" endTime="2026-10-03T04:04:22.2373460+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="b888ac7d-f9d9-450b-bde6-2d90c1a13dcc">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="09f403cb-5196-4c2f-83d1-8c5c025527fc" testId="1e7c00c6-6f8f-8bf2-84d1-20469e99eaa1" testName="Astra_SteerWhileToolPending_PreservesCallAndFinalCompletion(True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:08.1380813" startTime="2026-10-03T04:04:22.2373780+00:00" endTime="2026-10-03T04:04:30.3754943+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="09f403cb-5196-4c2f-83d1-8c5c025527fc">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="0512cfb4-fa8b-4720-a08c-a9f17cdbfaaa" testId="1189fc07-5883-8fc0-9e31-6204a74f869f" testName="Sol_UnsupportedSteering_DoesNotPreventRunWithTools" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.0418149" startTime="2026-10-03T04:04:30.3755407+00:00" endTime="2026-10-03T04:04:33.4188772+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="0512cfb4-fa8b-4720-a08c-a9f17cdbfaaa">
+      <Output>
+        </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Gpt5_6AliasAndTierModels_ReturnCompletion(&quot;gpt-5.6&quot;)" storage="Mythosia.AI.Test.dll" id="14575774-0730-8ae1-8453-5df7fed7dd4d">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Gpt5_6" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+      </TestCategory>
+      <Execution id="40d4acb2-a65c-449f-82c1-6a07bdfee48d" />
+      <Properties>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Gpt5_6</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAILiveContractTests" name="Gpt5_6AliasAndTierModels_ReturnCompletion" />
+    </UnitTest>
+    <UnitTest name="Gpt5_6AliasAndTierModels_ReturnCompletion(&quot;gpt-5.6-terra&quot;)" storage="Mythosia.AI.Test.dll" id="198ab3b8-70fb-8e47-a44f-a3896c49ff15">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Gpt5_6" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+      </TestCategory>
+      <Execution id="388946dd-994d-4bff-841a-0dd8dcc263b4" />
+      <Properties>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Gpt5_6</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAILiveContractTests" name="Gpt5_6AliasAndTierModels_ReturnCompletion" />
+    </UnitTest>
+    <UnitTest name="Gpt5_6AliasAndTierModels_ReturnCompletion(&quot;gpt-5.6-luna&quot;)" storage="Mythosia.AI.Test.dll" id="1e7bc3ef-784e-818c-a017-722c295a9689">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Gpt5_6" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+      </TestCategory>
+      <Execution id="be00a470-34a3-4a78-a244-485db1240081" />
+      <Properties>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Gpt5_6</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAILiveContractTests" name="Gpt5_6AliasAndTierModels_ReturnCompletion" />
+    </UnitTest>
+    <UnitTest name="Gpt5_6Sol_MaxHighDetailedPro_ReturnsCompletion" storage="Mythosia.AI.Test.dll" id="162f3a0f-649e-85e6-ac5c-46d6aaacd319">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Gpt5_6" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+      </TestCategory>
+      <Execution id="0b171560-2a76-4d3a-a8a0-8283a310fcb6" />
+      <Properties>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Gpt5_6</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAILiveContractTests" name="Gpt5_6Sol_MaxHighDetailedPro_ReturnsCompletion" />
+    </UnitTest>
+    <UnitTest name="GptImage2_GeneratesPng" storage="Mythosia.AI.Test.dll" id="110b18ef-5d83-8328-b157-6a944cfca1af">
+      <TestCategory>
+        <TestCategoryItem TestCategory="OpenAIImage" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+      </TestCategory>
+      <Execution id="d482113d-f582-4988-9265-f37fc9b03962" />
+      <Properties>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAIImage</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAILiveContractTests" name="GptImage2_GeneratesPng" />
+    </UnitTest>
+    <UnitTest name="GptImage2_EditsReferencePng" storage="Mythosia.AI.Test.dll" id="12b7d70d-7f4a-8932-a3dd-b3ef0cdaa589">
+      <TestCategory>
+        <TestCategoryItem TestCategory="OpenAIImage" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+      </TestCategory>
+      <Execution id="6d282d33-daea-4759-b8db-ff13cfe0d937" />
+      <Properties>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAIImage</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAILiveContractTests" name="GptImage2_EditsReferencePng" />
+    </UnitTest>
+    <UnitTest name="Gpt6Astra_AsyncTool_ContinuesBeforeResultAndDeliversOriginalCall(False)" storage="Mythosia.AI.Test.dll" id="1a77d579-7a01-8f32-94c7-7e4d7dfcf1ea">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+        <TestCategoryItem TestCategory="AsyncToolCalling" />
+      </TestCategory>
+      <Execution id="0a033695-a2af-438a-a1ac-e3044092276d" />
+      <Properties>
+        <Property>
+          <Key>AsyncToolCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIAsyncToolCallingLiveTests" name="Gpt6Astra_AsyncTool_ContinuesBeforeResultAndDeliversOriginalCall" />
+    </UnitTest>
+    <UnitTest name="Gpt6Astra_AsyncTool_ContinuesBeforeResultAndDeliversOriginalCall(True)" storage="Mythosia.AI.Test.dll" id="15b612bc-cdf1-851d-916a-f2a4597bac03">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+        <TestCategoryItem TestCategory="AsyncToolCalling" />
+      </TestCategory>
+      <Execution id="ee1724ae-b1b1-4ef4-862c-c6037d29cc17" />
+      <Properties>
+        <Property>
+          <Key>AsyncToolCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIAsyncToolCallingLiveTests" name="Gpt6Astra_AsyncTool_ContinuesBeforeResultAndDeliversOriginalCall" />
+    </UnitTest>
+    <UnitTest name="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-6-astra&quot;,False,False)" storage="Mythosia.AI.Test.dll" id="14e7a221-4b40-8cf3-9562-c3e2316f0840">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+        <TestCategoryItem TestCategory="AsyncToolCalling" />
+      </TestCategory>
+      <Execution id="633bbb12-e84a-42ab-8350-9740727a5e10" />
+      <Properties>
+        <Property>
+          <Key>AsyncToolCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIAsyncToolCallingLiveTests" name="DisabledOrUnsupportedAsyncTool_WaitsForResult" />
+    </UnitTest>
+    <UnitTest name="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-6-astra&quot;,False,True)" storage="Mythosia.AI.Test.dll" id="1634207d-5947-8878-8f27-1c8a94bb739f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+        <TestCategoryItem TestCategory="AsyncToolCalling" />
+      </TestCategory>
+      <Execution id="c1e4de09-3a57-4d65-801f-1fd5cdc4ae65" />
+      <Properties>
+        <Property>
+          <Key>AsyncToolCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIAsyncToolCallingLiveTests" name="DisabledOrUnsupportedAsyncTool_WaitsForResult" />
+    </UnitTest>
+    <UnitTest name="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-5.6-sol&quot;,True,False)" storage="Mythosia.AI.Test.dll" id="1bd8e213-6c68-8e73-a32b-121d214ac160">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+        <TestCategoryItem TestCategory="AsyncToolCalling" />
+      </TestCategory>
+      <Execution id="cc1d632c-e7ff-467c-8636-f37e65a3fbb0" />
+      <Properties>
+        <Property>
+          <Key>AsyncToolCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIAsyncToolCallingLiveTests" name="DisabledOrUnsupportedAsyncTool_WaitsForResult" />
+    </UnitTest>
+    <UnitTest name="DisabledOrUnsupportedAsyncTool_WaitsForResult(&quot;gpt-5.6-sol&quot;,True,True)" storage="Mythosia.AI.Test.dll" id="14901dee-4479-8787-8bd7-818c701a306f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+        <TestCategoryItem TestCategory="AsyncToolCalling" />
+      </TestCategory>
+      <Execution id="c221a758-9cd1-4d5b-899d-b22f288dddc5" />
+      <Properties>
+        <Property>
+          <Key>AsyncToolCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIAsyncToolCallingLiveTests" name="DisabledOrUnsupportedAsyncTool_WaitsForResult" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Auto)" storage="Mythosia.AI.Test.dll" id="1624b573-f59e-89de-8cc3-441a950af3d2">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="1b089f56-ec31-400e-baf1-cbbf9bd1fb6a" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Low)" storage="Mythosia.AI.Test.dll" id="1d00ce3a-7603-8496-bfcd-a94c24b8fe44">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="f6b962be-44af-47ac-8d31-329de2a756fe" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Medium)" storage="Mythosia.AI.Test.dll" id="119a25c1-c259-81c3-a055-b494670e1dc8">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="05e4fd8d-a63c-4f91-b7b7-ba96add49626" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,High)" storage="Mythosia.AI.Test.dll" id="139d7cd0-1ff4-8406-98f0-0b43f2ab224a">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="1741c2b4-6742-4f5f-a050-ebaacb3287bd" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,XHigh)" storage="Mythosia.AI.Test.dll" id="19185958-2287-84c9-9e57-ae1e3985a3ba">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="3b013ca4-2a7a-4946-b3fd-b07cae832dfd" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6.1-sol&quot;,Max)" storage="Mythosia.AI.Test.dll" id="1aeb82f1-5aa5-8bf3-911f-f48372aa45fc">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="14e2260f-f124-4dcd-84e4-63372ab881e6" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,ProviderDefault,False)" storage="Mythosia.AI.Test.dll" id="1756763c-70bd-8c1e-889d-c390d635f89f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="a5a44b09-abbd-43d2-9610-c07bb31b269b" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,ProviderDefault,True)" storage="Mythosia.AI.Test.dll" id="176e2004-4754-81cb-9312-b1a4aa7fbe7d">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="524960ab-ca01-4855-b283-11ebfb024900" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Standard,False)" storage="Mythosia.AI.Test.dll" id="19f5e1cd-29da-8d19-9138-7cea4bc2aed4">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="a1613419-2203-462e-b394-269390465677" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Standard,True)" storage="Mythosia.AI.Test.dll" id="1a0c4afe-f4c3-8b24-a13c-0e442bfd2028">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="5d9b6e1f-8e4f-4e8a-b36e-a1d61a4ca73d" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Fast,False)" storage="Mythosia.AI.Test.dll" id="165bbe79-bd2a-8ff0-8ad4-260716ecdf6e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="b2098372-3947-4a43-8ed4-fc4773dc06dc" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6.1-sol&quot;,Fast,True)" storage="Mythosia.AI.Test.dll" id="1ba00b87-6cc2-8612-84e2-7dfdd006f66b">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="83847a3c-b6fb-475e-8118-a32fbc2ec70e" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6.1-sol&quot;,Medium)" storage="Mythosia.AI.Test.dll" id="15938671-25c3-80a7-8c5f-51f88a6ef371">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="5ba8d1e9-3fd2-4c15-a750-0c87446a4c51" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ProMode_KeepsSelectedModelAndEffort" />
+    </UnitTest>
+    <UnitTest name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6.1-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="11a3bfee-b47d-8109-811b-9229eebc357f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="f396f55c-0a4b-42b1-b31b-dbfaa20068f7" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6.1-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="15be0103-5711-8ebb-9a0e-93a5f5305f10">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="84e991f8-6adb-486d-a867-845f2589cf17" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="ProAsyncTools_ContinueBeforeResultAndDeliverOriginalCall(False)" storage="Mythosia.AI.Test.dll" id="18be239f-9720-8c7e-8863-aadf4f2508b8">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="a8ae94b3-bcf8-4762-aa39-636f08ec7677" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ProAsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="ProAsyncTools_ContinueBeforeResultAndDeliverOriginalCall(True)" storage="Mythosia.AI.Test.dll" id="1550cdf5-71d8-8ef7-8125-1df90141767f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="bd861f74-e8a3-4d7b-8197-895291970904" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ProAsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="ProRun_RejectsUnsupportedSteeringWithoutInterruptingResult" storage="Mythosia.AI.Test.dll" id="17352513-6be5-831e-b5a5-05772a3ce9bc">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="44009cb0-5091-4eea-aead-406db6ca2de8" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ProRun_RejectsUnsupportedSteeringWithoutInterruptingResult" />
+    </UnitTest>
+    <UnitTest name="LowReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6.1-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="10d85d74-ff74-8a07-837d-e79d1d5ba5dd">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="629a1aeb-be30-4d0f-b41a-3a9bb46fc8cf" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="LowReasoning_FunctionContinuationReturnsActualResult" />
+    </UnitTest>
+    <UnitTest name="LowReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6.1-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="170d3328-f845-8039-831a-3541e651efbc">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="80b42b51-ab5e-414a-bf54-9715b879c731" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="LowReasoning_FunctionContinuationReturnsActualResult" />
+    </UnitTest>
+    <UnitTest name="Steering_UpdatesActualRunningResponse(&quot;gpt-6.1-sol&quot;)" storage="Mythosia.AI.Test.dll" id="11723ff0-b51a-81c3-80f9-fb540b3c77a6">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="7bbe3f6c-7c56-44ac-bba0-879845ce40f1" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Steering_UpdatesActualRunningResponse" />
+    </UnitTest>
+    <UnitTest name="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6.1-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="17cbe26b-fcd0-8714-9735-110a631ff8d6">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="4f5c9e41-df4e-4580-b82e-13cb6bc9a474" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Steering_PreservesPendingToolsAndTheirResults" />
+    </UnitTest>
+    <UnitTest name="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6.1-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="1212cc19-d17d-8fc6-9d54-c26f3b962595">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="63994ce4-82a6-4a72-89ed-1faeb3eeaea6" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="Steering_PreservesPendingToolsAndTheirResults" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_ChangesEffortWithoutChangingRequestPrefix(&quot;gpt-6.1-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="1e5b186f-183c-87b7-a8dd-d720dac38e82">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="fca56ac5-afbd-4c39-90f2-02f46f48b38f" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="CachePreservingReasoning_ChangesEffortWithoutChangingRequestPrefix" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_ChangesEffortWithoutChangingRequestPrefix(&quot;gpt-6.1-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="1224852d-3baf-8dde-856e-763e7fa543bd">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="ab097620-1b88-4f60-9bfc-391f3d1da540" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="CachePreservingReasoning_ChangesEffortWithoutChangingRequestPrefix" />
+    </UnitTest>
+    <UnitTest name="StructuredOutput_ReturnsTypedResultWithoutRepair(&quot;gpt-6.1-sol&quot;)" storage="Mythosia.AI.Test.dll" id="1470ce74-6232-89a2-a070-9e33cd69eb35">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="e7d30abe-dc82-4073-a429-a072080a8d07" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="StructuredOutput_ReturnsTypedResultWithoutRepair" />
+    </UnitTest>
+    <UnitTest name="ImageInput_KeepsModelAndRecognizesSyntheticImage(&quot;gpt-6.1-sol&quot;)" storage="Mythosia.AI.Test.dll" id="1dcad9bb-6dfd-8bc2-b6e6-0b104300c9f5">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="11a865e8-260b-47bc-b410-8266849697de" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="ImageInput_KeepsModelAndRecognizesSyntheticImage" />
+    </UnitTest>
+    <UnitTest name="WebSearch_ReturnsActualProviderCitations(&quot;gpt-6.1-sol&quot;)" storage="Mythosia.AI.Test.dll" id="15bf2329-da3a-81c9-bc3c-2e03bd147964">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="b294f4b0-b162-4ec9-afa9-cb437f69a1cd" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="WebSearch_ReturnsActualProviderCitations" />
+    </UnitTest>
+    <UnitTest name="FileSearch_RetrievesUnpredictableTokenAndCitation(&quot;gpt-6.1-sol&quot;)" storage="Mythosia.AI.Test.dll" id="1e9ddd2a-7a21-8303-a800-cb79606fa831">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt61Sol" />
+      </TestCategory>
+      <Execution id="99cfe32e-1bce-47e3-bd27-4c04b376051a" />
+      <Properties>
+        <Property>
+          <Key>Gpt61Sol</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt61SolLiveTests" name="FileSearch_RetrievesUnpredictableTokenAndCitation" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Auto)" storage="Mythosia.AI.Test.dll" id="163764f4-26bd-8935-b5f2-8eb0cc3f5742">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="a141a6c8-8c30-4d3e-9d17-6578e01cc818" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,None)" storage="Mythosia.AI.Test.dll" id="1ff4af43-ca99-8c05-bc66-6f6fea6707b7">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="ccf89d8e-ccf2-481d-8e74-46fbc0dab747" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Low)" storage="Mythosia.AI.Test.dll" id="18bc288c-025b-8453-b1c7-95d4c7f84d85">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="274ba1c6-c48d-49f6-94cd-9dc11c883d71" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Medium)" storage="Mythosia.AI.Test.dll" id="148e0c77-ff12-863d-9b9d-8f935e346111">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="a9a2a391-176b-46ad-8495-3213ebef0807" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,High)" storage="Mythosia.AI.Test.dll" id="1c70f165-1cc2-8e51-a58e-cb7ae8ed7613">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="637d2181-4468-4bcb-8e22-b43c40107251" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,XHigh)" storage="Mythosia.AI.Test.dll" id="16e2db6e-a73c-8939-af72-5589c541a398">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="4ec75407-0e4c-4b45-8dbd-24e1a90bf278" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-sol&quot;,Max)" storage="Mythosia.AI.Test.dll" id="1221e085-6f74-89c2-9e16-d0b63ccaf080">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="5e601d2b-d5e8-4474-a20c-a930c664f377" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Auto)" storage="Mythosia.AI.Test.dll" id="15e57605-e1ea-8776-9411-146f67223f80">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="d36f7623-e07d-4a23-8c13-dc0be46b3d87" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,None)" storage="Mythosia.AI.Test.dll" id="13621630-b1e1-8c6e-8cad-72ed4f751d5e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="a45cdc7a-a67a-4b8e-a227-eebb8bc11765" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Low)" storage="Mythosia.AI.Test.dll" id="107acdab-85e6-8583-a020-5b3ecfddba17">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="0441f8d9-819c-4bee-b9a2-19978dc1c9f2" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Medium)" storage="Mythosia.AI.Test.dll" id="1958a11d-3326-8898-9c76-bac74e38b957">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="01cfdef7-3411-42f0-973d-98381b824b37" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,High)" storage="Mythosia.AI.Test.dll" id="100ffac6-4b3a-8145-85cc-8713c9cea3ad">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="adb4a06d-b208-4991-b1f3-587d6160c97b" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,XHigh)" storage="Mythosia.AI.Test.dll" id="1f77d00d-6124-8e85-a689-2ae87818725d">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="6722ce27-10b9-4c80-b6a9-dd25c31e07eb" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="ReasoningAndSampling_RealResponsesAcceptEachLevel(&quot;gpt-6-luna&quot;,Max)" storage="Mythosia.AI.Test.dll" id="1f692e46-dd4f-8c0e-9dfe-efef48a227cf">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="3d045b80-790c-4c94-84d2-aa5026b6a379" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ReasoningAndSampling_RealResponsesAcceptEachLevel" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,ProviderDefault,False)" storage="Mythosia.AI.Test.dll" id="12b62771-4784-809f-9705-1abf6bc54746">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="bdbe4884-8a15-41c6-8c5f-ae86f82ef489" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,ProviderDefault,True)" storage="Mythosia.AI.Test.dll" id="186ee5b0-7423-8e8d-92bd-9cba306e3f29">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="2178d70d-502e-461b-abf0-7f510430396e" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Standard,False)" storage="Mythosia.AI.Test.dll" id="11a7d8c3-191b-8935-8e66-217a9469f13c">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="4901ceff-ff43-4431-9a29-6b6909912bf0" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Standard,True)" storage="Mythosia.AI.Test.dll" id="15fd67db-5bed-8ce2-a36a-f2af6acaed3f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="d348b4b6-2cfa-40e1-83d2-bb1a7119f928" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Fast,False)" storage="Mythosia.AI.Test.dll" id="1e8390f4-76e1-83d3-a476-8b1b422dfc54">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="12e7eb00-ce86-43dd-bb77-c0c672442515" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-sol&quot;,Fast,True)" storage="Mythosia.AI.Test.dll" id="11f5ab37-ab93-8cd0-aa15-da64ae882353">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="2c641d45-bfd5-4045-bd91-55a65e3fcc0a" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,ProviderDefault,False)" storage="Mythosia.AI.Test.dll" id="159ee471-d07f-8ae1-ba10-5f07451d2941">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="bf42f778-9ce6-400a-bee0-208a15eb8ec9" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,ProviderDefault,True)" storage="Mythosia.AI.Test.dll" id="105d67ad-7126-8524-89ea-4a748b099b5b">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="1703f4a6-9513-4ce3-8f43-8cc2a4c71239" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Standard,False)" storage="Mythosia.AI.Test.dll" id="18bf0930-d964-85da-8bb5-5a530a2913c4">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="009a376e-591a-47b4-b0c3-bb01fe92aefa" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Standard,True)" storage="Mythosia.AI.Test.dll" id="1ce84ab5-fdd0-850e-ac61-ec0caf705071">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="1ca07e6e-5cb4-4930-856d-baa5113d88f6" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Fast,False)" storage="Mythosia.AI.Test.dll" id="12517e87-1a02-8586-9b67-6e7dcc288eab">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="3d8f5d35-5cd2-41e7-8ba6-5d5c395e7b63" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="Speed_CompletionAndRunReportActualTier(&quot;gpt-6-luna&quot;,Fast,True)" storage="Mythosia.AI.Test.dll" id="1d49418b-ac5e-8a4a-b187-f70f27666ae4">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="8bb88376-ca8a-4335-bc16-ae65bff8ec6c" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Speed_CompletionAndRunReportActualTier" />
+    </UnitTest>
+    <UnitTest name="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-sol&quot;,None)" storage="Mythosia.AI.Test.dll" id="1fa0cf61-983c-8bf4-b0e1-4708ed205bbd">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="83e9d172-18b5-46dd-8741-343987c1707b" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ProMode_KeepsSelectedModelAndEffort" />
+    </UnitTest>
+    <UnitTest name="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-sol&quot;,Medium)" storage="Mythosia.AI.Test.dll" id="1a1a3c51-2f8c-80d5-befb-720057e3efc4">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="b9f40ee8-8289-4f31-90a9-b2aeaeda70af" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ProMode_KeepsSelectedModelAndEffort" />
+    </UnitTest>
+    <UnitTest name="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-luna&quot;,None)" storage="Mythosia.AI.Test.dll" id="1c28f6b0-5fa0-85fe-9c13-d3200de9aa0b">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="a168014a-1716-4c98-8d71-ae1a26b92651" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ProMode_KeepsSelectedModelAndEffort" />
+    </UnitTest>
+    <UnitTest name="ProMode_KeepsSelectedModelAndEffort(&quot;gpt-6-luna&quot;,Medium)" storage="Mythosia.AI.Test.dll" id="1b4ddb9c-7719-8bb6-bfed-350e40cfd56f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="b51e031a-0d56-4d39-b4a6-0fe8b70464f3" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ProMode_KeepsSelectedModelAndEffort" />
+    </UnitTest>
+    <UnitTest name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="10c67872-6bf8-8a1a-82db-9465e76609a0">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="5b598cfa-d374-4a3f-87cc-278864e0b1df" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="188f2ae2-678b-8c5b-afef-8f4fba087f51">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="9ad7065e-c269-4dc5-8919-ef67e4d6ca73" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-luna&quot;,False)" storage="Mythosia.AI.Test.dll" id="1df01354-f66a-86e7-900a-a65022eb7c68">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="6d1b763e-8aa8-48be-8fd2-6832557153d1" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall(&quot;gpt-6-luna&quot;,True)" storage="Mythosia.AI.Test.dll" id="1cdd6406-6fdc-87da-9de6-0ddf9951b232">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="f98fbb14-500f-4ffd-829e-4b00aa9e3b0f" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="AsyncTools_ContinueBeforeResultAndDeliverOriginalCall" />
+    </UnitTest>
+    <UnitTest name="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="1f5b7ac7-0702-844d-aa12-a4a8dd30baea">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="352464b6-afee-482b-9ae8-51106adf31a6" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="NoneReasoning_FunctionContinuationReturnsActualResult" />
+    </UnitTest>
+    <UnitTest name="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="193582d7-3aac-8efd-80df-a16e5bae3ed6">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="973b98cd-cda4-41b0-b0a6-e169c94ac3dd" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="NoneReasoning_FunctionContinuationReturnsActualResult" />
+    </UnitTest>
+    <UnitTest name="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-luna&quot;,False)" storage="Mythosia.AI.Test.dll" id="1bf2c137-b729-80e8-b13c-608f3df5b116">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="d11f5a6b-cb54-43b7-a684-2702b30032ca" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="NoneReasoning_FunctionContinuationReturnsActualResult" />
+    </UnitTest>
+    <UnitTest name="NoneReasoning_FunctionContinuationReturnsActualResult(&quot;gpt-6-luna&quot;,True)" storage="Mythosia.AI.Test.dll" id="18d97deb-810d-8dcb-9bca-43b91d9a1c91">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="11ef726f-6383-4b86-8bda-7d2fd159a6b7" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="NoneReasoning_FunctionContinuationReturnsActualResult" />
+    </UnitTest>
+    <UnitTest name="Steering_UpdatesActualRunningResponse(&quot;gpt-6-sol&quot;)" storage="Mythosia.AI.Test.dll" id="17a9a350-c280-825f-b090-8a4ed430a9af">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="b05149c0-fce0-4505-bdc1-3aeacd3dfde6" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Steering_UpdatesActualRunningResponse" />
+    </UnitTest>
+    <UnitTest name="Steering_UpdatesActualRunningResponse(&quot;gpt-6-luna&quot;)" storage="Mythosia.AI.Test.dll" id="1655a719-7954-8c71-85c4-02eb87f7bd73">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="f77963e9-419e-4c64-940b-e6024c98d477" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Steering_UpdatesActualRunningResponse" />
+    </UnitTest>
+    <UnitTest name="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="1e6ae6a0-a47d-839c-8976-e08ee997e4fc">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="5be12724-b975-4cf5-8c74-1a70d63ae5fa" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Steering_PreservesPendingToolsAndTheirResults" />
+    </UnitTest>
+    <UnitTest name="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="1f294cca-5ef1-8d82-9d7a-7623e3b1e300">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="c2634610-4362-4485-9674-2c71bd7362a8" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Steering_PreservesPendingToolsAndTheirResults" />
+    </UnitTest>
+    <UnitTest name="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-luna&quot;,False)" storage="Mythosia.AI.Test.dll" id="10c1d2c0-3aed-8c78-b704-ea44beca080c">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="2ac2344c-f3ae-44d6-89ee-ffaabe02d9dc" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Steering_PreservesPendingToolsAndTheirResults" />
+    </UnitTest>
+    <UnitTest name="Steering_PreservesPendingToolsAndTheirResults(&quot;gpt-6-luna&quot;,True)" storage="Mythosia.AI.Test.dll" id="1eb9244c-1183-866b-ac85-130cbe6609c1">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="30658e91-08fa-48f6-a8ae-a753c5395408" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="Steering_PreservesPendingToolsAndTheirResults" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="1554026b-cda5-8653-98ad-f2686a87198e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="5b35d014-f73e-4fe4-a3c2-1ea3268feacb" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_TransitionsThroughNone" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="12746cd2-e5f8-8cd6-8f64-6b37d3cf7f43">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="96292052-dd6b-49ea-b13e-e37a55076350" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_TransitionsThroughNone" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-luna&quot;,False)" storage="Mythosia.AI.Test.dll" id="1df754db-1ee0-8e29-9c75-aad6d295e390">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="802a9e2c-d4a7-4452-b5ef-15da1f899cad" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_TransitionsThroughNone" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_TransitionsThroughNone(&quot;gpt-6-luna&quot;,True)" storage="Mythosia.AI.Test.dll" id="124651bc-53b2-8706-8260-4fc8991bf569">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="3ba239b1-ebe4-4b1f-94e0-3ffbdee01a33" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_TransitionsThroughNone" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-sol&quot;,False)" storage="Mythosia.AI.Test.dll" id="13b69fa1-8c38-8161-a649-3ae786f83b1c">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="e9aa5a17-c035-4c42-a840-1411b0c06f02" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-sol&quot;,True)" storage="Mythosia.AI.Test.dll" id="15f77536-ec5c-85f7-a1a1-10fee9a23407">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="499b40bd-9aa4-4fd2-a074-b0be625f8e90" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-luna&quot;,False)" storage="Mythosia.AI.Test.dll" id="17aa6582-7e26-87e2-9291-f633d8320f27">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="d8c09431-6ce8-4559-9e0a-25c92c83b24c" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt" />
+    </UnitTest>
+    <UnitTest name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt(&quot;gpt-6-luna&quot;,True)" storage="Mythosia.AI.Test.dll" id="12938cdc-a6ff-8258-a5da-cd39354a7e5c">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="04ed02f4-246f-4547-875a-22ffbc6c52f5" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="CachePreservingReasoning_EnablesReasoningFromNoneAndRetainsIt" />
+    </UnitTest>
+    <UnitTest name="StructuredOutput_ReturnsTypedResultWithoutRepair(&quot;gpt-6-sol&quot;)" storage="Mythosia.AI.Test.dll" id="160d5f59-3221-8757-b1c1-361254685003">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="bf7409ac-1ea5-4df8-b063-cbb8d014a10b" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="StructuredOutput_ReturnsTypedResultWithoutRepair" />
+    </UnitTest>
+    <UnitTest name="StructuredOutput_ReturnsTypedResultWithoutRepair(&quot;gpt-6-luna&quot;)" storage="Mythosia.AI.Test.dll" id="17fdeba1-7fb8-883f-a878-6580cd0544f2">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="e9ea280a-7a1f-49f9-b3e6-1664cd387c13" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="StructuredOutput_ReturnsTypedResultWithoutRepair" />
+    </UnitTest>
+    <UnitTest name="ImageInput_KeepsModelAndRecognizesSyntheticImage(&quot;gpt-6-sol&quot;)" storage="Mythosia.AI.Test.dll" id="17e9f74c-7901-8c6f-a333-cc100634914f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="159dcf5c-18f0-4a1a-a781-b6f214227cf0" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ImageInput_KeepsModelAndRecognizesSyntheticImage" />
+    </UnitTest>
+    <UnitTest name="ImageInput_KeepsModelAndRecognizesSyntheticImage(&quot;gpt-6-luna&quot;)" storage="Mythosia.AI.Test.dll" id="1f6bb9d0-c7d3-82bd-b4c9-4d218591a04a">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="f51936f2-6d0b-4947-a735-610073d19263" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="ImageInput_KeepsModelAndRecognizesSyntheticImage" />
+    </UnitTest>
+    <UnitTest name="WebSearch_ReturnsActualProviderCitations(&quot;gpt-6-sol&quot;)" storage="Mythosia.AI.Test.dll" id="138b036c-fba8-8dff-a251-9a97da8ed230">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="bf2e5351-8e27-42d1-8726-6836d8c5f783" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="WebSearch_ReturnsActualProviderCitations" />
+    </UnitTest>
+    <UnitTest name="WebSearch_ReturnsActualProviderCitations(&quot;gpt-6-luna&quot;)" storage="Mythosia.AI.Test.dll" id="1e038cbe-dc11-8427-9355-ef9fc670f71f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="2315a596-b579-44d5-a956-c45296a7dd79" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="WebSearch_ReturnsActualProviderCitations" />
+    </UnitTest>
+    <UnitTest name="FileSearch_RetrievesUnpredictableTokenAndCitation(&quot;gpt-6-sol&quot;)" storage="Mythosia.AI.Test.dll" id="14a519ea-f9fc-899b-9a45-9fe497a274f5">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="c9e6bebd-9c51-43f3-aa5d-4de850ade411" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="FileSearch_RetrievesUnpredictableTokenAndCitation" />
+    </UnitTest>
+    <UnitTest name="FileSearch_RetrievesUnpredictableTokenAndCitation(&quot;gpt-6-luna&quot;)" storage="Mythosia.AI.Test.dll" id="11bb0f8a-150a-8798-9619-1833526da99b">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Gpt6SolLuna" />
+      </TestCategory>
+      <Execution id="f1d4a6b1-32b4-4c3d-bd81-d7c7a443df38" />
+      <Properties>
+        <Property>
+          <Key>Gpt6SolLuna</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIGpt6SolLunaLiveTests" name="FileSearch_RetrievesUnpredictableTokenAndCitation" />
+    </UnitTest>
+    <UnitTest name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-sunburst&quot;,False)" storage="Mythosia.AI.Test.dll" id="1a7c6ed0-4adc-83b6-adf5-a763f69582e3">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="ImageGeneration" />
+        <TestCategoryItem TestCategory="GPTImage25" />
+      </TestCategory>
+      <Execution id="1d9a59c8-01fb-4ca9-b695-f0bbd3c94a3d" />
+      <Properties>
+        <Property>
+          <Key>GPTImage25</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>ImageGeneration</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIImage25LiveTests" name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel" />
+    </UnitTest>
+    <UnitTest name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-sunburst&quot;,True)" storage="Mythosia.AI.Test.dll" id="175cc183-c90c-8766-a6e7-be2d056e4c6d">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="ImageGeneration" />
+        <TestCategoryItem TestCategory="GPTImage25" />
+      </TestCategory>
+      <Execution id="6072342a-c81c-4f72-ba05-bf7b1af447ae" />
+      <Properties>
+        <Property>
+          <Key>GPTImage25</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>ImageGeneration</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIImage25LiveTests" name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel" />
+    </UnitTest>
+    <UnitTest name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-flare&quot;,False)" storage="Mythosia.AI.Test.dll" id="101c613b-192c-88b5-85db-c1e213271443">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="ImageGeneration" />
+        <TestCategoryItem TestCategory="GPTImage25" />
+      </TestCategory>
+      <Execution id="e6fad988-0c21-497b-a296-b133f02dddf5" />
+      <Properties>
+        <Property>
+          <Key>GPTImage25</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>ImageGeneration</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIImage25LiveTests" name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel" />
+    </UnitTest>
+    <UnitTest name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel(&quot;gpt-image-2.5-flare&quot;,True)" storage="Mythosia.AI.Test.dll" id="18857be7-c220-8e8e-8c9e-226b96ae04c1">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="ImageGeneration" />
+        <TestCategoryItem TestCategory="GPTImage25" />
+      </TestCategory>
+      <Execution id="eff8f4d0-e78e-4f49-8f83-f4e8c39c01b3" />
+      <Properties>
+        <Property>
+          <Key>GPTImage25</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>ImageGeneration</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIImage25LiveTests" name="GenerationAndEditing_ReturnOneDecodedImageFromTheSelectedModel" />
+    </UnitTest>
+    <UnitTest name="Astra_ResultCompletesWithoutStreamConsumer" storage="Mythosia.AI.Test.dll" id="1994e0eb-c403-8f02-b6a4-20b4614cd630">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Run" />
+      </TestCategory>
+      <Execution id="501c5cfe-9b09-46b0-819e-4750f116bf35" />
+      <Properties>
+        <Property>
+          <Key>Run</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIRunLiveTests" name="Astra_ResultCompletesWithoutStreamConsumer" />
+    </UnitTest>
+    <UnitTest name="Astra_SteerDuringText_CallbackAndResultShareContinuation" storage="Mythosia.AI.Test.dll" id="187508cd-49f6-8b63-af5e-33cb6e167b21">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Run" />
+      </TestCategory>
+      <Execution id="7c7e4c97-7d21-47e3-92ec-25b21f3b16e5" />
+      <Properties>
+        <Property>
+          <Key>Run</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIRunLiveTests" name="Astra_SteerDuringText_CallbackAndResultShareContinuation" />
+    </UnitTest>
+    <UnitTest name="Astra_SteerWhileToolPending_PreservesCallAndFinalCompletion(False)" storage="Mythosia.AI.Test.dll" id="1f6b2fb5-7d4d-8af8-be52-2c80b11bfacf">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Run" />
+      </TestCategory>
+      <Execution id="b888ac7d-f9d9-450b-bde6-2d90c1a13dcc" />
+      <Properties>
+        <Property>
+          <Key>Run</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIRunLiveTests" name="Astra_SteerWhileToolPending_PreservesCallAndFinalCompletion" />
+    </UnitTest>
+    <UnitTest name="Astra_SteerWhileToolPending_PreservesCallAndFinalCompletion(True)" storage="Mythosia.AI.Test.dll" id="1e7c00c6-6f8f-8bf2-84d1-20469e99eaa1">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Run" />
+      </TestCategory>
+      <Execution id="09f403cb-5196-4c2f-83d1-8c5c025527fc" />
+      <Properties>
+        <Property>
+          <Key>Run</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIRunLiveTests" name="Astra_SteerWhileToolPending_PreservesCallAndFinalCompletion" />
+    </UnitTest>
+    <UnitTest name="Sol_UnsupportedSteering_DoesNotPreventRunWithTools" storage="Mythosia.AI.Test.dll" id="1189fc07-5883-8fc0-9e31-6204a74f869f">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="OpenAI" />
+        <TestCategoryItem TestCategory="Run" />
+      </TestCategory>
+      <Execution id="0512cfb4-fa8b-4720-a08c-a9f17cdbfaaa" />
+      <Properties>
+        <Property>
+          <Key>Run</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>OpenAI</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.OpenAI.OpenAIRunLiveTests" name="Sol_UnsupportedSteering_DoesNotPreventRunWithTools" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="14575774-0730-8ae1-8453-5df7fed7dd4d" executionId="40d4acb2-a65c-449f-82c1-6a07bdfee48d" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="198ab3b8-70fb-8e47-a44f-a3896c49ff15" executionId="388946dd-994d-4bff-841a-0dd8dcc263b4" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e7bc3ef-784e-818c-a017-722c295a9689" executionId="be00a470-34a3-4a78-a244-485db1240081" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="162f3a0f-649e-85e6-ac5c-46d6aaacd319" executionId="0b171560-2a76-4d3a-a8a0-8283a310fcb6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="110b18ef-5d83-8328-b157-6a944cfca1af" executionId="d482113d-f582-4988-9265-f37fc9b03962" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="12b7d70d-7f4a-8932-a3dd-b3ef0cdaa589" executionId="6d282d33-daea-4759-b8db-ff13cfe0d937" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1a77d579-7a01-8f32-94c7-7e4d7dfcf1ea" executionId="0a033695-a2af-438a-a1ac-e3044092276d" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15b612bc-cdf1-851d-916a-f2a4597bac03" executionId="ee1724ae-b1b1-4ef4-862c-c6037d29cc17" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="14e7a221-4b40-8cf3-9562-c3e2316f0840" executionId="633bbb12-e84a-42ab-8350-9740727a5e10" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1634207d-5947-8878-8f27-1c8a94bb739f" executionId="c1e4de09-3a57-4d65-801f-1fd5cdc4ae65" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1bd8e213-6c68-8e73-a32b-121d214ac160" executionId="cc1d632c-e7ff-467c-8636-f37e65a3fbb0" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="14901dee-4479-8787-8bd7-818c701a306f" executionId="c221a758-9cd1-4d5b-899d-b22f288dddc5" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1624b573-f59e-89de-8cc3-441a950af3d2" executionId="1b089f56-ec31-400e-baf1-cbbf9bd1fb6a" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1d00ce3a-7603-8496-bfcd-a94c24b8fe44" executionId="f6b962be-44af-47ac-8d31-329de2a756fe" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="119a25c1-c259-81c3-a055-b494670e1dc8" executionId="05e4fd8d-a63c-4f91-b7b7-ba96add49626" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="139d7cd0-1ff4-8406-98f0-0b43f2ab224a" executionId="1741c2b4-6742-4f5f-a050-ebaacb3287bd" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="19185958-2287-84c9-9e57-ae1e3985a3ba" executionId="3b013ca4-2a7a-4946-b3fd-b07cae832dfd" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1aeb82f1-5aa5-8bf3-911f-f48372aa45fc" executionId="14e2260f-f124-4dcd-84e4-63372ab881e6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1756763c-70bd-8c1e-889d-c390d635f89f" executionId="a5a44b09-abbd-43d2-9610-c07bb31b269b" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="176e2004-4754-81cb-9312-b1a4aa7fbe7d" executionId="524960ab-ca01-4855-b283-11ebfb024900" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="19f5e1cd-29da-8d19-9138-7cea4bc2aed4" executionId="a1613419-2203-462e-b394-269390465677" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1a0c4afe-f4c3-8b24-a13c-0e442bfd2028" executionId="5d9b6e1f-8e4f-4e8a-b36e-a1d61a4ca73d" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="165bbe79-bd2a-8ff0-8ad4-260716ecdf6e" executionId="b2098372-3947-4a43-8ed4-fc4773dc06dc" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1ba00b87-6cc2-8612-84e2-7dfdd006f66b" executionId="83847a3c-b6fb-475e-8118-a32fbc2ec70e" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15938671-25c3-80a7-8c5f-51f88a6ef371" executionId="5ba8d1e9-3fd2-4c15-a750-0c87446a4c51" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="11a3bfee-b47d-8109-811b-9229eebc357f" executionId="f396f55c-0a4b-42b1-b31b-dbfaa20068f7" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15be0103-5711-8ebb-9a0e-93a5f5305f10" executionId="84e991f8-6adb-486d-a867-845f2589cf17" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="18be239f-9720-8c7e-8863-aadf4f2508b8" executionId="a8ae94b3-bcf8-4762-aa39-636f08ec7677" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1550cdf5-71d8-8ef7-8125-1df90141767f" executionId="bd861f74-e8a3-4d7b-8197-895291970904" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="17352513-6be5-831e-b5a5-05772a3ce9bc" executionId="44009cb0-5091-4eea-aead-406db6ca2de8" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="10d85d74-ff74-8a07-837d-e79d1d5ba5dd" executionId="629a1aeb-be30-4d0f-b41a-3a9bb46fc8cf" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="170d3328-f845-8039-831a-3541e651efbc" executionId="80b42b51-ab5e-414a-bf54-9715b879c731" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="11723ff0-b51a-81c3-80f9-fb540b3c77a6" executionId="7bbe3f6c-7c56-44ac-bba0-879845ce40f1" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="17cbe26b-fcd0-8714-9735-110a631ff8d6" executionId="4f5c9e41-df4e-4580-b82e-13cb6bc9a474" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1212cc19-d17d-8fc6-9d54-c26f3b962595" executionId="63994ce4-82a6-4a72-89ed-1faeb3eeaea6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e5b186f-183c-87b7-a8dd-d720dac38e82" executionId="fca56ac5-afbd-4c39-90f2-02f46f48b38f" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1224852d-3baf-8dde-856e-763e7fa543bd" executionId="ab097620-1b88-4f60-9bfc-391f3d1da540" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1470ce74-6232-89a2-a070-9e33cd69eb35" executionId="e7d30abe-dc82-4073-a429-a072080a8d07" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1dcad9bb-6dfd-8bc2-b6e6-0b104300c9f5" executionId="11a865e8-260b-47bc-b410-8266849697de" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15bf2329-da3a-81c9-bc3c-2e03bd147964" executionId="b294f4b0-b162-4ec9-afa9-cb437f69a1cd" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e9ddd2a-7a21-8303-a800-cb79606fa831" executionId="99cfe32e-1bce-47e3-bd27-4c04b376051a" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="163764f4-26bd-8935-b5f2-8eb0cc3f5742" executionId="a141a6c8-8c30-4d3e-9d17-6578e01cc818" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1ff4af43-ca99-8c05-bc66-6f6fea6707b7" executionId="ccf89d8e-ccf2-481d-8e74-46fbc0dab747" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="18bc288c-025b-8453-b1c7-95d4c7f84d85" executionId="274ba1c6-c48d-49f6-94cd-9dc11c883d71" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="148e0c77-ff12-863d-9b9d-8f935e346111" executionId="a9a2a391-176b-46ad-8495-3213ebef0807" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1c70f165-1cc2-8e51-a58e-cb7ae8ed7613" executionId="637d2181-4468-4bcb-8e22-b43c40107251" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="16e2db6e-a73c-8939-af72-5589c541a398" executionId="4ec75407-0e4c-4b45-8dbd-24e1a90bf278" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1221e085-6f74-89c2-9e16-d0b63ccaf080" executionId="5e601d2b-d5e8-4474-a20c-a930c664f377" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15e57605-e1ea-8776-9411-146f67223f80" executionId="d36f7623-e07d-4a23-8c13-dc0be46b3d87" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="13621630-b1e1-8c6e-8cad-72ed4f751d5e" executionId="a45cdc7a-a67a-4b8e-a227-eebb8bc11765" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="107acdab-85e6-8583-a020-5b3ecfddba17" executionId="0441f8d9-819c-4bee-b9a2-19978dc1c9f2" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1958a11d-3326-8898-9c76-bac74e38b957" executionId="01cfdef7-3411-42f0-973d-98381b824b37" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="100ffac6-4b3a-8145-85cc-8713c9cea3ad" executionId="adb4a06d-b208-4991-b1f3-587d6160c97b" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1f77d00d-6124-8e85-a689-2ae87818725d" executionId="6722ce27-10b9-4c80-b6a9-dd25c31e07eb" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1f692e46-dd4f-8c0e-9dfe-efef48a227cf" executionId="3d045b80-790c-4c94-84d2-aa5026b6a379" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="12b62771-4784-809f-9705-1abf6bc54746" executionId="bdbe4884-8a15-41c6-8c5f-ae86f82ef489" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="186ee5b0-7423-8e8d-92bd-9cba306e3f29" executionId="2178d70d-502e-461b-abf0-7f510430396e" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="11a7d8c3-191b-8935-8e66-217a9469f13c" executionId="4901ceff-ff43-4431-9a29-6b6909912bf0" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15fd67db-5bed-8ce2-a36a-f2af6acaed3f" executionId="d348b4b6-2cfa-40e1-83d2-bb1a7119f928" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e8390f4-76e1-83d3-a476-8b1b422dfc54" executionId="12e7eb00-ce86-43dd-bb77-c0c672442515" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="11f5ab37-ab93-8cd0-aa15-da64ae882353" executionId="2c641d45-bfd5-4045-bd91-55a65e3fcc0a" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="159ee471-d07f-8ae1-ba10-5f07451d2941" executionId="bf42f778-9ce6-400a-bee0-208a15eb8ec9" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="105d67ad-7126-8524-89ea-4a748b099b5b" executionId="1703f4a6-9513-4ce3-8f43-8cc2a4c71239" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="18bf0930-d964-85da-8bb5-5a530a2913c4" executionId="009a376e-591a-47b4-b0c3-bb01fe92aefa" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1ce84ab5-fdd0-850e-ac61-ec0caf705071" executionId="1ca07e6e-5cb4-4930-856d-baa5113d88f6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="12517e87-1a02-8586-9b67-6e7dcc288eab" executionId="3d8f5d35-5cd2-41e7-8ba6-5d5c395e7b63" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1d49418b-ac5e-8a4a-b187-f70f27666ae4" executionId="8bb88376-ca8a-4335-bc16-ae65bff8ec6c" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1fa0cf61-983c-8bf4-b0e1-4708ed205bbd" executionId="83e9d172-18b5-46dd-8741-343987c1707b" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1a1a3c51-2f8c-80d5-befb-720057e3efc4" executionId="b9f40ee8-8289-4f31-90a9-b2aeaeda70af" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1c28f6b0-5fa0-85fe-9c13-d3200de9aa0b" executionId="a168014a-1716-4c98-8d71-ae1a26b92651" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1b4ddb9c-7719-8bb6-bfed-350e40cfd56f" executionId="b51e031a-0d56-4d39-b4a6-0fe8b70464f3" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="10c67872-6bf8-8a1a-82db-9465e76609a0" executionId="5b598cfa-d374-4a3f-87cc-278864e0b1df" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="188f2ae2-678b-8c5b-afef-8f4fba087f51" executionId="9ad7065e-c269-4dc5-8919-ef67e4d6ca73" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1df01354-f66a-86e7-900a-a65022eb7c68" executionId="6d1b763e-8aa8-48be-8fd2-6832557153d1" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1cdd6406-6fdc-87da-9de6-0ddf9951b232" executionId="f98fbb14-500f-4ffd-829e-4b00aa9e3b0f" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1f5b7ac7-0702-844d-aa12-a4a8dd30baea" executionId="352464b6-afee-482b-9ae8-51106adf31a6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="193582d7-3aac-8efd-80df-a16e5bae3ed6" executionId="973b98cd-cda4-41b0-b0a6-e169c94ac3dd" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1bf2c137-b729-80e8-b13c-608f3df5b116" executionId="d11f5a6b-cb54-43b7-a684-2702b30032ca" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="18d97deb-810d-8dcb-9bca-43b91d9a1c91" executionId="11ef726f-6383-4b86-8bda-7d2fd159a6b7" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="17a9a350-c280-825f-b090-8a4ed430a9af" executionId="b05149c0-fce0-4505-bdc1-3aeacd3dfde6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1655a719-7954-8c71-85c4-02eb87f7bd73" executionId="f77963e9-419e-4c64-940b-e6024c98d477" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e6ae6a0-a47d-839c-8976-e08ee997e4fc" executionId="5be12724-b975-4cf5-8c74-1a70d63ae5fa" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1f294cca-5ef1-8d82-9d7a-7623e3b1e300" executionId="c2634610-4362-4485-9674-2c71bd7362a8" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="10c1d2c0-3aed-8c78-b704-ea44beca080c" executionId="2ac2344c-f3ae-44d6-89ee-ffaabe02d9dc" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1eb9244c-1183-866b-ac85-130cbe6609c1" executionId="30658e91-08fa-48f6-a8ae-a753c5395408" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1554026b-cda5-8653-98ad-f2686a87198e" executionId="5b35d014-f73e-4fe4-a3c2-1ea3268feacb" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="12746cd2-e5f8-8cd6-8f64-6b37d3cf7f43" executionId="96292052-dd6b-49ea-b13e-e37a55076350" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1df754db-1ee0-8e29-9c75-aad6d295e390" executionId="802a9e2c-d4a7-4452-b5ef-15da1f899cad" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="124651bc-53b2-8706-8260-4fc8991bf569" executionId="3ba239b1-ebe4-4b1f-94e0-3ffbdee01a33" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="13b69fa1-8c38-8161-a649-3ae786f83b1c" executionId="e9aa5a17-c035-4c42-a840-1411b0c06f02" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="15f77536-ec5c-85f7-a1a1-10fee9a23407" executionId="499b40bd-9aa4-4fd2-a074-b0be625f8e90" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="17aa6582-7e26-87e2-9291-f633d8320f27" executionId="d8c09431-6ce8-4559-9e0a-25c92c83b24c" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="12938cdc-a6ff-8258-a5da-cd39354a7e5c" executionId="04ed02f4-246f-4547-875a-22ffbc6c52f5" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="160d5f59-3221-8757-b1c1-361254685003" executionId="bf7409ac-1ea5-4df8-b063-cbb8d014a10b" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="17fdeba1-7fb8-883f-a878-6580cd0544f2" executionId="e9ea280a-7a1f-49f9-b3e6-1664cd387c13" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="17e9f74c-7901-8c6f-a333-cc100634914f" executionId="159dcf5c-18f0-4a1a-a781-b6f214227cf0" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1f6bb9d0-c7d3-82bd-b4c9-4d218591a04a" executionId="f51936f2-6d0b-4947-a735-610073d19263" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="138b036c-fba8-8dff-a251-9a97da8ed230" executionId="bf2e5351-8e27-42d1-8726-6836d8c5f783" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e038cbe-dc11-8427-9355-ef9fc670f71f" executionId="2315a596-b579-44d5-a956-c45296a7dd79" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="14a519ea-f9fc-899b-9a45-9fe497a274f5" executionId="c9e6bebd-9c51-43f3-aa5d-4de850ade411" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="11bb0f8a-150a-8798-9619-1833526da99b" executionId="f1d4a6b1-32b4-4c3d-bd81-d7c7a443df38" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1a7c6ed0-4adc-83b6-adf5-a763f69582e3" executionId="1d9a59c8-01fb-4ca9-b695-f0bbd3c94a3d" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="175cc183-c90c-8766-a6e7-be2d056e4c6d" executionId="6072342a-c81c-4f72-ba05-bf7b1af447ae" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="101c613b-192c-88b5-85db-c1e213271443" executionId="e6fad988-0c21-497b-a296-b133f02dddf5" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="18857be7-c220-8e8e-8c9e-226b96ae04c1" executionId="eff8f4d0-e78e-4f49-8f83-f4e8c39c01b3" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1994e0eb-c403-8f02-b6a4-20b4614cd630" executionId="501c5cfe-9b09-46b0-819e-4750f116bf35" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="187508cd-49f6-8b63-af5e-33cb6e167b21" executionId="7c7e4c97-7d21-47e3-92ec-25b21f3b16e5" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1f6b2fb5-7d4d-8af8-be52-2c80b11bfacf" executionId="b888ac7d-f9d9-450b-bde6-2d90c1a13dcc" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1e7c00c6-6f8f-8bf2-84d1-20469e99eaa1" executionId="09f403cb-5196-4c2f-83d1-8c5c025527fc" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1189fc07-5883-8fc0-9e31-6204a74f869f" executionId="0512cfb4-fa8b-4720-a08c-a9f17cdbfaaa" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="110" executed="110" passed="110" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+  </ResultSummary>
+</TestRun>

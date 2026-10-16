@@ -1,0 +1,51 @@
+{
+  "trim": 1.014,
+  "duration": 54.775,
+  "captions": [
+    {
+      "start": 0,
+      "end": 3.1469999999999994,
+      "label": "01  Explore seven providers in one workspace"
+    },
+    {
+      "start": 3.1469999999999994,
+      "end": 11.578000000000001,
+      "label": "02  Find a model by name or provider"
+    },
+    {
+      "start": 11.578000000000001,
+      "end": 16.333000000000002,
+      "label": "03  Add your provider key when you are ready"
+    },
+    {
+      "start": 16.333000000000002,
+      "end": 21.035,
+      "label": "04  Switch between 13 interface languages"
+    },
+    {
+      "start": 21.035,
+      "end": 30.015,
+      "label": "05  Prepare documents and choose how to split them"
+    },
+    {
+      "start": 30.015,
+      "end": 36.363,
+      "label": "06  Configure rewriting and embedding providers"
+    },
+    {
+      "start": 36.363,
+      "end": 43.464,
+      "label": "07  Choose a vector store and tune hybrid retrieval"
+    },
+    {
+      "start": 43.464,
+      "end": 51.032,
+      "label": "08  Inspect reranking and final reference settings"
+    },
+    {
+      "start": 51.032,
+      "end": 54.775,
+      "label": "Mythosia.AI Playground  /  Ready for your models and documents"
+    }
+  ]
+}

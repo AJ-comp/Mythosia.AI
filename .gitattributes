@@ -2,3 +2,7 @@
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/pixie/tokenizer.json -text
 src/rag/Mythosia.AI.Rag.Search.Pixie/models/pixie/LICENSE -text -whitespace
 apps/Mythosia.AI.Samples.ChatUi/wwwroot/lib/purify.min.js -text
+# Preserve curated evidence hashes on both Windows and Linux.
+archive/** -text whitespace=cr-at-eol
+# Historical test messages intentionally retain their original whitespace.
+archive/api-diagnostics/**/*.trx -whitespace

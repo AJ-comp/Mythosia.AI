@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "archivedAt": "2026-10-16",
+  "evidenceDate": "2026-10-03",
+  "description": "Selected historical records, sanitized for public Git storage. SHA-256 records distinguish original files from transformed archive copies.",
+  "files": [
+    {
+      "path": "live-openai-claude-2026-10-03/FINAL.md",
+      "sha256": "443689b13fc9fc2ef2c61e33c1e5cb4b990ed308de66f879c703d704269d01bb",
+      "source": "artifacts/live-openai-claude-oct3/FINAL.md",
+      "sourceSha256": "8297f12a1a071212937b4cc25ac112e332a64b21beceea03ea1b72d1d0d49c7c",
+      "transformations": [
+        "Added archive scope notice; normalized text encoding/newlines."
+      ]
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/counters.json",
+      "sha256": "a4976957c7ce54545a6ecf2eab54e92b50b7cb478529888029968a7e589e3a8b",
+      "source": "artifacts/live-openai-claude-oct3/counters.json",
+      "sourceSha256": "a4976957c7ce54545a6ecf2eab54e92b50b7cb478529888029968a7e589e3a8b",
+      "transformations": []
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/binaries.json",
+      "sha256": "6c1082aa48b8c3ba9a0a1ddd7cdd19ab6c2200cfb2c33fd021ed54a098145484",
+      "source": "artifacts/live-openai-claude-oct3/binaries.json",
+      "sourceSha256": "cd8d69aade8a018a44d2c1464213ce4febfd32293f707d31ca45447f86c6dbb8",
+      "transformations": [
+        "Replaced absolute checkout paths with repository-relative paths; preserved binary hashes."
+      ]
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/anthropic/anthropic-common.trx",
+      "sha256": "57d1496fb8885d79926e8fa679cb896f1713bf6c597823e61675f503f1118ea3",
+      "source": "artifacts/live-openai-claude-oct3/anthropic/anthropic-common.trx",
+      "sourceSha256": "ccdc13841db69ceb86f80792ce823bb645de96a4dcd39f0d93d285d714dd340c",
+      "transformations": [
+        "Removed all captured stdout/stderr and run-environment log entries (these can contain provider output).",
+        "Replaced host/user/deployment names, absolute binary paths, and checkout prefixes in stack traces.",
+        "Removed provider request IDs and organization IDs from failure messages; preserved failure categories and account quota of 0.",
+        "Reserialized TRX XML; preserved test identities, names, counters, outcomes, durations, timestamps and error stack traces."
+      ]
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/anthropic/anthropic-current.trx",
+      "sha256": "75a546fa61295c481161ee9ca36cd6d4aeaac5ed365d1a12fff0e196bf5e205e",
+      "source": "artifacts/live-openai-claude-oct3/anthropic/anthropic-current.trx",
+      "sourceSha256": "10af9eb3b7dedad85f13bf41df49e5bc98ea27992b7cbfc35386a6cbc6b50ae1",
+      "transformations": [
+        "Removed all captured stdout/stderr and run-environment log entries (these can contain provider output).",
+        "Replaced host/user/deployment names, absolute binary paths, and checkout prefixes in stack traces.",
+        "Removed provider request IDs and organization IDs from failure messages; preserved failure categories and account quota of 0.",
+        "Reserialized TRX XML; preserved test identities, names, counters, outcomes, durations, timestamps and error stack traces."
+      ]
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/anthropic/anthropic-refusal-retry.trx",
+      "sha256": "7a09e015f95ff2b41f44197b1ee3f55b4547a8261f912f7c7f78d1c4749c930b",
+      "source": "artifacts/live-openai-claude-oct3/anthropic/anthropic-refusal-retry.trx",
+      "sourceSha256": "73f53c0fe07482317ca819415c55f9302a97915f0846c3ad48d9feb9343d265d",
+      "transformations": [
+        "Removed all captured stdout/stderr and run-environment log entries (these can contain provider output).",
+        "Replaced host/user/deployment names, absolute binary paths, and checkout prefixes in stack traces.",
+        "Removed provider request IDs and organization IDs from failure messages; preserved failure categories and account quota of 0.",
+        "Reserialized TRX XML; preserved test identities, names, counters, outcomes, durations, timestamps and error stack traces."
+      ]
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/openai/openai-common-live.trx",
+      "sha256": "950e16b82b85fea2a83b505a485f954a99f6ae86b0e540b4cff01e0717f5cab4",
+      "source": "artifacts/live-openai-claude-oct3/openai/openai-common-live.trx",
+      "sourceSha256": "40c4b8b081414d6dcafa8b81d5c42495b194623530b38ba53929b9a40d2bec27",
+      "transformations": [
+        "Removed all captured stdout/stderr and run-environment log entries (these can contain provider output).",
+        "Replaced host/user/deployment names, absolute binary paths, and checkout prefixes in stack traces.",
+        "Removed provider request IDs and organization IDs from failure messages; preserved failure categories and account quota of 0.",
+        "Reserialized TRX XML; preserved test identities, names, counters, outcomes, durations, timestamps and error stack traces."
+      ]
+    },
+    {
+      "path": "live-openai-claude-2026-10-03/openai/openai-live.trx",
+      "sha256": "d2b48e6fe4ba2469b9c489f61db6c0846356a437edb0fae6ec260a752437ad78",
+      "source": "artifacts/live-openai-claude-oct3/openai/openai-live.trx",
+      "sourceSha256": "746489fa9c3698ec8c0a3101ae5747bf207cc2fbf4a503e2bf0b3378399dc3b2",
+      "transformations": [
+        "Removed all captured stdout/stderr and run-environment log entries (these can contain provider output).",
+        "Replaced host/user/deployment names, absolute binary paths, and checkout prefixes in stack traces.",
+        "Removed provider request IDs and organization IDs from failure messages; preserved failure categories and account quota of 0.",
+        "Reserialized TRX XML; preserved test identities, names, counters, outcomes, durations, timestamps and error stack traces."
+      ]
+    },
+    {
+      "path": "opus-refusal-2026-10-03/FINAL.md",
+      "sha256": "76f455e8063b260561069979606118cc052bea8034ca31f73e45c6ae3444b41c",
+      "source": "artifacts/opus-refusal-diagnosis-oct3/FINAL.md",
+      "sourceSha256": "34de997eb071cc7607bab2bac55decaece5e813b09a9a0939ba04b7f90a25310",
+      "transformations": [
+        "Added archive scope notice; normalized text encoding/newlines."
+      ]
+    },
+    {
+      "path": "opus-refusal-2026-10-03/reports/results.json",
+      "sha256": "3822fa5ddb9dfda3f1a2bbea2664bc7d942f08c8967d644227a5f6e6c6a6ae4d",
+      "source": "artifacts/opus-refusal-diagnosis-oct3/reports/results.json",
+      "sourceSha256": "1688f4a7410634ee49e2b95ab758765b0b1b283858deeff5859fca398ecc94ac",
+      "transformations": [
+        "Removed provider request IDs; preserved outcomes, synthetic prompts, refusal explanations, and existing omitted thinking/signature markers.",
+        "Reserialized JSON as UTF-8."
+      ]
+    },
+    {
+      "path": "opus-refusal-2026-10-03/reports/drop-control-results.json",
+      "sha256": "239c671f1881aa8c12719b664442a665506abb12701fc81aa83937f66d0a7952",
+      "source": "artifacts/opus-refusal-diagnosis-oct3/reports/drop-control-results.json",
+      "sourceSha256": "7fb268ff5946c1d9961bf9b661b659a19c2d6e8817aeb90da70bfdd7e1d4b21d",
+      "transformations": [
+        "Removed provider request IDs; preserved outcomes, synthetic prompts, refusal explanations, and existing omitted thinking/signature markers.",
+        "Reserialized JSON as UTF-8."
+      ]
+    },
+    {
+      "path": "opus-refusal-2026-10-03/redacted-requests.json",
+      "sha256": "6ee8c38f5c3ccae6262c218851a4e2965152a4bcfaa66cfc6ef8338ee0002dc6",
+      "source": "artifacts/opus-refusal-diagnosis-oct3/redacted-requests.json",
+      "sourceSha256": "6ee8c38f5c3ccae6262c218851a4e2965152a4bcfaa66cfc6ef8338ee0002dc6",
+      "transformations": []
+    },
+    {
+      "path": "known-limitations-2026-10-03.md",
+      "sha256": "695b2e4d705aef06af168d889bcf917f2eb9d3d2d4fa05f47b1e614450503546",
+      "source": "artifacts/reaudit-response-oct3b/FINAL.md",
+      "sourceSha256": "33eaff9b9edd53a0097f47e90d9430bb4331a1127c1d6a67a2eab54019c912a3",
+      "transformations": [
+        "Added historical-status and omitted-evidence notice; normalized text encoding/newlines."
+      ]
+    }
+  ]
+}

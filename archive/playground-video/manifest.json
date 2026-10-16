@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "archivedOn": "2026-10-16",
+  "notes": [
+    "Historical September 26-27, 2026 video-production sources; not a current UI capability inventory.",
+    "Original local files remain intact. Only files with listed transformations differ from their source.",
+    "README, common.cjs and tools/.gitignore are new archive support files, without historical sources."
+  ],
+  "files": [
+    {
+      "path": "initial/walkthrough.webm",
+      "sha256": "5ce300874eb9270661194f0c33de210a3fac569839bca57365a292adf4f83c2c",
+      "source": "artifacts/playground-video/walkthrough.webm",
+      "sourceSha256": "5ce300874eb9270661194f0c33de210a3fac569839bca57365a292adf4f83c2c",
+      "transformations": []
+    },
+    {
+      "path": "initial/alternate-take.webm",
+      "sha256": "1b0a3192447659d2b67cd47b454aafd4cd6a6b39ce96fce18b72e8bf36847ecb",
+      "source": "artifacts/playground-video/raw/page@96ce2e9de5da00115f681fb5bbf79127.webm",
+      "sourceSha256": "1b0a3192447659d2b67cd47b454aafd4cd6a6b39ce96fce18b72e8bf36847ecb",
+      "transformations": []
+    },
+    {
+      "path": "initial/chapters.json",
+      "sha256": "36cd24bda5d39c50532e33de16e59c5474dce502393584b141e6d4e6a94c398d",
+      "source": "artifacts/playground-video/chapters.json",
+      "sourceSha256": "36cd24bda5d39c50532e33de16e59c5474dce502393584b141e6d4e6a94c398d",
+      "transformations": []
+    },
+    {
+      "path": "initial/encoded.json",
+      "sha256": "6707761dc4bc9fce6655e06b52d6cea99412cf28a7d7d11417a3b713b4ad67b3",
+      "source": "artifacts/playground-video/encoded.json",
+      "sourceSha256": "6707761dc4bc9fce6655e06b52d6cea99412cf28a7d7d11417a3b713b4ad67b3",
+      "transformations": []
+    },
+    {
+      "path": "initial/recording-plan.md",
+      "sha256": "611fd31486a41809529e4145f870cef33b56893ae74f6063eb8615f53db3ab30",
+      "source": "artifacts/playground-video/recording-plan.md",
+      "sourceSha256": "611fd31486a41809529e4145f870cef33b56893ae74f6063eb8615f53db3ab30",
+      "transformations": []
+    },
+    {
+      "path": "spotlight/walkthrough.webm",
+      "sha256": "cf31573d3f89ebf5b49179522a99f11a430da3a3113278d2469cb1a46619493a",
+      "source": "artifacts/playground-video/spotlight/walkthrough.webm",
+      "sourceSha256": "cf31573d3f89ebf5b49179522a99f11a430da3a3113278d2469cb1a46619493a",
+      "transformations": []
+    },
+    {
+      "path": "spotlight/recording.json",
+      "sha256": "4904fb4e558cda7d336033440900fafd815109e3b47d25bd64b4e47326da3002",
+      "source": "artifacts/playground-video/spotlight/recording.json",
+      "sourceSha256": "4904fb4e558cda7d336033440900fafd815109e3b47d25bd64b4e47326da3002",
+      "transformations": []
+    },
+    {
+      "path": "spotlight/timeline.json",
+      "sha256": "c10f30caba02285271e564cd84d5088d993f71d0423a0a4b1f80366aa97c6046",
+      "source": "artifacts/playground-video/spotlight/timeline.json",
+      "sourceSha256": "c10f30caba02285271e564cd84d5088d993f71d0423a0a4b1f80366aa97c6046",
+      "transformations": []
+    },
+    {
+      "path": "readme/Mythosia-Playground-English.mp4",
+      "sha256": "0e58abac257e884f0cb7e53c86410677196a2a6ce9586ed34e940403818ddb5a",
+      "source": "artifacts/playground-video/readme/Mythosia-Playground-English.mp4",
+      "sourceSha256": "0e58abac257e884f0cb7e53c86410677196a2a6ce9586ed34e940403818ddb5a",
+      "transformations": []
+    },
+    {
+      "path": "readme/captions.ass",
+      "sha256": "cd19241ce80077f64448a72aa4ed218733c6fd1a64d7939a13333e13b16ef98b",
+      "source": "artifacts/playground-video/readme/captions.ass",
+      "sourceSha256": "cd19241ce80077f64448a72aa4ed218733c6fd1a64d7939a13333e13b16ef98b",
+      "transformations": []
+    },
+    {
+      "path": "tools/package.json",
+      "sha256": "8d57d95d41a1c2833b846f382610db55b8d193c20e3b2473c1e59f43e798a9b9",
+      "source": "artifacts/playground-video/recorder/package.json",
+      "sourceSha256": "8d57d95d41a1c2833b846f382610db55b8d193c20e3b2473c1e59f43e798a9b9",
+      "transformations": []
+    },
+    {
+      "path": "tools/package-lock.json",
+      "sha256": "d96084ba968c374a7ea64ac891a5a011beef838335f98785323aa2acae486e15",
+      "source": "artifacts/playground-video/recorder/package-lock.json",
+      "sourceSha256": "d96084ba968c374a7ea64ac891a5a011beef838335f98785323aa2acae486e15",
+      "transformations": []
+    },
+    {
+      "path": "tools/record.cjs",
+      "sha256": "b7d7bb3e3f1534e01525790c9861ce4bd9028377b7d5269df714cd04a5abbe15",
+      "source": "artifacts/playground-video/recorder/record-spotlight.cjs",
+      "sourceSha256": "d0d46761de31e927ac6d23c88994a4a6f056f21144776c4e0d3093f176e25a5f",
+      "transformations": [
+        "Resolve paths from the script location; write generated output under ignored artifacts/playground-video/reuse/capture.",
+        "Accept a loopback PLAYGROUND_URL; use a fresh browser context, block off-origin and non-GET requests, disable service workers, and record endpoint paths only.",
+        "Replace historical exact model count with provider readiness; add side-effect-free help."
+      ]
+    },
+    {
+      "path": "tools/encode-spotlight.cjs",
+      "sha256": "d0d137daafa08ad71c0b989f5fa9bae38a31fac8c070c97460e9f9674eda469e",
+      "source": "artifacts/playground-video/recorder/encode-spotlight.cjs",
+      "sourceSha256": "f4697f3e8151cc9bb01ee189766f2ba0638fdff9f16ee4f241678c74aaaf441f",
+      "transformations": [
+        "Read archived footage by default, or --recorded capture; write all outputs under ignored artifacts/playground-video/reuse/spotlight.",
+        "Resolve FFmpeg and FFprobe from PATH or explicit environment overrides; add help."
+      ]
+    },
+    {
+      "path": "tools/encode-readme.cjs",
+      "sha256": "2f9c1370e2f35e3676b29098e4a622819bb910370ee072689e502afc56187d5e",
+      "source": "artifacts/playground-video/readme/encode.cjs",
+      "sourceSha256": "5ed7c281054ab84f4d867fc70bb94f814741410571be68818a13f2d27b693809",
+      "transformations": [
+        "Use portable input and executable paths; write all outputs under ignored artifacts/playground-video/reuse/readme.",
+        "Select an installed font using CAPTION_FONT, default DejaVu Sans; no font binary redistributed.",
+        "Validate input duration and caption timeline instead of fixed historical count/duration; generate representative frames relative to the input."
+      ]
+    },
+    {
+      "path": "tools/retime-captions.cjs",
+      "sha256": "415de08a76e06338d68f1737dc847a32d33023554b97e7a4cd67fe95404234c4",
+      "source": "artifacts/playground-video/spotlight/retime-captions.ps1",
+      "sourceSha256": "81debe503a83b077075ce9e3f0efdbf246d64296738d163fa97dda295ce36733",
+      "transformations": [
+        "Port timeline retiming from PowerShell to dependency-free Node.js.",
+        "Preserve archived caption text and write retimed copies only under ignored artifacts; omit one-off website version rewriting."
+      ]
+    },
+    {
+      "path": "captions/playground-demo.de.vtt",
+      "sha256": "04082989eac95e61de195c4a7e0b3994ca351ee7e1abc43143d7aa65dc857de9",
+      "source": "docs/assets/playground-demo.de.vtt",
+      "sourceSha256": "04082989eac95e61de195c4a7e0b3994ca351ee7e1abc43143d7aa65dc857de9",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.es.vtt",
+      "sha256": "be92964c279ca1ddd1bd891dab7e9aa7d0c3d4a710936851c14f78a42e42c50f",
+      "source": "docs/assets/playground-demo.es.vtt",
+      "sourceSha256": "be92964c279ca1ddd1bd891dab7e9aa7d0c3d4a710936851c14f78a42e42c50f",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.fr.vtt",
+      "sha256": "3d24dcbd4015344c0e3497e62c835c1f81da0c68fbe900e632afd75b5627273a",
+      "source": "docs/assets/playground-demo.fr.vtt",
+      "sourceSha256": "3d24dcbd4015344c0e3497e62c835c1f81da0c68fbe900e632afd75b5627273a",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.ja.vtt",
+      "sha256": "05bfdb813ce304900640121cf543201d19f0e6abb5a786305495374b2073d84e",
+      "source": "docs/assets/playground-demo.ja.vtt",
+      "sourceSha256": "05bfdb813ce304900640121cf543201d19f0e6abb5a786305495374b2073d84e",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.ko.vtt",
+      "sha256": "47c5d89d457262b3b42c90793aefae69ed2d3b0c0a6faba3157b9597db3adfc7",
+      "source": "docs/assets/playground-demo.ko.vtt",
+      "sourceSha256": "47c5d89d457262b3b42c90793aefae69ed2d3b0c0a6faba3157b9597db3adfc7",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.pt.vtt",
+      "sha256": "44503d9b9c091e75085d3ab96d7d0d4346b4943f434719c383630236600e7d2f",
+      "source": "docs/assets/playground-demo.pt.vtt",
+      "sourceSha256": "44503d9b9c091e75085d3ab96d7d0d4346b4943f434719c383630236600e7d2f",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.ru.vtt",
+      "sha256": "4cc7d9ba410046093652d8a91196bb81001e296f3eb6c3ceba1caec0a77a93d2",
+      "source": "docs/assets/playground-demo.ru.vtt",
+      "sourceSha256": "4cc7d9ba410046093652d8a91196bb81001e296f3eb6c3ceba1caec0a77a93d2",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.th.vtt",
+      "sha256": "c4e71cc25c6418d0a3244f579825278a617468209304c933fec64d25f2bef38f",
+      "source": "docs/assets/playground-demo.th.vtt",
+      "sourceSha256": "c4e71cc25c6418d0a3244f579825278a617468209304c933fec64d25f2bef38f",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.uk.vtt",
+      "sha256": "f6470b10f90cf617619506c951f51173e97ac1f131136aec08c0ccdacf2d083b",
+      "source": "docs/assets/playground-demo.uk.vtt",
+      "sourceSha256": "f6470b10f90cf617619506c951f51173e97ac1f131136aec08c0ccdacf2d083b",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.vi.vtt",
+      "sha256": "025a17a978ef5bd8a6e9b5b7439f4fecb16aef6d80e7acdf6a03f5b05b9b1331",
+      "source": "docs/assets/playground-demo.vi.vtt",
+      "sourceSha256": "025a17a978ef5bd8a6e9b5b7439f4fecb16aef6d80e7acdf6a03f5b05b9b1331",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.vtt",
+      "sha256": "acf4f6105f6e58ac1922288135c4cbbbbe2c3e328f126ed5a39bfc604a9173b2",
+      "source": "docs/assets/playground-demo.vtt",
+      "sourceSha256": "acf4f6105f6e58ac1922288135c4cbbbbe2c3e328f126ed5a39bfc604a9173b2",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.zh-Hans.vtt",
+      "sha256": "f2a0207f8e1d9a06e77f54e7a244ab2b2492b1cc704f5af691bb7b3e72256a6f",
+      "source": "docs/assets/playground-demo.zh-Hans.vtt",
+      "sourceSha256": "f2a0207f8e1d9a06e77f54e7a244ab2b2492b1cc704f5af691bb7b3e72256a6f",
+      "transformations": []
+    },
+    {
+      "path": "captions/playground-demo.zh-Hant.vtt",
+      "sha256": "744a884b2ee714c7660e6d2f37b149c2751b427cd7ff55cea7d95a5587b5433d",
+      "source": "docs/assets/playground-demo.zh-Hant.vtt",
+      "sourceSha256": "744a884b2ee714c7660e6d2f37b149c2751b427cd7ff55cea7d95a5587b5433d",
+      "transformations": []
+    }
+  ],
+  "omittedDuplicates": [
+    {
+      "source": "artifacts/playground-video/raw/page@958be65b1b04e938aa026f826d8bdcdb.webm",
+      "sha256": "5ce300874eb9270661194f0c33de210a3fac569839bca57365a292adf4f83c2c",
+      "archivedAs": "initial/walkthrough.webm"
+    },
+    {
+      "source": "artifacts/playground-video/spotlight/raw/page@c7872ee19aad9371857725351d5b7a4e.webm",
+      "sha256": "cf31573d3f89ebf5b49179522a99f11a430da3a3113278d2469cb1a46619493a",
+      "archivedAs": "spotlight/walkthrough.webm"
+    }
+  ],
+  "excluded": [
+    {
+      "reason": "Incomplete recording with no duration metadata; complete usable takes are preserved.",
+      "source": "artifacts/playground-video/raw/page@33d1c536710a090fc74013282f9aa29f.webm"
+    },
+    {
+      "reason": "Proprietary system font; rely on an installed font instead of redistribution.",
+      "source": "artifacts/playground-video/segoeui.ttf"
+    },
+    {
+      "reason": "Regenerate from the pinned package-lock.json.",
+      "source": "artifacts/playground-video/recorder/node_modules"
+    },
+    {
+      "reason": "Superseded initial workflow and one-off documentation edits; preserve the latest recorder/encoders and source chapter metadata instead.",
+      "source": "artifacts/playground-video/recorder/record.cjs; encode.cjs; wire-captions.cjs; readme/reorder.cjs"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+[
+  {
+    "Path": "src/core/Mythosia.AI/bin/Release/netstandard2.1/Mythosia.AI.dll",
+    "Hash": "EEFBB7CA3DA1A398BD725F08F0849A8B2BC93C0C7C5C96CAD84A2B7F97941116"
+  },
+  {
+    "Path": "tests/Mythosia.AI.Test/bin/Release/net10.0/Mythosia.AI.Test.dll",
+    "Hash": "FD78F48EDDD4AC4E7E4DB3DD624E685C2F38561C47E676DDC889B04DA98C68D4"
+  }
+]

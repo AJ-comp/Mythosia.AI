@@ -1,0 +1,442 @@
+{
+  "width": 1440,
+  "height": 900,
+  "duration": 112.371,
+  "captionStarts": [
+    0,
+    4.802,
+    11.132,
+    17.825,
+    28.798,
+    37.654,
+    43.204,
+    57.001,
+    72.359,
+    81.985,
+    87.393,
+    96.002,
+    107.049
+  ],
+  "zooms": [
+    {
+      "start": 43.204,
+      "x": 1160,
+      "y": 350,
+      "scale": 1.3,
+      "end": 53.292
+    },
+    {
+      "start": 61.357,
+      "x": 1160,
+      "y": 390,
+      "scale": 1.3,
+      "end": 71.349
+    },
+    {
+      "start": 81.986,
+      "x": 1160,
+      "y": 630,
+      "scale": 1.3,
+      "end": 103.522
+    }
+  ],
+  "actions": [
+    {
+      "kind": "focus",
+      "time": 4.99,
+      "selector": "#model-search",
+      "box": {
+        "x": 44.53125,
+        "y": 160.5,
+        "width": 145.5,
+        "height": 15
+      }
+    },
+    {
+      "kind": "click",
+      "time": 6.567,
+      "selector": "#model-search",
+      "x": 117.28125,
+      "y": 168
+    },
+    {
+      "kind": "focus",
+      "time": 11.32,
+      "selector": "#model-search-clear",
+      "box": {
+        "x": 18,
+        "y": 192,
+        "width": 69.890625,
+        "height": 22
+      }
+    },
+    {
+      "kind": "click",
+      "time": 12.87,
+      "selector": "#model-search-clear",
+      "x": 52.9453125,
+      "y": 203
+    },
+    {
+      "kind": "focus",
+      "time": 18.014,
+      "selector": ".provider-group[data-provider=\"Anthropic\"] .provider-key-btn",
+      "box": {
+        "x": 210.046875,
+        "y": 264.296875,
+        "width": 47.953125,
+        "height": 22.390625
+      }
+    },
+    {
+      "kind": "click",
+      "time": 19.581,
+      "selector": ".provider-group[data-provider=\"Anthropic\"] .provider-key-btn",
+      "x": 234.0234375,
+      "y": 275.4921875
+    },
+    {
+      "kind": "focus",
+      "time": 23.853,
+      "selector": "#modal-cancel",
+      "box": {
+        "x": 785.796875,
+        "y": 521.5,
+        "width": 53.203125,
+        "height": 28
+      }
+    },
+    {
+      "kind": "click",
+      "time": 25.417,
+      "selector": "#modal-cancel",
+      "x": 812.3984375,
+      "y": 535.5
+    },
+    {
+      "kind": "focus",
+      "time": 26.425,
+      "selector": "#model-search-clear",
+      "box": {
+        "x": 18,
+        "y": 192,
+        "width": 69.890625,
+        "height": 22
+      }
+    },
+    {
+      "kind": "click",
+      "time": 28.007,
+      "selector": "#model-search-clear",
+      "x": 52.9453125,
+      "y": 203
+    },
+    {
+      "kind": "focus",
+      "time": 28.987,
+      "selector": "#ui-language",
+      "box": {
+        "x": 1168.1875,
+        "y": 16.5,
+        "width": 98,
+        "height": 30
+      }
+    },
+    {
+      "kind": "select",
+      "time": 30.564,
+      "selector": "#ui-language",
+      "value": "ko",
+      "x": 1217.1875,
+      "y": 31.5
+    },
+    {
+      "kind": "focus",
+      "time": 34.329,
+      "selector": "#ui-language",
+      "box": {
+        "x": 1178.578125,
+        "y": 16.5,
+        "width": 98,
+        "height": 30
+      }
+    },
+    {
+      "kind": "select",
+      "time": 35.883,
+      "selector": "#ui-language",
+      "value": "en",
+      "x": 1227.578125,
+      "y": 31.5
+    },
+    {
+      "kind": "focus",
+      "time": 37.842,
+      "selector": ".workspace-tabs [data-open-documents]",
+      "box": {
+        "x": 371.328125,
+        "y": 64,
+        "width": 77.546875,
+        "height": 53
+      }
+    },
+    {
+      "kind": "click",
+      "time": 39.405,
+      "selector": ".workspace-tabs [data-open-documents]",
+      "x": 410.1015625,
+      "y": 90.5
+    },
+    {
+      "kind": "focus",
+      "time": 43.392,
+      "selector": "#rag-chunker-select .rag-select-trigger",
+      "box": {
+        "x": 1044,
+        "y": 320.5,
+        "width": 290,
+        "height": 29
+      }
+    },
+    {
+      "kind": "click",
+      "time": 44.94,
+      "selector": "#rag-chunker-select .rag-select-trigger",
+      "x": 1189,
+      "y": 335
+    },
+    {
+      "kind": "focus",
+      "time": 48.33,
+      "selector": "#rag-chunker-select [data-value=\"markdown\"]",
+      "box": {
+        "x": 1053,
+        "y": 469.5,
+        "width": 272,
+        "height": 29
+      }
+    },
+    {
+      "kind": "click",
+      "time": 49.991,
+      "selector": "#rag-chunker-select [data-value=\"markdown\"]",
+      "x": 1189,
+      "y": 484
+    },
+    {
+      "kind": "focus",
+      "time": 54.581,
+      "selector": "#rag-modal-close",
+      "box": {
+        "x": 1317,
+        "y": 121.5,
+        "width": 26,
+        "height": 26
+      }
+    },
+    {
+      "kind": "click",
+      "time": 56.219,
+      "selector": "#rag-modal-close",
+      "x": 1330,
+      "y": 134.5
+    },
+    {
+      "kind": "focus",
+      "time": 57.203,
+      "selector": ".workspace-tabs [data-open-pipeline]",
+      "box": {
+        "x": 472.875,
+        "y": 64,
+        "width": 44.8125,
+        "height": 53
+      }
+    },
+    {
+      "kind": "click",
+      "time": 58.766,
+      "selector": ".workspace-tabs [data-open-pipeline]",
+      "x": 495.28125,
+      "y": 90.5
+    },
+    {
+      "kind": "focus",
+      "time": 61.544,
+      "selector": "#rag-embedding-trigger",
+      "box": {
+        "x": 742,
+        "y": 403,
+        "width": 661,
+        "height": 29
+      }
+    },
+    {
+      "kind": "click",
+      "time": 63.217,
+      "selector": "#rag-embedding-trigger",
+      "x": 1072.5,
+      "y": 417.5
+    },
+    {
+      "kind": "focus",
+      "time": 67.136,
+      "selector": "#rag-embedding-menu [data-value=\"openai\"]",
+      "box": {
+        "x": 751,
+        "y": 517,
+        "width": 643,
+        "height": 30
+      }
+    },
+    {
+      "kind": "click",
+      "time": 68.733,
+      "selector": "#rag-embedding-menu [data-value=\"openai\"]",
+      "x": 1072.5,
+      "y": 532
+    },
+    {
+      "kind": "focus",
+      "time": 72.545,
+      "selector": "#rag-vectorstore-select .rag-select-trigger",
+      "box": {
+        "x": 757,
+        "y": 739,
+        "width": 631,
+        "height": 29
+      }
+    },
+    {
+      "kind": "click",
+      "time": 74.172,
+      "selector": "#rag-vectorstore-select .rag-select-trigger",
+      "x": 1072.5,
+      "y": 753.5
+    },
+    {
+      "kind": "focus",
+      "time": 77.792,
+      "selector": "#rag-vectorstore-select [data-value=\"inmemory\"]",
+      "box": {
+        "x": 766,
+        "y": 783,
+        "width": 613,
+        "height": 30
+      }
+    },
+    {
+      "kind": "click",
+      "time": 79.388,
+      "selector": "#rag-vectorstore-select [data-value=\"inmemory\"]",
+      "x": 1072.5,
+      "y": 798
+    },
+    {
+      "kind": "focus",
+      "time": 82.174,
+      "selector": "#rag-hybrid-weight",
+      "box": {
+        "x": 757,
+        "y": 453,
+        "width": 294.5,
+        "height": 14
+      }
+    },
+    {
+      "kind": "focus",
+      "time": 87.598,
+      "selector": "label:has(#rag-rerank-enabled)",
+      "box": {
+        "x": 812.75,
+        "y": 561,
+        "width": 34,
+        "height": 18
+      }
+    },
+    {
+      "kind": "click",
+      "time": 89.227,
+      "selector": "label:has(#rag-rerank-enabled)",
+      "x": 829.75,
+      "y": 570
+    },
+    {
+      "kind": "focus",
+      "time": 92.195,
+      "selector": "#rag-rerank-provider",
+      "box": {
+        "x": 742,
+        "y": 625,
+        "width": 661,
+        "height": 31
+      }
+    },
+    {
+      "kind": "focus",
+      "time": 96.209,
+      "selector": "#rag-topk",
+      "box": {
+        "x": 742,
+        "y": 649,
+        "width": 136.75,
+        "height": 29
+      }
+    },
+    {
+      "kind": "focus",
+      "time": 99.958,
+      "selector": "#rag-min-score",
+      "box": {
+        "x": 886.75,
+        "y": 649,
+        "width": 136.75,
+        "height": 29
+      }
+    },
+    {
+      "kind": "focus",
+      "time": 104.699,
+      "selector": "#rag-settings-close",
+      "box": {
+        "x": 1390,
+        "y": 24.5,
+        "width": 26,
+        "height": 26
+      }
+    },
+    {
+      "kind": "click",
+      "time": 106.273,
+      "selector": "#rag-settings-close",
+      "x": 1403,
+      "y": 37.5
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/reference-history"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/testbed"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/models"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/reference-history"
+    }
+  ],
+  "errors": []
+}

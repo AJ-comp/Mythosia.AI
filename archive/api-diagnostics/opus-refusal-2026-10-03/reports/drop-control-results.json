@@ -1,0 +1,75 @@
+[
+  {
+    "scenario": "drop",
+    "path": "library",
+    "failure": null,
+    "status": 200,
+    "stop": "end_turn",
+    "details": null,
+    "text": "15\n\n(Correction: my previous answer was wrong. 123456 × 789012 = 97408265472.)",
+    "transformations": [
+      {
+        "type": "thinking_dropped",
+        "path": "messages.1.content.0",
+        "reason": "prefix_binding_mismatch"
+      }
+    ],
+    "request": {
+      "model": "claude-opus-5-5",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Calculate 123456 times 789012 exactly. Reply with only the integer."
+        },
+        {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "[OMITTED]",
+              "signature": "[OMITTED]"
+            },
+            {
+              "type": "text",
+              "text": "85397212652"
+            }
+          ]
+        },
+        {
+          "role": "user",
+          "content": "What is 7 plus 8? Reply with the integer."
+        }
+      ],
+      "stream": false,
+      "max_tokens": 8192,
+      "system": "Follow the current task precisely. Keep final answers concise.",
+      "thinking": {
+        "type": "adaptive",
+        "block_binding": {
+          "prefix_mismatch_behavior": "drop_block"
+        }
+      },
+      "output_config": {
+        "effort": "medium"
+      }
+    },
+    "requestId": "[REQUEST_ID_REMOVED]"
+  },
+  {
+    "scenario": "drop",
+    "path": "identical-raw",
+    "status": 200,
+    "stop": "end_turn",
+    "details": null,
+    "text": "15\n\nCorrection to my previous answer: 123456 × 789012 = 97408265472, not 85397212652.",
+    "transformations": [
+      {
+        "type": "thinking_dropped",
+        "path": "messages.1.content.0",
+        "reason": "prefix_binding_mismatch"
+      }
+    ],
+    "error": null,
+    "requestId": "[REQUEST_ID_REMOVED]"
+  }
+]
