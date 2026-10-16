@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "archivedOn": "2026-10-16",
+  "files": [
+    {
+      "path": "original-openai/corpus.json",
+      "sha256": "03fb8026b20371e5ce0695df3ae23eee0db62fd581cc02918d6caf6684d4e23e",
+      "source": "artifacts/pixie-comparison-openai/corpus.json",
+      "sourceSha256": "03fb8026b20371e5ce0695df3ae23eee0db62fd581cc02918d6caf6684d4e23e",
+      "transformations": []
+    },
+    {
+      "path": "original-openai/results.json",
+      "sha256": "ad286d7a2dc8250e2c070834f0fb327290fe96cc3e4da0448a440b9e28eeb2df",
+      "source": "artifacts/pixie-comparison-openai/results.json",
+      "sourceSha256": "ad286d7a2dc8250e2c070834f0fb327290fe96cc3e4da0448a440b9e28eeb2df",
+      "transformations": []
+    },
+    {
+      "path": "original-openai/summary.md",
+      "sha256": "7add75f331eae24f23a8a40cf62618512d1f3d8722477418032495e9a2254b3e",
+      "source": "artifacts/pixie-comparison-openai/summary.md",
+      "sourceSha256": "7add75f331eae24f23a8a40cf62618512d1f3d8722477418032495e9a2254b3e",
+      "transformations": []
+    },
+    {
+      "path": "formal-openai/corpus.json",
+      "sha256": "d2032682482313dc8c950e520b2f6b623146d27ffba9c590c5c2df2c3d2723ef",
+      "source": "artifacts/retrieval-evaluation/openai-formal-infrastructure/corpus.json",
+      "sourceSha256": "d2032682482313dc8c950e520b2f6b623146d27ffba9c590c5c2df2c3d2723ef",
+      "transformations": []
+    },
+    {
+      "path": "formal-openai/results.json",
+      "sha256": "8220818a928f6eb848443dc8b469f5f9bd0c93e628c92a63c6ad5c957afe4d69",
+      "source": "artifacts/retrieval-evaluation/openai-formal-infrastructure/results.json",
+      "sourceSha256": "eee8e29ee792d7e93e7dfa3a516e908c1c79d371c45a31666baf41d0881b9b92",
+      "transformations": [
+        "Normalized six historical options paths to repository-relative paths: root, dataRoot, dataset, output, modelDirectory, embeddingCache; JSON formatting normalized to LF. Metrics, rankings, fingerprints and vectors are unchanged."
+      ]
+    },
+    {
+      "path": "formal-openai/summary.md",
+      "sha256": "3bc5254b77cba53ea50a3a546a7ada07341646af168ecafa4866ecfac957c4c7",
+      "source": "artifacts/retrieval-evaluation/openai-formal-infrastructure/summary.md",
+      "sourceSha256": "3bc5254b77cba53ea50a3a546a7ada07341646af168ecafa4866ecfac957c4c7",
+      "transformations": []
+    },
+    {
+      "path": "formal-openai/measurements.csv",
+      "sha256": "5139c400075780ab3890d07ee57c4c6e8c89481e326e1ff597a85e7879631b66",
+      "source": "artifacts/retrieval-evaluation/openai-formal-infrastructure/measurements.csv",
+      "sourceSha256": "5139c400075780ab3890d07ee57c4c6e8c89481e326e1ff597a85e7879631b66",
+      "transformations": []
+    }
+  ]
+}

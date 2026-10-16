@@ -1,0 +1,70 @@
+{
+  "width": 1440,
+  "height": 900,
+  "duration": 55.789,
+  "chapters": [
+    {
+      "start": 1.114,
+      "label": "01  Explore seven providers in one workspace"
+    },
+    {
+      "start": 4.161,
+      "label": "02  Find a model by name or provider"
+    },
+    {
+      "start": 12.592,
+      "label": "03  Add your provider key when you are ready"
+    },
+    {
+      "start": 17.347,
+      "label": "04  Switch between 13 interface languages"
+    },
+    {
+      "start": 22.049,
+      "label": "05  Prepare documents and choose how to split them"
+    },
+    {
+      "start": 31.029,
+      "label": "06  Configure rewriting and embedding providers"
+    },
+    {
+      "start": 37.377,
+      "label": "07  Choose a vector store and tune hybrid retrieval"
+    },
+    {
+      "start": 44.478,
+      "label": "08  Inspect reranking and final reference settings"
+    },
+    {
+      "start": 52.046,
+      "label": "Mythosia.AI Playground  /  Ready for your models and documents"
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/reference-history"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/status"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/testbed"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/models"
+    },
+    {
+      "method": "GET",
+      "url": "http://127.0.0.1:50915/api/rag/reference-history"
+    }
+  ],
+  "errors": []
+}

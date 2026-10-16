@@ -1,0 +1,37 @@
+[
+  {
+    "Report": "anthropic-common.trx",
+    "Total": 16,
+    "Passed": 14,
+    "Failed": 2,
+    "NotExecuted": 0
+  },
+  {
+    "Report": "anthropic-current.trx",
+    "Total": 63,
+    "Passed": 60,
+    "Failed": 3,
+    "NotExecuted": 0
+  },
+  {
+    "Report": "anthropic-refusal-retry.trx",
+    "Total": 3,
+    "Passed": 0,
+    "Failed": 3,
+    "NotExecuted": 0
+  },
+  {
+    "Report": "openai-common-live.trx",
+    "Total": 18,
+    "Passed": 18,
+    "Failed": 0,
+    "NotExecuted": 0
+  },
+  {
+    "Report": "openai-live.trx",
+    "Total": 110,
+    "Passed": 110,
+    "Failed": 0,
+    "NotExecuted": 0
+  }
+]

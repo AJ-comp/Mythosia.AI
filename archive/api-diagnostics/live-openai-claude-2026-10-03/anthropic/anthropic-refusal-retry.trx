@@ -1,0 +1,127 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010" id="04de9ff9-68e9-4ba7-abd3-b54f27159931" name="Archived live API validation 2026-10-03">
+  <Times creation="2026-10-03T04:05:27.7007521Z" queuing="2026-10-03T04:05:27.7007521Z" start="2026-10-03T04:05:27.7007521Z" finish="2026-10-03T04:05:48.6065308Z" />
+  <TestSettings name="default" id="badb18a5-01e2-4930-9e41-470693adc8f7">
+    <Deployment runDeploymentRoot="archived-live-api-2026-10-03" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="5ba363c8-9ff5-4c46-8f13-0b0ce778ec96" testId="193b34f7-318b-8c86-a8d0-8fb4dafc868d" testName="EditedPrefix_UsesActualBindingPolicy(DropBlock)" computerName="ARCHIVED_TEST_HOST" duration="00:00:12.5837258" startTime="2026-10-03T04:05:28.2602624+00:00" endTime="2026-10-03T04:05:40.8716156+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Failed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="5ba363c8-9ff5-4c46-8f13-0b0ce778ec96">
+      <Output>
+        <ErrorInfo>
+          <Message>테스트 메서드 Mythosia.AI.Tests.Anthropic.AnthropicOpus55LiveTests.EditedPrefix_UsesActualBindingPolicy에서 예외를 throw했습니다. 
+Mythosia.AI.Exceptions.AIServiceException: Claude declined to process the request (stop_reason=refusal).</Message>
+          <StackTrace>   at Mythosia.AI.Services.Anthropic.AnthropicService.GetCompletionAsync(Message message) in src\core\Mythosia.AI\Services\Anthropic\AnthropicService.cs:line 176
+   at Mythosia.AI.Services.Base.AIService.SendWithContextRecoveryAsync(Message message) in src\core\Mythosia.AI\Services\AIService.cs:line 391
+   at Mythosia.AI.Services.Base.AIService.GetCompletionAsync(Message message, AIRequestProfile profile, AIRequestContext context, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.cs:line 343
+   at Mythosia.AI.Services.Base.AIService.GetCompletionAsync(String prompt, AIRequestProfile profile, AIRequestContext context, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.cs:line 321
+   at Mythosia.AI.Tests.AnthropicFableLiveProbe.ExecuteAsync(String prompt, FableExecutionMode mode) in tests\Mythosia.AI.Test\Infrastructure\AnthropicFableLiveProbe.cs:line 51
+   at Mythosia.AI.Tests.Anthropic.AnthropicOpus55LiveTests.EditedPrefix_UsesActualBindingPolicy(ClaudeThinkingPrefixMismatchBehavior policy) in tests\Mythosia.AI.Test\Providers\Anthropic\AnthropicOpus55LiveTests.cs:line 89
+   at Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.Execution.TestMethodInfo.ExecuteInternalAsync(Object[] arguments, CancellationTokenSource timeoutTokenSource) in /_/src/Adapter/MSTestAdapter.PlatformServices/Execution/TestMethodInfo.cs:line 391
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3804371c-1040-4604-9fd1-2f18a933dd3f" testId="1d38edbf-a741-815c-910d-f9a35a729b85" testName="ReusedDirectMessage_OwnsEachTurnAndPreservesAcceptedPrefix(&quot;claude-opus-5-5&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.1101430" startTime="2026-10-03T04:05:40.8831733+00:00" endTime="2026-10-03T04:05:42.9938165+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Failed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3804371c-1040-4604-9fd1-2f18a933dd3f">
+      <Output>
+        <ErrorInfo>
+          <Message>테스트 메서드 Mythosia.AI.Tests.Anthropic.AnthropicRequestIsolationLiveTests.ReusedDirectMessage_OwnsEachTurnAndPreservesAcceptedPrefix에서 예외를 throw했습니다. 
+Mythosia.AI.Exceptions.AIServiceException: Claude declined to process the request (stop_reason=refusal).</Message>
+          <StackTrace>   at Mythosia.AI.Services.Anthropic.AnthropicService.GetCompletionAsync(Message message) in src\core\Mythosia.AI\Services\Anthropic\AnthropicService.cs:line 176
+   at Mythosia.AI.Services.Base.AIService.SendWithContextRecoveryAsync(Message message) in src\core\Mythosia.AI\Services\AIService.cs:line 391
+   at Mythosia.AI.Services.Base.AIService.GetCompletionAsync(Message message, AIRequestProfile profile, AIRequestContext context, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.cs:line 348
+   at Mythosia.AI.Tests.Anthropic.AnthropicRequestIsolationLiveTests.ReusedDirectMessage_OwnsEachTurnAndPreservesAcceptedPrefix(String model) in tests\Mythosia.AI.Test\Providers\Anthropic\AnthropicRequestIsolationLiveTests.cs:line 30
+   at Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.Execution.TestMethodInfo.ExecuteInternalAsync(Object[] arguments, CancellationTokenSource timeoutTokenSource) in /_/src/Adapter/MSTestAdapter.PlatformServices/Execution/TestMethodInfo.cs:line 391
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="720f4234-ff7a-4028-a2f4-b0be6efd55c2" testId="1916d0ca-7c58-8980-9dc3-00375fee886e" testName="CachedConversation_AuxiliaryRunIsIsolatedAndParentCanContinue(&quot;claude-opus-5-5&quot;)" computerName="ARCHIVED_TEST_HOST" duration="00:00:05.5912025" startTime="2026-10-03T04:05:42.9942265+00:00" endTime="2026-10-03T04:05:48.5874862+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Failed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="720f4234-ff7a-4028-a2f4-b0be6efd55c2">
+      <Output>
+        <ErrorInfo>
+          <Message>테스트 메서드 Mythosia.AI.Tests.Anthropic.AnthropicRequestIsolationLiveTests.CachedConversation_AuxiliaryRunIsIsolatedAndParentCanContinue에서 예외를 throw했습니다. 
+Mythosia.AI.Exceptions.AIServiceException: Claude declined to process the request (stop_reason=refusal).</Message>
+          <StackTrace>   at Mythosia.AI.Services.Anthropic.AnthropicService.GetCompletionAsync(Message message) in src\core\Mythosia.AI\Services\Anthropic\AnthropicService.cs:line 176
+   at Mythosia.AI.Services.Base.AIService.SendWithContextRecoveryAsync(Message message) in src\core\Mythosia.AI\Services\AIService.cs:line 391
+   at Mythosia.AI.Services.Base.AIService.GetCompletionAsync(Message message, AIRequestProfile profile, AIRequestContext context, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.cs:line 343
+   at Mythosia.AI.Services.Base.AIService.GetCompletionAsync(String prompt, AIRequestProfile profile, AIRequestContext context, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.cs:line 321
+   at Mythosia.AI.Tests.Anthropic.AnthropicRequestIsolationLiveTests.CachedConversation_AuxiliaryRunIsIsolatedAndParentCanContinue(String model) in tests\Mythosia.AI.Test\Providers\Anthropic\AnthropicRequestIsolationLiveTests.cs:line 116
+   at Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.Execution.TestMethodInfo.ExecuteInternalAsync(Object[] arguments, CancellationTokenSource timeoutTokenSource) in /_/src/Adapter/MSTestAdapter.PlatformServices/Execution/TestMethodInfo.cs:line 391
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="EditedPrefix_UsesActualBindingPolicy(DropBlock)" storage="Mythosia.AI.Test.dll" id="193b34f7-318b-8c86-a8d0-8fb4dafc868d">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="Anthropic" />
+        <TestCategoryItem TestCategory="Opus55" />
+      </TestCategory>
+      <Execution id="5ba363c8-9ff5-4c46-8f13-0b0ce778ec96" />
+      <Properties>
+        <Property>
+          <Key>Opus55</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Anthropic.AnthropicOpus55LiveTests" name="EditedPrefix_UsesActualBindingPolicy" />
+    </UnitTest>
+    <UnitTest name="ReusedDirectMessage_OwnsEachTurnAndPreservesAcceptedPrefix(&quot;claude-opus-5-5&quot;)" storage="Mythosia.AI.Test.dll" id="1d38edbf-a741-815c-910d-f9a35a729b85">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="Anthropic" />
+      </TestCategory>
+      <Execution id="3804371c-1040-4604-9fd1-2f18a933dd3f" />
+      <Properties>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Anthropic.AnthropicRequestIsolationLiveTests" name="ReusedDirectMessage_OwnsEachTurnAndPreservesAcceptedPrefix" />
+    </UnitTest>
+    <UnitTest name="CachedConversation_AuxiliaryRunIsIsolatedAndParentCanContinue(&quot;claude-opus-5-5&quot;)" storage="Mythosia.AI.Test.dll" id="1916d0ca-7c58-8980-9dc3-00375fee886e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="Anthropic" />
+      </TestCategory>
+      <Execution id="720f4234-ff7a-4028-a2f4-b0be6efd55c2" />
+      <Properties>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Anthropic.AnthropicRequestIsolationLiveTests" name="CachedConversation_AuxiliaryRunIsIsolatedAndParentCanContinue" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="193b34f7-318b-8c86-a8d0-8fb4dafc868d" executionId="5ba363c8-9ff5-4c46-8f13-0b0ce778ec96" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1d38edbf-a741-815c-910d-f9a35a729b85" executionId="3804371c-1040-4604-9fd1-2f18a933dd3f" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1916d0ca-7c58-8980-9dc3-00375fee886e" executionId="720f4234-ff7a-4028-a2f4-b0be6efd55c2" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="3" executed="3" passed="0" failed="3" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    </ResultSummary>
+</TestRun>

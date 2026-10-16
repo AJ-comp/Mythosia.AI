@@ -1,0 +1,443 @@
+<?xml version='1.0' encoding='utf-8'?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010" id="8e45ef1e-0f85-4ba9-a6f6-b8eb17b06f4f" name="Archived live API validation 2026-10-03">
+  <Times creation="2026-10-03T04:03:44.0707211Z" queuing="2026-10-03T04:03:44.0707211Z" start="2026-10-03T04:03:44.0707211Z" finish="2026-10-03T04:04:27.4544299Z" />
+  <TestSettings name="default" id="1ea956c1-6ac8-49bb-a486-260f6ff77f67">
+    <Deployment runDeploymentRoot="archived-live-api-2026-10-03" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="cadf05c0-b08d-4fe2-ae28-50fd62ab8397" testId="18f86eea-b37e-8b4e-adf0-f6295f41d582" testName="Anthropic_ClaudeSonnet5_NonStreaming_PreservesParallelBatch" computerName="ARCHIVED_TEST_HOST" duration="00:00:07.8970850" startTime="2026-10-03T04:03:44.4528937+00:00" endTime="2026-10-03T04:03:52.3652427+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="cadf05c0-b08d-4fe2-ae28-50fd62ab8397" />
+    <UnitTestResult executionId="3f15b431-e35c-4235-b9a4-2a63dc9b986e" testId="16c3cbf6-02fb-8fd1-98a8-e385be078578" testName="Anthropic_ClaudeSonnet5_Streaming_PreservesParallelBatch" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.5926201" startTime="2026-10-03T04:03:52.3725161+00:00" endTime="2026-10-03T04:03:54.9668273+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3f15b431-e35c-4235-b9a4-2a63dc9b986e" />
+    <UnitTestResult executionId="2152136d-0372-4e96-9423-dfdfb8f346cb" testId="18d97d1b-3016-86e9-8a7c-0a67879dfcb9" testName="ToolContinuation_PreservesModeThroughFinalAnswer(&quot;Anthropic&quot;,Standard,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.6052265" startTime="2026-10-03T04:03:54.9672739+00:00" endTime="2026-10-03T04:03:58.5748380+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="2152136d-0372-4e96-9423-dfdfb8f346cb">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6a1d4a8d-f201-49e1-a1d1-a4c5dfa2d674" testId="166d90ff-2143-81e9-a5f0-59eaed643c12" testName="ToolContinuation_PreservesModeThroughFinalAnswer(&quot;Anthropic&quot;,Standard,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.5964763" startTime="2026-10-03T04:03:58.5753228+00:00" endTime="2026-10-03T04:04:02.1719099+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="6a1d4a8d-f201-49e1-a1d1-a4c5dfa2d674">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="ae767871-0465-4fee-8cf3-02c7415b4448" testId="1620ed10-0452-8a34-8761-b7d82be91887" testName="Sonnet5_StandardOnModelWithoutFast_ToolContinuation(False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.0206924" startTime="2026-10-03T04:04:02.1720310+00:00" endTime="2026-10-03T04:04:04.1928075+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="ae767871-0465-4fee-8cf3-02c7415b4448">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="24bb2e24-d88e-4c23-949c-dc59ade1e337" testId="1c041cee-7860-8c1c-b0ec-9de41eab6c69" testName="Sonnet5_StandardOnModelWithoutFast_ToolContinuation(True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.9926578" startTime="2026-10-03T04:04:04.1929088+00:00" endTime="2026-10-03T04:04:06.1856576+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="24bb2e24-d88e-4c23-949c-dc59ade1e337">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="bcec2761-d991-4579-8e16-83f61e68c527" testId="107f28ce-3d8c-886a-a066-85d1c8a1a6f4" testName="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,ProviderDefault,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.9032374" startTime="2026-10-03T04:04:06.1857632+00:00" endTime="2026-10-03T04:04:08.0891501+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="bcec2761-d991-4579-8e16-83f61e68c527">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="dd284fed-b3b7-4072-93a1-93a54f9b86e6" testId="1d05af48-9630-8d09-84ec-bf32b4f25970" testName="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,ProviderDefault,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.6809434" startTime="2026-10-03T04:04:08.0894297+00:00" endTime="2026-10-03T04:04:09.7705166+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="dd284fed-b3b7-4072-93a1-93a54f9b86e6">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="351580fa-2265-4923-8138-cad18a952542" testId="1fd45489-e5e8-8105-9f65-fa7e9ddb3be7" testName="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Standard,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:01.7439544" startTime="2026-10-03T04:04:09.7706199+00:00" endTime="2026-10-03T04:04:11.5146812+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="351580fa-2265-4923-8138-cad18a952542">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3a9c8a9a-3319-4b06-b3e9-cb34b6aa01b5" testId="1fbd06ef-e0d4-870b-9387-d59ada32720b" testName="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Standard,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.2392305" startTime="2026-10-03T04:04:11.5147830+00:00" endTime="2026-10-03T04:04:13.7541143+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3a9c8a9a-3319-4b06-b3e9-cb34b6aa01b5">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="40bf8057-1ccd-44b1-8abd-83f5a9f10870" testId="1fdcd069-bf4a-8218-8f54-90c941842447" testName="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Fast,False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:00.3926985" startTime="2026-10-03T04:04:13.7542494+00:00" endTime="2026-10-03T04:04:14.1471147+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Failed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="40bf8057-1ccd-44b1-8abd-83f5a9f10870">
+      <Output>
+        <ErrorInfo>
+          <Message>테스트 메서드 Mythosia.AI.Tests.Common.InferenceSpeedLiveTests.RealProvider_AcceptsMode_AndReportsActualProcessing에서 예외를 throw했습니다. 
+Mythosia.AI.Exceptions.AIServiceException: API request failed (429): Too Many Requests</Message>
+          <StackTrace>   at Mythosia.AI.Services.Anthropic.AnthropicService.GetCompletionAsync(Message message) in src\core\Mythosia.AI\Services\Anthropic\AnthropicService.cs:line 168
+   at Mythosia.AI.Services.Base.AIService.SendWithContextRecoveryAsync(Message message) in src\core\Mythosia.AI\Services\AIService.cs:line 391
+   at Mythosia.AI.Services.Base.AIService.GetCompletionAsync(Message message, AIRequestProfile profile, AIRequestContext context, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.cs:line 343
+   at Mythosia.AI.Services.Base.AIService.ExecuteRequestAsync(AIRequest request, Boolean applySummary, CancellationToken cancellationToken) in src\core\Mythosia.AI\Services\AIService.Requests.cs:line 153
+   at Mythosia.AI.Tests.Common.InferenceSpeedLiveTests.RealProvider_AcceptsMode_AndReportsActualProcessing(String provider, InferenceSpeed speed, Boolean useRun) in tests\Mythosia.AI.Test\Providers\Common\InferenceSpeedLiveTests.cs:line 64
+   at Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.Execution.TestMethodInfo.ExecuteInternalAsync(Object[] arguments, CancellationTokenSource timeoutTokenSource) in /_/src/Adapter/MSTestAdapter.PlatformServices/Execution/TestMethodInfo.cs:line 391
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="77199ebe-934a-4e28-b336-54dd67a28619" testId="150e5a80-f098-82e8-a3a5-2f91560366cb" testName="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Fast,True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:00.3583881" startTime="2026-10-03T04:04:14.1474490+00:00" endTime="2026-10-03T04:04:14.5059512+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Failed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="77199ebe-934a-4e28-b336-54dd67a28619">
+      <Output>
+        <ErrorInfo>
+          <Message>테스트 메서드 Mythosia.AI.Tests.Common.InferenceSpeedLiveTests.RealProvider_AcceptsMode_AndReportsActualProcessing에서 예외를 throw했습니다. 
+Mythosia.AI.Exceptions.AIServiceException: API error (429): {"type":"error","error":{"type":"rate_limit_error","message":"This request would exceed your organization's rate limit of 0 fast mode input tokens per minute (org: [ACCOUNT_ID_REMOVED], model: claude-opus-5-5). For details, refer to: https://docs.claude.com/en/api/rate-limits. You can see the response headers for current usage. Reduce the prompt length or the maximum tokens requested, or try again later. View your current limits at https://console.anthropic.com/settings/limits. You may also contact sales at https://claude.com/contact-sales to discuss your options for a rate limit increase."},"request_id":"[REQUEST_ID_REMOVED]"}</Message>
+          <StackTrace>   at Mythosia.AI.Services.Base.AIService.ServiceRun.ProduceAsync() in src\core\Mythosia.AI\Services\AIService.Run.cs:line 402
+   at Mythosia.AI.Services.Base.AIService.ServiceRun.ProduceAsync() in src\core\Mythosia.AI\Services\AIService.Run.cs:line 416
+   at Mythosia.AI.Tests.Common.InferenceSpeedLiveTests.RealProvider_AcceptsMode_AndReportsActualProcessing(String provider, InferenceSpeed speed, Boolean useRun) in tests\Mythosia.AI.Test\Providers\Common\InferenceSpeedLiveTests.cs:line 58
+   at Mythosia.AI.Tests.Common.InferenceSpeedLiveTests.RealProvider_AcceptsMode_AndReportsActualProcessing(String provider, InferenceSpeed speed, Boolean useRun) in tests\Mythosia.AI.Test\Providers\Common\InferenceSpeedLiveTests.cs:line 60
+   at Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.Execution.TestMethodInfo.ExecuteInternalAsync(Object[] arguments, CancellationTokenSource timeoutTokenSource) in /_/src/Adapter/MSTestAdapter.PlatformServices/Execution/TestMethodInfo.cs:line 391
+</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="3194af8b-7b00-4ec9-a3eb-6beb75821f80" testId="19774fbd-84cd-8f2a-af71-50406df60f6a" testName="Anthropic_WebSearch_ReturnsRealCitations(False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.4369279" startTime="2026-10-03T04:04:14.5060554+00:00" endTime="2026-10-03T04:04:17.9431069+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="3194af8b-7b00-4ec9-a3eb-6beb75821f80">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="14cc201b-b938-4130-972a-63b30c009078" testId="137ba7fb-a880-8cc3-8c24-d45ef873f90e" testName="Anthropic_WebSearch_ReturnsRealCitations(True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:02.9718378" startTime="2026-10-03T04:04:17.9431869+00:00" endTime="2026-10-03T04:04:20.9151031+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="14cc201b-b938-4130-972a-63b30c009078">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="7ea7b239-98b2-44bb-8d16-6db01a795ebb" testId="11b21991-715a-8b14-b019-74a49fce3a61" testName="Anthropic_Opus5_ChangesEffortWithRequiredCachePreservation(False)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.3259553" startTime="2026-10-03T04:04:20.9151939+00:00" endTime="2026-10-03T04:04:24.2412328+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="7ea7b239-98b2-44bb-8d16-6db01a795ebb">
+      <Output>
+        </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="04a9213e-1c63-4626-a36a-f5ad85443bd3" testId="1a3fe1eb-7000-8204-b2cb-0e99c85920a9" testName="Anthropic_Opus5_ChangesEffortWithRequiredCachePreservation(True)" computerName="ARCHIVED_TEST_HOST" duration="00:00:03.1962847" startTime="2026-10-03T04:04:24.2413273+00:00" endTime="2026-10-03T04:04:27.4393504+00:00" testType="13CDC9D9-DDB5-4fa4-A97D-D965CCFC6D4B" outcome="Passed" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" relativeResultsDirectory="04a9213e-1c63-4626-a36a-f5ad85443bd3">
+      <Output>
+        </Output>
+    </UnitTestResult>
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="Anthropic_ClaudeSonnet5_NonStreaming_PreservesParallelBatch" storage="Mythosia.AI.Test.dll" id="18f86eea-b37e-8b4e-adf0-f6295f41d582">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+      </TestCategory>
+      <Execution id="cadf05c0-b08d-4fe2-ae28-50fd62ab8397" />
+      <Properties>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.ProviderParallelFunctionLiveTests" name="Anthropic_ClaudeSonnet5_NonStreaming_PreservesParallelBatch" />
+    </UnitTest>
+    <UnitTest name="Anthropic_ClaudeSonnet5_Streaming_PreservesParallelBatch" storage="Mythosia.AI.Test.dll" id="16c3cbf6-02fb-8fd1-98a8-e385be078578">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="FunctionCalling" />
+      </TestCategory>
+      <Execution id="3f15b431-e35c-4235-b9a4-2a63dc9b986e" />
+      <Properties>
+        <Property>
+          <Key>FunctionCalling</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.ProviderParallelFunctionLiveTests" name="Anthropic_ClaudeSonnet5_Streaming_PreservesParallelBatch" />
+    </UnitTest>
+    <UnitTest name="ToolContinuation_PreservesModeThroughFinalAnswer(&quot;Anthropic&quot;,Standard,False)" storage="Mythosia.AI.Test.dll" id="18d97d1b-3016-86e9-8a7c-0a67879dfcb9">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+        <TestCategoryItem TestCategory="InferenceSpeedContinuation" />
+      </TestCategory>
+      <Execution id="2152136d-0372-4e96-9423-dfdfb8f346cb" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeedContinuation</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedContinuationLiveTests" name="ToolContinuation_PreservesModeThroughFinalAnswer" />
+    </UnitTest>
+    <UnitTest name="ToolContinuation_PreservesModeThroughFinalAnswer(&quot;Anthropic&quot;,Standard,True)" storage="Mythosia.AI.Test.dll" id="166d90ff-2143-81e9-a5f0-59eaed643c12">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+        <TestCategoryItem TestCategory="InferenceSpeedContinuation" />
+      </TestCategory>
+      <Execution id="6a1d4a8d-f201-49e1-a1d1-a4c5dfa2d674" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeedContinuation</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedContinuationLiveTests" name="ToolContinuation_PreservesModeThroughFinalAnswer" />
+    </UnitTest>
+    <UnitTest name="Sonnet5_StandardOnModelWithoutFast_ToolContinuation(False)" storage="Mythosia.AI.Test.dll" id="1620ed10-0452-8a34-8761-b7d82be91887">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+        <TestCategoryItem TestCategory="InferenceSpeedContinuation" />
+      </TestCategory>
+      <Execution id="ae767871-0465-4fee-8cf3-02c7415b4448" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeedContinuation</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedContinuationLiveTests" name="Sonnet5_StandardOnModelWithoutFast_ToolContinuation" />
+    </UnitTest>
+    <UnitTest name="Sonnet5_StandardOnModelWithoutFast_ToolContinuation(True)" storage="Mythosia.AI.Test.dll" id="1c041cee-7860-8c1c-b0ec-9de41eab6c69">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+        <TestCategoryItem TestCategory="InferenceSpeedContinuation" />
+      </TestCategory>
+      <Execution id="24bb2e24-d88e-4c23-949c-dc59ade1e337" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeedContinuation</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedContinuationLiveTests" name="Sonnet5_StandardOnModelWithoutFast_ToolContinuation" />
+    </UnitTest>
+    <UnitTest name="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,ProviderDefault,False)" storage="Mythosia.AI.Test.dll" id="107f28ce-3d8c-886a-a066-85d1c8a1a6f4">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+      </TestCategory>
+      <Execution id="bcec2761-d991-4579-8e16-83f61e68c527" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedLiveTests" name="RealProvider_AcceptsMode_AndReportsActualProcessing" />
+    </UnitTest>
+    <UnitTest name="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,ProviderDefault,True)" storage="Mythosia.AI.Test.dll" id="1d05af48-9630-8d09-84ec-bf32b4f25970">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+      </TestCategory>
+      <Execution id="dd284fed-b3b7-4072-93a1-93a54f9b86e6" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedLiveTests" name="RealProvider_AcceptsMode_AndReportsActualProcessing" />
+    </UnitTest>
+    <UnitTest name="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Standard,False)" storage="Mythosia.AI.Test.dll" id="1fd45489-e5e8-8105-9f65-fa7e9ddb3be7">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+      </TestCategory>
+      <Execution id="351580fa-2265-4923-8138-cad18a952542" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedLiveTests" name="RealProvider_AcceptsMode_AndReportsActualProcessing" />
+    </UnitTest>
+    <UnitTest name="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Standard,True)" storage="Mythosia.AI.Test.dll" id="1fbd06ef-e0d4-870b-9387-d59ada32720b">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+      </TestCategory>
+      <Execution id="3a9c8a9a-3319-4b06-b3e9-cb34b6aa01b5" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedLiveTests" name="RealProvider_AcceptsMode_AndReportsActualProcessing" />
+    </UnitTest>
+    <UnitTest name="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Fast,False)" storage="Mythosia.AI.Test.dll" id="1fdcd069-bf4a-8218-8f54-90c941842447">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+      </TestCategory>
+      <Execution id="40bf8057-1ccd-44b1-8abd-83f5a9f10870" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedLiveTests" name="RealProvider_AcceptsMode_AndReportsActualProcessing" />
+    </UnitTest>
+    <UnitTest name="RealProvider_AcceptsMode_AndReportsActualProcessing(&quot;Anthropic&quot;,Fast,True)" storage="Mythosia.AI.Test.dll" id="150e5a80-f098-82e8-a3a5-2f91560366cb">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="InferenceSpeed" />
+      </TestCategory>
+      <Execution id="77199ebe-934a-4e28-b336-54dd67a28619" />
+      <Properties>
+        <Property>
+          <Key>InferenceSpeed</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.InferenceSpeedLiveTests" name="RealProvider_AcceptsMode_AndReportsActualProcessing" />
+    </UnitTest>
+    <UnitTest name="Anthropic_WebSearch_ReturnsRealCitations(False)" storage="Mythosia.AI.Test.dll" id="19774fbd-84cd-8f2a-af71-50406df60f6a">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Anthropic" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="RequestFeatures" />
+      </TestCategory>
+      <Execution id="3194af8b-7b00-4ec9-a3eb-6beb75821f80" />
+      <Properties>
+        <Property>
+          <Key>RequestFeatures</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.RequestFeaturesLiveTests" name="Anthropic_WebSearch_ReturnsRealCitations" />
+    </UnitTest>
+    <UnitTest name="Anthropic_WebSearch_ReturnsRealCitations(True)" storage="Mythosia.AI.Test.dll" id="137ba7fb-a880-8cc3-8c24-d45ef873f90e">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Anthropic" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="RequestFeatures" />
+      </TestCategory>
+      <Execution id="14cc201b-b938-4130-972a-63b30c009078" />
+      <Properties>
+        <Property>
+          <Key>RequestFeatures</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.RequestFeaturesLiveTests" name="Anthropic_WebSearch_ReturnsRealCitations" />
+    </UnitTest>
+    <UnitTest name="Anthropic_Opus5_ChangesEffortWithRequiredCachePreservation(False)" storage="Mythosia.AI.Test.dll" id="11b21991-715a-8b14-b019-74a49fce3a61">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Anthropic" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="RequestFeatures" />
+      </TestCategory>
+      <Execution id="7ea7b239-98b2-44bb-8d16-6db01a795ebb" />
+      <Properties>
+        <Property>
+          <Key>RequestFeatures</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.RequestFeaturesLiveTests" name="Anthropic_Opus5_ChangesEffortWithRequiredCachePreservation" />
+    </UnitTest>
+    <UnitTest name="Anthropic_Opus5_ChangesEffortWithRequiredCachePreservation(True)" storage="Mythosia.AI.Test.dll" id="1a3fe1eb-7000-8204-b2cb-0e99c85920a9">
+      <TestCategory>
+        <TestCategoryItem TestCategory="Anthropic" />
+        <TestCategoryItem TestCategory="Live" />
+        <TestCategoryItem TestCategory="RequestFeatures" />
+      </TestCategory>
+      <Execution id="04a9213e-1c63-4626-a36a-f5ad85443bd3" />
+      <Properties>
+        <Property>
+          <Key>RequestFeatures</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Live</Key>
+          <Value />
+        </Property>
+        <Property>
+          <Key>Anthropic</Key>
+          <Value />
+        </Property>
+      </Properties>
+      <TestMethod codeBase="Mythosia.AI.Test.dll" adapterTypeName="executor://MSTestExtension/4.2.1" className="Mythosia.AI.Tests.Common.RequestFeaturesLiveTests" name="Anthropic_Opus5_ChangesEffortWithRequiredCachePreservation" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="18f86eea-b37e-8b4e-adf0-f6295f41d582" executionId="cadf05c0-b08d-4fe2-ae28-50fd62ab8397" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="16c3cbf6-02fb-8fd1-98a8-e385be078578" executionId="3f15b431-e35c-4235-b9a4-2a63dc9b986e" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="18d97d1b-3016-86e9-8a7c-0a67879dfcb9" executionId="2152136d-0372-4e96-9423-dfdfb8f346cb" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="166d90ff-2143-81e9-a5f0-59eaed643c12" executionId="6a1d4a8d-f201-49e1-a1d1-a4c5dfa2d674" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1620ed10-0452-8a34-8761-b7d82be91887" executionId="ae767871-0465-4fee-8cf3-02c7415b4448" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1c041cee-7860-8c1c-b0ec-9de41eab6c69" executionId="24bb2e24-d88e-4c23-949c-dc59ade1e337" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="107f28ce-3d8c-886a-a066-85d1c8a1a6f4" executionId="bcec2761-d991-4579-8e16-83f61e68c527" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1d05af48-9630-8d09-84ec-bf32b4f25970" executionId="dd284fed-b3b7-4072-93a1-93a54f9b86e6" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1fd45489-e5e8-8105-9f65-fa7e9ddb3be7" executionId="351580fa-2265-4923-8138-cad18a952542" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1fbd06ef-e0d4-870b-9387-d59ada32720b" executionId="3a9c8a9a-3319-4b06-b3e9-cb34b6aa01b5" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1fdcd069-bf4a-8218-8f54-90c941842447" executionId="40bf8057-1ccd-44b1-8abd-83f5a9f10870" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="150e5a80-f098-82e8-a3a5-2f91560366cb" executionId="77199ebe-934a-4e28-b336-54dd67a28619" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="19774fbd-84cd-8f2a-af71-50406df60f6a" executionId="3194af8b-7b00-4ec9-a3eb-6beb75821f80" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="137ba7fb-a880-8cc3-8c24-d45ef873f90e" executionId="14cc201b-b938-4130-972a-63b30c009078" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="11b21991-715a-8b14-b019-74a49fce3a61" executionId="7ea7b239-98b2-44bb-8d16-6db01a795ebb" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestEntry testId="1a3fe1eb-7000-8204-b2cb-0e99c85920a9" executionId="04a9213e-1c63-4626-a36a-f5ad85443bd3" testListId="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8C84FA94-04C1-424b-9868-57A2D4851A1D" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="16" executed="16" passed="14" failed="2" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    </ResultSummary>
+</TestRun>

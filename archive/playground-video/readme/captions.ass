@@ -1,0 +1,767 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1440
+PlayResY: 972
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Caption,Segoe UI,27,&H00FFFFFF,&H00FFFFFF,&HFF000000,&HFF000000,0,0,0,0,100,100,0,0,1,0,0,5,24,24,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}E{\alpha&HFF&}xplore models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.03,0:00:00.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ex{\alpha&HFF&}plore models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.05,0:00:00.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Exp{\alpha&HFF&}lore models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.08,0:00:00.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Expl{\alpha&HFF&}ore models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.10,0:00:00.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explo{\alpha&HFF&}re models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.13,0:00:00.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explor{\alpha&HFF&}e models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.15,0:00:00.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore{\alpha&HFF&} models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.18,0:00:00.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore {\alpha&HFF&}models from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.20,0:00:00.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore m{\alpha&HFF&}odels from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.23,0:00:00.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore mo{\alpha&HFF&}dels from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.25,0:00:00.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore mod{\alpha&HFF&}els from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.27,0:00:00.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore mode{\alpha&HFF&}ls from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.30,0:00:00.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore model{\alpha&HFF&}s from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.33,0:00:00.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models{\alpha&HFF&} from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.35,0:00:00.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models {\alpha&HFF&}from seven AI providers in one workspace.
+Dialogue: 0,0:00:00.37,0:00:00.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models f{\alpha&HFF&}rom seven AI providers in one workspace.
+Dialogue: 0,0:00:00.40,0:00:00.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models fr{\alpha&HFF&}om seven AI providers in one workspace.
+Dialogue: 0,0:00:00.42,0:00:00.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models fro{\alpha&HFF&}m seven AI providers in one workspace.
+Dialogue: 0,0:00:00.45,0:00:00.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from{\alpha&HFF&} seven AI providers in one workspace.
+Dialogue: 0,0:00:00.48,0:00:00.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from {\alpha&HFF&}seven AI providers in one workspace.
+Dialogue: 0,0:00:00.50,0:00:00.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from s{\alpha&HFF&}even AI providers in one workspace.
+Dialogue: 0,0:00:00.52,0:00:00.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from se{\alpha&HFF&}ven AI providers in one workspace.
+Dialogue: 0,0:00:00.55,0:00:00.57,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from sev{\alpha&HFF&}en AI providers in one workspace.
+Dialogue: 0,0:00:00.57,0:00:00.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seve{\alpha&HFF&}n AI providers in one workspace.
+Dialogue: 0,0:00:00.60,0:00:00.63,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven{\alpha&HFF&} AI providers in one workspace.
+Dialogue: 0,0:00:00.63,0:00:00.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven {\alpha&HFF&}AI providers in one workspace.
+Dialogue: 0,0:00:00.65,0:00:00.68,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven A{\alpha&HFF&}I providers in one workspace.
+Dialogue: 0,0:00:00.68,0:00:00.70,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI{\alpha&HFF&} providers in one workspace.
+Dialogue: 0,0:00:00.70,0:00:00.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI {\alpha&HFF&}providers in one workspace.
+Dialogue: 0,0:00:00.73,0:00:00.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI p{\alpha&HFF&}roviders in one workspace.
+Dialogue: 0,0:00:00.75,0:00:00.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI pr{\alpha&HFF&}oviders in one workspace.
+Dialogue: 0,0:00:00.78,0:00:00.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI pro{\alpha&HFF&}viders in one workspace.
+Dialogue: 0,0:00:00.80,0:00:00.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI prov{\alpha&HFF&}iders in one workspace.
+Dialogue: 0,0:00:00.83,0:00:00.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI provi{\alpha&HFF&}ders in one workspace.
+Dialogue: 0,0:00:00.85,0:00:00.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI provid{\alpha&HFF&}ers in one workspace.
+Dialogue: 0,0:00:00.88,0:00:00.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI provide{\alpha&HFF&}rs in one workspace.
+Dialogue: 0,0:00:00.90,0:00:00.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI provider{\alpha&HFF&}s in one workspace.
+Dialogue: 0,0:00:00.93,0:00:00.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers{\alpha&HFF&} in one workspace.
+Dialogue: 0,0:00:00.95,0:00:00.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers {\alpha&HFF&}in one workspace.
+Dialogue: 0,0:00:00.97,0:00:01.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers i{\alpha&HFF&}n one workspace.
+Dialogue: 0,0:00:01.00,0:00:01.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in{\alpha&HFF&} one workspace.
+Dialogue: 0,0:00:01.02,0:00:01.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in {\alpha&HFF&}one workspace.
+Dialogue: 0,0:00:01.05,0:00:01.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in o{\alpha&HFF&}ne workspace.
+Dialogue: 0,0:00:01.08,0:00:01.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in on{\alpha&HFF&}e workspace.
+Dialogue: 0,0:00:01.10,0:00:01.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one{\alpha&HFF&} workspace.
+Dialogue: 0,0:00:01.13,0:00:01.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one {\alpha&HFF&}workspace.
+Dialogue: 0,0:00:01.15,0:00:01.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one w{\alpha&HFF&}orkspace.
+Dialogue: 0,0:00:01.18,0:00:01.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one wo{\alpha&HFF&}rkspace.
+Dialogue: 0,0:00:01.20,0:00:01.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one wor{\alpha&HFF&}kspace.
+Dialogue: 0,0:00:01.22,0:00:01.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one work{\alpha&HFF&}space.
+Dialogue: 0,0:00:01.25,0:00:01.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one works{\alpha&HFF&}pace.
+Dialogue: 0,0:00:01.27,0:00:01.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one worksp{\alpha&HFF&}ace.
+Dialogue: 0,0:00:01.30,0:00:01.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one workspa{\alpha&HFF&}ce.
+Dialogue: 0,0:00:01.33,0:00:01.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one workspac{\alpha&HFF&}e.
+Dialogue: 0,0:00:01.35,0:00:01.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one workspace{\alpha&HFF&}.
+Dialogue: 0,0:00:01.37,0:00:04.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Explore models from seven AI providers in one workspace.{\alpha&HFF&}
+Dialogue: 0,0:00:04.80,0:00:04.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}T{\alpha&HFF&}ype a model name to see matching models.
+Dialogue: 0,0:00:04.83,0:00:04.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ty{\alpha&HFF&}pe a model name to see matching models.
+Dialogue: 0,0:00:04.86,0:00:04.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Typ{\alpha&HFF&}e a model name to see matching models.
+Dialogue: 0,0:00:04.89,0:00:04.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type{\alpha&HFF&} a model name to see matching models.
+Dialogue: 0,0:00:04.91,0:00:04.94,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type {\alpha&HFF&}a model name to see matching models.
+Dialogue: 0,0:00:04.94,0:00:04.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a{\alpha&HFF&} model name to see matching models.
+Dialogue: 0,0:00:04.97,0:00:05.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a {\alpha&HFF&}model name to see matching models.
+Dialogue: 0,0:00:05.00,0:00:05.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a m{\alpha&HFF&}odel name to see matching models.
+Dialogue: 0,0:00:05.03,0:00:05.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a mo{\alpha&HFF&}del name to see matching models.
+Dialogue: 0,0:00:05.05,0:00:05.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a mod{\alpha&HFF&}el name to see matching models.
+Dialogue: 0,0:00:05.08,0:00:05.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a mode{\alpha&HFF&}l name to see matching models.
+Dialogue: 0,0:00:05.11,0:00:05.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model{\alpha&HFF&} name to see matching models.
+Dialogue: 0,0:00:05.14,0:00:05.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model {\alpha&HFF&}name to see matching models.
+Dialogue: 0,0:00:05.17,0:00:05.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model n{\alpha&HFF&}ame to see matching models.
+Dialogue: 0,0:00:05.19,0:00:05.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model na{\alpha&HFF&}me to see matching models.
+Dialogue: 0,0:00:05.22,0:00:05.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model nam{\alpha&HFF&}e to see matching models.
+Dialogue: 0,0:00:05.25,0:00:05.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name{\alpha&HFF&} to see matching models.
+Dialogue: 0,0:00:05.28,0:00:05.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name {\alpha&HFF&}to see matching models.
+Dialogue: 0,0:00:05.31,0:00:05.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name t{\alpha&HFF&}o see matching models.
+Dialogue: 0,0:00:05.33,0:00:05.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to{\alpha&HFF&} see matching models.
+Dialogue: 0,0:00:05.36,0:00:05.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to {\alpha&HFF&}see matching models.
+Dialogue: 0,0:00:05.39,0:00:05.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to s{\alpha&HFF&}ee matching models.
+Dialogue: 0,0:00:05.42,0:00:05.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to se{\alpha&HFF&}e matching models.
+Dialogue: 0,0:00:05.45,0:00:05.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see{\alpha&HFF&} matching models.
+Dialogue: 0,0:00:05.47,0:00:05.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see {\alpha&HFF&}matching models.
+Dialogue: 0,0:00:05.50,0:00:05.53,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see m{\alpha&HFF&}atching models.
+Dialogue: 0,0:00:05.53,0:00:05.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see ma{\alpha&HFF&}tching models.
+Dialogue: 0,0:00:05.56,0:00:05.59,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see mat{\alpha&HFF&}ching models.
+Dialogue: 0,0:00:05.59,0:00:05.61,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matc{\alpha&HFF&}hing models.
+Dialogue: 0,0:00:05.61,0:00:05.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see match{\alpha&HFF&}ing models.
+Dialogue: 0,0:00:05.64,0:00:05.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matchi{\alpha&HFF&}ng models.
+Dialogue: 0,0:00:05.67,0:00:05.70,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matchin{\alpha&HFF&}g models.
+Dialogue: 0,0:00:05.70,0:00:05.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching{\alpha&HFF&} models.
+Dialogue: 0,0:00:05.73,0:00:05.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching {\alpha&HFF&}models.
+Dialogue: 0,0:00:05.75,0:00:05.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching m{\alpha&HFF&}odels.
+Dialogue: 0,0:00:05.78,0:00:05.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching mo{\alpha&HFF&}dels.
+Dialogue: 0,0:00:05.81,0:00:05.84,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching mod{\alpha&HFF&}els.
+Dialogue: 0,0:00:05.84,0:00:05.87,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching mode{\alpha&HFF&}ls.
+Dialogue: 0,0:00:05.87,0:00:05.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching model{\alpha&HFF&}s.
+Dialogue: 0,0:00:05.89,0:00:05.92,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching models{\alpha&HFF&}.
+Dialogue: 0,0:00:05.92,0:00:11.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Type a model name to see matching models.{\alpha&HFF&}
+Dialogue: 0,0:00:11.13,0:00:11.16,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Y{\alpha&HFF&}ou can also search by provider.
+Dialogue: 0,0:00:11.16,0:00:11.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Yo{\alpha&HFF&}u can also search by provider.
+Dialogue: 0,0:00:11.19,0:00:11.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You{\alpha&HFF&} can also search by provider.
+Dialogue: 0,0:00:11.22,0:00:11.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You {\alpha&HFF&}can also search by provider.
+Dialogue: 0,0:00:11.24,0:00:11.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You c{\alpha&HFF&}an also search by provider.
+Dialogue: 0,0:00:11.27,0:00:11.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You ca{\alpha&HFF&}n also search by provider.
+Dialogue: 0,0:00:11.30,0:00:11.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can{\alpha&HFF&} also search by provider.
+Dialogue: 0,0:00:11.33,0:00:11.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can {\alpha&HFF&}also search by provider.
+Dialogue: 0,0:00:11.36,0:00:11.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can a{\alpha&HFF&}lso search by provider.
+Dialogue: 0,0:00:11.38,0:00:11.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can al{\alpha&HFF&}so search by provider.
+Dialogue: 0,0:00:11.41,0:00:11.44,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can als{\alpha&HFF&}o search by provider.
+Dialogue: 0,0:00:11.44,0:00:11.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also{\alpha&HFF&} search by provider.
+Dialogue: 0,0:00:11.47,0:00:11.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also {\alpha&HFF&}search by provider.
+Dialogue: 0,0:00:11.50,0:00:11.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also s{\alpha&HFF&}earch by provider.
+Dialogue: 0,0:00:11.52,0:00:11.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also se{\alpha&HFF&}arch by provider.
+Dialogue: 0,0:00:11.55,0:00:11.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also sea{\alpha&HFF&}rch by provider.
+Dialogue: 0,0:00:11.58,0:00:11.61,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also sear{\alpha&HFF&}ch by provider.
+Dialogue: 0,0:00:11.61,0:00:11.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also searc{\alpha&HFF&}h by provider.
+Dialogue: 0,0:00:11.64,0:00:11.66,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search{\alpha&HFF&} by provider.
+Dialogue: 0,0:00:11.66,0:00:11.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search {\alpha&HFF&}by provider.
+Dialogue: 0,0:00:11.69,0:00:11.72,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search b{\alpha&HFF&}y provider.
+Dialogue: 0,0:00:11.72,0:00:11.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by{\alpha&HFF&} provider.
+Dialogue: 0,0:00:11.75,0:00:11.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by {\alpha&HFF&}provider.
+Dialogue: 0,0:00:11.78,0:00:11.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by p{\alpha&HFF&}rovider.
+Dialogue: 0,0:00:11.80,0:00:11.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by pr{\alpha&HFF&}ovider.
+Dialogue: 0,0:00:11.83,0:00:11.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by pro{\alpha&HFF&}vider.
+Dialogue: 0,0:00:11.86,0:00:11.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by prov{\alpha&HFF&}ider.
+Dialogue: 0,0:00:11.89,0:00:11.92,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by provi{\alpha&HFF&}der.
+Dialogue: 0,0:00:11.92,0:00:11.94,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by provid{\alpha&HFF&}er.
+Dialogue: 0,0:00:11.94,0:00:11.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by provide{\alpha&HFF&}r.
+Dialogue: 0,0:00:11.97,0:00:12.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by provider{\alpha&HFF&}.
+Dialogue: 0,0:00:12.00,0:00:17.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}You can also search by provider.{\alpha&HFF&}
+Dialogue: 0,0:00:17.83,0:00:17.84,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}R{\alpha&HFF&}egister your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.84,0:00:17.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Re{\alpha&HFF&}gister your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.86,0:00:17.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Reg{\alpha&HFF&}ister your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.88,0:00:17.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Regi{\alpha&HFF&}ster your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.90,0:00:17.92,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Regis{\alpha&HFF&}ter your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.92,0:00:17.94,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Regist{\alpha&HFF&}er your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.94,0:00:17.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Registe{\alpha&HFF&}r your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.95,0:00:17.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register{\alpha&HFF&} your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.97,0:00:17.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register {\alpha&HFF&}your provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:17.99,0:00:18.01,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register y{\alpha&HFF&}our provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.01,0:00:18.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register yo{\alpha&HFF&}ur provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.03,0:00:18.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register you{\alpha&HFF&}r provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.05,0:00:18.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your{\alpha&HFF&} provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.06,0:00:18.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your {\alpha&HFF&}provider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.08,0:00:18.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your p{\alpha&HFF&}rovider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.10,0:00:18.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your pr{\alpha&HFF&}ovider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.12,0:00:18.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your pro{\alpha&HFF&}vider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.14,0:00:18.16,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your prov{\alpha&HFF&}ider's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.16,0:00:18.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provi{\alpha&HFF&}der's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.18,0:00:18.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provid{\alpha&HFF&}er's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.19,0:00:18.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provide{\alpha&HFF&}r's API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.21,0:00:18.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider{\alpha&HFF&}'s API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.23,0:00:18.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider'{\alpha&HFF&}s API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.25,0:00:18.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's{\alpha&HFF&} API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.27,0:00:18.29,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's {\alpha&HFF&}API key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.29,0:00:18.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's A{\alpha&HFF&}PI key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.30,0:00:18.32,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's AP{\alpha&HFF&}I key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.32,0:00:18.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API{\alpha&HFF&} key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.34,0:00:18.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API {\alpha&HFF&}key here to connect a model and start chatting.
+Dialogue: 0,0:00:18.36,0:00:18.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API k{\alpha&HFF&}ey here to connect a model and start chatting.
+Dialogue: 0,0:00:18.38,0:00:18.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API ke{\alpha&HFF&}y here to connect a model and start chatting.
+Dialogue: 0,0:00:18.40,0:00:18.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key{\alpha&HFF&} here to connect a model and start chatting.
+Dialogue: 0,0:00:18.41,0:00:18.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key {\alpha&HFF&}here to connect a model and start chatting.
+Dialogue: 0,0:00:18.43,0:00:18.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key h{\alpha&HFF&}ere to connect a model and start chatting.
+Dialogue: 0,0:00:18.45,0:00:18.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key he{\alpha&HFF&}re to connect a model and start chatting.
+Dialogue: 0,0:00:18.47,0:00:18.49,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key her{\alpha&HFF&}e to connect a model and start chatting.
+Dialogue: 0,0:00:18.49,0:00:18.51,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here{\alpha&HFF&} to connect a model and start chatting.
+Dialogue: 0,0:00:18.51,0:00:18.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here {\alpha&HFF&}to connect a model and start chatting.
+Dialogue: 0,0:00:18.52,0:00:18.54,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here t{\alpha&HFF&}o connect a model and start chatting.
+Dialogue: 0,0:00:18.54,0:00:18.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to{\alpha&HFF&} connect a model and start chatting.
+Dialogue: 0,0:00:18.56,0:00:18.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to {\alpha&HFF&}connect a model and start chatting.
+Dialogue: 0,0:00:18.58,0:00:18.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to c{\alpha&HFF&}onnect a model and start chatting.
+Dialogue: 0,0:00:18.60,0:00:18.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to co{\alpha&HFF&}nnect a model and start chatting.
+Dialogue: 0,0:00:18.62,0:00:18.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to con{\alpha&HFF&}nect a model and start chatting.
+Dialogue: 0,0:00:18.64,0:00:18.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to conn{\alpha&HFF&}ect a model and start chatting.
+Dialogue: 0,0:00:18.65,0:00:18.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to conne{\alpha&HFF&}ct a model and start chatting.
+Dialogue: 0,0:00:18.67,0:00:18.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connec{\alpha&HFF&}t a model and start chatting.
+Dialogue: 0,0:00:18.69,0:00:18.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect{\alpha&HFF&} a model and start chatting.
+Dialogue: 0,0:00:18.71,0:00:18.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect {\alpha&HFF&}a model and start chatting.
+Dialogue: 0,0:00:18.73,0:00:18.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a{\alpha&HFF&} model and start chatting.
+Dialogue: 0,0:00:18.75,0:00:18.76,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a {\alpha&HFF&}model and start chatting.
+Dialogue: 0,0:00:18.76,0:00:18.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a m{\alpha&HFF&}odel and start chatting.
+Dialogue: 0,0:00:18.78,0:00:18.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a mo{\alpha&HFF&}del and start chatting.
+Dialogue: 0,0:00:18.80,0:00:18.82,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a mod{\alpha&HFF&}el and start chatting.
+Dialogue: 0,0:00:18.82,0:00:18.84,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a mode{\alpha&HFF&}l and start chatting.
+Dialogue: 0,0:00:18.84,0:00:18.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model{\alpha&HFF&} and start chatting.
+Dialogue: 0,0:00:18.86,0:00:18.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model {\alpha&HFF&}and start chatting.
+Dialogue: 0,0:00:18.88,0:00:18.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model a{\alpha&HFF&}nd start chatting.
+Dialogue: 0,0:00:18.89,0:00:18.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model an{\alpha&HFF&}d start chatting.
+Dialogue: 0,0:00:18.91,0:00:18.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and{\alpha&HFF&} start chatting.
+Dialogue: 0,0:00:18.93,0:00:18.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and {\alpha&HFF&}start chatting.
+Dialogue: 0,0:00:18.95,0:00:18.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and s{\alpha&HFF&}tart chatting.
+Dialogue: 0,0:00:18.97,0:00:18.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and st{\alpha&HFF&}art chatting.
+Dialogue: 0,0:00:18.99,0:00:19.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and sta{\alpha&HFF&}rt chatting.
+Dialogue: 0,0:00:19.00,0:00:19.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and star{\alpha&HFF&}t chatting.
+Dialogue: 0,0:00:19.02,0:00:19.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start{\alpha&HFF&} chatting.
+Dialogue: 0,0:00:19.04,0:00:19.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start {\alpha&HFF&}chatting.
+Dialogue: 0,0:00:19.06,0:00:19.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start c{\alpha&HFF&}hatting.
+Dialogue: 0,0:00:19.08,0:00:19.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start ch{\alpha&HFF&}atting.
+Dialogue: 0,0:00:19.10,0:00:19.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start cha{\alpha&HFF&}tting.
+Dialogue: 0,0:00:19.11,0:00:19.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start chat{\alpha&HFF&}ting.
+Dialogue: 0,0:00:19.13,0:00:19.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start chatt{\alpha&HFF&}ing.
+Dialogue: 0,0:00:19.15,0:00:19.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start chatti{\alpha&HFF&}ng.
+Dialogue: 0,0:00:19.17,0:00:19.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start chattin{\alpha&HFF&}g.
+Dialogue: 0,0:00:19.19,0:00:19.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start chatting{\alpha&HFF&}.
+Dialogue: 0,0:00:19.21,0:00:28.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Register your provider's API key here to connect a model and start chatting.{\alpha&HFF&}
+Dialogue: 0,0:00:28.80,0:00:28.82,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}S{\alpha&HFF&}witch the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.82,0:00:28.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Sw{\alpha&HFF&}itch the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.85,0:00:28.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Swi{\alpha&HFF&}tch the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.88,0:00:28.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Swit{\alpha&HFF&}ch the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.90,0:00:28.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switc{\alpha&HFF&}h the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.93,0:00:28.96,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch{\alpha&HFF&} the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.96,0:00:28.98,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch {\alpha&HFF&}the interface to Korean, then back to English.
+Dialogue: 0,0:00:28.98,0:00:29.01,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch t{\alpha&HFF&}he interface to Korean, then back to English.
+Dialogue: 0,0:00:29.01,0:00:29.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch th{\alpha&HFF&}e interface to Korean, then back to English.
+Dialogue: 0,0:00:29.04,0:00:29.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the{\alpha&HFF&} interface to Korean, then back to English.
+Dialogue: 0,0:00:29.06,0:00:29.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the {\alpha&HFF&}interface to Korean, then back to English.
+Dialogue: 0,0:00:29.09,0:00:29.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the i{\alpha&HFF&}nterface to Korean, then back to English.
+Dialogue: 0,0:00:29.11,0:00:29.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the in{\alpha&HFF&}terface to Korean, then back to English.
+Dialogue: 0,0:00:29.14,0:00:29.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the int{\alpha&HFF&}erface to Korean, then back to English.
+Dialogue: 0,0:00:29.17,0:00:29.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the inte{\alpha&HFF&}rface to Korean, then back to English.
+Dialogue: 0,0:00:29.19,0:00:29.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the inter{\alpha&HFF&}face to Korean, then back to English.
+Dialogue: 0,0:00:29.22,0:00:29.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interf{\alpha&HFF&}ace to Korean, then back to English.
+Dialogue: 0,0:00:29.25,0:00:29.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interfa{\alpha&HFF&}ce to Korean, then back to English.
+Dialogue: 0,0:00:29.27,0:00:29.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interfac{\alpha&HFF&}e to Korean, then back to English.
+Dialogue: 0,0:00:29.30,0:00:29.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface{\alpha&HFF&} to Korean, then back to English.
+Dialogue: 0,0:00:29.33,0:00:29.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface {\alpha&HFF&}to Korean, then back to English.
+Dialogue: 0,0:00:29.35,0:00:29.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface t{\alpha&HFF&}o Korean, then back to English.
+Dialogue: 0,0:00:29.38,0:00:29.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to{\alpha&HFF&} Korean, then back to English.
+Dialogue: 0,0:00:29.41,0:00:29.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to {\alpha&HFF&}Korean, then back to English.
+Dialogue: 0,0:00:29.43,0:00:29.46,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to K{\alpha&HFF&}orean, then back to English.
+Dialogue: 0,0:00:29.46,0:00:29.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Ko{\alpha&HFF&}rean, then back to English.
+Dialogue: 0,0:00:29.48,0:00:29.51,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Kor{\alpha&HFF&}ean, then back to English.
+Dialogue: 0,0:00:29.51,0:00:29.54,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Kore{\alpha&HFF&}an, then back to English.
+Dialogue: 0,0:00:29.54,0:00:29.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korea{\alpha&HFF&}n, then back to English.
+Dialogue: 0,0:00:29.56,0:00:29.59,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean{\alpha&HFF&}, then back to English.
+Dialogue: 0,0:00:29.59,0:00:29.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean,{\alpha&HFF&} then back to English.
+Dialogue: 0,0:00:29.62,0:00:29.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, {\alpha&HFF&}then back to English.
+Dialogue: 0,0:00:29.64,0:00:29.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, t{\alpha&HFF&}hen back to English.
+Dialogue: 0,0:00:29.67,0:00:29.70,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, th{\alpha&HFF&}en back to English.
+Dialogue: 0,0:00:29.70,0:00:29.72,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, the{\alpha&HFF&}n back to English.
+Dialogue: 0,0:00:29.72,0:00:29.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then{\alpha&HFF&} back to English.
+Dialogue: 0,0:00:29.75,0:00:29.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then {\alpha&HFF&}back to English.
+Dialogue: 0,0:00:29.78,0:00:29.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then b{\alpha&HFF&}ack to English.
+Dialogue: 0,0:00:29.80,0:00:29.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then ba{\alpha&HFF&}ck to English.
+Dialogue: 0,0:00:29.83,0:00:29.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then bac{\alpha&HFF&}k to English.
+Dialogue: 0,0:00:29.85,0:00:29.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back{\alpha&HFF&} to English.
+Dialogue: 0,0:00:29.88,0:00:29.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back {\alpha&HFF&}to English.
+Dialogue: 0,0:00:29.91,0:00:29.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back t{\alpha&HFF&}o English.
+Dialogue: 0,0:00:29.93,0:00:29.96,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to{\alpha&HFF&} English.
+Dialogue: 0,0:00:29.96,0:00:29.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to {\alpha&HFF&}English.
+Dialogue: 0,0:00:29.99,0:00:30.01,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to E{\alpha&HFF&}nglish.
+Dialogue: 0,0:00:30.01,0:00:30.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to En{\alpha&HFF&}glish.
+Dialogue: 0,0:00:30.04,0:00:30.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to Eng{\alpha&HFF&}lish.
+Dialogue: 0,0:00:30.07,0:00:30.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to Engl{\alpha&HFF&}ish.
+Dialogue: 0,0:00:30.09,0:00:30.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to Engli{\alpha&HFF&}sh.
+Dialogue: 0,0:00:30.12,0:00:30.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to Englis{\alpha&HFF&}h.
+Dialogue: 0,0:00:30.15,0:00:30.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to English{\alpha&HFF&}.
+Dialogue: 0,0:00:30.17,0:00:37.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Switch the interface to Korean, then back to English.{\alpha&HFF&}
+Dialogue: 0,0:00:37.65,0:00:37.68,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}O{\alpha&HFF&}pen Documents to prepare your reference files.
+Dialogue: 0,0:00:37.68,0:00:37.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Op{\alpha&HFF&}en Documents to prepare your reference files.
+Dialogue: 0,0:00:37.71,0:00:37.74,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ope{\alpha&HFF&}n Documents to prepare your reference files.
+Dialogue: 0,0:00:37.74,0:00:37.77,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open{\alpha&HFF&} Documents to prepare your reference files.
+Dialogue: 0,0:00:37.77,0:00:37.79,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open {\alpha&HFF&}Documents to prepare your reference files.
+Dialogue: 0,0:00:37.79,0:00:37.82,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open D{\alpha&HFF&}ocuments to prepare your reference files.
+Dialogue: 0,0:00:37.82,0:00:37.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Do{\alpha&HFF&}cuments to prepare your reference files.
+Dialogue: 0,0:00:37.85,0:00:37.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Doc{\alpha&HFF&}uments to prepare your reference files.
+Dialogue: 0,0:00:37.88,0:00:37.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Docu{\alpha&HFF&}ments to prepare your reference files.
+Dialogue: 0,0:00:37.91,0:00:37.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Docum{\alpha&HFF&}ents to prepare your reference files.
+Dialogue: 0,0:00:37.93,0:00:37.96,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Docume{\alpha&HFF&}nts to prepare your reference files.
+Dialogue: 0,0:00:37.96,0:00:37.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documen{\alpha&HFF&}ts to prepare your reference files.
+Dialogue: 0,0:00:37.99,0:00:38.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Document{\alpha&HFF&}s to prepare your reference files.
+Dialogue: 0,0:00:38.02,0:00:38.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents{\alpha&HFF&} to prepare your reference files.
+Dialogue: 0,0:00:38.05,0:00:38.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents {\alpha&HFF&}to prepare your reference files.
+Dialogue: 0,0:00:38.07,0:00:38.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents t{\alpha&HFF&}o prepare your reference files.
+Dialogue: 0,0:00:38.10,0:00:38.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to{\alpha&HFF&} prepare your reference files.
+Dialogue: 0,0:00:38.13,0:00:38.16,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to {\alpha&HFF&}prepare your reference files.
+Dialogue: 0,0:00:38.16,0:00:38.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to p{\alpha&HFF&}repare your reference files.
+Dialogue: 0,0:00:38.19,0:00:38.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to pr{\alpha&HFF&}epare your reference files.
+Dialogue: 0,0:00:38.21,0:00:38.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to pre{\alpha&HFF&}pare your reference files.
+Dialogue: 0,0:00:38.24,0:00:38.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prep{\alpha&HFF&}are your reference files.
+Dialogue: 0,0:00:38.27,0:00:38.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepa{\alpha&HFF&}re your reference files.
+Dialogue: 0,0:00:38.30,0:00:38.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepar{\alpha&HFF&}e your reference files.
+Dialogue: 0,0:00:38.33,0:00:38.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare{\alpha&HFF&} your reference files.
+Dialogue: 0,0:00:38.35,0:00:38.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare {\alpha&HFF&}your reference files.
+Dialogue: 0,0:00:38.38,0:00:38.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare y{\alpha&HFF&}our reference files.
+Dialogue: 0,0:00:38.41,0:00:38.44,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare yo{\alpha&HFF&}ur reference files.
+Dialogue: 0,0:00:38.44,0:00:38.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare you{\alpha&HFF&}r reference files.
+Dialogue: 0,0:00:38.47,0:00:38.49,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your{\alpha&HFF&} reference files.
+Dialogue: 0,0:00:38.49,0:00:38.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your {\alpha&HFF&}reference files.
+Dialogue: 0,0:00:38.52,0:00:38.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your r{\alpha&HFF&}eference files.
+Dialogue: 0,0:00:38.55,0:00:38.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your re{\alpha&HFF&}ference files.
+Dialogue: 0,0:00:38.58,0:00:38.61,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your ref{\alpha&HFF&}erence files.
+Dialogue: 0,0:00:38.61,0:00:38.63,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your refe{\alpha&HFF&}rence files.
+Dialogue: 0,0:00:38.63,0:00:38.66,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your refer{\alpha&HFF&}ence files.
+Dialogue: 0,0:00:38.66,0:00:38.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your refere{\alpha&HFF&}nce files.
+Dialogue: 0,0:00:38.69,0:00:38.72,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your referen{\alpha&HFF&}ce files.
+Dialogue: 0,0:00:38.72,0:00:38.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your referenc{\alpha&HFF&}e files.
+Dialogue: 0,0:00:38.75,0:00:38.77,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference{\alpha&HFF&} files.
+Dialogue: 0,0:00:38.77,0:00:38.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference {\alpha&HFF&}files.
+Dialogue: 0,0:00:38.80,0:00:38.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference f{\alpha&HFF&}iles.
+Dialogue: 0,0:00:38.83,0:00:38.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference fi{\alpha&HFF&}les.
+Dialogue: 0,0:00:38.86,0:00:38.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference fil{\alpha&HFF&}es.
+Dialogue: 0,0:00:38.89,0:00:38.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference file{\alpha&HFF&}s.
+Dialogue: 0,0:00:38.91,0:00:38.94,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference files{\alpha&HFF&}.
+Dialogue: 0,0:00:38.94,0:00:43.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Open Documents to prepare your reference files.{\alpha&HFF&}
+Dialogue: 0,0:00:43.20,0:00:43.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}C{\alpha&HFF&}hoose how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.23,0:00:43.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ch{\alpha&HFF&}oose how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.25,0:00:43.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Cho{\alpha&HFF&}ose how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.27,0:00:43.29,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choo{\alpha&HFF&}se how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.29,0:00:43.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choos{\alpha&HFF&}e how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.31,0:00:43.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose{\alpha&HFF&} how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.34,0:00:43.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose {\alpha&HFF&}how to split the text to match your document's structure.
+Dialogue: 0,0:00:43.36,0:00:43.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose h{\alpha&HFF&}ow to split the text to match your document's structure.
+Dialogue: 0,0:00:43.38,0:00:43.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose ho{\alpha&HFF&}w to split the text to match your document's structure.
+Dialogue: 0,0:00:43.40,0:00:43.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how{\alpha&HFF&} to split the text to match your document's structure.
+Dialogue: 0,0:00:43.42,0:00:43.44,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how {\alpha&HFF&}to split the text to match your document's structure.
+Dialogue: 0,0:00:43.44,0:00:43.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how t{\alpha&HFF&}o split the text to match your document's structure.
+Dialogue: 0,0:00:43.47,0:00:43.49,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to{\alpha&HFF&} split the text to match your document's structure.
+Dialogue: 0,0:00:43.49,0:00:43.51,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to {\alpha&HFF&}split the text to match your document's structure.
+Dialogue: 0,0:00:43.51,0:00:43.53,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to s{\alpha&HFF&}plit the text to match your document's structure.
+Dialogue: 0,0:00:43.53,0:00:43.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to sp{\alpha&HFF&}lit the text to match your document's structure.
+Dialogue: 0,0:00:43.55,0:00:43.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to spl{\alpha&HFF&}it the text to match your document's structure.
+Dialogue: 0,0:00:43.58,0:00:43.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to spli{\alpha&HFF&}t the text to match your document's structure.
+Dialogue: 0,0:00:43.60,0:00:43.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split{\alpha&HFF&} the text to match your document's structure.
+Dialogue: 0,0:00:43.62,0:00:43.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split {\alpha&HFF&}the text to match your document's structure.
+Dialogue: 0,0:00:43.64,0:00:43.66,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split t{\alpha&HFF&}he text to match your document's structure.
+Dialogue: 0,0:00:43.66,0:00:43.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split th{\alpha&HFF&}e text to match your document's structure.
+Dialogue: 0,0:00:43.69,0:00:43.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the{\alpha&HFF&} text to match your document's structure.
+Dialogue: 0,0:00:43.71,0:00:43.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the {\alpha&HFF&}text to match your document's structure.
+Dialogue: 0,0:00:43.73,0:00:43.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the t{\alpha&HFF&}ext to match your document's structure.
+Dialogue: 0,0:00:43.75,0:00:43.77,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the te{\alpha&HFF&}xt to match your document's structure.
+Dialogue: 0,0:00:43.77,0:00:43.79,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the tex{\alpha&HFF&}t to match your document's structure.
+Dialogue: 0,0:00:43.79,0:00:43.82,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text{\alpha&HFF&} to match your document's structure.
+Dialogue: 0,0:00:43.82,0:00:43.84,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text {\alpha&HFF&}to match your document's structure.
+Dialogue: 0,0:00:43.84,0:00:43.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text t{\alpha&HFF&}o match your document's structure.
+Dialogue: 0,0:00:43.86,0:00:43.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to{\alpha&HFF&} match your document's structure.
+Dialogue: 0,0:00:43.88,0:00:43.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to {\alpha&HFF&}match your document's structure.
+Dialogue: 0,0:00:43.90,0:00:43.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to m{\alpha&HFF&}atch your document's structure.
+Dialogue: 0,0:00:43.93,0:00:43.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to ma{\alpha&HFF&}tch your document's structure.
+Dialogue: 0,0:00:43.95,0:00:43.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to mat{\alpha&HFF&}ch your document's structure.
+Dialogue: 0,0:00:43.97,0:00:43.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to matc{\alpha&HFF&}h your document's structure.
+Dialogue: 0,0:00:43.99,0:00:44.01,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match{\alpha&HFF&} your document's structure.
+Dialogue: 0,0:00:44.01,0:00:44.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match {\alpha&HFF&}your document's structure.
+Dialogue: 0,0:00:44.04,0:00:44.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match y{\alpha&HFF&}our document's structure.
+Dialogue: 0,0:00:44.06,0:00:44.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match yo{\alpha&HFF&}ur document's structure.
+Dialogue: 0,0:00:44.08,0:00:44.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match you{\alpha&HFF&}r document's structure.
+Dialogue: 0,0:00:44.10,0:00:44.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your{\alpha&HFF&} document's structure.
+Dialogue: 0,0:00:44.12,0:00:44.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your {\alpha&HFF&}document's structure.
+Dialogue: 0,0:00:44.14,0:00:44.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your d{\alpha&HFF&}ocument's structure.
+Dialogue: 0,0:00:44.17,0:00:44.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your do{\alpha&HFF&}cument's structure.
+Dialogue: 0,0:00:44.19,0:00:44.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your doc{\alpha&HFF&}ument's structure.
+Dialogue: 0,0:00:44.21,0:00:44.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your docu{\alpha&HFF&}ment's structure.
+Dialogue: 0,0:00:44.23,0:00:44.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your docum{\alpha&HFF&}ent's structure.
+Dialogue: 0,0:00:44.25,0:00:44.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your docume{\alpha&HFF&}nt's structure.
+Dialogue: 0,0:00:44.28,0:00:44.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your documen{\alpha&HFF&}t's structure.
+Dialogue: 0,0:00:44.30,0:00:44.32,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document{\alpha&HFF&}'s structure.
+Dialogue: 0,0:00:44.32,0:00:44.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document'{\alpha&HFF&}s structure.
+Dialogue: 0,0:00:44.34,0:00:44.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's{\alpha&HFF&} structure.
+Dialogue: 0,0:00:44.36,0:00:44.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's {\alpha&HFF&}structure.
+Dialogue: 0,0:00:44.39,0:00:44.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's s{\alpha&HFF&}tructure.
+Dialogue: 0,0:00:44.41,0:00:44.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's st{\alpha&HFF&}ructure.
+Dialogue: 0,0:00:44.43,0:00:44.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's str{\alpha&HFF&}ucture.
+Dialogue: 0,0:00:44.45,0:00:44.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's stru{\alpha&HFF&}cture.
+Dialogue: 0,0:00:44.47,0:00:44.49,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's struc{\alpha&HFF&}ture.
+Dialogue: 0,0:00:44.49,0:00:44.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's struct{\alpha&HFF&}ure.
+Dialogue: 0,0:00:44.52,0:00:44.54,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's structu{\alpha&HFF&}re.
+Dialogue: 0,0:00:44.54,0:00:44.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's structur{\alpha&HFF&}e.
+Dialogue: 0,0:00:44.56,0:00:44.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's structure{\alpha&HFF&}.
+Dialogue: 0,0:00:44.58,0:00:57.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose how to split the text to match your document's structure.{\alpha&HFF&}
+Dialogue: 0,0:00:57.00,0:00:57.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}C{\alpha&HFF&}hoose an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.02,0:00:57.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ch{\alpha&HFF&}oose an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.04,0:00:57.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Cho{\alpha&HFF&}ose an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.05,0:00:57.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choo{\alpha&HFF&}se an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.07,0:00:57.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choos{\alpha&HFF&}e an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.09,0:00:57.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose{\alpha&HFF&} an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.10,0:00:57.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose {\alpha&HFF&}an embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.12,0:00:57.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose a{\alpha&HFF&}n embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.14,0:00:57.16,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an{\alpha&HFF&} embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.16,0:00:57.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an {\alpha&HFF&}embedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.17,0:00:57.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an e{\alpha&HFF&}mbedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.19,0:00:57.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an em{\alpha&HFF&}bedding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.21,0:00:57.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an emb{\alpha&HFF&}edding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.23,0:00:57.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embe{\alpha&HFF&}dding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.24,0:00:57.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embed{\alpha&HFF&}ding provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.26,0:00:57.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedd{\alpha&HFF&}ing provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.28,0:00:57.29,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embeddi{\alpha&HFF&}ng provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.29,0:00:57.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embeddin{\alpha&HFF&}g provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.31,0:00:57.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding{\alpha&HFF&} provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.33,0:00:57.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding {\alpha&HFF&}provider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.35,0:00:57.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding p{\alpha&HFF&}rovider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.36,0:00:57.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding pr{\alpha&HFF&}ovider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.38,0:00:57.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding pro{\alpha&HFF&}vider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.40,0:00:57.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding prov{\alpha&HFF&}ider to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.42,0:00:57.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provi{\alpha&HFF&}der to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.43,0:00:57.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provid{\alpha&HFF&}er to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.45,0:00:57.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provide{\alpha&HFF&}r to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.47,0:00:57.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider{\alpha&HFF&} to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.48,0:00:57.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider {\alpha&HFF&}to turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.50,0:00:57.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider t{\alpha&HFF&}o turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.52,0:00:57.54,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to{\alpha&HFF&} turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.54,0:00:57.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to {\alpha&HFF&}turn documents and questions into search vectors.
+Dialogue: 0,0:00:57.55,0:00:57.57,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to t{\alpha&HFF&}urn documents and questions into search vectors.
+Dialogue: 0,0:00:57.57,0:00:57.59,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to tu{\alpha&HFF&}rn documents and questions into search vectors.
+Dialogue: 0,0:00:57.59,0:00:57.61,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to tur{\alpha&HFF&}n documents and questions into search vectors.
+Dialogue: 0,0:00:57.61,0:00:57.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn{\alpha&HFF&} documents and questions into search vectors.
+Dialogue: 0,0:00:57.62,0:00:57.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn {\alpha&HFF&}documents and questions into search vectors.
+Dialogue: 0,0:00:57.64,0:00:57.66,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn d{\alpha&HFF&}ocuments and questions into search vectors.
+Dialogue: 0,0:00:57.66,0:00:57.68,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn do{\alpha&HFF&}cuments and questions into search vectors.
+Dialogue: 0,0:00:57.68,0:00:57.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn doc{\alpha&HFF&}uments and questions into search vectors.
+Dialogue: 0,0:00:57.69,0:00:57.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn docu{\alpha&HFF&}ments and questions into search vectors.
+Dialogue: 0,0:00:57.71,0:00:57.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn docum{\alpha&HFF&}ents and questions into search vectors.
+Dialogue: 0,0:00:57.73,0:00:57.74,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn docume{\alpha&HFF&}nts and questions into search vectors.
+Dialogue: 0,0:00:57.74,0:00:57.76,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documen{\alpha&HFF&}ts and questions into search vectors.
+Dialogue: 0,0:00:57.76,0:00:57.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn document{\alpha&HFF&}s and questions into search vectors.
+Dialogue: 0,0:00:57.78,0:00:57.80,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents{\alpha&HFF&} and questions into search vectors.
+Dialogue: 0,0:00:57.80,0:00:57.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents {\alpha&HFF&}and questions into search vectors.
+Dialogue: 0,0:00:57.81,0:00:57.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents a{\alpha&HFF&}nd questions into search vectors.
+Dialogue: 0,0:00:57.83,0:00:57.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents an{\alpha&HFF&}d questions into search vectors.
+Dialogue: 0,0:00:57.85,0:00:57.87,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and{\alpha&HFF&} questions into search vectors.
+Dialogue: 0,0:00:57.87,0:00:57.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and {\alpha&HFF&}questions into search vectors.
+Dialogue: 0,0:00:57.88,0:00:57.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and q{\alpha&HFF&}uestions into search vectors.
+Dialogue: 0,0:00:57.90,0:00:57.92,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and qu{\alpha&HFF&}estions into search vectors.
+Dialogue: 0,0:00:57.92,0:00:57.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and que{\alpha&HFF&}stions into search vectors.
+Dialogue: 0,0:00:57.93,0:00:57.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and ques{\alpha&HFF&}tions into search vectors.
+Dialogue: 0,0:00:57.95,0:00:57.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and quest{\alpha&HFF&}ions into search vectors.
+Dialogue: 0,0:00:57.97,0:00:57.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questi{\alpha&HFF&}ons into search vectors.
+Dialogue: 0,0:00:57.99,0:00:58.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questio{\alpha&HFF&}ns into search vectors.
+Dialogue: 0,0:00:58.00,0:00:58.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and question{\alpha&HFF&}s into search vectors.
+Dialogue: 0,0:00:58.02,0:00:58.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions{\alpha&HFF&} into search vectors.
+Dialogue: 0,0:00:58.04,0:00:58.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions {\alpha&HFF&}into search vectors.
+Dialogue: 0,0:00:58.06,0:00:58.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions i{\alpha&HFF&}nto search vectors.
+Dialogue: 0,0:00:58.07,0:00:58.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions in{\alpha&HFF&}to search vectors.
+Dialogue: 0,0:00:58.09,0:00:58.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions int{\alpha&HFF&}o search vectors.
+Dialogue: 0,0:00:58.11,0:00:58.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into{\alpha&HFF&} search vectors.
+Dialogue: 0,0:00:58.12,0:00:58.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into {\alpha&HFF&}search vectors.
+Dialogue: 0,0:00:58.14,0:00:58.16,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into s{\alpha&HFF&}earch vectors.
+Dialogue: 0,0:00:58.16,0:00:58.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into se{\alpha&HFF&}arch vectors.
+Dialogue: 0,0:00:58.18,0:00:58.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into sea{\alpha&HFF&}rch vectors.
+Dialogue: 0,0:00:58.19,0:00:58.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into sear{\alpha&HFF&}ch vectors.
+Dialogue: 0,0:00:58.21,0:00:58.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into searc{\alpha&HFF&}h vectors.
+Dialogue: 0,0:00:58.23,0:00:58.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search{\alpha&HFF&} vectors.
+Dialogue: 0,0:00:58.25,0:00:58.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search {\alpha&HFF&}vectors.
+Dialogue: 0,0:00:58.26,0:00:58.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search v{\alpha&HFF&}ectors.
+Dialogue: 0,0:00:58.28,0:00:58.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search ve{\alpha&HFF&}ctors.
+Dialogue: 0,0:00:58.30,0:00:58.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search vec{\alpha&HFF&}tors.
+Dialogue: 0,0:00:58.31,0:00:58.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search vect{\alpha&HFF&}ors.
+Dialogue: 0,0:00:58.33,0:00:58.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search vecto{\alpha&HFF&}rs.
+Dialogue: 0,0:00:58.35,0:00:58.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search vector{\alpha&HFF&}s.
+Dialogue: 0,0:00:58.37,0:00:58.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search vectors{\alpha&HFF&}.
+Dialogue: 0,0:00:58.38,0:01:12.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose an embedding provider to turn documents and questions into search vectors.{\alpha&HFF&}
+Dialogue: 0,0:01:12.36,0:01:12.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}C{\alpha&HFF&}hoose where to store your search data.
+Dialogue: 0,0:01:12.39,0:01:12.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ch{\alpha&HFF&}oose where to store your search data.
+Dialogue: 0,0:01:12.41,0:01:12.44,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Cho{\alpha&HFF&}ose where to store your search data.
+Dialogue: 0,0:01:12.44,0:01:12.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choo{\alpha&HFF&}se where to store your search data.
+Dialogue: 0,0:01:12.47,0:01:12.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choos{\alpha&HFF&}e where to store your search data.
+Dialogue: 0,0:01:12.50,0:01:12.53,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose{\alpha&HFF&} where to store your search data.
+Dialogue: 0,0:01:12.53,0:01:12.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose {\alpha&HFF&}where to store your search data.
+Dialogue: 0,0:01:12.55,0:01:12.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose w{\alpha&HFF&}here to store your search data.
+Dialogue: 0,0:01:12.58,0:01:12.61,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose wh{\alpha&HFF&}ere to store your search data.
+Dialogue: 0,0:01:12.61,0:01:12.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose whe{\alpha&HFF&}re to store your search data.
+Dialogue: 0,0:01:12.64,0:01:12.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose wher{\alpha&HFF&}e to store your search data.
+Dialogue: 0,0:01:12.67,0:01:12.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where{\alpha&HFF&} to store your search data.
+Dialogue: 0,0:01:12.69,0:01:12.72,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where {\alpha&HFF&}to store your search data.
+Dialogue: 0,0:01:12.72,0:01:12.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where t{\alpha&HFF&}o store your search data.
+Dialogue: 0,0:01:12.75,0:01:12.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to{\alpha&HFF&} store your search data.
+Dialogue: 0,0:01:12.78,0:01:12.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to {\alpha&HFF&}store your search data.
+Dialogue: 0,0:01:12.81,0:01:12.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to s{\alpha&HFF&}tore your search data.
+Dialogue: 0,0:01:12.83,0:01:12.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to st{\alpha&HFF&}ore your search data.
+Dialogue: 0,0:01:12.86,0:01:12.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to sto{\alpha&HFF&}re your search data.
+Dialogue: 0,0:01:12.89,0:01:12.92,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to stor{\alpha&HFF&}e your search data.
+Dialogue: 0,0:01:12.92,0:01:12.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store{\alpha&HFF&} your search data.
+Dialogue: 0,0:01:12.95,0:01:12.97,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store {\alpha&HFF&}your search data.
+Dialogue: 0,0:01:12.97,0:01:13.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store y{\alpha&HFF&}our search data.
+Dialogue: 0,0:01:13.00,0:01:13.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store yo{\alpha&HFF&}ur search data.
+Dialogue: 0,0:01:13.03,0:01:13.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store you{\alpha&HFF&}r search data.
+Dialogue: 0,0:01:13.06,0:01:13.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your{\alpha&HFF&} search data.
+Dialogue: 0,0:01:13.09,0:01:13.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your {\alpha&HFF&}search data.
+Dialogue: 0,0:01:13.11,0:01:13.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your s{\alpha&HFF&}earch data.
+Dialogue: 0,0:01:13.14,0:01:13.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your se{\alpha&HFF&}arch data.
+Dialogue: 0,0:01:13.17,0:01:13.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your sea{\alpha&HFF&}rch data.
+Dialogue: 0,0:01:13.20,0:01:13.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your sear{\alpha&HFF&}ch data.
+Dialogue: 0,0:01:13.23,0:01:13.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your searc{\alpha&HFF&}h data.
+Dialogue: 0,0:01:13.26,0:01:13.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search{\alpha&HFF&} data.
+Dialogue: 0,0:01:13.28,0:01:13.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search {\alpha&HFF&}data.
+Dialogue: 0,0:01:13.31,0:01:13.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search d{\alpha&HFF&}ata.
+Dialogue: 0,0:01:13.34,0:01:13.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search da{\alpha&HFF&}ta.
+Dialogue: 0,0:01:13.37,0:01:13.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search dat{\alpha&HFF&}a.
+Dialogue: 0,0:01:13.40,0:01:13.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search data{\alpha&HFF&}.
+Dialogue: 0,0:01:13.42,0:01:21.99,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Choose where to store your search data.{\alpha&HFF&}
+Dialogue: 0,0:01:21.99,0:01:22.01,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}B{\alpha&HFF&}alance keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.01,0:01:22.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ba{\alpha&HFF&}lance keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.03,0:01:22.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Bal{\alpha&HFF&}ance keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.05,0:01:22.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Bala{\alpha&HFF&}nce keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.07,0:01:22.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balan{\alpha&HFF&}ce keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.09,0:01:22.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balanc{\alpha&HFF&}e keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.11,0:01:22.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance{\alpha&HFF&} keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.13,0:01:22.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance {\alpha&HFF&}keyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.15,0:01:22.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance k{\alpha&HFF&}eyword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.18,0:01:22.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance ke{\alpha&HFF&}yword matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.20,0:01:22.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance key{\alpha&HFF&}word matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.22,0:01:22.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyw{\alpha&HFF&}ord matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.24,0:01:22.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keywo{\alpha&HFF&}rd matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.26,0:01:22.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keywor{\alpha&HFF&}d matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.28,0:01:22.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword{\alpha&HFF&} matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.30,0:01:22.32,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword {\alpha&HFF&}matching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.32,0:01:22.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword m{\alpha&HFF&}atching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.35,0:01:22.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword ma{\alpha&HFF&}tching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.37,0:01:22.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword mat{\alpha&HFF&}ching and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.39,0:01:22.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matc{\alpha&HFF&}hing and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.41,0:01:22.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword match{\alpha&HFF&}ing and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.43,0:01:22.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matchi{\alpha&HFF&}ng and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.45,0:01:22.47,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matchin{\alpha&HFF&}g and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.47,0:01:22.49,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching{\alpha&HFF&} and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.49,0:01:22.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching {\alpha&HFF&}and semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.52,0:01:22.54,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching a{\alpha&HFF&}nd semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.54,0:01:22.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching an{\alpha&HFF&}d semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.56,0:01:22.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and{\alpha&HFF&} semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.58,0:01:22.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and {\alpha&HFF&}semantic similarity in hybrid search.
+Dialogue: 0,0:01:22.60,0:01:22.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and s{\alpha&HFF&}emantic similarity in hybrid search.
+Dialogue: 0,0:01:22.62,0:01:22.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and se{\alpha&HFF&}mantic similarity in hybrid search.
+Dialogue: 0,0:01:22.64,0:01:22.66,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and sem{\alpha&HFF&}antic similarity in hybrid search.
+Dialogue: 0,0:01:22.66,0:01:22.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and sema{\alpha&HFF&}ntic similarity in hybrid search.
+Dialogue: 0,0:01:22.69,0:01:22.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and seman{\alpha&HFF&}tic similarity in hybrid search.
+Dialogue: 0,0:01:22.71,0:01:22.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semant{\alpha&HFF&}ic similarity in hybrid search.
+Dialogue: 0,0:01:22.73,0:01:22.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semanti{\alpha&HFF&}c similarity in hybrid search.
+Dialogue: 0,0:01:22.75,0:01:22.77,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic{\alpha&HFF&} similarity in hybrid search.
+Dialogue: 0,0:01:22.77,0:01:22.79,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic {\alpha&HFF&}similarity in hybrid search.
+Dialogue: 0,0:01:22.79,0:01:22.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic s{\alpha&HFF&}imilarity in hybrid search.
+Dialogue: 0,0:01:22.81,0:01:22.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic si{\alpha&HFF&}milarity in hybrid search.
+Dialogue: 0,0:01:22.83,0:01:22.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic sim{\alpha&HFF&}ilarity in hybrid search.
+Dialogue: 0,0:01:22.85,0:01:22.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic simi{\alpha&HFF&}larity in hybrid search.
+Dialogue: 0,0:01:22.88,0:01:22.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic simil{\alpha&HFF&}arity in hybrid search.
+Dialogue: 0,0:01:22.90,0:01:22.92,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic simila{\alpha&HFF&}rity in hybrid search.
+Dialogue: 0,0:01:22.92,0:01:22.94,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similar{\alpha&HFF&}ity in hybrid search.
+Dialogue: 0,0:01:22.94,0:01:22.96,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similari{\alpha&HFF&}ty in hybrid search.
+Dialogue: 0,0:01:22.96,0:01:22.98,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarit{\alpha&HFF&}y in hybrid search.
+Dialogue: 0,0:01:22.98,0:01:23.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity{\alpha&HFF&} in hybrid search.
+Dialogue: 0,0:01:23.00,0:01:23.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity {\alpha&HFF&}in hybrid search.
+Dialogue: 0,0:01:23.02,0:01:23.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity i{\alpha&HFF&}n hybrid search.
+Dialogue: 0,0:01:23.05,0:01:23.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in{\alpha&HFF&} hybrid search.
+Dialogue: 0,0:01:23.07,0:01:23.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in {\alpha&HFF&}hybrid search.
+Dialogue: 0,0:01:23.09,0:01:23.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in h{\alpha&HFF&}ybrid search.
+Dialogue: 0,0:01:23.11,0:01:23.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hy{\alpha&HFF&}brid search.
+Dialogue: 0,0:01:23.13,0:01:23.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hyb{\alpha&HFF&}rid search.
+Dialogue: 0,0:01:23.15,0:01:23.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybr{\alpha&HFF&}id search.
+Dialogue: 0,0:01:23.17,0:01:23.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybri{\alpha&HFF&}d search.
+Dialogue: 0,0:01:23.19,0:01:23.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid{\alpha&HFF&} search.
+Dialogue: 0,0:01:23.22,0:01:23.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid {\alpha&HFF&}search.
+Dialogue: 0,0:01:23.24,0:01:23.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid s{\alpha&HFF&}earch.
+Dialogue: 0,0:01:23.26,0:01:23.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid se{\alpha&HFF&}arch.
+Dialogue: 0,0:01:23.28,0:01:23.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid sea{\alpha&HFF&}rch.
+Dialogue: 0,0:01:23.30,0:01:23.32,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid sear{\alpha&HFF&}ch.
+Dialogue: 0,0:01:23.32,0:01:23.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid searc{\alpha&HFF&}h.
+Dialogue: 0,0:01:23.34,0:01:23.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid search{\alpha&HFF&}.
+Dialogue: 0,0:01:23.36,0:01:27.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Balance keyword matching and semantic similarity in hybrid search.{\alpha&HFF&}
+Dialogue: 0,0:01:27.39,0:01:27.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}E{\alpha&HFF&}nable reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.41,0:01:27.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}En{\alpha&HFF&}able reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.43,0:01:27.44,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Ena{\alpha&HFF&}ble reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.44,0:01:27.46,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enab{\alpha&HFF&}le reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.46,0:01:27.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enabl{\alpha&HFF&}e reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.48,0:01:27.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable{\alpha&HFF&} reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.50,0:01:27.51,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable {\alpha&HFF&}reranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.51,0:01:27.53,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable r{\alpha&HFF&}eranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.53,0:01:27.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable re{\alpha&HFF&}ranking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.55,0:01:27.57,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable rer{\alpha&HFF&}anking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.57,0:01:27.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable rera{\alpha&HFF&}nking to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.58,0:01:27.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reran{\alpha&HFF&}king to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.60,0:01:27.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable rerank{\alpha&HFF&}ing to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.62,0:01:27.63,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranki{\alpha&HFF&}ng to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.63,0:01:27.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable rerankin{\alpha&HFF&}g to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.65,0:01:27.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking{\alpha&HFF&} to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.67,0:01:27.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking {\alpha&HFF&}to reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.69,0:01:27.70,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking t{\alpha&HFF&}o reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.70,0:01:27.72,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to{\alpha&HFF&} reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.72,0:01:27.74,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to {\alpha&HFF&}reorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.74,0:01:27.76,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to r{\alpha&HFF&}eorder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.76,0:01:27.77,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to re{\alpha&HFF&}order search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.77,0:01:27.79,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reo{\alpha&HFF&}rder search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.79,0:01:27.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reor{\alpha&HFF&}der search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.81,0:01:27.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reord{\alpha&HFF&}er search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.83,0:01:27.84,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorde{\alpha&HFF&}r search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.84,0:01:27.86,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder{\alpha&HFF&} search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.86,0:01:27.88,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder {\alpha&HFF&}search candidates by their relevance to the question.
+Dialogue: 0,0:01:27.88,0:01:27.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder s{\alpha&HFF&}earch candidates by their relevance to the question.
+Dialogue: 0,0:01:27.89,0:01:27.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder se{\alpha&HFF&}arch candidates by their relevance to the question.
+Dialogue: 0,0:01:27.91,0:01:27.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder sea{\alpha&HFF&}rch candidates by their relevance to the question.
+Dialogue: 0,0:01:27.93,0:01:27.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder sear{\alpha&HFF&}ch candidates by their relevance to the question.
+Dialogue: 0,0:01:27.95,0:01:27.96,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder searc{\alpha&HFF&}h candidates by their relevance to the question.
+Dialogue: 0,0:01:27.96,0:01:27.98,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search{\alpha&HFF&} candidates by their relevance to the question.
+Dialogue: 0,0:01:27.98,0:01:28.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search {\alpha&HFF&}candidates by their relevance to the question.
+Dialogue: 0,0:01:28.00,0:01:28.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search c{\alpha&HFF&}andidates by their relevance to the question.
+Dialogue: 0,0:01:28.02,0:01:28.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search ca{\alpha&HFF&}ndidates by their relevance to the question.
+Dialogue: 0,0:01:28.03,0:01:28.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search can{\alpha&HFF&}didates by their relevance to the question.
+Dialogue: 0,0:01:28.05,0:01:28.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search cand{\alpha&HFF&}idates by their relevance to the question.
+Dialogue: 0,0:01:28.07,0:01:28.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candi{\alpha&HFF&}dates by their relevance to the question.
+Dialogue: 0,0:01:28.08,0:01:28.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candid{\alpha&HFF&}ates by their relevance to the question.
+Dialogue: 0,0:01:28.10,0:01:28.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candida{\alpha&HFF&}tes by their relevance to the question.
+Dialogue: 0,0:01:28.12,0:01:28.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidat{\alpha&HFF&}es by their relevance to the question.
+Dialogue: 0,0:01:28.14,0:01:28.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidate{\alpha&HFF&}s by their relevance to the question.
+Dialogue: 0,0:01:28.15,0:01:28.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates{\alpha&HFF&} by their relevance to the question.
+Dialogue: 0,0:01:28.17,0:01:28.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates {\alpha&HFF&}by their relevance to the question.
+Dialogue: 0,0:01:28.19,0:01:28.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates b{\alpha&HFF&}y their relevance to the question.
+Dialogue: 0,0:01:28.21,0:01:28.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by{\alpha&HFF&} their relevance to the question.
+Dialogue: 0,0:01:28.22,0:01:28.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by {\alpha&HFF&}their relevance to the question.
+Dialogue: 0,0:01:28.24,0:01:28.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by t{\alpha&HFF&}heir relevance to the question.
+Dialogue: 0,0:01:28.26,0:01:28.27,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by th{\alpha&HFF&}eir relevance to the question.
+Dialogue: 0,0:01:28.27,0:01:28.29,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by the{\alpha&HFF&}ir relevance to the question.
+Dialogue: 0,0:01:28.29,0:01:28.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by thei{\alpha&HFF&}r relevance to the question.
+Dialogue: 0,0:01:28.31,0:01:28.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their{\alpha&HFF&} relevance to the question.
+Dialogue: 0,0:01:28.33,0:01:28.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their {\alpha&HFF&}relevance to the question.
+Dialogue: 0,0:01:28.34,0:01:28.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their r{\alpha&HFF&}elevance to the question.
+Dialogue: 0,0:01:28.36,0:01:28.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their re{\alpha&HFF&}levance to the question.
+Dialogue: 0,0:01:28.38,0:01:28.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their rel{\alpha&HFF&}evance to the question.
+Dialogue: 0,0:01:28.40,0:01:28.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their rele{\alpha&HFF&}vance to the question.
+Dialogue: 0,0:01:28.41,0:01:28.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relev{\alpha&HFF&}ance to the question.
+Dialogue: 0,0:01:28.43,0:01:28.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their releva{\alpha&HFF&}nce to the question.
+Dialogue: 0,0:01:28.45,0:01:28.46,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevan{\alpha&HFF&}ce to the question.
+Dialogue: 0,0:01:28.46,0:01:28.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevanc{\alpha&HFF&}e to the question.
+Dialogue: 0,0:01:28.48,0:01:28.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance{\alpha&HFF&} to the question.
+Dialogue: 0,0:01:28.50,0:01:28.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance {\alpha&HFF&}to the question.
+Dialogue: 0,0:01:28.52,0:01:28.53,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance t{\alpha&HFF&}o the question.
+Dialogue: 0,0:01:28.53,0:01:28.55,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to{\alpha&HFF&} the question.
+Dialogue: 0,0:01:28.55,0:01:28.57,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to {\alpha&HFF&}the question.
+Dialogue: 0,0:01:28.57,0:01:28.59,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to t{\alpha&HFF&}he question.
+Dialogue: 0,0:01:28.59,0:01:28.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to th{\alpha&HFF&}e question.
+Dialogue: 0,0:01:28.60,0:01:28.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the{\alpha&HFF&} question.
+Dialogue: 0,0:01:28.62,0:01:28.64,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the {\alpha&HFF&}question.
+Dialogue: 0,0:01:28.64,0:01:28.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the q{\alpha&HFF&}uestion.
+Dialogue: 0,0:01:28.65,0:01:28.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the qu{\alpha&HFF&}estion.
+Dialogue: 0,0:01:28.67,0:01:28.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the que{\alpha&HFF&}stion.
+Dialogue: 0,0:01:28.69,0:01:28.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the ques{\alpha&HFF&}tion.
+Dialogue: 0,0:01:28.71,0:01:28.72,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the quest{\alpha&HFF&}ion.
+Dialogue: 0,0:01:28.72,0:01:28.74,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the questi{\alpha&HFF&}on.
+Dialogue: 0,0:01:28.74,0:01:28.76,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the questio{\alpha&HFF&}n.
+Dialogue: 0,0:01:28.76,0:01:28.78,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the question{\alpha&HFF&}.
+Dialogue: 0,0:01:28.78,0:01:36.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Enable reranking to reorder search candidates by their relevance to the question.{\alpha&HFF&}
+Dialogue: 0,0:01:36.00,0:01:36.03,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}R{\alpha&HFF&}eview the final document limit and minimum score.
+Dialogue: 0,0:01:36.03,0:01:36.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Re{\alpha&HFF&}view the final document limit and minimum score.
+Dialogue: 0,0:01:36.06,0:01:36.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Rev{\alpha&HFF&}iew the final document limit and minimum score.
+Dialogue: 0,0:01:36.09,0:01:36.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Revi{\alpha&HFF&}ew the final document limit and minimum score.
+Dialogue: 0,0:01:36.11,0:01:36.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Revie{\alpha&HFF&}w the final document limit and minimum score.
+Dialogue: 0,0:01:36.14,0:01:36.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review{\alpha&HFF&} the final document limit and minimum score.
+Dialogue: 0,0:01:36.17,0:01:36.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review {\alpha&HFF&}the final document limit and minimum score.
+Dialogue: 0,0:01:36.20,0:01:36.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review t{\alpha&HFF&}he final document limit and minimum score.
+Dialogue: 0,0:01:36.23,0:01:36.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review th{\alpha&HFF&}e final document limit and minimum score.
+Dialogue: 0,0:01:36.25,0:01:36.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the{\alpha&HFF&} final document limit and minimum score.
+Dialogue: 0,0:01:36.28,0:01:36.31,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the {\alpha&HFF&}final document limit and minimum score.
+Dialogue: 0,0:01:36.31,0:01:36.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the f{\alpha&HFF&}inal document limit and minimum score.
+Dialogue: 0,0:01:36.34,0:01:36.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the fi{\alpha&HFF&}nal document limit and minimum score.
+Dialogue: 0,0:01:36.37,0:01:36.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the fin{\alpha&HFF&}al document limit and minimum score.
+Dialogue: 0,0:01:36.39,0:01:36.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the fina{\alpha&HFF&}l document limit and minimum score.
+Dialogue: 0,0:01:36.42,0:01:36.45,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final{\alpha&HFF&} document limit and minimum score.
+Dialogue: 0,0:01:36.45,0:01:36.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final {\alpha&HFF&}document limit and minimum score.
+Dialogue: 0,0:01:36.48,0:01:36.51,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final d{\alpha&HFF&}ocument limit and minimum score.
+Dialogue: 0,0:01:36.51,0:01:36.53,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final do{\alpha&HFF&}cument limit and minimum score.
+Dialogue: 0,0:01:36.53,0:01:36.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final doc{\alpha&HFF&}ument limit and minimum score.
+Dialogue: 0,0:01:36.56,0:01:36.59,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final docu{\alpha&HFF&}ment limit and minimum score.
+Dialogue: 0,0:01:36.59,0:01:36.62,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final docum{\alpha&HFF&}ent limit and minimum score.
+Dialogue: 0,0:01:36.62,0:01:36.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final docume{\alpha&HFF&}nt limit and minimum score.
+Dialogue: 0,0:01:36.65,0:01:36.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final documen{\alpha&HFF&}t limit and minimum score.
+Dialogue: 0,0:01:36.67,0:01:36.70,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document{\alpha&HFF&} limit and minimum score.
+Dialogue: 0,0:01:36.70,0:01:36.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document {\alpha&HFF&}limit and minimum score.
+Dialogue: 0,0:01:36.73,0:01:36.76,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document l{\alpha&HFF&}imit and minimum score.
+Dialogue: 0,0:01:36.76,0:01:36.79,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document li{\alpha&HFF&}mit and minimum score.
+Dialogue: 0,0:01:36.79,0:01:36.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document lim{\alpha&HFF&}it and minimum score.
+Dialogue: 0,0:01:36.81,0:01:36.84,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limi{\alpha&HFF&}t and minimum score.
+Dialogue: 0,0:01:36.84,0:01:36.87,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit{\alpha&HFF&} and minimum score.
+Dialogue: 0,0:01:36.87,0:01:36.90,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit {\alpha&HFF&}and minimum score.
+Dialogue: 0,0:01:36.90,0:01:36.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit a{\alpha&HFF&}nd minimum score.
+Dialogue: 0,0:01:36.93,0:01:36.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit an{\alpha&HFF&}d minimum score.
+Dialogue: 0,0:01:36.95,0:01:36.98,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and{\alpha&HFF&} minimum score.
+Dialogue: 0,0:01:36.98,0:01:37.01,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and {\alpha&HFF&}minimum score.
+Dialogue: 0,0:01:37.01,0:01:37.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and m{\alpha&HFF&}inimum score.
+Dialogue: 0,0:01:37.04,0:01:37.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and mi{\alpha&HFF&}nimum score.
+Dialogue: 0,0:01:37.07,0:01:37.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and min{\alpha&HFF&}imum score.
+Dialogue: 0,0:01:37.09,0:01:37.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and mini{\alpha&HFF&}mum score.
+Dialogue: 0,0:01:37.12,0:01:37.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minim{\alpha&HFF&}um score.
+Dialogue: 0,0:01:37.15,0:01:37.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimu{\alpha&HFF&}m score.
+Dialogue: 0,0:01:37.18,0:01:37.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum{\alpha&HFF&} score.
+Dialogue: 0,0:01:37.21,0:01:37.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum {\alpha&HFF&}score.
+Dialogue: 0,0:01:37.23,0:01:37.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum s{\alpha&HFF&}core.
+Dialogue: 0,0:01:37.26,0:01:37.29,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum sc{\alpha&HFF&}ore.
+Dialogue: 0,0:01:37.29,0:01:37.32,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum sco{\alpha&HFF&}re.
+Dialogue: 0,0:01:37.32,0:01:37.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum scor{\alpha&HFF&}e.
+Dialogue: 0,0:01:37.35,0:01:37.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum score{\alpha&HFF&}.
+Dialogue: 0,0:01:37.37,0:01:47.05,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Review the final document limit and minimum score.{\alpha&HFF&}
+Dialogue: 0,0:01:47.05,0:01:47.07,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}C{\alpha&HFF&}onnect your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.07,0:01:47.09,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Co{\alpha&HFF&}nnect your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.09,0:01:47.11,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Con{\alpha&HFF&}nect your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.11,0:01:47.13,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Conn{\alpha&HFF&}ect your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.13,0:01:47.15,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Conne{\alpha&HFF&}ct your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.15,0:01:47.17,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connec{\alpha&HFF&}t your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.17,0:01:47.19,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect{\alpha&HFF&} your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.19,0:01:47.21,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect {\alpha&HFF&}your models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.21,0:01:47.23,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect y{\alpha&HFF&}our models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.23,0:01:47.25,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect yo{\alpha&HFF&}ur models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.25,0:01:47.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect you{\alpha&HFF&}r models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.28,0:01:47.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your{\alpha&HFF&} models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.30,0:01:47.32,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your {\alpha&HFF&}models and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.32,0:01:47.34,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your m{\alpha&HFF&}odels and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.34,0:01:47.36,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your mo{\alpha&HFF&}dels and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.36,0:01:47.38,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your mod{\alpha&HFF&}els and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.38,0:01:47.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your mode{\alpha&HFF&}ls and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.40,0:01:47.42,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your model{\alpha&HFF&}s and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.42,0:01:47.44,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models{\alpha&HFF&} and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.44,0:01:47.46,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models {\alpha&HFF&}and documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.46,0:01:47.48,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models a{\alpha&HFF&}nd documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.48,0:01:47.50,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models an{\alpha&HFF&}d documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.50,0:01:47.52,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and{\alpha&HFF&} documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.52,0:01:47.54,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and {\alpha&HFF&}documents, then try the Playground yourself.
+Dialogue: 0,0:01:47.54,0:01:47.56,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and d{\alpha&HFF&}ocuments, then try the Playground yourself.
+Dialogue: 0,0:01:47.56,0:01:47.58,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and do{\alpha&HFF&}cuments, then try the Playground yourself.
+Dialogue: 0,0:01:47.58,0:01:47.60,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and doc{\alpha&HFF&}uments, then try the Playground yourself.
+Dialogue: 0,0:01:47.60,0:01:47.63,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and docu{\alpha&HFF&}ments, then try the Playground yourself.
+Dialogue: 0,0:01:47.63,0:01:47.65,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and docum{\alpha&HFF&}ents, then try the Playground yourself.
+Dialogue: 0,0:01:47.65,0:01:47.67,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and docume{\alpha&HFF&}nts, then try the Playground yourself.
+Dialogue: 0,0:01:47.67,0:01:47.69,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documen{\alpha&HFF&}ts, then try the Playground yourself.
+Dialogue: 0,0:01:47.69,0:01:47.71,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and document{\alpha&HFF&}s, then try the Playground yourself.
+Dialogue: 0,0:01:47.71,0:01:47.73,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents{\alpha&HFF&}, then try the Playground yourself.
+Dialogue: 0,0:01:47.73,0:01:47.75,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents,{\alpha&HFF&} then try the Playground yourself.
+Dialogue: 0,0:01:47.75,0:01:47.77,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, {\alpha&HFF&}then try the Playground yourself.
+Dialogue: 0,0:01:47.77,0:01:47.79,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, t{\alpha&HFF&}hen try the Playground yourself.
+Dialogue: 0,0:01:47.79,0:01:47.81,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, th{\alpha&HFF&}en try the Playground yourself.
+Dialogue: 0,0:01:47.81,0:01:47.83,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, the{\alpha&HFF&}n try the Playground yourself.
+Dialogue: 0,0:01:47.83,0:01:47.85,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then{\alpha&HFF&} try the Playground yourself.
+Dialogue: 0,0:01:47.85,0:01:47.87,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then {\alpha&HFF&}try the Playground yourself.
+Dialogue: 0,0:01:47.87,0:01:47.89,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then t{\alpha&HFF&}ry the Playground yourself.
+Dialogue: 0,0:01:47.89,0:01:47.91,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then tr{\alpha&HFF&}y the Playground yourself.
+Dialogue: 0,0:01:47.91,0:01:47.93,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try{\alpha&HFF&} the Playground yourself.
+Dialogue: 0,0:01:47.93,0:01:47.95,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try {\alpha&HFF&}the Playground yourself.
+Dialogue: 0,0:01:47.95,0:01:47.98,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try t{\alpha&HFF&}he Playground yourself.
+Dialogue: 0,0:01:47.98,0:01:48.00,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try th{\alpha&HFF&}e Playground yourself.
+Dialogue: 0,0:01:48.00,0:01:48.02,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the{\alpha&HFF&} Playground yourself.
+Dialogue: 0,0:01:48.02,0:01:48.04,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the {\alpha&HFF&}Playground yourself.
+Dialogue: 0,0:01:48.04,0:01:48.06,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the P{\alpha&HFF&}layground yourself.
+Dialogue: 0,0:01:48.06,0:01:48.08,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Pl{\alpha&HFF&}ayground yourself.
+Dialogue: 0,0:01:48.08,0:01:48.10,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Pla{\alpha&HFF&}yground yourself.
+Dialogue: 0,0:01:48.10,0:01:48.12,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Play{\alpha&HFF&}ground yourself.
+Dialogue: 0,0:01:48.12,0:01:48.14,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playg{\alpha&HFF&}round yourself.
+Dialogue: 0,0:01:48.14,0:01:48.16,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playgr{\alpha&HFF&}ound yourself.
+Dialogue: 0,0:01:48.16,0:01:48.18,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playgro{\alpha&HFF&}und yourself.
+Dialogue: 0,0:01:48.18,0:01:48.20,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playgrou{\alpha&HFF&}nd yourself.
+Dialogue: 0,0:01:48.20,0:01:48.22,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playgroun{\alpha&HFF&}d yourself.
+Dialogue: 0,0:01:48.22,0:01:48.24,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground{\alpha&HFF&} yourself.
+Dialogue: 0,0:01:48.24,0:01:48.26,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground {\alpha&HFF&}yourself.
+Dialogue: 0,0:01:48.26,0:01:48.28,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground y{\alpha&HFF&}ourself.
+Dialogue: 0,0:01:48.28,0:01:48.30,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground yo{\alpha&HFF&}urself.
+Dialogue: 0,0:01:48.30,0:01:48.33,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground you{\alpha&HFF&}rself.
+Dialogue: 0,0:01:48.33,0:01:48.35,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground your{\alpha&HFF&}self.
+Dialogue: 0,0:01:48.35,0:01:48.37,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground yours{\alpha&HFF&}elf.
+Dialogue: 0,0:01:48.37,0:01:48.39,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground yourse{\alpha&HFF&}lf.
+Dialogue: 0,0:01:48.39,0:01:48.41,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground yoursel{\alpha&HFF&}f.
+Dialogue: 0,0:01:48.41,0:01:48.43,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground yourself{\alpha&HFF&}.
+Dialogue: 0,0:01:48.43,0:01:52.40,Caption,,0,0,0,,{\an5\pos(720,936)\alpha&H00&}Connect your models and documents, then try the Playground yourself.{\alpha&HFF&}

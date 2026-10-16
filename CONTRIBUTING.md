@@ -4,6 +4,16 @@ Use pull requests to keep the implementation, review findings, fixes, and checks
 with the change they explain. You can continue asking Codex to implement tasks;
 completed work now goes through a task branch and PR before reaching `main`.
 
+## Continuing from another machine
+
+Clone this repository and install the SDK pinned in `global.json`. The selected
+historical evaluation results, API diagnostics, and video production sources are
+kept in [archive/](archive/README.md), alongside the code, so they do not need a
+separate backup repository. Read that index for dependencies, integrity checks,
+and the limits of those historical results. New run output still belongs in the
+ignored `artifacts/` directory. Credentials and Key Vault access must be configured
+separately in the new environment; they are never part of the archive.
+
 ## From a task to a merge
 
 1. Read [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md). Inspect local changes
